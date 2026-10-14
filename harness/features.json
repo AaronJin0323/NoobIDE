@@ -2199,7 +2199,7 @@
         "S24.1"
       ],
       "status": "needs_manual_check",
-      "evidence": "unit: src/platform/menu-template.test.ts, src/main/app-menu.test.ts, src/main/window-lifecycle.test.ts, src/main/commands-ipc.test.ts; e2e tests/e2e/menus.spec.ts (mac menu bar/i18n/context/click + mac activate reopen pass on macOS arm64; Windows quit test skips on mac); decision docs/decisions/0012; real menu bar, dock click and Windows quit-on-last-close: harness/MANUAL-CHECKS.md#S24.2"
+      "evidence": "unit: src/platform/menu-template.test.ts, src/main/app-menu.test.ts, src/main/window-lifecycle.test.ts, src/main/commands-ipc.test.ts; e2e tests/e2e/menus.spec.ts on macOS arm64 (menu bar/i18n/context/click/About + activate reopens window); Windows quit-on-last-close e2e skips on mac; decision docs/decisions/0014; manual steps harness/MANUAL-CHECKS.md#S24.2"
     },
     {
       "id": "S24.3",
@@ -2212,8 +2212,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "e2e tests/e2e/a11y.spec.ts (5 tests, macOS arm64): axe-core 4.13.0 (pinned devDependency) finds no serious/critical issue on welcome, create wizard, project+problems, command menu, history dialog in light and dark (Monaco internals excluded); Tab order topbar→rail→files→editor; F6/Shift+F6 region navigation (new registry commands) incl. out of the editor; keyboard-only tabs/menu/theme/zoom/panels. Fixed tablist children (close × aria-hidden + aria-keyshortcuts=Delete) and welcome note contrast. Remaining moderate-only axe findings: page-has-heading-one, region (splitters). Full e2e 178 passed; only file-tree S07.3 watcher test fails, same on main"
     },
     {
       "id": "S24.4",
