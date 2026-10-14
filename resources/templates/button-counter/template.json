@@ -1,0 +1,13 @@
+{
+  "id": "button-counter",
+  "order": 3,
+  "default": false,
+  "name": { "zh-CN": "按钮计数器", "en": "Button counter" },
+  "description": {
+    "zh-CN": "一个会数数的小工具：点“加 1”“减 1”或“归零”，数字马上变化。",
+    "en": "A small counter: click “+1”, “−1” or “Reset” and the number changes right away."
+  },
+  "entry": "index.html",
+  "files": ["index.html", "style.css", "script.js", "images/star.svg"],
+  "thumbnail": "thumbnail.svg"
+}
