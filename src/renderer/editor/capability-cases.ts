@@ -78,12 +78,14 @@ export function parseCases(json: unknown): CapabilityCase[] {
   });
 }
 
-/** Case ids cited in docs/capabilities.md as `` `case-id` `` inside table rows. */
+/** Case ids cited in docs/capabilities.md: `` `case-id` `` in the last cell of a table row. */
 export function citedCaseIds(markdown: string): string[] {
   const ids: string[] = [];
   for (const line of markdown.split('\n')) {
     if (!line.trimStart().startsWith('|')) continue;
-    for (const m of line.matchAll(/`([a-z0-9]+(?:-[a-z0-9]+)+)`/g)) if (m[1]) ids.push(m[1]);
+    const cells = line.split('|').filter((cell) => cell.trim() !== '');
+    const last = cells[cells.length - 1] ?? '';
+    for (const m of last.matchAll(/`([a-z0-9]+(?:-[a-z0-9]+)+)`/g)) if (m[1]) ids.push(m[1]);
   }
   return ids;
 }

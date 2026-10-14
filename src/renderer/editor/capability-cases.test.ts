@@ -36,12 +36,28 @@ describe('capability case format (S18.1, S18.2)', () => {
   });
 });
 
+describe('docs/capabilities.md lists only validated capabilities (S18.2)', () => {
+  const doc = readFileSync(path.join(repoRoot, 'docs/capabilities.md'), 'utf8');
+  const cited = citedCaseIds(doc);
+  const ids = new Set(parseCases(suite).map((c) => c.id));
+
+  it('cites at least one case per row and only case ids the suite contains', () => {
+    expect(cited.length).toBeGreaterThanOrEqual(10);
+    expect(cited.filter((id) => !ids.has(id))).toEqual([]);
+  });
+
+  it('every capability row names its case', () => {
+    const rows = doc
+      .split('\n')
+      .filter((line) => line.startsWith('|') && !/^\|\s*-/.test(line) && !/^\|\s*Capability/.test(line));
+    for (const row of rows) expect(citedCaseIds(row).length, row).toBeGreaterThan(0);
+  });
+});
+
 describe('citedCaseIds', () => {
   it('reads case ids from table rows only', () => {
-    expect(citedCaseIds('`not-a-row`\n| a | `html-tag-completion` |\n| b | `css-x`, `js-y-z` |')).toEqual([
-      'html-tag-completion',
-      'css-x',
-      'js-y-z',
-    ]);
+    expect(citedCaseIds('`not-a-row`\n| a | `html-tag-completion` |\n| `not-last-cell` | `css-x`, `js-y-z` |')).toEqual(
+      ['html-tag-completion', 'css-x', 'js-y-z'],
+    );
   });
 });

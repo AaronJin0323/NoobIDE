@@ -6,70 +6,171 @@
       "language": "html",
       "kind": "completion",
       "text": "<!doctype html>\n<html>\n<body>\n  <butt|\n</body>\n</html>\n",
-      "expect": ["button"]
+      "expect": [
+        "button"
+      ]
     },
     {
       "id": "html-attribute-completion",
       "language": "html",
       "kind": "completion",
       "text": "<img sr| >\n",
-      "expect": ["src"]
+      "expect": [
+        "src"
+      ]
     },
     {
       "id": "html-tag-hover",
       "language": "html",
       "kind": "hover",
       "text": "<!doctype html>\n<html>\n<body>\n  <but|ton>OK</button>\n</body>\n</html>\n",
-      "expect": ["button"]
+      "expect": [
+        "button"
+      ]
     },
     {
       "id": "css-property-completion",
       "language": "css",
       "kind": "completion",
       "text": "h1 {\n  backg|\n}\n",
-      "expect": ["background-color"]
+      "expect": [
+        "background-color"
+      ]
     },
     {
       "id": "css-value-completion",
       "language": "css",
       "kind": "completion",
       "text": "p {\n  display: fl|\n}\n",
-      "expect": ["flex"]
+      "expect": [
+        "flex"
+      ]
     },
     {
       "id": "css-property-hover",
       "language": "css",
       "kind": "hover",
       "text": "p {\n  col|or: red;\n}\n",
-      "expect": ["color"]
+      "expect": [
+        "color"
+      ]
     },
     {
       "id": "js-dom-completion",
       "language": "javascript",
       "kind": "completion",
       "text": "const title = document.getElementBy|\n",
-      "expect": ["getElementById"]
+      "expect": [
+        "getElementById"
+      ]
     },
     {
       "id": "js-local-name-completion",
       "language": "javascript",
       "kind": "completion",
       "text": "const userName = 'Lin';\nfunction greet() {\n  return 'Hi ' + user|\n}\n",
-      "expect": ["userName"]
+      "expect": [
+        "userName"
+      ]
     },
     {
       "id": "js-dom-hover",
       "language": "javascript",
       "kind": "hover",
       "text": "const box = document.query|Selector('#box');\n",
-      "expect": ["querySelector"]
+      "expect": [
+        "querySelector"
+      ]
     },
     {
       "id": "js-local-hover",
       "language": "javascript",
       "kind": "hover",
       "text": "const userName = 'Lin';\nconsole.log(user|Name);\n",
-      "expect": ["userName"]
+      "expect": [
+        "userName"
+      ]
+    },
+    {
+      "id": "html-close-tag-completion",
+      "language": "html",
+      "kind": "completion",
+      "text": "<section>\n  <p>Hi</p>\n</|",
+      "expect": [
+        "/section"
+      ]
+    },
+    {
+      "id": "html-attribute-value-completion",
+      "language": "html",
+      "kind": "completion",
+      "text": "<input type=\"che|\">\n",
+      "expect": [
+        "checkbox"
+      ]
+    },
+    {
+      "id": "css-color-value-completion",
+      "language": "css",
+      "kind": "completion",
+      "text": "h1 {\n  color: re|\n}\n",
+      "expect": [
+        "red"
+      ]
+    },
+    {
+      "id": "css-selector-hover",
+      "language": "css",
+      "kind": "hover",
+      "text": ".ca|rd {\n  padding: 8px;\n}\n",
+      "expect": [
+        "card"
+      ]
+    },
+    {
+      "id": "js-string-method-completion",
+      "language": "javascript",
+      "kind": "completion",
+      "text": "const city = 'Lin';\ncity.toUpp|\n",
+      "expect": [
+        "toUpperCase"
+      ]
+    },
+    {
+      "id": "js-array-method-completion",
+      "language": "javascript",
+      "kind": "completion",
+      "text": "const list = [1, 2];\nlist.pu|\n",
+      "expect": [
+        "push"
+      ]
+    },
+    {
+      "id": "js-console-completion",
+      "language": "javascript",
+      "kind": "completion",
+      "text": "console.lo|\n",
+      "expect": [
+        "log"
+      ]
+    },
+    {
+      "id": "js-event-name-completion",
+      "language": "javascript",
+      "kind": "completion",
+      "text": "const button = document.querySelector('button');\nbutton.addEventListener('cli|', () => {});\n",
+      "expect": [
+        "click"
+      ]
+    },
+    {
+      "id": "js-function-hover",
+      "language": "javascript",
+      "kind": "hover",
+      "text": "function greet(name) {\n  return 'Hi ' + name;\n}\ngre|et('Lin');\n",
+      "expect": [
+        "greet(name"
+      ]
     }
   ]
 }

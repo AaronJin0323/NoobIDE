@@ -1839,8 +1839,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/editor/language-config.ts (HTML/CSS/JS services: checkJs JS, CSS lint) applied in monaco-setup.ts; tests/e2e/language.spec.ts spawns the PACKAGED binary (out/NoobIDE-win32-x64) with NOOBIDE_SELF_TEST_OFFLINE=1 (main: session.enableNetworkEmulation offline + network guard, 0 blocked requests): html/css/ts workers start and all 10 capability cases (completion + hover for HTML, CSS, JS; src/renderer/editor/capability-probe.ts drives the real suggest/hover commands) pass; unit tests language-config.test.ts, capability-cases.test.ts, self-test.test.ts; verify green, e2e 99/99 on Windows x64 @ e6064af"
     },
     {
       "id": "S18.2",
@@ -1855,7 +1855,7 @@
       "depends_on": [
         "S18.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

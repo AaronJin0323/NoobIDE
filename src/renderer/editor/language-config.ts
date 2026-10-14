@@ -46,7 +46,6 @@ export const JS_COMPILER_OPTIONS: JsCompilerOptions = {
 export const KEPT_TS_CODES: readonly number[] = [
   2304, // Cannot find name 'x'.
   2552, // Cannot find name 'x'. Did you mean 'y'?
-  2451, // Cannot redeclare block-scoped variable 'x'.
   2448, // Block-scoped variable 'x' used before its declaration.
 ];
 
@@ -55,6 +54,9 @@ export const KEPT_TS_CODES: readonly number[] = [
  * that runs fine: the DOM typings are stricter than the browser, and JS has no type annotations to satisfy.
  */
 export const NOISY_TS_CODES: readonly number[] = [
+  2451, // Cannot redeclare block-scoped variable: `const name = '…'` is fine in a browser, but the DOM typings declare
+  //       a global `name`, so TypeScript reports it (found by the capability suite). Real redeclarations still fail
+  //       in the preview as a SyntaxError, which the problems list reports.
   2307, // Cannot find module — files not loaded into the language service, query strings, absolute URLs
   2322, // Type 'x' is not assignable to type 'y' (el.style.width = 100)
   2339, // Property 'value' does not exist on type 'HTMLElement'
