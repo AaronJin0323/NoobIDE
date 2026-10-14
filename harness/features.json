@@ -1807,8 +1807,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/ConsoleView.tsx + preview-model.ts (ConsoleEntry.generation, nextGeneration on starting/refreshing, clearLog, visibleLog, olderCount; cap MAX_VISIBLE_LOG_ENTRIES=200 kept). preview-model.test.ts (4 new: attribution, level filter, clear, cap across loads). tests/e2e/problems.spec.ts: levels spelled out per line, filter errors/warnings, refresh labels earlier lines '刷新前' and 'hide older' shows only current load, Clear empties; preview-isolation flood test (cap) still passes. verify green; affected e2e specs green @ 8a99899 (full-suite run before this change: 112/112)"
     },
     {
       "id": "S17.4",
