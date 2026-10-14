@@ -59,6 +59,40 @@ export const zhCN = {
   'reveal.finder': '在访达中显示',
   'reveal.explorer': '在文件资源管理器中显示',
   'reveal.fileManager': '在文件管理器中显示',
+  // --- S12 crash recovery ---
+  'recovery.title': '找到了上次没保存的修改',
+  'recovery.intro':
+    'NoobIDE 上次没有正常关闭。下面这些修改还没保存到文件里，但已经安全地存放在应用数据中。你可以对比后恢复它们。',
+  'recovery.files': '{n} 个文件有未保存的修改',
+  'recovery.review': '打开项目并查看',
+  'recovery.later': '稍后处理',
+  'recovery.restore': '恢复到编辑器',
+  'recovery.discard': '丢弃这份副本',
+  'recovery.compareTitle': '和磁盘上的文件对比',
+  'recovery.legend': '+ 是恢复后会多出的行，− 是磁盘上会被替换的行。恢复后还需要保存。',
+  'recovery.added': '新增 {n} 行',
+  'recovery.removed': '删除 {n} 行',
+  'recovery.identical': '内容和磁盘上的文件一样。',
+  'recovery.tooLarge': '改动太多，无法逐行显示。',
+  'recovery.skipped': '… 省略 {n} 行相同内容 …',
+  'recovery.diskMissing':
+    '磁盘上的这个文件已经不存在或打不开，所以不能直接恢复到编辑器。下面是恢复副本的全部内容，你可以选中并复制它。',
+  'recovery.openFailed': '打不开这个项目文件夹，它可能已经被移动或删除。',
+  'recovery.readFailed': '这份恢复副本已经损坏，无法读取。',
+  'recovery.updatedAt': '最后修改',
+  'recovery.usage': '恢复数据占用 {used}（上限 {limit}）',
+  'recovery.clearAll': '清除全部恢复数据',
+  'recovery.clearConfirm': '确定清除？这些未保存的修改将无法找回',
+  'recovery.cancel': '取消',
+  'recovery.journalFailed': '无法写入崩溃恢复副本，请尽快保存文件。',
+  'recovery.lineAdded': '新增',
+  'recovery.lineRemoved': '删除',
+  'recovery.saveFirst':
+    '编辑器里还有没保存的修改（可能是刚恢复的文件）。请先按保存，再恢复下一个文件；也可以选择稍后处理。',
+  'recovery.restoreFailed': '无法恢复这个文件，恢复副本仍然保留着。',
+  'recovery.discardConfirm': '确定丢弃？这份修改将无法找回',
+  'recovery.recoveredText': '恢复副本的内容',
+  // --- end S12 ---
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

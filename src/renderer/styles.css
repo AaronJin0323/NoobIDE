@@ -480,3 +480,153 @@ button {
   border-color: var(--danger);
   color: var(--danger);
 }
+
+/* ── S12: crash-recovery prompt ───────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.recovery-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+.recovery-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(760px, 100%);
+  max-height: 100%;
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+}
+.recovery-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+}
+.recovery-title > svg {
+  color: var(--warn);
+}
+.recovery-intro {
+  margin: 0;
+  color: var(--muted);
+}
+.recovery-projects,
+.recovery-file-names {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.recovery-project {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+}
+.recovery-file-names {
+  margin-top: 6px;
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+.recovery-project .primary-button {
+  align-self: flex-start;
+}
+.recovery-file-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.recovery-file-tabs .file-row {
+  width: auto;
+}
+.recovery-file-tabs .file-row[aria-selected='true'] {
+  background: var(--raised);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.recovery-actions,
+.recovery-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.recovery-actions .primary-button {
+  margin-top: 0;
+}
+.recovery-actions .primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.recovery-footer {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.recovery-footer .alert-detail {
+  margin-right: auto;
+}
+.danger-button {
+  color: var(--danger);
+}
+.recovery-diff-summary {
+  margin: 4px 0;
+  font-weight: 600;
+}
+.diff-lines {
+  max-height: 280px;
+  margin: 0;
+  padding: 6px 0;
+  overflow: auto;
+  list-style: none;
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  font: 12px/1.6 var(--font-code);
+}
+.diff-line {
+  display: flex;
+  gap: 8px;
+  padding: 0 10px;
+  white-space: pre;
+}
+.diff-line code {
+  font: inherit;
+}
+.diff-sign {
+  flex: none;
+  width: 1ch;
+  font-weight: 700;
+}
+.diff-added {
+  background: var(--ok-soft);
+}
+.diff-removed {
+  background: var(--danger-soft);
+}
+.diff-skipped {
+  color: var(--faint);
+  font-style: italic;
+}
+.recovery-health {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  max-width: 420px;
+}
