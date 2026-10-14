@@ -54,6 +54,8 @@ interface Project {
 }
 
 export interface ProjectServiceOptions {
+  /** Directory scan seam for deterministic lifecycle race tests. */
+  readonly scanProject?: typeof listFiles;
   /** Injected file system and retry policy for saves (tests simulate ENOSPC, locks and read-only folders). */
   readonly atomic?: AtomicWriteOptions;
   /** S21.2: local-history snapshots around each confirmed save. */
@@ -71,6 +73,7 @@ export interface SavedProjectFile {
 }
 
 export class ProjectService {
+  private openGeneration = 0;
   private readonly projects = new Map<string, Project>();
   private readonly writeQueues = new Map<string, Promise<void>>();
   private readonly savedListeners = new Set<(file: SavedProjectFile) => void>();
@@ -85,11 +88,18 @@ export class ProjectService {
   }
 
   /** Registers a folder the user chose and lists its files. */
-  async open(chosenPath: string): Promise<Result<OpenedProject, 'list-failed'>> {
+  async open(
+    chosenPath: string,
+    options: { readonly restore?: boolean } = {},
+  ): Promise<Result<OpenedProject, 'list-failed'>> {
+    // A late startup restore must not revoke a project the user has already opened or closed.
+    if (options.restore && this.openGeneration !== 0) return err('list-failed', 'project open superseded');
+    const generation = ++this.openGeneration;
     try {
       const root = await realpath(chosenPath);
       if (!(await stat(root)).isDirectory()) return err('list-failed', 'not a directory');
-      const { files, truncated } = await listFiles(root);
+      const { files, truncated } = await (this.options.scanProject ?? listFiles)(root);
+      if (generation !== this.openGeneration) return err('list-failed', 'project open superseded');
       const projectId = randomUUID();
       // One open project in v1: opening another revokes access through every earlier projectId (security review).
       this.projects.clear();
@@ -102,7 +112,9 @@ export class ProjectService {
 
   /** S13.3: closes a project; its projectId no longer reaches any file. False when it was not open. */
   close(projectId: string): boolean {
-    return this.projects.delete(projectId);
+    const closed = this.projects.delete(projectId);
+    if (closed) this.openGeneration += 1;
+    return closed;
   }
 
   /** One folder of the lazy tree (S07.2). */

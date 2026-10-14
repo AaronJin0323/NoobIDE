@@ -3,6 +3,41 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 8 — 2026-10-15 — S13.4 session restore lifecycle
+
+**Agent:** Codex on the Windows x64 development machine.
+
+**Done**
+
+- S13.4: automatic startup restore is only permitted before any project-open activity. Each open records
+  a generation; a scan finishing after a newer open or valid close cannot register its project or revoke
+  the current project's access. Explicit opens still work normally after startup.
+- Session-restore IPC allows one startup attempt. Duplicate requests return no project rather than reopening
+  a closed project or handing back a stale project ID. Sender and payload validation still run first.
+- Added regressions for late restore after open/close, a delayed directory scan superseded by a user open,
+  delayed session metadata with the real project service, and concurrent/repeated restore IPC calls.
+
+**Evidence:** The old service failed the late-open and late-close regressions. Final `npm run verify` passes
+all gates (1124 passed, 5 skipped across 85 files). Windows
+`npm run test:e2e -- session.spec.ts recent-projects.spec.ts`: 5/5, proving tabs, active tab, layout sizes,
+visible project path, crash-recovery precedence, recent-project behavior and preview/watcher teardown.
+Windows x64 production packaging passed as part of the e2e command.
+
+**Decisions:** Startup restore has lower priority than explicit project activity. Guard registration in the
+main-side project service, where revocation happens, rather than relying on renderer response filtering.
+A failed newer open also cancels an older pending open; the existing project stays available.
+
+**Problems / risks:** macOS remains untested. The save/re-creation limitations in Sessions 5 and 7 remain.
+Paused worktrees and `.idea/` were untouched; no existing branch was merged.
+
+**Owner action needed:** None for this fix; platform/manual acceptance remains outstanding.
+
+**Next up**
+
+1. Review and integrate the paused W4 S13.5 cross-platform transfer work without restoring its old feature
+   statuses; then write the S13.7 Gate G2 review with honest Windows/macOS evidence.
+2. Continue W2 → W1 → CI integration from Session 4, including the unfinished preview security review.
+
 ## Session 7 — 2026-10-15 — S11.3 deleted-file re-save failures
 
 **Agent:** Codex on the Windows x64 development machine.

@@ -1446,8 +1446,8 @@
         "S13.1",
         "S13.3"
       ],
-      "status": "in_progress",
-      "evidence": "Reopened after review @ 7d5a0a5 (see PROGRESS Session 4): save can rename over a concurrent external write (Windows lock retry); conflict+deleted states break; session restore can revoke a project opened meanwhile. Fix in progress (W4)."
+      "status": "done",
+      "evidence": "Project-service integration regressions: late restore after open/close and delayed scan cannot revoke newer project; app-data IPC regressions: delayed metadata with real service and duplicate restore requests. Windows session.spec.ts + recent-projects.spec.ts 5/5: tabs/active/layout/path, recovery precedence, recent projects and close teardown. npm run verify green (1124 passed, 5 skipped)."
     },
     {
       "id": "S13.5",

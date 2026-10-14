@@ -1,10 +1,13 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import { tmpdir } from 'node:os';
+import { mkdtemp, rm } from 'node:fs/promises';
+import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_DATA_CHANNELS } from '../shared/ipc/app-data-contract';
 import { DEFAULT_SETTINGS } from '../shared/settings';
 import { registerAppDataIpcHandlers, type AppDataIpcDeps } from './app-data-ipc';
 import { ok } from '../shared/result';
+import { ProjectService } from '../workspace/project-service';
 
 /** S13 app-data channels: sender and payload are checked before any store runs (same rules as ipc.ts). */
 const ORIGIN = 'noobide://app';
@@ -198,13 +201,48 @@ describe('recent projects and closing a project (S13.3)', () => {
 });
 
 describe('session restore (S13.4)', () => {
+  it('a delayed session read cannot revoke a manually opened project or start its lifecycle hooks', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'noobide-restore-race-'));
+    const projects = new ProjectService();
+    let release!: (value: typeof LAYOUT) => void;
+    deps.session.layout.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    deps.session.lastProject.mockResolvedValue(root);
+    deps.projects.open.mockImplementation((chosen, options) => projects.open(chosen, options));
+    try {
+      const restoring = call(APP_DATA_CHANNELS.sessionRestore, workbench);
+      const chosen = await projects.open(root);
+      if (!chosen.ok) throw new Error(chosen.message);
+      release(LAYOUT);
+      expect(await restoring).toMatchObject({ ok: true, value: { project: null } });
+      expect(projects.rootOf(chosen.value.projectId)).toBe(chosen.value.rootPath);
+      expect(deps.projectOpened).not.toHaveBeenCalled();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('duplicate requests neither repeat startup side effects nor return an old project id', async () => {
+    const first = call(APP_DATA_CHANNELS.sessionRestore, workbench);
+    const repeated = await call(APP_DATA_CHANNELS.sessionRestore, workbench);
+    expect(repeated).toEqual({ ok: true, value: { project: null, layout: null, reason: 'none' } });
+    await first;
+    expect(deps.projects.open).toHaveBeenCalledTimes(1);
+    expect(deps.projectOpened).toHaveBeenCalledTimes(1);
+    expect(await call(APP_DATA_CHANNELS.sessionRestore, workbench)).toEqual(repeated);
+  });
+
   it('reopens the last project and returns the layout', async () => {
     const result = await call(APP_DATA_CHANNELS.sessionRestore, workbench);
     expect(result).toMatchObject({
       ok: true,
       value: { reason: 'restored', layout: LAYOUT, project: { projectId: ID } },
     });
-    expect(deps.projects.open).toHaveBeenCalledWith(tmpdir());
+    expect(deps.projects.open).toHaveBeenCalledWith(tmpdir(), { restore: true });
     expect(deps.projectOpened).toHaveBeenCalledTimes(1);
   });
 

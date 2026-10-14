@@ -34,6 +34,49 @@ afterEach(async () => {
 const request = (relPath: string) => ({ projectId, relPath });
 
 describe('opening a project (S03.3)', () => {
+  it('startup restore cannot revoke a project opened by the user', async () => {
+    const restored = await service.open(root, { restore: true });
+    expect(restored.ok).toBe(false);
+    expect((await service.read(request('index.html'))).ok).toBe(true);
+  });
+
+  it('startup restore cannot reopen a project after the user closed it', async () => {
+    expect(service.close(projectId)).toBe(true);
+    expect((await service.open(root, { restore: true })).ok).toBe(false);
+    expect(service.rootOf(projectId)).toBeUndefined();
+  });
+
+  it('a slow restore scan cannot revoke the project opened while it was scanning', async () => {
+    const other = path.join(tmp, '新 项目');
+    await mkdir(other);
+    await writeFile(path.join(other, 'index.html'), 'new project');
+    let release!: () => void;
+    let entered!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const scanning = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    service = new ProjectService({
+      scanProject: async (dir) => {
+        if (dir === root) {
+          entered();
+          await waiting;
+        }
+        return { files: [], truncated: false };
+      },
+    });
+    const restoring = service.open(root, { restore: true });
+    await scanning;
+    const chosen = await service.open(other);
+    release();
+    expect((await restoring).ok).toBe(false);
+    if (!chosen.ok) throw new Error(chosen.message);
+    const read = await service.read({ projectId: chosen.value.projectId, relPath: 'index.html' });
+    expect(read).toMatchObject({ ok: true, value: { text: 'new project' } });
+  });
+
   it('lists files with portable relative paths and stable file URIs', async () => {
     const opened = await service.open(root);
     expect(opened.ok).toBe(true);

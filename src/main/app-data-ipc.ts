@@ -100,7 +100,11 @@ export function registerAppDataIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: A
   });
 
   // ── S13.4 session restore ──
+  let restoreRequested = false;
   handle(APP_DATA_CHANNELS.sessionRestore, parseNoPayload, async (_payload, event) => {
+    // Never repeat startup side effects or return a capability from an earlier restore.
+    if (restoreRequested) return { ok: true, value: { project: null, layout: null, reason: 'none' } };
+    restoreRequested = true;
     const layout = await deps.session.layout();
     const decision = await decideRestore({
       enabled: await deps.restoreEnabled(),
@@ -113,7 +117,7 @@ export function registerAppDataIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: A
       reason: decision.kind === 'skip' ? decision.reason : 'restored',
     };
     if (decision.kind === 'open') {
-      const opened = await deps.projects.open(decision.rootPath);
+      const opened = await deps.projects.open(decision.rootPath, { restore: true });
       if (opened.ok) {
         deps.projectOpened(opened.value.projectId, opened.value.rootPath, event.sender);
         value = { project: opened.value, layout, reason: 'restored' };
