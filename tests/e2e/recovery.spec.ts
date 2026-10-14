@@ -106,7 +106,7 @@ async function openProjectAndFile(relPath: string) {
 }
 
 /** The visible editor tab (S09 tab bar), not the recovery dialog's own tabs. */
-const selectedTab = () => page.getByTestId('tab-bar').locator('[role="tab"][aria-selected="true"]');
+const selectedTab = () => page.getByTestId('tab-bar').locator('[role="tab"][aria-selected="true"] .tab-name');
 
 /**
  * Autosave (S10.2) writes edits after a one-second pause. To leave unsaved edits behind for a crash, the file is made

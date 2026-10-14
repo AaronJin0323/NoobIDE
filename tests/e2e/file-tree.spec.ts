@@ -107,7 +107,7 @@ test('keyboard only: Tab into the tree, arrows move and expand, Enter opens (S08
   await expect.poll(focusedPath).toBe('css/a.css');
   await expect(row('css/a.css')).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('Enter');
-  await expect(page.locator('[data-testid=\"tab\"].selected')).toHaveAttribute('data-path', 'css/a.css');
+  await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', 'css/a.css');
   await expect(row('css/a.css')).toHaveAttribute('aria-current', 'true');
   await page.keyboard.press('ArrowLeft'); // to the parent
   await expect.poll(focusedPath).toBe('css');
@@ -190,7 +190,7 @@ test('new file and folder are created where selected and the new file opens (S08
   await page.getByTestId('name-input').fill('关于 我.html');
   await page.getByTestId('name-input').press('Enter');
   await expect(row('子 文件夹/图片/关于 我.html')).toBeVisible();
-  await expect(page.locator('[data-testid=\"tab\"].selected')).toHaveAttribute(
+  await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute(
     'data-path',
     '子 文件夹/图片/关于 我.html',
   );
@@ -199,7 +199,7 @@ test('new file and folder are created where selected and the new file opens (S08
 
 test('renaming the open file saves its edits first and the editor follows (S08.3)', async () => {
   await row('Index.html').click();
-  await expect(page.locator('[data-testid=\"tab\"].selected')).toHaveAttribute('data-path', 'Index.html');
+  await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', 'Index.html');
   await page.locator('.monaco-editor .view-lines').click();
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.type('改名前的修改');
@@ -209,7 +209,7 @@ test('renaming the open file saves its edits first and the editor follows (S08.3
   await page.keyboard.press('F2');
   await page.getByTestId('name-input').fill('home.html');
   await page.getByTestId('name-input').press('Enter');
-  await expect(page.locator('[data-testid=\"tab\"].selected')).toHaveAttribute('data-path', 'home.html');
+  await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', 'home.html');
   await expect(page.locator('.view-lines')).toContainText('改名前的修改');
   // The tab was saved before the rename and reopened from disk at the new path: nothing unsaved.
   await expect(status()).toHaveText('无改动');
@@ -242,7 +242,7 @@ test('a failed move to the trash is explained and the file stays (S08.3)', async
   await expect(page.getByTestId('file-op-error')).toContainText('没能移到回收站');
   await expect(page.getByTestId('file-op-error')).toContainText('being used');
   expect(await readdir(root)).toContain('home.html');
-  await expect(page.locator('[data-testid=\"tab\"].selected')).toHaveAttribute('data-path', 'home.html');
+  await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', 'home.html');
   await recordShell('ok');
 });
 
@@ -292,8 +292,7 @@ test('changes made by other programs appear in the tree (S07.3)', async () => {
 });
 
 test('an open file is read-only while it is being moved to the trash: nothing typed meanwhile is lost (S08.3, S10)', async () => {
-  await writeFile(p('慢 删除.js'), 'let keep = 1;
-');
+  await writeFile(p('慢 删除.js'), 'let keep = 1;\n');
   await expect(row('慢 删除.js')).toBeVisible({ timeout: 5000 });
   await row('慢 删除.js').click();
   await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', '慢 删除.js');

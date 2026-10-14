@@ -72,5 +72,6 @@ test('an edited CRLF file keeps CRLF on every line after saving', async () => {
 test('a binary file is not opened in the editor', async () => {
   await openFile('photo.jpg');
   await expect(page.getByTestId('open-error')).toBeVisible();
-  await expect(page.getByTestId('save-status')).toHaveText('没有打开的文件');
+  // No tab is created for it; the tabs that were open stay as they are.
+  await expect(page.locator('[data-testid="tab"][data-path="photo.jpg"]')).toHaveCount(0);
 });
