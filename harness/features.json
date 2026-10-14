@@ -1446,8 +1446,8 @@
         "S13.1",
         "S13.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Reopen restores tabs, active tab, layout sizes: tests/e2e/session.spec.ts (3 tabs in order, active tab, files width and 60 percent editor split survive a normal quit and relaunch; restore notice shows the project path; project-path in the top bar); crash recovery precedence: after a forced kill with a journaled buffer the recovery dialog shows and the project is not reopened (e2e + src/main/app-data-ipc.test.ts + tests/integration/session-store.test.ts decideRestore); store in app data, relative tab paths, validated payloads; layout reducer clamps (layout.test.ts). verify green + e2e 128/128 Windows x64 @ f82fbca. Note: the crash-precedence e2e failed once in an earlier full run (recovery dialog not shown) and passed in 3 isolated reruns and the final full run - watch for flakiness."
     },
     {
       "id": "S13.5",
