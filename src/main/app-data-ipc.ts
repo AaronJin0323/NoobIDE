@@ -1,6 +1,14 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { parseNoPayload, parseProjectRequest, toIpcResult, type IpcResult } from '../shared/ipc/contract';
-import { APP_DATA_CHANNELS, parseRecentRequest, parseSetEntryRequest } from '../shared/ipc/app-data-contract';
+import {
+  APP_DATA_CHANNELS,
+  parseRecentRequest,
+  parseSaveTabsRequest,
+  parseSessionLayout,
+  parseSetEntryRequest,
+  type SessionRestore,
+} from '../shared/ipc/app-data-contract';
+import { decideRestore, type SessionStore } from './session-store';
 import type { RecentProjects } from './recent-projects';
 import type { ProjectService } from '../workspace/project-service';
 import {
@@ -30,7 +38,12 @@ export interface AppDataIpcDeps {
   /** S13.3: a project was opened (watch it, remember it, stop another project's preview). */
   projectOpened(projectId: string, root: string, sender: IpcMainInvokeEvent['sender']): void;
   /** S13.3: a project was closed (stop its watcher, preview and server). */
-  projectClosed(projectId: string): void;
+  projectClosed(projectId: string, rootPath: string): Promise<void> | void;
+  /** S13.4: session state in app data, and what decides whether the last project is reopened. */
+  readonly session: Pick<SessionStore, 'lastProject' | 'layout' | 'tabsOf' | 'saveTabs' | 'saveLayout'>;
+  /** Number of crash-recovery records waiting (crash recovery takes precedence over session restore). */
+  pendingRecovery(): Promise<number>;
+  restoreEnabled(): Promise<boolean>;
 }
 
 type Run<P> = (payload: P, event: IpcMainInvokeEvent) => Promise<IpcResult<unknown, string>>;
@@ -80,8 +93,47 @@ export function registerAppDataIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: A
     return { ok: true, value: null };
   });
   handle(APP_DATA_CHANNELS.closeProject, parseProjectRequest, async ({ projectId }) => {
-    if (!deps.projects.close(projectId)) return UNKNOWN_PROJECT;
-    deps.projectClosed(projectId);
+    const root = deps.projects.rootOf(projectId);
+    if (root === undefined || !deps.projects.close(projectId)) return UNKNOWN_PROJECT;
+    await deps.projectClosed(projectId, root);
+    return { ok: true, value: null };
+  });
+
+  // ── S13.4 session restore ──
+  handle(APP_DATA_CHANNELS.sessionRestore, parseNoPayload, async (_payload, event) => {
+    const layout = await deps.session.layout();
+    const decision = await decideRestore({
+      enabled: await deps.restoreEnabled(),
+      pendingRecovery: await deps.pendingRecovery(),
+      lastProject: await deps.session.lastProject(),
+    });
+    let value: SessionRestore = {
+      project: null,
+      layout,
+      reason: decision.kind === 'skip' ? decision.reason : 'restored',
+    };
+    if (decision.kind === 'open') {
+      const opened = await deps.projects.open(decision.rootPath);
+      if (opened.ok) {
+        deps.projectOpened(opened.value.projectId, opened.value.rootPath, event.sender);
+        value = { project: opened.value, layout, reason: 'restored' };
+      } else value = { project: null, layout, reason: 'open-failed' };
+    }
+    return { ok: true, value };
+  });
+  handle(APP_DATA_CHANNELS.sessionTabs, parseProjectRequest, async ({ projectId }) => {
+    const root = deps.projects.rootOf(projectId);
+    if (root === undefined) return UNKNOWN_PROJECT;
+    return { ok: true, value: await deps.session.tabsOf(root) };
+  });
+  handle(APP_DATA_CHANNELS.sessionSaveTabs, parseSaveTabsRequest, async ({ projectId, tabs, active }) => {
+    const root = deps.projects.rootOf(projectId);
+    if (root === undefined) return UNKNOWN_PROJECT;
+    await deps.session.saveTabs(root, { tabs, active });
+    return { ok: true, value: null };
+  });
+  handle(APP_DATA_CHANNELS.sessionSaveLayout, parseSessionLayout, async (layout) => {
+    await deps.session.saveLayout(layout);
     return { ok: true, value: null };
   });
 

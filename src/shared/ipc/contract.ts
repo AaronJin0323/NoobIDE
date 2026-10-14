@@ -19,6 +19,7 @@ import type {
   ProjectConfigApi,
   ProjectLifecycleApi,
   RecentProjectsApi,
+  SessionApi,
   SettingsApi,
 } from './app-data-contract';
 import type { CreateProjectApi } from './create-contract'; // S20.2
@@ -378,6 +379,8 @@ export interface NoobideApi {
   readonly recentProjects?: RecentProjectsApi;
   /** S13.3: closing the open project. */
   readonly lifecycle?: ProjectLifecycleApi;
+  /** S13.4: session restore (last project, its tabs, layout sizes). */
+  readonly session?: SessionApi;
   // --- end S13 ---
   /** S20.2: create-project wizard (create-contract.ts). */
   readonly createProject: CreateProjectApi;

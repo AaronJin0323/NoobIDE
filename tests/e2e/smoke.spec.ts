@@ -99,6 +99,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
         ((w.noobide as { recentProjects?: object } | undefined)?.recentProjects ?? {}) as object,
       ),
       lifecycle: Object.keys(((w.noobide as { lifecycle?: object } | undefined)?.lifecycle ?? {}) as object),
+      session: Object.keys(((w.noobide as { session?: object } | undefined)?.session ?? {}) as object),
       createProject: Object.keys(
         ((w.noobide as { createProject?: object } | undefined)?.createProject ?? {}) as object,
       ),
@@ -123,6 +124,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'projectConfig',
       'recentProjects',
       'lifecycle',
+      'session',
       'createProject',
       'history',
     ],
@@ -155,6 +157,8 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     // S13.3: recent projects by opaque id (the welcome screen's shape) and closing a project.
     recentProjects: ['list', 'open', 'remove'],
     lifecycle: ['closeProject'],
+    // S13.4: session restore (tabs by relative path, layout sizes).
+    session: ['restore', 'tabs', 'saveTabs', 'saveLayout'],
     // S20.2: create-project wizard (locations are opaque ids chosen in main).
     createProject: ['options', 'chooseLocation', 'check', 'create'],
     // S21.3/S21.4: local history (files by project id + relative path, other histories by opaque key).

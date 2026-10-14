@@ -254,6 +254,9 @@ export const en: Record<MessageKey, string> = {
   'appMenu.label': 'More actions',
   'appMenu.openLogs': 'Open logs folder',
   'appMenu.closeProject': 'Close project',
+  'layout.resizeFiles': 'Resize the files panel',
+  'layout.resizeEditor': 'Resize code and preview',
+  'session.restored': 'Reopened your last project. Location:',
   'files.setEntry': 'Set as entry page',
   'entry.set': 'Entry page set:',
   'entry.setDetail':

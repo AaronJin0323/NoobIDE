@@ -94,6 +94,12 @@ const api: NoobideApi = {
   lifecycle: {
     closeProject: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.closeProject, request),
   },
+  session: {
+    restore: () => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionRestore),
+    tabs: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionTabs, request),
+    saveTabs: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionSaveTabs, request),
+    saveLayout: (layout) => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionSaveLayout, layout),
+  },
   // --- end S13 ---
   // --- S20.2 create-project wizard ---
   createProject: {
@@ -131,6 +137,7 @@ contextBridge.exposeInMainWorld(
     projectConfig: Object.freeze(api.projectConfig),
     recentProjects: Object.freeze(api.recentProjects),
     lifecycle: Object.freeze(api.lifecycle),
+    session: Object.freeze(api.session),
     createProject: Object.freeze(api.createProject), // S20.2
     history: Object.freeze(api.history), // S21.3/S21.4
   }),

@@ -424,6 +424,39 @@ button {
   flex: 1;
   min-height: 0;
 }
+/* S13.4: resizable layout. Splitters sit centred in the panel gap, so the spacing between panels is unchanged. */
+.files {
+  width: var(--files-width, 220px);
+}
+.editor {
+  flex-grow: var(--editor-grow, 1);
+}
+.preview {
+  flex-grow: var(--preview-grow, 1);
+}
+/* Narrow window: one view at a time takes the whole column (the split applies to wide windows only). */
+.workbench.narrow .editor,
+.workbench.narrow .preview {
+  flex-grow: 1;
+}
+.splitter {
+  position: relative;
+  z-index: 5;
+  flex: none;
+  width: 6px;
+  margin: 0 calc(var(--gap) / -2 - 3px);
+  border-radius: 3px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.splitter:hover,
+.splitter:focus-visible {
+  background: var(--accent-soft);
+  outline: none;
+}
+.splitter:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-text);
+}
 /* S13: app-level notices sit bottom-left, over the files panel (the native preview view would cover the right) */
 .app-notice {
   position: fixed;

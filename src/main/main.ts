@@ -33,6 +33,7 @@ import { osInfo } from '../platform/os-info';
 import type { RecoveryLogger } from '../recovery/atomic-file';
 import { effectiveProjectConfig, previewEntryPath } from '../workspace/project-config';
 import { RecentProjects } from './recent-projects';
+import { SessionStore } from './session-store';
 import type { WebContents } from 'electron';
 import { resolveTemplatesDir } from '../workspace/templates'; // S20.2
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
@@ -163,16 +164,20 @@ function start(): void {
     // session restore) is watched and remembered; a preview of another project stops with its server. Closing a
     // project stops its watcher, preview and server. ---
     const recent = new RecentProjects({ file: path.join(appData, 'recent-projects.json'), log: logger });
+    const sessionStore = new SessionStore({ file: path.join(appData, 'session.json'), log: logger }); // S13.4
     const projectOpened = (projectId: string, root: string, sender: WebContents) => {
       watchHub.watch(projectId, root, sender);
       void recent.touch(root);
+      void sessionStore.projectOpened(root); // S13.4: reopened on the next normal start
       const previewed = preview.getStatus().projectId;
       if (previewed !== null && previewed !== projectId) void preview.stop();
     };
-    const projectClosed = (projectId: string) => {
+    const projectClosed = async (projectId: string, root: string) => {
       watchHub.stop();
       const previewed = preview.getStatus().projectId;
       if (previewed === null || previewed === projectId) void preview.stop();
+      // S13.4: the next start shows the welcome screen. Awaited, so a quit right after closing cannot lose it.
+      await sessionStore.projectClosed(root);
     };
     Object.assign((globalThis as { __noobideTestHooks?: object }).__noobideTestHooks ?? {}, {
       watching: () => watchHub.active,
@@ -254,6 +259,9 @@ function start(): void {
       recent,
       projectOpened,
       projectClosed,
+      session: sessionStore,
+      pendingRecovery: async () => (await journal.listPending()).length,
+      restoreEnabled: async () => (await settings.snapshot()).settings.restoreSession,
     });
     // --- end S13 ---
     createWorkbenchWindow();

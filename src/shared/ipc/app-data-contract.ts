@@ -6,6 +6,7 @@
  */
 import type { AppSettings, SettingsNotice, SettingsPatch } from '../settings';
 import { isEntryPath, type ProjectConfig } from '../project-config';
+import { parseProjectTabs, parseSessionLayout, type ProjectTabs, type SessionLayout } from '../session';
 import { isPortableRelPath, isProjectId, type IpcResult, type OpenedProject } from './contract';
 
 export const APP_DATA_CHANNELS = {
@@ -22,6 +23,11 @@ export const APP_DATA_CHANNELS = {
   recentOpen: 'projects:open-recent',
   recentRemove: 'projects:remove-recent',
   closeProject: 'workspace:close-project',
+  // S13.4
+  sessionRestore: 'session:restore',
+  sessionTabs: 'session:tabs',
+  sessionSaveTabs: 'session:save-tabs',
+  sessionSaveLayout: 'session:save-layout',
 } as const;
 
 // ── S13.1 settings ──
@@ -106,6 +112,42 @@ export function parseRecentRequest(payload: unknown): { id: string } | null {
   if (!isRecord(payload) || !hasOnlyKeys(payload, ['id'])) return null;
   return typeof payload.id === 'string' && RECENT_ID.test(payload.id) ? { id: payload.id } : null;
 }
+
+// ── S13.4 session restore ──
+export interface SessionRestore {
+  /** The project reopened on this start, or null. */
+  readonly project: OpenedProject | null;
+  readonly layout: SessionLayout | null;
+  /**
+   * `restored`; or why nothing was reopened: the user turned it off, crash recovery has unsaved buffers to offer
+   * first (`recovery-pending`), no project was open, its folder is gone, or it could not be opened.
+   */
+  readonly reason: 'restored' | 'disabled' | 'recovery-pending' | 'none' | 'missing' | 'open-failed';
+}
+
+export interface SaveTabsRequest extends ProjectTabs {
+  readonly projectId: string;
+}
+
+export interface SessionApi {
+  /** Once per start: reopens the last project (unless crash recovery has something to offer) and the layout. */
+  restore(): Promise<IpcResult<SessionRestore, never>>;
+  /** The tabs that were open in this project last time. */
+  tabs(request: { readonly projectId: string }): Promise<IpcResult<ProjectTabs | null, 'unknown-project'>>;
+  saveTabs(request: SaveTabsRequest): Promise<IpcResult<null, 'unknown-project'>>;
+  saveLayout(layout: SessionLayout): Promise<IpcResult<null, never>>;
+}
+
+export function parseSaveTabsRequest(payload: unknown): SaveTabsRequest | null {
+  if (!isRecord(payload) || !hasOnlyKeys(payload, ['projectId', 'tabs', 'active'])) return null;
+  const { projectId, tabs, active } = payload;
+  if (!isProjectId(projectId)) return null;
+  const parsed = parseProjectTabs({ tabs, active });
+  return parsed ? { projectId, ...parsed } : null;
+}
+
+export { parseSessionLayout };
+export type { ProjectTabs, SessionLayout };
 
 // Re-exported for the renderer and main.
 export type { AppSettings, SettingsPatch, OpenedProject, ProjectConfig };

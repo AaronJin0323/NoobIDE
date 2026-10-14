@@ -1,4 +1,5 @@
 import type { IpcMainInvokeEvent } from 'electron';
+import { tmpdir } from 'node:os';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_DATA_CHANNELS } from '../shared/ipc/app-data-contract';
 import { DEFAULT_SETTINGS } from '../shared/settings';
@@ -22,7 +23,11 @@ let deps: AppDataIpcDeps & {
   recent: { list: ReturnType<typeof vi.fn>; rootOf: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> };
   projectOpened: ReturnType<typeof vi.fn>;
   projectClosed: ReturnType<typeof vi.fn>;
+  session: Record<'lastProject' | 'layout' | 'tabsOf' | 'saveTabs' | 'saveLayout', ReturnType<typeof vi.fn>>;
+  pendingRecovery: ReturnType<typeof vi.fn>;
+  restoreEnabled: ReturnType<typeof vi.fn>;
 };
+const LAYOUT = { filesOpen: true, problemsOpen: false, filesWidth: 300, editorShare: 0.6 };
 const RECENT = '9b2f6c1e-4d3a-4b8c-8e7f-0a1b2c3d4e5f';
 const ID = '3f1c2a9e-8b7d-4c6e-9f00-1a2b3c4d5e6f';
 
@@ -48,7 +53,16 @@ beforeEach(() => {
       remove: vi.fn(async () => true),
     },
     projectOpened: vi.fn((_id: string, _root: string, _sender: unknown) => undefined),
-    projectClosed: vi.fn((_id: string) => undefined),
+    projectClosed: vi.fn((_id: string, _root: string) => undefined),
+    session: {
+      lastProject: vi.fn(async () => tmpdir()), // an existing folder
+      layout: vi.fn(async () => LAYOUT),
+      tabsOf: vi.fn(async () => ({ tabs: ['index.html'], active: 'index.html' })),
+      saveTabs: vi.fn(async () => undefined),
+      saveLayout: vi.fn(async () => undefined),
+    },
+    pendingRecovery: vi.fn(async () => 0),
+    restoreEnabled: vi.fn(async () => true),
   };
   registerAppDataIpcHandlers({ handle: (channel: string, h: Handler) => void handlers.set(channel, h) } as never, deps);
 });
@@ -173,11 +187,66 @@ describe('recent projects and closing a project (S13.3)', () => {
   });
 
   it('closing tears the project down; an unknown project is refused', async () => {
+    deps.projects.rootOf.mockImplementation((id: string) => (id === ID ? '/p' : undefined));
     expect(await call(APP_DATA_CHANNELS.closeProject, workbench, { projectId: ID })).toEqual({ ok: true, value: null });
-    expect(deps.projectClosed).toHaveBeenCalledWith(ID);
+    expect(deps.projectClosed).toHaveBeenCalledWith(ID, '/p');
     expect(
       await call(APP_DATA_CHANNELS.closeProject, workbench, { projectId: '0f1c2a9e-8b7d-4c6e-9f00-1a2b3c4d5e6f' }),
     ).toMatchObject({ code: 'unknown-project' });
     expect(deps.projectClosed).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('session restore (S13.4)', () => {
+  it('reopens the last project and returns the layout', async () => {
+    const result = await call(APP_DATA_CHANNELS.sessionRestore, workbench);
+    expect(result).toMatchObject({
+      ok: true,
+      value: { reason: 'restored', layout: LAYOUT, project: { projectId: ID } },
+    });
+    expect(deps.projects.open).toHaveBeenCalledWith(tmpdir());
+    expect(deps.projectOpened).toHaveBeenCalledTimes(1);
+  });
+
+  it('crash recovery takes precedence: nothing is reopened while recovery records wait', async () => {
+    deps.pendingRecovery.mockResolvedValue(2);
+    expect(await call(APP_DATA_CHANNELS.sessionRestore, workbench)).toEqual({
+      ok: true,
+      value: { project: null, layout: LAYOUT, reason: 'recovery-pending' },
+    });
+    expect(deps.projects.open).not.toHaveBeenCalled();
+  });
+
+  it('honours the restoreSession setting', async () => {
+    deps.restoreEnabled.mockResolvedValue(false);
+    expect(await call(APP_DATA_CHANNELS.sessionRestore, workbench)).toMatchObject({ value: { reason: 'disabled' } });
+    expect(deps.projects.open).not.toHaveBeenCalled();
+  });
+
+  it('saves tabs only as relative paths of an open project, and validated layouts', async () => {
+    deps.projects.rootOf.mockImplementation((id: string) => (id === ID ? '/p' : undefined));
+    const good = { projectId: ID, tabs: ['index.html', '子 文件夹/页面 二.html'], active: 'index.html' };
+    expect(await call(APP_DATA_CHANNELS.sessionSaveTabs, workbench, good)).toEqual({ ok: true, value: null });
+    expect(deps.session.saveTabs).toHaveBeenCalledWith('/p', { tabs: good.tabs, active: 'index.html' });
+    for (const bad of [
+      { ...good, tabs: ['C:/x/index.html'] },
+      { ...good, tabs: ['../x.html'] },
+      { ...good, active: 'other.html' },
+      { ...good, tabs: ['a.html', 'a.html'], active: null },
+      { ...good, extra: 1 },
+    ]) {
+      expect(await call(APP_DATA_CHANNELS.sessionSaveTabs, workbench, bad)).toMatchObject({ code: 'invalid-request' });
+    }
+    expect(await call(APP_DATA_CHANNELS.sessionSaveLayout, workbench, LAYOUT)).toEqual({ ok: true, value: null });
+    for (const bad of [
+      { ...LAYOUT, filesWidth: 5000 },
+      { ...LAYOUT, editorShare: 1 },
+      { ...LAYOUT, x: 1 },
+    ]) {
+      expect(await call(APP_DATA_CHANNELS.sessionSaveLayout, workbench, bad)).toMatchObject({
+        code: 'invalid-request',
+      });
+    }
+    expect(deps.session.saveLayout).toHaveBeenCalledTimes(1);
   });
 });

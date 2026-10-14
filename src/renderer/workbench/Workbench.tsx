@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react';
 import { isMac } from '../../platform/labels';
 import type { FileContent, FileVersion, OpenedProject } from '../../shared/ipc/contract';
 import { useMediaQuery } from '../theme/useMediaQuery';
@@ -52,6 +52,11 @@ import type { AppMenuItem } from './AppMenu';
 import { isEntryPath } from '../../shared/project-config';
 import type { TreeEntry } from '../../shared/ipc/contract';
 import { EntryNotice, type EntryNoticeState } from './EntryNotice';
+import { SessionNotice } from './SessionNotice';
+import { useI18n } from '../i18n/I18nProvider';
+import { Splitter } from './Splitter';
+import { persistedLayout } from './layout';
+import { EDITOR_SHARE, FILES_WIDTH, MAX_SESSION_TABS } from '../../shared/session';
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -63,6 +68,7 @@ export function Workbench() {
   const bridge = window.noobide;
   const platform = bridge?.platform ?? 'other';
   const [layout, dispatchLayout] = useReducer(layoutReducer, INITIAL_LAYOUT);
+  const { t } = useI18n(); // S13.4: splitter labels
   const [doc, dispatch] = useReducer(documentReducer, INITIAL_DOCUMENT_STATE);
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [copyNotice, setCopyNotice] = useState<SaveCopyNotice | null>(null);
@@ -260,7 +266,7 @@ export function Workbench() {
   }, [bridge, saveAll]);
 
   const openFile = useCallback(
-    async (relPath: string) => {
+    async (relPath: string, options: { readonly quiet?: boolean } = {}) => {
       const project = docRef.current.project;
       if (!bridge || !project) return;
       if (savers.current.has(relPath)) {
@@ -278,7 +284,8 @@ export function Workbench() {
       if (result.ok) {
         savers.current.set(relPath, createSaver(project, relPath, result.value));
         dispatch({ type: 'docLoaded', relPath, content: result.value });
-      } else {
+      } else if (!options.quiet) {
+        // S13.4: a file from the last session that is gone now is simply not reopened (quiet).
         dispatch({ type: 'docFailed', relPath, code: result.code });
       }
     },
@@ -663,6 +670,78 @@ export function Workbench() {
     };
   }, [platform, saveActive]);
 
+  // --- S13.4: session restore. On a normal start main reopens the last project (crash recovery takes precedence: it
+  // reports recovery-pending and the recovery dialog offers the unsaved buffers instead); its tabs, the visible tab
+  // and the layout sizes come back. Tabs and layout are saved shortly after every change. ---
+  const [restoredFrom, setRestoredFrom] = useState<string | null>(null);
+  const layoutReady = useRef(false);
+  const restoreRequested = useRef(false);
+  useEffect(() => {
+    const api = bridge?.session;
+    if (!api || restoreRequested.current) {
+      layoutReady.current = true;
+      return;
+    }
+    restoreRequested.current = true;
+    void api.restore().then(async (result) => {
+      layoutReady.current = true;
+      if (!result.ok) return;
+      if (result.value.layout) dispatchLayout({ type: 'restoreLayout', layout: result.value.layout });
+      const restored = result.value.project;
+      if (restored && !docRef.current.project && (await adoptProject(restored))) setRestoredFrom(restored.rootPath);
+    });
+  }, [bridge, adoptProject]);
+
+  const restoringTabs = useRef(false);
+  const projectIdForTabs = doc.project?.projectId;
+  useEffect(() => {
+    const api = bridge?.session;
+    if (!api || !projectIdForTabs) return undefined;
+    let cancelled = false;
+    restoringTabs.current = true;
+    void api
+      .tabs({ projectId: projectIdForTabs })
+      .then(async (result) => {
+        if (cancelled || !result.ok || !result.value) return;
+        for (const relPath of result.value.tabs) {
+          if (cancelled) return;
+          await openFile(relPath, { quiet: true });
+        }
+        const active = result.value.active;
+        if (!cancelled && active && savers.current.has(active)) dispatch({ type: 'activate', relPath: active });
+      })
+      .finally(() => {
+        if (!cancelled) restoringTabs.current = false;
+      });
+    return () => {
+      cancelled = true;
+      restoringTabs.current = false;
+    };
+  }, [bridge, projectIdForTabs, openFile]);
+
+  const tabPaths = doc.tabs.map((tab) => tab.relPath).slice(0, MAX_SESSION_TABS);
+  const tabsKey = tabPaths.join('\n');
+  const activeTabPath = doc.active !== null && tabPaths.includes(doc.active) ? doc.active : null;
+  useEffect(() => {
+    const api = bridge?.session;
+    if (!api || !projectIdForTabs || restoringTabs.current) return undefined;
+    const tabs = tabsKey === '' ? [] : tabsKey.split('\n');
+    const timer = setTimeout(
+      () => void api.saveTabs({ projectId: projectIdForTabs, tabs, active: activeTabPath }),
+      300,
+    );
+    return () => clearTimeout(timer);
+  }, [bridge, projectIdForTabs, tabsKey, activeTabPath]);
+
+  const layoutKey = JSON.stringify(persistedLayout(layout));
+  useEffect(() => {
+    const api = bridge?.session;
+    if (!api || !layoutReady.current) return undefined;
+    const timer = setTimeout(() => void api.saveLayout(JSON.parse(layoutKey)), 300);
+    return () => clearTimeout(timer);
+  }, [bridge, layoutKey]);
+  // --- end S13.4 ---
+
   const project = doc.project;
   return (
     <div className={narrow ? 'workbench narrow' : 'workbench'}>
@@ -680,7 +759,16 @@ export function Workbench() {
         }
         menuItems={menuItems}
       />
-      <div className="workbench-middle">
+      <div
+        className="workbench-middle"
+        style={
+          {
+            '--files-width': `${layout.filesWidth}px`,
+            '--editor-grow': layout.editorShare,
+            '--preview-grow': 1 - layout.editorShare,
+          } as CSSProperties
+        }
+      >
         <Rail
           onShowHistory={project && bridge?.history ? () => setHistoryFor({ relPath: doc.active }) : undefined}
           filesVisible={visible.files}
@@ -700,6 +788,22 @@ export function Workbench() {
           fileOps={fileOps}
           extraMenuItems={extraMenuItems}
         />
+        {!narrow && visible.files && (
+          <Splitter
+            label={t('layout.resizeFiles')}
+            testId="splitter-files"
+            value={layout.filesWidth}
+            aria={{
+              now: layout.filesWidth,
+              min: FILES_WIDTH.min,
+              max: FILES_WIDTH.max,
+              text: `${layout.filesWidth}px`,
+            }}
+            step={16}
+            dragValue={(start, dx) => start + dx}
+            onChange={(width) => dispatchLayout({ type: 'resizeFiles', width })}
+          />
+        )}
         <EditorPane
           hidden={!visible.editor}
           state={doc}
@@ -728,6 +832,27 @@ export function Workbench() {
             />
           }
         />
+        {!narrow && (
+          <Splitter
+            label={t('layout.resizeEditor')}
+            testId="splitter-editor"
+            value={layout.editorShare}
+            aria={{
+              now: Math.round(layout.editorShare * 100),
+              min: EDITOR_SHARE.min * 100,
+              max: EDITOR_SHARE.max * 100,
+              text: `${Math.round(layout.editorShare * 100)}%`,
+            }}
+            step={0.05}
+            dragValue={(start, dx) => {
+              const editor = document.querySelector('[data-testid="region-editor"]')?.getBoundingClientRect();
+              const preview = document.querySelector('[data-testid="region-preview"]')?.getBoundingClientRect();
+              const total = (editor?.width ?? 0) + (preview?.width ?? 0);
+              return total > 0 ? start + dx / total : start;
+            }}
+            onChange={(share) => dispatchLayout({ type: 'resizeEditor', share })}
+          />
+        )}
         {/* S04.3 isolated preview (hidden under the narrow-layout files overlay so the native view cannot cover it);
             S10.5: a failed save shows "preview not updated" — refreshes come only from confirmed writes in main. */}
         <PreviewPane
@@ -742,6 +867,9 @@ export function Workbench() {
       {/* S13.1: the settings file was unusable and was backed up */}
       {settingsNotice && <SettingsNotice snapshot={settingsNotice} onDismiss={() => setSettingsNotice(null)} />}
       {entryNotice && <EntryNotice state={entryNotice} onDismiss={() => setEntryNotice(null)} />}
+      {restoredFrom && project?.rootPath === restoredFrom && (
+        <SessionNotice rootPath={restoredFrom} onDismiss={() => setRestoredFrom(null)} />
+      )}
       {/* S12: crash-recovery prompt and journal health */}
       <RecoveryDialog
         bridge={bridge}

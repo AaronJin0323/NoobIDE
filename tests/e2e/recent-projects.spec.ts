@@ -54,6 +54,10 @@ test.afterAll(async () => {
 test('a project opened once is on the welcome screen after reopening the app, and opens from there (S13.3)', async () => {
   await start();
   await openProject(app as ElectronApplication, page, a.root);
+  // Closed before quitting, so the next start shows the welcome screen (an open project would be restored, S13.4).
+  await page.getByTestId('app-menu').click();
+  await page.getByTestId('menu-close-project').click();
+  await expect(page.getByTestId('welcome')).toBeVisible();
   await stop();
 
   await start();
