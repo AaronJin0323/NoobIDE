@@ -18,6 +18,8 @@ import { registerIpcHandlers } from './ipc';
 import { ProjectService } from '../workspace/project-service';
 import { consoleLogger } from '../recovery/atomic-file';
 import { RecoveryJournal } from '../recovery/journal';
+import { SnapshotStore } from '../recovery/history';
+import { HistoryTriggers } from '../recovery/history-triggers';
 import { selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test';
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
@@ -86,9 +88,13 @@ function start(): void {
     const appData = app.getPath('userData');
     const journal = new RecoveryJournal({ dir: path.join(appData, 'recovery'), log: consoleLogger });
     // --- end S12 ---
+    // --- S21: local history (snapshots around saves) in app data ---
+    const history = new SnapshotStore({ dir: path.join(appData, 'history'), log: consoleLogger });
+    const historyTriggers = new HistoryTriggers(history, consoleLogger);
+    // --- end S21 ---
     registerIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
-      projects: new ProjectService(),
+      projects: new ProjectService({ history: historyTriggers }),
       journal,
       async chooseFolder(event) {
         const owner = BrowserWindow.fromWebContents(event.sender);
