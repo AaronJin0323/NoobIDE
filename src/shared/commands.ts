@@ -40,6 +40,8 @@ export const COMMAND_IDS = [
   // S24.3
   'focus-next-region',
   'focus-previous-region',
+  // S28.1 About dialog
+  'about',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -122,6 +124,8 @@ export const COMMANDS: readonly CommandDefinition[] = [
     keys: { all: { key: 'F6', shift: true } },
     when: noModal,
   },
+  // S28.1: the About dialog (macOS application menu, Windows Help menu).
+  { id: 'about', label: 'menu.about', when: noModal },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));

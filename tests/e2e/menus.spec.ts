@@ -57,7 +57,15 @@ test('the menu bar follows the platform, the interface language and the command 
   const menus = await readMenu(app);
   if (mac) {
     expect(menus.map((m) => m.label)).toEqual(['NoobIDE', '文件', '编辑', '视图', '窗口', '帮助']);
-    expect(menus[0]?.items.map((i) => i.role)).toEqual(['about', 'services', 'hide', 'hideothers', 'unhide', 'quit']);
+    expect(menus[0]?.items.map((i) => i.role ?? i.id)).toEqual([
+      'about',
+      'services',
+      'hide',
+      'hideothers',
+      'unhide',
+      'quit',
+    ]);
+    expect(menus[0]?.items[0]).toMatchObject({ id: 'about', label: '关于 NoobIDE', enabled: true });
   } else {
     expect(menus.map((m) => m.label)).toEqual(['文件', '编辑', '视图', '帮助']);
     expect(menus[0]?.items.at(-1)).toMatchObject({ role: 'quit', label: '退出' });
@@ -74,6 +82,12 @@ test('the menu bar follows the platform, the interface language and the command 
   await expect(page.getByTestId('region-files')).toBeHidden();
   await clickMenuItem(app, 'toggle-files');
   await expect(page.getByTestId('region-files')).toBeVisible();
+
+  // S28.1: "About NoobIDE" opens NoobIDE's About dialog.
+  await clickMenuItem(app, 'about');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   // Switching the interface language re-translates the native menus.
   await page.getByTestId('switch-language').click();

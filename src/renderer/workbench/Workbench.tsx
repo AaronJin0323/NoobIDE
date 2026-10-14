@@ -62,6 +62,7 @@ import { SettingsNotice } from './SettingsNotice';
 import type { CommandContext } from '../../shared/commands'; // S24.1
 import { useThemeChoice } from '../theme/ThemeProvider'; // S24.4
 import { focusRegion } from '../commands/focus-regions'; // S24.3
+import { openAbout } from './about'; // S28.1
 import { isEntryPath } from '../../shared/project-config';
 import type { TreeEntry } from '../../shared/ipc/contract';
 import { EntryNotice, type EntryNoticeState } from './EntryNotice';
@@ -682,7 +683,7 @@ export function Workbench() {
   const commandContext: CommandContext = {
     hasProject: doc.project !== null,
     hasActiveTab: doc.active !== null,
-    modalOpen: wizardOpen || historyFor !== null,
+    modalOpen: wizardOpen || historyFor !== null || aboutOpen.open,
     theme: theme.choice, // S24.4
   };
   const commandHandlers: CommandHandlers = {
@@ -710,6 +711,7 @@ export function Workbench() {
     // S24.3: keyboard route between the regions (Tab indents inside the code editor).
     'focus-next-region': () => void focusRegion(1),
     'focus-previous-region': () => void focusRegion(-1),
+    about: () => openAbout(), // S28.1
   };
   const commands = useCommands(platform, commandContext, commandHandlers);
   const menuItems = useAppMenuItems(platform, commandContext, commandHandlers, commands.run);

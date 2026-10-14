@@ -99,7 +99,7 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
     label: t('app.name'),
     role: 'appMenu',
     items: [
-      role('about', 'menu.about'),
+      command('about'), // S28.1: NoobIDE's own About dialog, not the OS panel
       SEPARATOR,
       { kind: 'submenu', label: t('menu.services'), role: 'services', items: [] },
       SEPARATOR,
@@ -172,7 +172,12 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
     items: [role('minimize', 'menu.minimize'), role('zoom', 'menu.windowZoom'), SEPARATOR, role('front', 'menu.front')],
   };
 
-  const help: MenuEntry = { kind: 'submenu', label: t('menu.help'), role: 'help', items: [command('open-logs')] };
+  const help: MenuEntry = {
+    kind: 'submenu',
+    label: t('menu.help'),
+    role: 'help',
+    items: [command('open-logs'), ...(mac ? [] : [SEPARATOR, command('about')])],
+  };
 
   return mac ? [appMenu, file, edit, view, windowMenu, help] : [file, edit, view, help];
 }

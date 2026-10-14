@@ -36,7 +36,9 @@ describe('native menus (S24.2)', () => {
     ]);
     const appMenu = submenu(menus, 'NoobIDE');
     expect(appMenu.role).toBe('appMenu');
-    expect(roles(appMenu)).toEqual(['about', 'hide', 'hideOthers', 'unhide', 'quit']);
+    expect(roles(appMenu)).toEqual(['hide', 'hideOthers', 'unhide', 'quit']);
+    expect(appMenu.items[0]).toMatchObject({ kind: 'command', id: 'about', label: 'About NoobIDE' });
+    expect(submenu(menus, 'Help').items.some((e) => e.kind === 'command' && e.id === 'about')).toBe(false);
     expect(roles(submenu(menus, 'File'))).toEqual(['close']); // Close Window ⇧⌘W; ⌘W closes the tab
     expect(roles(submenu(menus, 'Window'))).toEqual(['minimize', 'zoom', 'front']);
   });
@@ -46,6 +48,8 @@ describe('native menus (S24.2)', () => {
     expect(menus.map((m) => (m.kind === 'submenu' ? m.label : m.kind))).toEqual(['File', 'Edit', 'View', 'Help']);
     const file = submenu(menus, 'File');
     expect(file.items.at(-1)).toEqual({ kind: 'role', role: 'quit', label: 'Exit' });
+    // S28.1: About sits at the end of the Help menu on Windows.
+    expect(submenu(menus, 'Help').items.at(-1)).toMatchObject({ kind: 'command', id: 'about', enabled: true });
   });
 
   it('shows each platform’s accelerators for the same command', () => {
@@ -87,7 +91,7 @@ describe('native menus (S24.2)', () => {
       if (entry.kind === 'separator') continue;
       expect(entry.label).not.toBe('');
     }
-    expect(submenu(zh, 'NoobIDE').items[0]).toMatchObject({ role: 'about', label: '关于 NoobIDE' });
+    expect(submenu(zh, 'NoobIDE').items[0]).toMatchObject({ id: 'about', label: '关于 NoobIDE' });
   });
 
   it('adds the developer tools only on request', () => {
