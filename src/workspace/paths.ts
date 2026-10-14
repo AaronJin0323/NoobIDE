@@ -2,6 +2,7 @@ import { lstat, realpath } from 'node:fs/promises';
 import nodePath from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { defaultCaseSensitive } from '../platform/index';
+import { isUnsafePathSegment } from '../shared/file-names';
 
 /**
  * Path utilities for project files (S07.1, PLAN §7). Main process only.
@@ -49,6 +50,8 @@ export function absoluteFromRel(root: string, relPath: string, api: PathApi = no
   if (relPath === '') return root;
   const normal = normalizeRelPath(relPath, api);
   if (normal === null || normal !== relPath) return null;
+  // Same segment rules as the IPC contract (NTFS streams, trailing dots/spaces, device names), defence in depth.
+  if (relPath.split(SEP).some(isUnsafePathSegment)) return null;
   const candidate = api.resolve(root, ...relPath.split(SEP));
   return isInside(root, candidate, api) ? candidate : null;
 }

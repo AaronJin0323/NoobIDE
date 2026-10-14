@@ -9,6 +9,7 @@
  */
 import type { PlatformId } from '../../platform/labels';
 import type { Result } from '../result';
+import { isUnsafePathSegment } from '../file-names';
 
 export const IPC_API_VERSION = 1;
 
@@ -17,6 +18,8 @@ export const CHANNELS = {
   readFile: 'workspace:read-file',
   writeFile: 'workspace:write-file',
   revealProject: 'workspace:reveal-project',
+  // ── S07/S08: file tree, watcher and file operations ──
+  listDir: 'workspace:list-dir',
 } as const;
 
 export type Channel = (typeof CHANNELS)[keyof typeof CHANNELS];
@@ -102,6 +105,45 @@ export interface SavedFile {
 
 export type RevealError = 'unknown-project';
 
+// ── S07/S08: file tree, watcher and file operations ─────────────────────────────────────────────────────────────
+
+/** One child in the lazy file tree (S07.2). */
+export interface TreeEntry {
+  /** The name exactly as the file system reports it (case and Unicode normalisation untouched). */
+  readonly name: string;
+  readonly relPath: string;
+  /**
+   * `directory` / `file`, also for a link whose real target is inside the project. A link that leads outside the
+   * project or nowhere is listed but never followed (cannot be expanded or opened).
+   */
+  readonly kind: 'file' | 'directory' | 'link-outside' | 'link-broken';
+  readonly isLink: boolean;
+}
+
+export interface DirRequest {
+  readonly projectId: string;
+  /** `''` for the project root. */
+  readonly relPath: string;
+}
+
+export interface DirListing {
+  readonly relPath: string;
+  readonly entries: readonly TreeEntry[];
+  /** More entries than the tree shows in one folder. */
+  readonly truncated: boolean;
+}
+
+export type ListDirError =
+  'unknown-project' | 'outside-project' | 'not-found' | 'not-a-directory' | 'permission-denied' | 'list-failed';
+
+export function parseDirRequest(payload: unknown): DirRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath'])) return null;
+  const { projectId, relPath } = payload;
+  return isProjectId(projectId) && (relPath === '' || isPortableRelPath(relPath)) ? { projectId, relPath } : null;
+}
+
+// ── end S07/S08 ──────────────────────────────────────────────────────────────────────────────────────────────────
+
 /** What preload exposes as `window.noobide`. */
 export interface NoobideApi {
   readonly apiVersion: typeof IPC_API_VERSION;
@@ -113,6 +155,9 @@ export interface NoobideApi {
     writeFile(request: WriteFileRequest): Promise<IpcResult<SavedFile, WriteFileError>>;
     /** Shows the project folder in Explorer / Finder. */
     revealProject(request: { readonly projectId: string }): Promise<IpcResult<null, RevealError>>;
+    // ── S07/S08: file tree, watcher and file operations ──
+    /** One folder of the lazy file tree (S07.2). */
+    listDir(request: DirRequest): Promise<IpcResult<DirListing, ListDirError>>;
   };
 }
 
@@ -123,14 +168,16 @@ const PROJECT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 /**
  * A relative path the renderer may send: `/`-separated, no empty, `.` or `..` segments, no backslashes, no NUL,
- * not absolute and no drive or URL prefix. Main still realpath-checks the result inside the project root.
+ * not absolute, no `:` in any segment (drive or URL prefix, NTFS stream), no trailing dot or space and no Windows
+ * device name (src/shared/file-names). Main still realpath-checks the result inside the project root.
  */
 export function isPortableRelPath(value: unknown): value is string {
   if (typeof value !== 'string' || value.length === 0 || value.length > MAX_REL_PATH_LENGTH) return false;
   if (value.includes('\\') || value.includes('\0') || value.startsWith('/')) return false;
   const segments = value.split('/');
   if (segments.some((s) => s === '' || s === '.' || s === '..')) return false;
-  return !segments[0]?.includes(':');
+  // `:` in any segment (NTFS alternate data streams, drive prefixes), trailing dots/spaces and Windows device names.
+  return !segments.some(isUnsafePathSegment);
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

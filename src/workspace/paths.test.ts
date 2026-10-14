@@ -81,6 +81,10 @@ describe('relative to root and inside root (S07.1)', () => {
     expect(absoluteFromRel('/p/proj', '../x', posix)).toBeNull();
     expect(absoluteFromRel('C:\\proj', 'a\\..\\..\\x', win32)).toBeNull();
     expect(absoluteFromRel('C:\\proj', 'a//b', win32)).toBeNull();
+    // Security review of S03: NTFS alternate data streams, names Windows rewrites, device names.
+    expect(absoluteFromRel('C:\\proj', 'css/style.css:hid', win32)).toBeNull();
+    expect(absoluteFromRel('C:\\proj', 'style.css.', win32)).toBeNull();
+    expect(absoluteFromRel('C:\\proj', 'js/NUL.js', win32)).toBeNull();
   });
 
   it('keeps case and trailing characters exactly (never lowercased)', () => {

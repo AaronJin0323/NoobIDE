@@ -1,6 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import {
   CHANNELS,
+  parseDirRequest,
   parseFileRequest,
   parseNoPayload,
   parseProjectRequest,
@@ -37,7 +38,7 @@ export function isTrustedSender(info: SenderInfo | null, allowedOrigin: string):
 export interface IpcDeps {
   /** `noobide://app` in production, the Vite dev server origin in development. */
   readonly allowedOrigin: string;
-  readonly projects: Pick<ProjectService, 'open' | 'read' | 'write' | 'rootOf'>;
+  readonly projects: Pick<ProjectService, 'open' | 'read' | 'write' | 'rootOf' | 'listDir'>;
   /** Shows the native folder picker; `null` when cancelled. */
   chooseFolder(event: IpcMainInvokeEvent): Promise<string | null>;
   revealFolder(folder: string): void;
@@ -77,4 +78,7 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
     deps.revealFolder(root);
     return { ok: true, value: null };
   });
+
+  // ── S07/S08: file tree, watcher and file operations ──
+  handle(CHANNELS.listDir, parseDirRequest, async (request) => toIpcResult(await deps.projects.listDir(request)));
 }

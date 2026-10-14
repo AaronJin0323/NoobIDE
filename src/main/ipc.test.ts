@@ -19,7 +19,12 @@ const workbench = eventFrom(frame(`${ORIGIN}/index.html`));
 
 let handlers: Map<string, Handler>;
 let deps: IpcDeps & {
-  projects: { open: ReturnType<typeof vi.fn>; read: ReturnType<typeof vi.fn>; write: ReturnType<typeof vi.fn> };
+  projects: {
+    open: ReturnType<typeof vi.fn>;
+    read: ReturnType<typeof vi.fn>;
+    write: ReturnType<typeof vi.fn>;
+    listDir: ReturnType<typeof vi.fn>;
+  };
 };
 
 beforeEach(() => {
@@ -31,6 +36,7 @@ beforeEach(() => {
       read: vi.fn(async () => ok({ text: 'x', eol: '\n' as const, bom: false, uri: 'file:///p/x' })),
       write: vi.fn(async () => ok({ savedAt: 1 })),
       rootOf: vi.fn((id: string) => (id === ID ? '/p' : undefined)),
+      listDir: vi.fn(async () => ok({ relPath: '', entries: [], truncated: false })),
     },
     chooseFolder: vi.fn(async () => '/p'),
     revealFolder: vi.fn(),
@@ -127,5 +133,26 @@ describe('valid calls reach the services', () => {
       code: 'unknown-project',
     });
     expect(deps.revealFolder).not.toHaveBeenCalled();
+  });
+});
+
+// ── S07/S08: file tree, watcher and file operations ──
+describe('file tree channel (S07.2)', () => {
+  it('passes the root ("") and nested folders through', async () => {
+    expect(await call(CHANNELS.listDir, workbench, { projectId: ID, relPath: '' })).toMatchObject({ ok: true });
+    expect(await call(CHANNELS.listDir, workbench, { projectId: ID, relPath: '子 文件夹' })).toMatchObject({
+      ok: true,
+    });
+    expect(deps.projects.listDir).toHaveBeenCalledWith({ projectId: ID, relPath: '子 文件夹' });
+  });
+
+  it.each([
+    ['a parent segment', { projectId: ID, relPath: '..' }],
+    ['an absolute path', { projectId: ID, relPath: '/etc' }],
+    ['an NTFS stream', { projectId: ID, relPath: 'css:x' }],
+    ['a missing relPath', { projectId: ID }],
+  ])('rejects %s', async (_name, payload) => {
+    expect(await call(CHANNELS.listDir, workbench, payload)).toMatchObject({ ok: false, code: 'invalid-request' });
+    expect(deps.projects.listDir).not.toHaveBeenCalled();
   });
 });

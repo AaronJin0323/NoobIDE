@@ -957,8 +957,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/workspace/paths.ts + src/shared/file-names.ts; unit tests src/workspace/paths.test.ts (drive letters, UNC, file URI round trip incl. NFD/Chinese/#/%, per-volume case probe incl. real temp volume, realpath resolve) + src/shared/file-names.test.ts (Windows reserved names, trailing dots/spaces, invalid chars, NFC/NFD + case comparison); verify + e2e green @ 6d1e559"
     },
     {
       "id": "S07.2",
@@ -973,7 +973,7 @@
       "depends_on": [
         "S07.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

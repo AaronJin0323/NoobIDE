@@ -56,6 +56,17 @@ export function checkFileName(name: string): FileNameCheck {
 }
 
 /**
+ * Segment rules for every relative path that crosses IPC (security review of S03): a `:` anywhere (on Windows,
+ * `name:stream` addresses an NTFS alternate data stream of `name`), a trailing dot or space (Windows strips them,
+ * so `a.html.` reaches `a.html`) and Windows device names. Stricter rules for NEW names are in {@link checkFileName};
+ * these are the ones an existing file's path must also pass, applied on every platform.
+ */
+export function isUnsafePathSegment(segment: string): boolean {
+  if (segment.includes(':') || /[. ]$/.test(segment)) return true;
+  return RESERVED.test(segment.split('.')[0]?.trimEnd() ?? '');
+}
+
+/**
  * Compares two names the way a file system would. Unicode normalisation is ignored (macOS may hand back NFD names
  * for what the user typed as NFC); case is ignored only for case-insensitive volumes. Only for comparison — paths
  * and names themselves are never lowercased or re-normalised.

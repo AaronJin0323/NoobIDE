@@ -199,6 +199,39 @@ describe('project containment', () => {
     expect(await service.read(request('jump/a.txt'))).toMatchObject({ ok: false, code: 'outside-project' });
   });
 
+  it('refuses to write through a junction that leads outside, leaving the outside file unchanged', async () => {
+    const outsideDir = path.join(tmp, 'outside-w');
+    await mkdir(outsideDir);
+    await writeFile(path.join(outsideDir, 'a.txt'), 'outside');
+    await symlink(outsideDir, path.join(root, 'jump-w'), 'junction'); // no admin rights needed on Windows
+    expect(await service.write({ ...request('jump-w/a.txt'), text: 'overwritten', bom: false })).toMatchObject({
+      ok: false,
+      code: 'outside-project',
+    });
+    expect(await readFile(path.join(outsideDir, 'a.txt'), 'utf8')).toBe('outside');
+    expect(await readdir(outsideDir)).toEqual(['a.txt']);
+  });
+
+  it('refuses NTFS alternate data streams and names Windows rewrites, even past the IPC parser', async () => {
+    for (const relPath of ['style.css:hid', 'style.css::$DATA', 'style.css.', 'style.css ', 'NUL']) {
+      expect(await service.read(request(relPath))).toMatchObject({ ok: false, code: 'outside-project' });
+      expect(await service.write({ ...request(relPath), text: 'x', bom: false })).toMatchObject({
+        ok: false,
+        code: 'outside-project',
+      });
+    }
+    expect((await readdir(root)).filter((n) => n.startsWith('.'))).toEqual([]);
+  });
+
+  it('opening another project revokes the previous projectId (one open project in v1)', async () => {
+    const otherRoot = path.join(tmp, '另一个 项目');
+    await mkdir(otherRoot);
+    const reopened = await service.open(otherRoot);
+    expect(reopened.ok).toBe(true);
+    expect(await service.read(request('index.html'))).toMatchObject({ ok: false, code: 'unknown-project' });
+    expect(service.rootOf(projectId)).toBeUndefined();
+  });
+
   it('isInside uses path semantics, not string prefixes', () => {
     const base = path.join(tmp, 'proj');
     expect(isInside(base, path.join(base, 'a.html'))).toBe(true);

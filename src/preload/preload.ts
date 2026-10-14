@@ -15,6 +15,8 @@ const api: NoobideApi = {
     readFile: (request) => ipcRenderer.invoke(CHANNELS.readFile, request),
     writeFile: (request) => ipcRenderer.invoke(CHANNELS.writeFile, request),
     revealProject: (request) => ipcRenderer.invoke(CHANNELS.revealProject, request),
+    // ── S07/S08: file tree, watcher and file operations ──
+    listDir: (request) => ipcRenderer.invoke(CHANNELS.listDir, request),
   },
 };
 

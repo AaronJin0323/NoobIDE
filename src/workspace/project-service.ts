@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { constants } from 'node:fs';
+import { constants, type Dirent } from 'node:fs';
 import { access, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import {
   MAX_TEXT_FILE_BYTES,
   type FileContent,
+  type DirListing,
+  type DirRequest,
   type FileEntry,
+  type ListDirError,
   type FileRequest,
   type OpenedProject,
   type ReadFileError,
@@ -16,6 +19,7 @@ import {
 import { err, ok, type Result } from '../shared/result';
 import { replaceFileAtomic } from './atomic-write';
 import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
+import { listDirectory } from './tree';
 import { decodeText, encodeText } from './text-codec';
 
 /**
@@ -46,11 +50,20 @@ export class ProjectService {
       if (!(await stat(root)).isDirectory()) return err('list-failed', 'not a directory');
       const { files, truncated } = await listFiles(root);
       const projectId = randomUUID();
+      // One open project in v1: opening another revokes access through every earlier projectId (security review).
+      this.projects.clear();
       this.projects.set(projectId, { root });
       return ok({ projectId, name: path.basename(root), rootPath: root, files, truncated });
     } catch (e) {
       return err('list-failed', errorCode(e), e);
     }
+  }
+
+  /** One folder of the lazy tree (S07.2). */
+  async listDir(request: DirRequest): Promise<Result<DirListing, ListDirError>> {
+    const project = this.projects.get(request.projectId);
+    if (!project) return err('unknown-project', 'project is not open');
+    return listDirectory(project.root, request.relPath);
   }
 
   rootOf(projectId: string): string | undefined {
@@ -110,7 +123,15 @@ async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated:
   const files: FileEntry[] = [];
   let truncated = false;
   const walk = async (dir: string, relSegments: string[]): Promise<void> => {
-    const entries = await readdir(dir, { withFileTypes: true });
+    let entries: Dirent[];
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch (e) {
+      // An unreadable subfolder must not make the whole project unopenable (security review); the root still must be.
+      if (relSegments.length === 0) throw e;
+      truncated = true;
+      return;
+    }
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     for (const entry of entries) {
       if (files.length >= LIST_LIMITS.maxFiles) {
