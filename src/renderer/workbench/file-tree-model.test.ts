@@ -3,6 +3,7 @@ import type { TreeEntry } from '../../shared/ipc/contract';
 import {
   INITIAL_TREE,
   foldersToLoad,
+  isListing,
   keyAction,
   treeReducer,
   visibleRows,
@@ -92,7 +93,29 @@ describe('lazy tree model (S07.2)', () => {
     expect(state.expanded).toEqual(['styles']);
     expect(state.selected).toBe('styles/a.css');
     expect(state.folders.css).toBeUndefined();
-    expect(state.folders['']).toBeUndefined(); // the parent is listed again
+    expect(state.folders['']).toMatchObject({ status: 'loaded', stale: true }); // the parent is listed again
+    expect(foldersToLoad(state)).toContain('');
+  });
+});
+
+describe('reloading keeps rows on screen (focus survives changes on disk)', () => {
+  it('an invalidated folder keeps its rows until the new listing arrives', () => {
+    let state = treeReducer(loadedRoot, { type: 'invalidate', relPath: '' });
+    expect(names(state)).toEqual(['css', '子 文件夹', 'index.html']);
+    expect(foldersToLoad(state)).toEqual(['']);
+    expect(isListing(state)).toBe(false);
+    state = treeReducer(state, { type: 'loading', relPath: '' });
+    expect(names(state)).toEqual(['css', '子 文件夹', 'index.html']);
+    expect(foldersToLoad(state)).toEqual([]);
+    expect(isListing(state)).toBe(true);
+    state = treeReducer(state, { type: 'loaded', relPath: '', entries: [file('index.html')], truncated: false });
+    expect(names(state)).toEqual(['index.html']);
+    expect(isListing(state)).toBe(false);
+  });
+
+  it('a change during a refresh asks for another listing', () => {
+    const state = apply(loadedRoot, { type: 'loading', relPath: '' }, { type: 'invalidate', relPath: '' });
+    expect(foldersToLoad(state)).toEqual(['']);
   });
 });
 

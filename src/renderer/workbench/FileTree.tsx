@@ -5,6 +5,7 @@ import {
   INITIAL_TREE,
   findEntry,
   foldersToLoad,
+  isListing,
   keyAction,
   parentOf,
   treeReducer,
@@ -127,7 +128,7 @@ export function FileTree(props: FileTreeProps) {
     const rowsNow = visibleRows(state);
     const found = rowsNow.some((r) => r.entry.relPath === state.selected);
     // A just-created or renamed row appears once its folder is listed again; wait for that before falling back.
-    const loading = foldersToLoad(state).length > 0 || Object.values(state.folders).some((f) => f.status === 'loading');
+    const loading = foldersToLoad(state).length > 0 || isListing(state);
     if (!found && loading) return;
     const target = found ? state.selected : rowsNow[0]?.entry.relPath;
     const row = target === undefined || target === null ? undefined : rowRefs.current.get(target);

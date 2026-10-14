@@ -6,7 +6,18 @@ import type { ListDirError, RequestError, TreeEntry } from '../../shared/ipc/con
  */
 export type FolderState =
   | { readonly status: 'loading' }
-  | { readonly status: 'loaded'; readonly entries: readonly TreeEntry[]; readonly truncated: boolean }
+  | {
+      readonly status: 'loaded';
+      readonly entries: readonly TreeEntry[];
+      readonly truncated: boolean;
+      /**
+       * Known to be out of date (a change on disk or a file operation); listed again while the old rows stay on
+       * screen, so the focused row and the scroll position survive a reload.
+       */
+      readonly stale?: boolean;
+      /** A new listing of a stale folder is on its way. */
+      readonly refreshing?: boolean;
+    }
   | { readonly status: 'error'; readonly code: ListDirError | RequestError };
 
 export interface TreeState {
@@ -50,8 +61,12 @@ export function treeReducer(state: TreeState, action: TreeAction): TreeState {
   switch (action.type) {
     case 'reset':
       return INITIAL_TREE;
-    case 'loading':
-      return { ...state, folders: { ...state.folders, [action.relPath]: { status: 'loading' } } };
+    case 'loading': {
+      const current = state.folders[action.relPath];
+      const folder: FolderState =
+        current?.status === 'loaded' ? { ...current, stale: false, refreshing: true } : { status: 'loading' };
+      return { ...state, folders: { ...state.folders, [action.relPath]: folder } };
+    }
     case 'loaded': {
       const folder: FolderState = { status: 'loaded', entries: action.entries, truncated: action.truncated };
       return { ...state, folders: { ...state.folders, [action.relPath]: folder } };
@@ -66,18 +81,14 @@ export function treeReducer(state: TreeState, action: TreeAction): TreeState {
       return { ...state, expanded: state.expanded.filter((p) => p !== action.relPath) };
     case 'select':
       return { ...state, selected: action.relPath };
-    case 'invalidate': {
-      const folders = { ...state.folders };
-      delete folders[action.relPath];
-      return { ...state, folders };
-    }
+    case 'invalidate':
+      return { ...state, folders: markStale(state.folders, action.relPath) };
     case 'renamed': {
       const { from, to } = action;
-      const folders: Record<string, FolderState> = {};
+      let folders: Record<string, FolderState> = {};
       // Cached children under the old path carry old relPaths; drop them so they are listed again.
       for (const [key, value] of Object.entries(state.folders)) if (!isSameOrBelow(key, from)) folders[key] = value;
-      delete folders[parentOf(from)];
-      delete folders[parentOf(to)];
+      folders = markStale(markStale(folders, parentOf(from)), parentOf(to));
       return {
         folders,
         expanded: state.expanded.map((p) => rebase(p, from, to)),
@@ -87,10 +98,29 @@ export function treeReducer(state: TreeState, action: TreeAction): TreeState {
   }
 }
 
-/** Folders that are expanded (or the root) but whose children were never requested. */
+/** A loaded folder keeps its rows but is listed again; anything else is forgotten and requested afresh. */
+function markStale(folders: Readonly<Record<string, FolderState>>, relPath: string): Record<string, FolderState> {
+  const next = { ...folders };
+  const current = next[relPath];
+  if (current?.status === 'loaded') next[relPath] = { ...current, stale: true, refreshing: false };
+  else delete next[relPath];
+  return next;
+}
+
+/** Folders that are expanded (or the root) whose children were never requested or are out of date. */
 export function foldersToLoad(state: TreeState): string[] {
   const wanted = ['', ...visibleRows(state).flatMap((r) => (r.expanded ? [r.entry.relPath] : []))];
-  return wanted.filter((p) => state.folders[p] === undefined);
+  return wanted.filter((p) => {
+    const folder = state.folders[p];
+    return folder === undefined || (folder.status === 'loaded' && folder.stale === true);
+  });
+}
+
+/** True while any listing is on its way (new or refreshed). */
+export function isListing(state: TreeState): boolean {
+  return Object.values(state.folders).some(
+    (f) => f.status === 'loading' || (f.status === 'loaded' && f.refreshing === true),
+  );
 }
 
 export interface TreeRow {
