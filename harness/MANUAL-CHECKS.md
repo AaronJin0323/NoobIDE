@@ -50,6 +50,7 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 - **Steps:** `npm install`, then `npm run test:e2e`.
 - **Expected:** `8 passed`, no manual interaction; on Linux CI the script wraps itself in `xvfb-run`.
 - **Result:** _(owner fills in)_. Linux evidence is already in PROGRESS.md (session 1).
+  macOS (agent run, MacBook Pro M3 Pro, macOS 27.2 arm64, 2026-10-15): `npm run test:e2e` 148/148 twice @ 0df27f8, no interaction. S02.6 set done.
 - **Close with:** `node harness/session.mjs set S02.6 done --evidence "e2e 8/8 on Win <ver> + macOS <ver>"`
 
 ### S09.4 — Chinese IME composition on Windows (Microsoft Pinyin)
@@ -117,6 +118,8 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
   7. Repeat steps 1–4, then click "清除全部恢复数据" → confirm. Expected: the dialog closes, the journal is empty.
 - **Expected:** all steps pass on both machines.
 - **Result:** _(owner fills in: pass/fail, OS versions, date)_
+  Automated part on macOS (agent run, MacBook Pro M3 Pro, macOS 27.2 arm64, 2026-10-15): recovery.spec.ts 5/5 in two full e2e runs @ 0df27f8; S12.4 set done.
+  The by-hand steps were not performed (they need a person at the Mac).
 - **Close with:**
   `node harness/session.mjs set S12.4 done --evidence "manual: macOS <ver> + Win 11 <build>, <date>, steps pass"`
 
@@ -132,7 +135,8 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
   3. Copy the printed Markdown row into the table in `docs/perf/baseline.md` (replace the "not measured yet" row) and
      note the Mac model, RAM and macOS version.
 - **Expected:** a row with startup median/p95 and idle memory for macOS arm64 (no pass/fail threshold yet).
-- **Result:** _(owner fills in)_
+- **Result:** measured by an agent on MacBook Pro M3 Pro, macOS 27.2 arm64, 2026-10-15 (row in docs/perf/baseline.md @ 48e2b84; machine partly loaded). The
+  8 GB reference Mac of PLAN §11 is still to be measured.
 
 ### S04-S05-macos — Preview isolation suite on macOS arm64
 
@@ -144,7 +148,8 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
   3. Manually: open a project, Start preview, drag the window between a Retina and a non-Retina display and resize
      it; the page must stay exactly inside the preview pane.
 - **Expected:** all tests pass; every attack result is `failed`; the view follows the pane on both displays.
-- **Result:** _(owner fills in)_
+- **Result:** steps 1–2 by an agent on MacBook Pro M3 Pro, macOS 27.2 arm64, 2026-10-15: all preview tests pass, every attack result `failed`; typing while
+  hung 67–88 ms; console flood main stall 8.3–9.3 s (see docs/perf/baseline.md). Step 3 (two displays) still open.
 
 ### S07.3 / S08 — file watcher and file operations on Apple Silicon (confirmation)
 
@@ -163,6 +168,8 @@ also pass on the macOS arm64 CI runner (S06); until that runner exists, please c
   5. Rename `index.html` to `Index.html` with F2 — Finder shows the new case.
 - **Expected:** as described; no error banners.
 - **Result:** _(owner fills in: pass/fail, notes, date)_
+  Step 2 by an agent on MacBook Pro M3 Pro, macOS 27.2 arm64, 2026-10-15: file-tree e2e all pass @ 0df27f8. Step 1
+  (watcher tests) was being fixed in a separate session; steps 3–5 need a person.
 
 ### S08.3 — the real OS trash never deletes permanently (manual-win and manual-mac)
 

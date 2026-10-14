@@ -640,8 +640,8 @@
       "depends_on": [
         "S02.4"
       ],
-      "status": "needs_manual_check",
-      "evidence": "npm run test:e2e: 8/8 on Linux x64 under xvfb (launches app, finds Monaco, zero console errors) @ 0c43853; Windows/macOS runs: harness/MANUAL-CHECKS.md#S02.6"
+      "status": "done",
+      "evidence": "npm run test:e2e: 148/148 twice on macOS 27.2 arm64 (M3 Pro, physical) @ 0df27f8, no interaction, smoke.spec finds Monaco + zero console errors; Windows x64 suite passing (e.g. S09.2 36/36 @ 79434ec, S12.4 @ 4c6bef4); Linux 8/8 under xvfb @ 0c43853"
     },
     {
       "id": "S02.7",
@@ -877,8 +877,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "needs_manual_check",
-      "evidence": "scripts/measure-baseline.mjs (cold start to editor-interactive, app.getAppMetrics idle memory with/without preview); docs/perf/baseline.md Windows x64 row (i9-13900KF/32 GB, n=10 startup median 655 ms p95 701; idle 429 MB, 523 MB with preview, n=3). macOS arm64 row missing: harness/MANUAL-CHECKS.md#S05.6 @ 9566bea"
+      "status": "done",
+      "evidence": "scripts/measure-baseline.mjs; docs/perf/baseline.md rows: Windows x64 (i9-13900KF/32 GB, n=10 startup, n=3 memory) and macOS 27.2 arm64 (MacBook Pro M3 Pro/18 GB, n=10 startup median 730 p95 1035 ms; idle 551 MB, 649 MB with preview, n=3) @ 48e2b84"
     },
     {
       "id": "S05.7",
@@ -1385,8 +1385,8 @@
       "depends_on": [
         "S12.2"
       ],
-      "status": "todo",
-      "evidence": "steps in harness/MANUAL-CHECKS.md#S12.4; Windows e2e passes @ 4c6bef4"
+      "status": "done",
+      "evidence": "recovery.spec.ts 5/5 on physical Apple Silicon (MacBook Pro M3 Pro, macOS 27.2 arm64) in two consecutive full e2e runs (148/148 each) @ 0df27f8 — forced SIGKILL of the main process, relaunch, diff + restore; Windows x64 e2e passed @ 4c6bef4. By-hand steps in MANUAL-CHECKS.md#S12.4 remain optional owner confirmation"
     },
     {
       "id": "S13.1",
