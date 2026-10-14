@@ -1,0 +1,140 @@
+/* Workbench shell (S02.3). System fonts only — bundled fonts arrive with themes (S24). */
+:root {
+  --bg: #ffffff;
+  --panel: #f6f7f9;
+  --line: #d0d7de;
+  --ink: #1f2328;
+  --muted: #59636e;
+  --focus: #0969da;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e1e;
+    --panel: #252526;
+    --line: #3c3c3c;
+    --ink: #e6e6e6;
+    --muted: #a0a0a0;
+    --focus: #4fa3ff;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    14px/1.5 system-ui,
+    -apple-system,
+    'Segoe UI',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.workbench {
+  display: grid;
+  grid-template-rows: auto 1fr minmax(96px, 22%);
+  height: 100%;
+}
+.workbench-middle {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) 1fr 1fr;
+  min-height: 0;
+}
+.region {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.app-name {
+  font-weight: 700;
+}
+.project-name,
+.save-status {
+  color: var(--muted);
+}
+.spacer {
+  flex: 1;
+}
+.tb-button {
+  font: inherit;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.tb-button:disabled {
+  opacity: 0.6;
+}
+.files,
+.preview {
+  background: var(--panel);
+  padding: 8px 10px;
+}
+.files {
+  border-right: 1px solid var(--line);
+}
+.preview {
+  border-left: 1px solid var(--line);
+}
+.region-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--muted);
+}
+.placeholder {
+  color: var(--muted);
+  margin: 8px 10px;
+}
+.editor {
+  display: flex;
+  flex-direction: column;
+}
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+}
+.tab {
+  padding: 5px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 600;
+}
+.code-editor {
+  flex: 1;
+  min-height: 0;
+}
+.problems {
+  border-top: 1px solid var(--line);
+}
+.panel-tabs {
+  display: flex;
+  gap: 12px;
+  padding: 4px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.panel-tab.active {
+  font-weight: 700;
+  text-decoration: underline;
+}

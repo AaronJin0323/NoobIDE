@@ -1,7 +1,7 @@
 # NoobIDE
 
 A beginner-friendly desktop IDE for HTML / CSS / JavaScript, for Apple Silicon macOS and Windows x64.
-Status: **pre-alpha — harness and plan in place, implementation starts at S01/S02.**
+Status: **pre-alpha — scope docs, wireframes and a secure Electron + React + Monaco shell (S01, S02).**
 
 - Product plan: [PLAN.md](PLAN.md)
 - Build roadmap (milestones → sessions → features): [docs/ROADMAP.md](docs/ROADMAP.md)
@@ -16,6 +16,8 @@ Requires Node.js ≥ 22.12 and Git.
 npm install
 npm run session -- start   # where are we, what's next
 npm run verify             # all quality gates
+npm start                  # run the app (Vite dev server)
+npm run test:e2e           # build + Electron end-to-end tests
 ```
 
 ## Starting a build session with an agent

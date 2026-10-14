@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
@@ -15,7 +15,8 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "types": ["node"],
-    "noEmit": true
+    "noEmit": true,
+    "jsx": "react-jsx"
   },
   "include": ["src", "tests", "*.config.ts"]
 }

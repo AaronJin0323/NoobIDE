@@ -137,8 +137,10 @@ scripts/    build, measurement and release helpers
 | `npm run session -- show S10`                                     | Details of a session, feature or milestone             |
 | `npm run verify` / `-- --quick` / `-- --e2e`                      | All gates / fast subset / including e2e                |
 | `npm test`, `npm run typecheck`, `npm run lint`, `npm run format` | Individual gates                                       |
-
-Scripts such as `npm start`, `npm run make` and `npm run test:e2e` are added in S02.
+| `npm start`                                                       | Run the app with the Vite dev server                   |
+| `npm run package` / `npm run make`                                | Packaged app in `out/` / installers in `out/make`      |
+| `npm run test:e2e`                                                | Build + Playwright Electron e2e (`tests/e2e`)          |
+| `npm run selftest:packaged` / `selftest:dev`                      | Monaco worker self-test of the packaged / dev app      |
 
 ## Environment notes
 

@@ -14,6 +14,20 @@ coverage percentages. Every feature's acceptance criteria say how it is proven.
 | Manual       | `harness/MANUAL-CHECKS.md`           | Owner                        | IME, Retina/DPI, sleep/wake, signing, clean-machine runs  |
 | User studies | `docs/research/`                     | Owner                        | PLAN §11 beginner metrics                                 |
 
+## Commands
+
+| Command                     | What it does                                                                                     |
+| --------------------------- | ------------------------------------------------------------------------------------------------ |
+| `npm test`                  | Unit + integration tests (Vitest)                                                                |
+| `npm run test:e2e`          | `electron-forge package`, then Playwright against the production bundles (`-- --no-build` skips) |
+| `npm run selftest:packaged` | Runs the packaged app in `out/` with `NOOBIDE_SELF_TEST=1`: Monaco workers must answer           |
+| `npm run selftest:dev`      | Same probe through `electron-forge start` (Vite dev server)                                      |
+| `npm run verify -- --e2e`   | All gates including e2e                                                                          |
+
+E2E uses the stock Electron binary because the packaged app has the `--inspect` fuse off (decision 0005); the
+self-test is how the shipped binary itself is checked. On Linux without a display both scripts wrap themselves in
+`xvfb-run`; as root (containers) they add `--no-sandbox`, which normal Windows/macOS runs never need.
+
 ## Conventions
 
 - Tests that touch the filesystem use a fresh temp directory and clean up. Paths in tests are built with `path`

@@ -6,6 +6,8 @@ coverage/
 test-results/
 playwright-report/
 *.log
+# git bundles used to hand history between machines
+*.bundle
 .DS_Store
 Thumbs.db
 # signing material never enters the repo (PLAN §5)

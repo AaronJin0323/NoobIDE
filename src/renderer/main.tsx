@@ -1,0 +1,24 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { I18nProvider } from './i18n/I18nProvider';
+import { Workbench } from './workbench/Workbench';
+import './styles.css';
+
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('missing #root');
+
+createRoot(rootElement).render(
+  <StrictMode>
+    <I18nProvider>
+      <Workbench />
+    </I18nProvider>
+  </StrictMode>,
+);
+
+// Packaged-app self-test (src/main/self-test.ts): only when main loaded us with ?selftest=1.
+if (new URLSearchParams(window.location.search).get('selftest') === '1') {
+  void import('./editor/worker-probe').then(async ({ probeMonacoWorkers }) => {
+    const result = await probeMonacoWorkers();
+    console.info(`NOOBIDE_SELFTEST ${JSON.stringify(result)}`);
+  });
+}
