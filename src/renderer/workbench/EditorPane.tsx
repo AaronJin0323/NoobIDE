@@ -15,6 +15,7 @@ import { fill } from '../recovery/format';
 // S18.3: format command (button + Monaco's Shift+Alt+F / ⇧⌥F) on the editor handle, without importing Monaco here.
 import { activeEditor } from '../editor/editor-handle';
 import { formatShortcutLabel } from '../../platform/labels';
+import { withShortcut } from '../commands/useCommands'; // S24.1
 
 const FORMATTABLE = new Set(['html', 'css', 'javascript']);
 
@@ -166,7 +167,7 @@ export function EditorPane(props: EditorPaneProps) {
             type="button"
             className="icon-button"
             aria-label={t('zoom.out')}
-            title={t('zoom.out')}
+            title={withShortcut(t('zoom.out'), 'zoom-out', window.noobide?.platform ?? 'other')}
             data-testid="zoom-out"
             onClick={() => onZoom(-1)}
           >
@@ -176,7 +177,7 @@ export function EditorPane(props: EditorPaneProps) {
             type="button"
             className="quiet-button zoom-reset"
             aria-label={`${t('zoom.reset')} (${fontSize})`}
-            title={t('zoom.reset')}
+            title={withShortcut(t('zoom.reset'), 'zoom-reset', window.noobide?.platform ?? 'other')}
             data-testid="zoom-reset"
             onClick={() => onZoom(0)}
           >
@@ -186,7 +187,7 @@ export function EditorPane(props: EditorPaneProps) {
             type="button"
             className="icon-button"
             aria-label={t('zoom.in')}
-            title={t('zoom.in')}
+            title={withShortcut(t('zoom.in'), 'zoom-in', window.noobide?.platform ?? 'other')}
             data-testid="zoom-in"
             onClick={() => onZoom(1)}
           >

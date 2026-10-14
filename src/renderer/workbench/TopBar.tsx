@@ -1,6 +1,7 @@
 import { useI18n } from '../i18n/I18nProvider';
 import { otherLocale, type MessageKey } from '../i18n/index';
-import { revealLabelKey, shortcutLabel, type PlatformId } from '../../platform/labels';
+import { revealLabelKey, type PlatformId } from '../../platform/labels';
+import { withShortcut } from '../commands/useCommands'; // S24.1
 import type { OpenedProject } from '../../shared/ipc/contract';
 import type { SaveStatus } from './save-machine';
 import { CodeIcon, DotIcon, RevealIcon, SaveStateIcon } from './icons';
@@ -78,7 +79,7 @@ export function TopBar({ platform, project, save, onReveal, narrow, menuItems }:
         className={`save-status${save ? ` save-${save}` : ''}`}
         role="status"
         aria-label={t('topbar.saveStatus')}
-        title={save ? `${t('save.shortcut')} ${shortcutLabel(platform, 'S')}` : undefined}
+        title={save ? withShortcut(t('save.shortcut'), 'save', platform) : undefined}
         data-testid="save-status"
         data-state={save ?? 'none'}
       >

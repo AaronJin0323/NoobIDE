@@ -2182,8 +2182,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/commands.ts registry (id, i18n label, when, per-platform keys); src/platform/keybindings.ts; unit: src/platform/keybindings.test.ts + src/shared/commands.test.ts (16 tests incl. ⌘S vs Ctrl+S labels/matching); e2e tests/e2e/commands.spec.ts (4, menu+hints derived, shortcuts) on macOS arm64; verify green except 3 known macOS integration files"
     },
     {
       "id": "S24.2",

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react';
-import { isMac } from '../../platform/labels';
+import { useAppMenuItems, useCommands, type CommandHandlers } from '../commands/useCommands'; // S24.1
 import type { FileContent, FileVersion, OpenedProject } from '../../shared/ipc/contract';
 import { useMediaQuery } from '../theme/useMediaQuery';
 import { TopBar } from './TopBar';
@@ -59,7 +59,7 @@ const editorModels = () => import('../editor/editor-models');
 // S13 app data
 import type { SettingsSnapshot } from '../../shared/ipc/app-data-contract';
 import { SettingsNotice } from './SettingsNotice';
-import type { AppMenuItem } from './AppMenu';
+import type { CommandContext } from '../../shared/commands'; // S24.1
 import { isEntryPath } from '../../shared/project-config';
 import type { TreeEntry } from '../../shared/ipc/contract';
 import { EntryNotice, type EntryNoticeState } from './EntryNotice';
@@ -258,17 +258,7 @@ export function Workbench() {
     setCopyNotice(null);
     dispatch({ type: 'projectClosed' });
   }, [bridge, saveAll]);
-  const hasProject = doc.project !== null;
-  const menuItems = useMemo<AppMenuItem[]>(() => {
-    const items: AppMenuItem[] = [];
-    if (hasProject && bridge?.lifecycle) {
-      items.push({ id: 'close-project', label: 'appMenu.closeProject', onSelect: () => void closeProject() });
-    }
-    const logs = bridge?.logs;
-    if (logs) items.push({ id: 'open-logs', label: 'appMenu.openLogs', onSelect: () => void logs.openFolder() });
-    return items;
-  }, [bridge, hasProject, closeProject]);
-  // --- end S13 command menu ---
+  // --- end S13 (the command menu is derived from the S24.1 command registry below) ---
 
   const openFolder = useCallback(async () => {
     if (!bridge || !(await saveAll())) return;
@@ -678,44 +668,39 @@ export function Workbench() {
     [],
   );
 
-  // Window-wide shortcuts. Ctrl+S / ⌘S also works when focus is outside the editor (Monaco handles it inside).
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const modifier = isMac(platform) ? event.metaKey : event.ctrlKey;
-      const key = event.key.toLowerCase();
-      if (modifier && !event.altKey && !event.shiftKey && key === 's') {
-        event.preventDefault();
-        saveActive();
-      }
-    };
-    // Capture phase, before Monaco and before the menu's whole-window zoom: Ctrl+Tab switches tabs (also on macOS,
-    // like other editors), Ctrl/⌘ with + − 0 zooms the code font.
-    const onKeyDownCapture = (event: KeyboardEvent) => {
-      // S20.2/S21.3: while a modal window is open, its own keys apply (no tab switching behind it).
-      if (document.querySelector('[aria-modal="true"]')) return;
-      if (event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'Tab') {
-        event.preventDefault();
-        event.stopPropagation();
-        const next = cycleTab(docRef.current, event.shiftKey ? -1 : 1);
-        if (next) dispatch({ type: 'activate', relPath: next });
-        return;
-      }
-      const modifier = isMac(platform) ? event.metaKey : event.ctrlKey;
-      if (!modifier || event.altKey) return;
-      const step = { '=': 1, '+': 1, '-': -1, _: -1, '0': 0 }[event.key] as 1 | -1 | 0 | undefined;
-      if (step !== undefined) {
-        event.preventDefault();
-        event.stopPropagation();
-        setFontSize((size) => zoomFontSize(size, step));
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keydown', onKeyDownCapture, true);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keydown', onKeyDownCapture, true);
-    };
-  }, [platform, saveActive]);
+  // --- S24.1: command registry. Shortcuts (⌘S / Ctrl+S everywhere in the window, Ctrl+Tab, ⌘/Ctrl with + − 0 for
+  // the code font, …), the in-window menu and its hints all come from src/shared/commands. ---
+  const switchTab = (step: 1 | -1) => {
+    const next = cycleTab(docRef.current, step);
+    if (next) dispatch({ type: 'activate', relPath: next });
+  };
+  const commandContext: CommandContext = {
+    hasProject: doc.project !== null,
+    hasActiveTab: doc.active !== null,
+    modalOpen: wizardOpen || historyFor !== null,
+  };
+  const commandHandlers: CommandHandlers = {
+    'new-project': bridge?.createProject ? () => setWizardOpen(true) : undefined,
+    'open-folder': bridge ? () => void openFolder() : undefined,
+    save: saveActive,
+    'close-tab': () => {
+      const active = docRef.current.active;
+      if (active !== null) void closeTab(active);
+    },
+    'close-project': bridge?.lifecycle ? () => void closeProject() : undefined,
+    'show-history': bridge?.history ? () => setHistoryFor({ relPath: docRef.current.active }) : undefined,
+    'toggle-files': () => dispatchLayout({ type: 'toggleFiles', narrow }),
+    'toggle-problems': () => dispatchLayout({ type: 'toggleProblems' }),
+    'zoom-in': () => setFontSize((size) => zoomFontSize(size, 1)),
+    'zoom-out': () => setFontSize((size) => zoomFontSize(size, -1)),
+    'zoom-reset': () => setFontSize((size) => zoomFontSize(size, 0)),
+    'next-tab': () => switchTab(1),
+    'previous-tab': () => switchTab(-1),
+    'open-logs': bridge?.logs ? () => void bridge.logs?.openFolder() : undefined,
+  };
+  const commands = useCommands(platform, commandContext, commandHandlers);
+  const menuItems = useAppMenuItems(platform, commandContext, commandHandlers, commands.run);
+  // --- end S24.1 ---
 
   // --- S13.4: session restore. On a normal start main reopens the last project (crash recovery takes precedence: it
   // reports recovery-pending and the recovery dialog offers the unsaved buffers instead); its tabs, the visible tab
