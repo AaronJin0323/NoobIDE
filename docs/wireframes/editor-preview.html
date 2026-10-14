@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>线框图 2 · 编辑 + 预览 — NoobIDE wireframe: Editor and preview</title>
+    <link rel="stylesheet" href="wireframe.css" />
+  </head>
+  <body>
+    <header class="doc">
+      <nav class="doc" aria-label="Wireframes">
+        <a href="index.html">全部线框图 / All wireframes</a>
+        <a href="welcome.html">1 欢迎页</a>
+        <a href="editor-preview.html" aria-current="page"><strong>2 编辑 + 预览</strong></a>
+        <a href="error-card.html">3 问题卡片</a>
+      </nav>
+      <h1>线框图 2 · 编辑与预览工作台</h1>
+      <p>
+        Wireframe 2 — the main workbench (PLAN §3): top bar, file tree, editor, live preview, problems/console. 2a is a
+        normal laptop window; 2b is a narrow window where a “Code / Preview” switch replaces three narrow columns.
+        Journey steps 2–5 and 8 of the <a href="../product/task-script.md">task script</a>.
+      </p>
+    </header>
+
+    <main>
+      <h2 class="screen">2a · 普通笔记本窗口（约 1280 px）<span class="n">en</span> Normal laptop window</h2>
+      <div class="frame wide" role="img" aria-label="Workbench wireframe, wide layout">
+        <div class="wb">
+          <div class="topbar">
+            <span class="project">我的 主页</span>
+            <span class="path">D:\网页练习\我的 主页 <span class="btn">在文件资源管理器中显示</span></span>
+            <span class="n">1</span>
+            <span class="spacer"></span>
+            <span class="pill" aria-label="保存状态">✓ 已保存</span><span class="n">2</span>
+            <span class="btn">▶ 预览：开</span>
+            <span class="btn">？ 帮助</span>
+            <span class="btn">⋯ 更多工具</span><span class="n">3</span>
+          </div>
+          <div class="middle">
+            <div class="pane">
+              <div class="pane-head">文件 <span class="spacer"></span>＋文件 ＋文件夹 ⟨⟨ <span class="n">4</span></div>
+              <ul class="tree">
+                <li class="on">📄 index.html <span class="role">页面结构</span></li>
+                <li>🎨 style.css <span class="role">视觉样式</span></li>
+                <li>⚙ script.js <span class="role">交互行为</span></li>
+                <li>📁 images</li>
+                <li style="padding-left: 18px">🖼 头像.png</li>
+              </ul>
+            </div>
+            <div class="splitter" title="拖动调整宽度"></div>
+            <div class="pane">
+              <div class="tabs"><span class="on">index.html</span><span>style.css ●</span><span>script.js</span></div>
+              <div class="role-hint">
+                index.html 是<strong>页面结构</strong>：写网页上有什么内容（标题、段落、按钮、图片）。<span class="n"
+                  >5</span
+                >
+              </div>
+              <pre class="code"><span class="ln">1</span>&lt;!doctype html&gt;
+<span class="ln">2</span>&lt;html lang="zh-CN"&gt;
+<span class="ln">3</span>  &lt;head&gt;
+<span class="ln">4</span>    &lt;link rel="stylesheet" href="style.css"&gt;
+<span class="ln">5</span>  &lt;/head&gt;
+<span class="ln">6</span>  &lt;body&gt;
+<span class="ln">7</span>    &lt;h1&gt;你好，我是林小雨&lt;/h1&gt;
+<span class="ln">8</span>    &lt;button id="hi"&gt;点我&lt;/button&gt;
+<span class="ln">9</span>    &lt;script src="script.js"&gt;&lt;/script&gt;
+<span class="ln">10</span>  &lt;/body&gt;
+<span class="ln">11</span>&lt;/html&gt;</pre>
+            </div>
+            <div class="splitter" title="拖动调整宽度"></div>
+            <div class="pane">
+              <div class="pane-head">
+                预览 · index.html <span class="n">6</span>
+                <span class="spacer"></span>
+                <span class="seg"
+                  ><button type="button" aria-pressed="true">🖥 桌面</button
+                  ><button type="button" aria-pressed="false">📱 手机宽度</button></span
+                >
+                ⟳ 刷新 ■ 停止 ↗ 在浏览器中打开
+              </div>
+              <div class="pane-head">
+                自动刷新 ▾ <span class="spacer"></span><span class="pill">● 运行中</span> <span class="n">7</span>
+              </div>
+              <div class="page">
+                <h3 style="margin: 0 0 8px">你好，我是林小雨</h3>
+                <span class="btn">点我</span>
+              </div>
+              <div class="toast">
+                ⓘ 刷新会重新加载页面，表单内容和页面里的临时状态会被清空。<span class="btn">知道了</span>
+                <span class="n">8</span>
+              </div>
+            </div>
+          </div>
+          <div class="bottom">
+            <div class="pane-head">
+              <span class="on">问题 (0)</span> · <span>控制台</span> <span class="spacer"></span> ⌄
+              <span class="n">9</span>
+            </div>
+            <ul class="problems">
+              <li>✓ 没有发现问题。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <section class="notes" aria-label="English notes for screen 2a">
+        <h2>Notes (en)</h2>
+        <ol>
+          <li>
+            Project name and its real location, with “Show in File Explorer” (macOS: “在访达中显示” / “Reveal in
+            Finder”). Always visible so users can find their folder (metric M4, step 8).
+          </li>
+          <li>
+            Save status is text + icon, never colour alone: “✓ 已保存” Saved · “● 未保存” Unsaved · “⟳ 正在保存…”
+            Saving… · “⚠ 保存失败 — 你的修改还在” Save failed — your edits are kept (click for the cause and “Save
+            elsewhere…”). Autosave and crash recovery have separate indicators; never a generic “backed up” (PLAN §7).
+          </li>
+          <li>
+            “Preview: on”, “Help”, “More tools” (later: terminal, debugger, Git). Positions stay fixed; nothing moves by
+            inferred skill (PLAN §3).
+          </li>
+          <li>
+            Collapsible file tree with real filenames, “+File”, “+Folder”, collapse ⟨⟨. Tree rows show the role of the
+            three template files.
+          </li>
+          <li>
+            File role hint above the editor: “index.html is the page structure: what is on the page (headings,
+            paragraphs, buttons, images).” Dismissible; reappears from Help. Tab “style.css ●” = unsaved changes in that
+            tab (dot + tab tooltip text).
+          </li>
+          <li>
+            Preview toolbar: “Desktop / Mobile width” (width only — no claim of emulating a phone, PLAN §3), “Refresh”,
+            “Stop”, “Open in browser”. The preview is a separate isolated view, not part of the React page (PLAN §8).
+          </li>
+          <li>
+            Refresh mode “Auto refresh ▾ / Manual refresh”. Preview state pill: 已停止 stopped · 正在启动 starting · ●
+            运行中 running · ⟳ 正在刷新 refreshing · ⚠ 无响应 unresponsive (with “Stop and restart”) · ✕ 失败 failed.
+            When a save fails the pill says “预览未更新” preview not updated.
+          </li>
+          <li>
+            One-time note: “Refreshing reloads the page; form contents and temporary page state are cleared.” “Got it”.
+          </li>
+          <li>
+            Bottom panel: “Problems (0)” · “Console”. “No problems found.” New problems update the count and badge but
+            never take keyboard focus from the editor (PLAN §3). Panel can be collapsed ⌄.
+          </li>
+        </ol>
+      </section>
+
+      <h2 class="screen">
+        2b · 窄窗口：代码 / 预览 切换 <span class="n">en</span> Narrow window: Code / Preview switch
+      </h2>
+      <div class="narrow-wrap">
+        <div class="frame narrow" role="group" aria-label="Workbench wireframe, narrow layout (interactive)">
+          <div class="wb" style="min-height: 420px">
+            <div class="topbar">
+              <span class="project">我的 主页</span>
+              <span class="spacer"></span>
+              <span class="pill">✓ 已保存</span>
+              <span class="seg" id="switch"
+                ><button type="button" aria-pressed="true" data-show="code">代码</button
+                ><button type="button" aria-pressed="false" data-show="preview">预览</button></span
+              >
+              <span class="n">10</span>
+              <span class="btn">☰</span>
+            </div>
+            <div class="middle">
+              <div class="pane" id="pane-code">
+                <div class="tabs"><span class="on">index.html</span><span>style.css</span><span>…</span></div>
+                <pre class="code"><span class="ln">7</span>    &lt;h1&gt;你好，我是林小雨&lt;/h1&gt;
+<span class="ln">8</span>    &lt;button id="hi"&gt;点我&lt;/button&gt;</pre>
+              </div>
+              <div class="pane" id="pane-preview" hidden>
+                <div class="pane-head">
+                  预览 · <span class="pill">● 运行中</span> <span class="spacer"></span> ⟳ ■ ↗
+                </div>
+                <div class="page mobile">
+                  <h3 style="margin: 0 0 8px">你好，我是林小雨</h3>
+                  <span class="btn">点我</span>
+                </div>
+              </div>
+            </div>
+            <div class="bottom">
+              <div class="pane-head"><span class="on">问题 (0)</span> · 控制台 <span class="spacer"></span> ⌃</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <section class="notes" aria-label="English notes for screen 2b">
+        <h2>Notes (en)</h2>
+        <ol start="10">
+          <li>
+            Below a width threshold (decided in S15, roughly &lt; 900 px) the file tree collapses into ☰ and a
+            segmented “Code / Preview” switch appears instead of three narrow columns (PLAN §3). The switch is a real
+            toggle button pair (keyboard: Tab to it, Space/Enter to switch, shortcut shown in the tooltip). Try it here
+            — it works in this wireframe. The save state and problem count stay visible in both modes.
+          </li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="doc">
+      <p>S01.3 · 2026-10-14 · Opens offline. Next: <a href="error-card.html">3 问题卡片</a></p>
+    </footer>
+    <script>
+      // Wireframe-only interaction: the narrow-window Code / Preview switch.
+      document.querySelectorAll('#switch button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#switch button').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+          document.getElementById('pane-code').hidden = btn.dataset.show !== 'code';
+          document.getElementById('pane-preview').hidden = btn.dataset.show !== 'preview';
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -495,8 +495,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/wireframes/{index,welcome,editor-preview,error-card}.html + wireframe.css; Playwright offline render: 0 non-file requests, 0 console errors; zh-CN copy with en notes per screen; 2b narrow Code/Preview switch toggles (checked), 3a PLAN §9 problem card"
     },
     {
       "id": "S01.4",

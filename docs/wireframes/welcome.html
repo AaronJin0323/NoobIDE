@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>线框图 1 · 欢迎页 — NoobIDE wireframe: Welcome</title>
+    <link rel="stylesheet" href="wireframe.css" />
+  </head>
+  <body>
+    <header class="doc">
+      <nav class="doc" aria-label="Wireframes">
+        <a href="index.html">全部线框图 / All wireframes</a>
+        <a href="welcome.html" aria-current="page"><strong>1 欢迎页</strong></a>
+        <a href="editor-preview.html">2 编辑 + 预览</a>
+        <a href="error-card.html">3 问题卡片</a>
+      </nav>
+      <h1>线框图 1 · 欢迎页与“创建我的第一个网页”</h1>
+      <p>
+        Wireframe 1 — Welcome screen and the create wizard. Low fidelity: layout, copy and states only, not visual
+        design. Journey step 1 of the <a href="../product/task-script.md">task script</a> (PLAN §2). Yellow numbers
+        refer to the English notes below each screen.
+      </p>
+    </header>
+
+    <main>
+      <h2 class="screen">1a · 首次启动的欢迎页 <span class="n">en</span> First launch, no project open</h2>
+      <div class="frame" role="img" aria-label="Welcome screen wireframe">
+        <div class="titlebar">
+          <span class="dots"><span></span><span></span><span></span></span> NoobIDE
+        </div>
+        <div class="welcome">
+          <div>
+            <h2>你好！从一个网页开始吧 <span class="n">1</span></h2>
+            <p class="lead">网页由 HTML、CSS 和 JavaScript 文件组成。它们会保存在你电脑上的一个普通文件夹里。</p>
+            <button class="primary" type="button">＋ 创建我的第一个网页 <span class="n">2</span></button>
+            <button class="secondary" type="button">📂 打开文件夹… <span class="n">3</span></button>
+            <button class="secondary" type="button">
+              ？ 看看这个软件能做什么（2 分钟导览）<span class="n">4</span>
+            </button>
+          </div>
+          <div class="box">
+            <h3>最近的项目 <span class="n">5</span></h3>
+            <ul class="recent">
+              <li>
+                <span>我的主页<small>D:\网页练习\我的 主页</small></span>
+                <span class="btn">打开</span>
+              </li>
+              <li>
+                <span>按钮计数器<small>/Users/lin/Documents/按钮 计数器</small></span>
+                <span class="btn">打开</span>
+              </li>
+              <li>
+                <span>旧项目 ⚠ 找不到文件夹<small>E:\已拔出的U盘\旧项目</small></span>
+                <span class="btn">从列表移除</span>
+              </li>
+            </ul>
+            <p class="hint">首次启动时这里显示：“你还没有项目。创建的项目会出现在这里。”</p>
+          </div>
+        </div>
+      </div>
+      <section class="notes" aria-label="English notes for screen 1a">
+        <h2>Notes (en)</h2>
+        <ol>
+          <li>
+            “Hi! Let's start with a webpage.” Subtitle: “A webpage is made of HTML, CSS and JavaScript files. They are
+            kept in an ordinary folder on your computer.” Uses real terms from day one (PLAN §1 principles).
+          </li>
+          <li>
+            Primary action “Create my first webpage” — the only filled button, first in focus order, Enter activates it.
+            Target: page visible in ≤ 3 min (metric M1).
+          </li>
+          <li>
+            “Open folder…” opens any existing folder; external projects open read-first, scripts run only after “Start
+            preview” (PLAN §8).
+          </li>
+          <li>
+            “See what this app can do (2-minute tour)” — optional, skippable walkthrough (S23). Never auto-starts over
+            the user's work.
+          </li>
+          <li>
+            “Recent projects” with the full real path under each name (paths with Chinese characters and spaces). A
+            missing folder is marked with ⚠ <em>and</em> text “folder not found”, not colour alone, and offers “Remove
+            from list” — never deletes anything on disk.
+          </li>
+        </ol>
+      </section>
+
+      <h2 class="screen">1b · 创建向导（一步完成）<span class="n">en</span> Create wizard (single step)</h2>
+      <div class="frame" role="img" aria-label="Create project dialog wireframe">
+        <div class="titlebar">
+          <span class="dots"><span></span><span></span><span></span></span> 创建我的第一个网页
+        </div>
+        <div style="padding: 24px; max-width: 720px">
+          <label>1. 选一个模板 <span class="n">6</span></label>
+          <div class="tpl">
+            <div class="sel">
+              <div class="thumb"></div>
+              ✓ 个人介绍页
+            </div>
+            <div>
+              <div class="thumb"></div>
+              产品展示页
+            </div>
+            <div>
+              <div class="thumb"></div>
+              按钮计数器
+            </div>
+          </div>
+          <label for="name">2. 给网页起个名字 <span class="n">7</span></label>
+          <div class="input" id="name">我的 主页</div>
+          <label>3. 保存在哪里 <span class="n">8</span></label>
+          <div class="row">
+            <div class="input">C:\Users\林小雨\Documents\NoobIDE 项目\</div>
+            <span class="btn">更改…</span>
+          </div>
+          <p class="hint">
+            将创建文件夹：<strong>C:\Users\林小雨\Documents\NoobIDE 项目\我的 主页</strong>（包含
+            index.html、style.css、script.js、images/）
+          </p>
+          <p class="hint">⚠ 已有同名文件夹。请换一个名字——我们不会覆盖已有文件。<span class="n">9</span></p>
+          <div class="actions">
+            <span class="btn">取消</span>
+            <span class="btn" style="opacity: 0.5" aria-disabled="true">创建并打开（不可用）</span>
+          </div>
+        </div>
+      </div>
+      <section class="notes" aria-label="English notes for screen 1b">
+        <h2>Notes (en)</h2>
+        <ol start="6">
+          <li>
+            “Choose a template”: Personal introduction (default) · Product showcase · Button counter — exactly three in
+            v1 (PLAN §2). Thumbnails are bundled images, works offline.
+          </li>
+          <li>
+            “Name your webpage” — becomes the folder name. Spaces and Chinese characters allowed; names illegal on
+            Windows or macOS are explained inline (PLAN §7).
+          </li>
+          <li>
+            “Where to save it” with “Change…” (native folder picker). Default is a visible folder in Documents, not app
+            data. The line below shows the exact folder that will be created and its files, so the user knows where the
+            project lives (metric M4).
+          </li>
+          <li>
+            Existing folder: “A folder with this name already exists. Please choose another name — we never overwrite
+            existing files.” Create button stays disabled. Buttons: “Cancel” · “Create and open”. After creation the
+            editor+preview screen opens with the template already running in preview (built-in templates are trusted,
+            PLAN §8).
+          </li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="doc">
+      <p>
+        S01.3 · 2026-10-14 · Opens offline: no external fonts, scripts or images. Next:
+        <a href="editor-preview.html">2 编辑 + 预览</a>
+      </p>
+    </footer>
+  </body>
+</html>

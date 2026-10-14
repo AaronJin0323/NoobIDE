@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>线框图 3 · 问题卡片 — NoobIDE wireframe: Problem card</title>
+    <link rel="stylesheet" href="wireframe.css" />
+  </head>
+  <body>
+    <header class="doc">
+      <nav class="doc" aria-label="Wireframes">
+        <a href="index.html">全部线框图 / All wireframes</a>
+        <a href="welcome.html">1 欢迎页</a>
+        <a href="editor-preview.html">2 编辑 + 预览</a>
+        <a href="error-card.html" aria-current="page"><strong>3 问题卡片</strong></a>
+      </nav>
+      <h1>线框图 3 · 出错时：问题卡片</h1>
+      <p>
+        Wireframe 3 — what happens when the page has an error (PLAN §9 example: misspelled variable
+        <code>userNmae</code>). Journey step 6 of the <a href="../product/task-script.md">task script</a>, metric M3
+        (fix within 5 minutes). Shows the error arriving without stealing focus, the card, the original error, and a
+        card whose cause is uncertain.
+      </p>
+    </header>
+
+    <main>
+      <h2 class="screen">3a · 工作台中的问题卡片 <span class="n">en</span> Problem card inside the workbench</h2>
+      <div class="frame wide" role="img" aria-label="Workbench with problem card wireframe">
+        <div class="wb">
+          <div class="topbar">
+            <span class="project">我的 主页</span>
+            <span class="spacer"></span>
+            <span class="pill">✓ 已保存</span>
+            <span class="pill warn">⚠ 1 个问题</span><span class="n">1</span>
+            <span class="btn">？ 帮助</span>
+            <span class="btn">⋯ 更多工具</span>
+          </div>
+          <div class="middle">
+            <div class="pane">
+              <div class="pane-head">文件</div>
+              <ul class="tree">
+                <li>📄 index.html</li>
+                <li>🎨 style.css</li>
+                <li class="on">⚙ script.js <span class="role">⚠ 1</span></li>
+              </ul>
+            </div>
+            <div class="splitter"></div>
+            <div class="pane">
+              <div class="tabs"><span>index.html</span><span class="on">script.js</span></div>
+              <pre class="code"><span class="ln">9</span>const userName = '林小雨';
+<span class="ln">10</span>
+<span class="ln">11</span>document.getElementById('hi').addEventListener('click', () =&gt; {
+<span class="ln">12</span>  alert('你好，' + <span class="err">userNmae</span>);  ⚠ <span class="n">2</span>
+<span class="ln">13</span>});</pre>
+            </div>
+            <div class="splitter"></div>
+            <div class="pane">
+              <div class="pane-head">
+                预览 · index.html <span class="spacer"></span><span class="pill">● 运行中</span>
+              </div>
+              <div class="page">
+                <h3 style="margin: 0 0 8px">你好，我是林小雨</h3>
+                <span class="btn">点我</span> ← 刚才点过
+              </div>
+            </div>
+          </div>
+          <div class="bottom">
+            <div class="pane-head">
+              <span class="on">问题 (1)</span> · 控制台 (1) <span class="spacer"></span> 显示：全部 ▾
+              <span class="n">3</span>
+            </div>
+            <div class="card" role="group" aria-label="问题卡片">
+              <div class="card-head">
+                <span aria-hidden="true">⚠</span><span class="tag">运行时错误</span>
+                <span class="loc">script.js，第 12 行：</span>找不到变量 <code>userNmae</code>。
+                <span class="spacer"></span><span class="tag">×3 次</span><span class="n">4</span>
+              </div>
+              <div class="card-body">
+                <p>
+                  检查它的拼写是否和定义时的 <code>userName</code>（第 9
+                  行）一致。如果这个变量还没有定义，先声明它。<span class="n">5</span>
+                </p>
+              </div>
+              <div class="card-actions">
+                <span class="btn dark">→ 转到代码</span>
+                <span class="btn">显示原始错误 ▾</span>
+                <span class="btn">这是什么意思？</span>
+                <span class="n">6</span>
+              </div>
+              <pre class="raw">
+Uncaught ReferenceError: userNmae is not defined
+    at HTMLButtonElement.&lt;anonymous&gt; (http://127.0.0.1:51734/script.js:12:20)
+来源：预览页面（会话 #4，10:42:07 刷新后）· 首次 10:42:31 · 最近 10:42:40 <span class="n">7</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+      <section class="notes" aria-label="English notes for screen 3a">
+        <h2>Notes (en)</h2>
+        <ol>
+          <li>
+            Top bar gains “⚠ 1 problem” (icon + count + text, dashed outline — not colour alone). The tree marks the
+            file. The editor keeps keyboard focus; nothing pops up over the code (PLAN §3).
+          </li>
+          <li>Squiggle on the exact span plus a ⚠ glyph in the gutter; hovering shows the same one-line message.</li>
+          <li>
+            “Problems (1)” · “Console (1)” · filter “Show: all ▾” (static / runtime / resource loading are listed
+            separately, PLAN §9).
+          </li>
+          <li>
+            Card header: type tag “Runtime error”, location “script.js, line 12:”, message “Cannot find the variable
+            <code>userNmae</code>.” Repeats are deduplicated into “×3” without losing the original details (PLAN §9).
+          </li>
+          <li>
+            Explanation + concrete check: “Check whether its spelling matches <code>userName</code> (line 9) where it
+            was defined. If the variable has not been defined yet, declare it first.” Matches the PLAN §9 example; the
+            “line 9” link only appears when the language service actually found a similar name.
+          </li>
+          <li>
+            Actions: “Go to code” (primary; moves cursor to line 12, col 20 and focuses the editor) · “Show original
+            error” · “What does this mean?” (short glossary entry for ReferenceError, from resources/lessons, offline).
+          </li>
+          <li>
+            Original error, expanded: the browser's exact text and stack, plus source “Preview page (session #4, after
+            the 10:42:07 refresh)”, first and last seen. Attribution to the correct preview session after refreshes
+            (PLAN §9, S16). Logs keep this metadata but never source code.
+          </li>
+        </ol>
+      </section>
+
+      <h2 class="screen">3b · 其他状态 <span class="n">en</span> Other states</h2>
+      <div class="states">
+        <div class="frame" role="img" aria-label="Uncertain cause card">
+          <div class="titlebar">原因不确定时 · uncertain cause <span class="n">8</span></div>
+          <div class="card">
+            <div class="card-head">
+              <span aria-hidden="true">⚠</span><span class="tag">资源加载失败</span>
+              <span class="loc">index.html，第 14 行：</span>图片 <code>images/头像.PNG</code> 没有加载出来（404）。
+            </div>
+            <div class="card-body">
+              <p>可能的原因：</p>
+              <ul>
+                <li>
+                  文件名大小写不一致：项目里是 <code>头像.png</code>。在 Windows 上能显示，在 Mac 或网站上可能不行。
+                </li>
+                <li>文件不在 <code>images</code> 文件夹里。</li>
+              </ul>
+            </div>
+            <div class="card-actions">
+              <span class="btn dark">→ 转到代码</span><span class="btn">在文件树中显示 images</span
+              ><span class="btn">显示原始错误 ▾</span>
+            </div>
+          </div>
+        </div>
+        <div class="frame" role="img" aria-label="Fixed state">
+          <div class="titlebar">修好之后 · after the fix <span class="n">9</span></div>
+          <div class="card">
+            <div class="card-head">
+              <span aria-hidden="true">✓</span><span class="tag">已解决</span>
+              <span class="loc">script.js，第 12 行</span> 刷新后没有再出现。
+            </div>
+            <div class="card-actions"><span class="btn">清除已解决的问题</span></div>
+          </div>
+          <p class="hint" style="padding: 0 10px 10px">顶栏恢复为“✓ 已保存”，问题计数为 0。</p>
+        </div>
+        <div class="frame" role="img" aria-label="Unresponsive preview card">
+          <div class="titlebar">页面卡住时 · unresponsive page <span class="n">10</span></div>
+          <div class="card">
+            <div class="card-head">
+              <span aria-hidden="true">⚠</span><span class="tag">预览无响应</span> 页面 5 秒没有响应，可能有死循环（例如
+              <code>while (true)</code>）。
+            </div>
+            <div class="card-body"><p>编辑器不受影响，你的代码已保存。停止预览后修改代码，再重新启动。</p></div>
+            <div class="card-actions">
+              <span class="btn dark">■ 停止并重新启动预览</span><span class="btn">显示原始错误 ▾</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <section class="notes" aria-label="English notes for screen 3b">
+        <h2>Notes (en)</h2>
+        <ol start="8">
+          <li>
+            Uncertain cause (resource 404): “Image <code>images/头像.PNG</code> did not load (404).” Lists “Possible
+            causes:” instead of claiming one — case mismatch (“works on Windows, may not on Mac or a website”) and wrong
+            folder (PLAN §9, §13). Actions add “Show images in file tree”.
+          </li>
+          <li>
+            After the fix: “✓ Resolved — script.js line 12 did not appear again after refresh.” “Clear resolved
+            problems.” Status returns to Saved, count 0.
+          </li>
+          <li>
+            Unresponsive preview: “The page has not responded for 5 seconds; there may be an infinite loop (e.g.
+            <code>while (true)</code>). The editor is not affected and your code is saved. Stop the preview, change the
+            code, then start again.” Primary action “Stop and restart preview” destroys/recreates the view (PLAN §8).
+            Threshold set in S14/S16.
+          </li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="doc">
+      <p>S01.3 · 2026-10-14 · Opens offline. Back to <a href="index.html">all wireframes</a>.</p>
+    </footer>
+  </body>
+</html>
