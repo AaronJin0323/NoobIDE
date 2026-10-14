@@ -105,7 +105,7 @@ test('a language switch keeps unsaved edits in the editor', async () => {
   await expect(status()).toHaveText('Saved');
   await page.getByTestId('switch-language').click();
   await expect(status()).toHaveText('已保存');
-  expect(await readFile(path.join(root, 'index.html'), 'utf8')).toContain('切换语言');
+  await expect.poll(() => readFile(path.join(root, 'index.html'), 'utf8')).toContain('切换语言');
 });
 
 test('a failed save keeps the edits, explains the cause and succeeds after the fix (S03.4)', async () => {

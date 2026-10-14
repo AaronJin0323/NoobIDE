@@ -51,3 +51,44 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 - **Expected:** `8 passed`, no manual interaction; on Linux CI the script wraps itself in `xvfb-run`.
 - **Result:** _(owner fills in)_. Linux evidence is already in PROGRESS.md (session 1).
 - **Close with:** `node harness/session.mjs set S02.6 done --evidence "e2e 8/8 on Win <ver> + macOS <ver>"`
+
+### S09.4 — Chinese IME composition on Windows (Microsoft Pinyin)
+
+- **Platform:** Windows 11 x64 with the built-in Microsoft Pinyin input method (Settings → Time & language →
+  Language & region → 中文(简体，中国) → Keyboard → Microsoft Pinyin)
+- **Build:** `npm start` (dev) or `npm run package` at the commit that set S09.4 to needs_manual_check
+- **Already automated:** tests/e2e/tabs.spec.ts "an unsaved tab says so…" drives a real Chromium composition through
+  CDP (`Input.imeSetComposition` → `Input.insertText`): while the composition is open the file stays unsaved, and only
+  the committed character reaches the disk (never the pinyin letters). Unit: save-controller.test.ts "never writes
+  during an IME composition". This check covers the real input method UI that automation cannot reach.
+- **Steps:**
+  1. Open a project folder whose path contains Chinese characters and spaces; open `index.html`.
+  2. Switch to Microsoft Pinyin (Win+Space). Put the cursor at the end of a line, type `nihao` slowly, pausing about
+     3 seconds before choosing a candidate. Expected: the candidate window stays open and sits next to the cursor; the
+     underlined pinyin is not interrupted, the cursor does not jump; the top bar does not switch to "正在保存…" /
+     "已保存" during the pause.
+  3. Press Space to commit 你好. Expected: 你好 appears once; about 1 second later the top bar shows "已保存".
+     Open the file in Notepad: it contains 你好 and no `nihao` letters.
+  4. Type a long phrase (e.g. `zhongwenshurufa`) and pick candidates in several steps (partial commits). Expected:
+     the committed characters are correct and in order; no lost or doubled characters.
+  5. Start a composition (`ceshi`), then click another tab without committing. Expected: no error; whatever the
+     input method committed or cancelled on losing focus, switching back shows it, and a second later the file on
+     disk (Notepad) matches the editor exactly. Note what Microsoft Pinyin did (committed letters / cancelled).
+  6. Repeat step 2 inside a CSS file and inside a JS string literal. Expected: same behaviour, no completion popup
+     stealing the candidate keys.
+  7. Press Ctrl+Z after step 3. Expected: 你好 is undone as one step.
+- **Expected:** all steps pass.
+- **Result:** _(owner fills in: pass/fail, notes, date)_
+- **Close with:** `node harness/session.mjs set S09.4 done --evidence "manual: Win 11 <build>, Microsoft Pinyin, <date>, steps 1-7 pass"`
+
+### S09.5 — Chinese IME composition on macOS (Pinyin – Simplified)
+
+- **Platform:** macOS on Apple Silicon with the system input source "Pinyin – Simplified" (System Settings →
+  Keyboard → Input Sources)
+- **Build:** `npm start` or `npm run package` on the Mac, at the commit that set S09.5 to needs_manual_check
+- **Already automated:** see S09.4 (the CDP composition e2e also runs on macOS with `npm run test:e2e`).
+- **Steps:** as S09.4 steps 1–7, with these differences: switch input sources with Ctrl+Space (or Fn/🌐), check the
+  file in TextEdit instead of Notepad, use ⌘Z in step 7, and in step 4 also try the inline candidate bar.
+- **Expected:** all steps pass; the candidate window follows the cursor on a Retina display.
+- **Result:** _(owner fills in: pass/fail, notes, date)_
+- **Close with:** `node harness/session.mjs set S09.5 done --evidence "manual: macOS <version> arm64, Pinyin, <date>, steps pass"`

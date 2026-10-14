@@ -98,7 +98,7 @@ test('the undo stack survives a tab switch (S09.1)', async () => {
   // The undo is an edit like any other: it is saved, and disk matches the editor again.
   await page.keyboard.press('ControlOrMeta+S');
   await expect(status()).toHaveText('已保存');
-  expect(await readFile(path.join(root, 'style.css'), 'utf8')).not.toContain('UNDOME');
+  await expect.poll(() => readFile(path.join(root, 'style.css'), 'utf8')).not.toContain('UNDOME');
 });
 
 test('closing a tab disposes its model: reopening starts from disk with a fresh undo stack (S09.1)', async () => {

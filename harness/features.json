@@ -1098,8 +1098,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/editor/model-registry.ts + model-registry.test.ts (8 unit: one model per URI, reuse, view state per URI, dispose+forget on close, discard hook); e2e tests/e2e/tabs.spec.ts: folding+cursor (Ln 201)+scroll survive a tab switch, undo stack survives a switch, closing disposes (reopen = disk text, fresh undo stack — Monaco's restore-undo-on-reopen defeated by discard) — 36/36 e2e on Windows x64 @ 79434ec"
     },
     {
       "id": "S09.2",
@@ -1114,8 +1114,8 @@
       "depends_on": [
         "S09.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/TabBar.tsx (ARIA tablist, roving tabindex) + document-state.ts/test (9 unit: tabs, close→neighbour, Ctrl+Tab cycle); e2e tabs.spec.ts: unsaved tab shows icon+'未保存' (held by a real CDP IME composition), failed tab shows icon+'保存失败', close button, middle-click, Delete, ArrowRight/End, Ctrl+Tab/Ctrl+Shift+Tab — 36/36 e2e on Windows x64 @ 79434ec"
     },
     {
       "id": "S09.3",
@@ -1130,7 +1130,7 @@
       "depends_on": [
         "S09.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
