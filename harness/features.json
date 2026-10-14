@@ -1323,8 +1323,8 @@
       "depends_on": [
         "S11.1"
       ],
-      "status": "in_progress",
-      "evidence": "Reopened after review @ 7d5a0a5 (see PROGRESS Session 4): save can rename over a concurrent external write (Windows lock retry); conflict+deleted states break; session restore can revoke a project opened meanwhile. Fix in progress (W4)."
+      "status": "done",
+      "evidence": "disk-sync.test.ts: explicit create retries after permission/disk-full/busy failure; external-change.test.ts: oversized encoded content rejected before creation, existing names never overwritten, missing parent reported; Windows external-change.spec.ts 10/10 including missing-folder retry, reappearance conflict, retained deleted text and explicit close. npm run verify green (1119 passed, 5 skipped)."
     },
     {
       "id": "S12.1",

@@ -189,6 +189,9 @@ export class ProjectService {
    */
   write(request: WriteFileRequest): Promise<Result<SavedFile, WriteFileError>> {
     return this.serialized(`${request.projectId}\0${request.relPath}`, async () => {
+      // Validate encoded bytes (including a BOM) before reserving a deleted file's name.
+      const data = encodeText(request.text, request.bom);
+      if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
       // S11.3: re-create a file that was deleted outside NoobIDE — exclusively, never over something that is there.
       let expectedHash = request.expectedHash;
       if (request.create) {
@@ -205,8 +208,6 @@ export class ProjectService {
       }
       const target = await this.resolve(request);
       if (!target.ok) return target;
-      const data = encodeText(request.text, request.bom);
-      if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
       return this.serialized(target.value, async (): Promise<Result<SavedFile, WriteFileError>> => {
         // S21.2 capture, replace and record all run inside this per-file lock, so concurrent saves of one file
         // capture their before-bytes in save order.

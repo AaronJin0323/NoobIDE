@@ -1,4 +1,4 @@
-import { readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
@@ -32,6 +32,8 @@ test.beforeAll(async () => {
   ({ tmp, root } = await makeProject('noobide-external-'));
   const body = Array.from({ length: 12 }, (_, i) => `line ${i + 1}`).join('\n');
   await writeFile(file('lines.txt'), `${body}\n`);
+  await mkdir(file('恢复 文件夹'));
+  await writeFile(file('恢复 文件夹/retry.txt'), 'RECREATE-CONTENT\n');
   app = await launchApp();
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
@@ -205,6 +207,39 @@ test('a file deleted on disk keeps its text, is marked deleted and can be saved 
   await expect(page.getByTestId('deleted-banner')).toHaveCount(0);
   await expect.poll(() => disk('style.css').catch(() => '')).toContain('UNSAVED');
   expect(await disk('style.css')).toContain('KEPT');
+  await expect(status()).toHaveAttribute('data-state', 'saved');
+});
+
+test('failed re-creation explains the missing folder and succeeds after the folder is restored', async () => {
+  await openFile(page, '恢复 文件夹/retry.txt');
+  await rm(file('恢复 文件夹'), { recursive: true });
+  const banner = page.getByTestId('deleted-banner');
+  await expect(banner).toBeVisible();
+  await banner.getByTestId('deleted-resave').click();
+  await expect(banner.getByTestId('deleted-error')).toBeVisible();
+  await expect(status()).toHaveAttribute('data-state', 'deleted');
+  await expect(lines()).toContainText('RECREATE-CONTENT');
+  await mkdir(file('恢复 文件夹'));
+  await banner.getByTestId('deleted-resave').click();
+  await expect.poll(() => disk('恢复 文件夹/retry.txt').catch(() => '')).toContain('RECREATE-CONTENT');
+  await expect(status()).toHaveAttribute('data-state', 'saved');
+});
+
+test('a deleted file reappearing with different text requires a choice and keeps unsaved edits', async () => {
+  await tabOf(page, 'index.html').click();
+  await typeAtEnd(page, 'REAPPEARED-KEEP-MINE');
+  await rm(file('index.html'));
+  await expect(page.getByTestId('deleted-banner')).toBeVisible();
+  await writeFile(file('index.html'), '<p>RESTORED-BY-ANOTHER-EDITOR</p>\n');
+  const banner = page.getByTestId('conflict-banner');
+  await expect(banner).toBeVisible();
+  await expect(page.getByTestId('deleted-banner')).toHaveCount(0);
+  await showEnd();
+  await expect(lines()).toContainText('REAPPEARED-KEEP-MINE');
+  await page.waitForTimeout(1500);
+  expect(await disk('index.html')).toBe('<p>RESTORED-BY-ANOTHER-EDITOR</p>\n');
+  await banner.getByTestId('conflict-keep-mine').click();
+  await expect.poll(() => disk('index.html')).toContain('REAPPEARED-KEEP-MINE');
   await expect(status()).toHaveAttribute('data-state', 'saved');
 });
 

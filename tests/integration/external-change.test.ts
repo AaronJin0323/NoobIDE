@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { versionChanged } from '../../src/shared/ipc/contract';
+import { MAX_TEXT_FILE_BYTES, versionChanged } from '../../src/shared/ipc/contract';
 import { EMPTY_HASH, ProjectService } from '../../src/workspace/project-service';
 import { nodeAtomicFs } from '../../src/workspace/atomic-write';
 
@@ -193,6 +193,19 @@ describe('check before write (S11.1)', () => {
 });
 
 describe('re-creating a file deleted outside NoobIDE (S11.3)', () => {
+  it('rejects oversized content before creating an empty file', async () => {
+    await rm(file('index.html'));
+    const saved = await service.write({
+      projectId,
+      relPath: 'index.html',
+      text: 'x'.repeat(MAX_TEXT_FILE_BYTES),
+      bom: true,
+      create: true,
+    });
+    expect(saved).toMatchObject({ ok: false, code: 'too-large' });
+    await expect(readFile(file('index.html'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('creates the file again with the buffer text', async () => {
     await rm(file('子 文件夹/页面 二.html'));
     const saved = await service.write({

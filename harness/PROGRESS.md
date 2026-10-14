@@ -3,6 +3,41 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 7 — 2026-10-15 — S11.3 deleted-file re-save failures
+
+**Agent:** Codex on the Windows x64 development machine.
+
+**Done**
+
+- S11.3: failed re-creation keeps the deleted-file state, retained edits and failure detail. A retry uses
+  explicit creation again; blur and ordinary save do not switch it into an automatic replacement operation.
+  A file that has reappeared still follows the existing conflict path.
+- Check encoded content size, including the BOM, before reserving the deleted filename. Oversized content
+  no longer leaves an empty file behind merely because validation happened too late.
+- Added unit regressions for permission, disk-full and busy failures; integration regression for the size
+  limit; Windows Electron scenarios for restoring a missing parent folder and a different file reappearing.
+
+**Evidence:** All four new unit/integration cases failed before the fix. `npm run verify` passes all gates
+(1119 passed, 5 skipped across 85 files). Windows `npm run test:e2e -- external-change.spec.ts`: 10/10;
+production Windows x64 packaging passed as part of that command.
+
+**Decisions:** Failed re-creation stays an explicit user action. The watcher may subsequently find a file
+and update the state through the existing hash comparison; a changed file requires a fresh choice.
+
+**Problems / risks:** macOS was not run. The existing re-creation implementation reserves an empty filename
+before atomic replacement; an I/O failure after reservation can still leave that empty file. The buffer is
+retained and disk synchronization treats it as a conflicting version. The OS-level check-to-rename race
+recorded in Session 5 also remains. No paused branches were merged; `.idea/` remains untouched.
+
+**Owner action needed:** None for this fix; existing manual platform checks remain open.
+
+**Next up**
+
+1. S13.4 session-restore lifecycle review, especially a delayed restore revoking a project opened meanwhile.
+   Then review the paused W4 S13.5 implementation before continuing W2 → W1 → CI integration.
+2. Consider eliminating the empty-name reservation on failed re-creation with a separately reviewed atomic
+   no-overwrite creation design. Do not delete a reserved path on failure without proving ownership.
+
 ## Session 6 — 2026-10-15 — S11.2 conflict and deleted-file transitions
 
 **Agent:** Codex on the Windows x64 development machine.

@@ -244,8 +244,9 @@ export class DocumentSaver {
         // S11.1: the check before write found someone else's version: never overwrite it, ask the user (S11.2).
         this.apply({ type: 'externalChange' });
         this.cancelTimer();
-      } else if (outcome.code === 'not-found') {
-        // The file (or its parent) vanished during this save; do not wait for a watcher event.
+      } else if (created || outcome.code === 'not-found') {
+        // A failed re-create must keep offering an explicit create retry, never an ordinary autosave.
+        // If main reserved a name before failing, the next disk check will resolve its actual state.
         this.apply({ type: 'deletedOnDisk' });
       }
     }

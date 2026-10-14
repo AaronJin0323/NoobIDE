@@ -256,6 +256,31 @@ describe('conflict choices (S11.2)', () => {
 });
 
 describe('externally deleted open file (S11.3)', () => {
+  it.each(['permission-denied', 'disk-full', 'busy'])(
+    'a failed re-create (%s) stays deleted and can be retried explicitly',
+    async (code) => {
+      const h = harness();
+      h.saver.edit('kept edits');
+      h.saver.markDeleted();
+      const first = h.saver.recreate();
+      await flush();
+      h.writes[0]?.resolve({ ok: false, code, message: code });
+      expect(await first).toBe(false);
+      expect(saveStatus(h.saver.state)).toBe('deleted');
+      expect(h.saver.state.error?.code).toBe(code);
+      expect(h.saver.text).toBe('kept edits');
+      h.saver.blur();
+      expect(await h.saver.save()).toBe(false);
+      expect(h.writes).toHaveLength(1);
+      const retry = h.saver.recreate();
+      await flush();
+      expect(h.writes[1]).toMatchObject({ text: 'kept edits', options: { create: true } });
+      h.writes[1]?.resolve({ ok: true });
+      expect(await retry).toBe(true);
+      expect(saveStatus(h.saver.state)).toBe('saved');
+    },
+  );
+
   it('marks the tab deleted, keeps the text and stops autosave', async () => {
     const h = harness();
     h.saver.edit('mine');
