@@ -1307,8 +1307,8 @@
       "depends_on": [
         "S11.1"
       ],
-      "status": "in_progress",
-      "evidence": "Reopened after review @ 7d5a0a5 (see PROGRESS Session 4): save can rename over a concurrent external write (Windows lock retry); conflict+deleted states break; session restore can revoke a project opened meanwhile. Fix in progress (W4)."
+      "status": "done",
+      "evidence": "disk-sync.test.ts 24 tests including conflict deletion/reappearance, keep-mine failure and refreshed comparisons; Windows external-change.spec.ts 8/8 including real Monaco diff, explicit choices and conflict deletion/re-save; npm run verify green (1115 passed, 5 skipped)."
     },
     {
       "id": "S11.3",

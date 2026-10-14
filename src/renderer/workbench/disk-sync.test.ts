@@ -163,6 +163,71 @@ describe('disk check of one open file (S11.1)', () => {
 });
 
 describe('conflict choices (S11.2)', () => {
+  it('a file deleted during keep mine becomes deleted even before the watcher reports it', async () => {
+    const h = harness();
+    h.saver.edit('mine');
+    h.saver.externalChange();
+    const keeping = h.saver.keepMine();
+    await flush();
+    h.writes[0]?.resolve({ ok: false, code: 'not-found', message: 'ENOENT' });
+    expect(await keeping).toBe(false);
+    expect(saveStatus(h.saver.state)).toBe('deleted');
+    expect(h.saver.text).toBe('mine');
+    expect(await h.saver.save()).toBe(false);
+    expect(h.writes).toHaveLength(1);
+  });
+
+  it('another change during keep mine returns to a conflict without retrying over it', async () => {
+    const h = harness();
+    h.saver.edit('mine');
+    h.setDisk({ ok: true, content: content('disk B', version('b')) });
+    await h.sync.check('index.html');
+    const keeping = h.saver.keepMine();
+    await flush();
+    h.writes[0]?.resolve({ ok: false, code: 'changed-on-disk', message: 'changed again' });
+    expect(await keeping).toBe(false);
+    h.setDisk({ ok: true, content: content('disk C', version('c')) });
+    await h.sync.check('index.html');
+    expect(saveStatus(h.saver.state)).toBe('conflict');
+    expect(h.conflicts.at(-1)?.text).toBe('disk C');
+    expect(h.saver.text).toBe('mine');
+    expect(h.writes).toHaveLength(1);
+  });
+
+  it('deletion ends an obsolete conflict and allows an explicit re-create with the retained edits', async () => {
+    const h = harness();
+    h.saver.edit('mine');
+    h.setDisk({ ok: true, content: content('disk B', version('b')) });
+    await h.sync.check('index.html');
+    h.setDisk({ ok: false, code: 'not-found' });
+    await h.sync.check('index.html');
+    expect(saveStatus(h.saver.state)).toBe('deleted');
+    expect(h.saver.state.conflict).toBe(false);
+    expect(h.saver.text).toBe('mine');
+    expect(await h.saver.keepMine()).toBe(false);
+    expect(h.writes).toHaveLength(0);
+    const resaving = h.saver.recreate();
+    await flush();
+    expect(h.writes[0]).toMatchObject({ text: 'mine', options: { create: true } });
+    h.writes[0]?.resolve({ ok: true });
+    expect(await resaving).toBe(true);
+  });
+
+  it('a different file reappearing after conflict deletion requires a fresh choice', async () => {
+    const h = harness();
+    h.saver.edit('mine');
+    h.setDisk({ ok: true, content: content('disk B', version('b')) });
+    await h.sync.check('index.html');
+    h.setDisk({ ok: false, code: 'not-found' });
+    await h.sync.check('index.html');
+    h.setDisk({ ok: true, content: content('disk C', version('c')) });
+    await h.sync.check('index.html');
+    expect(saveStatus(h.saver.state)).toBe('conflict');
+    expect(h.conflicts.at(-1)?.text).toBe('disk C');
+    expect(h.saver.text).toBe('mine');
+    expect(h.writes).toHaveLength(0);
+  });
+
   it('keep mine writes the buffer (only after the user chose it)', async () => {
     const h = harness();
     h.saver.edit('mine');
@@ -280,6 +345,18 @@ describe('tab state for external changes (S11)', () => {
     expect(documentReducer(s, { type: 'conflictCleared', relPath: 'index.html' }).tabs[0]?.conflictDisk).toBe(
       undefined,
     );
+  });
+  it('deletion discards the obsolete comparison and reload notice', () => {
+    const conflicted = documentReducer(loaded, {
+      type: 'diskConflict',
+      relPath: 'index.html',
+      content: content('B', version('b')),
+    });
+    const saver = new DocumentSaver({ initialText: 'mine', timers: noTimers, write: async () => ({ ok: true }) });
+    saver.markDeleted();
+    const deleted = documentReducer(conflicted, { type: 'saveState', relPath: 'index.html', save: saver.state });
+    expect(deleted.tabs[0]?.conflictDisk).toBeUndefined();
+    expect(deleted.tabs[0]?.diskNotice).toBeUndefined();
   });
 });
 

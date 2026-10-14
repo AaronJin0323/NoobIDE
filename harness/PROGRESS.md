@@ -3,6 +3,40 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 6 — 2026-10-15 — S11.2 conflict and deleted-file transitions
+
+**Agent:** Codex on the Windows x64 development machine.
+
+**Done**
+
+- S11.2: deletion now retires the obsolete conflict and disk comparison while preserving the editor text.
+  The deleted-file banner offers explicit re-save; it no longer gets stuck behind a conflict. Missing-file
+  save failures enter the deleted state even before the watcher reports the deletion.
+- Guarded conflict actions against already-deleted/resolved state. Reset the comparison toggle when a conflict
+  ends, so a later conflict does not inherit the previous comparison's open/closed state.
+- Added five unit regressions for deletion, reappearance, missing files during keep-mine, changes during
+  keep-mine and obsolete comparison cleanup. Added Windows Electron tests for conflict → deletion → re-save
+  and a second external edit updating the open Monaco comparison while retaining the user's edits.
+
+**Evidence:** Two new unit cases failed before the fix. The first UI run exposed the stale comparison-toggle
+bug, which was fixed. Final `npm run verify`: all gates green, 1115 tests passed and 5 skipped in 85 files.
+`npm run test:e2e -- external-change.spec.ts`: 8/8 on Windows x64, with a successful production package build.
+
+**Decisions:** The comparison is invalid once its disk file is gone; deletion takes over until explicit re-save
+or a fresh disk read. No dependency or IPC changes.
+
+**Problems / risks:** macOS remains untested. The final OS check-to-rename limitation recorded in Session 5
+remains. S11.3 and S13.4 are still in progress pending their separate review; paused worktrees and `.idea/`
+were not changed.
+
+**Owner action needed:** None for this fix; existing owner/platform checks remain open.
+
+**Next up**
+
+1. Finish S11.3's deleted-file re-save review (including failed re-creation and reappearing files), then
+   S13.4's session-restore lifecycle fixes. Keep the W4 → W2 → W1 → CI integration order from Session 4.
+2. S01.4 still waits on H.1; do not mark owner platform decisions complete.
+
 ## Session 5 — 2026-10-15 — S11.1 save-time external change validation
 
 **Agent:** Codex on the Windows x64 development machine.

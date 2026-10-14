@@ -432,15 +432,16 @@ export function Workbench() {
       keepMine: async (relPath) => {
         const saver = saverOf(relPath);
         const disk = docRef.current.tabs.find((tab) => tab.relPath === relPath)?.conflictDisk;
-        if (!saver || !disk) return;
+        if (!saver || !disk || !saver.state.conflict || saver.state.deleted) return;
         // Overwrite exactly the disk version the user compared; if it changed again, the conflict comes back.
         knownDisk.current.set(relPath, disk.version);
         dispatch({ type: 'conflictCleared', relPath });
         await saver.keepMine();
       },
       takeDisk: async (relPath) => {
+        const saver = saverOf(relPath);
         const disk = docRef.current.tabs.find((tab) => tab.relPath === relPath)?.conflictDisk;
-        if (!disk) return;
+        if (!saver || !disk || !saver.state.conflict || saver.state.deleted) return;
         await applyDiskText(relPath, disk, false);
       },
       resave: async (relPath) => {

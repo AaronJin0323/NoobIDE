@@ -90,10 +90,11 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
       return { ...state, tabs, active };
     }
     case 'saveState':
-      return {
-        ...state,
-        tabs: state.tabs.map((tab) => (tab.relPath === action.relPath ? { ...tab, save: action.save } : tab)),
-      };
+      return mapTab(state, action.relPath, (tab) => {
+        if (!action.save.deleted) return { ...tab, save: action.save };
+        const { conflictDisk: _gone, diskNotice: _old, ...rest } = tab;
+        return { ...rest, save: action.save };
+      });
     // --- S11 ---
     case 'diskReloaded':
       return mapTab(state, action.relPath, (tab) => {

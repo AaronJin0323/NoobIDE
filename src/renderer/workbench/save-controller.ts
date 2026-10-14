@@ -244,8 +244,9 @@ export class DocumentSaver {
         // S11.1: the check before write found someone else's version: never overwrite it, ask the user (S11.2).
         this.apply({ type: 'externalChange' });
         this.cancelTimer();
-      } else if (created && outcome.code === 'not-found') {
-        this.apply({ type: 'deletedOnDisk' }); // its folder is gone too: still deleted, the text stays here
+      } else if (outcome.code === 'not-found') {
+        // The file (or its parent) vanished during this save; do not wait for a watcher event.
+        this.apply({ type: 'deletedOnDisk' });
       }
     }
     return outcome.ok;

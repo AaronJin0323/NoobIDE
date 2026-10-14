@@ -97,7 +97,8 @@ export function saveReducer(state: SaveSnapshot, event: SaveEvent): SaveSnapshot
       return { ...state, revision, savedRevision: revision, error: null, conflict: false, deleted: false };
     }
     case 'deletedOnDisk':
-      return { ...state, deleted: true };
+      // There is no disk version left to compare. Keep the edits, but retire the obsolete conflict.
+      return { ...state, deleted: true, conflict: false };
     case 'reappeared':
       return { ...state, deleted: false };
   }

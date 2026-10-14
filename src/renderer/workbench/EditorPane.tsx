@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { SAMPLE_HTML } from '../editor/sample';
@@ -98,6 +98,11 @@ export function EditorPane(props: EditorPaneProps) {
   const saveError = tab && tab.save.error && isUnsaved(tab.save) && !diskState ? tab.save.error : null;
   // S11.2: the comparison is shown for one file at a time and closes when its conflict ends.
   const [comparingPath, setComparingPath] = useState<string | null>(null);
+  useEffect(() => {
+    if (comparingPath !== null && !tabs.some((open) => open.relPath === comparingPath && open.save.conflict)) {
+      setComparingPath(null);
+    }
+  }, [comparingPath, tabs]);
   const comparing = tab !== null && comparingPath === tab.relPath && tab.save.conflict && !!tab.conflictDisk;
   const notice = copyNotice && tab && copyNotice.relPath === tab.relPath ? copyNotice : null;
   const editorFile = tab

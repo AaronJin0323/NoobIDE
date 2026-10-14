@@ -133,6 +133,50 @@ test('"keep mine" writes the editor version over the compared disk version (S11.
   await expect(status()).toHaveAttribute('data-state', 'saved');
 });
 
+test('deleting a conflicted file closes its comparison and lets the user save the retained edits again', async () => {
+  await typeAtEnd(page, 'CONFLICT-THEN-DELETED');
+  await writeFile(file('index.html'), '<p>OBSOLETE-DISK-VERSION</p>\n');
+  const conflict = page.getByTestId('conflict-banner');
+  await expect(conflict).toBeVisible();
+  await conflict.getByTestId('conflict-compare').click();
+  await expect(page.getByTestId('conflict-diff')).toBeVisible();
+
+  await rm(file('index.html'));
+  const deleted = page.getByTestId('deleted-banner');
+  await expect(deleted).toBeVisible();
+  await expect(status()).toHaveAttribute('data-state', 'deleted');
+  await expect(conflict).toHaveCount(0);
+  await expect(page.getByTestId('conflict-diff')).toHaveCount(0);
+  await showEnd();
+  await expect(lines()).toContainText('CONFLICT-THEN-DELETED');
+  await page.waitForTimeout(1500);
+  await expect(readFile(file('index.html'))).rejects.toThrow();
+
+  await deleted.getByTestId('deleted-resave').click();
+  await expect.poll(() => disk('index.html').catch(() => '')).toContain('CONFLICT-THEN-DELETED');
+  await expect(status()).toHaveAttribute('data-state', 'saved');
+  await expect(deleted).toHaveCount(0);
+});
+
+test('a new disk version replaces the comparison while the retained edits still await a choice', async () => {
+  await typeAtEnd(page, 'RETAIN-UNTIL-CHOICE');
+  await writeFile(file('index.html'), '<p>FIRST-COMPARISON</p>\n');
+  const banner = page.getByTestId('conflict-banner');
+  await expect(banner).toBeVisible();
+  await banner.getByTestId('conflict-compare').click();
+  const diff = page.getByTestId('conflict-diff');
+  await expect(diff).toContainText('FIRST-COMPARISON');
+  await writeFile(file('index.html'), '<p>LATEST-COMPARISON</p>\n');
+  await expect(diff).toContainText('LATEST-COMPARISON');
+  await expect(diff).toContainText('RETAIN-UNTIL-CHOICE');
+  expect(await disk('index.html')).toBe('<p>LATEST-COMPARISON</p>\n');
+  await banner.getByTestId('conflict-take-disk').click();
+  await expect(diff).toHaveCount(0);
+  await expect(lines()).toContainText('LATEST-COMPARISON');
+  await expect(lines()).not.toContainText('RETAIN-UNTIL-CHOICE');
+  await expect(status()).toHaveAttribute('data-state', /^(clean|saved)$/);
+});
+
 test('a file deleted on disk keeps its text, is marked deleted and can be saved again (S11.3)', async () => {
   await openFile(page, 'style.css');
   await typeAtEnd(page, '/* KEPT */');
