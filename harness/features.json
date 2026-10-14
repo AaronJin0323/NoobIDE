@@ -1291,8 +1291,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "done",
-      "evidence": "mtime+size+hash: FileVersion on every read/save, versionChanged by size+hash (tests/integration/external-change.test.ts 11 tests: touch/new mtime is not a change, same-size edit is); check before write: expectedHash re-hashed in ProjectService.write -> changed-on-disk, external bytes untouched; watcher event -> re-read + hash compare (src/renderer/workbench/disk-sync.test.ts 19 tests incl. own write in flight is no conflict); clean buffer reloads with notice, cursor kept: tests/e2e/external-change.spec.ts (own saves never flagged; reload notice + cursor + disk untouched). verify green + e2e 104/104 on Windows x64 @ 0464613"
+      "status": "in_progress",
+      "evidence": "Reopened after review @ 7d5a0a5 (see PROGRESS Session 4): save can rename over a concurrent external write (Windows lock retry); conflict+deleted states break; session restore can revoke a project opened meanwhile. Fix in progress (W4)."
     },
     {
       "id": "S11.2",
@@ -1307,8 +1307,8 @@
       "depends_on": [
         "S11.1"
       ],
-      "status": "done",
-      "evidence": "Dirty buffer + disk change -> conflict status (save-machine.test, disk-sync.test: autosave/save write nothing, refused write is conflict not a retry loop); Monaco diff (ConflictDiff: createDiffEditor, disk left / live buffer right) + line-diff summary; keep mine / take disk only on click: tests/e2e/external-change.spec.ts (conflict banner, .monaco-diff-editor shows both versions, disk unchanged after 2 s, use-disk replaces buffer without writing, keep-mine overwrites the compared version). verify green + e2e 104/104 Windows x64 @ 0464613"
+      "status": "in_progress",
+      "evidence": "Reopened after review @ 7d5a0a5 (see PROGRESS Session 4): save can rename over a concurrent external write (Windows lock retry); conflict+deleted states break; session restore can revoke a project opened meanwhile. Fix in progress (W4)."
     },
     {
       "id": "S11.3",
@@ -1323,8 +1323,8 @@
       "depends_on": [
         "S11.1"
       ],
-      "status": "done",
-      "evidence": "Tab marked deleted (SaveStatus 'deleted', tab text + icon), content retained, autosave stops, save() never reports success for a deleted tab; re-save re-creates exclusively (WriteFileRequest.create; refuses if a file appeared -> conflict; missing folder -> not-found): tests/integration/external-change.test.ts, disk-sync.test.ts, tests/e2e/external-change.spec.ts (deleted banner, text kept, no auto re-create after 2 s, close asks to confirm, re-save restores KEPT+UNSAVED). verify green + e2e 104/104 Windows x64 @ 0464613"
+      "status": "in_progress",
+      "evidence": "Reopened after review @ 7d5a0a5 (see PROGRESS Session 4): save can rename over a concurrent external write (Windows lock retry); conflict+deleted states break; session restore can revoke a project opened meanwhile. Fix in progress (W4)."
     },
     {
       "id": "S12.1",
@@ -1446,8 +1446,8 @@
         "S13.1",
         "S13.3"
       ],
-      "status": "done",
-      "evidence": "Reopen restores tabs, active tab, layout sizes: tests/e2e/session.spec.ts (3 tabs in order, active tab, files width and 60 percent editor split survive a normal quit and relaunch; restore notice shows the project path; project-path in the top bar); crash recovery precedence: after a forced kill with a journaled buffer the recovery dialog shows and the project is not reopened (e2e + src/main/app-data-ipc.test.ts + tests/integration/session-store.test.ts decideRestore); store in app data, relative tab paths, validated payloads; layout reducer clamps (layout.test.ts). verify green + e2e 128/128 Windows x64 @ f82fbca. Note: the crash-precedence e2e failed once in an earlier full run (recovery dialog not shown) and passed in 3 isolated reruns and the final full run - watch for flakiness."
+      "status": "in_progress",
+      "evidence": "Reopened after review @ 7d5a0a5 (see PROGRESS Session 4): save can rename over a concurrent external write (Windows lock retry); conflict+deleted states break; session restore can revoke a project opened meanwhile. Fix in progress (W4)."
     },
     {
       "id": "S13.5",
