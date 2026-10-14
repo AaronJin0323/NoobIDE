@@ -289,6 +289,7 @@ export class PreviewManager {
         message: `${details.statusCode} ${details.method} ${details.resourceType}`,
         url: details.url,
         status: details.statusCode,
+        resourceType: details.resourceType,
         at: Date.now(),
       });
     });
@@ -299,6 +300,7 @@ export class PreviewManager {
         level: 'error',
         message: `${details.error} ${details.method} ${details.resourceType}`,
         url: details.url,
+        resourceType: details.resourceType,
         at: Date.now(),
       });
     });
@@ -347,6 +349,8 @@ export class PreviewManager {
         return;
       }
       const { message, level, lineNumber, sourceId } = event;
+      // Electron's own development-only warnings ("Electron Security Warning…") are not the user's output.
+      if (sourceId.startsWith('node:electron/')) return;
       this.pushLog({
         source: /^Uncaught\b/.test(message) ? 'exception' : 'console',
         level,

@@ -43,6 +43,8 @@ export interface PreviewLogEntry {
   readonly line?: number;
   /** HTTP status for network records. */
   readonly status?: number;
+  /** Electron webRequest resource type for network records ('script', 'image', 'xhr', …). */
+  readonly resourceType?: string;
   readonly at: number;
 }
 

@@ -4,6 +4,8 @@ import { rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import { previewEntryToProblem } from '../../src/preview/to-problem';
+import type { PreviewLogEntry } from '../../src/shared/ipc/preview-contract';
 import { launchApp } from './launch';
 import {
   copyFixture,
@@ -245,6 +247,32 @@ test('uncaught exception, console error, 404 and module load failure produce raw
   const module404 = await find((r) => r.source === 'network' && /missing-module\.js$/.test(r.url ?? ''));
   expect(module404).toMatchObject({ status: 404, level: 'error' });
   expect(module404?.message).toContain('script');
+
+  // The raw records map onto the shared diagnostics model (src/shared/problem.ts) with project paths.
+  const info = await previewInfo(app);
+  const problems = (all as unknown as PreviewLogEntry[])
+    .map((r) =>
+      previewEntryToProblem(r, {
+        projectId: info.status.projectId ?? '',
+        preview: { sessionId: 'e2e', generation: 0 },
+        previewOrigin: info.origin ?? '',
+      }),
+    )
+    .filter((p) => p !== null);
+  expect(problems).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ source: 'runtime', code: 'ReferenceError', file: 'js/errors.js', line: 3 }),
+      expect.objectContaining({ source: 'console', file: 'js/errors.js', line: 1 }),
+      expect.objectContaining({
+        source: 'resource',
+        resource: expect.objectContaining({ requestedPath: 'images/missing.png', status: 404 }),
+      }),
+      expect.objectContaining({
+        source: 'resource',
+        resource: expect.objectContaining({ requestedPath: 'js/missing-module.js', resourceType: 'script' }),
+      }),
+    ]),
+  );
 
   // The same records reach the preview console in the workbench.
   const consoleList = page.getByTestId('preview-console');
