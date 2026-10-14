@@ -3,6 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
 import { collectConsoleErrors, makeProject, openFile, openProject, tabOf, treeRow, typeAtEnd } from './project';
+import { DOC_END, DOC_START } from './keys';
 
 /**
  * S09.1 model registry and S09.2 tab bar, end to end in the real editor: switching tabs keeps cursor, scroll,
@@ -65,7 +66,7 @@ test('folding, cursor and scroll position survive a tab switch (S09.1)', async (
   await page.locator('.margin-view-overlays .codicon-folding-expanded').first().click();
   await expect(lines()).not.toContainText('inner body line');
   await lines().click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await expect(cursor()).toHaveText('行 201, 列 32');
   await expect(lines()).toContainText('END OF FILE');
   await expect(lines()).not.toContainText('function outer');
@@ -77,7 +78,7 @@ test('folding, cursor and scroll position survive a tab switch (S09.1)', async (
   await expect(lines()).toContainText('END OF FILE');
   await expect(lines()).not.toContainText('function outer');
   await lines().click();
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   await expect(lines()).toContainText('function outer');
   await expect(lines()).not.toContainText('inner body line'); // still folded
 });
@@ -120,7 +121,7 @@ test('closing a tab disposes its model: reopening starts from disk with a fresh 
 test('an unsaved tab says so with an icon and text (S09.2)', async () => {
   await tabOf(page, 'index.html').click();
   await lines().click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   // An open IME composition holds autosave (S09.4), so the unsaved state stays visible for the assertion.
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Input.imeSetComposition', { text: 'ni', selectionStart: 2, selectionEnd: 2 });
@@ -177,6 +178,41 @@ test('middle-click closes a tab (S09.2)', async () => {
   await tabOf(page, 'long.js').click({ button: 'middle' });
   await expect(tabOf(page, 'long.js')).toHaveCount(0);
   await expect(page.getByRole('tab')).toHaveText(['index.html', 'style.css']);
+});
+
+test('when the tabs overflow the strip, the active tab is scrolled into view and every tab takes clicks (S09.2)', async () => {
+  // The narrowest window that keeps the three-column layout (NARROW_QUERY is max-width 959px): with six tabs the strip
+  // overflows on every platform and font.
+  const original = await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0]!;
+    const bounds = win.getBounds();
+    const [, height] = win.getContentSize();
+    win.setContentSize(960, height ?? bounds.height);
+    return bounds;
+  });
+  try {
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(960);
+    const files = ['index.html', 'style.css', 'long.js', 'script.js', 'README.md', '子 文件夹/页面 二.html'];
+    for (const file of files) await openFile(page, file);
+    const bar = page.getByTestId('tab-bar');
+    expect(await bar.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    const fullyVisible = (relPath: string) =>
+      page.locator(`[data-testid="tab"][data-path="${relPath}"]`).evaluate((tab) => {
+        const strip = (tab.closest('[role="tablist"]') as HTMLElement).getBoundingClientRect();
+        const r = tab.getBoundingClientRect();
+        return r.left >= strip.left - 0.5 && r.right <= strip.right + 0.5;
+      });
+    await expect.poll(() => fullyVisible('子 文件夹/页面 二.html')).toBe(true);
+    // Clicking along the strip, both ways: a click right after the strip scrolled must reach the tab (a macOS overlay
+    // scrollbar once covered the lower half of the tabs and swallowed these clicks).
+    for (const file of [...files].reverse().concat(files)) {
+      await tabOf(page, file).click();
+      await expect(tabOf(page, file)).toHaveAttribute('aria-selected', 'true');
+      await expect.poll(() => fullyVisible(file)).toBe(true);
+    }
+  } finally {
+    await app.evaluate(({ BrowserWindow }, bounds) => BrowserWindow.getAllWindows()[0]?.setBounds(bounds), original);
+  }
 });
 
 test('no console errors during the tab run', async () => {
