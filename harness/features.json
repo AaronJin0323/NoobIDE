@@ -1399,8 +1399,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "JSON schema with version + defaults + per-field validation + migration chain (src/shared/settings.test.ts 9 tests: v0 unversioned -> v1, injected v1->v2->v3 chain, newer/bad/throwing migrations rejected, strict IPC patch); SettingsStore in app data: corrupt file (bad JSON, non-object) and newer file moved to timestamped backup byte-for-byte, defaults written, notice (tests/integration/settings-store.test.ts 9 tests, Chinese+space path; src/main/app-data-ipc.test.ts sender/payload checks); e2e tests/e2e/settings.spec.ts: language + zoom persist across restart, corrupt file -> backup + reset + notice. verify green + e2e 106/106 Windows x64 @ 435f209"
     },
     {
       "id": "S13.2",
@@ -1474,7 +1474,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
