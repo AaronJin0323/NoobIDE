@@ -1,4 +1,4 @@
-# 0012 — One command registry for shortcuts, the in-window menu and the native menus
+# 0014 — One command registry for shortcuts, the in-window menu and the native menus
 
 - **Status:** accepted
 - **Date:** 2026-10-15

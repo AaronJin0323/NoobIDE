@@ -20,6 +20,9 @@ export const commandsZhCN = {
   // ── S24.3 键盘 ──
   'command.focusNextRegion': '转到下一个区域',
   'command.focusPreviousRegion': '转到上一个区域',
+  // ── S23 帮助（在“帮助”菜单里，不再需要“帮助：”前缀）──
+  'command.walkthrough': '入门导览',
+  'command.glossary': '术语表',
   // ── S24.2 系统菜单 ──
   'menu.about': '关于 NoobIDE',
   'menu.services': '服务',
@@ -64,6 +67,9 @@ export const commandsEn: Record<keyof typeof commandsZhCN, string> = {
   // ── S24.3 keyboard ──
   'command.focusNextRegion': 'Focus next area',
   'command.focusPreviousRegion': 'Focus previous area',
+  // ── S23 help (in the Help menu, no "Help:" prefix needed) ──
+  'command.walkthrough': 'Walkthrough',
+  'command.glossary': 'Glossary',
   // ── S24.2 native menus ──
   'menu.about': 'About NoobIDE',
   'menu.services': 'Services',

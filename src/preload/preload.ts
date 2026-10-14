@@ -5,6 +5,7 @@ import { platformId } from '../platform/index';
 import { APP_DATA_CHANNELS } from '../shared/ipc/app-data-contract';
 import { COMMAND_CHANNELS, COMMAND_EVENTS } from '../shared/ipc/commands-contract'; // S24.2
 import { isCommandId } from '../shared/commands';
+import { WALKTHROUGH_CHANNELS } from '../shared/ipc/walkthrough-contract';
 
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
@@ -137,6 +138,11 @@ const api: NoobideApi = {
     },
   },
   // --- end S24.2 ---
+  // S23 onboarding walkthrough
+  walkthrough: {
+    get: () => ipcRenderer.invoke(WALKTHROUGH_CHANNELS.get),
+    save: (state) => ipcRenderer.invoke(WALKTHROUGH_CHANNELS.save, state),
+  },
 };
 
 contextBridge.exposeInMainWorld(
@@ -156,5 +162,6 @@ contextBridge.exposeInMainWorld(
     createProject: Object.freeze(api.createProject), // S20.2
     history: Object.freeze(api.history), // S21.3/S21.4
     commands: Object.freeze(api.commands), // S24.2
+    walkthrough: Object.freeze(api.walkthrough), // S23
   }),
 );

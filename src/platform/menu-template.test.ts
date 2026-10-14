@@ -39,6 +39,15 @@ describe('native menus (S24.2)', () => {
     expect(roles(appMenu)).toEqual(['hide', 'hideOthers', 'unhide', 'quit']);
     expect(appMenu.items[0]).toMatchObject({ kind: 'command', id: 'about', label: 'About NoobIDE' });
     expect(submenu(menus, 'Help').items.some((e) => e.kind === 'command' && e.id === 'about')).toBe(false);
+    // S23: walkthrough and glossary live in the Help menu on both platforms.
+    for (const platform of ['mac', 'windows'] as const) {
+      const ids = submenu(build(platform), 'Help').items.flatMap((e) => (e.kind === 'command' ? [e.id] : []));
+      expect(ids).toEqual(
+        platform === 'mac'
+          ? ['help-walkthrough', 'help-glossary', 'open-logs']
+          : ['help-walkthrough', 'help-glossary', 'open-logs', 'about'],
+      );
+    }
     expect(roles(submenu(menus, 'File'))).toEqual(['close']); // Close Window ⇧⌘W; ⌘W closes the tab
     expect(roles(submenu(menus, 'Window'))).toEqual(['minimize', 'zoom', 'front']);
   });

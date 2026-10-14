@@ -35,7 +35,7 @@ test.afterAll(async () => {
 test('the command menu derives its items and shortcut hints from the registry', async () => {
   await page.getByTestId('app-menu').click();
   const items = page.getByRole('menu').getByRole('menuitem');
-  await expect(items).toHaveText([/^关闭项目$/, /^本地历史…$/, /^打开日志文件夹$/]);
+  await expect(items).toHaveText([/^关闭项目$/, /^本地历史…$/, /^入门导览$/, /^术语表$/, /^打开日志文件夹$/]);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(page.getByTestId('zoom-in')).toHaveAttribute(

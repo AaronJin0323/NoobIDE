@@ -42,6 +42,9 @@ export const COMMAND_IDS = [
   'focus-previous-region',
   // S28.1 About dialog
   'about',
+  // S23 onboarding help
+  'help-walkthrough',
+  'help-glossary',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -126,6 +129,9 @@ export const COMMANDS: readonly CommandDefinition[] = [
   },
   // S28.1: the About dialog (macOS application menu, Windows Help menu).
   { id: 'about', label: 'menu.about', when: noModal },
+  // S23: the onboarding walkthrough and the glossary (Help menu).
+  { id: 'help-walkthrough', label: 'command.walkthrough', when: noModal },
+  { id: 'help-glossary', label: 'command.glossary', when: noModal },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));
@@ -172,6 +178,8 @@ export const APP_MENU_COMMANDS: readonly (CommandId | '-')[] = [
   'theme-light',
   'theme-dark',
   '-',
+  'help-walkthrough',
+  'help-glossary',
   'open-logs',
 ];
 

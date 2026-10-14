@@ -176,7 +176,13 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
     kind: 'submenu',
     label: t('menu.help'),
     role: 'help',
-    items: [command('open-logs'), ...(mac ? [] : [SEPARATOR, command('about')])],
+    items: [
+      command('help-walkthrough'),
+      command('help-glossary'),
+      SEPARATOR,
+      command('open-logs'),
+      ...(mac ? [] : [SEPARATOR, command('about')]),
+    ],
   };
 
   return mac ? [appMenu, file, edit, view, windowMenu, help] : [file, edit, view, help];

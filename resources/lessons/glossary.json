@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "terms": [
+    {
+      "term": "HTML",
+      "zh-CN": {
+        "name": "超文本标记语言",
+        "text": "写页面结构的语言：网页上有哪些内容（标题、段落、按钮、图片），都用 HTML 的标签写在 .html 文件里。"
+      },
+      "en": {
+        "name": "HyperText Markup Language",
+        "text": "The language for page structure: what is on the page (headings, paragraphs, buttons, images) is written with HTML tags in .html files."
+      }
+    },
+    {
+      "term": "CSS",
+      "zh-CN": {
+        "name": "层叠样式表",
+        "text": "写视觉样式的语言：颜色、字号、间距、布局。CSS 规则通常放在 .css 文件里，用选择器挑出要改的元素。"
+      },
+      "en": {
+        "name": "Cascading Style Sheets",
+        "text": "The language for visual styling: colours, font sizes, spacing, layout. CSS rules usually live in .css files and use selectors to pick the elements they change."
+      }
+    },
+    {
+      "term": "JavaScript",
+      "zh-CN": {
+        "name": "JavaScript 脚本语言",
+        "text": "让网页动起来的语言：点击按钮后做什么、怎么改页面上的文字。浏览器运行 .js 文件里的 JavaScript。"
+      },
+      "en": {
+        "name": "JavaScript",
+        "text": "The language that makes a page interactive: what happens when a button is clicked, how text on the page changes. The browser runs the JavaScript in .js files."
+      }
+    },
+    {
+      "term": "tag",
+      "zh-CN": {
+        "name": "标签",
+        "text": "HTML 里用尖括号写的标记，比如 <h1> 和 </h1>。开始标签和结束标签把内容包起来。"
+      },
+      "en": {
+        "name": "tag",
+        "text": "A marker in HTML written in angle brackets, such as <h1> and </h1>. An opening and a closing tag wrap the content."
+      }
+    },
+    {
+      "term": "element",
+      "zh-CN": {
+        "name": "元素",
+        "text": "一对标签加上它们中间的内容，比如 <h1>你好</h1> 就是一个标题元素。JavaScript 和 CSS 操作的都是元素。"
+      },
+      "en": {
+        "name": "element",
+        "text": "A pair of tags with the content between them; <h1>Hello</h1> is a heading element. JavaScript and CSS work on elements."
+      }
+    },
+    {
+      "term": "attribute",
+      "zh-CN": {
+        "name": "属性（HTML）",
+        "text": "写在开始标签里的额外信息，比如 <img src=\"images/avatar.svg\" alt=\"头像\"> 里的 src 和 alt。"
+      },
+      "en": {
+        "name": "attribute",
+        "text": "Extra information inside an opening tag, such as src and alt in <img src=\"images/avatar.svg\" alt=\"Avatar\">."
+      }
+    },
+    {
+      "term": "selector",
+      "zh-CN": {
+        "name": "选择器",
+        "text": "CSS 规则开头那部分，决定样式用在哪些元素上：h1 选所有一级标题，.card 选 class 是 card 的元素，#message 选 id 是 message 的元素。"
+      },
+      "en": {
+        "name": "selector",
+        "text": "The start of a CSS rule that decides which elements the style applies to: h1 picks every top-level heading, .card the elements with class card, #message the element with id message."
+      }
+    },
+    {
+      "term": "property",
+      "zh-CN": {
+        "name": "属性（CSS）",
+        "text": "CSS 里要改的那一项，比如 color（文字颜色）、font-size（字号）。写法是“属性: 值;”。"
+      },
+      "en": {
+        "name": "property",
+        "text": "The thing a CSS declaration changes, such as color (text colour) or font-size. It is written as “property: value;”."
+      }
+    },
+    {
+      "term": "variable",
+      "zh-CN": {
+        "name": "变量",
+        "text": "JavaScript 里给一个值起的名字，比如 const userName = '小雨';。名字要拼得一模一样（大小写也算），拼错了浏览器就找不到它。"
+      },
+      "en": {
+        "name": "variable",
+        "text": "A name for a value in JavaScript, such as const userName = 'Yu';. The name must be spelled exactly the same every time (including upper and lower case), or the browser cannot find it."
+      }
+    },
+    {
+      "term": "string",
+      "zh-CN": {
+        "name": "字符串",
+        "text": "JavaScript 里用引号括起来的一段文字，比如 '你好！'。引号里的内容会原样显示。"
+      },
+      "en": {
+        "name": "string",
+        "text": "A piece of text in quotes in JavaScript, such as 'Hello!'. What is inside the quotes is shown as it is."
+      }
+    },
+    {
+      "term": "function",
+      "zh-CN": { "name": "函数", "text": "一段起了名字、可以反复执行的代码，比如点击按钮时运行的 function () { … }。" },
+      "en": {
+        "name": "function",
+        "text": "A named piece of code that can run again and again, such as the function () { … } that runs when a button is clicked."
+      }
+    },
+    {
+      "term": "event",
+      "zh-CN": {
+        "name": "事件",
+        "text": "页面上发生的事情，比如点击（click）。addEventListener 让 JavaScript 在事件发生时运行一个函数。"
+      },
+      "en": {
+        "name": "event",
+        "text": "Something that happens on the page, such as a click. addEventListener makes JavaScript run a function when the event happens."
+      }
+    },
+    {
+      "term": "DOM",
+      "zh-CN": {
+        "name": "文档对象模型",
+        "text": "浏览器根据 HTML 建出来的元素树。JavaScript 通过 DOM 找到元素（比如 document.querySelector）并修改它们。"
+      },
+      "en": {
+        "name": "Document Object Model",
+        "text": "The tree of elements the browser builds from the HTML. JavaScript uses the DOM to find elements (for example with document.querySelector) and change them."
+      }
+    },
+    {
+      "term": "console",
+      "zh-CN": { "name": "控制台", "text": "显示网页运行时输出和错误的地方。console.log(...) 写的内容会出现在这里。" },
+      "en": {
+        "name": "console",
+        "text": "Where a running page's output and errors appear. Whatever console.log(...) writes shows up here."
+      }
+    },
+    {
+      "term": "error message",
+      "zh-CN": {
+        "name": "错误信息",
+        "text": "浏览器或代码检查报告的原始文字，通常是英文，比如 “userNmae is not defined”。NoobIDE 会给出中文解释，但原文一直保留，方便你搜索教程。"
+      },
+      "en": {
+        "name": "error message",
+        "text": "The original text the browser or the code checker reports, such as “userNmae is not defined”. NoobIDE explains it, but always keeps the original so you can search tutorials for it."
+      }
+    },
+    {
+      "term": "preview",
+      "zh-CN": { "name": "预览", "text": "窗口右边显示网页实际效果的地方。文件保存成功后，预览会自动刷新。" },
+      "en": {
+        "name": "preview",
+        "text": "The area on the right that shows how the webpage really looks. It refreshes after a file is saved successfully."
+      }
+    },
+    {
+      "term": "autosave",
+      "zh-CN": {
+        "name": "自动保存",
+        "text": "你停下打字一会儿，或者切到别处时，NoobIDE 会把文件写到磁盘上。顶栏会显示保存状态。"
+      },
+      "en": {
+        "name": "autosave",
+        "text": "When you pause typing or switch elsewhere, NoobIDE writes the file to disk. The top bar shows the save status."
+      }
+    },
+    {
+      "term": "local history",
+      "zh-CN": {
+        "name": "本地历史",
+        "text": "NoobIDE 在你电脑上为每次保存留下的旧版本。可以比较差异，也可以恢复到以前的版本。它和撤销（Ctrl+Z）不是一回事。"
+      },
+      "en": {
+        "name": "local history",
+        "text": "Earlier saved versions NoobIDE keeps on your computer. You can compare them and restore one. It is not the same thing as undo (Ctrl+Z)."
+      }
+    },
+    {
+      "term": "diff",
+      "zh-CN": { "name": "差异", "text": "两个版本之间哪些行被加上、哪些行被去掉的对比。" },
+      "en": {
+        "name": "diff",
+        "text": "A comparison of two versions showing which lines were added and which were removed."
+      }
+    },
+    {
+      "term": "project",
+      "zh-CN": {
+        "name": "项目",
+        "text": "你的网页所在的那个文件夹，以及里面所有的文件。它就是电脑上一个普通的文件夹，可以复制、发给别人，或用其他编辑器打开。"
+      },
+      "en": {
+        "name": "project",
+        "text": "The folder your webpage lives in, with all the files inside it. It is an ordinary folder on your computer: you can copy it, send it or open it in another editor."
+      }
+    },
+    {
+      "term": "folder",
+      "zh-CN": {
+        "name": "文件夹",
+        "text": "电脑上存放文件的地方。路径（path）写出它在哪儿，比如 文档/NoobIDE 项目/我的第一个网页。"
+      },
+      "en": {
+        "name": "folder",
+        "text": "A place on your computer that holds files. Its path says where it is, for example Documents/NoobIDE Projects/My first webpage."
+      }
+    },
+    {
+      "term": "path",
+      "zh-CN": {
+        "name": "路径",
+        "text": "文件的位置写法。网页里引用文件常用相对路径，比如 images/avatar.svg 表示“当前文件旁边 images 文件夹里的 avatar.svg”。大小写要一致。"
+      },
+      "en": {
+        "name": "path",
+        "text": "How a file's location is written. Webpages usually use relative paths: images/avatar.svg means “avatar.svg in the images folder next to this file”. Upper and lower case must match."
+      }
+    }
+  ]
+}
