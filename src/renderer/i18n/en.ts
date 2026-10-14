@@ -223,4 +223,22 @@ export const en: Record<MessageKey, string> = {
   'format.button': 'Format',
   'format.title': 'Format the code: indentation and line breaks ({shortcut})',
   // --- end S18.3 ---
+  // --- S17.1 problems panel ---
+  'problems.section.static': 'Code check',
+  'problems.section.runtime': 'While the page runs',
+  'problems.section.resource': 'Loading files',
+  'problems.sectionEmpty': 'None',
+  'problems.severity.error': 'Error',
+  'problems.severity.warning': 'Warning',
+  'problems.severity.info': 'Note',
+  'problems.count.errors': '{n} errors',
+  'problems.count.warnings': '{n} warnings',
+  'problems.count.info': '{n} notes',
+  'problems.none': 'No problems found',
+  'problems.noneDetail': 'Nothing found in the open files or the running preview. Only open files are checked.',
+  'problems.announce.new': '{n} new problems. See Problems for an explanation.',
+  'problems.announce.cleared': 'All problems are solved.',
+  'problems.stale': 'Not seen again after refresh',
+  'problems.clearResolved': 'Clear resolved problems',
+  // --- end S17.1 ---
 };

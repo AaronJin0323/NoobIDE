@@ -212,6 +212,24 @@ export const zhCN = {
   'format.button': '整理格式',
   'format.title': '整理代码格式：缩进和换行（{shortcut}）',
   // --- end S18.3 ---
+  // --- S17.1 problems panel ---
+  'problems.section.static': '代码检查',
+  'problems.section.runtime': '页面运行时',
+  'problems.section.resource': '文件加载',
+  'problems.sectionEmpty': '没有',
+  'problems.severity.error': '错误',
+  'problems.severity.warning': '警告',
+  'problems.severity.info': '提示',
+  'problems.count.errors': '{n} 个错误',
+  'problems.count.warnings': '{n} 个警告',
+  'problems.count.info': '{n} 个提示',
+  'problems.none': '没有发现问题',
+  'problems.noneDetail': '已打开的文件和正在运行的预览里没有发现问题。只检查打开的文件。',
+  'problems.announce.new': '发现 {n} 个新问题，在“问题”里可以看到说明。',
+  'problems.announce.cleared': '问题都解决了。',
+  'problems.stale': '刷新后没有再出现',
+  'problems.clearResolved': '清除已解决的问题',
+  // --- end S17.1 ---
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

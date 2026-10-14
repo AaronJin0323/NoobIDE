@@ -36,6 +36,11 @@ test.beforeAll(async () => {
   ({ tmp, root } = await makeProject('noobide-e2e-problems-'));
   await writeFile(path.join(root, 'script.js'), SCRIPT);
   await writeFile(path.join(root, 'style.css'), 'h1 {\n  colr: red;\n}\n');
+  // S17.1: a page with a missing image (wireframe 3b: case mismatch, 头像.PNG) for the resource section.
+  await writeFile(
+    path.join(root, 'index.html'),
+    '<!doctype html>\n<html lang="zh-CN">\n  <head>\n    <meta charset="utf-8" />\n    <title>我的 主页</title>\n  </head>\n  <body>\n    <h1>你好</h1>\n    <img src="images/头像.PNG" alt="头像" />\n    <script src="script.js"></script>\n  </body>\n</html>\n',
+  );
   // S19.2: beginner-tuning fixtures (noise that must stay quiet, mistakes that must be reported).
   await cp(path.join(repoRoot, 'tests', 'fixtures', 'static-diagnostics'), path.join(root, 'diag'), {
     recursive: true,
@@ -103,6 +108,78 @@ test('beginner tuning: noisy-but-valid code stays quiet; undefined names and syn
     if (codes.length) continue;
     expect((await staticRecords()).filter((r) => r.file === `diag/${file}`)).toEqual([]);
   }
+});
+
+const toggle = () => page.getByTestId('problems-toggle');
+const panel = () => page.getByTestId('problems-panel');
+const section = (id: string) => page.locator(`[data-section="${id}"]`);
+const editorHasFocus = () => page.evaluate(() => Boolean(document.activeElement?.closest('.monaco-editor')));
+
+test('problems appear in the status strip without opening the panel or taking focus; announced politely (S17.1)', async () => {
+  // Start from only the userNmae problem: close every other tab.
+  const tabs = page.locator('[data-testid="tab"]');
+  while ((await tabs.count()) > 0) {
+    const before = await tabs.count();
+    await tabs.first().locator('[data-testid="tab-close"]').click();
+    await expect(tabs).toHaveCount(before - 1);
+  }
+  await openFile(page, 'script.js');
+  await expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle()).toContainText('问题 · 1 个错误', { timeout: 30_000 });
+  await expect(toggle()).toHaveAttribute('data-errors', '1');
+  const announcer = page.getByTestId('problems-announcer');
+  await expect(announcer).toHaveAttribute('aria-live', 'polite');
+  await expect(announcer).toHaveText(/发现 1 个新问题/);
+  const firstAnnouncement = await announcer.textContent();
+
+  // Typing a second mistake: the count goes up, the panel stays closed, focus stays in the editor.
+  await page.locator('.monaco-editor .view-lines').click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type('console.log(scoreTotal);');
+  await expect(toggle()).toContainText('问题 · 2 个错误', { timeout: 30_000 });
+  await expect(panel()).toBeHidden();
+  expect(await editorHasFocus()).toBe(true);
+  // Announced once more (a new text, so screen readers read it), without moving focus.
+  await expect.poll(() => announcer.textContent()).not.toBe(firstAnnouncement);
+  await expect(announcer).toHaveText(/发现 1 个新问题/);
+  expect(await editorHasFocus()).toBe(true);
+  // Remove the second mistake again: back to one problem.
+  await page.keyboard.press('End');
+  await page.keyboard.press('Shift+Home');
+  await page.keyboard.press('Delete');
+  await expect(toggle()).toContainText('问题 · 1 个错误', { timeout: 30_000 });
+});
+
+test('the panel lists static, runtime and resource problems in separate sections with counts (S17.1)', async () => {
+  await toggle().click();
+  await expect(panel()).toBeVisible();
+  await expect(toggle()).toBeFocused(); // opening it does not move focus into the panel
+  await expect(page.getByTestId('problems-badge-static')).toHaveText('1');
+  await expect(page.getByTestId('problems-badge-runtime')).toHaveText('0');
+  await expect(page.getByTestId('problems-badge-resource')).toHaveText('0');
+  const row = section('static').getByTestId('problem-row');
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('错误');
+  await expect(row).toContainText('script.js:3');
+  await expect(row).toContainText('找不到变量 userNmae。');
+
+  // Run the page: the browser's ReferenceError and the missing image arrive as runtime and resource problems.
+  await page.getByTestId('preview-start').click();
+  await expect(page.getByTestId('preview-state')).toHaveAttribute('data-state', 'running', { timeout: 20_000 });
+  await expect(page.getByTestId('problems-badge-runtime')).toHaveText('1', { timeout: 20_000 });
+  await expect(page.getByTestId('problems-badge-resource')).toHaveText('1');
+  await expect(section('runtime').getByTestId('problem-row')).toContainText('找不到变量 userNmae。');
+  await expect(section('runtime').getByTestId('problem-row')).toHaveAttribute('data-code', 'ReferenceError');
+  await expect(section('resource').getByTestId('problem-row')).toContainText('images/头像.PNG');
+  await expect(toggle()).toContainText('3 个错误');
+
+  // English UI: same structure, translated labels.
+  await page.getByTestId('switch-language').click();
+  await expect(section('static')).toContainText('Code check');
+  await expect(section('runtime')).toContainText('While the page runs');
+  await expect(section('resource')).toContainText('Loading files');
+  await expect(toggle()).toContainText('Problems · 3 errors');
+  await page.getByTestId('switch-language').click();
 });
 
 test('no console errors during the problems run', () => {

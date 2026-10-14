@@ -24,6 +24,9 @@ import type { RecoveredEntry } from '../../shared/ipc/recovery-contract';
 import { useProjectScripts } from '../editor/useProjectScripts';
 // S19.1: static problems (language-service markers of the open files).
 import { useStaticProblems } from '../problems/useStaticProblems';
+// S17.1: runtime / resource problems (main's store when present, else the preview's events) and the panel view.
+import { useRuntimeProblems } from '../problems/useRuntimeProblems';
+import { buildView } from '../problems/problems-view';
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
@@ -63,7 +66,11 @@ export function Workbench() {
   const tabJournals = useRef(new Map<string, JournalScheduler>());
   useProjectScripts(bridge, doc.project); // S18.4
   const staticProblems = useStaticProblems(doc.project?.projectId ?? null, doc.tabs); // S19.1
-  void staticProblems; // shown by the Problems panel (S17.1)
+  const runtimeProblems = useRuntimeProblems(bridge); // S17.1
+  const problemsView = useMemo(
+    () => buildView(doc.project?.projectId ?? null, staticProblems.records, runtimeProblems.records),
+    [doc.project?.projectId, staticProblems.records, runtimeProblems.records],
+  );
 
   const saverOf = (relPath: string | null | undefined) => (relPath ? savers.current.get(relPath) : undefined);
   const relPathOfUri = (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath;
@@ -436,7 +443,14 @@ export function Workbench() {
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
         />
       </div>
-      <ProblemsPanel open={visible.problemsPanel} onToggle={() => dispatchLayout({ type: 'toggleProblems' })} />
+      {/* S17.1: problems panel in the status strip (never opens or takes focus by itself) */}
+      <ProblemsPanel
+        open={visible.problemsPanel}
+        onToggle={() => dispatchLayout({ type: 'toggleProblems' })}
+        projectOpen={project !== null}
+        view={problemsView}
+        onClearResolved={runtimeProblems.clearResolved}
+      />
       {/* S12: crash-recovery prompt and journal health */}
       <RecoveryDialog
         bridge={bridge}

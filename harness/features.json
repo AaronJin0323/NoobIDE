@@ -1777,7 +1777,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
@@ -1917,8 +1917,8 @@
       "depends_on": [
         "S19.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Noisy codes off: language-config.ts NOISY_TS_CODES (2339 DOM props, 2322/2345 type mismatch, 2362/2365 arithmetic, 2554 arity, 2451 const name, 2307 …), CSS lint opinions ignored; kept: all 1xxx syntax, 2304/2552/2448, CSS unknown property + parse errors, plus new html-check.ts (html-unclosed-tag with data.tagName; html-check.test.ts 5 tests). Fixtures tests/fixtures/static-diagnostics + expected.json: beginner-diagnostics.test.ts runs TypeScript (checkJs + DOM) on them — noisy.js raw has >=6 noise diagnostics of >=5 codes, after tuning only its control 2304 remains; errors.js keeps 2552/2304/1005/1128; template.js quiet. tests/e2e/problems.spec.ts opens every fixture in the real editor and gets exactly the expected records (noisy files: only the control line; clean.html, template.js/.css quiet after a 3 s settle). verify green, e2e 108/108 @ 39b9180"
     },
     {
       "id": "S20.1",
