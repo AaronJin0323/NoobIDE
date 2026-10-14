@@ -5,6 +5,7 @@ import type { ProblemRecord } from '../../src/shared/problem';
 import { launchApp, repoRoot } from './launch';
 import { collectConsoleErrors, makeProject, openFile, openProject } from './project';
 import { evalInPreview } from './preview-helpers';
+import { DOC_END, DOC_START } from './keys';
 
 /**
  * Static diagnostics → problems (S19), the Problems panel (S17) and the problem card (S22.4/S22.5), on a project whose
@@ -77,7 +78,7 @@ test('language-service markers become static problem records, and fixing clears 
 
   // Fixing the CSS typo removes its record (after the debounce), the other file's record stays.
   await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('End');
   await page.keyboard.press('Home');
@@ -135,7 +136,7 @@ test('problems appear in the status strip without opening the panel or taking fo
 
   // Typing a second mistake: the count goes up, the panel stays closed, focus stays in the editor.
   await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.type('console.log(scoreTotal);');
   await expect(toggle()).toContainText('问题 · 2 个错误', { timeout: 30_000 });
   await expect(panel()).toBeHidden();

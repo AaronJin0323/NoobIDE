@@ -1,8 +1,7 @@
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { launchApp } from './launch';
+import { launchApp, tempRoot } from './launch';
 import { makeProject, openProject } from './project';
 import { previewInfo, waitForPreviewState } from './preview-helpers';
 
@@ -40,7 +39,7 @@ const watching = () =>
   );
 
 test.beforeAll(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-recent-e2e-'));
+  tmp = await mkdtemp(path.join(tempRoot(), 'noobide-recent-e2e-'));
   userData = path.join(tmp, '用户 数据');
   a = await makeProject('noobide-recent-a-');
   b = await makeProject('noobide-recent-b-');

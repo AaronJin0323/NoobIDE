@@ -1,8 +1,7 @@
 import { chmod, mkdtemp, readdir, rm } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { launchApp } from './launch';
+import { launchApp, tempRoot } from './launch';
 import { makeProject, openFile, openProject, tabOf, typeAtEnd } from './project';
 
 /**
@@ -64,7 +63,7 @@ async function journalRecords(): Promise<number> {
 const width = async (testId: string) => (await page.getByTestId(testId).boundingBox())?.width ?? 0;
 
 test.beforeAll(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-session-e2e-'));
+  tmp = await mkdtemp(path.join(tempRoot(), 'noobide-session-e2e-'));
   userData = path.join(tmp, '用户 数据');
   project = await makeProject('noobide-session-project-');
 });

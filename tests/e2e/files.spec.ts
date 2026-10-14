@@ -1,8 +1,8 @@
 import { chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { launchApp, repoRoot } from './launch';
+import { launchApp, repoRoot, tempRoot } from './launch';
+import { DOC_END } from './keys';
 
 /**
  * S03.3 / S03.4 end to end: open a project whose path has Chinese characters and spaces, open a file into Monaco,
@@ -36,13 +36,13 @@ const editorText = () => page.locator('.view-lines');
  */
 async function typeAtEnd(text: string) {
   await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.press('Enter');
   await page.keyboard.type(text);
 }
 
 test.beforeAll(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-e2e-'));
+  tmp = await mkdtemp(path.join(tempRoot(), 'noobide-e2e-'));
   root = path.join(tmp, '网页 练习', '中文 路径 项目');
   await mkdir(path.dirname(root), { recursive: true });
   await cp(path.join(repoRoot, 'tests', 'fixtures', '中文 路径 项目'), root, { recursive: true });
@@ -119,7 +119,7 @@ test('a failed save keeps the edits, explains the cause and succeeds after the f
   await expect(page.getByTestId('save-error')).toContainText('没有写入权限');
   await expect(page.getByTestId('save-error')).toContainText('你的修改还在编辑器里');
   // The banner made the editor shorter; bring the last line into view before reading it.
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await expect(editorText()).toContainText('只读时的修改');
   expect(await readFile(file, 'utf8')).toBe(onDisk);
 

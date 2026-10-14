@@ -1,8 +1,8 @@
 import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { launchApp, repoRoot } from './launch';
+import { launchApp, repoRoot, tempRoot } from './launch';
+import { DOC_END } from './keys';
 
 /**
  * S12.1–S12.3 end to end: unsaved edits are journaled to app data within 2 s, survive a forced termination of the
@@ -121,7 +121,7 @@ const writable = (relPath: string) => chmod(path.join(root, ...relPath.split('/'
 /** Plain text on a new last line (no markup, so Monaco's auto-closing does not edit the buffer again). */
 async function typeAtEnd(text: string) {
   await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.press('Enter');
   await page.keyboard.type(text);
 }
@@ -130,7 +130,7 @@ const status = () => page.getByTestId('save-status');
 const editorText = () => page.locator('.view-lines');
 
 test.beforeAll(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-e2e-recovery-'));
+  tmp = await mkdtemp(path.join(tempRoot(), 'noobide-e2e-recovery-'));
   root = path.join(tmp, '网页 练习', '中文 路径 项目');
   userData = path.join(tmp, '应用 数据');
   await mkdir(path.dirname(root), { recursive: true });

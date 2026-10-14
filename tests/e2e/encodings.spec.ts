@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { launchApp } from './launch';
+import { launchApp, tempRoot } from './launch';
+import { DOC_END } from './keys';
 
 /**
  * S07.4 end to end: other encodings open read-only with a notice and are never written; the line-ending style of an
@@ -21,7 +21,7 @@ async function openFile(name: string) {
 }
 
 test.beforeAll(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-e2e-enc-'));
+  tmp = await mkdtemp(path.join(tempRoot(), 'noobide-e2e-enc-'));
   root = path.join(tmp, '编码 测试');
   await mkdir(root, { recursive: true });
   await writeFile(path.join(root, 'gbk.txt'), GBK);
@@ -60,7 +60,7 @@ test('an edited CRLF file keeps CRLF on every line after saving', async () => {
   await openFile('crlf.html');
   await expect(page.getByTestId('read-only-notice')).toHaveCount(0);
   await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.type('三');
   await page.keyboard.press('Enter');
   await page.keyboard.type('四');
