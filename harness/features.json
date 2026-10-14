@@ -671,8 +671,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/ipc/contract.ts (+contract.test.ts: path/payload parsers), src/main/ipc.ts (+ipc.test.ts 16 tests: forbidden sender on every channel for other origin/loopback/iframe/destroyed frame, invalid payloads never reach services), preload exposes only the contract (e2e smoke asserts bridge keys) @ fa56f1d"
     },
     {
       "id": "S03.2",
@@ -686,8 +686,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/platform/labels.ts isMac/isWindows/modifierLabel/shortcutLabel/revealLabelKey (+labels.test.ts); src/platform/eslint-rule.test.ts lints fixtures: process.platform errors in main/workspace/shared/preload/renderer, allowed in src/platform @ fa56f1d"
     },
     {
       "id": "S03.3",
@@ -702,8 +702,8 @@
       "depends_on": [
         "S03.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "workspace/project-service.ts (realpath containment, junction escape rejected on Windows), tests/integration/project-service.test.ts; e2e files.spec: dialog → file list → click opens Monaco model keyed by file:// URI from pathToFileURL; binary refused @ fa56f1d (Windows x64; symlink test runs on macOS)"
     },
     {
       "id": "S03.4",
@@ -719,8 +719,8 @@
       "depends_on": [
         "S03.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "fixture tests/fixtures/中文 路径 项目/; integration: save in Chinese+space path, BOM/CRLF kept, no temp left, read-only refused unchanged; e2e files.spec (serial, 3 consecutive green runs): Ctrl/Cmd+S saves to disk, failed save keeps edits and explains, save-before-switch, nested Chinese file; path APIs only (path.resolve/relative, pathToFileURL) @ fa56f1d"
     },
     {
       "id": "S04.1",
