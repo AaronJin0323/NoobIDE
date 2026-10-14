@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { CHANNELS, EVENTS, IPC_API_VERSION, type NoobideApi, type WorkspaceChanged } from '../shared/ipc/contract';
 import { PREVIEW_CHANNELS, PREVIEW_EVENT_CHANNEL, type PreviewEvent } from '../shared/ipc/preview-contract';
 import { platformId } from '../platform/index';
+import { APP_DATA_CHANNELS } from '../shared/ipc/app-data-contract';
 
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
@@ -64,6 +65,12 @@ const api: NoobideApi = {
     clear: () => ipcRenderer.invoke(CHANNELS.recoveryClear),
   },
   // --- end S12 ---
+  // --- S13 app data ---
+  settings: {
+    get: () => ipcRenderer.invoke(APP_DATA_CHANNELS.settingsGet),
+    update: (patch) => ipcRenderer.invoke(APP_DATA_CHANNELS.settingsUpdate, patch),
+  },
+  // --- end S13 ---
 };
 
 contextBridge.exposeInMainWorld(
@@ -74,5 +81,6 @@ contextBridge.exposeInMainWorld(
     preview: Object.freeze(api.preview),
     app: Object.freeze(api.app),
     recovery: Object.freeze(api.recovery),
+    settings: Object.freeze(api.settings), // S13
   }),
 );

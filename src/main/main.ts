@@ -25,6 +25,9 @@ import { RecoveryJournal } from '../recovery/journal';
 import { SnapshotStore } from '../recovery/history';
 import { HistoryTriggers } from '../recovery/history-triggers';
 import { selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test';
+// S13 app data: settings, recent projects, session, logs
+import { registerAppDataIpcHandlers } from './app-data-ipc';
+import { SettingsStore } from './settings-store';
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
 // Windows installer events: create/remove shortcuts and quit without opening a window.
@@ -157,6 +160,11 @@ function start(): void {
       windowOf: (event) => BrowserWindow.fromWebContents(event.sender),
       preview,
     });
+    // --- S13 app data (all in app.getPath('userData'), never inside a project) ---
+    const settings = new SettingsStore({ file: path.join(appData, 'settings.json'), log: consoleLogger });
+    void settings.load();
+    registerAppDataIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, settings });
+    // --- end S13 ---
     createWorkbenchWindow();
 
     app.on('activate', () => {

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { loadLocale, saveLocale, translate, type Locale, type MessageKey } from './index';
 
 interface I18nValue {
@@ -24,9 +24,26 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = locale;
   }, [locale]);
 
+  // S13.1: the persisted setting (app data) is the source of truth; sessionStorage only avoids a flash on reload.
+  // A choice the user makes before the stored value arrives wins over it.
+  const chosen = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    void window.noobide?.settings?.get().then((result) => {
+      if (cancelled || chosen.current || !result.ok) return;
+      saveLocale(sessionStore(), result.value.settings.locale);
+      setLocaleState(result.value.settings.locale);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const setLocale = useCallback((next: Locale) => {
+    chosen.current = true;
     saveLocale(sessionStore(), next);
     setLocaleState(next);
+    void window.noobide?.settings?.update({ locale: next }); // S13.1
   }, []);
 
   const value = useMemo<I18nValue>(

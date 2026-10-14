@@ -13,6 +13,8 @@ import type { Result } from '../result';
 import type { PreviewApi } from './preview-contract';
 import { isUnsafePathSegment } from '../file-names';
 import type { RecoveryApi } from './recovery-contract';
+// S13 app data (settings, recent projects, session, logs): types and parsers in app-data-contract.ts.
+import type { SettingsApi } from './app-data-contract';
 
 export const IPC_API_VERSION = 1;
 
@@ -340,6 +342,10 @@ export interface NoobideApi {
   };
   /** S12: crash-recovery journal of unsaved buffers. */
   readonly recovery: RecoveryApi;
+  // --- S13 app data (app-data-contract.ts) ---
+  /** S13.1: versioned app settings in app data. */
+  readonly settings?: SettingsApi;
+  // --- end S13 ---
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */

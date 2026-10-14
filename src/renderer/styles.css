@@ -424,6 +424,14 @@ button {
   flex: 1;
   min-height: 0;
 }
+/* S13: app-level notices sit bottom-left, over the files panel (the native preview view would cover the right) */
+.app-notice {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 40;
+  max-width: 420px;
+}
 /* S11.2: conflict comparison (Monaco diff) in place of the editor */
 .conflict-diff {
   display: flex;

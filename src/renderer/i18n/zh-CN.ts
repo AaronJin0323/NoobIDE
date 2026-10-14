@@ -231,6 +231,12 @@ export const zhCN = {
   'deleted.close': '关闭，不保留这些内容',
   'deleted.closeConfirm': '确定关闭？磁盘上已经没有这个文件，关闭后编辑器里的内容将不再保留',
   // --- end S11 ---
+  // --- S13 app data ---
+  'settings.corrupt': '设置文件已损坏，无法读取。',
+  'settings.newer': '设置文件来自更新版本的 NoobIDE，这个版本读不懂它。',
+  'settings.reset': '原来的文件已备份，现在使用默认设置。',
+  'settings.backup': '备份位置：',
+  // --- end S13 ---
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

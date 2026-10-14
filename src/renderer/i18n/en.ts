@@ -245,4 +245,10 @@ export const en: Record<MessageKey, string> = {
   'deleted.close': 'Close without keeping the text',
   'deleted.closeConfirm': 'Close it? The file no longer exists on disk; the text will not be kept',
   // --- end S11 ---
+  // --- S13 app data ---
+  'settings.corrupt': 'The settings file is damaged and could not be read.',
+  'settings.newer': 'The settings file comes from a newer NoobIDE that this version cannot read.',
+  'settings.reset': 'The original file was backed up; the default settings are used now.',
+  'settings.backup': 'Backup:',
+  // --- end S13 ---
 };

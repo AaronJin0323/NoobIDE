@@ -27,6 +27,9 @@ const releaseFileModels = () => void import('../editor/editor-models').then((m) 
 import { DiskSync, pathsToCheck } from './disk-sync';
 import type { DiskActions } from './DiskStateBanner';
 const editorModels = () => import('../editor/editor-models');
+// S13 app data
+import type { SettingsSnapshot } from '../../shared/ipc/app-data-contract';
+import { SettingsNotice } from './SettingsNotice';
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -71,6 +74,26 @@ export function Workbench() {
   /** A deleted file's tab the user asked to close: the banner asks to confirm (S11.3). */
   const [confirmCloseDeleted, setConfirmCloseDeleted] = useState<string | null>(null);
   // --- end S11 ---
+  // --- S13.1: persisted settings (app data) ---
+  const [settingsNotice, setSettingsNotice] = useState<SettingsSnapshot | null>(null);
+  const settingsLoaded = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    void bridge?.settings?.get().then((result) => {
+      if (cancelled || !result.ok) return;
+      settingsLoaded.current = true;
+      setFontSize(result.value.settings.editorFontSize);
+      if (result.value.notice) setSettingsNotice(result.value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge]);
+  useEffect(() => {
+    // The code font size (zoom) is remembered once the stored value has been applied.
+    if (settingsLoaded.current) void bridge?.settings?.update({ editorFontSize: fontSize });
+  }, [bridge, fontSize]);
+  // --- end S13.1 ---
 
   const saverOf = (relPath: string | null | undefined) => (relPath ? savers.current.get(relPath) : undefined);
   const relPathOfUri = (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath;
@@ -555,6 +578,8 @@ export function Workbench() {
         />
       </div>
       <ProblemsPanel open={visible.problemsPanel} onToggle={() => dispatchLayout({ type: 'toggleProblems' })} />
+      {/* S13.1: the settings file was unusable and was backed up */}
+      {settingsNotice && <SettingsNotice snapshot={settingsNotice} onDismiss={() => setSettingsNotice(null)} />}
       {/* S12: crash-recovery prompt and journal health */}
       <RecoveryDialog
         bridge={bridge}
