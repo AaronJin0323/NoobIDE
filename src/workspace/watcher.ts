@@ -1,5 +1,5 @@
 import { watch as fsWatch } from 'node:fs';
-import { readdir } from 'node:fs/promises';
+import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { WatchEvent } from '../shared/ipc/contract';
 import { differsOnlyByCase } from '../shared/file-names';
@@ -20,6 +20,12 @@ import { isIgnoredName, isIgnoredRelPath } from './ignore';
  * Cost stays bounded: snapshot updates touch only the affected folder subtree, and a batch with more than
  * `maxBatch` paths (a mass delete, an unzip) becomes one `rescan` instead of per-path work. If the OS watch fails
  * or stops (`error`), the watcher reports `rescan` and restarts itself with a growing delay.
+ *
+ * FSEvents (macOS) replays changes made shortly *before* the stream was created: right after attaching, every file
+ * written in the last moments (e.g. a project just created from a template) arrives as a raw event, which would be
+ * classified as `changed` although nothing changed since the snapshot. So for raw events received within
+ * `replayWindowMs` of attaching, a `changed` is only reported if the file's ctime is not older than the snapshot.
+ * ctime cannot be set by programs, and any write or rename updates it; outside the window no stat is made.
  */
 export interface WatcherOptions {
   /** Quiet period before a batch is emitted. */
@@ -32,6 +38,8 @@ export interface WatcherOptions {
   readonly maxBatch?: number;
   /** Delays before restart attempts after the OS watch failed (the last one repeats). */
   readonly restartDelaysMs?: readonly number[];
+  /** After attaching, how long raw events are checked for being replays of changes made before the snapshot. */
+  readonly replayWindowMs?: number;
   /** The OS watch, injectable for tests. */
   readonly watch?: WatchFn;
 }
@@ -59,6 +67,12 @@ export class ProjectWatcher {
   private firstPendingAt = 0;
   private flushing: Promise<void> = Promise.resolve();
   private closed = false;
+  /** When the current snapshot was started (ms since epoch) and when the OS watch was last attached. */
+  private snapshotStartedAt = 0;
+  private attachedAt = 0;
+  /** Paths whose raw events arrived inside the replay window (see class comment). */
+  private early = new Set<string>();
+  private readonly replayWindowMs: number;
   private readonly debounceMs: number;
   private readonly maxWaitMs: number;
   private readonly maxKnown: number;
@@ -77,6 +91,7 @@ export class ProjectWatcher {
     this.maxBatch = options.maxBatch ?? 500;
     this.restartDelaysMs = options.restartDelaysMs ?? [1000, 2000, 5000, 10_000, 30_000];
     this.watchFn = options.watch ?? defaultWatch;
+    this.replayWindowMs = options.replayWindowMs ?? 1000;
   }
 
   /** Takes the snapshot, then starts watching. Resolves once events will be reported (or a restart is scheduled). */
@@ -93,6 +108,7 @@ export class ProjectWatcher {
     this.timer = null;
     this.restartTimer = null;
     this.pending.clear();
+    this.early.clear();
     this.dirs.clear();
     this.knownCount = 0;
   }
@@ -113,6 +129,7 @@ export class ProjectWatcher {
       const watcher = this.watchFn(this.root, (filename) => this.onRaw(filename));
       watcher.on('error', () => this.lost(watcher));
       this.watcher = watcher;
+      this.attachedAt = Date.now();
       this.restartAttempt = 0;
     } catch {
       this.scheduleRestart();
@@ -161,6 +178,7 @@ export class ProjectWatcher {
     if (relPath === '' || isIgnoredRelPath(relPath)) return;
     this.pending.add(relPath);
     const now = Date.now();
+    if (now - this.attachedAt < this.replayWindowMs) this.early.add(relPath);
     if (this.timer === null) this.firstPendingAt = now;
     else clearTimeout(this.timer);
     const wait = Math.max(0, Math.min(this.debounceMs, this.firstPendingAt + this.maxWaitMs - now));
@@ -174,6 +192,7 @@ export class ProjectWatcher {
 
   private async flush(batch: Set<string>): Promise<void> {
     if (this.closed) return;
+    const early = new Set([...batch].filter((relPath) => this.early.delete(relPath)));
     if (batch.size > this.maxBatch) {
       // Mass change: one reload is cheaper than classifying every path, and keeps the main process responsive.
       await this.rebuildSnapshot();
@@ -210,6 +229,7 @@ export class ProjectWatcher {
         if (before === 'directory') deletedDirs.add(relPath);
       } else if (nowKind === 'file' && before === 'file') {
         // Written in place (`change`) or replaced by a rename (an external editor's atomic save).
+        if (early.has(relPath) && (await this.predatesSnapshot(relPath))) continue;
         changed.push(relPath);
       }
     }
@@ -246,6 +266,18 @@ export class ProjectWatcher {
     if (events.length > 0 && !this.closed) this.emit(events);
   }
 
+  /** Whether the file's last change (ctime) is older than the snapshot, i.e. the raw event was a replay. */
+  private async predatesSnapshot(relPath: string): Promise<boolean> {
+    try {
+      const info = await stat(path.join(this.root, ...relPath.split('/')));
+      // Date.now() is truncated to whole ms while ctime has sub-ms precision: a write finished just before the
+      // snapshot started can carry a ctime inside that same millisecond, so compare at millisecond resolution.
+      return Math.floor(info.ctimeMs) <= this.snapshotStartedAt;
+    } catch {
+      return false;
+    }
+  }
+
   private async list(dirRel: string): Promise<Map<string, Kind> | null> {
     try {
       const dirents = await readdir(path.join(this.root, ...(dirRel === '' ? [] : dirRel.split('/'))), {
@@ -266,6 +298,7 @@ export class ProjectWatcher {
   private async rebuildSnapshot(): Promise<void> {
     this.dirs.clear();
     this.knownCount = 0;
+    this.snapshotStartedAt = Date.now();
     await this.scan('');
   }
 
