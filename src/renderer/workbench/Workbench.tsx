@@ -22,6 +22,8 @@ import { RecoveryDialog, type RestoreOutcome } from '../recovery/RecoveryDialog'
 import type { RecoveredEntry } from '../../shared/ipc/recovery-contract';
 // S18.4: the project's other JavaScript files feed the JavaScript language service.
 import { useProjectScripts } from '../editor/useProjectScripts';
+// S19.1: static problems (language-service markers of the open files).
+import { useStaticProblems } from '../problems/useStaticProblems';
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
@@ -60,6 +62,8 @@ export function Workbench() {
   const journals = useJournals(bridge);
   const tabJournals = useRef(new Map<string, JournalScheduler>());
   useProjectScripts(bridge, doc.project); // S18.4
+  const staticProblems = useStaticProblems(doc.project?.projectId ?? null, doc.tabs); // S19.1
+  void staticProblems; // shown by the Problems panel (S17.1)
 
   const saverOf = (relPath: string | null | undefined) => (relPath ? savers.current.get(relPath) : undefined);
   const relPathOfUri = (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath;

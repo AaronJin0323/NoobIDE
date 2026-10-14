@@ -1887,8 +1887,8 @@
       "depends_on": [
         "S18.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Imports: src/renderer/editor/project-scripts.ts feeds closed project .js/.mjs files to the JS service as extra libs (open model wins; bounded 60 files/256K chars; project-scripts.test.ts 6 tests). tests/e2e/language-workbench.spec.ts on a Chinese+space path: 'import * as util from ./util.mjs' with util.mjs never opened -> util.gr completes 'greet'; global from closed config.js known, misspelling reported as 2552 only. Capability cases js-module-import-completion + js-cross-script-completion pass in the packaged suite; docs/capabilities.md lists exactly these (same-folder relative imports). Recovery: worker-supervisor.ts (unanswered request 15 s or error event -> terminate + restart via defaults; loop cap 5/min; worker-supervisor.test.ts 5 tests); e2e kills the TS worker: typing shows immediately, completion 'document' and a 2304 diagnostic return after restart. verify green, e2e 105/105 @ f47f58a"
     },
     {
       "id": "S19.1",
@@ -1901,7 +1901,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
