@@ -61,6 +61,7 @@ import type { SettingsSnapshot } from '../../shared/ipc/app-data-contract';
 import { SettingsNotice } from './SettingsNotice';
 import type { CommandContext } from '../../shared/commands'; // S24.1
 import { useThemeChoice } from '../theme/ThemeProvider'; // S24.4
+import { focusRegion } from '../commands/focus-regions'; // S24.3
 import { isEntryPath } from '../../shared/project-config';
 import type { TreeEntry } from '../../shared/ipc/contract';
 import { EntryNotice, type EntryNoticeState } from './EntryNotice';
@@ -704,6 +705,9 @@ export function Workbench() {
     'theme-system': () => theme.setChoice('system'),
     'theme-light': () => theme.setChoice('light'),
     'theme-dark': () => theme.setChoice('dark'),
+    // S24.3: keyboard route between the regions (Tab indents inside the code editor).
+    'focus-next-region': () => void focusRegion(1),
+    'focus-previous-region': () => void focusRegion(-1),
   };
   const commands = useCommands(platform, commandContext, commandHandlers);
   const menuItems = useAppMenuItems(platform, commandContext, commandHandlers, commands.run);

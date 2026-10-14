@@ -159,6 +159,8 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       SEPARATOR,
       command('next-tab'),
       command('previous-tab'),
+      command('focus-next-region'),
+      command('focus-previous-region'),
       ...(options.devTools ? [SEPARATOR, role('toggleDevTools', 'menu.devTools')] : []),
     ],
   };

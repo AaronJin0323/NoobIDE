@@ -17,6 +17,9 @@ export const commandsZhCN = {
   'command.theme.system': '跟随系统的浅色或深色主题',
   'command.theme.light': '浅色主题',
   'command.theme.dark': '深色主题',
+  // ── S24.3 键盘 ──
+  'command.focusNextRegion': '转到下一个区域',
+  'command.focusPreviousRegion': '转到上一个区域',
   // ── S24.2 系统菜单 ──
   'menu.about': '关于 NoobIDE',
   'menu.services': '服务',
@@ -58,6 +61,9 @@ export const commandsEn: Record<keyof typeof commandsZhCN, string> = {
   'command.theme.system': 'Light or dark theme from the system',
   'command.theme.light': 'Light theme',
   'command.theme.dark': 'Dark theme',
+  // ── S24.3 keyboard ──
+  'command.focusNextRegion': 'Focus next area',
+  'command.focusPreviousRegion': 'Focus previous area',
   // ── S24.2 native menus ──
   'menu.about': 'About NoobIDE',
   'menu.services': 'Services',

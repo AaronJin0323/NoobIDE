@@ -37,6 +37,9 @@ export const COMMAND_IDS = [
   'theme-system',
   'theme-light',
   'theme-dark',
+  // S24.3
+  'focus-next-region',
+  'focus-previous-region',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -111,6 +114,14 @@ export const COMMANDS: readonly CommandDefinition[] = [
   { id: 'theme-system', label: 'command.theme.system', checked: (c) => c.theme === 'system' },
   { id: 'theme-light', label: 'command.theme.light', checked: (c) => c.theme === 'light' },
   { id: 'theme-dark', label: 'command.theme.dark', checked: (c) => c.theme === 'dark' },
+  // S24.3: F6 moves between the regions (Tab stays in the code editor, where it indents).
+  { id: 'focus-next-region', label: 'command.focusNextRegion', keys: { all: { key: 'F6' } }, when: noModal },
+  {
+    id: 'focus-previous-region',
+    label: 'command.focusPreviousRegion',
+    keys: { all: { key: 'F6', shift: true } },
+    when: noModal,
+  },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));
