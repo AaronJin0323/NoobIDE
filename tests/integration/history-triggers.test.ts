@@ -178,7 +178,10 @@ describe('snapshots around save batches (S21.2)', () => {
     expect(await s.write({ projectId: id, relPath: 'style.css', text: 'p{}', bom: false })).toMatchObject({ ok: true });
     await broken.whenIdle();
     expect(await readFile(path.join(root, 'style.css'), 'utf8')).toBe('p{}');
-    expect(logs.some((l) => l.startsWith('history.snapshot-failed'))).toBe(true);
+    // The failure is logged either way; which way depends on the OS: reading `history/index` below a file is ENOENT
+    // on Windows (no history yet → the write fails: snapshot-failed) and ENOTDIR on macOS (history unreadable → the
+    // store refuses to write into it: snapshot-refused).
+    expect(logs.some((l) => /^history\.snapshot-(failed|refused) /.test(l))).toBe(true);
   });
 });
 
