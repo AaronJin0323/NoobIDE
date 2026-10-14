@@ -1291,8 +1291,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "mtime+size+hash: FileVersion on every read/save, versionChanged by size+hash (tests/integration/external-change.test.ts 11 tests: touch/new mtime is not a change, same-size edit is); check before write: expectedHash re-hashed in ProjectService.write -> changed-on-disk, external bytes untouched; watcher event -> re-read + hash compare (src/renderer/workbench/disk-sync.test.ts 19 tests incl. own write in flight is no conflict); clean buffer reloads with notice, cursor kept: tests/e2e/external-change.spec.ts (own saves never flagged; reload notice + cursor + disk untouched). verify green + e2e 104/104 on Windows x64 @ 0464613"
     },
     {
       "id": "S11.2",
@@ -1307,8 +1307,8 @@
       "depends_on": [
         "S11.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Dirty buffer + disk change -> conflict status (save-machine.test, disk-sync.test: autosave/save write nothing, refused write is conflict not a retry loop); Monaco diff (ConflictDiff: createDiffEditor, disk left / live buffer right) + line-diff summary; keep mine / take disk only on click: tests/e2e/external-change.spec.ts (conflict banner, .monaco-diff-editor shows both versions, disk unchanged after 2 s, use-disk replaces buffer without writing, keep-mine overwrites the compared version). verify green + e2e 104/104 Windows x64 @ 0464613"
     },
     {
       "id": "S11.3",
@@ -1323,8 +1323,8 @@
       "depends_on": [
         "S11.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Tab marked deleted (SaveStatus 'deleted', tab text + icon), content retained, autosave stops, save() never reports success for a deleted tab; re-save re-creates exclusively (WriteFileRequest.create; refuses if a file appeared -> conflict; missing folder -> not-found): tests/integration/external-change.test.ts, disk-sync.test.ts, tests/e2e/external-change.spec.ts (deleted banner, text kept, no auto re-create after 2 s, close asks to confirm, re-save restores KEPT+UNSAVED). verify green + e2e 104/104 Windows x64 @ 0464613"
     },
     {
       "id": "S12.1",
