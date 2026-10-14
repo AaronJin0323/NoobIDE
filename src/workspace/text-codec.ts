@@ -106,7 +106,10 @@ export function decodeForDisplay(bytes: Uint8Array): DisplayDecodeResult {
   }
   if (looksBinary(bytes)) return { ok: false, reason: 'binary' };
   const utf8 = decodeText(bytes);
-  if (utf8.ok) return { ...utf8, encoding: 'utf-8', editable: true };
+  if (utf8.ok) {
+    const { text, bom, eol } = utf8; // mixed line endings are reported by the caller (hasMixedEol)
+    return { ok: true, text, bom, eol, encoding: 'utf-8', editable: true };
+  }
   for (const label of ['gb18030', 'windows-1252']) {
     const text = tryDecode(label, bytes);
     if (text !== null) return { ok: true, text, bom: false, eol: detectEol(text), encoding: label, editable: false };

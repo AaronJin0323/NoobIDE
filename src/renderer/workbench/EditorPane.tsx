@@ -6,6 +6,7 @@ import { languageForPath } from '../editor/language';
 import { activeTab, type DocumentState } from './document-state';
 import { isUnsaved } from './save-machine';
 import { TabBar } from './TabBar';
+import { isSameOrBelow } from './file-tree-model';
 import { MinusIcon, PlusIcon, WarningIcon } from './icons';
 import { FileRoleHint } from './FileRole';
 
@@ -37,6 +38,8 @@ interface EditorPaneProps {
   copyNotice: SaveCopyNotice | null;
   /** Present after a window close was refused because of this failure (S10.6). */
   onCloseDiscarding: (() => void) | undefined;
+  /** Paths being renamed, moved or trashed: their tabs are read-only meanwhile, so no edit can get lost. */
+  lockedPaths: readonly string[];
 }
 
 function openErrorKey(code: string): MessageKey {
@@ -81,7 +84,7 @@ export function EditorPane(props: EditorPaneProps) {
         language: languageForPath(tab.relPath),
         initialValue: tab.content.text,
         eol: tab.content.eol,
-        readOnly: tab.content.readOnly ?? false,
+        readOnly: (tab.content.readOnly ?? false) || props.lockedPaths.some((path) => isSameOrBelow(tab.relPath, path)),
       }
     : !project
       ? { uri: 'inmemory://noobide/welcome.html', language: 'html', initialValue: SAMPLE_HTML }

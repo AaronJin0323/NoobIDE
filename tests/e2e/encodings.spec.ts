@@ -52,7 +52,7 @@ test('a GBK file opens read-only with a notice naming the encoding, and is never
   await page.keyboard.type('改动');
   await page.keyboard.press('ControlOrMeta+S');
   await expect(page.locator('.view-lines')).not.toContainText('改动');
-  await expect(page.getByTestId('save-status')).toHaveText('已保存');
+  await expect(page.getByTestId('save-status')).toHaveText('无改动');
   expect(await readFile(path.join(root, 'gbk.txt'))).toEqual(GBK);
 });
 

@@ -2,7 +2,7 @@ import { chmod, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
-import { collectConsoleErrors, makeProject, openFile, openProject, tabOf, typeAtEnd } from './project';
+import { collectConsoleErrors, makeProject, openFile, openProject, tabOf, treeRow, typeAtEnd } from './project';
 
 /**
  * S09.1 model registry and S09.2 tab bar, end to end in the real editor: switching tabs keeps cursor, scroll,
@@ -54,7 +54,7 @@ test('each opened file becomes a tab in a tablist with a single tab stop (S09.2)
   await expect(tabOf(page, 'long.js')).toHaveAttribute('aria-selected', 'true');
   expect(await tabs.evaluateAll((els) => els.map((el) => el.getAttribute('tabindex')))).toEqual(['-1', '-1', '0']);
   // Opening an open file again shows its tab instead of adding a second one.
-  await page.getByTestId('file-list').getByRole('button', { name: 'index.html', exact: true }).click();
+  await treeRow(page, 'index.html').click();
   await expect(tabs).toHaveCount(3);
   await expect(tabOf(page, 'index.html')).toHaveAttribute('aria-selected', 'true');
 });

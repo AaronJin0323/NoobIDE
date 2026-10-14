@@ -1959,8 +1959,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": "Reopened after independent review @ deed77c: transient index read error treated as empty overwrites/GCs history; quarantine loses blobs. Fixes in progress (recovery agent)."
+      "status": "done",
+      "evidence": "After review fixes @ 8b0eca9: tests/integration/history-store.test.ts (19 tests) incl. locked index not overwritten/GCd (injected EBUSY), transient retry, per-entry validation, newer-version index untouched, quarantined index keeps blobs, quarantine cap, blob repair, seq-based total eviction keeping newest, sanitised limits, usage with on-disk bytes; usage via API, on-screen with S21.3/S21.4"
     },
     {
       "id": "S21.2",
@@ -1975,8 +1975,8 @@
       "depends_on": [
         "S21.1"
       ],
-      "status": "in_progress",
-      "evidence": "Reopened after independent review @ deed77c: sliding coalescing window collapses long sessions; hooks awaited on the save path. Fixes in progress (recovery agent)."
+      "status": "done",
+      "evidence": "After review fixes @ 8b0eca9: tests/integration/history-triggers.test.ts (11 tests) incl. injected replace failure records only before-save, throwing and hanging hooks (save within timeout), slow store not awaited, save-ordered dedupe, long-session coalescing (store test), beforeDelete skips dotfiles/node_modules; format/delete/restore via HistoryTriggers API; verify + e2e 38/38 green"
     },
     {
       "id": "S21.3",

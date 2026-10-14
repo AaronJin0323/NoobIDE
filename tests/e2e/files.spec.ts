@@ -118,6 +118,8 @@ test('a failed save keeps the edits, explains the cause and succeeds after the f
   await expect(status()).toHaveText('保存失败 — 你的修改还在');
   await expect(page.getByTestId('save-error')).toContainText('没有写入权限');
   await expect(page.getByTestId('save-error')).toContainText('你的修改还在编辑器里');
+  // The banner made the editor shorter; bring the last line into view before reading it.
+  await page.keyboard.press('ControlOrMeta+End');
   await expect(editorText()).toContainText('只读时的修改');
   expect(await readFile(file, 'utf8')).toBe(onDisk);
 

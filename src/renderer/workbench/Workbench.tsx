@@ -39,6 +39,8 @@ export function Workbench() {
   const [copyNotice, setCopyNotice] = useState<SaveCopyNotice | null>(null);
   /** A window close was refused because a save failed: offer "close without saving" (S10.6). */
   const [closeRefused, setCloseRefused] = useState(false);
+  /** Paths being renamed, moved or trashed: their tabs are read-only until the operation ends (S08 + S10). */
+  const [lockedPaths, setLockedPaths] = useState<readonly string[]>([]);
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
 
@@ -211,40 +213,51 @@ export function Workbench() {
   }, []);
 
   // ── S08: file operations keep the open tabs consistent ──
-  const fileOps = useMemo<FileOpsHooks>(
-    () => ({
-      // Renaming, moving or trashing an open file (or a folder holding open files) saves their edits first, through
-      // each tab's serialized save queue; a failed save cancels the operation and shows that tab.
+  const fileOps = useMemo<FileOpsHooks>(() => {
+    const unlock = (relPath: string) => setLockedPaths((paths) => paths.filter((locked) => locked !== relPath));
+    return {
+      // Renaming, moving or trashing an open file (or a folder holding open files): the affected tabs become
+      // read-only for the duration, their edits are saved through each tab's serialized save queue first, and a
+      // failed save cancels the operation and shows that tab. Nothing typed during the operation can get lost.
       beforeChange: async (relPath) => {
+        setLockedPaths((paths) => [...paths, relPath]);
         for (const [open, saver] of [...savers.current]) {
           if (!isSameOrBelow(open, relPath)) continue;
           if (!(await saver.save())) {
+            unlock(relPath);
             dispatch({ type: 'activate', relPath: open });
             return false;
           }
         }
         return true;
       },
+      cancelled: unlock,
       afterChange: (change) => {
-        const affected = docRef.current.tabs
-          .map((tab) => tab.relPath)
-          .filter((open) => isSameOrBelow(open, change.type === 'renamed' ? change.from : change.relPath));
+        const changed = change.type === 'renamed' ? change.from : change.relPath;
+        unlock(changed);
+        const affected = docRef.current.tabs.map((tab) => tab.relPath).filter((open) => isSameOrBelow(open, changed));
+        // A tab that somehow still has unsaved edits is never dropped: it stays open as an unsaved buffer (its
+        // saves now explain that the file is gone, and "save elsewhere" keeps the text).
+        const clean = affected.filter((open) => {
+          const saver = saverOf(open);
+          return !saver || !isUnsaved(saver.state);
+        });
         const wasActive = docRef.current.active;
-        for (const open of affected) dropTab(open); // their edits were saved in beforeChange
+        for (const open of clean) dropTab(open);
         if (change.type === 'renamed') {
-          // Reopen at the new path(s) from disk; the previously visible file stays visible.
-          const moved = affected.map((open) => change.to + open.slice(change.from.length));
+          // Reopen at the new path(s) from disk (the text is the same: it was saved); the visible file stays visible.
+          const moved = clean.map((open) => change.to + open.slice(change.from.length));
           const visible =
-            wasActive && affected.includes(wasActive) ? change.to + wasActive.slice(change.from.length) : null;
+            wasActive && clean.includes(wasActive) ? change.to + wasActive.slice(change.from.length) : null;
           void (async () => {
             for (const relPath of moved) if (relPath !== visible) await openFile(relPath);
             if (visible) await openFile(visible);
           })();
         }
       },
-    }),
-    [openFile],
-  );
+    };
+  }, [openFile]);
+
   // --- S12: restore after an abnormal termination (RecoveryDialog) ---
   const adoptProject = useCallback(
     async (project: OpenedProject) => {
@@ -404,6 +417,7 @@ export function Workbench() {
           onRetry={saveActive}
           onSaveCopy={bridge ? () => void saveCopy() : undefined}
           copyNotice={copyNotice}
+          lockedPaths={lockedPaths}
           onCloseDiscarding={bridge && closeRefused ? () => void bridge.app.closeDiscarding() : undefined}
         />
         <PreviewPane hidden={!visible.preview} />

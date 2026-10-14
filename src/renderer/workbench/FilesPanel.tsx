@@ -21,6 +21,8 @@ export interface FileOpsHooks {
    */
   beforeChange(relPath: string): Promise<boolean>;
   afterChange(change: FilesChange): void;
+  /** The operation that `beforeChange` allowed failed on disk; nothing changed (S10: unlocks the editors). */
+  cancelled?(relPath: string): void;
 }
 
 interface FilesPanelProps {
@@ -142,6 +144,7 @@ export function FilesPanel({
         }
         const result = await api.renameEntry({ projectId, from, to });
         if (!result.ok) {
+          fileOps.cancelled?.(from);
           setEditError(opErrorMessage(t, result.code, result.message, name));
           return;
         }
@@ -168,6 +171,7 @@ export function FilesPanel({
     }
     const result = await api.trashEntry({ projectId, relPath: entry.relPath });
     if (!result.ok) {
+      fileOps.cancelled?.(entry.relPath);
       const text =
         result.code === 'trash-failed'
           ? fill(t('delete.failed'), { trash })

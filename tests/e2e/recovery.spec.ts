@@ -160,7 +160,10 @@ test('a dirty buffer is journaled outside the project within 2 s and removed aft
   await expect.poll(journalRecords, { timeout: 5000 }).toHaveLength(0);
   expect(await readFile(path.join(root, 'index.html'), 'utf8')).toContain('日志测试');
   // S21.2: the save also took local-history snapshots, in app data next to the journal (not in the project).
-  expect(await readdir(path.join(userData, 'history', 'index'))).toHaveLength(1);
+  // Stored right after the save returns (queued, not awaited by the save).
+  await expect
+    .poll(async () => (await readdir(path.join(userData, 'history', 'index')).catch(() => [])).length)
+    .toBe(1);
   expect(await projectTree(root)).toEqual(before);
   await stop();
 });

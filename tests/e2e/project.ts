@@ -32,11 +32,21 @@ export async function answerSaveDialog(app: ElectronApplication, file: string | 
 export async function openProject(app: ElectronApplication, page: Page, root: string): Promise<void> {
   await answerFolderDialog(app, root);
   await page.getByTestId('open-folder').click();
-  await page.getByTestId('file-list').waitFor();
+  await page.getByTestId('file-tree').waitFor();
 }
 
+/** A file tree row (S08.1) by its relative path. */
+export const treeRow = (page: Page, relPath: string) =>
+  page.getByTestId('file-tree').locator(`[data-path="${relPath}"]`);
+
+/** Expands the folders on the way in the file tree, then opens the file and waits for its tab to be visible. */
 export async function openFile(page: Page, relPath: string): Promise<void> {
-  await page.getByTestId('file-list').getByRole('button', { name: relPath, exact: true }).click();
+  const segments = relPath.split('/');
+  for (let i = 1; i < segments.length; i += 1) {
+    const folder = treeRow(page, segments.slice(0, i).join('/'));
+    if ((await folder.getAttribute('aria-expanded')) !== 'true') await folder.click();
+  }
+  await treeRow(page, relPath).click();
   await page.locator(`[data-testid="tab"][data-path="${relPath}"] [role="tab"][aria-selected="true"]`).waitFor();
 }
 

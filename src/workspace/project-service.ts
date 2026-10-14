@@ -31,6 +31,7 @@ import { FileInUseError, replaceFileAtomic, writeFileAtomic, type AtomicWriteOpt
 import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
 import { listDirectory } from './tree';
 import { createEntry, renameEntry, resolveEntry, trashEntry } from './file-ops';
+import { isListedEntry } from './listing-filter';
 import { decodeForDisplay, decodeText, encodeText, hasMixedEol } from './text-codec';
 
 /**
@@ -44,8 +45,8 @@ import { decodeForDisplay, decodeText, encodeText, hasMixedEol } from './text-co
 /** Listing limits until the lazy tree model (S07) replaces this flat list. */
 export const LIST_LIMITS = { maxFiles: 2000, maxDepth: 8 } as const;
 
-/** Folders that are never listed: dependency and VCS folders are huge and not part of a beginner's page. */
-const SKIPPED_DIRS = new Set(['node_modules']);
+/** S21.2: longest a save waits for local history to read the version it is about to replace. */
+export const HISTORY_CAPTURE_TIMEOUT_MS = 1000;
 
 interface Project {
   readonly root: string;
@@ -56,6 +57,8 @@ export interface ProjectServiceOptions {
   readonly atomic?: AtomicWriteOptions;
   /** S21.2: local-history snapshots around each confirmed save. */
   readonly history?: ProjectHistoryHook;
+  /** Fault injection for the replace step (S21 tests). Default: replaceFileAtomic. */
+  readonly replaceFile?: typeof replaceFileAtomic;
 }
 
 /** A project file whose new content is confirmed on disk. */
@@ -72,9 +75,12 @@ export class ProjectService {
   private readonly savedListeners = new Set<(file: SavedProjectFile) => void>();
   /** S21.2: local-history snapshots around each save (optional; never blocks or fails a save). */
   private readonly history: ProjectHistoryHook | undefined;
+  /** Fault injection for tests (docs/testing.md); the real atomic replace otherwise. */
+  private readonly replaceFile: typeof replaceFileAtomic;
 
   constructor(private readonly options: ProjectServiceOptions = {}) {
     this.history = options.history;
+    this.replaceFile = options.replaceFile ?? replaceFileAtomic;
   }
 
   /** Registers a folder the user chose and lists its files. */
@@ -177,6 +183,9 @@ export class ProjectService {
       const data = encodeText(request.text, request.bom);
       if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
       return this.serialized(target.value, async (): Promise<Result<SavedFile, WriteFileError>> => {
+        // S21.2 capture, replace and record all run inside this per-file lock, so concurrent saves of one file
+        // capture their before-bytes in save order.
+        let before: Uint8Array | null = null;
         try {
           if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
           // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
@@ -186,13 +195,13 @@ export class ProjectService {
           if (existing.size <= MAX_TEXT_FILE_BYTES && !decodeText(await readFile(target.value)).ok) {
             return err('unsupported-encoding', 'the file on disk is not UTF-8 text');
           }
-          // S21.2: keep the version on disk before this save batch replaces it.
-          await this.history?.beforeSave(this.rootOf(request.projectId) ?? '', request.relPath, target.value);
-          await replaceFileAtomic(target.value, data, this.options.atomic);
+          before = await this.captureBeforeSave(target.value); // S21.2
+          await this.replaceFile(target.value, data, this.options.atomic);
         } catch (e) {
+          this.recordSave(request.projectId, target.value, before, null); // S21.2
           return err(writeErrorCode(e), errorMessage(e), e);
         }
-        await this.history?.afterSave(this.rootOf(request.projectId) ?? '', request.relPath, data); // S21.2
+        this.recordSave(request.projectId, target.value, before, data); // S21.2
         this.emitSaved({ projectId: request.projectId, relPath: request.relPath, path: target.value });
         return ok({ savedAt: Date.now() });
       });
@@ -250,6 +259,36 @@ export class ProjectService {
     }
   }
 
+  // --- S21.2: local history around saves. Only reading the old bytes precedes the replace (bounded by a timeout);
+  // storing snapshots is queued, not awaited. A throwing, slow or hanging hook never fails or delays a save. ---
+  private async captureBeforeSave(absPath: string): Promise<Uint8Array | null> {
+    if (!this.history) return null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timeout = new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), HISTORY_CAPTURE_TIMEOUT_MS);
+      });
+      return await Promise.race([this.history.captureBeforeSave(absPath), timeout]);
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private recordSave(projectId: string, absPath: string, before: Uint8Array | null, after: Uint8Array | null): void {
+    const root = this.rootOf(projectId);
+    if (!this.history || root === undefined || (!before && !after)) return;
+    try {
+      // Keyed by the real path relative to the root (canonical case on Windows) in Unicode NFC.
+      const relKey = path.relative(root, absPath).split(path.sep).join(path.posix.sep).normalize('NFC');
+      this.history.recordSave(root, relKey, before, after);
+    } catch {
+      // History is a safety net; the save result stands.
+    }
+  }
+  // --- end S21.2 ---
+
   private async resolve(
     request: FileRequest,
   ): Promise<Result<string, 'unknown-project' | 'outside-project' | 'not-found'>> {
@@ -284,12 +323,11 @@ async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated:
         truncated = true;
         return;
       }
-      // Dotfiles (.git, .noobide, editor temp files) are not part of the page; links are not followed.
-      if (entry.name.startsWith('.') || entry.isSymbolicLink()) continue;
+      // Dotfiles (.git, .noobide, editor temp files) and node_modules are not listed; links are not followed.
+      if (!isListedEntry(entry.name, entry.isDirectory()) || entry.isSymbolicLink()) continue;
       const segments = [...relSegments, entry.name];
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (SKIPPED_DIRS.has(entry.name)) continue;
         if (segments.length > LIST_LIMITS.maxDepth) {
           truncated = true;
           continue;
