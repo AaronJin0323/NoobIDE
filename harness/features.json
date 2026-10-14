@@ -2326,8 +2326,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "scripts/measure-perf.mjs + scripts/perf-fixture.mjs; macOS arm64 measured (M3 Pro 18 GB): docs/perf/darwin-arm64.md — cold start p95 853 ms (n=20), packaged start→editor p95 831 ms (n=20), save→preview p95 61 ms (50 files, n=20), memory idle 529 / typical 533 MB median (n=3). Windows run: harness/MANUAL-CHECKS.md#S27.1"
     },
     {
       "id": "S27.2",

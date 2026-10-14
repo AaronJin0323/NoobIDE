@@ -184,3 +184,19 @@ The e2e suite replaces `shell.trashItem` with a recorder, so the real Recycle Bi
      there. It must never disappear without being recoverable.
 - **Expected:** as described for every case; no file outside the project changes.
 - **Result:** _(owner fills in: pass/fail per case and platform, notes, date)_
+
+### S27.1 — Performance measurements on Windows x64 (docs/perf/win32-x64.md)
+
+- **Platform:** Windows x64. For a PLAN §11 claim: the fixed Windows reference machine (8 GB RAM, SSD); the developer
+  machine is fine for a first row, but say so.
+- **Build:** the commit that added `scripts/measure-perf.mjs` (S27.1) or later
+- **Steps:**
+  1. In `D:\NoobIDE`: `npm install`, `npm run package` (builds `.vite\` and `out\NoobIDE-win32-x64\`).
+  2. Close other heavy programs; plug in the laptop if it is one. Do not touch the windows that open and close.
+  3. `node scripts/measure-perf.mjs --write` (about 4 minutes: 20 cold starts of the development binary, 20 starts
+     of the packaged `noobide.exe`, 22 save → preview samples on a generated 50-file project, 3 memory runs).
+  4. The script writes `docs\perf\win32-x64.md` (prettier-formatted). Commit it.
+- **Expected:** the document has every row filled (cold start n=20, packaged start n=20, save → preview n=20, memory
+  n=3). Rows marked "**target missed**" are not a failure of this check: record them in `docs/perf/targets.md`
+  (S27.3) with a fix or a decision.
+- **Result:** _(owner fills in: device, date, pass/fail, notes)_
