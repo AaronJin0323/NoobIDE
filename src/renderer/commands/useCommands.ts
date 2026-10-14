@@ -58,6 +58,13 @@ export function useCommands(platform: PlatformId, context: CommandContext, handl
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [platform, canRun, run]);
 
+  // S24.2: main enables the native menu items from this context and sends their choices back by id.
+  const contextKey = `${context.hasProject}|${context.hasActiveTab}|${context.modalOpen}`;
+  useEffect(() => {
+    void window.noobide?.commands?.setContext({ ...contextRef.current });
+  }, [contextKey]);
+  useEffect(() => window.noobide?.commands?.onRun((id) => void run(id)), [run]);
+
   return { run, canRun };
 }
 
