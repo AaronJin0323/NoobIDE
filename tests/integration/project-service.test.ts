@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile, chmod } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile, chmod } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -50,6 +50,8 @@ describe('opening a project (S03.3)', () => {
     const other = path.join(tmp, '新 项目');
     await mkdir(other);
     await writeFile(path.join(other, 'index.html'), 'new project');
+    // The service scans the canonical root (on macOS the temp folder /var/… is really /private/var/…).
+    const realRoot = await realpath(root);
     let release!: () => void;
     let entered!: () => void;
     const waiting = new Promise<void>((resolve) => {
@@ -60,7 +62,7 @@ describe('opening a project (S03.3)', () => {
     });
     service = new ProjectService({
       scanProject: async (dir) => {
-        if (dir === root) {
+        if (dir === realRoot) {
           entered();
           await waiting;
         }

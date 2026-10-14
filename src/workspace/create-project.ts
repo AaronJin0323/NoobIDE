@@ -4,6 +4,7 @@ import path from 'node:path';
 import { checkFileName, sameName } from '../shared/file-names';
 import { err, ok, type Result } from '../shared/result';
 import { errorCode } from './paths';
+import { protectedFolderCauseOf } from '../platform/protected-folders';
 import type { TemplateInfo } from './templates';
 
 /**
@@ -28,6 +29,8 @@ export type CreateProjectError =
   /** The chosen location does not exist (any more) or is not a folder. */
   | 'location-missing'
   | 'permission-denied'
+  /** S25.3: blocked by the OS privacy protection (macOS TCC, Windows Controlled Folder Access). */
+  | 'protected-folder'
   | 'disk-full'
   /** A template file could not be read from the app's resources. */
   | 'template-broken'
@@ -171,6 +174,7 @@ async function rollback(files: readonly string[], dirs: readonly string[], fs: C
 }
 
 function failureCode(e: unknown): CreateProjectError {
+  if (protectedFolderCauseOf(e, 'write')) return 'protected-folder'; // S25.3
   switch (errorCode(e)) {
     case 'EACCES':
     case 'EPERM':

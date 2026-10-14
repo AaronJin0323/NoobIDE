@@ -111,6 +111,30 @@ describe('file watcher (S07.3)', () => {
     await expectEvents([{ type: 'changed', relPath: 'index.html' }]);
   });
 
+  it('ignores replays of changes made before the snapshot (FSEvents), but not real changes right after attaching', async () => {
+    watcher.close();
+    let raw: (filename: string | null) => void = () => undefined;
+    const watch: WatchFn = (_root, onChange) => {
+      raw = onChange;
+      return { on: () => undefined, close: () => undefined };
+    };
+    // Files written just before the watcher starts, as when a project is opened right after it was created.
+    await writeFile(p('index.html'), '<p>旧</p>\n');
+    events = [];
+    watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { debounceMs: 20, watch });
+    await watcher.start();
+    raw('index.html');
+    raw(path.join('子 文件夹', '页面 二.html'));
+    await new Promise((r) => setTimeout(r, 100));
+    await watcher.idle();
+    expect(events).toEqual([]);
+    // A real change inside the replay window is still reported.
+    await new Promise((r) => setTimeout(r, 5));
+    await appendFile(p('index.html'), '<p>新</p>\n');
+    raw('index.html');
+    await expect.poll(() => events).toEqual([{ type: 'changed', relPath: 'index.html' }]);
+  });
+
   it('stops reporting after close', async () => {
     watcher.close();
     await writeFile(p('late.html'), '');
@@ -128,7 +152,11 @@ describe('bounded cost and recovery (review findings 5, 7, 11)', () => {
     watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { debounceMs: 80 });
     await watcher.start();
     expect(watcher.snapshotSize).toBeGreaterThan(3000);
-    await new Promise((r) => setTimeout(r, 150));
+    // FSEvents (macOS) replays the 3000 creations made just before the watch started; that batch is itself a mass
+    // change (one rescan). Let it settle so the rescan checked below is the one caused by the deletes.
+    await new Promise((r) => setTimeout(r, 400));
+    await watcher.idle();
+    events = [];
     // Measure event-loop stalls while the deletes are classified.
     let maxLag = 0;
     let last = Date.now();

@@ -174,6 +174,8 @@ describe('"saved" is emitted strictly after a successful rename (S10.5)', () => 
     const { service, request } = await pipeline({ atomic: { fs } });
     service.onSaved((file) => log.push(`saved ${file.relPath}`));
     const writing = service.write(request('<p>v1</p>'));
+    // Wait until the write reached the (held) rename; a fixed delay was flaky on a loaded machine.
+    await vi.waitFor(() => expect(log).toContain('rename started'), { timeout: 2000, interval: 5 });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(log).toEqual(['rename started']);
     release();

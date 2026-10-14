@@ -15,6 +15,7 @@ import {
 } from './file-tree-model';
 import { ChevronRightIcon, LinkIcon, TreeFileIcon, TreeFolderIcon, WarningIcon } from './icons';
 import { NameEditor } from './NameEditor';
+import { protectedFolderMessage } from './file-op-messages';
 import { FileRoleTag } from './FileRole';
 import { fileRoleFor, fileRoleLabelKey } from './file-role';
 import { treeCommandForKey, type PlatformId } from '../../platform/labels';
@@ -396,7 +397,9 @@ function TreeRowItem({
           data-testid="tree-folder-error"
         >
           <WarningIcon />
-          {t(folder.code === 'permission-denied' ? 'tree.folderDenied' : 'tree.folderFailed')}
+          {folder.code === 'protected-folder'
+            ? protectedFolderMessage(t)
+            : t(folder.code === 'permission-denied' ? 'tree.folderDenied' : 'tree.folderFailed')}
         </li>
       )}
       {expanded && folder?.status === 'loaded' && folder.entries.length === 0 && (

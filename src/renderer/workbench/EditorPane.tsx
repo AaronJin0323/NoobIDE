@@ -14,8 +14,9 @@ import { DiskStateBanner, type DiskActions } from './DiskStateBanner';
 import { fill } from '../recovery/format';
 // S18.3: format command (button + Monaco's Shift+Alt+F / ⇧⌥F) on the editor handle, without importing Monaco here.
 import { activeEditor } from '../editor/editor-handle';
-import { formatShortcutLabel } from '../../platform/labels';
 import { withShortcut } from '../commands/useCommands'; // S24.1
+import { formatShortcutLabel, protectedFolderKey, type PlatformId } from '../../platform/labels';
+import { rendererPlatform } from './file-op-messages';
 
 const FORMATTABLE = new Set(['html', 'css', 'javascript']);
 
@@ -73,8 +74,10 @@ function openErrorKey(code: string): MessageKey {
   }
 }
 
-export function saveErrorKey(code: string): MessageKey {
+export function saveErrorKey(code: string, platform: PlatformId = rendererPlatform()): MessageKey {
   switch (code) {
+    case 'protected-folder':
+      return protectedFolderKey(platform); // S25.3
     case 'permission-denied':
       return 'save.error.permission';
     case 'busy':

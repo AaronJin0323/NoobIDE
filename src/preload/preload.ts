@@ -87,7 +87,8 @@ const api: NoobideApi = {
     },
     open: async (id) => {
       const result = await ipcRenderer.invoke(APP_DATA_CHANNELS.recentOpen, { id });
-      return result?.ok ? result.value : null;
+      if (result?.ok) return result.value;
+      return result?.code === 'protected-folder' ? 'protected-folder' : null; // S25.3
     },
     remove: async (id) => {
       await ipcRenderer.invoke(APP_DATA_CHANNELS.recentRemove, { id });

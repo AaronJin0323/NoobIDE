@@ -9,6 +9,8 @@ import type {
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { WarningIcon } from '../workbench/icons';
+import { rendererPlatform } from '../workbench/file-op-messages';
+import { protectedFolderKey } from '../../platform/labels';
 import { fill, formatBytes } from './format';
 import { diffLines } from './line-diff';
 import type { JournalHealth } from './journal-scheduler';
@@ -101,7 +103,8 @@ export function RecoveryDialog({ bridge, health, onProjectOpened, onRestore, onC
       try {
         const opened = await bridge.recovery.openProject({ key: target.key });
         if (!opened.ok) {
-          setError('recovery.openFailed');
+          // S25.3: the OS privacy protection blocked the folder: say how to allow NoobIDE.
+          setError(opened.code === 'protected-folder' ? protectedFolderKey(rendererPlatform()) : 'recovery.openFailed');
           return;
         }
         if (!(await onProjectOpened(opened.value))) return;

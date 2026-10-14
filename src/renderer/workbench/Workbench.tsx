@@ -70,6 +70,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import { Splitter } from './Splitter';
 import { persistedLayout } from './layout';
 import { EDITOR_SHARE, FILES_WIDTH, MAX_SESSION_TABS } from '../../shared/session';
+import { AboutDialog, useAboutRequests } from './AboutDialog'; // S28.1
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -95,6 +96,7 @@ export function Workbench() {
   const [autoPreview, setAutoPreview] = useState<string | null>(null);
   // S21.3: the local-history window, opened for a file (the active tab) or for the whole project.
   const [historyFor, setHistoryFor] = useState<{ relPath: string | null } | null>(null);
+  const aboutOpen = useAboutRequests(); // S28.1: opened by openAbout() (menus: S24)
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
 
@@ -265,7 +267,7 @@ export function Workbench() {
   const openFolder = useCallback(async () => {
     if (!bridge || !(await saveAll())) return;
     const result = await bridge.workspace.openFolder();
-    if (!result.ok) dispatch({ type: 'projectOpenFailed' });
+    if (!result.ok) dispatch({ type: 'projectOpenFailed', code: result.code });
     else if (result.value) {
       // Edits typed while the dialog was open are saved too; a failure keeps the current project.
       if (!(await saveAll())) return;
@@ -900,7 +902,7 @@ export function Workbench() {
             S10.5: a failed save shows "preview not updated" — refreshes come only from confirmed writes in main. */}
         <PreviewPane
           hidden={!visible.preview}
-          covered={(narrow && visible.files) || wizardOpen || historyFor !== null}
+          covered={(narrow && visible.files) || wizardOpen || historyFor !== null || aboutOpen.open}
           projectId={project?.projectId ?? null}
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
           autoStartProjectId={autoPreview}
@@ -949,6 +951,7 @@ export function Workbench() {
           onCancel={() => setWizardOpen(false)}
         />
       )}
+      {aboutOpen.open && <AboutDialog onClose={aboutOpen.close} />}
     </div>
   );
 }

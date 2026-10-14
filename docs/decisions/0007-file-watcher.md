@@ -47,3 +47,13 @@ Option 1. `src/workspace/watcher.ts` wraps one recursive `fs.watch` per open pro
   `changed`. Projects that large are outside the beginner target.
 - Network drives may not deliver events at all; the tree still works and is refreshed after NoobIDE's own file
   operations.
+
+## Amendment (2026-10-15): FSEvents replays changes made just before the watch started
+
+First run on macOS arm64: FSEvents delivers raw events for files written in the moments _before_ the stream was
+created (e.g. a project opened right after it was created from a template, or a test fixture). Classified against
+the snapshot they looked like `changed` events for files that had not changed. The watcher now stats a file before
+reporting `changed` only when its raw event arrived within `replayWindowMs` (1 s) of attaching, and drops it if the
+file's ctime is not newer than the snapshot start (millisecond resolution). Outside that window nothing changes and
+no extra I/O is done; on Windows (no replays) the check finds a fresh ctime and reports the change as before. A
+replay large enough to exceed `maxBatch` still becomes one harmless `rescan`.

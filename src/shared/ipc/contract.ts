@@ -109,7 +109,11 @@ export interface OpenedProject {
   readonly truncated: boolean;
 }
 
-export type OpenFolderError = 'list-failed';
+/**
+ * S25.3: `protected-folder` — the OS privacy protection (macOS Files and Folders / TCC, Windows Controlled Folder
+ * Access) is most likely what refused the access; the UI explains how to allow NoobIDE (src/platform/protected-folders).
+ */
+export type OpenFolderError = 'list-failed' | 'protected-folder';
 
 export interface FileRequest {
   readonly projectId: string;
@@ -191,6 +195,8 @@ export type WriteFileError =
   | 'not-a-file'
   | 'too-large'
   | 'permission-denied'
+  /** S25.3: blocked by the OS privacy protection (see OpenFolderError). */
+  | 'protected-folder'
   | 'busy'
   | 'disk-full'
   /** S07.4: the file on disk is not UTF-8 text (another encoding or binary); it is never overwritten. */
@@ -253,7 +259,14 @@ export interface DirListing {
 }
 
 export type ListDirError =
-  'unknown-project' | 'outside-project' | 'not-found' | 'not-a-directory' | 'permission-denied' | 'list-failed';
+  | 'unknown-project'
+  | 'outside-project'
+  | 'not-found'
+  | 'not-a-directory'
+  | 'permission-denied'
+  /** S25.3: blocked by the OS privacy protection (see OpenFolderError). */
+  | 'protected-folder'
+  | 'list-failed';
 
 export function parseDirRequest(payload: unknown): DirRequest | null {
   if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath'])) return null;
@@ -274,6 +287,8 @@ export type FileOpError =
   | 'case-conflict'
   | 'into-itself'
   | 'permission-denied'
+  /** S25.3: blocked by the OS privacy protection (see OpenFolderError). */
+  | 'protected-folder'
   | 'busy'
   /** The OS could not move it to the trash (message from the OS); nothing was deleted. */
   | 'trash-failed'

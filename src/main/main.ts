@@ -30,6 +30,7 @@ import { registerAppDataIpcHandlers } from './app-data-ipc';
 import { SettingsStore } from './settings-store';
 import { AppLog } from './app-log';
 import { osInfo } from '../platform/os-info';
+import { configureProtectedFolders } from '../platform/protected-folders';
 import type { RecoveryLogger } from '../recovery/atomic-file';
 import { effectiveProjectConfig, previewEntryPath } from '../workspace/project-config';
 import { RecentProjects } from './recent-projects';
@@ -152,6 +153,14 @@ function start(): void {
     } else {
       handleAppProtocol(protocol, path.join(__dirname, '..', 'renderer', MAIN_WINDOW_VITE_NAME));
     }
+    // S25.3: the real known folders, also when Documents/Desktop are redirected (e.g. by OneDrive).
+    configureProtectedFolders({
+      known: {
+        desktop: app.getPath('desktop'),
+        documents: app.getPath('documents'),
+        downloads: app.getPath('downloads'),
+      },
+    });
     const watchHub = new ProjectWatchHub();
     // --- S12: unsaved-buffer journal in the app-data directory (PLAN §6), never inside a project ---
     const appData = app.getPath('userData');

@@ -210,3 +210,96 @@ itself; it ran on macOS arm64 only. The real menu bar, the dock and Windows' qui
   5. ⌘Q quits (after saving, as before).
 - **Expected:** as described on both platforms; no command runs twice for one key press.
 - **Result:** _(owner fills in: pass/fail per platform, notes, date)_
+
+### S25.3 — OS folder protection messages on real hardware (confirmation)
+
+S25.3 is proven by simulated tests (`tests/integration/protected-folder.test.ts`); this confirms the error codes the
+simulation assumes (macOS TCC: `EPERM`; Windows Controlled Folder Access: `EPERM`/`EACCES` on writes only).
+
+- **Platform:** macOS on Apple Silicon (packaged, unsigned dev build is fine) and Windows 11 x64
+- **Build:** the commit that closed S25.3
+- **Steps:**
+  1. macOS: put a project in `~/Documents`, open it once, quit. System Settings › Privacy & Security › Files and
+     Folders › NoobIDE (or Electron for `npm start`): turn **Documents Folder** off. Start NoobIDE, open the project
+     from Recent projects.
+  2. macOS: in Finder, Get Info on a project file in `~/Desktop` and tick **Locked**; edit it in NoobIDE and save.
+  3. Windows: Windows Security › Virus & threat protection › Ransomware protection: turn **Controlled folder access**
+     on (do not allow NoobIDE). Open a project in `Documents`, edit `index.html` and save; also create a new file and
+     a new project in `Documents`.
+  4. Windows: with Controlled folder access off, set a file in `Documents` read-only (Properties › Read-only), edit
+     and save it.
+- **Expected:** 1 and 3 explain the privacy setting with the exact place to allow NoobIDE (zh-CN and en); edits stay
+  in the editor and nothing on disk changes. 2 and 4 show the ordinary "read-only" message instead. Undo the
+  settings afterwards.
+- **Result:** _(owner fills in: pass/fail per step and platform, notes, date)_
+
+### S26.1 — Fault cases that need real hardware (confirmation of the simulated suite)
+
+The automated suite (`tests/integration/faults/`, mapped in `docs/release/fault-matrix.md`) simulates these with
+injected errno codes; this confirms the real OS behaves the same.
+
+- **Platform:** Windows 11 x64 and macOS on Apple Silicon (`npm start` or a packaged build)
+- **Build:** the commit that closed S26.1
+- **Steps:**
+  1. Full volume: create a small disk image / USB stick (e.g. 10 MB, exFAT), fill it with a large file until a few
+     KB are free, open a project on it, paste a few MB of text into `index.html` and save.
+  2. Windows locked file: open the project's `style.css` in a program that holds it without delete sharing (e.g.
+     `powershell -c "$f=[IO.File]::Open('style.css','Open','Read','None'); Read-Host"`), edit and save in NoobIDE;
+     then release the file and save again.
+  3. Windows read-only folder via ACL: `icacls <project> /deny %USERNAME%:(W)`, edit and save; afterwards
+     `icacls <project> /remove:d %USERNAME%`.
+  4. Page network failures: a page that `fetch`es `https://unreachable.invalid/data.json` and loads an image from an
+     unreachable host; run the preview with the network unplugged and with it connected.
+- **Expected:** 1–3: the save fails with a clear reason (disk full / in use / no permission), the edits stay in the
+  editor, the file on disk is the previous version, no `.noobide-tmp` file remains, and saving succeeds after the
+  cause is removed. 4: the IDE stays responsive, the failures appear as problems/log entries with an explanation,
+  and nothing else breaks.
+- **Result:** _(owner fills in: pass/fail per step and platform, notes, date)_
+
+### S27.1 — Performance measurements on Windows x64 (docs/perf/win32-x64.md)
+
+- **Platform:** Windows x64. For a PLAN §11 claim: the fixed Windows reference machine (8 GB RAM, SSD); the developer
+  machine is fine for a first row, but say so.
+- **Build:** the commit that added `scripts/measure-perf.mjs` (S27.1) or later
+- **Steps:**
+  1. In `D:\NoobIDE`: `npm install`, `npm run package` (builds `.vite\` and `out\NoobIDE-win32-x64\`).
+  2. Close other heavy programs; plug in the laptop if it is one. Do not touch the windows that open and close.
+  3. `node scripts/measure-perf.mjs --write` (about 4 minutes: 20 cold starts of the development binary, 20 starts
+     of the packaged `noobide.exe`, 22 save → preview samples on a generated 50-file project, 3 memory runs).
+  4. The script writes `docs\perf\win32-x64.md` (prettier-formatted). Commit it.
+- **Expected:** the document has every row filled (cold start n=20, packaged start n=20, save → preview n=20, memory
+  n=3). Rows marked "**target missed**" are not a failure of this check: record them in `docs/perf/targets.md`
+  (S27.3) with a fix or a decision.
+- **Result:** _(owner fills in: device, date, pass/fail, notes)_
+
+### S28.1 — Windows installer with icon and version information
+
+- **Platform:** Windows 11 x64 (installer test ideally on a clean machine or VM without Node.js)
+- **Build:** the commit that closed S28.1 (docs/decisions/0012-installers-and-app-identity.md) or later
+- **Steps:**
+  1. In `D:\NoobIDE`: `npm install`, `npm run verify`, then `npm run test:e2e -- -g "packaged Windows|About"`.
+     Expected: the "packaged Windows executable carries the version resource" and both About tests pass.
+  2. `npm run make`. Expected: `out\make\squirrel.windows\x64\NoobIDE-Setup.exe` shows the green `</>` icon in File
+     Explorer (placeholder artwork from `scripts/make-icons.mjs`).
+  3. Right-click `out\NoobIDE-win32-x64\noobide.exe` → Properties → Details. Expected: File description "NoobIDE",
+     Product name "NoobIDE", Product version and File version = package.json `version`, Copyright "Copyright ©
+     2026 NoobIDE contributors".
+  4. Run `NoobIDE-Setup.exe`. Expected: installs per-user without an admin prompt, Start-menu and desktop shortcuts
+     with the green `</>` icon, the app starts; the taskbar shows the same icon.
+  5. Open About (once the S24 menu has its entry; until then skip this step). Expected: "关于 NoobIDE", "版本
+     <version>", Electron/Chromium versions; Escape closes it.
+  6. Settings → Apps → Installed apps: NoobIDE is listed with its version. Its icon there is the generic/Electron one
+     until a release host for `iconUrl` exists (ADR 0012) — not a failure.
+- **Expected:** as described for each step.
+- **Result:** _(owner fills in: pass/fail, Windows version, date, notes)_
+
+### S27.3 — Windows target misses recorded
+
+- **Platform:** Windows x64 (after the S27.1 Windows run above)
+- **Build:** same as S27.1
+- **Steps:**
+  1. Open the new `docs/perf/win32-x64.md` and look for "**target missed**".
+  2. For each miss, add it to `docs/perf/targets.md` under "Misses" with a fix or a decision (or ask an agent
+     session to do it); fill the Windows column of the status table.
+- **Expected:** every miss in `win32-x64.md` has an entry in `targets.md`; with no misses, the status table says so.
+- **Result:** _(owner fills in: date, misses found, where recorded)_
