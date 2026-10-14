@@ -20,7 +20,7 @@ the latest entry to the next session, so write it for a reader with zero context
     collapsible Problems, honest placeholder states (sample badge, preview 未运行, problems 还没检查).
   - S30.4 narrow window (< 960px): files collapse into a drawer, Code / Preview switch.
 
-**Evidence:** `npm run verify` green (harness, typecheck, lint, format, 83 unit tests). `npm run test:e2e` on
+**Evidence:** `npm run verify` green (harness, typecheck, lint, format, 64 unit tests in 12 files). `npm run test:e2e` on
 Windows x64: 16/16 (new `tests/e2e/shell.spec.ts` + unchanged smoke and worker specs). The contrast test caught
 light-theme line numbers at 4.40:1 (fixed). Screenshots during review caught a real bug: re-creating the editor on
 a language switch used the start-up theme (light Monaco in a dark shell); fixed, with a regression e2e that fails
