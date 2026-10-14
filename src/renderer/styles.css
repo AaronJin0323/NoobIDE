@@ -491,6 +491,10 @@ button {
   box-shadow: 0 12px 32px rgb(0 0 0 / 30%);
 }
 .app-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
   padding: 8px 12px;
   border: 0;
   border-radius: var(--radius-control);
@@ -504,6 +508,17 @@ button {
 .app-menu-item:focus-visible {
   background: var(--accent-soft);
   color: var(--accent-text);
+}
+/* S24.4: check mark of the current choice (theme) */
+.app-menu-check {
+  display: inline-block;
+  width: 1.4em;
+}
+/* S24.1: groups of the command menu */
+.app-menu-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--line);
 }
 /* S11.2: conflict comparison (Monaco diff) in place of the editor */
 .conflict-diff {

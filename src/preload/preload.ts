@@ -3,6 +3,8 @@ import { CHANNELS, EVENTS, IPC_API_VERSION, type NoobideApi, type WorkspaceChang
 import { PREVIEW_CHANNELS, PREVIEW_EVENT_CHANNEL, type PreviewEvent } from '../shared/ipc/preview-contract';
 import { platformId } from '../platform/index';
 import { APP_DATA_CHANNELS } from '../shared/ipc/app-data-contract';
+import { COMMAND_CHANNELS, COMMAND_EVENTS } from '../shared/ipc/commands-contract'; // S24.2
+import { isCommandId } from '../shared/commands';
 import { WALKTHROUGH_CHANNELS } from '../shared/ipc/walkthrough-contract';
 
 /**
@@ -124,6 +126,18 @@ const api: NoobideApi = {
     reveal: () => ipcRenderer.invoke(CHANNELS.historyReveal),
   },
   // --- end S21.3/S21.4 ---
+  // --- S24.2 native menus ---
+  commands: {
+    setContext: (context) => ipcRenderer.invoke(COMMAND_CHANNELS.setContext, context),
+    onRun: (listener) => {
+      const handler = (_event: unknown, id: unknown) => {
+        if (isCommandId(id)) listener(id);
+      };
+      ipcRenderer.on(COMMAND_EVENTS.run, handler);
+      return () => void ipcRenderer.removeListener(COMMAND_EVENTS.run, handler);
+    },
+  },
+  // --- end S24.2 ---
   // S23 onboarding walkthrough
   walkthrough: {
     get: () => ipcRenderer.invoke(WALKTHROUGH_CHANNELS.get),
@@ -147,6 +161,7 @@ contextBridge.exposeInMainWorld(
     session: Object.freeze(api.session),
     createProject: Object.freeze(api.createProject), // S20.2
     history: Object.freeze(api.history), // S21.3/S21.4
+    commands: Object.freeze(api.commands), // S24.2
     walkthrough: Object.freeze(api.walkthrough), // S23
   }),
 );

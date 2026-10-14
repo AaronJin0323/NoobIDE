@@ -2182,8 +2182,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/commands.ts registry (id, i18n label, when, per-platform keys); src/platform/keybindings.ts; unit: src/platform/keybindings.test.ts + src/shared/commands.test.ts (16 tests incl. ⌘S vs Ctrl+S labels/matching); e2e tests/e2e/commands.spec.ts (4, menu+hints derived, shortcuts) on macOS arm64; verify green except 3 known macOS integration files"
     },
     {
       "id": "S24.2",
@@ -2198,8 +2198,8 @@
       "depends_on": [
         "S24.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "unit: src/platform/menu-template.test.ts, src/main/app-menu.test.ts, src/main/window-lifecycle.test.ts, src/main/commands-ipc.test.ts; e2e tests/e2e/menus.spec.ts on macOS arm64 (menu bar/i18n/context/click/About + activate reopens window); Windows quit-on-last-close e2e skips on mac; decision docs/decisions/0014; manual steps harness/MANUAL-CHECKS.md#S24.2"
     },
     {
       "id": "S24.3",
@@ -2212,8 +2212,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "e2e tests/e2e/a11y.spec.ts (5 tests, macOS arm64): axe-core 4.13.0 (pinned devDependency) finds no serious/critical issue on welcome, create wizard, project+problems, command menu, history dialog in light and dark (Monaco internals excluded); Tab order topbar→rail→files→editor; F6/Shift+F6 region navigation (new registry commands) incl. out of the editor; keyboard-only tabs/menu/theme/zoom/panels. Fixed tablist children (close × aria-hidden + aria-keyshortcuts=Delete) and welcome note contrast. Remaining moderate-only axe findings: page-has-heading-one, region (splitters). Full e2e 178 passed; only file-tree S07.3 watcher test fails, same on main"
     },
     {
       "id": "S24.4",
@@ -2226,8 +2226,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "ThemeProvider persists light/dark/system in settings.theme (S13 SettingsStore); zoom persisted via settings.editorFontSize with schema limits; unit src/renderer/theme/theme-choice.test.ts + registry/menu radio tests; e2e tests/e2e/theme.spec.ts (choice + zoom survive restart, in-window radio with check mark, native View menu) + settings.spec.ts pass on macOS arm64"
     },
     {
       "id": "S25.1",

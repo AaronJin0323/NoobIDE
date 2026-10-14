@@ -24,6 +24,7 @@ import type {
 } from './app-data-contract';
 import type { CreateProjectApi } from './create-contract'; // S20.2
 import type { HistoryApi } from './history-contract'; // S21.3/S21.4
+import type { CommandsApi } from './commands-contract'; // S24.2
 import type { WalkthroughApi } from './walkthrough-contract'; // S23
 
 export const IPC_API_VERSION = 1;
@@ -402,6 +403,8 @@ export interface NoobideApi {
   readonly createProject: CreateProjectApi;
   /** S21.3/S21.4: local history (history-contract.ts). */
   readonly history: HistoryApi;
+  /** S24.2: command context for the native menus, and menu choices (commands-contract.ts). */
+  readonly commands?: CommandsApi;
   /** S23: onboarding walkthrough progress in app data (walkthrough-contract.ts). */
   readonly walkthrough?: WalkthroughApi;
 }

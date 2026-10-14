@@ -129,6 +129,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'session',
       'createProject',
       'history',
+      'commands', // S24.2: command context + native menu choices
       'walkthrough',
     ],
     apiVersion: 1,

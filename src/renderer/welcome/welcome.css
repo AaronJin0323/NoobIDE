@@ -99,7 +99,7 @@
 .welcome-sample-note {
   flex-basis: 100%;
   margin: 0;
-  color: var(--faint);
+  color: var(--muted); /* S24.3: --faint on --raised is below 4.5:1 in the dark theme */
   font-size: 12px;
 }
 

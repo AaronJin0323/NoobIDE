@@ -1,12 +1,20 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 
 export interface AppMenuItem {
   readonly id: string;
   readonly label: MessageKey;
+  /** S24.1: the shortcut hint from the command registry (`⌘S` / `Ctrl+S`), if the command has one. */
+  readonly shortcut?: string | null;
+  /** S24.1: a separator line goes above this item (a new group). */
+  readonly separatorBefore?: boolean;
+  /** S24.4: a choice among several (menuitemradio): whether it is the current one; null/absent for actions. */
+  readonly checked?: boolean | null;
   readonly onSelect: () => void;
 }
+
+const isChoice = (item: AppMenuItem) => item.checked !== undefined && item.checked !== null;
 
 /**
  * The workbench's small command menu (S13.3 close project, S13.6 open logs folder). An ARIA menu button: Enter,
@@ -18,7 +26,7 @@ export function AppMenu({ items }: { items: readonly AppMenuItem[] }) {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
-  const entries = () => [...(menu.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])];
+  const entries = () => [...(menu.current?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]') ?? [])];
 
   useEffect(() => {
     if (!open) return undefined;
@@ -89,20 +97,32 @@ export function AppMenu({ items }: { items: readonly AppMenuItem[] }) {
           onKeyDown={onMenuKey}
         >
           {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="menuitem"
-              tabIndex={-1}
-              className="app-menu-item"
-              data-testid={`menu-${item.id}`}
-              onClick={() => {
-                close(true);
-                item.onSelect();
-              }}
-            >
-              {t(item.label)}
-            </button>
+            <Fragment key={item.id}>
+              {item.separatorBefore && <div role="separator" className="app-menu-separator" />}
+              <button
+                type="button"
+                role={isChoice(item) ? 'menuitemradio' : 'menuitem'}
+                aria-checked={isChoice(item) ? item.checked === true : undefined}
+                tabIndex={-1}
+                className="app-menu-item"
+                data-testid={`menu-${item.id}`}
+                onClick={() => {
+                  close(true);
+                  item.onSelect();
+                }}
+              >
+                <span>
+                  {/* S24.4: the current choice carries a check mark, not only a colour */}
+                  {isChoice(item) && (
+                    <span className="app-menu-check" aria-hidden="true">
+                      {item.checked ? '✓' : ''}
+                    </span>
+                  )}
+                  {t(item.label)}
+                </span>
+                {item.shortcut && <span className="menu-shortcut">{item.shortcut}</span>}
+              </button>
+            </Fragment>
           ))}
         </div>
       )}

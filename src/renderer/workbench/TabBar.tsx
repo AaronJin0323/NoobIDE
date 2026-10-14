@@ -119,6 +119,8 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
               id={`tab-${index}`}
               aria-selected={selected}
               aria-controls="editor-surface"
+              // S24.3: Delete closes the tab; the mouse-only × next to it is hidden from the tablist's children.
+              aria-keyshortcuts="Delete"
               tabIndex={selected || (active === null && index === 0) ? 0 : -1}
               title={tab.relPath}
               onClick={() => onActivate(tab.relPath)}
@@ -136,6 +138,7 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
               type="button"
               className="tab-close"
               tabIndex={-1}
+              aria-hidden="true"
               aria-label={closeLabel}
               title={closeLabel}
               data-testid="tab-close"

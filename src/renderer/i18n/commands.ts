@@ -1,0 +1,97 @@
+/**
+ * Messages of the command registry and the native menus (S24). Kept in their own file and spread into zh-CN.ts /
+ * en.ts, so these features touch the shared dictionaries in one line each.
+ */
+export const commandsZhCN = {
+  // ── S24.1 命令 ──
+  'command.newProject': '新建项目…',
+  'command.openFolder': '打开文件夹…',
+  'command.save': '保存',
+  'command.closeTab': '关闭标签页',
+  'command.showHistory': '本地历史…',
+  'command.toggleFiles': '显示或隐藏文件列表',
+  'command.toggleProblems': '显示或隐藏问题面板',
+  'command.nextTab': '下一个标签页',
+  'command.previousTab': '上一个标签页',
+  // ── S24.4 主题 ──
+  'command.theme.system': '跟随系统的浅色或深色主题',
+  'command.theme.light': '浅色主题',
+  'command.theme.dark': '深色主题',
+  // ── S24.3 键盘 ──
+  'command.focusNextRegion': '转到下一个区域',
+  'command.focusPreviousRegion': '转到上一个区域',
+  // ── S23 帮助（在“帮助”菜单里，不再需要“帮助：”前缀）──
+  'command.walkthrough': '入门导览',
+  'command.glossary': '术语表',
+  // ── S24.2 系统菜单 ──
+  'menu.about': '关于 NoobIDE',
+  'menu.services': '服务',
+  'menu.hide': '隐藏 NoobIDE',
+  'menu.hideOthers': '隐藏其他',
+  'menu.unhide': '全部显示',
+  'menu.quit': '退出 NoobIDE',
+  'menu.file': '文件',
+  'menu.closeWindow': '关闭窗口',
+  'menu.exit': '退出',
+  'menu.edit': '编辑',
+  'menu.undo': '撤销',
+  'menu.redo': '重做',
+  'menu.cut': '剪切',
+  'menu.copy': '拷贝',
+  'menu.paste': '粘贴',
+  'menu.selectAll': '全选',
+  'menu.view': '视图',
+  'menu.devTools': '开发者工具',
+  'menu.window': '窗口',
+  'menu.minimize': '最小化',
+  'menu.windowZoom': '缩放',
+  'menu.front': '前置全部窗口',
+  'menu.help': '帮助',
+};
+
+export const commandsEn: Record<keyof typeof commandsZhCN, string> = {
+  // ── S24.1 commands ──
+  'command.newProject': 'New project…',
+  'command.openFolder': 'Open folder…',
+  'command.save': 'Save',
+  'command.closeTab': 'Close tab',
+  'command.showHistory': 'Local history…',
+  'command.toggleFiles': 'Show or hide files',
+  'command.toggleProblems': 'Show or hide problems',
+  'command.nextTab': 'Next tab',
+  'command.previousTab': 'Previous tab',
+  // ── S24.4 theme ──
+  'command.theme.system': 'Light or dark theme from the system',
+  'command.theme.light': 'Light theme',
+  'command.theme.dark': 'Dark theme',
+  // ── S24.3 keyboard ──
+  'command.focusNextRegion': 'Focus next area',
+  'command.focusPreviousRegion': 'Focus previous area',
+  // ── S23 help (in the Help menu, no "Help:" prefix needed) ──
+  'command.walkthrough': 'Walkthrough',
+  'command.glossary': 'Glossary',
+  // ── S24.2 native menus ──
+  'menu.about': 'About NoobIDE',
+  'menu.services': 'Services',
+  'menu.hide': 'Hide NoobIDE',
+  'menu.hideOthers': 'Hide Others',
+  'menu.unhide': 'Show All',
+  'menu.quit': 'Quit NoobIDE',
+  'menu.file': 'File',
+  'menu.closeWindow': 'Close Window',
+  'menu.exit': 'Exit',
+  'menu.edit': 'Edit',
+  'menu.undo': 'Undo',
+  'menu.redo': 'Redo',
+  'menu.cut': 'Cut',
+  'menu.copy': 'Copy',
+  'menu.paste': 'Paste',
+  'menu.selectAll': 'Select All',
+  'menu.view': 'View',
+  'menu.devTools': 'Developer Tools',
+  'menu.window': 'Window',
+  'menu.minimize': 'Minimize',
+  'menu.windowZoom': 'Zoom',
+  'menu.front': 'Bring All to Front',
+  'menu.help': 'Help',
+};

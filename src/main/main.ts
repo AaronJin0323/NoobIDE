@@ -1,8 +1,8 @@
 /// <reference types="@electron-forge/plugin-vite/forge-vite-env" />
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { app, BrowserWindow, dialog, ipcMain, protocol, session, shell } from 'electron';
-import { quitsWhenLastWindowCloses, recreatesWindowOnActivate } from '../platform/index';
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, session, shell } from 'electron';
+import { platformId } from '../platform/index';
 import { currentSquirrelAction } from '../platform/squirrel';
 import { APP_ENTRY_URL, APP_ORIGIN } from './app-asset';
 import { handleAppProtocol, registerAppSchemePrivileges } from './app-protocol';
@@ -41,6 +41,10 @@ import { SessionStore } from './session-store';
 import type { WebContents } from 'electron';
 import { resolveTemplatesDir } from '../workspace/templates'; // S20.2
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
+// S24.2: native menus from the command registry, and the platform's window lifecycle
+import { AppMenuController } from './app-menu';
+import { registerCommandIpcHandlers } from './commands-ipc';
+import { installWindowLifecycle } from './window-lifecycle';
 
 // Windows installer events: create/remove shortcuts and quit without opening a window.
 const squirrel = currentSquirrelAction();
@@ -68,12 +72,7 @@ function start(): void {
     app.quit();
     return;
   }
-  app.on('second-instance', () => {
-    const win = BrowserWindow.getAllWindows()[0];
-    if (!win) return;
-    if (win.isMinimized()) win.restore();
-    win.focus();
-  });
+  // (S24.2: a second launch focuses the window, or opens one on macOS — see installWindowLifecycle below.)
   // --- end S12 ---
 
   // --- S04 preview: the project service is created when the app is ready; the preview asks it for roots. ---
@@ -93,6 +92,9 @@ function start(): void {
     blockedRequests,
     preview: () => preview.debugInfo(),
   };
+
+  // S24.2: the native menu bar, created when the app is ready (it needs the settings' interface language).
+  let menu: AppMenuController | undefined;
 
   // S10.6: every workbench window saves before it closes; an interrupted quit resumes once all windows agreed.
   const closeGuards = new Map<number, CloseGuard>();
@@ -122,6 +124,9 @@ function start(): void {
       }),
     );
     win.on('closed', () => closeGuards.delete(contentsId));
+    // S24.2: the menu bar follows the focused workbench's command context.
+    win.on('focus', () => menu?.windowFocused(contentsId));
+    win.on('closed', () => menu?.windowClosed(contentsId));
     if (selfTest) {
       // S18.1: the result line also says whether the network was off and what the network guard refused.
       watchSelfTest(
@@ -275,10 +280,45 @@ function start(): void {
     });
     // --- S13 app data (all in app.getPath('userData'), never inside a project) ---
     const settings = new SettingsStore({ file: path.join(appData, 'settings.json'), log: logger });
-    void settings.load();
+    // --- S24.2: native menus, translated with the interface language and enabled from the command context ---
+    const appMenu = new AppMenuController({
+      platform: platformId(),
+      devTools: devServerUrl !== undefined,
+      apply: (template) => Menu.setApplicationMenu(Menu.buildFromTemplate(template)),
+      targetOf: (window) => {
+        const win =
+          (window instanceof BrowserWindow ? window : undefined) ??
+          BrowserWindow.getFocusedWindow() ??
+          BrowserWindow.getAllWindows()[0];
+        if (!win) return null;
+        const contents = win.webContents;
+        return {
+          id: contents.id,
+          isFocused: () => contents.isFocused(),
+          send: (channel, id) => contents.send(channel, id),
+        };
+      },
+      createWindow: () => void createWorkbenchWindow(),
+    });
+    menu = appMenu;
+    appMenu.rebuild();
+    void settings.load().then((loaded) => appMenu.setLocale(loaded.settings.locale));
+    registerCommandIpcHandlers(ipcMain, {
+      allowedOrigin: devOrigin ?? APP_ORIGIN,
+      setContext: (senderId, context) => appMenu.setContext(senderId, context),
+    });
+    // --- end S24.2 ---
     registerAppDataIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
-      settings,
+      settings: {
+        snapshot: () => settings.snapshot(),
+        // S24.2: a language change re-translates the native menus.
+        update: async (patch) => {
+          const next = await settings.update(patch);
+          appMenu.setLocale(next.locale);
+          return next;
+        },
+      },
       openLogsFolder: () => shell.openPath(appLog.dir),
       projects,
       recent,
@@ -296,12 +336,16 @@ function start(): void {
     });
     createWorkbenchWindow();
 
-    app.on('activate', () => {
-      if (recreatesWindowOnActivate() && BrowserWindow.getAllWindows().length === 0) createWorkbenchWindow();
+    // S24.2: Windows exits with its last window; macOS stays in the dock and reopens a window on activation.
+    installWindowLifecycle(app, {
+      windowCount: () => BrowserWindow.getAllWindows().length,
+      createWindow: () => void createWorkbenchWindow(),
+      focusFirstWindow: () => {
+        const win = BrowserWindow.getAllWindows()[0];
+        if (!win) return;
+        if (win.isMinimized()) win.restore();
+        win.focus();
+      },
     });
-  });
-
-  app.on('window-all-closed', () => {
-    if (quitsWhenLastWindowCloses()) app.quit();
   });
 }

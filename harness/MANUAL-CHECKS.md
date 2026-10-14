@@ -192,6 +192,32 @@ The e2e suite replaces `shell.trashItem` with a recorder, so the real Recycle Bi
 - **Expected:** as described for every case; no file outside the project changes.
 - **Result:** _(owner fills in: pass/fail per case and platform, notes, date)_
 
+### S24.2 — platform menus and window lifecycle (manual-win and manual-mac)
+
+The e2e suite (tests/e2e/menus.spec.ts) reads and clicks the menus through Electron's Menu API and emits `activate`
+itself; it ran on macOS arm64 only. The real menu bar, the dock and Windows' quit-on-last-close are checked here.
+
+- **Platform:** Windows 11 x64 and macOS on Apple Silicon
+- **Build:** the commit `S24.2: platform menus and window lifecycle` (see `git log`)
+- **Steps (Windows):**
+  1. `npm start`. The window has a menu bar 文件 / 编辑 / 视图 / 帮助 (no NoobIDE or 窗口 menu). 文件 ends with 退出.
+     Items show `Ctrl+S`, `Ctrl+O`, `Ctrl+Shift+M`, … next to their labels.
+  2. Open a project and a file, type a character, press Ctrl+S once: the file is saved once (status 已保存, no
+     second save). Choose 文件 → 保存 with the mouse: same result.
+  3. Switch the interface language (top bar): the menu bar becomes File / Edit / View / Help.
+  4. Close the window with its × button: the NoobIDE process exits (Task Manager shows no NoobIDE).
+- **Steps (macOS):**
+  1. `npm start`. The menu bar shows NoobIDE / 文件 / 编辑 / 视图 / 窗口 / 帮助; the NoobIDE menu has 关于 NoobIDE,
+     服务, 隐藏 NoobIDE, 退出 NoobIDE (⌘Q). Items show `⌘S`, `⌘O`, `⇧⌘M`, … ; 关闭窗口 is ⇧⌘W.
+  2. Open a project and a file, type, press ⌘S once: saved once. Click inside the preview, press ⌘S: the file is
+     saved too (the menu forwards it). Press ⌘W: the tab closes, not the window.
+  3. Copy and paste text in the "new file" name field with ⌘C / ⌘V (编辑 menu roles).
+  4. Close the window (red button or ⇧⌘W): the app stays in the dock with its menu bar. Click the dock icon: a new
+     window opens. Close it again and choose 文件 → 打开文件夹… from the menu bar: a window opens.
+  5. ⌘Q quits (after saving, as before).
+- **Expected:** as described on both platforms; no command runs twice for one key press.
+- **Result:** _(owner fills in: pass/fail per platform, notes, date)_
+
 ### S25.3 — OS folder protection messages on real hardware (confirmation)
 
 S25.3 is proven by simulated tests (`tests/integration/protected-folder.test.ts`); this confirms the error codes the
