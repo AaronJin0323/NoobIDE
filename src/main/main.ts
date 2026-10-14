@@ -15,6 +15,7 @@ import {
   installNetworkGuard,
 } from './harden';
 import { registerIpcHandlers } from './ipc';
+import { ProjectWatchHub } from './project-watch';
 import { ProjectService } from '../workspace/project-service';
 import { selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test';
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
@@ -66,6 +67,7 @@ function start(): void {
     } else {
       handleAppProtocol(protocol, path.join(__dirname, '..', 'renderer', MAIN_WINDOW_VITE_NAME));
     }
+    const watchHub = new ProjectWatchHub();
     registerIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       projects: new ProjectService(),
@@ -76,6 +78,8 @@ function start(): void {
         return result.canceled ? null : (result.filePaths[0] ?? null);
       },
       revealFolder: (folder) => shell.showItemInFolder(folder),
+      // ── S07/S08: file tree, watcher and file operations ──
+      projectOpened: (projectId, root, sender) => watchHub.watch(projectId, root, sender),
     });
     createWorkbenchWindow();
 

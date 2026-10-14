@@ -156,3 +156,17 @@ describe('file tree channel (S07.2)', () => {
     expect(deps.projects.listDir).not.toHaveBeenCalled();
   });
 });
+
+describe('project watching (S07.3)', () => {
+  it('starts watching a project the user opened, for the window that asked', async () => {
+    const projectOpened = vi.fn();
+    handlers.clear();
+    registerIpcHandlers({ handle: (c: string, h: Handler) => void handlers.set(c, h) } as never, {
+      ...deps,
+      projectOpened,
+    });
+    const sender = { id: 1 };
+    await call(CHANNELS.openFolder, { senderFrame: frame(`${ORIGIN}/index.html`), sender } as never);
+    expect(projectOpened).toHaveBeenCalledWith(ID, '/p', sender);
+  });
+});

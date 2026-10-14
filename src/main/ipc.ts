@@ -42,6 +42,9 @@ export interface IpcDeps {
   /** Shows the native folder picker; `null` when cancelled. */
   chooseFolder(event: IpcMainInvokeEvent): Promise<string | null>;
   revealFolder(folder: string): void;
+  // ── S07/S08: file tree, watcher and file operations ──
+  /** Starts watching a just-opened project and reports changes to the window that opened it (S07.3). */
+  projectOpened?(projectId: string, root: string, sender: IpcMainInvokeEvent['sender']): void;
 }
 
 const FORBIDDEN = { ok: false, code: 'forbidden-sender', message: 'sender is not the workbench' } as const;
@@ -65,7 +68,9 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
   handle(CHANNELS.openFolder, parseNoPayload, async (_payload, event) => {
     const chosen = await deps.chooseFolder(event);
     if (chosen === null) return { ok: true, value: null };
-    return toIpcResult(await deps.projects.open(chosen));
+    const opened = await deps.projects.open(chosen);
+    if (opened.ok) deps.projectOpened?.(opened.value.projectId, opened.value.rootPath, event.sender);
+    return toIpcResult(opened);
   });
 
   handle(CHANNELS.readFile, parseFileRequest, async (request) => toIpcResult(await deps.projects.read(request)));

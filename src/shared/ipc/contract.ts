@@ -142,6 +142,23 @@ export function parseDirRequest(payload: unknown): DirRequest | null {
   return isProjectId(projectId) && (relPath === '' || isPortableRelPath(relPath)) ? { projectId, relPath } : null;
 }
 
+/** A change on disk, from the project watcher (S07.3). Paths are portable and relative to the project root. */
+export type WatchEvent =
+  | { readonly type: 'created' | 'changed' | 'deleted'; readonly relPath: string }
+  | { readonly type: 'renamed'; readonly from: string; readonly to: string; readonly caseOnly: boolean }
+  /** The watcher lost track (folder removed, too many changes): reload the whole tree. */
+  | { readonly type: 'rescan' };
+
+export interface WorkspaceChanged {
+  readonly projectId: string;
+  readonly events: readonly WatchEvent[];
+}
+
+/** Main → workbench notifications (sent with webContents.send, only to the window that opened the project). */
+export const EVENTS = {
+  changed: 'workspace:changed',
+} as const;
+
 // ── end S07/S08 ──────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** What preload exposes as `window.noobide`. */
@@ -158,6 +175,8 @@ export interface NoobideApi {
     // ── S07/S08: file tree, watcher and file operations ──
     /** One folder of the lazy file tree (S07.2). */
     listDir(request: DirRequest): Promise<IpcResult<DirListing, ListDirError>>;
+    /** Subscribes to changes on disk in the open project (S07.3). Returns the unsubscribe function. */
+    onChanged(listener: (change: WorkspaceChanged) => void): () => void;
   };
 }
 

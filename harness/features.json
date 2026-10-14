@@ -973,8 +973,8 @@
       "depends_on": [
         "S07.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/workspace/tree.ts + ignore.ts (workspace:list-dir channel) and renderer model src/renderer/workbench/file-tree-model.ts; tests/integration/tree.test.ts (folders-first natural sort, ignore list, per-folder limit, junction outside root marked link-outside and refused, junction inside root followed, broken link) + file-tree-model.test.ts (lazy loading, invalidate, rename rebase) + unreadable-folder.test.ts; verify + e2e green @ 3016039"
     },
     {
       "id": "S07.3",
@@ -989,7 +989,7 @@
       "depends_on": [
         "S07.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
