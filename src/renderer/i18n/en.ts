@@ -219,4 +219,8 @@ export const en: Record<MessageKey, string> = {
   'recovery.discardConfirm': 'Discard now? These changes cannot be brought back',
   'recovery.recoveredText': 'Content of the recovery copy',
   // --- end S12 ---
+  // --- S18.3 formatting ---
+  'format.button': 'Format',
+  'format.title': 'Format the code: indentation and line breaks ({shortcut})',
+  // --- end S18.3 ---
 };

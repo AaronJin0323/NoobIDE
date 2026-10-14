@@ -16,8 +16,10 @@ import JsonWorker from 'monaco-editor/languages/features/json/json.worker?worker
 import TsWorker from 'monaco-editor/languages/features/typescript/ts.worker?worker';
 import { javascriptDefaults } from 'monaco-editor/languages/features/typescript/register';
 import { cssDefaults } from 'monaco-editor/languages/features/css/register';
+import { htmlDefaults } from 'monaco-editor/languages/features/html/register';
 import { MONACO_THEME_NAME, buildMonacoTheme } from '../theme/monaco-theme';
 import { configureLanguages } from './language-config';
+import { installFormatHook, onBeforeFormat, type FormattingRegistry } from './format-hook';
 
 /** Labels of the workers Monaco has started — read by the worker probe (self-test / e2e). */
 export const startedWorkers: string[] = [];
@@ -55,7 +57,23 @@ for (const scheme of ['dark', 'light'] as const) {
 }
 
 // S18.1 / S19.2: HTML, CSS and JavaScript services with beginner-tuned diagnostics (language-config.ts).
-export const languageDefaults = { javascript: javascriptDefaults, css: cssDefaults };
+export const languageDefaults = { javascript: javascriptDefaults, css: cssDefaults, html: htmlDefaults };
 configureLanguages(languageDefaults);
+
+// S18.3: every formatting path (button, shortcut, context menu, command palette) emits the pre-format hook first.
+// Installed before any language registers its formatter (they register lazily, on the first model of the language).
+installFormatHook(monaco.languages as unknown as FormattingRegistry<unknown>);
+
+/**
+ * Read-only facts for the e2e suite (like main's __noobideTestHooks): metadata only, never file contents.
+ * S18.3: which documents fired the pre-format hook.
+ */
+export const editorTestHooks = {
+  preFormat: [] as { uri: string; languageId: string }[],
+};
+onBeforeFormat(({ uri, languageId }) => {
+  if (editorTestHooks.preFormat.length < 100) editorTestHooks.preFormat.push({ uri, languageId });
+});
+Object.defineProperty(window, '__noobideEditorTestHooks', { value: editorTestHooks });
 
 export { monaco };

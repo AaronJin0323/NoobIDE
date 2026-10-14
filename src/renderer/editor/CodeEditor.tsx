@@ -3,6 +3,8 @@ import { monaco } from './monaco-setup';
 import { models } from './editor-models';
 import { MONACO_THEME_NAME } from '../theme/monaco-theme';
 import { useColorScheme } from '../theme/ThemeProvider';
+// S17.2 / S18.3: Monaco-free handle for the workbench (format, go to code).
+import { registerEditor, takePendingReveal, type RevealTarget } from './editor-handle';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -33,6 +35,16 @@ interface CodeEditorProps {
 const CODE_FONT = "'Cascadia Mono', 'SF Mono', Menlo, Consolas, 'Microsoft YaHei UI', 'PingFang SC', monospace";
 
 export const lineHeightFor = (fontSize: number) => Math.round(fontSize * 1.625);
+
+/** S17.2: puts the cursor on the reported line/column (clamped to the text) and scrolls it to the middle. */
+function revealIn(editor: monaco.editor.IStandaloneCodeEditor, target: RevealTarget): void {
+  const model = editor.getModel();
+  if (!model) return;
+  const position = model.validatePosition({ lineNumber: target.line, column: target.column ?? 1 });
+  editor.setPosition(position);
+  editor.revealPositionInCenter(position);
+  if (target.focus) editor.focus();
+}
 
 /**
  * One Monaco editor for all tabs. A tab switch stores the outgoing view state (cursor, selections, scroll, folding),
@@ -110,7 +122,17 @@ export function CodeEditor({
     ];
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => callbacks.current.onSave?.());
     editorRef.current = editor;
+    // --- S17.2 / S18.3: the workbench reaches this editor through editor-handle (no Monaco import there) ---
+    registerEditor({
+      shownUri: uriOf,
+      formatDocument: async () => {
+        await editor.getAction('editor.action.formatDocument')?.run();
+      },
+      reveal: (target) => revealIn(editor, target),
+    });
+    // --- end S17.2 / S18.3 ---
     return () => {
+      registerEditor(null);
       editorRef.current = null;
       const uri = uriOf();
       if (uri && !shown.current?.model.isDisposed()) models.saveViewState(uri, editor.saveViewState());
@@ -142,6 +164,9 @@ export function CodeEditor({
     editor.setModel(model);
     const view = models.viewState(uri);
     if (view) editor.restoreViewState(view);
+    // S17.2: Go to code opened this file; move to the reported place now that it is on screen.
+    const reveal = takePendingReveal(uri);
+    if (reveal) revealIn(editor, reveal);
     const position = editor.getPosition();
     if (position) callbacks.current.onCursor?.(position.lineNumber, position.column);
   }, [uri, language, initialValue, eol]);

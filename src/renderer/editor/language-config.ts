@@ -151,7 +151,14 @@ export interface LanguageDefaults {
   readonly css: {
     setOptions(options: { validate: boolean; lint: Readonly<Record<string, LintLevel>> }): void;
   };
+  readonly html: {
+    readonly options: { readonly format?: object };
+    setOptions(options: { readonly format?: object }): void;
+  };
 }
+
+/** S18.3: the HTML formatter keeps the file's final line break (Monaco's default would remove it on every format). */
+export const HTML_FORMAT_OVERRIDES = { endWithNewline: true } as const;
 
 /** Applies the NoobIDE configuration. Idempotent; re-applying restarts the language workers (S18.4 recovery). */
 export function configureLanguages(defaults: LanguageDefaults): void {
@@ -161,4 +168,6 @@ export function configureLanguages(defaults: LanguageDefaults): void {
   // ES module imports are known before that file was ever shown (S18.4).
   defaults.javascript.setEagerModelSync(true);
   defaults.css.setOptions({ validate: true, lint: CSS_LINT });
+  const html = defaults.html.options;
+  defaults.html.setOptions({ ...html, format: { ...html.format, ...HTML_FORMAT_OVERRIDES } });
 }

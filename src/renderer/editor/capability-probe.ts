@@ -62,6 +62,8 @@ async function runCase(
     ms: Math.round(performance.now() - started),
   });
   try {
+    // Same indentation as the workbench editor (CodeEditor: tabSize 2, spaces), so format results match the app.
+    model.updateOptions({ tabSize: 2, insertSpaces: true });
     editor.setModel(model);
     editor.focus();
     editor.setPosition({ lineNumber: line, column });

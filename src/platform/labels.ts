@@ -17,6 +17,11 @@ export function shortcutLabel(id: PlatformId, key: string): string {
   return isMac(id) ? `${modifierLabel(id)}${key}` : `${modifierLabel(id)}+${key}`;
 }
 
+/** S18.3: Monaco's "Format Document" shortcut as each platform writes it. */
+export function formatShortcutLabel(id: PlatformId): string {
+  return isMac(id) ? '⇧⌥F' : 'Shift+Alt+F';
+}
+
 /** i18n key for "show in the file manager": Finder on macOS, File Explorer on Windows. */
 export type RevealLabelKey = 'reveal.finder' | 'reveal.explorer' | 'reveal.fileManager';
 

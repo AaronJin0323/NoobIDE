@@ -1855,8 +1855,8 @@
       "depends_on": [
         "S18.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/fixtures/lang-capabilities/cases.json: 19 cases with expected completions/hovers (HTML tags, closing tags, attributes, attribute values; CSS properties, values, colours, property + selector hover; JS DOM/string/array/console/event-name/local completions, DOM/variable/function hover), all passing in the packaged app offline (tests/e2e/language.spec.ts requires every case); docs/capabilities.md lists only those case ids (capability-cases.test.ts fails on any id not in the suite and on any row without a case) plus a 'Not claimed' section; verify green, e2e 99/99 @ 536858d"
     },
     {
       "id": "S18.3",
@@ -1871,7 +1871,7 @@
       "depends_on": [
         "S18.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

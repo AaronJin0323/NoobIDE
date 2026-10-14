@@ -208,6 +208,10 @@ export const zhCN = {
   'recovery.discardConfirm': '确定丢弃？这份修改将无法找回',
   'recovery.recoveredText': '恢复副本的内容',
   // --- end S12 ---
+  // --- S18.3 formatting ---
+  'format.button': '整理格式',
+  'format.title': '整理代码格式：缩进和换行（{shortcut}）',
+  // --- end S18.3 ---
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

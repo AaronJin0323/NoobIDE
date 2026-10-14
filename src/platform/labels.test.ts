@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatShortcutLabel,
   isMac,
   isWindows,
   modifierLabel,
@@ -67,5 +68,13 @@ describe('file tree commands (S08.3, S08.5)', () => {
     expect(treeCommandForKey('mac', key('R', { shiftKey: true, altKey: true }))).toBeNull();
     expect(treeShortcutLabel('mac', 'delete')).toBe('⌘⌫');
     expect(treeShortcutLabel('mac', 'reveal')).toBe('⌥⌘R');
+  });
+});
+
+describe('formatShortcutLabel (S18.3)', () => {
+  it('follows each platform', () => {
+    expect(formatShortcutLabel('windows')).toBe('Shift+Alt+F');
+    expect(formatShortcutLabel('other')).toBe('Shift+Alt+F');
+    expect(formatShortcutLabel('mac')).toBe('⇧⌥F');
   });
 });

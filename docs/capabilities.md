@@ -44,6 +44,17 @@ remove its row. Help texts and release notes may only claim what is listed here.
 | Hovering a variable shows its declaration                 | `userName` → `const userName: "Lin"`          | `js-local-hover`              |
 | Hovering a function shows its parameters                  | `greet` → `function greet(name: any): string` | `js-function-hover`           |
 
+## Formatting
+
+Format with the **整理格式 / Format** button above the editor or with Shift+Alt+F (Windows) / ⇧⌥F (macOS). Formatting is
+an ordinary edit: Ctrl+Z / ⌘Z undoes it, and autosave writes it.
+
+| Capability                                  | Example                                       | Case          |
+| ------------------------------------------- | --------------------------------------------- | ------------- |
+| HTML is re-indented, one element per line   | `<ul><li>One</li>…` → nested, 2 spaces        | `html-format` |
+| CSS rules get one declaration per line      | `h1{color:red;margin:0}` → expanded rule      | `css-format`  |
+| JavaScript gets standard spacing and indent | `function add(a,b){` → `function add(a, b) {` | `js-format`   |
+
 ## Not claimed
 
 These are **not** validated and must not be presented as features: completion inside `<script>` and `<style>` blocks

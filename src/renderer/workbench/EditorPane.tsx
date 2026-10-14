@@ -9,6 +9,11 @@ import { TabBar } from './TabBar';
 import { isSameOrBelow } from './file-tree-model';
 import { MinusIcon, PlusIcon, WarningIcon } from './icons';
 import { FileRoleHint } from './FileRole';
+// S18.3: format command (button + Monaco's Shift+Alt+F / ⇧⌥F) on the editor handle, without importing Monaco here.
+import { activeEditor } from '../editor/editor-handle';
+import { formatShortcutLabel } from '../../platform/labels';
+
+const FORMATTABLE = new Set(['html', 'css', 'javascript']);
 
 // Monaco is large; load it as its own chunk so the shell paints first.
 const CodeEditor = lazy(() => import('../editor/CodeEditor').then((m) => ({ default: m.CodeEditor })));
@@ -107,6 +112,18 @@ export function EditorPane(props: EditorPaneProps) {
           <span className="badge" data-testid="sample-badge">
             {t('editor.sampleBadge')}
           </span>
+        )}
+        {/* S18.3: format the file on screen (hidden for read-only files and other languages) */}
+        {editorFile && tab && !editorFile.readOnly && FORMATTABLE.has(editorFile.language) && (
+          <button
+            type="button"
+            className="quiet-button"
+            title={t('format.title').replace('{shortcut}', formatShortcutLabel(window.noobide?.platform ?? 'other'))}
+            data-testid="format-document"
+            onClick={() => void activeEditor()?.formatDocument()}
+          >
+            {t('format.button')}
+          </button>
         )}
         <div className="zoom" role="group" aria-label={t('zoom.label')} data-testid="zoom">
           <button

@@ -171,6 +171,27 @@
       "expect": [
         "greet(name"
       ]
+    },
+    {
+      "id": "html-format",
+      "language": "html",
+      "kind": "format",
+      "text": "<ul><li>One</li>\n<li>Two</li></ul>\n",
+      "expectText": "<ul>\n  <li>One</li>\n  <li>Two</li>\n</ul>\n"
+    },
+    {
+      "id": "css-format",
+      "language": "css",
+      "kind": "format",
+      "text": "h1{color:red;margin:0}\n",
+      "expectText": "h1 {\n  color: red;\n  margin: 0\n}"
+    },
+    {
+      "id": "js-format",
+      "language": "javascript",
+      "kind": "format",
+      "text": "function add(a,b){\nreturn a+b\n}\n",
+      "expectText": "function add(a, b) {\n  return a + b\n}\n"
     }
   ]
 }

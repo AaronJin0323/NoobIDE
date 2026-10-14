@@ -33,6 +33,13 @@ function fakeDefaults() {
         seen.css = o;
       },
     },
+    html: {
+      options: { format: { tabSize: 4, endWithNewline: false } },
+      setOptions: (o) => {
+        calls.push('html');
+        seen.html = o;
+      },
+    },
   };
   return { defaults, calls, seen };
 }
@@ -41,11 +48,13 @@ describe('language configuration (S18.1)', () => {
   it('configures JavaScript and CSS services', () => {
     const { defaults, calls, seen } = fakeDefaults();
     configureLanguages(defaults);
-    expect(calls).toEqual(['js.compiler', 'js.diagnostics', 'js.eager', 'css']);
+    expect(calls).toEqual(['js.compiler', 'js.diagnostics', 'js.eager', 'css', 'html']);
     expect(seen.compiler).toEqual(JS_COMPILER_OPTIONS);
     expect(seen.diagnostics).toEqual(JS_DIAGNOSTICS_OPTIONS);
     expect(seen.eager).toBe(true);
     expect(seen.css).toEqual({ validate: true, lint: CSS_LINT });
+    // S18.3: the HTML formatter keeps the final line break; its other settings are kept.
+    expect(seen.html).toEqual({ format: { tabSize: 4, endWithNewline: true } });
   });
 
   it('checks plain JavaScript so undefined names are found, without strict typing', () => {
