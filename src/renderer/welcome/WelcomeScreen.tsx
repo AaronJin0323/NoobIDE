@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OpenedProject } from '../../shared/ipc/contract';
 import { useI18n } from '../i18n/I18nProvider';
 import { PlusIcon, SmallFolderIcon, WarningIcon } from '../workbench/icons';
+import { protectedFolderMessage } from '../workbench/file-op-messages';
 import { recentRowView, type RecentProject, type RecentProjectsSource } from './welcome-model';
 import './welcome.css';
 
@@ -23,7 +24,7 @@ interface WelcomeScreenProps {
 export function WelcomeScreen({ onCreate, onOpenFolder, recent, onOpenRecent }: WelcomeScreenProps) {
   const { t } = useI18n();
   const [projects, setProjects] = useState<readonly RecentProject[] | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
+  const [failed, setFailed] = useState<{ readonly id: string; readonly protectedFolder: boolean } | null>(null);
   const createRef = useRef<HTMLButtonElement>(null);
 
   const reload = useCallback(() => {
@@ -42,9 +43,9 @@ export function WelcomeScreen({ onCreate, onOpenFolder, recent, onOpenRecent }: 
     if (!recent) return;
     setFailed(null);
     const opened = await recent.open(project.id).catch(() => null);
-    if (opened) onOpenRecent(opened);
+    if (opened && opened !== 'protected-folder') onOpenRecent(opened);
     else {
-      setFailed(project.id);
+      setFailed({ id: project.id, protectedFolder: opened === 'protected-folder' });
       reload();
     }
   };
@@ -107,9 +108,9 @@ export function WelcomeScreen({ onCreate, onOpenFolder, recent, onOpenRecent }: 
                       )}
                     </span>
                     <small className="welcome-recent-path">{project.path}</small>
-                    {failed === project.id && (
+                    {failed?.id === project.id && (
                       <small className="welcome-recent-error" role="alert">
-                        {t('welcome.recentOpenFailed')}
+                        {failed.protectedFolder ? protectedFolderMessage(t) : t('welcome.recentOpenFailed')}
                       </small>
                     )}
                   </span>

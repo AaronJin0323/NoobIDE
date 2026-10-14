@@ -23,7 +23,8 @@ export type OpenErrorCode = ReadFileError | 'invalid-request' | 'forbidden-sende
 
 export interface DocumentState {
   readonly project: OpenedProject | null;
-  readonly openFailed: boolean;
+  /** The last folder could not be opened; `protected-folder` when the OS privacy protection blocked it (S25.3). */
+  readonly openFailed: boolean | 'protected-folder';
   readonly tabs: readonly OpenTab[];
   /** relPath of the visible tab. */
   readonly active: string | null;
@@ -33,7 +34,7 @@ export interface DocumentState {
 
 export type DocumentAction =
   | { type: 'projectOpened'; project: OpenedProject }
-  | { type: 'projectOpenFailed' }
+  | { type: 'projectOpenFailed'; code?: string }
   /** S13.3: the project was closed; the welcome screen shows again. */
   | { type: 'projectClosed' }
   | { type: 'docLoaded'; relPath: string; content: FileContent }
@@ -63,7 +64,7 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
     case 'projectClosed':
       return INITIAL_DOCUMENT_STATE;
     case 'projectOpenFailed':
-      return { ...state, openFailed: true };
+      return { ...state, openFailed: action.code === 'protected-folder' ? 'protected-folder' : true };
     case 'docLoaded': {
       const known = state.tabs.some((tab) => tab.relPath === action.relPath);
       const tabs = known

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants, type Dirent } from 'node:fs';
-import { access, readFile, readdir, realpath, stat } from 'node:fs/promises';
+import { access, lstat, readFile, readdir, realpath, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import {
   MAX_TEXT_FILE_BYTES,
@@ -30,6 +30,7 @@ export type ProjectHistoryHook = SaveHistoryHook & {
 };
 import { FileInUseError, replaceFileAtomic, writeFileAtomic, type AtomicWriteOptions } from './atomic-write';
 import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
+import { protectedFolderCauseOf } from '../platform/protected-folders';
 import { listDirectory } from './tree';
 import { createEntry, renameEntry, resolveEntry, trashEntry } from './file-ops';
 import { isListedEntry } from './listing-filter';
@@ -91,7 +92,7 @@ export class ProjectService {
   async open(
     chosenPath: string,
     options: { readonly restore?: boolean } = {},
-  ): Promise<Result<OpenedProject, 'list-failed'>> {
+  ): Promise<Result<OpenedProject, 'list-failed' | 'protected-folder'>> {
     // A late startup restore must not revoke a project the user has already opened or closed.
     if (options.restore && this.openGeneration !== 0) return err('list-failed', 'project open superseded');
     const generation = ++this.openGeneration;
@@ -106,7 +107,8 @@ export class ProjectService {
       this.projects.set(projectId, { root });
       return ok({ projectId, name: path.basename(root), rootPath: root, files, truncated });
     } catch (e) {
-      return err('list-failed', errorCode(e), e);
+      // S25.3: macOS privacy protection refuses the folder itself (e.g. a recent project in Documents).
+      return err(protectedFolderCauseOf(e, 'read') ? 'protected-folder' : 'list-failed', errorCode(e), e);
     }
   }
 
@@ -206,6 +208,7 @@ export class ProjectService {
       if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
       // S11.3: re-create a file that was deleted outside NoobIDE — exclusively, never over something that is there.
       let expectedHash = request.expectedHash;
+      let reserved = false;
       if (request.create) {
         const root = this.rootOf(request.projectId);
         if (root === undefined) return err('unknown-project', 'project is not open');
@@ -217,10 +220,11 @@ export class ProjectService {
           return err(createErrorCode(created.code), created.message);
         }
         expectedHash = EMPTY_HASH;
+        reserved = true;
       }
       const target = await this.resolve(request);
       if (!target.ok) return target;
-      return this.serialized(target.value, async (): Promise<Result<SavedFile, WriteFileError>> => {
+      const result = await this.serialized(target.value, async (): Promise<Result<SavedFile, WriteFileError>> => {
         // S21.2 capture, replace and record all run inside this per-file lock, so concurrent saves of one file
         // capture their before-bytes in save order.
         let before: Uint8Array | null = null;
@@ -276,6 +280,10 @@ export class ProjectService {
         );
         return ok({ savedAt: Date.now(), version: versionOf(data, mtimeMs) });
       });
+      // S26.1: a failed re-create must not leave the empty file that reserved the name: on retry it would read as
+      // "the deleted file came back with other content". Only a still-empty regular file is removed.
+      if (!result.ok && reserved) await removeEmptyFile(target.value);
+      return result;
     });
   }
 
@@ -413,6 +421,15 @@ async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated:
   return { files, truncated };
 }
 
+async function removeEmptyFile(absPath: string): Promise<void> {
+  try {
+    const info = await lstat(absPath);
+    if (info.isFile() && info.size === 0) await unlink(absPath);
+  } catch {
+    // Already gone or not removable: the renderer's disk check resolves what is there.
+  }
+}
+
 /** The OS error code for the "details" line; a lock that outlasted every retry says so. Never file contents. */
 function errorMessage(e: unknown): string {
   return e instanceof FileInUseError ? e.message : errorCode(e);
@@ -435,6 +452,7 @@ function createErrorCode(code: FileOpError): WriteFileError {
     case 'outside-project':
     case 'not-found':
     case 'permission-denied':
+    case 'protected-folder':
     case 'busy':
     case 'invalid-name':
       return code;
@@ -451,6 +469,7 @@ function isNotFound(e: unknown): boolean {
 
 function writeErrorCode(e: unknown): WriteFileError {
   if (e instanceof ChangedOnDiskError) return 'changed-on-disk';
+  if (protectedFolderCauseOf(e, 'write')) return 'protected-folder'; // S25.3
   switch (errorCode(e)) {
     case 'ENOENT':
     case 'ENOTDIR':

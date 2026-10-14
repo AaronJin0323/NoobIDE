@@ -94,6 +94,12 @@ export const zhCN = {
   'save.error.diskFull': '磁盘空间不足。',
   'save.error.notFound': '文件已经被移动或删除。',
   'save.error.generic': '写入文件时出错。',
+  // S25.3: 系统隐私保护拦截了文件夹（macOS“文件和文件夹”权限、Windows“受控文件夹访问”）。
+  'protected.mac':
+    'macOS 的隐私保护阻止了 NoobIDE 访问这个文件夹（桌面、文稿、下载、iCloud 云盘或外接磁盘）。请打开“系统设置 › 隐私与安全性 › 文件和文件夹”，为 NoobIDE 打开访问权限，然后再试一次。',
+  'protected.windows':
+    'Windows 的“受控文件夹访问”（勒索软件防护）很可能阻止了 NoobIDE 修改这个文件夹里的文件。请打开“Windows 安全中心 › 病毒和威胁防护 › 勒索软件防护 › 允许应用通过受控文件夹访问”，添加 NoobIDE，然后再试一次。也可以把项目放到“文档”和“桌面”以外的文件夹。',
+  'protected.other': '系统的隐私保护阻止了 NoobIDE 访问这个文件夹。请在系统设置里允许 NoobIDE 访问它，然后再试一次。',
   'save.kept': '你的修改还在编辑器里，没有丢失。解决问题后再按保存。',
   'error.detail': '详细信息',
   'save.saved': '已保存',

@@ -5,7 +5,7 @@ import type { NoobideApi, OpenedProject, TreeEntry } from '../../shared/ipc/cont
 import { revealLabelKey, trashLabelKey, treeShortcutLabel, type PlatformId } from '../../platform/labels';
 import { ConfirmDialog } from './ConfirmDialog';
 import { FileTree, type TreeEditing } from './FileTree';
-import { fill, nameProblemMessage, opErrorMessage } from './file-op-messages';
+import { fill, nameProblemMessage, opErrorMessage, protectedFolderMessage } from './file-op-messages';
 import { parentOf } from './file-tree-model';
 import { FolderIcon, NewFileIcon, NewFolderIcon, SmallFolderIcon, WarningIcon } from './icons';
 import { TreeContextMenu, type MenuItem } from './TreeContextMenu';
@@ -30,7 +30,7 @@ interface FilesPanelProps {
   hidden: boolean;
   project: OpenedProject | null;
   activeRelPath: string | null;
-  openFailed: boolean;
+  openFailed: boolean | 'protected-folder';
   /** Absent when the bridge is unavailable; the button is then not offered at all. */
   onOpenFolder: (() => void) | undefined;
   onOpenFile: (relPath: string) => void;
@@ -297,7 +297,7 @@ export function FilesPanel({
       {openFailed && (
         <p className="inline-alert" role="alert">
           <WarningIcon />
-          {t('files.openFailed')}
+          {openFailed === 'protected-folder' ? protectedFolderMessage(t) : t('files.openFailed')}
         </p>
       )}
       {opError && (

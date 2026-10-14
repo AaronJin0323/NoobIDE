@@ -97,6 +97,13 @@ export const en: Record<MessageKey, string> = {
   'save.error.diskFull': 'The disk is full.',
   'save.error.notFound': 'The file was moved or deleted.',
   'save.error.generic': 'Writing the file failed.',
+  // S25.3: the OS privacy protection blocked the folder (macOS Files and Folders, Windows Controlled folder access).
+  'protected.mac':
+    'macOS privacy protection is blocking NoobIDE from this folder (Desktop, Documents, Downloads, iCloud Drive or an external drive). Open System Settings › Privacy & Security › Files and Folders, turn on access for NoobIDE, then try again.',
+  'protected.windows':
+    'Windows Controlled folder access (ransomware protection) is probably blocking NoobIDE from changing files in this folder. Open Windows Security › Virus & threat protection › Ransomware protection › Allow an app through Controlled folder access, add NoobIDE, then try again. Or keep your projects in a folder outside Documents and Desktop.',
+  'protected.other':
+    "The system's privacy protection is blocking NoobIDE from this folder. Allow NoobIDE to access it in the system settings, then try again.",
   'save.kept': 'Your edits are still in the editor and nothing was lost. Fix the cause, then save again.',
   'error.detail': 'Details',
   'save.saved': 'Saved',

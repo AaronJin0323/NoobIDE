@@ -184,3 +184,48 @@ The e2e suite replaces `shell.trashItem` with a recorder, so the real Recycle Bi
      there. It must never disappear without being recoverable.
 - **Expected:** as described for every case; no file outside the project changes.
 - **Result:** _(owner fills in: pass/fail per case and platform, notes, date)_
+
+### S25.3 — OS folder protection messages on real hardware (confirmation)
+
+S25.3 is proven by simulated tests (`tests/integration/protected-folder.test.ts`); this confirms the error codes the
+simulation assumes (macOS TCC: `EPERM`; Windows Controlled Folder Access: `EPERM`/`EACCES` on writes only).
+
+- **Platform:** macOS on Apple Silicon (packaged, unsigned dev build is fine) and Windows 11 x64
+- **Build:** the commit that closed S25.3
+- **Steps:**
+  1. macOS: put a project in `~/Documents`, open it once, quit. System Settings › Privacy & Security › Files and
+     Folders › NoobIDE (or Electron for `npm start`): turn **Documents Folder** off. Start NoobIDE, open the project
+     from Recent projects.
+  2. macOS: in Finder, Get Info on a project file in `~/Desktop` and tick **Locked**; edit it in NoobIDE and save.
+  3. Windows: Windows Security › Virus & threat protection › Ransomware protection: turn **Controlled folder access**
+     on (do not allow NoobIDE). Open a project in `Documents`, edit `index.html` and save; also create a new file and
+     a new project in `Documents`.
+  4. Windows: with Controlled folder access off, set a file in `Documents` read-only (Properties › Read-only), edit
+     and save it.
+- **Expected:** 1 and 3 explain the privacy setting with the exact place to allow NoobIDE (zh-CN and en); edits stay
+  in the editor and nothing on disk changes. 2 and 4 show the ordinary "read-only" message instead. Undo the
+  settings afterwards.
+- **Result:** _(owner fills in: pass/fail per step and platform, notes, date)_
+
+### S26.1 — Fault cases that need real hardware (confirmation of the simulated suite)
+
+The automated suite (`tests/integration/faults/`, mapped in `docs/release/fault-matrix.md`) simulates these with
+injected errno codes; this confirms the real OS behaves the same.
+
+- **Platform:** Windows 11 x64 and macOS on Apple Silicon (`npm start` or a packaged build)
+- **Build:** the commit that closed S26.1
+- **Steps:**
+  1. Full volume: create a small disk image / USB stick (e.g. 10 MB, exFAT), fill it with a large file until a few
+     KB are free, open a project on it, paste a few MB of text into `index.html` and save.
+  2. Windows locked file: open the project's `style.css` in a program that holds it without delete sharing (e.g.
+     `powershell -c "$f=[IO.File]::Open('style.css','Open','Read','None'); Read-Host"`), edit and save in NoobIDE;
+     then release the file and save again.
+  3. Windows read-only folder via ACL: `icacls <project> /deny %USERNAME%:(W)`, edit and save; afterwards
+     `icacls <project> /remove:d %USERNAME%`.
+  4. Page network failures: a page that `fetch`es `https://unreachable.invalid/data.json` and loads an image from an
+     unreachable host; run the preview with the network unplugged and with it connected.
+- **Expected:** 1–3: the save fails with a clear reason (disk full / in use / no permission), the edits stay in the
+  editor, the file on disk is the previous version, no `.noobide-tmp` file remains, and saving succeeds after the
+  cause is removed. 4: the IDE stays responsive, the failures appear as problems/log entries with an explanation,
+  and nothing else breaks.
+- **Result:** _(owner fills in: pass/fail per step and platform, notes, date)_

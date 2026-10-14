@@ -70,3 +70,14 @@ export function treeCommandForKey(
   if (!isMac(id) && r && e.shiftKey && e.altKey && !e.ctrlKey && !e.metaKey) return 'reveal';
   return null;
 }
+
+// ── S25.3: OS privacy protection ───────────────────────────────────────────────────────────────────────────────
+
+/** i18n key explaining that the OS privacy protection blocked a folder, with the platform's way to allow NoobIDE. */
+export type ProtectedFolderKey = 'protected.mac' | 'protected.windows' | 'protected.other';
+
+export function protectedFolderKey(id: PlatformId): ProtectedFolderKey {
+  if (isMac(id)) return 'protected.mac';
+  if (isWindows(id)) return 'protected.windows';
+  return 'protected.other';
+}

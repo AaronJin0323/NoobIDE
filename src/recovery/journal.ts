@@ -186,6 +186,9 @@ export class RecoveryJournal {
       this.floors.set(rel, Math.max(floor ?? -Infinity, revision));
       const onDisk = await this.readRecord(rel);
       if (onDisk.ok && onDisk.value.record.revision > revision) return ok({ removed: false });
+      // S26.1: a record that cannot be read right now (locked by a scanner, over a lowered limit) may hold newer
+      // edits typed during the save: keep it. At worst an already saved copy is offered once more.
+      if (!onDisk.ok && (onDisk.code === 'unreadable' || onDisk.code === 'too-large')) return ok({ removed: false });
       return ok({ removed: await this.remove(rel) });
     });
   }

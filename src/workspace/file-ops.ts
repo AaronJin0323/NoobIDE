@@ -5,6 +5,7 @@ import type { FileOpError } from '../shared/ipc/contract';
 import { checkFileName, sameName } from '../shared/file-names';
 import { err, ok, type Result } from '../shared/result';
 import { errorCode, isInside, resolveExisting, resolveNew } from './paths';
+import { protectedFolderCauseOf } from '../platform/protected-folders';
 
 /**
  * Create, rename/move and trash inside a project (S08.2–S08.4, ADR 0008). Main process only. User data is sacred:
@@ -278,6 +279,7 @@ async function exists(p: string, fs: FileOpsFs): Promise<boolean> {
 }
 
 export function opErrorCode(e: unknown): FileOpError {
+  if (protectedFolderCauseOf(e, 'write')) return 'protected-folder'; // S25.3
   switch (errorCode(e)) {
     case 'ENOENT':
     case 'ENOTDIR':

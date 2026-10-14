@@ -2268,8 +2268,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/platform/protected-folders.test.ts (classifier: TCC/CFA/probes) + tests/integration/protected-folder.test.ts (11 simulated TCC/CFA cases: open, save, tree, file ops, create project; no data change) + file-op-messages.test.ts (zh-CN/en per platform) @ 32d6eda; verify green except known macOS watcher/history-triggers/project-service failures"
     },
     {
       "id": "S25.4",
@@ -2296,8 +2296,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/faults (save/journal/history/file suites, 55 tests, errno + crash injection) + docs/release/fault-matrix.md (every PLAN 11 case -> test or MANUAL-CHECKS S26.1); 2 bugs fixed with regression tests; independent subagent review: no must-fix @ caae8e7; verify green except known macOS watcher/history-triggers/project-service failures"
     },
     {
       "id": "S26.2",
