@@ -3,6 +3,43 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 5 — 2026-10-15 — S11.1 save-time external change validation
+
+**Agent:** Codex on the Windows x64 development machine.
+
+**Done**
+
+- S11.1: revalidate the target's size and content hash after history capture and temporary-file preparation,
+  immediately before every atomic rename attempt, including Windows lock retries. Changed files return
+  `changed-on-disk`; deleted files return `not-found`. Failed validation removes the temporary file and emits
+  no saved event. Existing watcher-driven reload notices remain covered by unit and Electron tests.
+- Added deterministic regressions for changes during history capture, temp-file close and lock retry, plus
+  deletion during retry. External edits retain the original size and mtime to prove content hashing matters.
+
+**Evidence:** Three regression cases failed against the old implementation before the fix. Closing
+`npm run verify` passes all gates (1110 tests passed, 5 skipped in 85 files). Windows
+`npm run test:e2e -- external-change.spec.ts`: 6/6, including clean-buffer reload with notice, conflict choices,
+and deleted-file content retention. The app packaged successfully for Windows x64 during that run.
+
+**Decisions:** Added an optional pre-replacement validator to the existing atomic-write helper; validation
+failures propagate directly rather than being treated as retryable rename locks. No dependency changes.
+
+**Problems / risks:** A final check-to-rename race remains against an uncooperative external writer: Node's
+filesystem API does not provide atomic content-conditional replacement. This fix closes the long preparation
+and retry windows, not that OS-level gap. Baseline sandbox verification failed because temporary-directory
+renames were denied (EPERM); baseline and closing verification passed with normal filesystem access. macOS
+was not run. S11.2/S11.3 and S13.4 remain in progress for their separate review findings. Existing paused
+worktrees and the untracked `.idea/` directory were left intact; no paused branches were merged.
+
+**Owner action needed:** None for this fix. Existing platform, signing and macOS manual-check tasks remain open.
+
+**Next up**
+
+1. Finish the S11.2 conflict/deleted-state review, then S11.3 and S13.4 lifecycle fixes. Inspect the paused W4
+   branch before integrating its S13.5 work; do not restore its outdated completed statuses.
+2. Continue the recorded W4 → W2 → W1 → CI integration order from Session 4, including preview security review.
+   Formal S01.4 still waits on the owner's H.1 platform decision.
+
 ## Session 4 — 2026-10-14 — S03, then parallel agents: wave 1 (S04/S05, S07/S08, S09/S10, S12, S16/S22, S20, S21)
 
 **Agent:** Claude (Opus 5.5) as lead on the Windows x64 dev machine, with parallel subagents in git worktrees

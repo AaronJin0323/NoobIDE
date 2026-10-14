@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { versionChanged } from '../../src/shared/ipc/contract';
 import { EMPTY_HASH, ProjectService } from '../../src/workspace/project-service';
+import { nodeAtomicFs } from '../../src/workspace/atomic-write';
 
 /**
  * S11.1 / S11.3 main side: every read and save reports the disk version (mtime + size + SHA-256), every save checks
@@ -79,6 +80,79 @@ describe('file versions (S11.1: mtime + size + hash)', () => {
 });
 
 describe('check before write (S11.1)', () => {
+  it.each(['history', 'prepare', 'retry', 'delete'] as const)(
+    'rechecks the target after %s before replacing it',
+    async (phase) => {
+      let renames = 0;
+      let savedEvents = 0;
+      // Equal size and mtime force validation to compare content, not just metadata.
+      const originalInfo = await stat(file('index.html'));
+      const external = 'x'.repeat(originalInfo.size);
+      const editExternally = async () => {
+        await writeFile(file('index.html'), external);
+        await utimes(file('index.html'), originalInfo.atime, originalInfo.mtime);
+      };
+      service = new ProjectService({
+        history: {
+          captureBeforeSave: async () => {
+            if (phase === 'history') await editExternally();
+            return null;
+          },
+          recordSave: () => {},
+        },
+        atomic: {
+          fs: {
+            ...nodeAtomicFs,
+            open: async (target, flags, mode) => {
+              const handle = await nodeAtomicFs.open(target, flags, mode);
+              return {
+                writeFile: (data) => handle.writeFile(data),
+                chmod: (value) => handle.chmod(value),
+                sync: () => handle.sync(),
+                close: async () => {
+                  await handle.close();
+                  if (flags === 'wx' && phase === 'prepare') await editExternally();
+                },
+              };
+            },
+            rename: async (from, to) => {
+              renames += 1;
+              if (renames === 1 && (phase === 'retry' || phase === 'delete')) {
+                throw Object.assign(new Error('locked'), { code: 'EPERM' });
+              }
+              await nodeAtomicFs.rename(from, to);
+            },
+          },
+          renameBackoffMs: [1],
+          sleep: async () => {
+            if (phase === 'delete') await rm(file('index.html'));
+            else await editExternally();
+          },
+        },
+      });
+      const opened = await service.open(root);
+      if (!opened.ok) throw new Error(opened.code);
+      projectId = opened.value.projectId;
+      service.onSaved(() => {
+        savedEvents += 1;
+      });
+      const known = await readVersion('index.html');
+      const result = await service.write({
+        projectId,
+        relPath: 'index.html',
+        text: 'mine\n',
+        bom: false,
+        expectedHash: known.hash,
+      });
+      expect(result).toMatchObject({ ok: false, code: phase === 'delete' ? 'not-found' : 'changed-on-disk' });
+      expect(renames).toBe(phase === 'prepare' || phase === 'history' ? 0 : 1);
+      expect(savedEvents).toBe(0);
+      if (phase === 'delete') await expect(readFile(file('index.html'))).rejects.toMatchObject({ code: 'ENOENT' });
+      else expect(await readFile(file('index.html'), 'utf8')).toBe(external);
+      expect((await readdir(root)).filter((name) => name.endsWith('.noobide-tmp'))).toEqual([]);
+    },
+  );
+
   it('saves when the disk still holds the expected version', async () => {
     const known = await readVersion('index.html');
     const saved = await service.write({

@@ -1291,8 +1291,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": "Reopened after review @ 7d5a0a5 (see PROGRESS Session 4): save can rename over a concurrent external write (Windows lock retry); conflict+deleted states break; session restore can revoke a project opened meanwhile. Fix in progress (W4)."
+      "status": "done",
+      "evidence": "tests/integration/external-change.test.ts (15 tests: versions, same-size edits, history/temp preparation and Windows retry races); disk-sync unit tests; Windows external-change.spec.ts 6/6 including clean reload notice; npm run verify green (1110 passed, 5 skipped). Final check-to-rename OS race documented in source and PROGRESS Session 5."
     },
     {
       "id": "S11.2",

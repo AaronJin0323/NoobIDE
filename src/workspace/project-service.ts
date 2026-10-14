@@ -231,7 +231,25 @@ export class ProjectService {
             return err('changed-on-disk', 'the file was changed outside NoobIDE');
           }
           before = await this.captureBeforeSave(target.value); // S21.2
-          await this.replaceFile(target.value, data, this.options.atomic);
+          const checkedHash = sha256(onDisk);
+          await this.replaceFile(target.value, data, {
+            ...this.options.atomic,
+            beforeReplace: async () => {
+              await this.options.atomic?.beforeReplace?.();
+              // Temp-file flushes, history reads and Windows retry delays can all allow an external edit.
+              // Recheck on every attempt, including callers that did not supply an expectedHash.
+              // Node has no atomic compare-and-replace primitive: this narrows, but cannot eliminate,
+              // the final race between this check and the OS rename against an uncooperative writer.
+              const current = await stat(target.value);
+              if (
+                !current.isFile() ||
+                current.size !== onDisk.length ||
+                sha256(await readFile(target.value)) !== checkedHash
+              ) {
+                throw new ChangedOnDiskError();
+              }
+            },
+          });
         } catch (e) {
           this.recordSave(request.projectId, target.value, before, null); // S21.2
           return err(writeErrorCode(e), errorMessage(e), e);
@@ -419,6 +437,7 @@ function isNotFound(e: unknown): boolean {
 }
 
 function writeErrorCode(e: unknown): WriteFileError {
+  if (e instanceof ChangedOnDiskError) return 'changed-on-disk';
   switch (errorCode(e)) {
     case 'ENOENT':
     case 'ENOTDIR':
@@ -435,5 +454,12 @@ function writeErrorCode(e: unknown): WriteFileError {
       return 'disk-full';
     default:
       return 'write-failed';
+  }
+}
+
+class ChangedOnDiskError extends Error {
+  constructor() {
+    super('the file was changed outside NoobIDE');
+    this.name = 'ChangedOnDiskError';
   }
 }

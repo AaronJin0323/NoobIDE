@@ -48,6 +48,8 @@ export interface AtomicWriteOptions {
   readonly renameBackoffMs?: readonly number[];
   readonly syncDirectory?: boolean;
   readonly sleep?: (ms: number) => Promise<void>;
+  /** Revalidate the destination after preparing the temp file and before every rename attempt. */
+  readonly beforeReplace?: () => Promise<void>;
 }
 
 /** The target stayed locked by another program through every rename retry. `code` maps to the "busy" save error. */
@@ -113,7 +115,7 @@ export async function writeFileAtomic(
     } finally {
       await handle.close();
     }
-    await renameWithRetry(fs, tmp, target, backoff, sleep);
+    await renameWithRetry(fs, tmp, target, backoff, sleep, options.beforeReplace);
   } catch (error) {
     await fs.rm(tmp, { force: true }).catch(() => undefined);
     throw error;
@@ -132,8 +134,11 @@ async function renameWithRetry(
   to: string,
   backoff: readonly number[],
   sleep: (ms: number) => Promise<void>,
+  beforeReplace?: () => Promise<void>,
 ): Promise<void> {
   for (let attempt = 0; ; attempt += 1) {
+    // Validation errors are not rename locks: propagate them without retrying or replacing the target.
+    await beforeReplace?.();
     try {
       await fs.rename(from, to);
       return;
