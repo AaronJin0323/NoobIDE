@@ -862,8 +862,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "done",
-      "evidence": "e2e S05.5 fixture tests/fixtures/预览 恶意: file: fetch+XHR, /../, %2e%2e, %252e%252e, ..%5c, junction escape, /.env, other loopback port (ACAO * server got 0 requests, incl. no-cors and WebSocket), localhost alias, [::1], IDE bridge -> all 'failed'; blocked loopback requests recorded; plus integration tests/integration/preview-server.test.ts and unit request-policy tests @ 9566bea"
+      "status": "in_progress",
+      "evidence": "Reopened after preview security review @ bba57a2: page reaches other loopback/LAN services via DNS names resolving to 127.0.0.1 (localtest.me) and the machine's LAN IP; policy only blocks loopback hostnames. Fix in progress (W1 agent)."
     },
     {
       "id": "S05.6",
