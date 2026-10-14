@@ -35,11 +35,10 @@ so this wave deliberately avoided their areas: preview (S05.5/S05.7, S14, S15, S
   window lifecycle, S24.3 axe-core a11y pass (light/dark, F6 region cycling), S24.4 theme choice persisted. About,
   walkthrough and glossary are registry commands in the Help / app menu.
 
-**Evidence:** `npm run verify` green on macOS (1326 tests). Full `npm run test:e2e` on macOS arm64: 180 passed, 2
-skipped, 1 flake (menus About/Escape race, fixed in the test by waiting for dialog focus; 10/10 on repeat). **Open
-failure:** `file-tree.spec.ts:289` (S07.3) fails ~3 of 4 runs on macOS — a file created then deleted by another
-program stays in the tree. Pre-existing (also fails with the pre-fix watcher); passed on Windows. A fix agent was
-working on it when this entry was written. Per-feature evidence in features.json.
+**Evidence:** `npm run verify` green on macOS (1326 tests). Final full `npm run test:e2e` on macOS arm64: 181 passed, 2
+skipped, 0 failed. Fixed on the way: a menus About/Escape race (test waits for dialog focus) and a real watcher bug —
+a file created and deleted by another program within one 100 ms batch stayed in the tree (S07.3; `flush` now reports
+"gone + unknown" as `deleted`; amendment in decision 0007; file-tree spec 150/150 with `--repeat-each 10`). Per-feature evidence in features.json.
 
 **Decisions:** 0012 installers and app identity (Squirrel on Windows; DMG+ZIP on mac; Windows `iconUrl` stays
 default until a release host exists). 0013 onboarding walkthrough (renumbered from 0012 at merge). 0014 command
@@ -47,7 +46,8 @@ registry and native menus. **W1's planned decisions 0012/0013 must be renumbered
 New devDependency `axe-core` 4.13.0 (pinned, pure JS); lockfile updated with `--package-lock-only` on the Mac —
 regenerate on Windows per AGENTS.md. `.gitignore` now ignores `node_modules` (also symlinks in agent worktrees).
 
-**Problems / risks:** Nothing from this wave verified on Windows yet — run `npm run verify` and `npm run test:e2e` there,
+**Problems / risks:** Unproven race: `FileTree.tsx` listDir replies for one folder carry no request token, so an older reply could
+overwrite a newer one. Nothing from this wave verified on Windows yet — run `npm run verify` and `npm run test:e2e` there,
 especially watcher.test.ts (relies on NTFS ctime), the new tab-strip test, `tempRoot()` (8.3 short names) and the
 menus/lifecycle tests. Console flood (S05.3) stalls the main process 8–9 s on macOS vs 3–5 s on Windows — S05.7 is
 more urgent. Mac idle memory 551 MB / 649 MB with preview, close to the ~700 MB budget. `selftest:dev` replaces
