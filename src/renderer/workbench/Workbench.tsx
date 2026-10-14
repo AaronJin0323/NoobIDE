@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { isMac } from '../../platform/labels';
-import type { FileContent, OpenedProject } from '../../shared/ipc/contract';
+import type { FileContent, FileVersion, OpenedProject } from '../../shared/ipc/contract';
 import { useMediaQuery } from '../theme/useMediaQuery';
 import { TopBar } from './TopBar';
 import { Rail } from './Rail';
@@ -11,7 +11,7 @@ import { PreviewPane } from './PreviewPane';
 import { ProblemsPanel } from './ProblemsPanel';
 import { INITIAL_LAYOUT, NARROW_QUERY, layoutReducer, visibleRegions } from './layout';
 import { INITIAL_DOCUMENT_STATE, activeSaveStatus, activeTab, cycleTab, documentReducer } from './document-state';
-import { DocumentSaver, saveEvery } from './save-controller';
+import { CHANGED_ON_DISK, DocumentSaver, saveEvery } from './save-controller';
 import { isUnsaved, saveStatus } from './save-machine';
 import { createSavedFileEvents } from './saved-file-events';
 import { DEFAULT_FONT_SIZE, zoomFontSize } from './zoom';
@@ -23,6 +23,10 @@ import type { RecoveredEntry } from '../../shared/ipc/recovery-contract';
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
+// S11: external changes
+import { DiskSync, pathsToCheck } from './disk-sync';
+import type { DiskActions } from './DiskStateBanner';
+const editorModels = () => import('../editor/editor-models');
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -57,6 +61,16 @@ export function Workbench() {
   // S12: each tab's unsaved buffer is journaled to app data until saved (independent of undo, autosave, history).
   const journals = useJournals(bridge);
   const tabJournals = useRef(new Map<string, JournalScheduler>());
+  // --- S11: external changes ---
+  /** Per open tab: the disk version its buffer is based on (last read, reload or confirmed save). */
+  const knownDisk = useRef(new Map<string, FileVersion>());
+  /** Tabs whose model is being replaced with the disk text: that edit is not the user's. */
+  const reloading = useRef(new Set<string>());
+  const lockedRef = useRef<readonly string[]>([]);
+  lockedRef.current = lockedPaths;
+  /** A deleted file's tab the user asked to close: the banner asks to confirm (S11.3). */
+  const [confirmCloseDeleted, setConfirmCloseDeleted] = useState<string | null>(null);
+  // --- end S11 ---
 
   const saverOf = (relPath: string | null | undefined) => (relPath ? savers.current.get(relPath) : undefined);
   const relPathOfUri = (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath;
@@ -75,17 +89,27 @@ export function Workbench() {
       const scheduler = journals.create();
       scheduler.begin({ projectId: project.projectId, relPath, bom: content.bom, ...journal });
       tabJournals.current.set(relPath, scheduler);
+      knownDisk.current.set(relPath, content.version); // S11.1
       const saver = new DocumentSaver({
         initialText: content.text,
-        async write(text) {
+        async write(text, { create }) {
           if (!bridge) return { ok: false, code: 'write-failed', message: 'no bridge' };
+          // S11.1: main checks the file is still the version this buffer is based on before replacing it.
+          const expectedHash = knownDisk.current.get(relPath)?.hash;
           const result = await bridge.workspace.writeFile({
             projectId: project.projectId,
             relPath,
             text,
             bom: content.bom,
+            ...(create ? { create: true as const } : expectedHash ? { expectedHash } : {}),
           });
-          return result.ok ? { ok: true } : { ok: false, code: result.code, message: result.message };
+          if (result.ok) {
+            if (savers.current.get(relPath) === saver) knownDisk.current.set(relPath, result.value.version);
+            return { ok: true };
+          }
+          // Someone else's version is on disk: load it for the comparison (S11.2).
+          if (result.code === CHANGED_ON_DISK) setTimeout(() => void diskSync.current.check(relPath), 0);
+          return { ok: false, code: result.code, message: result.message };
         },
         onState: (save) => dispatch({ type: 'saveState', relPath, save }),
       });
@@ -104,6 +128,7 @@ export function Workbench() {
     const journal = tabJournals.current.get(relPath);
     if (journal) journals.release(journal);
     tabJournals.current.delete(relPath);
+    knownDisk.current.delete(relPath); // S11
   };
 
   /**
@@ -174,6 +199,12 @@ export function Workbench() {
     const saver = saverOf(relPath);
     const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
     if (!saver || !tab) return;
+    if (saver.state.deleted) {
+      // S11.3: the file is gone from disk; its text exists only here. Ask before closing.
+      dispatch({ type: 'activate', relPath });
+      setConfirmCloseDeleted(relPath);
+      return;
+    }
     // Never drops edits: unsaved text is written first; a failed write keeps the tab open with its banner.
     if (!(await saver.save())) {
       dispatch({ type: 'activate', relPath });
@@ -208,9 +239,101 @@ export function Workbench() {
     const relPath = relPathOfUri(uri);
     const saver = saverOf(relPath);
     if (!relPath || !saver) return;
+    if (reloading.current.has(relPath)) return; // S11: the disk text going in is not an edit of the user's
+    if (docRef.current.tabs.find((tab) => tab.relPath === relPath)?.diskNotice) {
+      dispatch({ type: 'diskNoticeDismissed', relPath });
+    }
     saver.edit(text);
     tabJournals.current.get(relPath)?.edited(saver.state.revision, () => saver.text); // S12
   }, []);
+
+  // --- S11: external changes (watcher → re-read → compare hashes → reload / conflict / deleted) ---
+  /** Puts a disk version into a tab's buffer: the model (one undoable edit, cursor kept), the saver and the tab. */
+  const applyDiskText = useCallback(async (relPath: string, content: FileContent, notice: boolean) => {
+    const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
+    const saver = saverOf(relPath);
+    if (!tab || !saver) return;
+    const { replaceModelText } = await editorModels();
+    if (saverOf(relPath) !== saver) return;
+    reloading.current.add(relPath);
+    let text: string;
+    try {
+      text = replaceModelText(tab.uri, content.text, content.eol) ?? content.text.replace(/\r?\n/g, content.eol);
+    } finally {
+      reloading.current.delete(relPath);
+    }
+    saver.reload(text);
+    knownDisk.current.set(relPath, content.version);
+    tabJournals.current.get(relPath)?.saved(saver.state.revision); // nothing unsaved is left to journal
+    dispatch({ type: 'diskReloaded', relPath, content, notice });
+  }, []);
+
+  const diskSync = useRef(
+    new DiskSync({
+      tab: (relPath) => {
+        const saver = savers.current.get(relPath);
+        return saver ? { saver, known: () => knownDisk.current.get(relPath) } : undefined;
+      },
+      read: async (relPath) => {
+        const project = docRef.current.project;
+        if (!bridge || !project) return { ok: false, code: 'unknown-project' };
+        const result = await bridge.workspace.readFile({ projectId: project.projectId, relPath });
+        return result.ok ? { ok: true, content: result.value } : { ok: false, code: result.code };
+      },
+      reload: (relPath, content) => void applyDiskTextRef.current(relPath, content, true),
+      conflict: (relPath, content) => {
+        saverOf(relPath)?.externalChange();
+        dispatch({ type: 'diskConflict', relPath, content });
+      },
+      deleted: (relPath) => saverOf(relPath)?.markDeleted(),
+    }),
+  );
+  const applyDiskTextRef = useRef(applyDiskText);
+  applyDiskTextRef.current = applyDiskText;
+
+  const projectIdNow = doc.project?.projectId;
+  useEffect(() => {
+    if (!bridge || !projectIdNow) return undefined;
+    return bridge.workspace.onChanged((change) => {
+      if (change.projectId !== docRef.current.project?.projectId) return;
+      const open = docRef.current.tabs
+        .map((tab) => tab.relPath)
+        .filter((relPath) => !lockedRef.current.some((locked) => isSameOrBelow(relPath, locked)));
+      for (const relPath of pathsToCheck(change.events, open)) void diskSync.current.check(relPath);
+    });
+  }, [bridge, projectIdNow]);
+
+  const diskActions = useMemo<DiskActions>(
+    () => ({
+      dismissNotice: (relPath) => dispatch({ type: 'diskNoticeDismissed', relPath }),
+      keepMine: async (relPath) => {
+        const saver = saverOf(relPath);
+        const disk = docRef.current.tabs.find((tab) => tab.relPath === relPath)?.conflictDisk;
+        if (!saver || !disk) return;
+        // Overwrite exactly the disk version the user compared; if it changed again, the conflict comes back.
+        knownDisk.current.set(relPath, disk.version);
+        dispatch({ type: 'conflictCleared', relPath });
+        await saver.keepMine();
+      },
+      takeDisk: async (relPath) => {
+        const disk = docRef.current.tabs.find((tab) => tab.relPath === relPath)?.conflictDisk;
+        if (!disk) return;
+        await applyDiskText(relPath, disk, false);
+      },
+      resave: async (relPath) => {
+        setConfirmCloseDeleted(null);
+        await saverOf(relPath)?.recreate();
+      },
+      askCloseDeleted: (relPath) => setConfirmCloseDeleted(relPath),
+      cancelCloseDeleted: () => setConfirmCloseDeleted(null),
+      closeDeleted: (relPath) => {
+        setConfirmCloseDeleted(null);
+        if (saverOf(relPath)?.state.deleted) dropTab(relPath);
+      },
+    }),
+    [applyDiskText],
+  );
+  // --- end S11 ---
 
   // ── S08: file operations keep the open tabs consistent ──
   const fileOps = useMemo<FileOpsHooks>(() => {
@@ -419,6 +542,8 @@ export function Workbench() {
           copyNotice={copyNotice}
           lockedPaths={lockedPaths}
           onCloseDiscarding={bridge && closeRefused ? () => void bridge.app.closeDiscarding() : undefined}
+          diskActions={diskActions}
+          confirmCloseDeleted={confirmCloseDeleted}
         />
         {/* S04.3 isolated preview (hidden under the narrow-layout files overlay so the native view cannot cover it);
             S10.5: a failed save shows "preview not updated" — refreshes come only from confirmed writes in main. */}

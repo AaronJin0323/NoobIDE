@@ -424,6 +424,16 @@ button {
   flex: 1;
   min-height: 0;
 }
+/* S11.2: conflict comparison (Monaco diff) in place of the editor */
+.conflict-diff {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+.conflict-diff > .alert-detail {
+  margin: 6px 12px;
+}
 
 /* Preview */
 .state-pill {

@@ -219,4 +219,30 @@ export const en: Record<MessageKey, string> = {
   'recovery.discardConfirm': 'Discard now? These changes cannot be brought back',
   'recovery.recoveredText': 'Content of the recovery copy',
   // --- end S12 ---
+  // --- S11 external changes ---
+  'save.deleted': 'File deleted on disk — the text is still in the editor',
+  'tab.state.deleted': 'Deleted',
+  'disk.reloaded':
+    'This file was changed outside NoobIDE; the new version from disk is shown (Undo brings back the previous text).',
+  'disk.dismiss': 'OK',
+  'conflict.title': 'This file was changed outside NoobIDE while you have unsaved changes.',
+  'conflict.explain':
+    'So that neither version is lost, NoobIDE did not save automatically. Compare the two versions, then choose which one to keep.',
+  'conflict.compare': 'Compare the versions',
+  'conflict.hideCompare': 'Hide comparison',
+  'conflict.keepMine': 'Keep my version (overwrite the file on disk)',
+  'conflict.takeDisk': 'Use the version on disk',
+  'conflict.loading': 'Reading the version on disk…',
+  'conflict.undoHint': 'After "Use the version on disk", Undo still brings your changes back.',
+  'conflict.diffLabel': 'Comparison: the version on disk on the left, your version on the right',
+  'conflict.summary': 'Compared with the version on disk, your version adds {added} lines and removes {removed} lines.',
+  'conflict.identical': 'Both versions have the same content (only line endings differ).',
+  'deleted.title': 'This file was deleted or moved away on disk.',
+  'deleted.explain':
+    'Its text is still here in the editor, nothing is lost. You can save it again where it was, or save a copy elsewhere.',
+  'deleted.resave': 'Save it again where it was',
+  'deleted.resaveFailed': 'Saving it again did not work.',
+  'deleted.close': 'Close without keeping the text',
+  'deleted.closeConfirm': 'Close it? The file no longer exists on disk; the text will not be kept',
+  // --- end S11 ---
 };

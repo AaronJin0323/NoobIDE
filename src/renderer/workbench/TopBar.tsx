@@ -23,6 +23,7 @@ const SAVE_LABEL: Record<SaveStatus, MessageKey> = {
   saved: 'save.saved',
   failed: 'save.failed',
   conflict: 'save.conflict',
+  deleted: 'save.deleted', // S11.3
 };
 
 export function TopBar({ platform, project, save, onReveal, narrow }: TopBarProps) {

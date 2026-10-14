@@ -46,8 +46,17 @@ beforeEach(() => {
     allowedOrigin: ORIGIN,
     projects: {
       open: vi.fn(async () => ok({ projectId: ID, name: 'p', rootPath: '/p', files: [], truncated: false })),
-      read: vi.fn(async () => ok({ text: 'x', eol: '\n' as const, bom: false, mixedEol: false, uri: 'file:///p/x' })),
-      write: vi.fn(async () => ok({ savedAt: 1 })),
+      read: vi.fn(async () =>
+        ok({
+          text: 'x',
+          eol: '\n' as const,
+          bom: false,
+          mixedEol: false,
+          uri: 'file:///p/x',
+          version: { mtimeMs: 1, size: 1, hash: 'a'.repeat(64) },
+        }),
+      ),
+      write: vi.fn(async () => ok({ savedAt: 1, version: { mtimeMs: 1, size: 1, hash: 'a'.repeat(64) } })),
       writeCopy: vi.fn(async (destination: string) => ok({ path: destination })),
       rootOf: vi.fn((id: string) => (id === ID ? '/p' : undefined)),
       listDir: vi.fn(async () => ok({ relPath: '', entries: [], truncated: false })),
@@ -228,7 +237,10 @@ describe('valid calls reach the services', () => {
     });
     expect(deps.projects.read).toHaveBeenCalledWith({ projectId: ID, relPath: '中文 路径/a.html' });
     const write = { projectId: ID, relPath: 'a.html', text: '<p>你好</p>', bom: false };
-    expect(await call(CHANNELS.writeFile, workbench, write)).toEqual({ ok: true, value: { savedAt: 1 } });
+    expect(await call(CHANNELS.writeFile, workbench, write)).toEqual({
+      ok: true,
+      value: { savedAt: 1, version: { mtimeMs: 1, size: 1, hash: 'a'.repeat(64) } },
+    });
     expect(deps.projects.write).toHaveBeenCalledWith(write);
     expect(await call(CHANNELS.revealProject, workbench, { projectId: ID })).toEqual({ ok: true, value: null });
     expect(deps.revealFolder).toHaveBeenCalledWith('/p');

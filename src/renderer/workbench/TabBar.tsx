@@ -18,6 +18,7 @@ export const TAB_STATE_LABEL: Partial<Record<SaveStatus, MessageKey>> = {
   saving: 'tab.state.saving',
   failed: 'tab.state.failed',
   conflict: 'tab.state.conflict',
+  deleted: 'tab.state.deleted', // S11.3
 };
 
 /** File name shown on a tab; the full relative path is in the tooltip and the accessible name. */
@@ -26,9 +27,9 @@ export function tabTitle(relPath: string): string {
 }
 
 /**
- * Open files as an ARIA tablist (S09.2): one tab stop (roving tabindex), ←/→/Home/End move and show a tab, Delete
- * closes it; middle-click and the × button close too. Unsaved, saving, failed and conflict states are written out
- * next to a distinct icon — never colour alone.
+ * Open files as an ARIA tablist (S09.2): one tab stop (roving tabindex), 鈫?鈫?Home/End move and show a tab, Delete
+ * closes it; middle-click and the 脳 button close too. Unsaved, saving, failed and conflict states are written out
+ * next to a distinct icon 鈥?never colour alone.
  */
 export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
   const { t } = useI18n();

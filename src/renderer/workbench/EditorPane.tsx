@@ -9,9 +9,13 @@ import { TabBar } from './TabBar';
 import { isSameOrBelow } from './file-tree-model';
 import { MinusIcon, PlusIcon, WarningIcon } from './icons';
 import { FileRoleHint } from './FileRole';
+// S11: external changes
+import { DiskStateBanner, type DiskActions } from './DiskStateBanner';
+import { fill } from '../recovery/format';
 
 // Monaco is large; load it as its own chunk so the shell paints first.
 const CodeEditor = lazy(() => import('../editor/CodeEditor').then((m) => ({ default: m.CodeEditor })));
+const ConflictDiff = lazy(() => import('../editor/ConflictDiff').then((m) => ({ default: m.ConflictDiff })));
 
 export interface SaveCopyNotice {
   readonly relPath: string;
@@ -40,6 +44,10 @@ interface EditorPaneProps {
   onCloseDiscarding: (() => void) | undefined;
   /** Paths being renamed, moved or trashed: their tabs are read-only meanwhile, so no edit can get lost. */
   lockedPaths: readonly string[];
+  /** S11: choices for files changed or deleted outside NoobIDE. */
+  diskActions?: DiskActions | undefined;
+  /** S11.3: relPath of a deleted file whose tab waits for "close without keeping" to be confirmed. */
+  confirmCloseDeleted?: string | null | undefined;
 }
 
 function openErrorKey(code: string): MessageKey {
@@ -76,7 +84,12 @@ export function EditorPane(props: EditorPaneProps) {
   const [cursor, setCursor] = useState<{ line: number; column: number } | null>(null);
   const { project, docError, tabs } = state;
   const tab = activeTab(state);
-  const saveError = tab && tab.save.error && isUnsaved(tab.save) ? tab.save.error : null;
+  // S11: a conflict or a deleted file explains itself in the disk banner instead of the generic save error.
+  const diskState = tab !== null && (tab.save.conflict || tab.save.deleted);
+  const saveError = tab && tab.save.error && isUnsaved(tab.save) && !diskState ? tab.save.error : null;
+  // S11.2: the comparison is shown for one file at a time and closes when its conflict ends.
+  const [comparingPath, setComparingPath] = useState<string | null>(null);
+  const comparing = tab !== null && comparingPath === tab.relPath && tab.save.conflict && !!tab.conflictDisk;
   const notice = copyNotice && tab && copyNotice.relPath === tab.relPath ? copyNotice : null;
   const editorFile = tab
     ? {
@@ -189,6 +202,17 @@ export function EditorPane(props: EditorPaneProps) {
           </div>
         </div>
       )}
+      {tab && props.diskActions && (
+        <DiskStateBanner
+          tab={tab}
+          actions={props.diskActions}
+          confirmClose={props.confirmCloseDeleted === tab.relPath}
+          comparing={comparing}
+          onToggleCompare={() => setComparingPath(comparing ? null : tab.relPath)}
+          onSaveCopy={props.onSaveCopy}
+          onCloseDiscarding={props.onCloseDiscarding}
+        />
+      )}
       {tab?.content.readOnly && (
         // S07.4: another encoding — shown read-only so a save can never re-encode (and damage) the file.
         <p className="inline-alert" role="status" data-testid="read-only-notice">
@@ -205,7 +229,23 @@ export function EditorPane(props: EditorPaneProps) {
           {t(tab.content.eol === '\r\n' ? 'editor.mixedEol.crlf' : 'editor.mixedEol.lf')}
         </p>
       )}
-      {editorFile ? (
+      {comparing && tab?.conflictDisk ? (
+        <div className="editor-surface" id="editor-surface" role="tabpanel">
+          <Suspense fallback={<p className="placeholder">{t('editor.loading')}</p>}>
+            <ConflictDiff
+              uri={tab.uri}
+              language={languageForPath(tab.relPath)}
+              diskText={tab.conflictDisk.text}
+              ariaLabel={`${t('conflict.diffLabel')}: ${tab.relPath}`}
+              summary={(d) =>
+                d.identical
+                  ? t('conflict.identical')
+                  : fill(t('conflict.summary'), { added: d.added, removed: d.removed })
+              }
+            />
+          </Suspense>
+        </div>
+      ) : editorFile ? (
         <div className="editor-surface" id="editor-surface" role="tabpanel">
           <Suspense fallback={<p className="placeholder">{t('editor.loading')}</p>}>
             <CodeEditor

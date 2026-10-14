@@ -105,7 +105,31 @@ export interface FileContent {
   readonly readOnly?: boolean;
   /** The encoding is a best guess (legacy text has no marker); the notice says so. */
   readonly encodingGuessed?: boolean;
+  /** S11.1: the disk version this text was read from (external-change detection). */
+  readonly version: FileVersion;
 }
+
+// ── S11: external changes ────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * What main knows about one version of a file on disk (S11.1): modification time, size and the SHA-256 of its bytes.
+ * The content hash decides whether the file changed — a NoobIDE save (temp file + rename) or a `touch` gives a new
+ * mtime but the same hash, so it never counts as an external edit; timing alone is never trusted.
+ */
+export interface FileVersion {
+  readonly mtimeMs: number;
+  readonly size: number;
+  /** Lowercase hex SHA-256 of the bytes on disk. */
+  readonly hash: string;
+}
+
+/** True when `now` holds different content than `known` (size or hash differ; a new mtime alone is not a change). */
+export function versionChanged(known: FileVersion, now: FileVersion): boolean {
+  return known.size !== now.size || known.hash !== now.hash;
+}
+
+const HASH = /^[0-9a-f]{64}$/;
+export const isContentHash = (value: unknown): value is string => typeof value === 'string' && HASH.test(value);
+// ── end S11 ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export type ReadFileError =
   | 'unknown-project'
@@ -119,6 +143,16 @@ export type ReadFileError =
 export interface WriteFileRequest extends FileRequest {
   readonly text: string;
   readonly bom: boolean;
+  /**
+   * S11.1: hash of the disk version the editor last read or wrote. Main re-hashes the file right before replacing it
+   * and refuses with `changed-on-disk` when it differs, so an external edit is never silently overwritten.
+   */
+  readonly expectedHash?: string;
+  /**
+   * S11.3: the file was deleted outside NoobIDE; create it again. Refused with `changed-on-disk` if something with
+   * that name exists by then (never overwritten).
+   */
+  readonly create?: true;
 }
 
 export type WriteFileError =
@@ -132,10 +166,16 @@ export type WriteFileError =
   | 'disk-full'
   /** S07.4: the file on disk is not UTF-8 text (another encoding or binary); it is never overwritten. */
   | 'unsupported-encoding'
+  /** S11.1: the file on disk is not the version the editor knows (changed or recreated outside NoobIDE). */
+  | 'changed-on-disk'
+  /** S11.3: re-creating a deleted file was refused (e.g. an unportable name); see `message`. */
+  | 'invalid-name'
   | 'write-failed';
 
 export interface SavedFile {
   readonly savedAt: number;
+  /** S11.1: the version now on disk (what the editor expects on its next save). */
+  readonly version: FileVersion;
 }
 
 export type RevealError = 'unknown-project';
@@ -380,10 +420,22 @@ export function parseCloseAnswer(payload: unknown): CloseAnswer | null {
 }
 
 export function parseWriteFileRequest(payload: unknown): WriteFileRequest | null {
-  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath', 'text', 'bom'])) return null;
-  const { projectId, relPath, text, bom } = payload;
+  if (!isRecord(payload)) return null;
+  // S11: `expectedHash` and `create` are optional; nothing else may be present.
+  const optional = ['expectedHash', 'create'].filter((k) => Object.hasOwn(payload, k));
+  if (!hasExactKeys(payload, ['projectId', 'relPath', 'text', 'bom', ...optional])) return null;
+  const { projectId, relPath, text, bom, expectedHash, create } = payload;
   if (!isProjectId(projectId) || !isPortableRelPath(relPath)) return null;
   // A JS string can be up to 3 UTF-8 bytes per code unit; the service checks the exact encoded size.
   if (typeof text !== 'string' || text.length > MAX_TEXT_FILE_BYTES || typeof bom !== 'boolean') return null;
-  return { projectId, relPath, text, bom };
+  if (optional.includes('expectedHash') && !isContentHash(expectedHash)) return null;
+  if (optional.includes('create') && create !== true) return null;
+  return {
+    projectId,
+    relPath,
+    text,
+    bom,
+    ...(isContentHash(expectedHash) ? { expectedHash } : {}),
+    ...(create === true ? { create } : {}),
+  };
 }

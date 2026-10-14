@@ -208,6 +208,29 @@ export const zhCN = {
   'recovery.discardConfirm': '确定丢弃？这份修改将无法找回',
   'recovery.recoveredText': '恢复副本的内容',
   // --- end S12 ---
+  // --- S11 external changes ---
+  'save.deleted': '文件已在磁盘上删除 — 内容还在编辑器里',
+  'tab.state.deleted': '已删除',
+  'disk.reloaded': '这个文件在 NoobIDE 之外被修改了，已载入磁盘上的新版本（可以用"撤销"回到之前的内容）。',
+  'disk.dismiss': '知道了',
+  'conflict.title': '这个文件在 NoobIDE 之外被修改了，而你还有没保存的修改。',
+  'conflict.explain': '为了不丢失任何一方的内容，NoobIDE 没有自动保存。请先比较两个版本，再选择保留哪一个。',
+  'conflict.compare': '比较两个版本',
+  'conflict.hideCompare': '收起比较',
+  'conflict.keepMine': '保留我的版本（覆盖磁盘上的文件）',
+  'conflict.takeDisk': '使用磁盘上的版本',
+  'conflict.loading': '正在读取磁盘上的版本…',
+  'conflict.undoHint': '选择"使用磁盘上的版本"后，你的修改仍然可以用"撤销"找回。',
+  'conflict.diffLabel': '比较：左边是磁盘上的版本，右边是你的版本',
+  'conflict.summary': '与磁盘上的版本相比，你的版本新增 {added} 行，删除 {removed} 行。',
+  'conflict.identical': '两个版本的内容相同（只有换行符不同）。',
+  'deleted.title': '这个文件已经在磁盘上被删除或移走了。',
+  'deleted.explain': '它的内容还保留在编辑器里，没有丢失。你可以把它重新保存到原来的位置，或另存一份到别处。',
+  'deleted.resave': '重新保存到原位置',
+  'deleted.resaveFailed': '重新保存没有成功。',
+  'deleted.close': '关闭，不保留这些内容',
+  'deleted.closeConfirm': '确定关闭？磁盘上已经没有这个文件，关闭后编辑器里的内容将不再保留',
+  // --- end S11 ---
 } as const;
 
 export type MessageKey = keyof typeof zhCN;
