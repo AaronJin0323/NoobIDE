@@ -52,3 +52,64 @@ export function encodeText(text: string, bom: boolean): Uint8Array {
   out.set(body, 3);
   return out;
 }
+
+// ── S07.4: other encodings open read-only ───────────────────────────────────────────────────────────────────────
+
+export type DisplayDecodeResult =
+  | {
+      readonly ok: true;
+      readonly text: string;
+      readonly bom: boolean;
+      readonly eol: Eol;
+      /** WHATWG encoding label, e.g. `utf-8`, `utf-16le`, `gb18030`, `windows-1252`. */
+      readonly encoding: string;
+      /** Only UTF-8 files can be saved in v1; anything else is shown read-only so a save cannot re-encode it. */
+      readonly editable: boolean;
+    }
+  | { readonly ok: false; readonly reason: 'binary' };
+
+/** Control characters other than tab, line feed, form feed and carriage return are rare in text. */
+function looksBinary(bytes: Uint8Array): boolean {
+  const sample = bytes.subarray(0, 8192);
+  let control = 0;
+  for (const b of sample) {
+    if (b === 0) return true;
+    if (b < 0x20 && b !== 0x09 && b !== 0x0a && b !== 0x0c && b !== 0x0d && b !== 0x1b) control += 1;
+  }
+  return sample.length > 0 && control / sample.length > 0.1;
+}
+
+function tryDecode(label: string, bytes: Uint8Array): string | null {
+  try {
+    return new TextDecoder(label, { fatal: true, ignoreBOM: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Decodes any file the editor may show (S07.4, PLAN §7). UTF-8 (± BOM) is editable. UTF-16 with a BOM and legacy
+ * single/multi-byte text (GB18030, which covers GBK/GB2312 used by Chinese Windows, then Windows-1252) are shown
+ * read-only. Binary content (NUL bytes without a UTF-16 BOM, or many control characters) is refused.
+ */
+export function decodeForDisplay(bytes: Uint8Array): DisplayDecodeResult {
+  const utf16 =
+    bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe
+      ? 'utf-16le'
+      : bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff
+        ? 'utf-16be'
+        : null;
+  if (utf16) {
+    const text = tryDecode(utf16, bytes.subarray(2));
+    if (text !== null) return { ok: true, text, bom: true, eol: detectEol(text), encoding: utf16, editable: false };
+    return { ok: false, reason: 'binary' };
+  }
+  if (looksBinary(bytes)) return { ok: false, reason: 'binary' };
+  const utf8 = decodeText(bytes);
+  if (utf8.ok) return { ...utf8, encoding: 'utf-8', editable: true };
+  for (const label of ['gb18030', 'windows-1252']) {
+    const text = tryDecode(label, bytes);
+    if (text !== null) return { ok: true, text, bom: false, eol: detectEol(text), encoding: label, editable: false };
+  }
+  return { ok: false, reason: 'binary' };
+}

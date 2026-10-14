@@ -26,6 +26,8 @@ async function answerFolderDialog(folder: string | null) {
 }
 
 const status = () => page.getByTestId('save-status');
+/** A row of the file tree (S08.1) by its exact name. */
+const treeItem = (name: string) => page.getByTestId('file-tree').getByRole('treeitem', { name, exact: true });
 const editorText = () => page.locator('.view-lines');
 
 /**
@@ -72,22 +74,21 @@ test('opens a folder with Chinese characters and spaces and lists its files (S03
   await page.getByTestId('open-folder').click();
   await expect(page.getByTestId('project-name')).toHaveText('中文 路径 项目');
   await expect(page.getByTestId('project-path')).toHaveText(root);
-  const list = page.getByTestId('file-list');
-  await expect(list.getByRole('button', { name: 'index.html' })).toBeVisible();
-  await expect(list.getByRole('button', { name: '子 文件夹/页面 二.html' })).toBeVisible();
+  await expect(treeItem('index.html')).toBeVisible();
+  await expect(treeItem('子 文件夹')).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByTestId('sample-badge')).toHaveCount(0);
   await expect(status()).toHaveText('没有打开的文件');
 });
 
 test('clicking a file opens it in Monaco (S03.3)', async () => {
-  await page.getByTestId('file-list').getByRole('button', { name: 'index.html' }).click();
-  await expect(page.getByRole('tab', { name: 'index.html' })).toHaveAttribute('aria-selected', 'true');
-  await expect(editorText()).toContainText('你好，我是林小雨');
-  await expect(status()).toHaveText('无改动');
-  await expect(page.getByTestId('file-list').getByRole('button', { name: 'index.html' })).toHaveAttribute(
-    'aria-current',
+  await treeItem('index.html').click();
+  await expect(page.getByTestId('tab-bar').getByRole('tab', { name: 'index.html' })).toHaveAttribute(
+    'aria-selected',
     'true',
   );
+  await expect(editorText()).toContainText('你好，我是林小雨');
+  await expect(status()).toHaveText('无改动');
+  await expect(treeItem('index.html')).toHaveAttribute('aria-current', 'true');
 });
 
 test('edits are saved to disk with Ctrl/Cmd+S (S03.4)', async () => {
@@ -129,14 +130,18 @@ test('a failed save keeps the edits, explains the cause and succeeds after the f
 
 test('switching files saves unsaved edits (no edit is dropped)', async () => {
   await typeAtEnd('切换文件前');
-  await page.getByTestId('file-list').getByRole('button', { name: 'style.css' }).click();
-  await expect(page.getByRole('tab', { name: 'style.css' })).toHaveAttribute('aria-selected', 'true');
+  await treeItem('style.css').click();
+  await expect(page.getByTestId('tab-bar').getByRole('tab', { name: 'style.css' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   await expect(editorText()).toContainText('#2f5d43');
   await expect.poll(() => readFile(path.join(root, 'index.html'), 'utf8')).toContain('切换文件前');
 });
 
 test('a nested file with a Chinese name opens and saves (S03.4)', async () => {
-  await page.getByTestId('file-list').getByRole('button', { name: '子 文件夹/页面 二.html' }).click();
+  await treeItem('子 文件夹').click();
+  await treeItem('页面 二.html').click();
   await expect(editorText()).toContainText('第二页');
   await typeAtEnd('第三页');
   await page.keyboard.press('ControlOrMeta+S');
@@ -145,7 +150,7 @@ test('a nested file with a Chinese name opens and saves (S03.4)', async () => {
 });
 
 test('a binary file is refused instead of being opened as text', async () => {
-  await page.getByTestId('file-list').getByRole('button', { name: 'logo.png' }).click();
+  await treeItem('logo.png').click();
   await expect(page.getByTestId('open-error')).toContainText('不是 UTF-8 文本');
   // The open tabs stay as they were; no tab is created for the refused file.
   await expect(page.getByTestId('tab')).toHaveCount(3);

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { isMac } from '../../platform/labels';
 import type { FileContent, OpenedProject } from '../../shared/ipc/contract';
 import { useMediaQuery } from '../theme/useMediaQuery';
 import { TopBar } from './TopBar';
 import { Rail } from './Rail';
-import { FilesPanel } from './FilesPanel';
+import { FilesPanel, type FileOpsHooks } from './FilesPanel';
+import { isSameOrBelow } from './file-tree-model';
 import { EditorPane, type SaveCopyNotice } from './EditorPane';
 import { PreviewPane } from './PreviewPane';
 import { ProblemsPanel } from './ProblemsPanel';
@@ -159,6 +160,14 @@ export function Workbench() {
     [bridge, createSaver],
   );
 
+  /** Closes a tab without saving: only for tabs whose edits are already on disk (or gone with the file). */
+  const dropTab = (relPath: string) => {
+    const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
+    forgetTab(relPath);
+    dispatch({ type: 'closed', relPath });
+    if (tab) void releaseModel(tab.uri);
+  };
+
   const closeTab = useCallback(async (relPath: string) => {
     const saver = saverOf(relPath);
     const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
@@ -169,9 +178,7 @@ export function Workbench() {
       return;
     }
     // Order matters: the saver goes before the model is discarded (cleared), so that change reaches no saver.
-    forgetTab(relPath);
-    dispatch({ type: 'closed', relPath });
-    void releaseModel(tab.uri);
+    dropTab(relPath);
   }, []);
 
   const saveActive = useCallback(() => void saverOf(docRef.current.active)?.save(), []);
@@ -203,6 +210,41 @@ export function Workbench() {
     tabJournals.current.get(relPath)?.edited(saver.state.revision, () => saver.text); // S12
   }, []);
 
+  // ── S08: file operations keep the open tabs consistent ──
+  const fileOps = useMemo<FileOpsHooks>(
+    () => ({
+      // Renaming, moving or trashing an open file (or a folder holding open files) saves their edits first, through
+      // each tab's serialized save queue; a failed save cancels the operation and shows that tab.
+      beforeChange: async (relPath) => {
+        for (const [open, saver] of [...savers.current]) {
+          if (!isSameOrBelow(open, relPath)) continue;
+          if (!(await saver.save())) {
+            dispatch({ type: 'activate', relPath: open });
+            return false;
+          }
+        }
+        return true;
+      },
+      afterChange: (change) => {
+        const affected = docRef.current.tabs
+          .map((tab) => tab.relPath)
+          .filter((open) => isSameOrBelow(open, change.type === 'renamed' ? change.from : change.relPath));
+        const wasActive = docRef.current.active;
+        for (const open of affected) dropTab(open); // their edits were saved in beforeChange
+        if (change.type === 'renamed') {
+          // Reopen at the new path(s) from disk; the previously visible file stays visible.
+          const moved = affected.map((open) => change.to + open.slice(change.from.length));
+          const visible =
+            wasActive && affected.includes(wasActive) ? change.to + wasActive.slice(change.from.length) : null;
+          void (async () => {
+            for (const relPath of moved) if (relPath !== visible) await openFile(relPath);
+            if (visible) await openFile(visible);
+          })();
+        }
+      },
+    }),
+    [openFile],
+  );
   // --- S12: restore after an abnormal termination (RecoveryDialog) ---
   const adoptProject = useCallback(
     async (project: OpenedProject) => {
@@ -344,6 +386,9 @@ export function Workbench() {
           openFailed={doc.openFailed}
           onOpenFolder={bridge ? () => void openFolder() : undefined}
           onOpenFile={(relPath) => void openFile(relPath)}
+          api={bridge?.workspace}
+          platform={platform}
+          fileOps={fileOps}
         />
         <EditorPane
           hidden={!visible.editor}

@@ -12,6 +12,8 @@ export interface EditorFile {
   readonly initialValue: string;
   /** Line ending of the file on disk, kept when saving (PLAN §7). */
   readonly eol?: '\n' | '\r\n' | undefined;
+  /** S07.4: a file in another encoding is shown but cannot be edited (saving would re-encode it). */
+  readonly readOnly?: boolean | undefined;
 }
 
 interface CodeEditorProps {
@@ -121,6 +123,10 @@ export function CodeEditor({
   }, []);
 
   const { uri, language, initialValue, eol } = file;
+  const readOnly = file.readOnly ?? false;
+  useEffect(() => {
+    editorRef.current?.updateOptions({ readOnly });
+  }, [readOnly, uri]);
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { CHANNELS, EVENTS, IPC_API_VERSION, type NoobideApi } from '../shared/ipc/contract';
+import { CHANNELS, EVENTS, IPC_API_VERSION, type NoobideApi, type WorkspaceChanged } from '../shared/ipc/contract';
 import { platformId } from '../platform/index';
 
 /**
@@ -15,6 +15,18 @@ const api: NoobideApi = {
     readFile: (request) => ipcRenderer.invoke(CHANNELS.readFile, request),
     writeFile: (request) => ipcRenderer.invoke(CHANNELS.writeFile, request),
     revealProject: (request) => ipcRenderer.invoke(CHANNELS.revealProject, request),
+    // ── S07/S08: file tree, watcher and file operations ──
+    listDir: (request) => ipcRenderer.invoke(CHANNELS.listDir, request),
+    onChanged: (listener) => {
+      // The event object (with `sender`) never reaches the page; only the cloned payload does.
+      const handler = (_event: unknown, change: WorkspaceChanged) => listener(change);
+      ipcRenderer.on(EVENTS.changed, handler);
+      return () => void ipcRenderer.removeListener(EVENTS.changed, handler);
+    },
+    createEntry: (request) => ipcRenderer.invoke(CHANNELS.createEntry, request),
+    renameEntry: (request) => ipcRenderer.invoke(CHANNELS.renameEntry, request),
+    trashEntry: (request) => ipcRenderer.invoke(CHANNELS.trashEntry, request),
+    revealEntry: (request) => ipcRenderer.invoke(CHANNELS.revealEntry, request),
     saveCopy: (request) => ipcRenderer.invoke(CHANNELS.saveCopy, request),
   },
   app: {

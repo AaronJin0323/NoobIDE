@@ -99,3 +99,12 @@ describe('open tabs (S09.2)', () => {
     expect(s.active).toBeNull();
   });
 });
+
+describe('file operations (S08.3)', () => {
+  it('closing the tab after its file went to the trash keeps the project open', () => {
+    const state = run(...opened('index.html'), { type: 'closed', relPath: 'index.html' });
+    expect(state.tabs).toEqual([]);
+    expect(state.project).toBe(project);
+    expect(activeSaveStatus(state)).toBeNull();
+  });
+});

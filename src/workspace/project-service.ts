@@ -1,12 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { constants } from 'node:fs';
+import { constants, type Dirent } from 'node:fs';
 import { access, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import {
   MAX_TEXT_FILE_BYTES,
   type FileContent,
+  type CreateEntryRequest,
+  type DirListing,
+  type FileOpError,
+  type RenameEntryRequest,
+  type DirRequest,
   type FileEntry,
+  type ListDirError,
   type FileRequest,
   type OpenedProject,
   type ReadFileError,
@@ -17,8 +22,16 @@ import {
 } from '../shared/ipc/contract';
 import { err, ok, type Result } from '../shared/result';
 import type { SaveHistoryHook } from '../recovery/history-triggers';
+
+/** S21 history hooks the service calls; `beforeDelete` (S08.3) snapshots files before they go to the trash. */
+export type ProjectHistoryHook = SaveHistoryHook & {
+  beforeDelete?(rootPath: string, relPath: string, absPath: string): Promise<void>;
+};
 import { FileInUseError, replaceFileAtomic, writeFileAtomic, type AtomicWriteOptions } from './atomic-write';
-import { decodeText, encodeText } from './text-codec';
+import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
+import { listDirectory } from './tree';
+import { createEntry, renameEntry, resolveEntry, trashEntry } from './file-ops';
+import { decodeForDisplay, decodeText, encodeText, hasMixedEol } from './text-codec';
 
 /**
  * Projects the user opened and file access inside them (S03.3, S03.4). Main process only.
@@ -42,7 +55,7 @@ export interface ProjectServiceOptions {
   /** Injected file system and retry policy for saves (tests simulate ENOSPC, locks and read-only folders). */
   readonly atomic?: AtomicWriteOptions;
   /** S21.2: local-history snapshots around each confirmed save. */
-  readonly history?: SaveHistoryHook;
+  readonly history?: ProjectHistoryHook;
 }
 
 /** A project file whose new content is confirmed on disk. */
@@ -58,7 +71,7 @@ export class ProjectService {
   private readonly writeQueues = new Map<string, Promise<void>>();
   private readonly savedListeners = new Set<(file: SavedProjectFile) => void>();
   /** S21.2: local-history snapshots around each save (optional; never blocks or fails a save). */
-  private readonly history: SaveHistoryHook | undefined;
+  private readonly history: ProjectHistoryHook | undefined;
 
   constructor(private readonly options: ProjectServiceOptions = {}) {
     this.history = options.history;
@@ -71,11 +84,55 @@ export class ProjectService {
       if (!(await stat(root)).isDirectory()) return err('list-failed', 'not a directory');
       const { files, truncated } = await listFiles(root);
       const projectId = randomUUID();
+      // One open project in v1: opening another revokes access through every earlier projectId (security review).
+      this.projects.clear();
       this.projects.set(projectId, { root });
       return ok({ projectId, name: path.basename(root), rootPath: root, files, truncated });
     } catch (e) {
       return err('list-failed', errorCode(e), e);
     }
+  }
+
+  /** One folder of the lazy tree (S07.2). */
+  async listDir(request: DirRequest): Promise<Result<DirListing, ListDirError>> {
+    const project = this.projects.get(request.projectId);
+    if (!project) return err('unknown-project', 'project is not open');
+    return listDirectory(project.root, request.relPath);
+  }
+
+  // ── S08: file operations ──
+  async createEntry(request: CreateEntryRequest): Promise<Result<{ relPath: string }, FileOpError>> {
+    const root = this.rootOf(request.projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    return createEntry(root, request.relPath, request.kind);
+  }
+
+  async renameEntry(request: RenameEntryRequest): Promise<Result<{ from: string; to: string }, FileOpError>> {
+    const root = this.rootOf(request.projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    return renameEntry(root, request.from, request.to);
+  }
+
+  /** `trashItem` is Electron's shell.trashItem in the app (never a permanent delete). */
+  async trashEntry(
+    request: FileRequest,
+    trashItem: (fullPath: string) => Promise<void>,
+  ): Promise<Result<null, FileOpError>> {
+    const root = this.rootOf(request.projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    const history = this.history;
+    // S21: snapshot the files first so a deleted file can also be restored from local history (never blocks).
+    const beforeTrash = history?.beforeDelete
+      ? (fullPath: string) => history.beforeDelete?.(root, request.relPath, fullPath) ?? Promise.resolve()
+      : undefined;
+    return trashEntry(root, request.relPath, trashItem, beforeTrash);
+  }
+
+  /** The absolute path to show in the file manager: the entry itself (not a link's target), or the root. */
+  async revealPath(request: DirRequest): Promise<Result<string, FileOpError>> {
+    const root = this.rootOf(request.projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    return request.relPath === '' ? ok(root) : resolveEntry(root, request.relPath);
   }
 
   rootOf(projectId: string): string | undefined {
@@ -94,15 +151,17 @@ export class ProjectService {
     } catch (e) {
       return err(isNotFound(e) ? 'not-found' : 'read-failed', errorCode(e), e);
     }
-    const decoded = decodeText(bytes);
+    const decoded = decodeForDisplay(bytes);
     if (!decoded.ok) return err('unsupported-encoding', decoded.reason);
-    return ok({
+    const content: FileContent = {
       text: decoded.text,
       eol: decoded.eol,
       bom: decoded.bom,
-      mixedEol: decoded.mixedEol,
-      uri: pathToFileURL(target.value).href,
-    });
+      mixedEol: hasMixedEol(decoded.text),
+      uri: toFileUri(target.value),
+    };
+    // S07.4: other encodings are shown read-only, with the encoding named in the notice.
+    return ok(decoded.editable ? content : { ...content, encoding: decoded.encoding, readOnly: true });
   }
 
   /**
@@ -122,6 +181,11 @@ export class ProjectService {
           if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
           // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
           await access(target.value, constants.W_OK);
+          // S07.4: never replace a file that is not UTF-8 text (another encoding, binary): the save would destroy it.
+          const existing = await stat(target.value);
+          if (existing.size <= MAX_TEXT_FILE_BYTES && !decodeText(await readFile(target.value)).ok) {
+            return err('unsupported-encoding', 'the file on disk is not UTF-8 text');
+          }
           // S21.2: keep the version on disk before this save batch replaces it.
           await this.history?.beforeSave(this.rootOf(request.projectId) ?? '', request.relPath, target.value);
           await replaceFileAtomic(target.value, data, this.options.atomic);
@@ -191,31 +255,29 @@ export class ProjectService {
   ): Promise<Result<string, 'unknown-project' | 'outside-project' | 'not-found'>> {
     const project = this.projects.get(request.projectId);
     if (!project) return err('unknown-project', 'project is not open');
-    const candidate = path.resolve(project.root, ...request.relPath.split(path.posix.sep));
-    if (!isInside(project.root, candidate)) return err('outside-project', 'path leaves the project');
-    let real: string;
-    try {
-      real = await realpath(candidate);
-    } catch (e) {
-      return err('not-found', errorCode(e), e);
-    }
     // Symbolic links and junctions may point anywhere; the real target must still be inside the project.
-    if (!isInside(project.root, real)) return err('outside-project', 'link target leaves the project');
-    return ok(real);
+    const resolved = await resolveExisting(project.root, request.relPath);
+    if (!resolved.ok) return err(resolved.code, resolved.message);
+    if (resolved.path === project.root) return err('outside-project', 'the project root is not a file');
+    return ok(resolved.path);
   }
 }
 
-/** True when `candidate` lies strictly below `root` (the root itself is not a file), using path APIs only. */
-export function isInside(root: string, candidate: string): boolean {
-  const rel = path.relative(root, candidate);
-  return rel !== '' && !path.isAbsolute(rel) && rel.split(path.sep)[0] !== '..';
-}
+export { isInside };
 
 async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated: boolean }> {
   const files: FileEntry[] = [];
   let truncated = false;
   const walk = async (dir: string, relSegments: string[]): Promise<void> => {
-    const entries = await readdir(dir, { withFileTypes: true });
+    let entries: Dirent[];
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch (e) {
+      // An unreadable subfolder must not make the whole project unopenable (security review); the root still must be.
+      if (relSegments.length === 0) throw e;
+      truncated = true;
+      return;
+    }
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     for (const entry of entries) {
       if (files.length >= LIST_LIMITS.maxFiles) {
@@ -234,7 +296,7 @@ async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated:
         }
         await walk(full, segments);
       } else if (entry.isFile()) {
-        files.push({ relPath: segments.join(path.posix.sep), uri: pathToFileURL(full).href });
+        files.push({ relPath: segments.join(path.posix.sep), uri: toFileUri(full) });
       }
     }
   };
@@ -245,11 +307,6 @@ async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated:
 /** The OS error code for the "details" line; a lock that outlasted every retry says so. Never file contents. */
 function errorMessage(e: unknown): string {
   return e instanceof FileInUseError ? e.message : errorCode(e);
-}
-
-function errorCode(e: unknown): string {
-  const code = (e as { code?: unknown } | null)?.code;
-  return typeof code === 'string' ? code : e instanceof Error ? e.name : 'unknown';
 }
 
 function isNotFound(e: unknown): boolean {

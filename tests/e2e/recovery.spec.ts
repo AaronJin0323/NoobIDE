@@ -95,8 +95,14 @@ async function openProjectAndFile(relPath: string) {
   }, root);
   await page.getByTestId('open-folder').click();
   await expect(page.getByTestId('project-name')).toHaveText('中文 路径 项目');
-  await page.getByTestId('file-list').getByRole('button', { name: relPath }).click();
-  await expect(selectedTab()).toHaveText(relPath);
+  // S08.1 file tree: expand the folders on the way, then open the file.
+  const segments = relPath.split('/');
+  for (let i = 1; i < segments.length; i += 1) {
+    const folder = page.getByTestId('file-tree').locator(`[data-path="${segments.slice(0, i).join('/')}"]`);
+    if ((await folder.getAttribute('aria-expanded')) !== 'true') await folder.click();
+  }
+  await page.getByTestId('file-tree').locator(`[data-path="${relPath}"]`).click();
+  await expect(selectedTab()).toHaveText(segments[segments.length - 1] ?? relPath);
 }
 
 /** The visible editor tab (S09 tab bar), not the recovery dialog's own tabs. */

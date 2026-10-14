@@ -35,6 +35,14 @@ describe('portable relative paths (S03.1)', () => {
     ['trailing slash', 'css/'],
     ['URL', 'file:/etc/passwd'],
     ['too long', 'a/'.repeat(600) + 'b'],
+    // Security review of S03: NTFS alternate data streams and names Windows rewrites.
+    ['an NTFS stream in a nested segment', 'css/style.css:hid'],
+    ['an NTFS stream in the last segment', 'index.html::$DATA'],
+    ['a trailing dot', 'css/style.css.'],
+    ['a trailing space', 'css /style.css'],
+    ['a device name', 'CON'],
+    ['a device name with extension', 'js/nul.js'],
+    ['a device name in another case', 'Com1.txt'],
   ])('rejects %s', (_name, p) => expect(isPortableRelPath(p)).toBe(false));
 
   it('rejects non-strings', () => {

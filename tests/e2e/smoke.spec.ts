@@ -99,7 +99,21 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     // S03.1: exactly the typed contract — no ipcRenderer, no generic send.
     bridge: ['apiVersion', 'platform', 'workspace', 'app', 'recovery'],
     apiVersion: 1,
-    workspace: ['openFolder', 'readFile', 'writeFile', 'revealProject', 'saveCopy'],
+    workspace: [
+      'openFolder',
+      'readFile',
+      'writeFile',
+      'revealProject',
+      // S07/S08: file tree, watcher and file operations
+      'listDir',
+      'onChanged',
+      'createEntry',
+      'renameEntry',
+      'trashEntry',
+      'revealEntry',
+      // S10.3: save elsewhere
+      'saveCopy',
+    ],
     // S10.6: close requests arrive as a listener registration only; the IPC event object never reaches the page.
     app: ['onCloseRequested', 'answerClose', 'closeDiscarding'],
     // S12: crash-recovery journal calls.

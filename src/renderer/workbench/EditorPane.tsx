@@ -76,7 +76,13 @@ export function EditorPane(props: EditorPaneProps) {
   const saveError = tab && tab.save.error && isUnsaved(tab.save) ? tab.save.error : null;
   const notice = copyNotice && tab && copyNotice.relPath === tab.relPath ? copyNotice : null;
   const editorFile = tab
-    ? { uri: tab.uri, language: languageForPath(tab.relPath), initialValue: tab.content.text, eol: tab.content.eol }
+    ? {
+        uri: tab.uri,
+        language: languageForPath(tab.relPath),
+        initialValue: tab.content.text,
+        eol: tab.content.eol,
+        readOnly: tab.content.readOnly ?? false,
+      }
     : !project
       ? { uri: 'inmemory://noobide/welcome.html', language: 'html', initialValue: SAMPLE_HTML }
       : null;
@@ -179,6 +185,15 @@ export function EditorPane(props: EditorPaneProps) {
             )}
           </div>
         </div>
+      )}
+      {tab?.content.readOnly && (
+        // S07.4: another encoding — shown read-only so a save can never re-encode (and damage) the file.
+        <p className="inline-alert" role="status" data-testid="read-only-notice">
+          <WarningIcon />
+          <span>
+            {t('editor.readOnlyEncoding')} <strong>{tab.content.encoding}</strong>
+          </span>
+        </p>
       )}
       {tab?.content.mixedEol && (
         <p className="inline-alert" role="note" data-testid="mixed-eol">
