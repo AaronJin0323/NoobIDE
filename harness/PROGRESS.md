@@ -46,6 +46,16 @@ file-tree watcher timing); not reproduced in the lead's runs. Preview isolation 
 **Owner action needed:** H.1 (OS versions, physical Apple Silicon Mac), H.5 (GitHub repo + Actions for macOS CI),
 H.2 (signing). Manual checks above.
 
+**Paused for usage limits (wave 2 in flight).** Merged after this entry: S20.2, S20.3, S21.3, S21.4 (welcome
+wizard, file roles, history UI). S05.5 reopened after the preview security review (DNS→loopback/LAN reachable; also
+alert() disables the IDE, beforeunload freezes refresh, untruncated log URLs, persistent service workers) — fixes
+were handed to the W1 agent. Unmerged agent branches to review and merge next session (each told to stop at a safe
+point and commit; check `git log main..<branch>` and their features.json statuses): `worktree-agent-a642c1d9e6a3d8c55`
+(W1: S05.7, S14, S15, S16.2–S16.6 + preview security fixes), `worktree-agent-a809d2be3e8120aa3` (W2: S18, S19,
+S17.1–S17.3, S22.4, S22.5), `worktree-agent-a0d4b80affc818dbf` (W4: S11, S13.1–S13.6; recent projects must use the
+`recentProjects { list, open, remove }` shape from src/renderer/welcome/welcome-model.ts). Then: re-review W1's
+security fixes, S13.7 and S17.4 gate reviews, merge order W4 → W2 → W1 (W1 touches the most shared files).
+
 **Next up:** wave 2 — S14/S15/S16.2–4 + S05.7 (preview & runtime diagnostics), S18/S19/S17/S22.4/S22.5 (language
 features, problems panel, problem card, one-click fix), S20.2 + S21.3/S21.4 (welcome wizard, history UI),
 S11 + S13 (external-change conflicts, settings/recent/session restore).
