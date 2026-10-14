@@ -1176,8 +1176,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/workspace/atomic-write.ts + tests/integration/atomic-write.test.ts (10): temp in same dir -> write -> chmod -> fsync -> close -> rename (call order asserted), dir fsync after rename, EPERM/EBUSY rename retried with backoff then succeeds, persistent lock -> FileInUseError(EBUSY) with temp removed and target unchanged, no retry without backoff (POSIX), ENOSPC not retried, permissions 0666/0640 preserved, own stale temp files cleaned only; backoff only on Windows via src/platform lockedRenameBackoffMs (platform test) @ ff0aec2"
     },
     {
       "id": "S10.2",
@@ -1192,7 +1192,7 @@
       "depends_on": [
         "S10.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
@@ -1235,6 +1235,25 @@
       "description": "",
       "acceptance": [
         "Contract test: 'saved' event emitted strictly after successful rename"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S10.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S10.6",
+      "session": "S10",
+      "milestone": "M2",
+      "title": "Close and quit never drop unsaved edits",
+      "description": "Added after the S03 security review: closing the window or quitting dropped unsaved edits silently. Electron ignores beforeunload return values, so main intercepts the window 'close' event and asks the workbench over the typed IPC.",
+      "acceptance": [
+        "Closing the window or quitting the app with unsaved edits first saves them; the window closes / the app quits only after the writes are confirmed",
+        "If a save fails, the window stays open with the save-failure state (reason, retry, save elsewhere) and the edits stay in the editor",
+        "A crashed or unresponsive workbench cannot block closing forever (bounded wait)",
+        "Covered by e2e (window close success and failure, app quit) and unit tests of the close guard"
       ],
       "verify": "auto",
       "depends_on": [

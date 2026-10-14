@@ -99,28 +99,30 @@ export class ProjectService {
   }
 
   /**
-   * Saves over an existing file (S10.1). Writes to one real path are serialized, so an older write can never land
-   * after a newer one. "Saved" listeners run only after the temp file was renamed over the target (S10.5).
-   * Creating files arrives with the file operations of S08.
+   * Saves over an existing file (S10.1). Writes are serialized in arrival order — per request path from the first
+   * moment (before any await), and per real path around the write itself (two names for one file) — so an older
+   * write can never land after a newer one. "Saved" listeners run only after the temp file was renamed over the
+   * target (S10.5). Creating files arrives with the file operations of S08.
    */
-  async write(request: WriteFileRequest): Promise<Result<SavedFile, WriteFileError>> {
-    const target = await this.resolve(request);
-    if (!target.ok) return target;
-    const data = encodeText(request.text, request.bom);
-    if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
-    const result = await this.serialized(target.value, async (): Promise<Result<SavedFile, WriteFileError>> => {
-      try {
-        if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
-        // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
-        await access(target.value, constants.W_OK);
-        await replaceFileAtomic(target.value, data, this.options.atomic);
-      } catch (e) {
-        return err(writeErrorCode(e), errorMessage(e), e);
-      }
-      return ok({ savedAt: Date.now() });
+  write(request: WriteFileRequest): Promise<Result<SavedFile, WriteFileError>> {
+    return this.serialized(`${request.projectId}\0${request.relPath}`, async () => {
+      const target = await this.resolve(request);
+      if (!target.ok) return target;
+      const data = encodeText(request.text, request.bom);
+      if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
+      return this.serialized(target.value, async (): Promise<Result<SavedFile, WriteFileError>> => {
+        try {
+          if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
+          // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
+          await access(target.value, constants.W_OK);
+          await replaceFileAtomic(target.value, data, this.options.atomic);
+        } catch (e) {
+          return err(writeErrorCode(e), errorMessage(e), e);
+        }
+        this.emitSaved({ projectId: request.projectId, relPath: request.relPath, path: target.value });
+        return ok({ savedAt: Date.now() });
+      });
     });
-    if (result.ok) this.emitSaved({ projectId: request.projectId, relPath: request.relPath, path: target.value });
-    return result;
   }
 
   /**
