@@ -16,3 +16,5 @@ Thumbs.db
 *.cer
 .env
 .env.*
+# Agent git worktrees (parallel sessions) — separate checkouts, never committed here.
+.claude/worktrees/

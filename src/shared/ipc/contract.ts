@@ -10,6 +10,7 @@
 import type { PlatformId } from '../../platform/labels';
 import type { Result } from '../result';
 import { isUnsafePathSegment } from '../file-names';
+import type { RecoveryApi } from './recovery-contract';
 
 export const IPC_API_VERSION = 1;
 
@@ -24,6 +25,15 @@ export const CHANNELS = {
   renameEntry: 'workspace:rename-entry',
   trashEntry: 'workspace:trash-entry',
   revealEntry: 'workspace:reveal-entry',
+  // --- S12 crash-recovery journal (types and parsers: recovery-contract.ts) ---
+  recoveryRecord: 'recovery:record',
+  recoveryDiscardSaved: 'recovery:discard-saved',
+  recoveryListPending: 'recovery:list-pending',
+  recoveryOpenProject: 'recovery:open-project',
+  recoveryRead: 'recovery:read',
+  recoveryDiscard: 'recovery:discard',
+  recoveryClear: 'recovery:clear',
+  // --- end S12 ---
 } as const;
 
 export type Channel = (typeof CHANNELS)[keyof typeof CHANNELS];
@@ -240,6 +250,8 @@ export interface NoobideApi {
     /** Shows a file or folder in Finder / File Explorer (S08.5); `''` is the project folder. */
     revealEntry(request: DirRequest): Promise<IpcResult<null, FileOpError>>;
   };
+  /** S12: crash-recovery journal of unsaved buffers. */
+  readonly recovery: RecoveryApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */

@@ -51,3 +51,30 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 - **Expected:** `8 passed`, no manual interaction; on Linux CI the script wraps itself in `xvfb-run`.
 - **Result:** _(owner fills in)_. Linux evidence is already in PROGRESS.md (session 1).
 - **Close with:** `node harness/session.mjs set S02.6 done --evidence "e2e 8/8 on Win <ver> + macOS <ver>"`
+
+### S12.4 — Forced-termination recovery on both platforms
+
+- **Platform:** physical Apple Silicon Mac (macOS, arm64) and Windows 11 x64
+- **Build:** the commit that closed S12.1–S12.3 (see harness/PROGRESS.md)
+- **Steps (automated, each platform):**
+  1. `npm install`, then `npm run test:e2e -- recovery.spec.ts`. Expected: `5 passed`. The spec force-kills the
+     Electron main process (`process.kill(pid, 'SIGKILL')`: SIGKILL on macOS, TerminateProcess on Windows), relaunches
+     with the same app-data directory and restores the edits.
+- **Steps (by hand, each platform, with `npm start` or the packaged app):**
+  1. Open a folder whose path contains Chinese characters and spaces (e.g. a copy of
+     `tests/fixtures/中文 路径 项目`). Open `index.html`, type a new line `崩溃测试`, do **not** save.
+  2. Wait 2 seconds. Check the journal exists outside the project:
+     - macOS: `ls ~/Library/Application\ Support/NoobIDE/recovery/*/` (the folder may be named `noobide`)
+     - Windows: `dir %APPDATA%\NoobIDE\recovery\*` (or `%APPDATA%\noobide\recovery`)
+       Expected: one `.json` file; nothing new inside the project folder.
+  3. Kill the app hard: macOS `kill -9 <pid of the NoobIDE main process>` (Activity Monitor → Force Quit also
+     works); Windows `taskkill /F /IM NoobIDE.exe` (or `electron.exe` for `npm start`).
+  4. Start NoobIDE again. Expected: the dialog "找到了上次没保存的修改" lists the project and `index.html`.
+  5. Click "打开项目并查看". Expected: the diff shows `+ 崩溃测试`. Click "恢复到编辑器". Expected: the editor shows
+     the line with status "未保存"; the file on disk does not contain it yet.
+  6. Press Ctrl+S / ⌘S. Expected: "已保存", the file contains the line, the journal `.json` file is gone.
+  7. Repeat steps 1–4, then click "清除全部恢复数据" → confirm. Expected: the dialog closes, the journal is empty.
+- **Expected:** all steps pass on both machines.
+- **Result:** _(owner fills in: pass/fail, OS versions, date)_
+- **Close with:**
+  `node harness/session.mjs set S12.4 done --evidence "manual: macOS <ver> + Win 11 <build>, <date>, steps pass"`

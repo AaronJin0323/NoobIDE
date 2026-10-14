@@ -10,6 +10,12 @@ import { PreviewPane } from './PreviewPane';
 import { ProblemsPanel } from './ProblemsPanel';
 import { INITIAL_LAYOUT, NARROW_QUERY, layoutReducer, visibleRegions } from './layout';
 import { INITIAL_DOCUMENT_STATE, documentReducer, saveState } from './document-state';
+// S12: crash-recovery journal
+import { useJournal } from '../recovery/useJournal';
+import { newBufferId } from '../recovery/journal-scheduler';
+import { RecoveryDialog, type RestoreOutcome } from '../recovery/RecoveryDialog';
+import type { OpenedProject } from '../../shared/ipc/contract';
+import type { RecoveredEntry } from '../../shared/ipc/recovery-contract';
 
 /**
  * The five workbench regions of PLAN §3 in the 2026-10-14 prototype layout (S30.3), now backed by real files
@@ -33,6 +39,8 @@ export function Workbench() {
   const editsRef = useRef({ revision: 0, saved: 0 });
   const unsaved = () => docRef.current.doc !== null && editsRef.current.revision !== editsRef.current.saved;
   const savingRef = useRef<Promise<boolean> | null>(null);
+  // S12: unsaved buffers are journaled to app data until saved (independent of undo, autosave and history).
+  const { scheduler: journal, health: journalHealth } = useJournal(bridge);
 
   const save = useCallback(async (): Promise<boolean> => {
     const current = docRef.current;
@@ -50,6 +58,7 @@ export function Workbench() {
     const pending = bridge.workspace.writeFile(request).then((result) => {
       if (result.ok) {
         editsRef.current.saved = Math.max(editsRef.current.saved, revision);
+        journal.saved(revision); // S12
         dispatch({ type: 'saveSucceeded', revision });
       } else dispatch({ type: 'saveFailed', code: result.code, message: result.message });
       return result.ok;
@@ -60,7 +69,7 @@ export function Workbench() {
     } finally {
       savingRef.current = null;
     }
-  }, [bridge]);
+  }, [bridge, journal]);
 
   /** Never drops edits: unsaved text is saved first, and a failed save cancels the switch. */
   const saveBeforeLeaving = useCallback(async () => !unsaved() || (await save()), [save]);
@@ -71,9 +80,10 @@ export function Workbench() {
     if (!result.ok) dispatch({ type: 'projectOpenFailed' });
     else if (result.value) {
       editsRef.current = { revision: 0, saved: 0 };
+      journal.begin(null); // S12
       dispatch({ type: 'projectOpened', project: result.value });
     }
-  }, [bridge, saveBeforeLeaving]);
+  }, [bridge, journal, saveBeforeLeaving]);
 
   const openFile = useCallback(
     async (relPath: string) => {
@@ -84,13 +94,17 @@ export function Workbench() {
       if (result.ok) {
         textRef.current = result.value.text;
         editsRef.current = { revision: 0, saved: 0 };
+        // S12: a fresh buffer id per load, so this buffer never overwrites another run's crash copy.
+        const { bom } = result.value;
+        journal.begin({ projectId: project.projectId, relPath, bufferId: newBufferId(), bom, baseRevision: 0 });
         dispatch({ type: 'docLoaded', relPath, content: result.value });
       } else {
         editsRef.current = { revision: 0, saved: 0 };
+        journal.begin(null); // S12
         dispatch({ type: 'docFailed', relPath, code: result.code });
       }
     },
-    [bridge, saveBeforeLeaving],
+    [bridge, journal, saveBeforeLeaving],
   );
 
   // ── S08: file operations keep the open document consistent ──
@@ -108,18 +122,60 @@ export function Workbench() {
           void openFile(change.to + open.slice(change.from.length));
         } else if (change.type === 'deleted' && isSameOrBelow(open, change.relPath)) {
           editsRef.current = { revision: 0, saved: 0 };
+          journal.begin(null); // S12: the edits were saved before the delete; nothing left to journal
           dispatch({ type: 'docClosed' });
         }
       },
     }),
-    [openFile, saveBeforeLeaving],
+    [journal, openFile, saveBeforeLeaving],
+  );
+  // --- S12: restore after an abnormal termination (RecoveryDialog) ---
+  const adoptProject = useCallback(
+    async (project: OpenedProject) => {
+      if (!(await saveBeforeLeaving())) return false;
+      editsRef.current = { revision: 0, saved: 0 };
+      journal.begin(null);
+      dispatch({ type: 'projectOpened', project });
+      return true;
+    },
+    [journal, saveBeforeLeaving],
   );
 
-  const onChange = useCallback((text: string) => {
-    textRef.current = text;
-    editsRef.current.revision += 1;
-    dispatch({ type: 'edited' });
-  }, []);
+  /** Opens the file with the recovered text as unsaved edits; it reaches the disk only when the user saves. */
+  const restoreRecovered = useCallback(
+    async (project: OpenedProject, entry: RecoveredEntry): Promise<RestoreOutcome> => {
+      if (!entry.disk || docRef.current.project?.projectId !== project.projectId) return 'failed';
+      // Never save on the user's behalf here: unsaved edits (e.g. a copy restored a moment ago) stay unsaved until
+      // the user saves them; the dialog asks for that first.
+      if (savingRef.current) await savingRef.current;
+      if (unsaved()) return 'save-first';
+      textRef.current = entry.text;
+      editsRef.current = { revision: 1, saved: 0 };
+      // Continue the crashed buffer's journal record so the first save removes it (journal revision = entry's).
+      const { relPath, bufferId, bom } = entry;
+      journal.begin({ projectId: project.projectId, relPath, bufferId, bom, baseRevision: entry.revision - 1 });
+      dispatch({ type: 'docLoaded', relPath, content: { ...entry.disk, text: entry.text, bom } });
+      dispatch({ type: 'edited' });
+      return 'restored';
+    },
+    [journal],
+  );
+
+  /** The journal was cleared: unsaved edits still open in the editor are journaled again right away. */
+  const rejournal = useCallback(() => {
+    if (unsaved()) journal.resend(editsRef.current.revision, () => textRef.current);
+  }, [journal]);
+  // --- end S12 ---
+
+  const onChange = useCallback(
+    (text: string) => {
+      textRef.current = text;
+      editsRef.current.revision += 1;
+      journal.edited(editsRef.current.revision, () => textRef.current); // S12
+      dispatch({ type: 'edited' });
+    },
+    [journal],
+  );
 
   // Ctrl+S / ⌘S also works when focus is outside the editor (Monaco handles it while the editor is focused).
   useEffect(() => {
@@ -172,6 +228,14 @@ export function Workbench() {
         <PreviewPane hidden={!visible.preview} />
       </div>
       <ProblemsPanel open={visible.problemsPanel} onToggle={() => dispatchLayout({ type: 'toggleProblems' })} />
+      {/* S12: crash-recovery prompt and journal health */}
+      <RecoveryDialog
+        bridge={bridge}
+        health={journalHealth}
+        onProjectOpened={adoptProject}
+        onRestore={restoreRecovered}
+        onCleared={rejournal}
+      />
     </div>
   );
 }

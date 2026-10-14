@@ -149,9 +149,18 @@ export async function trashEntry(
   root: string,
   relPath: string,
   trashItem: (fullPath: string) => Promise<void>,
+  beforeTrash?: (fullPath: string) => Promise<void>,
 ): Promise<Result<null, FileOpError>> {
   const target = await resolveEntry(root, relPath);
   if (!target.ok) return target;
+  // Local history (S21) snapshots the files first. Not for links: their target may lie outside the project.
+  if (beforeTrash) {
+    const isLink = await lstat(target.value).then(
+      (info) => info.isSymbolicLink(),
+      () => true,
+    );
+    if (!isLink) await beforeTrash(target.value).catch(() => undefined);
+  }
   try {
     await trashItem(target.value);
   } catch (e) {

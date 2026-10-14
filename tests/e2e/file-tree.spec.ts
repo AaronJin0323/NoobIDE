@@ -82,7 +82,12 @@ test.afterAll(async () => {
 test('the tree uses ARIA tree roles, folders first (S08.1)', async () => {
   await expect(tree()).toHaveAttribute('role', 'tree');
   const items = tree().getByRole('treeitem');
-  await expect(items).toHaveText(['css', '子 文件夹', 'index.html', 'style.css']);
+  // Accessible names are the real file names (the S20.3 role tag is the description, not part of the name).
+  await expect(items).toHaveCount(4);
+  for (const [i, name] of ['css', '子 文件夹', 'index.html', 'style.css'].entries()) {
+    await expect(items.nth(i)).toHaveAccessibleName(name);
+  }
+  await expect(row('index.html')).toHaveAccessibleDescription('页面结构');
   await expect(row('css')).toHaveAttribute('aria-expanded', 'false');
   await expect(row('css')).toHaveAttribute('aria-level', '1');
   await expect(row('index.html')).toHaveAttribute('aria-posinset', '3');

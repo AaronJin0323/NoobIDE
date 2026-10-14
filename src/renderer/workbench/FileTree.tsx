@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useReducer, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { NoobideApi, TreeEntry, WatchEvent } from '../../shared/ipc/contract';
 import {
@@ -14,6 +14,8 @@ import {
 } from './file-tree-model';
 import { ChevronRightIcon, LinkIcon, TreeFileIcon, TreeFolderIcon, WarningIcon } from './icons';
 import { NameEditor } from './NameEditor';
+import { FileRoleTag } from './FileRole';
+import { fileRoleFor, fileRoleLabelKey } from './file-role';
 import { treeCommandForKey, type PlatformId } from '../../platform/labels';
 
 /** Tree commands the panel handles (rename, delete, context menu: S08.2–S08.5). */
@@ -327,6 +329,11 @@ function TreeRowItem({
         : entry.isLink
           ? t('tree.link')
           : '';
+  // S20.3: the file's role ("页面结构") is shown after the real name; screen readers hear it as the description,
+  // while the row's name stays exactly the file name.
+  const role = entry.kind === 'file' ? fileRoleFor(entry.relPath) : null;
+  const description = [role ? t(fileRoleLabelKey(role)) : '', note].filter(Boolean).join(' · ');
+  const nameId = useId();
   return (
     <>
       <li
@@ -340,7 +347,8 @@ function TreeRowItem({
         aria-selected={selected}
         aria-current={active ? 'true' : undefined}
         aria-disabled={unavailable || undefined}
-        aria-description={note || undefined}
+        aria-labelledby={editor ? undefined : nameId}
+        aria-description={description || undefined}
         tabIndex={tabbable ? 0 : -1}
         title={note ? `${entry.relPath} — ${note}` : entry.relPath}
         data-testid="tree-row"
@@ -357,7 +365,12 @@ function TreeRowItem({
           {expandable && <ChevronRightIcon />}
         </span>
         {entry.kind === 'directory' ? <TreeFolderIcon open={expanded} /> : <TreeFileIcon />}
-        {editor ?? <span className="tree-name">{entry.name}</span>}
+        {editor ?? (
+          <span className="tree-name" id={nameId}>
+            {entry.name}
+          </span>
+        )}
+        {!editor && entry.kind === 'file' && <FileRoleTag relPath={entry.relPath} />}
         {entry.isLink && (
           <span className="tree-link" aria-hidden="true">
             <LinkIcon />

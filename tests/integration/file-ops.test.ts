@@ -185,6 +185,50 @@ describe('delete to the OS trash (S08.3)', () => {
     expect(trashItem).toHaveBeenCalledWith(p('jump'));
   });
 
+  it('snapshots into local history (S21) before trashing, but never through a link', async () => {
+    const beforeDelete = vi.fn(async (_root: string, _rel: string, _abs: string) => undefined);
+    const withHistory = new ProjectService({
+      history: { beforeSave: async () => undefined, afterSave: async () => undefined, beforeDelete },
+    });
+    const opened = await withHistory.open(root);
+    if (!opened.ok) throw new Error(opened.message);
+    const order: string[] = [];
+    beforeDelete.mockImplementation(async () => void order.push('history'));
+    const trashItem = vi.fn(async (_full: string) => void order.push('trash'));
+    const id = opened.value.projectId;
+    expect(await withHistory.trashEntry({ projectId: id, relPath: '子 文件夹' }, trashItem)).toMatchObject({
+      ok: true,
+    });
+    expect(beforeDelete).toHaveBeenCalledWith(root, '子 文件夹', p('子 文件夹'));
+    expect(order).toEqual(['history', 'trash']);
+
+    const outside = path.join(tmp, 'outside');
+    await mkdir(outside);
+    await symlink(outside, p('jump'), 'junction');
+    beforeDelete.mockClear();
+    expect(await withHistory.trashEntry({ projectId: id, relPath: 'jump' }, trashItem)).toMatchObject({ ok: true });
+    expect(beforeDelete).not.toHaveBeenCalled();
+  });
+
+  it('a failing history snapshot never blocks the move to the trash', async () => {
+    const withHistory = new ProjectService({
+      history: {
+        beforeSave: async () => undefined,
+        afterSave: async () => undefined,
+        beforeDelete: async () => {
+          throw new Error('disk full');
+        },
+      },
+    });
+    const opened = await withHistory.open(root);
+    if (!opened.ok) throw new Error(opened.message);
+    const trashItem = vi.fn(async (_full: string) => undefined);
+    expect(
+      await withHistory.trashEntry({ projectId: opened.value.projectId, relPath: 'index.html' }, trashItem),
+    ).toMatchObject({ ok: true });
+    expect(trashItem).toHaveBeenCalledWith(p('index.html'));
+  });
+
   it('refuses missing entries and anything outside the project', async () => {
     const trashItem = vi.fn(async () => undefined);
     expect(await service.trashEntry({ projectId, relPath: 'gone.html' }, trashItem)).toMatchObject({

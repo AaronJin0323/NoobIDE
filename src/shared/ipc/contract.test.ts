@@ -99,6 +99,6 @@ describe('IPC results', () => {
   it('channel names are unique and namespaced', () => {
     const names = Object.values(CHANNELS);
     expect(new Set(names).size).toBe(names.length);
-    for (const n of names) expect(n).toMatch(/^workspace:[a-z-]+$/);
+    for (const n of names) expect(n).toMatch(/^(workspace|recovery):[a-z-]+$/);
   });
 });

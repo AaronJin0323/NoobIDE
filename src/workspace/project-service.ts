@@ -20,6 +20,12 @@ import {
   type WriteFileRequest,
 } from '../shared/ipc/contract';
 import { err, ok, type Result } from '../shared/result';
+import type { SaveHistoryHook } from '../recovery/history-triggers';
+
+/** S21 history hooks the service calls; `beforeDelete` (S08.3) snapshots files before they go to the trash. */
+export type ProjectHistoryHook = SaveHistoryHook & {
+  beforeDelete?(rootPath: string, relPath: string, absPath: string): Promise<void>;
+};
 import { replaceFileAtomic } from './atomic-write';
 import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
 import { listDirectory } from './tree';
@@ -46,6 +52,12 @@ interface Project {
 
 export class ProjectService {
   private readonly projects = new Map<string, Project>();
+  /** S21.2: local-history snapshots around each save (optional; never blocks or fails a save). */
+  private readonly history: ProjectHistoryHook | undefined;
+
+  constructor(options: { history?: ProjectHistoryHook } = {}) {
+    this.history = options.history;
+  }
 
   /** Registers a folder the user chose and lists its files. */
   async open(chosenPath: string): Promise<Result<OpenedProject, 'list-failed'>> {
@@ -90,7 +102,12 @@ export class ProjectService {
   ): Promise<Result<null, FileOpError>> {
     const root = this.rootOf(request.projectId);
     if (root === undefined) return err('unknown-project', 'project is not open');
-    return trashEntry(root, request.relPath, trashItem);
+    const history = this.history;
+    // S21: snapshot the files first so a deleted file can also be restored from local history (never blocks).
+    const beforeTrash = history?.beforeDelete
+      ? (fullPath: string) => history.beforeDelete?.(root, request.relPath, fullPath) ?? Promise.resolve()
+      : undefined;
+    return trashEntry(root, request.relPath, trashItem, beforeTrash);
   }
 
   /** The absolute path to show in the file manager: the entry itself (not a link's target), or the root. */
@@ -143,10 +160,13 @@ export class ProjectService {
       if (existing.size <= MAX_TEXT_FILE_BYTES && !decodeText(await readFile(target.value)).ok) {
         return err('unsupported-encoding', 'the file on disk is not UTF-8 text');
       }
+      // S21.2: keep the version on disk before this save batch replaces it.
+      await this.history?.beforeSave(this.rootOf(request.projectId) ?? '', request.relPath, target.value);
       await replaceFileAtomic(target.value, data);
     } catch (e) {
       return err(writeErrorCode(e), errorCode(e), e);
     }
+    await this.history?.afterSave(this.rootOf(request.projectId) ?? '', request.relPath, data); // S21.2
     return ok({ savedAt: Date.now() });
   }
 

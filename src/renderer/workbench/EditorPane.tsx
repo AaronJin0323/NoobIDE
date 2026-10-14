@@ -5,6 +5,7 @@ import { SAMPLE_HTML } from '../editor/sample';
 import { languageForPath } from '../editor/language';
 import type { DocumentState } from './document-state';
 import { WarningIcon } from './icons';
+import { FileRoleHint } from './FileRole';
 
 // Monaco is large; load it as its own chunk so the shell paints first.
 const CodeEditor = lazy(() => import('../editor/CodeEditor').then((m) => ({ default: m.CodeEditor })));
@@ -65,6 +66,7 @@ export function EditorPane({ hidden, state, onChange, onSave }: EditorPaneProps)
           </span>
         )}
       </div>
+      {doc && <FileRoleHint relPath={doc.relPath} />}
       {showSaveError && (
         <div className="inline-alert save-alert" role="alert" data-testid="save-error">
           <WarningIcon size={15} />
