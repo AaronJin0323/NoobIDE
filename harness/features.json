@@ -2122,8 +2122,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Anchored steps: STEP_ANCHORS + dashed outline and 'where' text, Show me focuses the anchor (tests/e2e/walkthrough.spec.ts engine tests); skippable: Next works without marking done, Close hides it (walkthrough-model.test.ts 11 + e2e, keyboard only); revisitable from Help: top-bar menu 'Help: walkthrough' reopens at first open step (local hook until S24); state persisted: <userData>/walkthrough.json via WalkthroughStore + walkthrough:get/save IPC with sender/payload checks (tests/integration/walkthrough-store.test.ts 6, src/shared/walkthrough.test.ts 13) and e2e restart resumes at step 3. ADR 0013 (renumbered at merge). verify green except the 3 known macOS integration files; e2e walkthrough 12/12 + smoke 7/7 @ 05876c9"
     },
     {
       "id": "S23.2",
@@ -2138,8 +2138,8 @@
       "depends_on": [
         "S23.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/walkthrough.spec.ts journey (wizard project at a Chinese+spaces path): create starts the walkthrough; files (3 role files opened); heading (unrelated edit not counted; saved h1 change detected, preview h1 updated); style (h1 colour change detected, preview computed colour); interaction (button text change detected, button clicked in preview shows it); deliberate error (userNmae → static problem detected; row shows script.js:12 + explanation, card's Show original gives the verbatim message — suggested checks on the card are S22.4's scope); restore (history diff shown, restore detected, script fixed, problems cleared); reopen (app closed and relaunched, project/tabs restored, step detected). Pure detectors: detect.test.ts (13, all 3 templates) @ 05876c9"
     },
     {
       "id": "S23.3",
@@ -2154,8 +2154,8 @@
       "depends_on": [
         "S23.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Final task offered after the journey: goal only (no anchor, no Show me, no progress, goal names no file — lessons.test.ts), completion detected from saved files (new <p> AND new/changed colour; half the task stays not done) — detect.test.ts final-task tests, walkthrough-model.test.ts task state, tests/e2e/walkthrough.spec.ts final task (done text + preview colour, stored task=done) @ 05876c9"
     },
     {
       "id": "S23.4",
@@ -2168,8 +2168,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "resources/lessons/glossary.json (22 standard terms, zh-CN + en name/text) + lessons.ts; linked from UI: Help menu 'Help: glossary' and term buttons on every walkthrough step open GlossaryDialog (modal, focus trap, Escape, search in either language, entry focused + aria-current); standard terms kept: term shown verbatim in both locales, ASCII-term + parity tests (src/renderer/walkthrough/lessons.test.ts 7) and e2e (walkthrough.spec.ts glossary test, zh-CN + en) @ 05876c9"
     },
     {
       "id": "S24.1",

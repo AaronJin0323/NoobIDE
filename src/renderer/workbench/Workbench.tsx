@@ -49,6 +49,10 @@ import { buildView } from '../problems/problems-view';
 import { ProblemCard } from '../problems/ProblemCard';
 import { explain } from '../../diagnostics/rules';
 import { requestReveal } from '../editor/editor-handle';
+// S23: onboarding walkthrough, final task and glossary
+import { useWalkthrough } from '../walkthrough/useWalkthrough';
+import { WalkthroughPanel } from '../walkthrough/WalkthroughPanel';
+import { GlossaryDialog } from '../walkthrough/GlossaryDialog';
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
@@ -170,6 +174,22 @@ export function Workbench() {
     () => buildView(doc.project?.projectId ?? null, staticProblems.records, runtimeProblems.records),
     [doc.project?.projectId, staticProblems.records, runtimeProblems.records],
   );
+  // --- S23: walkthrough (detects each step from real state) and the glossary ---
+  const walkthroughProblems = useMemo(
+    () => [...staticProblems.records, ...runtimeProblems.records],
+    [staticProblems.records, runtimeProblems.records],
+  );
+  const walkthrough = useWalkthrough({
+    bridge,
+    project: doc.project,
+    openTabs: doc.tabs.map((tab) => tab.relPath),
+    problems: walkthroughProblems,
+    savedFiles: savedFiles.current,
+  });
+  const walkthroughRef = useRef(walkthrough);
+  walkthroughRef.current = walkthrough;
+  const [glossaryFor, setGlossaryFor] = useState<{ term: string | null } | null>(null);
+  // --- end S23 ---
 
   const saverOf = (relPath: string | null | undefined) => (relPath ? savers.current.get(relPath) : undefined);
   const relPathOfUri = (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath;
@@ -268,6 +288,9 @@ export function Workbench() {
     }
     const logs = bridge?.logs;
     if (logs) items.push({ id: 'open-logs', label: 'appMenu.openLogs', onSelect: () => void logs.openFolder() });
+    // S23: Help entries (a local hook until the S24 command registry provides a Help menu).
+    items.push({ id: 'help-walkthrough', label: 'appMenu.walkthrough', onSelect: () => walkthroughRef.current.open() });
+    items.push({ id: 'help-glossary', label: 'appMenu.glossary', onSelect: () => setGlossaryFor({ term: null }) });
     return items;
   }, [bridge, hasProject, closeProject]);
   // --- end S13 command menu ---
@@ -554,6 +577,7 @@ export function Workbench() {
     async (created: CreatedProject) => {
       setWizardOpen(false);
       if (!(await adoptProject(created.project))) return;
+      walkthroughRef.current.projectCreated(); // S23: the first project starts the walkthrough
       setPendingEntry({ projectId: created.project.projectId, relPath: created.entry });
       setAutoPreview(created.project.projectId);
     },
@@ -611,7 +635,9 @@ export function Workbench() {
       const applied = await import('../editor/editor-models').then((m) => m.replaceModelText(tab.uri, text));
       if (applied === null) return 'failed';
       if (saver.text !== applied) saver.edit(applied);
-      return (await saver.save()) ? 'restored' : 'save-failed';
+      if (!(await saver.save())) return 'save-failed';
+      walkthroughRef.current.historyRestored(); // S23: the "recover" step
+      return 'restored';
     },
     [bridge, openFile],
   );
@@ -906,12 +932,24 @@ export function Workbench() {
             S10.5: a failed save shows "preview not updated" — refreshes come only from confirmed writes in main. */}
         <PreviewPane
           hidden={!visible.preview}
-          covered={(narrow && visible.files) || wizardOpen || historyFor !== null || aboutOpen.open}
+          covered={
+            (narrow && visible.files) || wizardOpen || historyFor !== null || aboutOpen.open || glossaryFor !== null
+          }
           projectId={project?.projectId ?? null}
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
           autoStartProjectId={autoPreview}
         />
       </div>
+      {/* S23: walkthrough strip / final task card (in the layout flow: never covers the editor or the preview) */}
+      <WalkthroughPanel
+        view={walkthrough.view}
+        onNext={walkthrough.next}
+        onBack={walkthrough.back}
+        onClose={walkthrough.close}
+        onStartTask={walkthrough.startTask}
+        onCloseTask={walkthrough.closeTask}
+        onTerm={(term) => setGlossaryFor({ term })}
+      />
       {/* S17.1: problems panel in the status strip (never opens or takes focus by itself) */}
       <ProblemsPanel
         open={visible.problemsPanel}
@@ -947,6 +985,8 @@ export function Workbench() {
           onClose={() => setHistoryFor(null)}
         />
       )}
+      {/* S23.4: terminology glossary */}
+      {glossaryFor && <GlossaryDialog initialTerm={glossaryFor.term} onClose={() => setGlossaryFor(null)} />}
       {/* S20.2: create-project wizard */}
       {wizardOpen && bridge?.createProject && (
         <CreateProjectDialog

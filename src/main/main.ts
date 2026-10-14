@@ -34,6 +34,9 @@ import { configureProtectedFolders } from '../platform/protected-folders';
 import type { RecoveryLogger } from '../recovery/atomic-file';
 import { effectiveProjectConfig, previewEntryPath } from '../workspace/project-config';
 import { RecentProjects } from './recent-projects';
+// S23 onboarding walkthrough progress (app data)
+import { WalkthroughStore } from './walkthrough-store';
+import { registerWalkthroughIpcHandlers } from './walkthrough-ipc';
 import { SessionStore } from './session-store';
 import type { WebContents } from 'electron';
 import { resolveTemplatesDir } from '../workspace/templates'; // S20.2
@@ -286,6 +289,11 @@ function start(): void {
       restoreEnabled: async () => (await settings.snapshot()).settings.restoreSession,
     });
     // --- end S13 ---
+    // S23: onboarding walkthrough progress
+    registerWalkthroughIpcHandlers(ipcMain, {
+      allowedOrigin: devOrigin ?? APP_ORIGIN,
+      store: new WalkthroughStore({ file: path.join(appData, 'walkthrough.json'), log: logger }),
+    });
     createWorkbenchWindow();
 
     app.on('activate', () => {

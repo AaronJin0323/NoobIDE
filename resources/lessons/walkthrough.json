@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "steps": {
+    "create": {
+      "title": { "zh-CN": "创建你的第一个网页", "en": "Create your first webpage" },
+      "body": {
+        "zh-CN": "点“创建我的第一个网页”，起个名字，选好保存位置。NoobIDE 会在你的电脑上建一个普通的文件夹，里面就是网页的文件。",
+        "en": "Click “Create my first webpage”, give it a name and choose where to keep it. NoobIDE makes an ordinary folder on your computer that holds the webpage's files."
+      },
+      "where": {
+        "zh-CN": "欢迎页中间的“创建我的第一个网页”按钮",
+        "en": "The “Create my first webpage” button on the welcome screen"
+      },
+      "terms": ["project", "folder"]
+    },
+    "files": {
+      "title": { "zh-CN": "认识三个文件", "en": "Meet the three files" },
+      "body": {
+        "zh-CN": "在左边的文件列表里依次打开 index.html、style.css 和 script.js。index.html 写页面结构（HTML），style.css 写视觉样式（CSS），script.js 写交互行为（JavaScript）。",
+        "en": "In the file list on the left, open index.html, style.css and script.js in turn. index.html holds the page structure (HTML), style.css the visual styling (CSS), script.js the interactive behaviour (JavaScript)."
+      },
+      "where": { "zh-CN": "左边的“文件”列表", "en": "The Files list on the left" },
+      "terms": ["HTML", "CSS", "JavaScript"]
+    },
+    "heading": {
+      "title": { "zh-CN": "改标题：换成你的名字", "en": "Change the heading to your name" },
+      "body": {
+        "zh-CN": "打开 index.html，找到 <h1> 标签里的标题文字，改成你的名字。停下打字后会自动保存，右边的预览随后刷新，显示最新的页面。",
+        "en": "Open index.html, find the heading text inside the <h1> tag and change it to your name. It is saved automatically when you pause typing; the preview on the right then refreshes and shows the latest page."
+      },
+      "where": {
+        "zh-CN": "文件列表里的 index.html，结果在右边的预览里",
+        "en": "index.html in the file list; the result shows in the preview on the right"
+      },
+      "terms": ["tag", "element", "autosave", "preview"]
+    },
+    "style": {
+      "title": { "zh-CN": "改样式：颜色或字号", "en": "Change a style: a colour or a font size" },
+      "body": {
+        "zh-CN": "打开 style.css，改一个颜色（color）或字号（font-size）的值，比如把 h1 的颜色换掉。输入时编辑器会给出颜色提示和补全，保存后预览里马上能看到变化。",
+        "en": "Open style.css and change a colour (color) or a font size (font-size), for example the colour of h1. The editor shows colour hints and completions as you type; after saving, the preview shows the change right away."
+      },
+      "where": { "zh-CN": "文件列表里的 style.css", "en": "style.css in the file list" },
+      "terms": ["selector", "property"]
+    },
+    "interaction": {
+      "title": { "zh-CN": "改交互：按钮点击后的文字", "en": "Change what the button does" },
+      "body": {
+        "zh-CN": "打开 script.js，改一下按钮被点击后显示的文字（引号里的那段）。保存后到右边的预览里点一下按钮，看看 JavaScript 是不是按你的意思工作。",
+        "en": "Open script.js and change the text shown after the button is clicked (the part in quotes). After saving, click the button in the preview on the right to check that the JavaScript does what you meant."
+      },
+      "where": {
+        "zh-CN": "文件列表里的 script.js，然后点预览里的按钮",
+        "en": "script.js in the file list, then the button in the preview"
+      },
+      "terms": ["event", "string", "function"]
+    },
+    "error": {
+      "title": { "zh-CN": "故意犯个错：拼错变量名", "en": "Make a mistake on purpose: misspell a variable" },
+      "body": {
+        "zh-CN": "在 script.js 里把一个变量名故意拼错（比如把 userName 写成 userNmae，或者把 count 写成 cuont）。然后打开下面的“问题”，看看问题卡片：它会写出文件、行号、说明、建议检查的地方，还有原始错误。",
+        "en": "In script.js, misspell a variable name on purpose (for example userName as userNmae, or count as cuont). Then open Problems below and read the problem card: it shows the file, line number, an explanation, things to check, and the original error."
+      },
+      "where": { "zh-CN": "窗口底部的“问题”", "en": "Problems at the bottom of the window" },
+      "terms": ["variable", "error message"]
+    },
+    "restore": {
+      "title": { "zh-CN": "恢复：回到之前保存的版本", "en": "Recover: go back to an earlier saved version" },
+      "body": {
+        "zh-CN": "打开左边工具栏的“历史”，选 script.js，挑一个拼错之前的版本。先看差异，再点恢复——恢复前会先把现在的版本也保存一份，所以随时还能换回来。",
+        "en": "Open History in the tool rail on the left, choose script.js and pick a version from before the mistake. Look at the differences first, then restore — the current version is saved before the restore, so you can always go back."
+      },
+      "where": { "zh-CN": "左边工具栏的“历史”", "en": "History in the tool rail on the left" },
+      "terms": ["local history", "diff"]
+    },
+    "reopen": {
+      "title": { "zh-CN": "下次继续：关掉再打开", "en": "Continue next time: close and reopen" },
+      "body": {
+        "zh-CN": "关掉 NoobIDE，再重新打开它。你的项目、打开的文件标签和布局都会回来。顶栏写着项目保存在哪个文件夹里。",
+        "en": "Close NoobIDE and open it again. Your project, its open file tabs and the layout come back. The top bar shows which folder the project is stored in."
+      },
+      "where": {
+        "zh-CN": "顶栏里项目名下面的文件夹路径",
+        "en": "The folder path under the project name in the top bar"
+      },
+      "terms": ["project", "folder"]
+    }
+  },
+  "finalTask": {
+    "title": { "zh-CN": "小任务：自己来一次", "en": "A small task: on your own" },
+    "goal": {
+      "zh-CN": "给页面加一段新的段落（<p>），写一句关于你自己的话，再给它换一个你喜欢的文字颜色。这次没有分步提示——做完后这里会自动告诉你。",
+      "en": "Add a new paragraph (<p>) to the page with a sentence about yourself, and give it a text colour you like. This time there are no step-by-step hints — this card tells you when it notices you are done."
+    },
+    "done": {
+      "zh-CN": "完成了！你自己改了页面结构和样式，整个流程你已经会了。",
+      "en": "Done! You changed the page structure and the styling on your own — you know the whole workflow now."
+    }
+  }
+}

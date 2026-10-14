@@ -3,6 +3,7 @@ import { CHANNELS, EVENTS, IPC_API_VERSION, type NoobideApi, type WorkspaceChang
 import { PREVIEW_CHANNELS, PREVIEW_EVENT_CHANNEL, type PreviewEvent } from '../shared/ipc/preview-contract';
 import { platformId } from '../platform/index';
 import { APP_DATA_CHANNELS } from '../shared/ipc/app-data-contract';
+import { WALKTHROUGH_CHANNELS } from '../shared/ipc/walkthrough-contract';
 
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
@@ -123,6 +124,11 @@ const api: NoobideApi = {
     reveal: () => ipcRenderer.invoke(CHANNELS.historyReveal),
   },
   // --- end S21.3/S21.4 ---
+  // S23 onboarding walkthrough
+  walkthrough: {
+    get: () => ipcRenderer.invoke(WALKTHROUGH_CHANNELS.get),
+    save: (state) => ipcRenderer.invoke(WALKTHROUGH_CHANNELS.save, state),
+  },
 };
 
 contextBridge.exposeInMainWorld(
@@ -141,5 +147,6 @@ contextBridge.exposeInMainWorld(
     session: Object.freeze(api.session),
     createProject: Object.freeze(api.createProject), // S20.2
     history: Object.freeze(api.history), // S21.3/S21.4
+    walkthrough: Object.freeze(api.walkthrough), // S23
   }),
 );
