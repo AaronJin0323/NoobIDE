@@ -1474,8 +1474,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Rotating log in app data (<userData>/logs, 1 MB x 5 files) - tests/integration/app-log.test.ts 5 tests (rotation keeps maxFiles, sizes within limit, continues across runs, never throws); no source content: string fields that are not short single-line tokens are redacted (test passes <script>, multi-line text, a Chinese path: none reach the file); version info: first line of each run has app/electron/chrome/node/platform/arch/os; 'Open logs folder' command in the app menu, IPC with sender+payload checks (src/main/app-data-ipc.test.ts); e2e tests/e2e/logs.spec.ts: header matches the running versions, an edited+saved source marker is in no log file, menu (keyboard + click) opens exactly <userData>/logs. verify green + e2e 107/107 (shell.spec list updated for the menu button) Windows x64 @ 88eb645"
     },
     {
       "id": "S13.7",
