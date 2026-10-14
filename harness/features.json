@@ -418,6 +418,16 @@
         "S28"
       ],
       "plan_refs": "§11"
+    },
+    {
+      "id": "S30",
+      "milestone": "M2",
+      "title": "Visual foundation from the UI prototype",
+      "goal": "The workbench shell adopts the 2026-10-14 prototype's look (dark/light tokens, labelled rail, floating panels, status strip) with honest placeholder states and a synchronized Monaco theme.",
+      "depends_on": [
+        "S02"
+      ],
+      "plan_refs": "§3, §9; docs/reviews/interface-assessment-2026-10-14.md"
     }
   ],
   "features": [
@@ -2570,6 +2580,74 @@
       ],
       "status": "todo",
       "evidence": ""
+    },
+    {
+      "id": "S30.1",
+      "session": "S30",
+      "milestone": "M2",
+      "title": "Theme tokens with checked contrast",
+      "description": "Dark and light token sets from the prototype, applied as CSS custom properties.",
+      "acceptance": [
+        "Dark and light token sets live in src/renderer/theme/tokens.ts and follow the system colour scheme; the stylesheet only reads them as custom properties",
+        "A unit test checks every text/background pair used for text reaches WCAG 4.5:1 in both themes, including syntax colours and line numbers on the editor background"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "src/renderer/theme/tokens.ts + tokens.test.ts (28 text pairs >=4.5:1 and focus/accent >=3:1 in dark and light; caught and fixed light line numbers at 4.40); ThemeProvider writes tokens as CSS vars, styles.css has no colour values; e2e shell.spec theme test; verify green @ 80f1115 (Windows x64)"
+    },
+    {
+      "id": "S30.2",
+      "session": "S30",
+      "milestone": "M2",
+      "title": "Monaco theme synchronized with the shell",
+      "description": "Fixes assessment finding 5 (white Monaco in a dark shell).",
+      "acceptance": [
+        "noobide-dark and noobide-light Monaco themes are built from the same tokens, and a system colour-scheme change updates shell and editor together",
+        "E2E: the editor background equals the editor panel background under emulated dark and light schemes"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S30.1"
+      ],
+      "status": "done",
+      "evidence": "theme/monaco-theme.ts + test (editor surfaces = panel token, syntax rules = checked tokens); e2e shell.spec: editor bg == panel bg under emulated dark/light, and regression test for language switch after scheme change (fails without fix, passes with) — 16/16 e2e on Windows x64 @ 80f1115"
+    },
+    {
+      "id": "S30.3",
+      "session": "S30",
+      "milestone": "M2",
+      "title": "Prototype workbench shell",
+      "description": "Top bar, labelled side rail, rounded panels and status strip from the prototype.",
+      "acceptance": [
+        "Top bar shows the app mark, project identity, save status and language switch; a labelled side rail toggles Files and Problems; files, editor and preview sit in rounded panels with editor and preview splitting the remaining width equally",
+        "Problems is collapsed into a status strip by default and opens from the strip or the rail without moving focus; toggles are buttons exposing aria-expanded or aria-pressed and work from the keyboard",
+        "States stay honest: the sample buffer is labelled as not saved to disk, problems read 'not checked yet', the preview reads 'not running', and no enabled control pretends to do work that does not exist",
+        "Existing region roles, names and e2e smoke tests stay green; all new text is in zh-CN and en"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S30.1"
+      ],
+      "status": "done",
+      "evidence": "workbench/{TopBar,Rail,FilesPanel,EditorPane,PreviewPane,ProblemsPanel}.tsx + layout.ts/test; e2e shell.spec: problems collapsed by default, toggles via strip/rail/Enter/Space with aria-expanded and focus kept on the toggle, rail files aria-pressed, honest states (sample badge, 未运行, 还没检查, no '没有发现问题'), no disabled buttons and only working controls, editor/preview equal width; smoke.spec unchanged and green; zh-CN + en keys (parity test) @ 80f1115"
+    },
+    {
+      "id": "S30.4",
+      "session": "S30",
+      "milestone": "M2",
+      "title": "Narrow-window Code/Preview switch (shell only)",
+      "description": "Layout-only part of the prototype's narrow board; S15.2 still owns syncing the WebContentsView bounds.",
+      "acceptance": [
+        "Below 960px the files panel collapses and a Code/Preview toggle in the top bar shows one of editor or preview; the toggle is a pair of aria-pressed buttons",
+        "E2E at an 800px-wide window checks the switch, the hidden files panel and both views"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S30.3"
+      ],
+      "status": "done",
+      "evidence": "layout.ts NARROW_QUERY (max-width: 959px) + layout.test.ts; e2e shell.spec at 800x600: files hidden, aria-pressed Code/Preview switch shows one view, file drawer, buffer survives, back to 1280 restores three columns @ 80f1115; WebContentsView bounds remain S15.2"
     }
   ]
 }

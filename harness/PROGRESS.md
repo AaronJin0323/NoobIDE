@@ -3,36 +3,55 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 3 — 2026-10-14 — UI prototype and quick-fix backlog item
+## Session 3 — 2026-10-14 — UI prototype, quick-fix backlog item, prototype shell (S30)
 
-**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine.
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, Node 22.22.2.
 
 **Done**
 
 - Owner-requested UI prototype (design canvas, outside the repo): welcome, create wizard, workbench, problem
-  card, narrow window and state vocabulary. After owner feedback (“more modern, more intuitive”) it uses a dark
-  studio style with a command bar, a labelled side rail, a “下一步” coach card and an inline problem card.
-- Added **S22.5 — One-click fix for a misspelled name** (owner-approved from the prototype). No existing
-  feature or criterion changed.
+  card, narrow window and state vocabulary, restyled after feedback into a dark “studio” look.
+- Added **S22.5 — One-click fix for a misspelled name** (owner-approved from the prototype).
+- Owner asked to implement the prototype. Added session **S30 — Visual foundation from the UI prototype** (M2,
+  depends on S02) and completed it:
+  - S30.1 colour tokens (`src/renderer/theme/tokens.ts`), dark/light following the system scheme, contrast test.
+  - S30.2 Monaco themes from the same tokens, synced with the shell.
+  - S30.3 shell: app mark + project identity, labelled rail (Files, Problems), rounded panels, status strip with
+    collapsible Problems, honest placeholder states (sample badge, preview 未运行, problems 还没检查).
+  - S30.4 narrow window (< 960px): files collapse into a drawer, Code / Preview switch.
 
-**Evidence:** `npm run verify` green after the backlog edit.
+**Evidence:** `npm run verify` green (harness, typecheck, lint, format, 83 unit tests). `npm run test:e2e` on
+Windows x64: 16/16 (new `tests/e2e/shell.spec.ts` + unchanged smoke and worker specs). The contrast test caught
+light-theme line numbers at 4.40:1 (fixed). Screenshots during review caught a real bug: re-creating the editor on
+a language switch used the start-up theme (light Monaco in a dark shell); fixed, with a regression e2e that fails
+without the fix. S02.6's e2e now also passes on Windows; its macOS run is still outstanding, so status unchanged.
 
-**Decisions:** The one-click fix is deterministic (did-you-mean rule output), not AI, so it stays within PLAN §4
-exclusions. It must use the normal edit/undo and atomic save paths and only show “resolved” after a re-check.
-Prototype ideas not yet in the backlog: command bar (Ctrl K), coach card driven by `resources/lessons` (fits S23),
-bundled Geist font (would need bundling to stay offline), dark-first theme.
+**Decisions:**
 
-**Problems / risks:** Prototype colour contrast is unchecked; the faint line-number grey is the likeliest failure.
+- Only what works is shown. Unlike the prototype, the shell has no command bar, coach card, history/lessons rail
+  items, welcome screen or help/more-tools buttons yet — each needs its feature first (S20, S21, S23, S24). The
+  disabled Preview/Help/More-tools buttons were removed (assessment: no working-looking placeholders).
+- System fonts, not the prototype's Geist (offline invariant; bundling a font would need a decision record).
+- Dark unless the system asks for light. A persisted theme choice stays with S24.4.
+- The native window frame is kept; merging it into the top bar needs main-process work and per-platform checks.
+- S30.4 overlaps S15.2: S30.4 is layout only; S15.2 must still move the WebContentsView with the switch.
+- The one-click fix is deterministic (did-you-mean rule output), not AI, so it stays within PLAN §4 exclusions.
 
-**Owner action needed:** Decide whether the command bar, coach card and dark-first theme become backlog items.
+**Problems / risks:** Not run on macOS. Panel widths are fixed until splitters (S15.1). The empty-state copy says
+opening folders “arrives in a later version” and must be updated when S07/S20 land.
+
+**Owner action needed:** Decide whether the command bar and coach card become backlog items. Run the new e2e on a
+Mac when one is available (same command: `npm run test:e2e`).
 
 **Next up**
 
-1. Unchanged from Session 2: S01 remains current; S01.4 waits on H.1.
+1. Formal current session is still S01 (S01.4 waits on H.1). If the owner prefers to keep building the
+   interface, the natural next steps are S03 (real files) feeding the shell's files panel and save status.
 
 ## Ideas / backlog candidates (Session 3)
 
-- Command bar “找文件、命令或帮助… Ctrl K”; coach card for step-by-step lessons (S23); dark-first theme.
+- Command bar “找文件、命令或帮助… Ctrl K”; coach card for step-by-step lessons (S23).
+- Merge the window title bar into the top bar (needs platform work and manual checks).
 
 ## Session 2 — 2026-10-14 — Interface assessment and design direction
 
