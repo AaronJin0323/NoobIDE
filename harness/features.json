@@ -480,8 +480,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/product/task-script.md: 8 PLAN §2 steps with prompts, expected feedback and pass conditions; M1-M5 (§11 beginner metrics) each mapped to steps + measurement method; recording sheet"
     },
     {
       "id": "S01.3",
