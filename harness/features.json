@@ -975,8 +975,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/workspace/paths.ts + src/shared/file-names.ts; unit tests src/workspace/paths.test.ts (drive letters, UNC, file URI round trip incl. NFD/Chinese/#/%, per-volume case probe incl. real temp volume, realpath resolve) + src/shared/file-names.test.ts (Windows reserved names, trailing dots/spaces, invalid chars, NFC/NFD + case comparison); verify + e2e green @ 6d1e559"
     },
     {
       "id": "S07.2",
@@ -991,8 +991,8 @@
       "depends_on": [
         "S07.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/workspace/tree.ts + ignore.ts (workspace:list-dir channel) and renderer model src/renderer/workbench/file-tree-model.ts; tests/integration/tree.test.ts (folders-first natural sort, ignore list, per-folder limit, junction outside root marked link-outside and refused, junction inside root followed, broken link) + file-tree-model.test.ts (lazy loading, invalidate, rename rebase) + unreadable-folder.test.ts; verify + e2e green @ 3016039"
     },
     {
       "id": "S07.3",
@@ -1007,8 +1007,8 @@
       "depends_on": [
         "S07.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "ADR docs/decisions/0007-file-watcher.md (recursive fs.watch, no dependency); src/workspace/watcher.ts + src/main/project-watch.ts; tests/integration/watcher.test.ts (11 real-FS tests on Windows: create, debounced change, delete, rename, case-only rename, move, folder rename/create/delete, ignore list, atomic replace, close) + project-watch.test.ts + ipc.test.ts; verify + e2e green @ 44af2b6. macOS FSEvents run pending on macOS CI (S06)"
     },
     {
       "id": "S07.4",
@@ -1024,8 +1024,8 @@
       "depends_on": [
         "S07.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/workspace/text-codec.ts decodeForDisplay + ProjectService read/write guard; src/workspace/text-codec.test.ts (UTF-8 +/- BOM editable, BOM round trip, GB18030/Windows-1252/UTF-16 read-only, binary refused, EOL dominant style, new/empty files LF); tests/integration/project-service.test.ts (GBK read-only + never overwritten, binary write refused, CRLF+BOM preserved); tests/e2e/encodings.spec.ts (read-only notice, CRLF kept after edit+save in Monaco, binary not opened); verify + e2e green @ 579a472"
     },
     {
       "id": "S08.1",
@@ -1038,8 +1038,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/FileTree.tsx + file-tree-model.ts; tests/e2e/file-tree.spec.ts (ARIA tree roles/level/posinset/setsize, keyboard-only Tab+arrows+Home/End+Enter with roving tabindex, F2 rename, Delete dialog, panel collapse via rail) + file-tree-model.test.ts keyboard pattern; verify + e2e (54) green @ a35504f"
     },
     {
       "id": "S08.2",
@@ -1054,8 +1054,8 @@
       "depends_on": [
         "S08.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/workspace/file-ops.ts + src/shared/file-names.ts checkFileName (Windows+macOS rules on every platform) + NameEditor; tests/integration/file-ops.test.ts (invalid names CON/aux/trailing dot/invalid chars/dotfile explained, case-only rename of file and folder on case-insensitive NTFS) + file-op-messages.test.ts + e2e file-tree.spec (explanations shown, case-only rename) @ a35504f"
     },
     {
       "id": "S08.3",
@@ -1070,8 +1070,8 @@
       "depends_on": [
         "S08.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "shell.trashItem via IPC trashEntry after ConfirmDialog (Cancel focused); history beforeDelete snapshot first (not through links); tests/integration/file-ops.test.ts (exact path to trash, failure explained + file kept, link trashed not target, history order) + e2e file-tree.spec (Escape/Cancel keep file, failure explained, confirm trashes and closes open doc; rename of open file saves first and editor follows) @ a35504f"
     },
     {
       "id": "S08.4",
@@ -1086,8 +1086,8 @@
       "depends_on": [
         "S08.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "create with wx/mkdir non-recursive, rename checks target + case-insensitive sibling conflict; tests/integration/file-ops.test.ts 'never silently overwrite' (create onto file/folder, rename onto file, move onto file in other folder, folder onto folder, case conflicts; contents unchanged) + e2e (exists/case-conflict explained) @ a35504f"
     },
     {
       "id": "S08.5",
@@ -1102,8 +1102,8 @@
       "depends_on": [
         "S08.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "revealEntry IPC -> shell.showItemInFolder; label from src/platform revealLabelKey, shortcuts treeShortcutLabel/treeCommandForKey (Shift+Alt+R / Opt+Cmd+R); context menu (Shift+F10, right click) + keyboard command; labels.test.ts, ipc.test.ts, file-ops.test.ts reveal, e2e file-tree.spec reveal via menu and shortcut @ a35504f"
     },
     {
       "id": "S09.1",
@@ -1959,7 +1959,7 @@
       "verify": "auto",
       "depends_on": [],
       "status": "done",
-      "evidence": "tests/integration/history-store.test.ts (11 tests): content-addressed blobs + JSON index in app data (project untouched), dedupe, per-file version/byte and total limits, usage()/fileUsage() report usage vs limits, cleanup()/clear(); corrupt index/blob tolerated. Usage is exposed by API; on-screen display comes with the S21.3/S21.4 UI @ b5cafbb"
+      "evidence": "After review fixes @ 8b0eca9: tests/integration/history-store.test.ts (19 tests) incl. locked index not overwritten/GCd (injected EBUSY), transient retry, per-entry validation, newer-version index untouched, quarantined index keeps blobs, quarantine cap, blob repair, seq-based total eviction keeping newest, sanitised limits, usage with on-disk bytes; usage via API, on-screen with S21.3/S21.4"
     },
     {
       "id": "S21.2",
@@ -1975,7 +1975,7 @@
         "S21.1"
       ],
       "status": "done",
-      "evidence": "tests/integration/history-triggers.test.ts (8 tests): before/after-save through ProjectService.write with coalesced bursts, failed save, broken store never fails a save; before-format/restore/delete (file + folder) via HistoryTriggers API (callers arrive with format/delete/restore features); e2e recovery.spec S12.1 checks history index written in app data on save @ eec393b"
+      "evidence": "After review fixes @ 8b0eca9: tests/integration/history-triggers.test.ts (11 tests) incl. injected replace failure records only before-save, throwing and hanging hooks (save within timeout), slow store not awaited, save-ordered dedupe, long-session coalescing (store test), beforeDelete skips dotfiles/node_modules; format/delete/restore via HistoryTriggers API; verify + e2e 38/38 green"
     },
     {
       "id": "S21.3",

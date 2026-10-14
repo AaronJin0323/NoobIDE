@@ -33,6 +33,8 @@ export type DocumentAction =
   | { type: 'projectOpenFailed' }
   | { type: 'docLoaded'; relPath: string; content: FileContent }
   | { type: 'docFailed'; relPath: string; code: ReadFileError | 'invalid-request' | 'forbidden-sender' }
+  /** S08.3: the open file was moved to the trash (its edits were saved first). */
+  | { type: 'docClosed' }
   | { type: 'edited' }
   | { type: 'saveStarted' }
   | { type: 'saveSucceeded'; revision: number }
@@ -61,6 +63,8 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
       return { ...state, ...freshDocument, doc: { relPath: action.relPath, content: action.content }, docError: null };
     case 'docFailed':
       return { ...state, ...freshDocument, doc: null, docError: { relPath: action.relPath, code: action.code } };
+    case 'docClosed':
+      return { ...state, ...freshDocument, doc: null, docError: null };
     case 'edited':
       return state.doc ? { ...state, revision: state.revision + 1 } : state;
     case 'saveStarted':

@@ -81,3 +81,12 @@ describe('document and save state (S03.3, S03.4)', () => {
     expect(run({ type: 'edited' })).toEqual(INITIAL_DOCUMENT_STATE);
   });
 });
+
+describe('file operations (S08.3)', () => {
+  it('closing the document after its file went to the trash keeps the project open', () => {
+    const state = run(...loaded(), { type: 'docClosed' });
+    expect(state.doc).toBeNull();
+    expect(state.project).toBe(project);
+    expect(saveState(state)).toBeNull();
+  });
+});

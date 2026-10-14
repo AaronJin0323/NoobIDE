@@ -1,9 +1,12 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import {
   CHANNELS,
+  parseCreateEntryRequest,
+  parseDirRequest,
   parseFileRequest,
   parseNoPayload,
   parseProjectRequest,
+  parseRenameEntryRequest,
   parseWriteFileRequest,
   toIpcResult,
   type Channel,
@@ -38,12 +41,22 @@ export function isTrustedSender(info: SenderInfo | null, allowedOrigin: string):
 export interface IpcDeps {
   /** `noobide://app` in production, the Vite dev server origin in development. */
   readonly allowedOrigin: string;
-  readonly projects: Pick<ProjectService, 'open' | 'read' | 'write' | 'rootOf'>;
+  readonly projects: Pick<
+    ProjectService,
+    'open' | 'read' | 'write' | 'rootOf' | 'listDir' | 'createEntry' | 'renameEntry' | 'trashEntry' | 'revealPath'
+  >;
   /** Shows the native folder picker; `null` when cancelled. */
   chooseFolder(event: IpcMainInvokeEvent): Promise<string | null>;
   revealFolder(folder: string): void;
   /** S04.4: called after a successful save so the preview can refresh. */
   afterSave?(projectId: string): void;
+  // ── S07/S08: file tree, watcher and file operations ──
+  /** Starts watching a just-opened project and reports changes to the window that opened it (S07.3). */
+  projectOpened?(projectId: string, root: string, sender: IpcMainInvokeEvent['sender']): void;
+  /** Electron's shell.trashItem: moves to the OS trash, never deletes permanently (S08.3). */
+  trashItem(fullPath: string): Promise<void>;
+  /** Electron's shell.showItemInFolder (S08.5). */
+  revealItem(fullPath: string): void;
   /** S12: crash-recovery journal (src/recovery/journal.ts). */
   readonly journal: RecoveryJournalPort;
 }
@@ -72,7 +85,9 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
   handle(CHANNELS.openFolder, parseNoPayload, async (_payload, event) => {
     const chosen = await deps.chooseFolder(event);
     if (chosen === null) return { ok: true, value: null };
-    return toIpcResult(await deps.projects.open(chosen));
+    const opened = await deps.projects.open(chosen);
+    if (opened.ok) deps.projectOpened?.(opened.value.projectId, opened.value.rootPath, event.sender);
+    return toIpcResult(opened);
   });
 
   handle(CHANNELS.readFile, parseFileRequest, async (request) => toIpcResult(await deps.projects.read(request)));
@@ -90,6 +105,22 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
     return { ok: true, value: null };
   });
 
+  // ── S07/S08: file tree, watcher and file operations ──
+  handle(CHANNELS.listDir, parseDirRequest, async (request) => toIpcResult(await deps.projects.listDir(request)));
+  handle(CHANNELS.createEntry, parseCreateEntryRequest, async (request) =>
+    toIpcResult(await deps.projects.createEntry(request)),
+  );
+  handle(CHANNELS.renameEntry, parseRenameEntryRequest, async (request) =>
+    toIpcResult(await deps.projects.renameEntry(request)),
+  );
+  handle(CHANNELS.trashEntry, parseFileRequest, async (request) =>
+    toIpcResult(await deps.projects.trashEntry(request, deps.trashItem)),
+  );
+  handle(CHANNELS.revealEntry, parseDirRequest, async (request) => {
+    const target = await deps.projects.revealPath(request);
+    if (target.ok) deps.revealItem(target.value);
+    return target.ok ? { ok: true, value: null } : toIpcResult(target);
+  });
   // S12: crash-recovery journal channels.
   registerRecoveryHandlers(handle, deps.projects, deps.journal);
 }

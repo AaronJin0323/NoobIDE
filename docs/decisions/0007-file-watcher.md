@@ -1,0 +1,49 @@
+# 0007 — File watcher: recursive `fs.watch` plus our own classification
+
+- **Status:** accepted
+- **Date:** 2026-10-14
+- **Feature:** S07.3
+
+## Context
+
+The file tree and (later) external-change conflict handling (S11) need to know when files in the open project are
+created, changed, deleted or renamed by other programs — including case-only renames on case-insensitive volumes
+(NTFS, default APFS). AGENTS.md prefers pure JS/TS dependencies; a native module needs an ADR plus proof of macOS
+arm64 and Windows x64 builds against the pinned Electron ABI.
+
+## Options considered
+
+1. **Node's `fs.watch(root, { recursive: true })`** — built into Electron's Node (no dependency, no native build of
+   our own). Recursive mode is native on Windows (ReadDirectoryChangesW) and macOS (FSEvents) and supported on Linux
+   since Node 20. Raw events are only `rename`/`change` + a relative file name, with platform-specific shapes.
+2. **chokidar 4/5** — pure JS, but since v4 it no longer bundles `fsevents`; on macOS it falls back to one
+   non-recursive `fs.watch` per directory (many handles in larger projects) and adds a dependency tree to audit.
+   Rename detection still has to be built on top.
+3. **@parcel/watcher** — fast and well-tested, but a native module: prebuilt binaries per platform/ABI, an extra
+   signing/notarisation surface on macOS and an ADR-level maintenance cost for a solo developer.
+
+## Decision
+
+Option 1. `src/workspace/watcher.ts` wraps one recursive `fs.watch` per open project and normalises its events:
+
+- raw events are collected per path and debounced (100 ms quiet period, at most 1 s);
+- each batch is classified against an exact-name snapshot of the project (`known`, taken at start and updated per
+  batch): existence is decided by an exact, case-sensitive match in the parent's `readdir`, so a case-only rename
+  on a case-insensitive volume becomes "old name gone, new name present";
+- a deletion and a creation of the same kind in one batch pair up as `renamed` (same folder, or same name in another
+  folder = move), with `caseOnly` when only letter case differs;
+- ignored names (node_modules, dotfiles, `*.noobide-tmp`) never produce events; an atomic replace of a known file is
+  reported as `changed`;
+- a lost watch (root removed, `filename` missing, internal error) produces `rescan`, and the UI reloads the tree.
+
+## Consequences (incl. how it is verified on macOS arm64 and Windows x64)
+
+- No new dependency. `tests/integration/watcher.test.ts` runs on the real file system: create, change (debounced),
+  delete, rename, case-only rename, move, folder rename/create/delete, ignore list and atomic replace. It passes on
+  Windows x64 (dev machine); the same test runs unchanged on the macOS arm64 CI runner (S06), where FSEvents may
+  coalesce events — the classification only looks at the final state per batch, so it does not depend on the raw
+  event order.
+- The snapshot is capped at 50 000 entries; beyond it, paths it never saw are reported as `created` rather than
+  `changed`. Projects that large are outside the beginner target.
+- Network drives may not deliver events at all; the tree still works and is refreshed after NoobIDE's own file
+  operations.

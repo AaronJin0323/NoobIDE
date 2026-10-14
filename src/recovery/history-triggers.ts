@@ -1,5 +1,6 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { isListedEntry } from '../workspace/listing-filter';
 import { errorCode, silentLogger, type RecoveryLogger } from './atomic-file';
 import type { SnapshotReason, SnapshotStore } from './history';
 
@@ -7,34 +8,50 @@ import type { SnapshotReason, SnapshotStore } from './history';
  * When local history takes snapshots (S21.2, PLAN §7: "retaining necessary versions around coalesced save batches
  * and before formatting, deletion, and restoration"). Main process only.
  *
- * - Save: `beforeSave` keeps what is on disk right before a save batch overwrites it, `afterSave` keeps what the batch
- *   wrote. The save pipeline calls them once per coalesced batch; the store dedupes identical content and coalesces
- *   rapid `after-save` versions of one burst.
- * - Format, delete, restore: the current disk content is kept before the operation changes or removes it.
+ * - Save: the save path only *reads* the file's current bytes before replacing it (`captureBeforeSave`, the one
+ *   step that must precede the write, bounded by the caller's timeout). Storing the before/after versions is queued
+ *   (`recordSave`) and never awaited by the save, so history work cannot slow down or fail a save.
+ * - Format, delete, restore: the current disk content is stored before the operation changes or removes it; these
+ *   calls are awaited by their callers because the content is gone afterwards.
  *
- * History is a safety net, never a gate: every trigger catches its own failures (logged without content) and never
- * blocks or fails the user's save, delete or restore.
+ * Every trigger catches its own failures (logged without content).
  */
 export interface SaveHistoryHook {
-  beforeSave(rootPath: string, relPath: string, absPath: string): Promise<void>;
-  afterSave(rootPath: string, relPath: string, data: Uint8Array): Promise<void>;
+  /** Current bytes of the file about to be replaced; `null` when there is nothing to keep. */
+  captureBeforeSave(absPath: string): Promise<Uint8Array | null>;
+  /** Queues the versions around one save batch. `after` is `null` when the save failed. Returns immediately. */
+  recordSave(rootPath: string, relPath: string, before: Uint8Array | null, after: Uint8Array | null): void;
 }
 
 /** Files under a deleted folder that get a snapshot; larger trees keep the first ones (sorted) only. */
 export const MAX_FILES_PER_DELETE = 500;
 
 export class HistoryTriggers implements SaveHistoryHook {
+  private pending = new Set<Promise<void>>();
+
   constructor(
     private readonly store: Pick<SnapshotStore, 'snapshot' | 'limits'>,
     private readonly log: RecoveryLogger = silentLogger,
   ) {}
 
-  async beforeSave(rootPath: string, relPath: string, absPath: string): Promise<void> {
-    await this.snapshotFile(rootPath, relPath, absPath, 'before-save');
+  async captureBeforeSave(absPath: string): Promise<Uint8Array | null> {
+    return this.readSnapshotable(absPath, 'before-save');
   }
 
-  async afterSave(rootPath: string, relPath: string, data: Uint8Array): Promise<void> {
-    await this.safely(() => this.store.snapshot(rootPath, relPath, data, 'after-save'));
+  recordSave(rootPath: string, relPath: string, before: Uint8Array | null, after: Uint8Array | null): void {
+    // Both snapshots enter the store's queue now, synchronously, so consecutive saves are stored in save order
+    // (before₁, after₁, before₂, after₂ …) and a before-save equal to the previous after-save is deduped.
+    const jobs: Promise<void>[] = [];
+    if (before) jobs.push(this.safely(() => this.store.snapshot(rootPath, relPath, before, 'before-save')));
+    if (after) jobs.push(this.safely(() => this.store.snapshot(rootPath, relPath, after, 'after-save')));
+    const work = Promise.all(jobs).then(() => undefined);
+    this.pending.add(work);
+    void work.finally(() => this.pending.delete(work));
+  }
+
+  /** Resolves when every queued save snapshot has been stored (tests, orderly shutdown). */
+  async whenIdle(): Promise<void> {
+    while (this.pending.size > 0) await Promise.all([...this.pending]);
   }
 
   /** Before the formatter rewrites a file. */
@@ -48,22 +65,25 @@ export class HistoryTriggers implements SaveHistoryHook {
   }
 
   /**
-   * Before a file or folder is moved to the trash: every regular file inside (links are not followed, dot-folders
-   * skipped like the project listing) gets a snapshot, so a deleted file can be restored from history.
+   * Before a file or folder is moved to the trash: every file inside that the project listing would show gets a
+   * snapshot — the same filters as the listing (no dotfiles such as `.env`, no `node_modules`, links not followed),
+   * so secrets and dependency folders are never copied into app data.
    */
   async beforeDelete(rootPath: string, relPath: string, absPath: string): Promise<void> {
     let info;
     try {
       info = await stat(absPath);
     } catch (e) {
-      this.log('history.trigger-failed', { reason: 'before-delete', code: errorCode(e) });
+      if (errorCode(e) !== 'ENOENT')
+        this.log('history.trigger-failed', { reason: 'before-delete', code: errorCode(e) });
       return;
     }
     if (info.isFile()) {
-      await this.snapshotFile(rootPath, relPath, absPath, 'before-delete');
+      if (isListedEntry(path.basename(absPath), false))
+        await this.snapshotFile(rootPath, relPath, absPath, 'before-delete');
       return;
     }
-    if (!info.isDirectory()) return;
+    if (!info.isDirectory() || !isListedEntry(path.basename(absPath), true)) return;
     const files: { rel: string; abs: string }[] = [];
     const walk = async (dir: string, rel: string): Promise<void> => {
       let entries;
@@ -76,10 +96,10 @@ export class HistoryTriggers implements SaveHistoryHook {
       entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
       for (const entry of entries) {
         if (files.length >= MAX_FILES_PER_DELETE) return;
-        if (entry.isSymbolicLink()) continue;
+        if (entry.isSymbolicLink() || !isListedEntry(entry.name, entry.isDirectory())) continue;
         const childRel = `${rel}${path.posix.sep}${entry.name}`;
         const childAbs = path.join(dir, entry.name);
-        if (entry.isDirectory() && !entry.name.startsWith('.')) await walk(childAbs, childRel);
+        if (entry.isDirectory()) await walk(childAbs, childRel);
         else if (entry.isFile()) files.push({ rel: childRel, abs: childAbs });
       }
     };
@@ -87,22 +107,25 @@ export class HistoryTriggers implements SaveHistoryHook {
     for (const file of files) await this.snapshotFile(rootPath, file.rel, file.abs, 'before-delete');
   }
 
-  private async snapshotFile(rootPath: string, relPath: string, absPath: string, reason: SnapshotReason) {
-    let data: Buffer;
+  private async readSnapshotable(absPath: string, reason: SnapshotReason): Promise<Uint8Array | null> {
     try {
       const info = await stat(absPath);
-      if (!info.isFile()) return;
+      if (!info.isFile()) return null;
       if (info.size > this.store.limits.maxSnapshotBytes) {
         this.log('history.snapshot-skipped', { reason: 'too-large', bytes: info.size });
-        return;
+        return null;
       }
-      data = await readFile(absPath);
+      return await readFile(absPath);
     } catch (e) {
       // A file that does not exist yet has nothing to keep.
       if (errorCode(e) !== 'ENOENT') this.log('history.trigger-failed', { reason, code: errorCode(e) });
-      return;
+      return null;
     }
-    await this.safely(() => this.store.snapshot(rootPath, relPath, data, reason));
+  }
+
+  private async snapshotFile(rootPath: string, relPath: string, absPath: string, reason: SnapshotReason) {
+    const data = await this.readSnapshotable(absPath, reason);
+    if (data) await this.safely(() => this.store.snapshot(rootPath, relPath, data, reason));
   }
 
   private async safely(op: () => Promise<unknown>): Promise<void> {

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { isMac } from '../../platform/labels';
 import { useMediaQuery } from '../theme/useMediaQuery';
 import { TopBar } from './TopBar';
 import { Rail } from './Rail';
-import { FilesPanel } from './FilesPanel';
+import { FilesPanel, type FileOpsHooks } from './FilesPanel';
+import { isSameOrBelow } from './file-tree-model';
 import { EditorPane } from './EditorPane';
 import { PreviewPane } from './PreviewPane';
 import { ProblemsPanel } from './ProblemsPanel';
@@ -106,6 +107,28 @@ export function Workbench() {
     [bridge, journal, saveBeforeLeaving],
   );
 
+  // ── S08: file operations keep the open document consistent ──
+  const fileOps = useMemo<FileOpsHooks>(
+    () => ({
+      // Renaming, moving or trashing the open file (or a folder holding it) saves its edits first.
+      beforeChange: async (relPath) => {
+        const open = docRef.current.doc?.relPath;
+        return open === undefined || !isSameOrBelow(open, relPath) || (await saveBeforeLeaving());
+      },
+      afterChange: (change) => {
+        const open = docRef.current.doc?.relPath;
+        if (open === undefined) return;
+        if (change.type === 'renamed' && isSameOrBelow(open, change.from)) {
+          void openFile(change.to + open.slice(change.from.length));
+        } else if (change.type === 'deleted' && isSameOrBelow(open, change.relPath)) {
+          editsRef.current = { revision: 0, saved: 0 };
+          journal.begin(null); // S12: the edits were saved before the delete; nothing left to journal
+          dispatch({ type: 'docClosed' });
+        }
+      },
+    }),
+    [journal, openFile, saveBeforeLeaving],
+  );
   // --- S12: restore after an abnormal termination (RecoveryDialog) ---
   const adoptProject = useCallback(
     async (project: OpenedProject) => {
@@ -197,6 +220,9 @@ export function Workbench() {
           openFailed={doc.openFailed}
           onOpenFolder={bridge ? () => void openFolder() : undefined}
           onOpenFile={(relPath) => void openFile(relPath)}
+          api={bridge?.workspace}
+          platform={platform}
+          fileOps={fileOps}
         />
         <EditorPane hidden={!visible.editor} state={doc} onChange={onChange} onSave={() => void save()} />
         {/* S04.3: isolated preview; hidden under the narrow-layout files overlay so the native view cannot cover it. */}

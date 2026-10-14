@@ -43,25 +43,27 @@ test.afterAll(async () => {
   await rm(tmp, { recursive: true, force: true });
 });
 
-const row = (name: string) => page.getByTestId('file-list').locator('li', { hasText: name });
+/** A file tree row (S08.1) by its relative path. */
+const row = (relPath: string) => page.getByTestId('file-tree').locator(`[data-path="${relPath}"]`);
 
 test('file rows show the real name plus a short role (zh-CN default)', async () => {
   await expect(row('index.html')).toHaveText('index.html页面结构');
   await expect(row('style.css')).toHaveText('style.css视觉样式');
   await expect(row('script.js')).toHaveText('script.js交互行为');
+  await row('images').click(); // expand the folder in the tree
   await expect(row('images/avatar.svg').getByTestId('file-role')).toHaveText('图片');
   await expect(row('index.html').getByTestId('file-role')).toHaveAttribute('title', /标题、段落、按钮、图片/);
 });
 
 test('the editor shows the role hint of the open file, and none before a file is open', async () => {
   await expect(page.getByTestId('file-role-hint')).toHaveCount(0);
-  await row('style.css').getByRole('button').click();
+  await row('style.css').click();
   await expect(page.getByTestId('editor-tab')).toHaveText('style.css');
   const hint = page.getByRole('note', { name: '这个文件是做什么的' });
   await expect(hint).toHaveText(/^视觉样式.*颜色、大小、间距/);
-  await row('script.js').getByRole('button').click();
+  await row('script.js').click();
   await expect(hint).toHaveText(/^交互行为.*点击按钮/);
-  await row('index.html').getByRole('button').click();
+  await row('index.html').click();
   await expect(hint).toHaveText(/^页面结构.*标题、段落、按钮、图片/);
 });
 

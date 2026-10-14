@@ -98,7 +98,19 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     // S03.1: exactly the typed contract — no ipcRenderer, no generic send.
     bridge: ['apiVersion', 'platform', 'workspace', 'preview', 'recovery'],
     apiVersion: 1,
-    workspace: ['openFolder', 'readFile', 'writeFile', 'revealProject'],
+    workspace: [
+      'openFolder',
+      'readFile',
+      'writeFile',
+      'revealProject',
+      // S07/S08: file tree, watcher and file operations
+      'listDir',
+      'onChanged',
+      'createEntry',
+      'renameEntry',
+      'trashEntry',
+      'revealEntry',
+    ],
     // S12: crash-recovery journal calls.
     recovery: ['record', 'discardSaved', 'listPending', 'openProject', 'read', 'discard', 'clear'],
   });

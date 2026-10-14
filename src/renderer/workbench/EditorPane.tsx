@@ -78,6 +78,15 @@ export function EditorPane({ hidden, state, onChange, onSave }: EditorPaneProps)
           </div>
         </div>
       )}
+      {doc?.content.readOnly && (
+        // S07.4: another encoding — shown read-only so a save can never re-encode (and damage) the file.
+        <p className="inline-alert" role="status" data-testid="read-only-notice">
+          <WarningIcon />
+          <span>
+            {t('editor.readOnlyEncoding')} <strong>{doc.content.encoding}</strong>
+          </span>
+        </p>
+      )}
       {doc ? (
         <Suspense fallback={<p className="placeholder">{t('editor.loading')}</p>}>
           <CodeEditor
@@ -88,6 +97,7 @@ export function EditorPane({ hidden, state, onChange, onSave }: EditorPaneProps)
             ariaLabel={`${t('region.editor')}: ${doc.relPath}`}
             onChange={onChange}
             onSave={onSave}
+            readOnly={doc.content.readOnly ?? false}
           />
         </Suspense>
       ) : project ? (

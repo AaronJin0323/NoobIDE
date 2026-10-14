@@ -185,7 +185,7 @@ test('window.open is denied and off-origin navigation is blocked (S04.3)', async
 });
 
 test('edit → save → the preview shows the new heading (S04.4)', async () => {
-  await page.getByTestId('file-list').getByRole('button', { name: 'index.html' }).click();
+  await page.getByTestId('file-tree').getByRole('treeitem', { name: 'index.html', exact: true }).click();
   await expect(page.getByTestId('editor-tab')).toHaveText('index.html');
   const original = await readFile(path.join(root, 'index.html'), 'utf8');
   const changed = original.replace('<h1 id="title">多文件预览</h1>', '<h1 id="title">保存后的新标题</h1>');

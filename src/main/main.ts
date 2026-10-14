@@ -16,6 +16,7 @@ import {
 } from './harden';
 import { registerIpcHandlers } from './ipc';
 import { registerPreviewIpcHandlers } from './preview-ipc';
+import { ProjectWatchHub } from './project-watch';
 import { ProjectService } from '../workspace/project-service';
 import { PreviewManager } from '../preview/preview-manager';
 import { consoleLogger } from '../recovery/atomic-file';
@@ -94,6 +95,7 @@ function start(): void {
     } else {
       handleAppProtocol(protocol, path.join(__dirname, '..', 'renderer', MAIN_WINDOW_VITE_NAME));
     }
+    const watchHub = new ProjectWatchHub();
     // --- S12: unsaved-buffer journal in the app-data directory (PLAN §6), never inside a project ---
     const appData = app.getPath('userData');
     const journal = new RecoveryJournal({ dir: path.join(appData, 'recovery'), log: consoleLogger });
@@ -114,6 +116,10 @@ function start(): void {
         return result.canceled ? null : (result.filePaths[0] ?? null);
       },
       revealFolder: (folder) => shell.showItemInFolder(folder),
+      // ── S07/S08: file tree, watcher and file operations ──
+      projectOpened: (projectId, root, sender) => watchHub.watch(projectId, root, sender),
+      trashItem: (fullPath) => shell.trashItem(fullPath),
+      revealItem: (fullPath) => shell.showItemInFolder(fullPath),
       afterSave: (projectId) => preview.fileSaved(projectId),
     });
     registerPreviewIpcHandlers(ipcMain, {

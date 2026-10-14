@@ -11,6 +11,7 @@ import type { PlatformId } from '../../platform/labels';
 import type { Result } from '../result';
 // S04 preview: types live in preview-contract.ts; only the API field is added here.
 import type { PreviewApi } from './preview-contract';
+import { isUnsafePathSegment } from '../file-names';
 import type { RecoveryApi } from './recovery-contract';
 
 export const IPC_API_VERSION = 1;
@@ -20,6 +21,12 @@ export const CHANNELS = {
   readFile: 'workspace:read-file',
   writeFile: 'workspace:write-file',
   revealProject: 'workspace:reveal-project',
+  // ── S07/S08: file tree, watcher and file operations ──
+  listDir: 'workspace:list-dir',
+  createEntry: 'workspace:create-entry',
+  renameEntry: 'workspace:rename-entry',
+  trashEntry: 'workspace:trash-entry',
+  revealEntry: 'workspace:reveal-entry',
   // --- S12 crash-recovery journal (types and parsers: recovery-contract.ts) ---
   recoveryRecord: 'recovery:record',
   recoveryDiscardSaved: 'recovery:discard-saved',
@@ -81,6 +88,11 @@ export interface FileContent {
   /** The file started with a UTF-8 byte order mark; it is written back unchanged. */
   readonly bom: boolean;
   readonly uri: string;
+  // ── S07.4: other encodings open read-only (absent = UTF-8, editable) ──
+  /** WHATWG label of a non-UTF-8 encoding, e.g. `gb18030` or `utf-16le`. */
+  readonly encoding?: string;
+  /** The file is shown but cannot be saved: saving would re-encode it as UTF-8. */
+  readonly readOnly?: boolean;
 }
 
 export type ReadFileError =
@@ -106,6 +118,8 @@ export type WriteFileError =
   | 'permission-denied'
   | 'busy'
   | 'disk-full'
+  /** S07.4: the file on disk is not UTF-8 text (another encoding or binary); it is never overwritten. */
+  | 'unsupported-encoding'
   | 'write-failed';
 
 export interface SavedFile {
@@ -113,6 +127,105 @@ export interface SavedFile {
 }
 
 export type RevealError = 'unknown-project';
+
+// ── S07/S08: file tree, watcher and file operations ─────────────────────────────────────────────────────────────
+
+/** One child in the lazy file tree (S07.2). */
+export interface TreeEntry {
+  /** The name exactly as the file system reports it (case and Unicode normalisation untouched). */
+  readonly name: string;
+  readonly relPath: string;
+  /**
+   * `directory` / `file`, also for a link whose real target is inside the project. A link that leads outside the
+   * project or nowhere is listed but never followed (cannot be expanded or opened).
+   */
+  readonly kind: 'file' | 'directory' | 'link-outside' | 'link-broken';
+  readonly isLink: boolean;
+}
+
+export interface DirRequest {
+  readonly projectId: string;
+  /** `''` for the project root. */
+  readonly relPath: string;
+}
+
+export interface DirListing {
+  readonly relPath: string;
+  readonly entries: readonly TreeEntry[];
+  /** More entries than the tree shows in one folder. */
+  readonly truncated: boolean;
+}
+
+export type ListDirError =
+  'unknown-project' | 'outside-project' | 'not-found' | 'not-a-directory' | 'permission-denied' | 'list-failed';
+
+export function parseDirRequest(payload: unknown): DirRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath'])) return null;
+  const { projectId, relPath } = payload;
+  return isProjectId(projectId) && (relPath === '' || isPortableRelPath(relPath)) ? { projectId, relPath } : null;
+}
+
+/** Why a file operation (S08.2–S08.5) was refused or failed. Explained to the user, never silently resolved. */
+export type FileOpError =
+  | 'unknown-project'
+  | 'outside-project'
+  | 'not-found'
+  /** The new name breaks the Windows or macOS rules (src/shared/file-names); message lists the problems. */
+  | 'invalid-name'
+  /** Something with that name already exists; message is its name. Never overwritten. */
+  | 'exists'
+  /** A sibling differs only in letter case; message is its name. It would clash on Windows and macOS. */
+  | 'case-conflict'
+  | 'into-itself'
+  | 'permission-denied'
+  | 'busy'
+  /** The OS could not move it to the trash (message from the OS); nothing was deleted. */
+  | 'trash-failed'
+  | 'op-failed';
+
+export interface CreateEntryRequest {
+  readonly projectId: string;
+  readonly relPath: string;
+  readonly kind: 'file' | 'directory';
+}
+
+export interface RenameEntryRequest {
+  readonly projectId: string;
+  readonly from: string;
+  readonly to: string;
+}
+
+export function parseCreateEntryRequest(payload: unknown): CreateEntryRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath', 'kind'])) return null;
+  const { projectId, relPath, kind } = payload;
+  if (!isProjectId(projectId) || !isPortableRelPath(relPath)) return null;
+  return kind === 'file' || kind === 'directory' ? { projectId, relPath, kind } : null;
+}
+
+export function parseRenameEntryRequest(payload: unknown): RenameEntryRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'from', 'to'])) return null;
+  const { projectId, from, to } = payload;
+  return isProjectId(projectId) && isPortableRelPath(from) && isPortableRelPath(to) ? { projectId, from, to } : null;
+}
+
+/** A change on disk, from the project watcher (S07.3). Paths are portable and relative to the project root. */
+export type WatchEvent =
+  | { readonly type: 'created' | 'changed' | 'deleted'; readonly relPath: string }
+  | { readonly type: 'renamed'; readonly from: string; readonly to: string; readonly caseOnly: boolean }
+  /** The watcher lost track (folder removed, too many changes): reload the whole tree. */
+  | { readonly type: 'rescan' };
+
+export interface WorkspaceChanged {
+  readonly projectId: string;
+  readonly events: readonly WatchEvent[];
+}
+
+/** Main → workbench notifications (sent with webContents.send, only to the window that opened the project). */
+export const EVENTS = {
+  changed: 'workspace:changed',
+} as const;
+
+// ── end S07/S08 ──────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** What preload exposes as `window.noobide`. */
 export interface NoobideApi {
@@ -125,6 +238,19 @@ export interface NoobideApi {
     writeFile(request: WriteFileRequest): Promise<IpcResult<SavedFile, WriteFileError>>;
     /** Shows the project folder in Explorer / Finder. */
     revealProject(request: { readonly projectId: string }): Promise<IpcResult<null, RevealError>>;
+    // ── S07/S08: file tree, watcher and file operations ──
+    /** One folder of the lazy file tree (S07.2). */
+    listDir(request: DirRequest): Promise<IpcResult<DirListing, ListDirError>>;
+    /** Subscribes to changes on disk in the open project (S07.3). Returns the unsubscribe function. */
+    onChanged(listener: (change: WorkspaceChanged) => void): () => void;
+    /** Creates an empty file or folder; never replaces anything (S08.2, S08.4). */
+    createEntry(request: CreateEntryRequest): Promise<IpcResult<{ relPath: string }, FileOpError>>;
+    /** Renames or moves; refuses existing targets, allows case-only renames (S08.2, S08.4). */
+    renameEntry(request: RenameEntryRequest): Promise<IpcResult<{ from: string; to: string }, FileOpError>>;
+    /** Moves a file or folder to the OS trash (S08.3). The renderer confirms first. */
+    trashEntry(request: FileRequest): Promise<IpcResult<null, FileOpError>>;
+    /** Shows a file or folder in Finder / File Explorer (S08.5); `''` is the project folder. */
+    revealEntry(request: DirRequest): Promise<IpcResult<null, FileOpError>>;
   };
   /** Isolated webpage preview (S04.3); see preview-contract.ts. */
   readonly preview: PreviewApi;
@@ -139,14 +265,16 @@ const PROJECT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 /**
  * A relative path the renderer may send: `/`-separated, no empty, `.` or `..` segments, no backslashes, no NUL,
- * not absolute and no drive or URL prefix. Main still realpath-checks the result inside the project root.
+ * not absolute, no `:` in any segment (drive or URL prefix, NTFS stream), no trailing dot or space and no Windows
+ * device name (src/shared/file-names). Main still realpath-checks the result inside the project root.
  */
 export function isPortableRelPath(value: unknown): value is string {
   if (typeof value !== 'string' || value.length === 0 || value.length > MAX_REL_PATH_LENGTH) return false;
   if (value.includes('\\') || value.includes('\0') || value.startsWith('/')) return false;
   const segments = value.split('/');
   if (segments.some((s) => s === '' || s === '.' || s === '..')) return false;
-  return !segments[0]?.includes(':');
+  // `:` in any segment (NTFS alternate data streams, drive prefixes), trailing dots/spaces and Windows device names.
+  return !segments.some(isUnsafePathSegment);
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

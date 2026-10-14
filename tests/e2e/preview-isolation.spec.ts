@@ -38,7 +38,7 @@ async function project(fixture: string): Promise<string> {
 }
 
 async function openInEditor(name: string) {
-  await page.getByTestId('file-list').getByRole('button', { name }).click();
+  await page.getByTestId('file-tree').getByRole('treeitem', { name, exact: true }).click();
   await expect(page.getByTestId('editor-tab')).toHaveText(name);
 }
 

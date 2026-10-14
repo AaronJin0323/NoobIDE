@@ -95,7 +95,13 @@ async function openProjectAndFile(relPath: string) {
   }, root);
   await page.getByTestId('open-folder').click();
   await expect(page.getByTestId('project-name')).toHaveText('中文 路径 项目');
-  await page.getByTestId('file-list').getByRole('button', { name: relPath }).click();
+  // S08.1 file tree: expand the folders on the way, then open the file.
+  const segments = relPath.split('/');
+  for (let i = 1; i < segments.length; i += 1) {
+    const folder = page.getByTestId('file-tree').locator(`[data-path="${segments.slice(0, i).join('/')}"]`);
+    if ((await folder.getAttribute('aria-expanded')) !== 'true') await folder.click();
+  }
+  await page.getByTestId('file-tree').locator(`[data-path="${relPath}"]`).click();
   await expect(page.getByTestId('editor-tab')).toHaveText(relPath);
 }
 
@@ -143,7 +149,10 @@ test('a dirty buffer is journaled outside the project within 2 s and removed aft
   await expect.poll(journalRecords, { timeout: 5000 }).toHaveLength(0);
   expect(await readFile(path.join(root, 'index.html'), 'utf8')).toContain('日志测试');
   // S21.2: the save also took local-history snapshots, in app data next to the journal (not in the project).
-  expect(await readdir(path.join(userData, 'history', 'index'))).toHaveLength(1);
+  // Stored right after the save returns (queued, not awaited by the save).
+  await expect
+    .poll(async () => (await readdir(path.join(userData, 'history', 'index')).catch(() => [])).length)
+    .toBe(1);
   expect(await projectTree(root)).toEqual(before);
   await stop();
 });

@@ -90,11 +90,35 @@ describe('reading files (S03.3)', () => {
     expect(result.ok && result.value.text).toBe('<p>第二页</p>\n');
   });
 
-  it('refuses binary and non-UTF-8 files instead of mangling them', async () => {
+  it('refuses binary files instead of mangling them', async () => {
     await writeFile(path.join(root, 'logo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01]));
-    await writeFile(path.join(root, 'gbk.txt'), Buffer.from([0xc4, 0xe3, 0xba, 0xc3])); // 你好 in GBK
     expect(await service.read(request('logo.png'))).toMatchObject({ ok: false, code: 'unsupported-encoding' });
-    expect(await service.read(request('gbk.txt'))).toMatchObject({ ok: false, code: 'unsupported-encoding' });
+  });
+
+  // S07.4 replaces "non-UTF-8 is refused" (S03): other encodings open read-only with a notice, never saved.
+  it('opens non-UTF-8 text read-only and never overwrites it', async () => {
+    const gbk = Buffer.from([0xc4, 0xe3, 0xba, 0xc3]); // 你好 in GBK
+    await writeFile(path.join(root, 'gbk.txt'), gbk);
+    expect(await service.read(request('gbk.txt'))).toMatchObject({
+      ok: true,
+      value: { text: '你好', encoding: 'gb18030', readOnly: true },
+    });
+    expect(await service.write({ ...request('gbk.txt'), text: '你好', bom: false })).toMatchObject({
+      ok: false,
+      code: 'unsupported-encoding',
+    });
+    expect(await readFile(path.join(root, 'gbk.txt'))).toEqual(gbk);
+    await writeFile(path.join(root, 'logo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01]));
+    expect(await service.write({ ...request('logo.png'), text: 'x', bom: false })).toMatchObject({
+      ok: false,
+      code: 'unsupported-encoding',
+    });
+  });
+
+  it('UTF-8 files carry no encoding notice', async () => {
+    const result = await service.read(request('index.html'));
+    expect(result.ok && result.value.readOnly).toBeFalsy();
+    expect(result.ok && result.value.encoding).toBeUndefined();
   });
 
   it('distinguishes missing files, folders and unknown projects', async () => {
@@ -197,6 +221,39 @@ describe('project containment', () => {
       ctx.skip();
     }
     expect(await service.read(request('jump/a.txt'))).toMatchObject({ ok: false, code: 'outside-project' });
+  });
+
+  it('refuses to write through a junction that leads outside, leaving the outside file unchanged', async () => {
+    const outsideDir = path.join(tmp, 'outside-w');
+    await mkdir(outsideDir);
+    await writeFile(path.join(outsideDir, 'a.txt'), 'outside');
+    await symlink(outsideDir, path.join(root, 'jump-w'), 'junction'); // no admin rights needed on Windows
+    expect(await service.write({ ...request('jump-w/a.txt'), text: 'overwritten', bom: false })).toMatchObject({
+      ok: false,
+      code: 'outside-project',
+    });
+    expect(await readFile(path.join(outsideDir, 'a.txt'), 'utf8')).toBe('outside');
+    expect(await readdir(outsideDir)).toEqual(['a.txt']);
+  });
+
+  it('refuses NTFS alternate data streams and names Windows rewrites, even past the IPC parser', async () => {
+    for (const relPath of ['style.css:hid', 'style.css::$DATA', 'style.css.', 'style.css ', 'NUL']) {
+      expect(await service.read(request(relPath))).toMatchObject({ ok: false, code: 'outside-project' });
+      expect(await service.write({ ...request(relPath), text: 'x', bom: false })).toMatchObject({
+        ok: false,
+        code: 'outside-project',
+      });
+    }
+    expect((await readdir(root)).filter((n) => n.startsWith('.'))).toEqual([]);
+  });
+
+  it('opening another project revokes the previous projectId (one open project in v1)', async () => {
+    const otherRoot = path.join(tmp, '另一个 项目');
+    await mkdir(otherRoot);
+    const reopened = await service.open(otherRoot);
+    expect(reopened.ok).toBe(true);
+    expect(await service.read(request('index.html'))).toMatchObject({ ok: false, code: 'unknown-project' });
+    expect(service.rootOf(projectId)).toBeUndefined();
   });
 
   it('isInside uses path semantics, not string prefixes', () => {
