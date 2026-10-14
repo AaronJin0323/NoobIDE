@@ -736,7 +736,7 @@
       "verify": "auto",
       "depends_on": [],
       "status": "done",
-      "evidence": "src/preview/static-server.ts + request-path.ts; tests/integration/preview-server.test.ts (42 pass: 127.0.0.1-only bind incl. ::1/LAN refused, GET/HEAD only, Host check 421, per-server token header 403, Sec-Fetch-Site cross/same-site 403, traversal/encoded/backslash/absolute/drive/ADS blocked, junction escape + 8.3 short-name alias 403, dotfiles .git/.noobide/.env 403; file-symlink case skips without Windows Developer Mode) + src/preview/request-path.test.ts (35) + verify green @ 514ea55"
+      "evidence": "src/preview/static-server.ts + request-path.ts; tests/integration/preview-server.test.ts (127.0.0.1-only incl. ::1/LAN refused, GET/HEAD only, Host 421, per-server token 403, Sec-Fetch-Site 403, traversal/encoded/backslash/absolute/drive/ADS/reserved chars blocked, junction escape + 8.3 short-name alias 403, dotfiles 403, served from one handle during atomic saves; file-symlink case skips without Windows Developer Mode) + request-path.test.ts; reviewed by subagent @ 9566bea"
     },
     {
       "id": "S04.2",
@@ -752,8 +752,8 @@
       "depends_on": [
         "S04.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/preview/mime.ts + mime.test.ts (15); tests/integration/preview-server.test.ts content-type block (.js/.mjs text/javascript, .json, .svg, .png, .woff2) + every reference of fixture tests/fixtures/预览 多文件 served 200; e2e tests/e2e/preview.spec.ts 'zero failed requests': CSS, classic JS, ES module import, fetch(data/data.json), SVG+PNG with Chinese names all load, 7 resources responseStatus 200, no network/error records @ 9566bea"
     },
     {
       "id": "S04.3",
@@ -769,8 +769,8 @@
       "depends_on": [
         "S04.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/preview/preview-manager.ts + preview-options.ts (unit: no preload, nodeIntegration false, contextIsolation, sandbox, persist partition per project); e2e preview.spec.ts: live getLastWebPreferences, own session != default, no require/process/noobide in page, separate pid, outsider fetch 403; bounds follow window resize, problems toggle, narrow layout (ResizeObserver->preview:set-bounds IPC, src/main/preview-ipc.ts + test); window.open denied, https:/file: navigation blocked; Stop during startup not lost. Reviewed by a separate subagent; findings fixed in 15ffbc9 @ 9566bea"
     },
     {
       "id": "S04.4",
@@ -786,8 +786,8 @@
         "S04.2",
         "S04.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "e2e tests/e2e/preview.spec.ts 'edit -> save -> the preview shows the new heading': index.html heading changed in Monaco, Ctrl+S, preview h1 updated (~35 ms after save) via ipc afterSave -> PreviewManager.fileSaved; save during load reloads after it @ 9566bea"
     },
     {
       "id": "S05.1",
@@ -801,8 +801,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "e2e tests/e2e/preview-isolation.spec.ts S05.1: while(true) fixture, preview pid differs from workbench and main pid, typing 10 chars in Monaco 42-103 ms while hung, Stop -> view destroyed and hung renderer process exits (process.kill(pid,0) fails), Start -> new webContents id and pid @ 9566bea"
     },
     {
       "id": "S05.2",
@@ -817,8 +817,8 @@
       "depends_on": [
         "S05.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/preview/preview-manager.ts watchdog (ping 1 s, 3 s timeout) + webContents 'unresponsive'/'responsive' handlers; e2e S05.2: hung page reaches 'unresponsive' with Stop button and explanation (view hidden), save does not reload hung page, Stop+Start recovers to 'running'; emitted 'unresponsive' event -> unresponsive + Stop, 'responsive' -> running; unit tests src/renderer/workbench/preview-model.test.ts @ 9566bea"
     },
     {
       "id": "S05.3",
@@ -833,8 +833,8 @@
       "depends_on": [
         "S05.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "Log buffer capped and shown as 'N messages dropped' / 'at least N' (src/preview/log-buffer.ts + unit tests; e2e S05.3: <=200 lines shown, dropped notice, 20/20 keystrokes delivered, workbench renderer timer lag <=15 ms). NOT met: 'IDE input stays responsive' - Electron emits a main-process event per console message; ~650k msgs/6 s stalls the main/UI thread 3.2-4.7 s even with the flood guard (8 s without). Unblocked by S05.7 (in-page rate limiter before page scripts, decision needed; see docs/decisions/0007) @ 9566bea"
     },
     {
       "id": "S05.4",
@@ -848,8 +848,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Events approach (console-message, webRequest onCompleted/onErrorOccurred, did-fail-load) in preview-manager.ts; e2e S05.4: console error errors.js:1, uncaught ReferenceError errors.js:3, image 404 (URL), module import 404 (resourceType script) each produce a raw record, mapped to ProblemInput via src/preview/to-problem.ts (+ unit tests with ProblemStore); records keep arriving with DevTools open. Decision docs/decisions/0007-preview-diagnostic-capture.md @ 9566bea"
     },
     {
       "id": "S05.5",
@@ -862,8 +862,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "e2e S05.5 fixture tests/fixtures/预览 恶意: file: fetch+XHR, /../, %2e%2e, %252e%252e, ..%5c, junction escape, /.env, other loopback port (ACAO * server got 0 requests, incl. no-cors and WebSocket), localhost alias, [::1], IDE bridge -> all 'failed'; blocked loopback requests recorded; plus integration tests/integration/preview-server.test.ts and unit request-policy tests @ 9566bea"
     },
     {
       "id": "S05.6",
@@ -877,8 +877,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "scripts/measure-baseline.mjs (cold start to editor-interactive, app.getAppMetrics idle memory with/without preview); docs/perf/baseline.md Windows x64 row (i9-13900KF/32 GB, n=10 startup median 655 ms p95 701; idle 429 MB, 523 MB with preview, n=3). macOS arm64 row missing: harness/MANUAL-CHECKS.md#S05.6 @ 9566bea"
     },
     {
       "id": "S05.7",
