@@ -1,0 +1,16 @@
+node_modules/
+out/
+dist/
+.vite/
+coverage/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+Thumbs.db
+# signing material never enters the repo (PLAN §5)
+*.p12
+*.pfx
+*.cer
+.env
+.env.*

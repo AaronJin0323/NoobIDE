@@ -1,0 +1,2536 @@
+{
+  "schema_version": 1,
+  "project": "NoobIDE",
+  "statuses": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "needs_manual_check",
+    "done",
+    "superseded"
+  ],
+  "verify_kinds": {
+    "auto": "Proven by automated tests the agent writes and runs",
+    "agent-check": "Agent produces the artifact (doc, measurement) and checks it against acceptance",
+    "manual-win": "Needs a real Windows run; agent may close it only with recorded evidence from Windows",
+    "manual-mac": "Needs physical Apple Silicon; agent sets needs_manual_check unless it ran there",
+    "human": "Owner task; agents never mark these done"
+  },
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "Foundations & scope",
+      "plan_refs": "PLAN §1, §2, §10 week 1, §14 tasks 1–2",
+      "exit_criteria": [
+        "Harness in place and `npm run verify` green",
+        "Scope one-pager, 10-minute task script and wireframes reviewed",
+        "Minimum OS versions, test devices and signing accounts decided (human)"
+      ]
+    },
+    {
+      "id": "M1",
+      "title": "Technical validation spike",
+      "plan_refs": "PLAN §5, §8, §10 weeks 2–3, §14 tasks 3–6",
+      "exit_criteria": [
+        "Templates open on both platforms",
+        "Mac build is native arm64",
+        "Chinese paths open/save",
+        "Editor stays responsive during a preview infinite loop",
+        "Out-of-project reads rejected",
+        "Installers built in CI for macOS arm64 + Windows x64",
+        "Re-estimate recorded (docs/reviews/G1.md)"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Editing & file foundations",
+      "plan_refs": "PLAN §4, §7, §10 weeks 4–7",
+      "exit_criteria": [
+        "Content recovers after forced termination on both platforms",
+        "Failed saves preserve edits",
+        "Projects transfer correctly between platforms",
+        "Review recorded (docs/reviews/G2.md)"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Preview & diagnostics",
+      "plan_refs": "PLAN §8, §9, §10 weeks 8–10",
+      "exit_criteria": [
+        "Resources load correctly on both platforms",
+        "Faulty webpages cannot bring down the workbench",
+        "Errors attributed to the right preview session",
+        "Invite-only build possible (docs/reviews/G3.md)"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Editing assistance",
+      "plan_refs": "PLAN §4 code assistance, §10 weeks 11–12",
+      "exit_criteria": [
+        "HTML/CSS/JS capability examples pass",
+        "Language-worker failures recover",
+        "docs/capabilities.md lists only validated capabilities"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Beginner experience",
+      "plan_refs": "PLAN §2, §9, §7 history, §10 weeks 13–14",
+      "exit_criteria": [
+        "Three templates, onboarding, 10–15 explanation rules, local history with diff/restore",
+        "Five beginners across Mac and Windows complete the task; obstacles recorded and fixed"
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "Platform integration",
+      "plan_refs": "PLAN §3, §10 weeks 15–16",
+      "exit_criteria": [
+        "Menus, shortcuts and window behaviour follow each platform",
+        "Retina/DPI, multi-monitor, sleep, permissions handled",
+        "Core features consistent across platforms"
+      ]
+    },
+    {
+      "id": "M7",
+      "title": "MVP validation & release pipeline",
+      "plan_refs": "PLAN §11, §5 distribution, §10 weeks 17–20",
+      "exit_criteria": [
+        "All §11 acceptance criteria met on clean Win x64 + physical Apple Silicon",
+        "No known file-loss issues in core workflows",
+        "Signed, notarised installers; upgrade verified"
+      ]
+    },
+    {
+      "id": "M8",
+      "title": "Beta hardening",
+      "plan_refs": "PLAN §10 weeks 21–28, §11",
+      "exit_criteria": [
+        "8–12 new beginners tested on both platforms",
+        "Both platforms pass release criteria before public download"
+      ]
+    }
+  ],
+  "sessions": [
+    {
+      "id": "S00",
+      "milestone": "M0",
+      "title": "Harness & toolchain",
+      "goal": "Multi-session harness, toolchain and roadmap exist; verify is green.",
+      "depends_on": [],
+      "plan_refs": "§6, §14"
+    },
+    {
+      "id": "S01",
+      "milestone": "M0",
+      "title": "Scope, task script & wireframes",
+      "goal": "Turn PLAN into a one-page scope, a 10-minute task script and three reviewable wireframes.",
+      "depends_on": [
+        "S00"
+      ],
+      "plan_refs": "§1, §2, §3, §11, §14 tasks 1–2"
+    },
+    {
+      "id": "S02",
+      "milestone": "M1",
+      "title": "Electron + React + Monaco scaffold",
+      "goal": "A runnable, secure-by-default Electron app with React shell and offline Monaco.",
+      "depends_on": [
+        "S00"
+      ],
+      "plan_refs": "§5, §6, §14 task 3"
+    },
+    {
+      "id": "S03",
+      "milestone": "M1",
+      "title": "Restricted IPC + open/save a real file",
+      "goal": "Trusted renderer talks to main only through a validated, typed API; a file in a Chinese path can be opened and saved.",
+      "depends_on": [
+        "S02"
+      ],
+      "plan_refs": "§6, §7, §14 task 4"
+    },
+    {
+      "id": "S04",
+      "milestone": "M1",
+      "title": "Static server + isolated preview spike",
+      "goal": "Project files are served safely over loopback and rendered in a sandboxed WebContentsView.",
+      "depends_on": [
+        "S03"
+      ],
+      "plan_refs": "§8, §14 task 5"
+    },
+    {
+      "id": "S05",
+      "milestone": "M1",
+      "title": "Isolation, unresponsiveness & baseline",
+      "goal": "Prove hostile or broken pages cannot hurt the editor; capture first diagnostics; record baselines.",
+      "depends_on": [
+        "S04"
+      ],
+      "plan_refs": "§8, §9, §11, §14 task 6"
+    },
+    {
+      "id": "S06",
+      "milestone": "M1",
+      "title": "CI build matrix & Gate G1",
+      "goal": "Both platforms build in CI; native architectures verified; week-3 go/no-go recorded.",
+      "depends_on": [
+        "S05"
+      ],
+      "plan_refs": "§5, §10, §13"
+    },
+    {
+      "id": "S07",
+      "milestone": "M2",
+      "title": "Workspace core: paths, tree, watcher, encodings",
+      "goal": "Reliable cross-platform file primitives.",
+      "depends_on": [
+        "S06"
+      ],
+      "plan_refs": "§7"
+    },
+    {
+      "id": "S08",
+      "milestone": "M2",
+      "title": "File tree UI & file operations",
+      "goal": "Beginners can manage files safely and understand failures.",
+      "depends_on": [
+        "S07"
+      ],
+      "plan_refs": "§3, §4 Files"
+    },
+    {
+      "id": "S09",
+      "milestone": "M2",
+      "title": "Tabs & editor model management",
+      "goal": "Switching files never loses state.",
+      "depends_on": [
+        "S07"
+      ],
+      "plan_refs": "§4 Editing, §7"
+    },
+    {
+      "id": "S10",
+      "milestone": "M2",
+      "title": "Save pipeline",
+      "goal": "Saving is atomic, visible and never loses edits.",
+      "depends_on": [
+        "S09"
+      ],
+      "plan_refs": "§7"
+    },
+    {
+      "id": "S11",
+      "milestone": "M2",
+      "title": "External change conflicts",
+      "goal": "Disk changes outside the IDE are never silently resolved.",
+      "depends_on": [
+        "S10"
+      ],
+      "plan_refs": "§7"
+    },
+    {
+      "id": "S12",
+      "milestone": "M2",
+      "title": "Crash recovery journal",
+      "goal": "Unsaved work survives abnormal termination.",
+      "depends_on": [
+        "S10"
+      ],
+      "plan_refs": "§7, §11 data recovery"
+    },
+    {
+      "id": "S13",
+      "milestone": "M2",
+      "title": "Settings, recent projects, session restore & Gate G2",
+      "goal": "The IDE remembers where you were — safely and portably.",
+      "depends_on": [
+        "S08",
+        "S11",
+        "S12"
+      ],
+      "plan_refs": "§6, §7, §2 continue step"
+    },
+    {
+      "id": "S14",
+      "milestone": "M3",
+      "title": "Preview manager",
+      "goal": "Preview lifecycle, trust and storage are explicit.",
+      "depends_on": [
+        "S13"
+      ],
+      "plan_refs": "§8"
+    },
+    {
+      "id": "S15",
+      "milestone": "M3",
+      "title": "Preview UI & layout",
+      "goal": "Code and result share the screen well on any laptop.",
+      "depends_on": [
+        "S14"
+      ],
+      "plan_refs": "§3, §8"
+    },
+    {
+      "id": "S16",
+      "milestone": "M3",
+      "title": "Diagnostics pipeline",
+      "goal": "Every runtime problem becomes a correctly attributed ProblemRecord.",
+      "depends_on": [
+        "S14"
+      ],
+      "plan_refs": "§9"
+    },
+    {
+      "id": "S17",
+      "milestone": "M3",
+      "title": "Problems & console panel, Gate G3",
+      "goal": "Users see problems without being interrupted and can jump to code.",
+      "depends_on": [
+        "S15",
+        "S16"
+      ],
+      "plan_refs": "§3, §9"
+    },
+    {
+      "id": "S18",
+      "milestone": "M4",
+      "title": "Language features",
+      "goal": "Validated completion, hover and formatting for HTML/CSS/JS.",
+      "depends_on": [
+        "S17"
+      ],
+      "plan_refs": "§4 code assistance, §5"
+    },
+    {
+      "id": "S19",
+      "milestone": "M4",
+      "title": "Static diagnostics",
+      "goal": "Language markers flow into Problems without noise.",
+      "depends_on": [
+        "S18"
+      ],
+      "plan_refs": "§4, §9"
+    },
+    {
+      "id": "S20",
+      "milestone": "M5",
+      "title": "Templates & welcome",
+      "goal": "A beginner creates their first webpage in under three minutes.",
+      "depends_on": [
+        "S17"
+      ],
+      "plan_refs": "§2, §4 Projects"
+    },
+    {
+      "id": "S21",
+      "milestone": "M5",
+      "title": "Local history",
+      "goal": "Any earlier saved version can be found, compared and restored.",
+      "depends_on": [
+        "S17"
+      ],
+      "plan_refs": "§7, §4 Recovery"
+    },
+    {
+      "id": "S22",
+      "milestone": "M5",
+      "title": "Error explanation rules",
+      "goal": "10–15 problem types get concrete, honest explanations.",
+      "depends_on": [
+        "S16",
+        "S19"
+      ],
+      "plan_refs": "§9"
+    },
+    {
+      "id": "S23",
+      "milestone": "M5",
+      "title": "Onboarding walkthrough",
+      "goal": "The 10-minute learning cycle runs inside a real project.",
+      "depends_on": [
+        "S20",
+        "S21",
+        "S22"
+      ],
+      "plan_refs": "§2"
+    },
+    {
+      "id": "S24",
+      "milestone": "M6",
+      "title": "Commands, shortcuts, menus, a11y",
+      "goal": "One command system drives menus and shortcuts on both platforms.",
+      "depends_on": [
+        "S23"
+      ],
+      "plan_refs": "§3"
+    },
+    {
+      "id": "S25",
+      "milestone": "M6",
+      "title": "Platform hardening",
+      "goal": "OS events and permissions never corrupt state.",
+      "depends_on": [
+        "S24"
+      ],
+      "plan_refs": "§3, §8"
+    },
+    {
+      "id": "S26",
+      "milestone": "M7",
+      "title": "Fault-injection suite",
+      "goal": "Every PLAN §11 failure case has a test or a checklist.",
+      "depends_on": [
+        "S25"
+      ],
+      "plan_refs": "§11"
+    },
+    {
+      "id": "S27",
+      "milestone": "M7",
+      "title": "Performance & offline",
+      "goal": "Measured against §11 targets, per platform.",
+      "depends_on": [
+        "S25"
+      ],
+      "plan_refs": "§11"
+    },
+    {
+      "id": "S28",
+      "milestone": "M7",
+      "title": "Distribution pipeline",
+      "goal": "Signed installers, upgrades and user docs.",
+      "depends_on": [
+        "S26"
+      ],
+      "plan_refs": "§5, §11"
+    },
+    {
+      "id": "S29",
+      "milestone": "M7",
+      "title": "Release acceptance (Gate G7)",
+      "goal": "PLAN §11 met on clean machines.",
+      "depends_on": [
+        "S26",
+        "S27",
+        "S28"
+      ],
+      "plan_refs": "§11"
+    }
+  ],
+  "features": [
+    {
+      "id": "S00.1",
+      "session": "S00",
+      "milestone": "M0",
+      "title": "Agent harness, roadmap and toolchain skeleton",
+      "description": "Created in session 0.",
+      "acceptance": [
+        "`npm run verify` passes on a fresh clone after `npm install`",
+        "`node harness/session.mjs check` reports no errors"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "Session 0 (2026-10-14): harness built; npm run verify green in cloud workspace (Linux)."
+    },
+    {
+      "id": "S00.2",
+      "session": "S00",
+      "milestone": "M0",
+      "title": "Git repository initialised with first commit",
+      "description": "Session 0 had no shell on the user's machine; the first coding session does `git init` if needed.",
+      "acceptance": [
+        "`git log` shows an initial commit containing the harness",
+        "`git status` is clean; .gitattributes enforces LF for text files"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S00.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S01.1",
+      "session": "S01",
+      "milestone": "M0",
+      "title": "One-page scope document",
+      "description": "",
+      "acceptance": [
+        "docs/product/scope.md: audience, in-scope, explicit exclusions (PLAN §4), support matrix with min OS versions (or TBD → H.1)",
+        "Each exclusion links back to the PLAN section that defines it"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S01.2",
+      "session": "S01",
+      "milestone": "M0",
+      "title": "10-minute beginner task script",
+      "description": "",
+      "acceptance": [
+        "docs/product/task-script.md walks the 8 journey steps of PLAN §2 with expected IDE feedback",
+        "Each §11 beginner metric is mapped to a step and a measurement method"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S01.3",
+      "session": "S01",
+      "milestone": "M0",
+      "title": "Wireframes: welcome, editor+preview, error card",
+      "description": "",
+      "acceptance": [
+        "docs/wireframes/*.html open offline in a browser, zh-CN copy with en notes",
+        "Narrow-screen Code/Preview switch and problem card (PLAN §9 example) are shown"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S01.4",
+      "session": "S01",
+      "milestone": "M0",
+      "title": "ADR: platform support matrix and minimum OS versions",
+      "description": "",
+      "acceptance": [
+        "docs/decisions/0003-platform-support.md records macOS/Windows minimums, test devices, Windows arm64 status"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "H.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S02.1",
+      "session": "S02",
+      "milestone": "M1",
+      "title": "Electron Forge + Vite + TypeScript integrated into this repo",
+      "description": "",
+      "acceptance": [
+        "Exact versions pinned in package.json; docs/decisions/0004-stack-versions.md records them and why",
+        "src/main, src/preload, src/renderer follow PLAN §6 layout",
+        "`npm start` opens a window titled NoobIDE; `npm run verify` still green"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S02.2",
+      "session": "S02",
+      "milestone": "M1",
+      "title": "Secure window defaults",
+      "description": "",
+      "acceptance": [
+        "Workbench window: contextIsolation=true, nodeIntegration=false, sandbox=true, webSecurity=true",
+        "Renderer has a strict CSP; unit test asserts the webPreferences factory output"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S02.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S02.3",
+      "session": "S02",
+      "milestone": "M1",
+      "title": "React workbench shell with five regions",
+      "description": "",
+      "acceptance": [
+        "Top bar, left files, center editor, right preview, bottom problems render as placeholders",
+        "E2E asserts each region by role/test id"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S02.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S02.4",
+      "session": "S02",
+      "milestone": "M1",
+      "title": "Monaco bundled locally with workers",
+      "description": "",
+      "acceptance": [
+        "No CDN requests; editing an HTML buffer shows highlighting with network disabled",
+        "Workers load in dev and in the packaged app"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S02.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S02.5",
+      "session": "S02",
+      "milestone": "M1",
+      "title": "i18n scaffold (zh-CN default, en)",
+      "description": "",
+      "acceptance": [
+        "All UI strings come from src/renderer/i18n dictionaries; a test fails on hardcoded CJK/Latin UI text in components",
+        "Language switch persists for the session"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S02.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S02.6",
+      "session": "S02",
+      "milestone": "M1",
+      "title": "Playwright Electron e2e smoke test",
+      "description": "",
+      "acceptance": [
+        "`npm run test:e2e` launches the app, finds Monaco, records zero console errors",
+        "Runs headless-friendly on Windows and macOS"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S02.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S02.7",
+      "session": "S02",
+      "milestone": "M1",
+      "title": "Windows x64 installer via `npm run make`",
+      "description": "",
+      "acceptance": [
+        "Installer builds on Windows and the installed app launches without Node.js present"
+      ],
+      "verify": "manual-win",
+      "depends_on": [
+        "S02.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S03.1",
+      "session": "S03",
+      "milestone": "M1",
+      "title": "Typed IPC contract with validation",
+      "description": "",
+      "acceptance": [
+        "Channel names + payload schemas live in src/shared/ipc; preload exposes only these via contextBridge",
+        "Main rejects malformed payloads and senders whose frame URL is not the workbench (unit tests)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S03.2",
+      "session": "S03",
+      "milestone": "M1",
+      "title": "Platform adapter module",
+      "description": "",
+      "acceptance": [
+        "src/platform exposes isMac/isWindows, modifier labels, reveal-in-OS label",
+        "ESLint forbids process.platform outside src/platform (rule test or fixture)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S03.3",
+      "session": "S03",
+      "milestone": "M1",
+      "title": "Open folder and open file into Monaco",
+      "description": "",
+      "acceptance": [
+        "Open-folder dialog → file list → clicking a file opens it in a Monaco model keyed by a stable file URI"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S03.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S03.4",
+      "session": "S03",
+      "milestone": "M1",
+      "title": "Save file in a path with Chinese characters and spaces",
+      "description": "",
+      "acceptance": [
+        "Fixture tests/fixtures/中文 路径 项目/ opens, edits and saves via Ctrl/Cmd+S (integration + e2e)",
+        "Paths handled with path APIs only (no manual separators, no lowercasing)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S03.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S04.1",
+      "session": "S04",
+      "milestone": "M1",
+      "title": "Loopback static server with path guard",
+      "description": "",
+      "acceptance": [
+        "Binds 127.0.0.1 only; GET/HEAD only; Host header validated; per-session token or ownership check",
+        "realpath check blocks ../, encoded traversal, backslashes, absolute paths, symlinks escaping root (integration tests)",
+        "Denies .noobide/, .git/, .env and other dotfiles by default"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S04.2",
+      "session": "S04",
+      "milestone": "M1",
+      "title": "Correct MIME types and multi-file fixture",
+      "description": "",
+      "acceptance": [
+        "Fixture page with CSS, JS, image, ES module import and fetch('data.json') loads with zero failed requests",
+        ".js/.mjs served as text/javascript; .svg, .woff2, .json correct"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S04.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S04.3",
+      "session": "S04",
+      "milestone": "M1",
+      "title": "Sandboxed WebContentsView in the preview pane",
+      "description": "",
+      "acceptance": [
+        "Preview view: no preload, nodeIntegration=false, contextIsolation=true, sandbox=true, partition per project",
+        "Bounds follow the React pane via ResizeObserver→IPC; window.open denied; off-origin navigation blocked or sent to external browser"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S04.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S04.4",
+      "session": "S04",
+      "milestone": "M1",
+      "title": "Edit → save → preview refresh loop",
+      "description": "",
+      "acceptance": [
+        "E2E: open fixture, change heading, save, preview shows new heading"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S04.2",
+        "S04.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S05.1",
+      "session": "S05",
+      "milestone": "M1",
+      "title": "Infinite loop does not block the editor",
+      "description": "",
+      "acceptance": [
+        "Preview runs in a different process from the workbench (pid check)",
+        "E2E with while(true) page: typing in Monaco still lands; Stop destroys/recreates the preview view"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S05.2",
+      "session": "S05",
+      "milestone": "M1",
+      "title": "Unresponsive detection",
+      "description": "",
+      "acceptance": [
+        "'unresponsive' event moves preview to an 'unresponsive' state with a Stop action; recovery tested"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S05.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S05.3",
+      "session": "S05",
+      "milestone": "M1",
+      "title": "Console flood stays bounded",
+      "description": "",
+      "acceptance": [
+        "Page logging in a tight loop: IDE input stays responsive; log buffer capped with 'N messages dropped'"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S05.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S05.4",
+      "session": "S05",
+      "milestone": "M1",
+      "title": "Diagnostic capture spike (CDP or webContents events)",
+      "description": "",
+      "acceptance": [
+        "Uncaught exception, console error, 404 and module load failure each produce a raw record with URL/line",
+        "Decision recorded in docs/decisions/ (webContents.debugger vs events), incl. DevTools coexistence"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S05.5",
+      "session": "S05",
+      "milestone": "M1",
+      "title": "Malicious page cannot read local files",
+      "description": "",
+      "acceptance": [
+        "Fixture page tries file://, traversal URLs, other loopback ports, symlink escape → all fail; test asserts"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S05.6",
+      "session": "S05",
+      "milestone": "M1",
+      "title": "Baseline measurements",
+      "description": "",
+      "acceptance": [
+        "scripts/measure-*.mjs record cold start to editor-interactive and idle memory (app.getAppMetrics)",
+        "docs/perf/baseline.md has numbers per platform with device + sample count"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S06.1",
+      "session": "S06",
+      "milestone": "M1",
+      "title": "GitHub Actions matrix: windows x64 + macos arm64",
+      "description": "",
+      "acceptance": [
+        "Workflow runs verify, e2e and make on windows-latest and macos-14 (arm64); uploads installers"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "H.5"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S06.2",
+      "session": "S06",
+      "milestone": "M1",
+      "title": "Artifact architecture inspection",
+      "description": "",
+      "acceptance": [
+        "scripts/inspect-arch.mjs fails if any Mach-O in the .app is not arm64 or any Windows PE is not x64; runs in CI"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S06.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S06.3",
+      "session": "S06",
+      "milestone": "M1",
+      "title": "Physical Apple Silicon validation",
+      "description": "",
+      "acceptance": [
+        "DMG installs; Activity Monitor shows Apple architecture; Chinese path save and infinite-loop test pass"
+      ],
+      "verify": "manual-mac",
+      "depends_on": [
+        "S06.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S06.4",
+      "session": "S06",
+      "milestone": "M1",
+      "title": "Gate G1 review and re-estimate",
+      "description": "",
+      "acceptance": [
+        "docs/reviews/G1.md: each M1 exit criterion with evidence per platform, measured hours, revised estimate, risks"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S06.2",
+        "S06.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S07.1",
+      "session": "S07",
+      "milestone": "M2",
+      "title": "Path utilities",
+      "description": "",
+      "acceptance": [
+        "src/workspace/paths: normalise, relative-to-root, inside-root (realpath), file URI round-trip",
+        "Unit tests: drive letters, UNC, NFC/NFD names, case sensitivity per volume, Windows reserved names, trailing dots/spaces"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S07.2",
+      "session": "S07",
+      "milestone": "M2",
+      "title": "Lazy directory tree model",
+      "description": "",
+      "acceptance": [
+        "Sorted folders-first listing, ignore list, symlinks marked and never followed outside root"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S07.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S07.3",
+      "session": "S07",
+      "milestone": "M2",
+      "title": "File watcher with debounced events",
+      "description": "",
+      "acceptance": [
+        "Library choice ADR (prefer pure JS); create/change/delete/rename and case-only rename produce correct events (integration)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S07.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S07.4",
+      "session": "S07",
+      "milestone": "M2",
+      "title": "Encoding, binary and EOL handling",
+      "description": "",
+      "acceptance": [
+        "UTF-8 ± BOM editable and BOM preserved; other encodings open read-only with notice; binaries not opened in editor",
+        "Existing EOL style preserved on save; new files use LF"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S07.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S08.1",
+      "session": "S08",
+      "milestone": "M2",
+      "title": "Accessible file tree",
+      "description": "",
+      "acceptance": [
+        "ARIA tree roles; arrows/Enter/F2/Delete work; panel collapses; e2e keyboard-only navigation"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S08.2",
+      "session": "S08",
+      "milestone": "M2",
+      "title": "Create and rename with cross-platform validation",
+      "description": "",
+      "acceptance": [
+        "Invalid or Windows-unrepresentable names explained (even on Mac); case-only rename works on case-insensitive FS"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S08.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S08.3",
+      "session": "S08",
+      "milestone": "M2",
+      "title": "Delete to OS trash",
+      "description": "",
+      "acceptance": [
+        "Uses shell.trashItem after confirm; failures explained; open tabs updated on delete/rename"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S08.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S08.4",
+      "session": "S08",
+      "milestone": "M2",
+      "title": "Never silently overwrite",
+      "description": "",
+      "acceptance": [
+        "Create/rename/move onto an existing path is refused with an explanation (tests)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S08.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S08.5",
+      "session": "S08",
+      "milestone": "M2",
+      "title": "Reveal in Finder / Show in File Explorer",
+      "description": "",
+      "acceptance": [
+        "Label and behaviour from src/platform; context menu + command"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S08.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S09.1",
+      "session": "S09",
+      "milestone": "M2",
+      "title": "Editor model registry",
+      "description": "",
+      "acceptance": [
+        "One model per file URI; reused on tab switch; disposed on close; cursor, scroll, folding and undo stack survive switches"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S09.2",
+      "session": "S09",
+      "milestone": "M2",
+      "title": "Tab bar",
+      "description": "",
+      "acceptance": [
+        "Dirty/failed state shown with icon + text (not colour only); close, middle-click, Ctrl/Cmd+Tab style switching"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S09.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S09.3",
+      "session": "S09",
+      "milestone": "M2",
+      "title": "Editing basics validated",
+      "description": "",
+      "acceptance": [
+        "Indent, comment toggle, find/replace, undo/redo, 16px default font, zoom, light/dark theme — e2e checks"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S09.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S09.4",
+      "session": "S09",
+      "milestone": "M2",
+      "title": "Chinese IME composition",
+      "description": "",
+      "acceptance": [
+        "Microsoft Pinyin composition in Monaco works; autosave never interrupts composition"
+      ],
+      "verify": "manual-win",
+      "depends_on": [
+        "S09.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S09.5",
+      "session": "S09",
+      "milestone": "M2",
+      "title": "Chinese IME composition (macOS)",
+      "description": "",
+      "acceptance": [
+        "macOS Pinyin composition in Monaco works; autosave never interrupts composition"
+      ],
+      "verify": "manual-mac",
+      "depends_on": [
+        "S09.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S10.1",
+      "session": "S10",
+      "milestone": "M2",
+      "title": "Atomic write",
+      "description": "",
+      "acceptance": [
+        "Temp file in same dir → flush → rename; Windows EPERM/EBUSY retry with backoff; permissions preserved (tests)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S10.2",
+      "session": "S10",
+      "milestone": "M2",
+      "title": "Autosave coalescing and save state machine",
+      "description": "",
+      "acceptance": [
+        "States clean/dirty/saving/saved/failed/conflict as a pure tested module; autosave after typing pause + on blur; manual save"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S10.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S10.3",
+      "session": "S10",
+      "milestone": "M2",
+      "title": "Save status UI",
+      "description": "",
+      "acceptance": [
+        "Top bar + tab show text and icon; failure banner gives reason and actions (retry, save elsewhere)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S10.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S10.4",
+      "session": "S10",
+      "milestone": "M2",
+      "title": "Save failure scenarios keep edits",
+      "description": "",
+      "acceptance": [
+        "Read-only dir, locked file, permission denied, simulated ENOSPC (injected fs) → content retained, status failed, preview not refreshed"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S10.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S10.5",
+      "session": "S10",
+      "milestone": "M2",
+      "title": "Preview trigger only after confirmed write",
+      "description": "",
+      "acceptance": [
+        "Contract test: 'saved' event emitted strictly after successful rename"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S10.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S11.1",
+      "session": "S11",
+      "milestone": "M2",
+      "title": "External change detection",
+      "description": "",
+      "acceptance": [
+        "mtime+size+hash check on watcher event and before write; clean buffers reload with a notice"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S11.2",
+      "session": "S11",
+      "milestone": "M2",
+      "title": "Conflict resolution with diff",
+      "description": "",
+      "acceptance": [
+        "Dirty buffer + disk change → conflict state; Monaco diff: keep mine / take disk; never automatic"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S11.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S11.3",
+      "session": "S11",
+      "milestone": "M2",
+      "title": "Externally deleted open file",
+      "description": "",
+      "acceptance": [
+        "Tab marked deleted, content retained, re-save offered"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S11.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S12.1",
+      "session": "S12",
+      "milestone": "M2",
+      "title": "Recovery journal in app data",
+      "description": "",
+      "acceptance": [
+        "Dirty buffers journaled within ≤2s, atomically, outside the project; removed after successful save"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S12.2",
+      "session": "S12",
+      "milestone": "M2",
+      "title": "Restore after forced termination",
+      "description": "",
+      "acceptance": [
+        "E2E kills the app (taskkill /F / SIGKILL), relaunch offers restore with diff vs disk"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S12.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S12.3",
+      "session": "S12",
+      "milestone": "M2",
+      "title": "Bounded, corruption-tolerant journal",
+      "description": "",
+      "acceptance": [
+        "Size limits; corrupt entries skipped and logged; clear-data control"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S12.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S12.4",
+      "session": "S12",
+      "milestone": "M2",
+      "title": "Forced-termination recovery on both platforms",
+      "description": "",
+      "acceptance": [
+        "Recovery e2e scenario passes on physical Apple Silicon and on Windows"
+      ],
+      "verify": "manual-mac",
+      "depends_on": [
+        "S12.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S13.1",
+      "session": "S13",
+      "milestone": "M2",
+      "title": "Versioned app settings",
+      "description": "",
+      "acceptance": [
+        "JSON schema with version, defaults and migrations; corrupt file backed up and reset (tests)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S13.2",
+      "session": "S13",
+      "milestone": "M2",
+      "title": ".noobide/project.json",
+      "description": "",
+      "acceptance": [
+        "Stores entry page, preview prefs, config version only; absolute paths rejected; deleting it leaves a working site"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S13.3",
+      "session": "S13",
+      "milestone": "M2",
+      "title": "Recent projects and project lifecycle",
+      "description": "",
+      "acceptance": [
+        "Missing folders shown as unavailable; closing a project tears down server and preview"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S13.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S13.4",
+      "session": "S13",
+      "milestone": "M2",
+      "title": "Session restore",
+      "description": "",
+      "acceptance": [
+        "Reopen restores tabs, active tab, layout sizes; project location shown clearly"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S13.1",
+        "S13.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S13.5",
+      "session": "S13",
+      "milestone": "M2",
+      "title": "Cross-platform project transfer",
+      "description": "",
+      "acceptance": [
+        "Fixture with CRLF/LF, case conflicts and Unicode names: issues reported, nothing renamed"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S13.6",
+      "session": "S13",
+      "milestone": "M2",
+      "title": "Local logs",
+      "description": "",
+      "acceptance": [
+        "Rotating log in app data, no source content, version info; 'Open logs folder' command"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S13.7",
+      "session": "S13",
+      "milestone": "M2",
+      "title": "Gate G2 review",
+      "description": "",
+      "acceptance": [
+        "docs/reviews/G2.md with evidence for each M2 exit criterion per platform and re-estimate"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S13.4",
+        "S13.5"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S14.1",
+      "session": "S14",
+      "milestone": "M3",
+      "title": "Preview state machine",
+      "description": "",
+      "acceptance": [
+        "stopped/starting/running/refreshing/unresponsive/failed as a pure tested module; UI shows state as text"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S14.2",
+      "session": "S14",
+      "milestone": "M3",
+      "title": "Auto vs manual refresh",
+      "description": "",
+      "acceptance": [
+        "Auto refresh after successful save + typing pause; manual mode; one-time note that reload clears page state"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S14.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S14.3",
+      "session": "S14",
+      "milestone": "M3",
+      "title": "Entry page selection",
+      "description": "",
+      "acceptance": [
+        "index.html default, picker for others, stored in project.json"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S14.4",
+      "session": "S14",
+      "milestone": "M3",
+      "title": "Start-preview consent for external projects",
+      "description": "",
+      "acceptance": [
+        "Templates preview immediately; opened folders require 'Start preview' once; trust stored in app data"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S14.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S14.5",
+      "session": "S14",
+      "milestone": "M3",
+      "title": "Per-project preview storage",
+      "description": "",
+      "acceptance": [
+        "Separate partition per project; 'Clear preview data'; explanation of external-browser storage difference"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S14.6",
+      "session": "S14",
+      "milestone": "M3",
+      "title": "Server lifecycle per project",
+      "description": "",
+      "acceptance": [
+        "One server per open project, shut down on switch/close; ownership check tested"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S15.1",
+      "session": "S15",
+      "milestone": "M3",
+      "title": "Resizable, persisted splitters",
+      "description": "",
+      "acceptance": [
+        "Files | editor | preview dividers drag and persist; file panel collapses"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S15.2",
+      "session": "S15",
+      "milestone": "M3",
+      "title": "Narrow-screen Code/Preview switch",
+      "description": "",
+      "acceptance": [
+        "Below a width threshold the layout switches to a toggle instead of three columns"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S15.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S15.3",
+      "session": "S15",
+      "milestone": "M3",
+      "title": "Viewport width switch",
+      "description": "",
+      "acceptance": [
+        "Desktop/mobile width only, labelled honestly as width, not device emulation"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S15.4",
+      "session": "S15",
+      "milestone": "M3",
+      "title": "Preview toolbar",
+      "description": "",
+      "acceptance": [
+        "Refresh, stop, open in external browser, open DevTools (under advanced)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S15.5",
+      "session": "S15",
+      "milestone": "M3",
+      "title": "WebContentsView sync: DPI, monitors, overlays, focus",
+      "description": "",
+      "acceptance": [
+        "Windows 100/150/200% scaling, monitor moves, fullscreen, dialogs/menus above preview, keyboard focus handoff — checklist passes"
+      ],
+      "verify": "manual-win",
+      "depends_on": [
+        "S15.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S15.6",
+      "session": "S15",
+      "milestone": "M3",
+      "title": "WebContentsView sync on macOS",
+      "description": "",
+      "acceptance": [
+        "Retina, monitor moves, fullscreen, overlays, focus — checklist passes"
+      ],
+      "verify": "manual-mac",
+      "depends_on": [
+        "S15.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S16.1",
+      "session": "S16",
+      "milestone": "M3",
+      "title": "ProblemRecord model",
+      "description": "",
+      "acceptance": [
+        "src/shared type: source, severity, projectId, previewSessionId+generation, file, line, col, code, originalMessage, explanation, checks; dedupe key + count"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S16.2",
+      "session": "S16",
+      "milestone": "M3",
+      "title": "Runtime capture adapter",
+      "description": "",
+      "acceptance": [
+        "Syntax errors, sync exceptions, unhandled rejections, console errors, module load failures captured with file/line mapped to project paths"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S16.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S16.3",
+      "session": "S16",
+      "milestone": "M3",
+      "title": "Refresh attribution",
+      "description": "",
+      "acceptance": [
+        "Generation increments on refresh; events from older generations are marked stale (tests)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S16.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S16.4",
+      "session": "S16",
+      "milestone": "M3",
+      "title": "Resource failures",
+      "description": "",
+      "acceptance": [
+        "404s and network errors recorded with requested path and initiator file"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S16.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S16.5",
+      "session": "S16",
+      "milestone": "M3",
+      "title": "Volume limits and dedupe",
+      "description": "",
+      "acceptance": [
+        "Rate limits + ring buffer; duplicates collapse with counts but keep originals"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S16.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S16.6",
+      "session": "S16",
+      "milestone": "M3",
+      "title": "Cross-origin 'Script error.' explanation",
+      "description": "",
+      "acceptance": [
+        "Opaque cross-origin errors produce a record explaining why location is unavailable"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S16.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S17.1",
+      "session": "S17",
+      "milestone": "M3",
+      "title": "Problems panel",
+      "description": "",
+      "acceptance": [
+        "Static / runtime / resource sections; badge counts; never steals focus; polite aria-live announcement"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S17.2",
+      "session": "S17",
+      "milestone": "M3",
+      "title": "Go to code and original error",
+      "description": "",
+      "acceptance": [
+        "Clicking navigates to file:line:col; 'Show original error' reveals raw message/stack"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S17.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S17.3",
+      "session": "S17",
+      "milestone": "M3",
+      "title": "Console view",
+      "description": "",
+      "acceptance": [
+        "Levels, filter, clear, capped; attributed to current preview generation"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S17.4",
+      "session": "S17",
+      "milestone": "M3",
+      "title": "Gate G3 review and invite-only build",
+      "description": "",
+      "acceptance": [
+        "docs/reviews/G3.md with evidence; installer ready for invited testers"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S17.1",
+        "S17.2",
+        "S17.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S18.1",
+      "session": "S18",
+      "milestone": "M4",
+      "title": "Language services configured and work offline packaged",
+      "description": "",
+      "acceptance": [
+        "HTML/CSS/JS services active; e2e on packaged build with network disabled"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S18.2",
+      "session": "S18",
+      "milestone": "M4",
+      "title": "Capability validation suite",
+      "description": "",
+      "acceptance": [
+        "tests/fixtures/lang-capabilities with expected completions/hovers; docs/capabilities.md lists only passing ones"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S18.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S18.3",
+      "session": "S18",
+      "milestone": "M4",
+      "title": "Formatting",
+      "description": "",
+      "acceptance": [
+        "Format document for HTML/CSS/JS via command + shortcut; emits a pre-format hook for history"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S18.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S18.4",
+      "session": "S18",
+      "milestone": "M4",
+      "title": "Multi-file JS awareness and worker recovery",
+      "description": "",
+      "acceptance": [
+        "Relative ES module imports resolve for completion where validated; killed worker restarts and editor stays usable"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S18.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S19.1",
+      "session": "S19",
+      "milestone": "M4",
+      "title": "Markers → ProblemRecords",
+      "description": "",
+      "acceptance": [
+        "Monaco markers mapped to source=static records, debounced, cleared correctly"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S19.2",
+      "session": "S19",
+      "milestone": "M4",
+      "title": "Beginner-tuned diagnostics",
+      "description": "",
+      "acceptance": [
+        "Noisy TS diagnostics disabled; undefined-variable and syntax errors kept; fixtures prove both"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S19.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S20.1",
+      "session": "S20",
+      "milestone": "M5",
+      "title": "Three templates with local assets",
+      "description": "",
+      "acceptance": [
+        "Personal intro, product showcase, button counter; licence-clean local images/fonts; each previews with zero problems"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S20.2",
+      "session": "S20",
+      "milestone": "M5",
+      "title": "Welcome screen and create-project wizard",
+      "description": "",
+      "acceptance": [
+        "Create my first webpage (name + location), open folder, recent projects; existing folders never overwritten"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S20.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S20.3",
+      "session": "S20",
+      "milestone": "M5",
+      "title": "File role descriptions",
+      "description": "",
+      "acceptance": [
+        "index.html / style.css / script.js show short role descriptions (i18n)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S20.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S21.1",
+      "session": "S21",
+      "milestone": "M5",
+      "title": "Snapshot store",
+      "description": "",
+      "acceptance": [
+        "Content-addressed snapshots + JSON index in app data; dedupe; per-file and total limits with visible usage and cleanup"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S21.2",
+      "session": "S21",
+      "milestone": "M5",
+      "title": "Snapshot triggers",
+      "description": "",
+      "acceptance": [
+        "Around coalesced save batches, before format, delete and restore (tests)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S21.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S21.3",
+      "session": "S21",
+      "milestone": "M5",
+      "title": "History UI with diff and restore",
+      "description": "",
+      "acceptance": [
+        "Version list per file, diff vs current, restore saves current first; restore deleted file"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S21.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S21.4",
+      "session": "S21",
+      "milestone": "M5",
+      "title": "Clear history and reveal location",
+      "description": "",
+      "acceptance": [
+        "Controls exist and work; documented"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S21.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S22.1",
+      "session": "S22",
+      "milestone": "M5",
+      "title": "Rules engine",
+      "description": "",
+      "acceptance": [
+        "Pure rule functions ProblemRecord → explanation + checks; uncertainty wording; original always retained; unit tests"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S22.2",
+      "session": "S22",
+      "milestone": "M5",
+      "title": "Rules 1–8",
+      "description": "",
+      "acceptance": [
+        "Misspelled variable (did-you-mean), bracket/syntax error, null DOM element, script 404, image 404, CSS 404, misspelled CSS property, module import failure — fixture per rule"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S22.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S22.3",
+      "session": "S22",
+      "milestone": "M5",
+      "title": "Rules 9–15",
+      "description": "",
+      "acceptance": [
+        "Unhandled rejection, fetch/JSON failure, CORS explanation, JSON parse error, 'x is not a function', unclosed HTML tag, selector-not-matching guided checks"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S22.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S22.4",
+      "session": "S22",
+      "milestone": "M5",
+      "title": "Problem card UI",
+      "description": "",
+      "acceptance": [
+        "Matches PLAN §9 example: file, line, explanation, checks, Go to code, Show original (zh-CN + en)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S22.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S23.1",
+      "session": "S23",
+      "milestone": "M5",
+      "title": "Walkthrough engine",
+      "description": "",
+      "acceptance": [
+        "Anchored steps, skippable, revisitable from Help; state persisted"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S23.2",
+      "session": "S23",
+      "milestone": "M5",
+      "title": "Journey steps",
+      "description": "",
+      "acceptance": [
+        "Heading → style → interaction → deliberate error → restore → reopen, each verified by e2e"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S23.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S23.3",
+      "session": "S23",
+      "milestone": "M5",
+      "title": "Unguided final task",
+      "description": "",
+      "acceptance": [
+        "Small task without prompts; completion detected"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S23.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S23.4",
+      "session": "S23",
+      "milestone": "M5",
+      "title": "Terminology glossary",
+      "description": "",
+      "acceptance": [
+        "resources/lessons glossary linked from UI; standard terms kept"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S24.1",
+      "session": "S24",
+      "milestone": "M6",
+      "title": "Command registry",
+      "description": "",
+      "acceptance": [
+        "Commands with id, i18n label, handler, when, per-platform keybinding; menus/hints derived; tests for ⌘S vs Ctrl+S rendering"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S24.2",
+      "session": "S24",
+      "milestone": "M6",
+      "title": "Platform menus and window lifecycle",
+      "description": "",
+      "acceptance": [
+        "macOS app menu + reactivation; Windows quits on last window close (tests + manual)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S24.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S24.3",
+      "session": "S24",
+      "milestone": "M6",
+      "title": "Accessibility pass",
+      "description": "",
+      "acceptance": [
+        "Keyboard operability of key actions; focus order; axe scan in e2e has no serious issues"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S24.4",
+      "session": "S24",
+      "milestone": "M6",
+      "title": "Themes and zoom persisted",
+      "description": "",
+      "acceptance": [
+        "Light/dark/system theme and font zoom saved in settings"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S25.1",
+      "session": "S25",
+      "milestone": "M6",
+      "title": "Sleep/wake recovery",
+      "description": "",
+      "acceptance": [
+        "Watchers, server and preview recover after sleep on Windows"
+      ],
+      "verify": "manual-win",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S25.2",
+      "session": "S25",
+      "milestone": "M6",
+      "title": "Sleep/wake recovery (macOS)",
+      "description": "",
+      "acceptance": [
+        "Watchers, server and preview recover after sleep on macOS"
+      ],
+      "verify": "manual-mac",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S25.3",
+      "session": "S25",
+      "milestone": "M6",
+      "title": "Folder permission errors explained",
+      "description": "",
+      "acceptance": [
+        "macOS TCC (Documents/Desktop) and Windows Controlled Folder Access errors map to clear messages (simulated in tests)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S25.4",
+      "session": "S25",
+      "milestone": "M6",
+      "title": "Preview permission requests denied",
+      "description": "",
+      "acceptance": [
+        "Camera, mic, geolocation, notifications denied by default; tested"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S26.1",
+      "session": "S26",
+      "milestone": "M7",
+      "title": "Automated fault suite",
+      "description": "",
+      "acceptance": [
+        "tests/integration/faults covers §11 cases; docs/release/fault-matrix.md maps case → test or manual check"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S26.2",
+      "session": "S26",
+      "milestone": "M7",
+      "title": "Fault suite on both platforms in CI",
+      "description": "",
+      "acceptance": [
+        "Suite runs on windows + macos jobs; manual-only cases listed"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S26.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S27.1",
+      "session": "S27",
+      "milestone": "M7",
+      "title": "Performance scripts",
+      "description": "",
+      "acceptance": [
+        "Cold start p95 (n≥20), save→preview p95 (50-file fixture), memory idle/typical → docs/perf/<platform>.md"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S27.2",
+      "session": "S27",
+      "milestone": "M7",
+      "title": "Offline acceptance",
+      "description": "",
+      "acceptance": [
+        "With network disabled: templates, editing, preview, explanations work (e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S27.3",
+      "session": "S27",
+      "milestone": "M7",
+      "title": "Target misses fixed or documented",
+      "description": "",
+      "acceptance": [
+        "Each miss has a fix or a recorded decision"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S27.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S28.1",
+      "session": "S28",
+      "milestone": "M7",
+      "title": "Makers, icon, version info, About",
+      "description": "",
+      "acceptance": [
+        "DMG (arm64) and Windows installer (maker choice ADR); About shows version"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S28.2",
+      "session": "S28",
+      "milestone": "M7",
+      "title": "macOS signing, notarisation, stapling in CI",
+      "description": "",
+      "acceptance": [
+        "spctl and stapler validate the downloaded DMG"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "H.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S28.3",
+      "session": "S28",
+      "milestone": "M7",
+      "title": "Windows signing in CI",
+      "description": "",
+      "acceptance": [
+        "signtool verifies installer and exe"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "H.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S28.4",
+      "session": "S28",
+      "milestone": "M7",
+      "title": "Upgrade and uninstall",
+      "description": "",
+      "acceptance": [
+        "vN → vN+1 manual upgrade keeps settings, history, recent projects; uninstall clean"
+      ],
+      "verify": "manual-win",
+      "depends_on": [
+        "S28.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S28.5",
+      "session": "S28",
+      "milestone": "M7",
+      "title": "Upgrade on macOS",
+      "description": "",
+      "acceptance": [
+        "vN → vN+1 keeps data; first launch of downloaded DMG passes Gatekeeper"
+      ],
+      "verify": "manual-mac",
+      "depends_on": [
+        "S28.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S28.6",
+      "session": "S28",
+      "milestone": "M7",
+      "title": "User docs",
+      "description": "",
+      "acceptance": [
+        "Install guide, manual upgrade, data locations, release-notes template under docs/release/"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S29.1",
+      "session": "S29",
+      "milestone": "M7",
+      "title": "Acceptance run on clean Windows x64",
+      "description": "",
+      "acceptance": [
+        "docs/release/acceptance.md checklist executed; results recorded"
+      ],
+      "verify": "manual-win",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S29.2",
+      "session": "S29",
+      "milestone": "M7",
+      "title": "Acceptance run on physical Apple Silicon",
+      "description": "",
+      "acceptance": [
+        "Same checklist on macOS; results recorded separately"
+      ],
+      "verify": "manual-mac",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S29.3",
+      "session": "S29",
+      "milestone": "M7",
+      "title": "Fixes and Gate G7 review",
+      "description": "",
+      "acceptance": [
+        "docs/reviews/G7.md; no known file-loss issues"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S29.1",
+        "S29.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "H.1",
+      "session": "H",
+      "milestone": "M0",
+      "title": "Choose minimum OS versions and test devices; confirm access to a physical Apple Silicon Mac",
+      "description": "Owner: project owner (not an agent).",
+      "acceptance": [
+        "Choose minimum OS versions and test devices; confirm access to a physical Apple Silicon Mac"
+      ],
+      "verify": "human",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "H.2",
+      "session": "H",
+      "milestone": "M0",
+      "title": "Apple Developer Program enrolment; choose Windows code-signing route; store credentials for CI only",
+      "description": "Owner: project owner (not an agent).",
+      "acceptance": [
+        "Apple Developer Program enrolment; choose Windows code-signing route; store credentials for CI only"
+      ],
+      "verify": "human",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "H.3",
+      "session": "H",
+      "milestone": "M0",
+      "title": "Walk 3–5 beginners through the wireframes; record hesitations in docs/research/",
+      "description": "Owner: project owner (not an agent).",
+      "acceptance": [
+        "Walk 3–5 beginners through the wireframes; record hesitations in docs/research/"
+      ],
+      "verify": "human",
+      "depends_on": [
+        "S01.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "H.4",
+      "session": "H",
+      "milestone": "M0",
+      "title": "Confirm adjustable assumptions: Chinese-first UI, weekly hours, Windows arm64 out of v1",
+      "description": "Owner: project owner (not an agent).",
+      "acceptance": [
+        "Confirm adjustable assumptions: Chinese-first UI, weekly hours, Windows arm64 out of v1"
+      ],
+      "verify": "human",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "H.5",
+      "session": "H",
+      "milestone": "M1",
+      "title": "Create a private GitHub repository and push; enable Actions (macOS arm64 runners)",
+      "description": "Owner: project owner (not an agent).",
+      "acceptance": [
+        "Create a private GitHub repository and push; enable Actions (macOS arm64 runners)"
+      ],
+      "verify": "human",
+      "depends_on": [
+        "S00.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "H.6",
+      "session": "H",
+      "milestone": "M5",
+      "title": "Five-beginner study across Windows and Mac; findings in docs/research/study-1.md",
+      "description": "Owner: project owner (not an agent).",
+      "acceptance": [
+        "Five-beginner study across Windows and Mac; findings in docs/research/study-1.md"
+      ],
+      "verify": "human",
+      "depends_on": [
+        "S23.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "H.7",
+      "session": "H",
+      "milestone": "M8",
+      "title": "Beta with 8–12 new beginners on both platforms; findings in docs/research/beta.md",
+      "description": "Owner: project owner (not an agent).",
+      "acceptance": [
+        "Beta with 8–12 new beginners on both platforms; findings in docs/research/beta.md"
+      ],
+      "verify": "human",
+      "depends_on": [
+        "S29.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "H.8",
+      "session": "H",
+      "milestone": "M8",
+      "title": "Public beta go/no-go decision",
+      "description": "Owner: project owner (not an agent).",
+      "acceptance": [
+        "Public beta go/no-go decision"
+      ],
+      "verify": "human",
+      "depends_on": [
+        "H.7"
+      ],
+      "status": "todo",
+      "evidence": ""
+    }
+  ]
+}

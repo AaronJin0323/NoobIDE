@@ -1,0 +1,32 @@
+{
+  "name": "noobide",
+  "productName": "NoobIDE",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A beginner-friendly desktop IDE for HTML / CSS / JavaScript.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "session": "node harness/session.mjs",
+    "verify": "node harness/verify.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "eslint": "10.12.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.4"
+  }
+}
