@@ -104,6 +104,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
         ((w.noobide as { createProject?: object } | undefined)?.createProject ?? {}) as object,
       ),
       history: Object.keys(((w.noobide as { history?: object } | undefined)?.history ?? {}) as object),
+      walkthrough: Object.keys(((w.noobide as { walkthrough?: object } | undefined)?.walkthrough ?? {}) as object),
     };
   });
   expect(probe).toEqual({
@@ -127,6 +128,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'session',
       'createProject',
       'history',
+      'walkthrough',
     ],
     apiVersion: 1,
     workspace: [
@@ -163,6 +165,8 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     createProject: ['options', 'chooseLocation', 'check', 'create'],
     // S21.3/S21.4: local history (files by project id + relative path, other histories by opaque key).
     history: ['files', 'versions', 'read', 'beforeRestore', 'restoreDeleted', 'overview', 'clear', 'cleanup', 'reveal'],
+    // S23: onboarding walkthrough progress (step ids and short signatures only).
+    walkthrough: ['get', 'save'],
   });
 
   // The violation we just provoked is logged as a console error; drop exactly those so the final check stays strict.

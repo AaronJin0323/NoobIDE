@@ -296,6 +296,35 @@ export const zhCN = {
   'preview.console.olderTag': '刷新前',
   'preview.console.emptyFiltered': '没有符合筛选条件的输出。',
   // --- end S17.3 ---
+  // --- S23 onboarding walkthrough, final task and glossary ---
+  'appMenu.walkthrough': '帮助：入门导览',
+  'appMenu.glossary': '帮助：术语表',
+  'walkthrough.region': '入门导览',
+  'walkthrough.progress': '第 {n} 步，共 {total} 步',
+  'walkthrough.where': '在哪里：',
+  'walkthrough.done': '✓ 这一步完成了！',
+  'walkthrough.waiting': '等你完成这一步……（也可以跳过）',
+  'walkthrough.terms': '相关术语：',
+  'walkthrough.back': '上一步',
+  'walkthrough.next': '下一步',
+  'walkthrough.skipStep': '跳过这一步',
+  'walkthrough.finish': '完成导览',
+  'walkthrough.showMe': '指给我看',
+  'walkthrough.close': '关闭导览',
+  'walkthrough.closeHint': '以后可以在“更多操作”→“帮助：入门导览”里再打开。',
+  'walkthrough.offer.title': '导览走完了！',
+  'walkthrough.offer.text': '想检验一下吗？试试一个没有提示的小任务。',
+  'walkthrough.task.start': '开始小任务',
+  'walkthrough.task.later': '以后再说',
+  'walkthrough.task.waiting': '还没完成——保存后这里会自动检查。',
+  'walkthrough.task.stop': '结束小任务',
+  'walkthrough.task.close': '关闭',
+  'glossary.title': '术语表',
+  'glossary.intro': '教程里常见的标准术语。术语本身保留原文，方便你在网上搜索。',
+  'glossary.search': '搜索术语',
+  'glossary.empty': '没有找到这个术语。',
+  'glossary.close': '关闭',
+  // --- end S23 ---
 } as const;
 
 export type MessageKey = keyof typeof zhCN;
