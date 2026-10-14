@@ -130,4 +130,89 @@ export const en: Record<DiagnosticsMessageKey, string> = {
     'The module file may not exist or the path may be wrong: the server did not send back a JavaScript file.',
   'module.loadFailed.check.path':
     'Check the path and file name in the import, including capitalisation and the .js extension.',
+
+  // Rule 9 — unhandled promise rejection
+  'rejection.title': 'A promise failed and no code handled the error.',
+  'rejection.explanation':
+    'An asynchronous operation (such as a fetch or an awaited result) may have failed, and there is no .catch() or try…catch to handle it. The original error may say why it failed.',
+  'rejection.check.catch': 'Add .catch(error => { … }) to the promise, or put the await inside try { … } catch { … }.',
+  'rejection.check.reason': 'Expand “Show original error” to see why it failed.',
+
+  // Rule 10 — fetch failures
+  'fetch.failed.title': 'The request was not sent or got no response (Failed to fetch).',
+  'fetch.status.title': 'The request for {path} failed: the server answered {status}.',
+  'fetch.network.title': 'The request for {path} failed ({netError}).',
+  'fetch.explanation':
+    'The address may be wrong, the file may not exist, or the other server may not be running or may not allow access.',
+  'fetch.cause.notFound': 'The file at that address may not exist, or the path may be wrong.',
+  'fetch.cause.cors':
+    'If the console also shows an error mentioning “CORS”, the other website may not allow this page to read its data.',
+  'fetch.cause.offline': 'If the address is on the internet, this computer may be offline.',
+  'fetch.cause.serverDown': 'If the address is another server on this computer, that server may not be running.',
+  'fetch.check.url':
+    "Check the address in fetch; files in the project use relative paths, for example fetch('data.json').",
+  'fetch.check.console': 'Look in the console for other errors at the same time.',
+
+  // Rule 11 — CORS
+  'cors.title': 'The browser blocked this page from reading data from {url} (CORS).',
+  'cors.titleGeneric': 'The browser blocked this page from reading data from another website (CORS).',
+  'cors.explanation':
+    'That website does not allow other pages to read its data; this is a browser security rule. NoobIDE will not turn this check off, and other browsers behave the same way.',
+  'cors.check.local':
+    "If you only need some data, save it as a .json file in the project and read it with fetch('name.json').",
+  'cors.check.api':
+    'If you want to use an online API, check its documentation to confirm that webpages may call it directly (it supports CORS).',
+
+  // Rule 12 — JSON parse errors
+  'json.title': 'This text could not be parsed as JSON.',
+  'json.html.explanation':
+    'What arrived is likely a webpage (starting with <), not JSON. A common cause is a wrong address, so the server sent back a “not found” page.',
+  'json.empty.explanation': 'The text to parse may be empty or cut off.',
+  'json.quotes.explanation':
+    'The JSON may be written incorrectly: property names and strings need double quotes, and there must be no comma after the last item.',
+  'json.undefined.explanation':
+    'JSON.parse was given undefined; the data may not exist yet (for example, the item is not in localStorage yet).',
+  'json.generic.explanation': 'The text to parse may not be valid JSON.',
+  'json.check.url': 'If the data comes from fetch, check the address and print the received text to the console.',
+  'json.check.file':
+    'If the data comes from a .json file in the project, open it and check the double quotes and commas.',
+
+  // Rule 13 — "x is not a function"
+  'notFunction.title': '{name} is not a function, so it cannot be called with ().',
+  'notFunction.explanation.typo': 'It may be a misspelling: you may mean {candidate}.',
+  'notFunction.explanation.several': 'It may be misspelled; similar names are: {candidates}.',
+  'notFunction.explanation.notArray': '{object} may not be an array, so it has no {method} method.',
+  'notFunction.explanation.generic':
+    'This name may not be a function: it may be a plain value, misspelled, or called before it was assigned.',
+  'notFunction.check.spelling':
+    'Check the spelling and capitalisation (JavaScript is case-sensitive, e.g. the Id in getElementById).',
+  'notFunction.check.log': 'Add console.log({name}) before this line to see what it really is.',
+  'notFunction.check.array': 'Make sure {object} is an array, for example by checking it with console.log({object}).',
+
+  // Rule 14 — unclosed HTML tag
+  'htmlUnclosed.title': 'The <{tag}> tag has no matching </{tag}>.',
+  'htmlUnclosed.explanation':
+    'A </{tag}> is likely missing, so the content after it may be treated as part of this element and the layout may look wrong.',
+  'htmlUnclosed.check.findFromLine': 'From line {line} downwards, add </{tag}> where the content of this element ends.',
+  'htmlUnclosed.check.find': 'Add </{tag}> where the content of this element ends.',
+  'htmlUnclosed.check.typo':
+    'Check the spelling of the closing tag; a misspelled closing tag does not close the element.',
+  'htmlUnclosed.check.indent': 'Keep the indentation tidy; it makes an unclosed tag easier to spot.',
+
+  // Rule 15 — selector does not match (guided checks)
+  'selector.title': 'The selector {selector} may not match any element on the page.',
+  'selector.titleGeneric': 'A style is not being applied.',
+  'selector.explanation': 'NoobIDE cannot tell the cause for sure. Go through the checks below one by one.',
+  'selector.cause.similarId': 'The HTML has a similar id, “{candidate}”; the spelling or capitalisation may not match.',
+  'selector.cause.similarClass':
+    'The HTML has a similar class, “{candidate}”; the spelling or capitalisation may not match.',
+  'selector.cause.isId': '“{name}” is an id in the HTML, so the selector may need to be #{name}.',
+  'selector.cause.isClass': '“{name}” is a class in the HTML, so the selector may need to be .{name}.',
+  'selector.check.spelling':
+    'Compare with the HTML: check that the class or id is spelled and capitalised exactly like the selector.',
+  'selector.check.prefix': 'In a selector, . means class, # means id, and tag names have no symbol.',
+  'selector.check.linked':
+    'Make sure the <head> of the HTML includes this CSS file with <link rel="stylesheet" href="…"> and that the path is right.',
+  'selector.check.override': 'Look for a later rule or a more specific selector that sets the same property.',
+  'selector.check.saved': 'Save the file and make sure the preview has refreshed.',
 };

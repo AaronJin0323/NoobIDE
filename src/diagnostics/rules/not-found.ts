@@ -24,25 +24,26 @@ const TITLES: Record<Kind, DiagnosticsMessageKey> = {
   stylesheet: 'notFound.title.stylesheet',
 };
 
-/** The requested project-relative path: from the producer, else decoded from the URL path. */
+/**
+ * The requested project-relative path, as resolved by the producer (S16.4), which knows the preview origin. A URL
+ * on another origin is not a project path, so nothing is guessed from the URL here.
+ */
 export function requestedPath(record: ProblemRecord): string | undefined {
-  const r = record.resource;
-  if (!r) return undefined;
-  if (r.requestedPath) return r.requestedPath;
-  try {
-    const u = new URL(r.requestedUrl);
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return undefined;
-    return decodeURIComponent(u.pathname).replace(/^\/+/, '');
-  } catch {
-    return undefined;
-  }
+  return record.resource?.requestedPath || undefined;
+}
+
+/** Extension of the requested file, ignoring any query string or fragment in the URL. */
+function requestedExtension(record: ProblemRecord, path: string | undefined): string {
+  if (path) return extension(path);
+  const url = record.resource?.requestedUrl ?? '';
+  return extension(url.split(/[?#]/, 1)[0] ?? '');
 }
 
 function kindOf(record: ProblemRecord, path: string | undefined): Kind | undefined {
   const t = record.resource?.resourceType;
   if (t === 'script' || t === 'image' || t === 'stylesheet') return t;
   if (t && t !== 'other') return undefined; // fetch, font, media, document: not these rules
-  const ext = extension(path ?? record.resource?.requestedUrl ?? '');
+  const ext = requestedExtension(record, path);
   return (Object.keys(EXTENSIONS) as Kind[]).find((k) => EXTENSIONS[k].includes(ext));
 }
 

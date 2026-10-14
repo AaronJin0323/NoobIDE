@@ -223,6 +223,130 @@ export const RULE_FIXTURES: readonly RuleFixture[] = [
       1,
     ),
   ),
+
+  // Rule 9 — unhandled rejection
+  fx('unhandled-rejection-error', 'unhandled-rejection', {
+    ...runtime('unhandledrejection', 'Uncaught (in promise) Error: 用户不存在', 'app.js', 20, 11),
+  }),
+
+  // Rule 10 — fetch failures
+  fx(
+    'fetch-failed-to-fetch',
+    'fetch-failed',
+    runtime('TypeError', 'Uncaught (in promise) TypeError: Failed to fetch', 'app.js', 3, 1),
+  ),
+  fx('fetch-404-resource', 'fetch-failed', { ...resource('data/题目.json', 'fetch', 'app.js', 3) }),
+  fx('fetch-connection-refused', 'fetch-failed', {
+    ...base,
+    source: 'resource',
+    preview,
+    file: 'app.js',
+    line: 3,
+    code: 'resource-failed',
+    message: 'GET http://localhost:3000/api/list net::ERR_CONNECTION_REFUSED',
+    resource: {
+      requestedUrl: 'http://localhost:3000/api/list',
+      resourceType: 'fetch',
+      initiatorFile: 'app.js',
+      netError: 'net::ERR_CONNECTION_REFUSED',
+    },
+  }),
+
+  // Rule 11 — CORS
+  fx('cors-blocked-fetch', 'cors', {
+    ...base,
+    source: 'console',
+    preview,
+    code: 'console.error',
+    message:
+      "Access to fetch at 'https://api.example.com/weather' from origin 'http://127.0.0.1:51734' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+  }),
+
+  // Rule 12 — JSON parse errors
+  fx(
+    'json-got-html',
+    'json-parse',
+    runtime(
+      'SyntaxError',
+      'Uncaught (in promise) SyntaxError: Unexpected token \'<\', "<!DOCTYPE "... is not valid JSON',
+      'app.js',
+      4,
+      1,
+    ),
+  ),
+  fx(
+    'json-single-quotes',
+    'json-parse',
+    runtime(
+      'SyntaxError',
+      "Uncaught SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)",
+      'app.js',
+      7,
+      19,
+    ),
+  ),
+  fx(
+    'json-undefined',
+    'json-parse',
+    runtime('SyntaxError', 'Uncaught SyntaxError: "undefined" is not valid JSON', 'app.js', 9, 17),
+  ),
+  fx(
+    'json-empty',
+    'json-parse',
+    runtime('SyntaxError', 'Uncaught SyntaxError: Unexpected end of JSON input', 'app.js', 9, 17),
+  ),
+
+  // Rule 13 — not a function
+  fx(
+    'not-a-function-case',
+    'not-a-function',
+    runtime('TypeError', 'Uncaught TypeError: document.getElementByID is not a function', 'script.js', 2, 21),
+  ),
+  fx(
+    'not-a-function-typo',
+    'not-a-function',
+    runtime('TypeError', 'Uncaught TypeError: btn.addEventListner is not a function'),
+  ),
+  fx(
+    'not-a-function-not-array',
+    'not-a-function',
+    runtime('TypeError', 'Uncaught TypeError: items.map is not a function'),
+  ),
+  fx('not-a-function-plain', 'not-a-function', runtime('TypeError', 'Uncaught TypeError: greet is not a function'), {
+    declaredNames: [{ name: 'greet' }],
+  }),
+
+  // Rule 14 — unclosed HTML tag
+  fx('html-unclosed-div', 'html-unclosed-tag', {
+    ...staticMarker('html-unclosed-tag', 'Unclosed element `div`.', 'index.html', 18, 5),
+    data: { tagName: 'div' },
+  }),
+
+  // Rule 15 — selector guided checks
+  fx(
+    'selector-unmatched-wrong-prefix',
+    'selector-guided-checks',
+    {
+      ...staticMarker('css-selector-unmatched', 'Selector .hero matches no element in index.html', 'style.css', 10, 1),
+      data: { selector: '.hero' },
+    },
+    { htmlIds: ['hero'], htmlClasses: ['title'] },
+  ),
+  fx(
+    'selector-unmatched-similar',
+    'selector-guided-checks',
+    {
+      ...staticMarker('css-selector-unmatched', 'Selector #mainTitle matches no element', 'style.css', 3, 1),
+      data: { selector: '#mainTitle' },
+    },
+    { htmlIds: ['main-title'], htmlClasses: [] },
+  ),
+  fx('style-not-applied-guided', 'selector-guided-checks', {
+    ...base,
+    source: 'static',
+    code: 'guided-style-not-applied',
+    message: 'User asked: my style is not applied',
+  }),
 ];
 
 export function fixture(name: string): RuleFixture {

@@ -113,6 +113,78 @@ export const zhCN = {
   'module.loadFailed.title': '模块文件没有加载出来。',
   'module.loadFailed.explanation': '模块文件可能不存在，或者路径写错了：服务器返回的不是 JavaScript 文件。',
   'module.loadFailed.check.path': '检查 import 里的路径和文件名，包括大小写和 .js 扩展名。',
+
+  // Rule 9 — unhandled promise rejection
+  'rejection.title': '一个 Promise 失败了，但没有代码处理这个错误。',
+  'rejection.explanation':
+    '异步操作（例如 fetch 或 await 的结果）可能失败了，而代码里没有 .catch() 或 try…catch 来处理它。原始错误里可能写着失败的原因。',
+  'rejection.check.catch': '给这个 Promise 加上 .catch(error => { … })，或者把 await 写在 try { … } catch { … } 里。',
+  'rejection.check.reason': '展开“显示原始错误”，看看失败的原因。',
+
+  // Rule 10 — fetch failures
+  'fetch.failed.title': '请求没有发出去，或者没有收到回应（Failed to fetch）。',
+  'fetch.status.title': '请求 {path} 失败了，服务器返回 {status}。',
+  'fetch.network.title': '请求 {path} 失败了（{netError}）。',
+  'fetch.explanation': '可能是地址写错了、文件不存在，或者对方的服务器没有运行、不允许访问。',
+  'fetch.cause.notFound': '地址里的文件可能不存在，或者路径写错了。',
+  'fetch.cause.cors': '如果控制台里同时有带“CORS”字样的错误，可能是对方网站不允许这个页面读取它的数据。',
+  'fetch.cause.offline': '如果请求的是网上的地址，可能是电脑没有联网。',
+  'fetch.cause.serverDown': '如果请求的是本机上另一个服务器的地址，可能那个服务器没有运行。',
+  'fetch.check.url': "检查 fetch 里的地址；项目里的文件用相对路径，例如 fetch('data.json')。",
+  'fetch.check.console': '在控制台里看看同一时间有没有其他错误。',
+
+  // Rule 11 — CORS
+  'cors.title': '浏览器阻止了页面读取 {url} 的数据（CORS）。',
+  'cors.titleGeneric': '浏览器阻止了页面读取另一个网站的数据（CORS）。',
+  'cors.explanation':
+    '那个网站没有允许其他网页读取它的数据，这是浏览器的安全规则。NoobIDE 不会关闭这项安全检查，在其他浏览器里打开也会一样。',
+  'cors.check.local': "如果只是要用一些数据，可以把数据保存成项目里的 .json 文件，再用 fetch('文件名.json') 读取。",
+  'cors.check.api': '如果要用网上的接口，查一下它的文档，确认它允许网页直接调用（支持 CORS）。',
+
+  // Rule 12 — JSON parse errors
+  'json.title': '无法把这段文本解析成 JSON。',
+  'json.html.explanation':
+    '收到的内容很可能是一个网页（以 < 开头），而不是 JSON。常见原因是请求的地址不对，服务器返回了“找不到”页面。',
+  'json.empty.explanation': '要解析的文本可能是空的，或者只有一半。',
+  'json.quotes.explanation': 'JSON 的写法可能不对：属性名和字符串必须用双引号，最后一项后面不能有逗号。',
+  'json.undefined.explanation':
+    '传给 JSON.parse 的值是 undefined，可能是要读取的数据还不存在（例如 localStorage 里还没有这一项）。',
+  'json.generic.explanation': '要解析的文本可能不是正确的 JSON。',
+  'json.check.url': '如果数据来自 fetch，确认地址正确，并在控制台里打印收到的文本看看。',
+  'json.check.file': '如果数据来自项目里的 .json 文件，打开它检查双引号和逗号。',
+
+  // Rule 13 — "x is not a function"
+  'notFunction.title': '{name} 不是函数，不能用 () 调用。',
+  'notFunction.explanation.typo': '可能是拼写错误：你想用的可能是 {candidate}。',
+  'notFunction.explanation.several': '可能是拼写错误，相近的名字有：{candidates}。',
+  'notFunction.explanation.notArray': '{object} 可能不是数组，所以没有 {method} 方法。',
+  'notFunction.explanation.generic': '这个名字可能不是函数：也许它是一个普通的值、拼错了，或者在赋值之前就被调用了。',
+  'notFunction.check.spelling': '检查名字的拼写和大小写（JavaScript 区分大小写，例如 getElementById 里的 Id）。',
+  'notFunction.check.log': '在这一行前面加上 console.log({name})，看看它到底是什么。',
+  'notFunction.check.array': '确认 {object} 是一个数组，例如用 console.log({object}) 查看它。',
+
+  // Rule 14 — unclosed HTML tag
+  'htmlUnclosed.title': '<{tag}> 标签没有找到对应的 </{tag}>。',
+  'htmlUnclosed.explanation': '很可能少写了 </{tag}>，后面的内容可能都被当成了这个元素的一部分，页面布局可能因此错乱。',
+  'htmlUnclosed.check.findFromLine': '从第 {line} 行往下找，在这个元素的内容结束的地方加上 </{tag}>。',
+  'htmlUnclosed.check.find': '在这个元素的内容结束的地方加上 </{tag}>。',
+  'htmlUnclosed.check.typo': '检查结束标签的拼写，拼错的结束标签不能闭合元素。',
+  'htmlUnclosed.check.indent': '保持缩进整齐，更容易看出哪个标签没有闭合。',
+
+  // Rule 15 — selector does not match (guided checks)
+  'selector.title': '选择器 {selector} 可能没有匹配到页面上的任何元素。',
+  'selector.titleGeneric': '样式没有生效。',
+  'selector.explanation': 'NoobIDE 不能确定原因。可以按下面的步骤逐一检查。',
+  'selector.cause.similarId': 'HTML 里有一个相似的 id：“{candidate}”，可能是拼写或大小写不一致。',
+  'selector.cause.similarClass': 'HTML 里有一个相似的 class：“{candidate}”，可能是拼写或大小写不一致。',
+  'selector.cause.isId': 'HTML 里的“{name}”是 id，选择器可能要写成 #{name}。',
+  'selector.cause.isClass': 'HTML 里的“{name}”是 class，选择器可能要写成 .{name}。',
+  'selector.check.spelling': '对照 HTML，检查 class 或 id 的拼写和大小写是否和选择器完全一致。',
+  'selector.check.prefix': '选择器里 . 表示 class，# 表示 id，标签名前面不加符号。',
+  'selector.check.linked':
+    '确认 HTML 的 <head> 里用 <link rel="stylesheet" href="…"> 引入了这个 CSS 文件，并且路径正确。',
+  'selector.check.override': '看看后面有没有其他规则或更具体的选择器设置了同一个属性。',
+  'selector.check.saved': '保存文件，并确认预览已经刷新。',
 } as const satisfies Record<string, string>;
 
 export type DiagnosticsMessageKey = keyof typeof zhCN;

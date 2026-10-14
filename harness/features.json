@@ -2018,8 +2018,8 @@
       "depends_on": [
         "S22.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Rules in src/diagnostics/rules/: undefined-name (did-you-mean via OSA edit distance on ctx.declaredNames or TS 2552; returns candidates + exact LineSpan, replace-text fix only with exactly one candidate located on the line), syntax (brackets, end of input, full-width punctuation), null-element (getElementById/querySelector vs htmlIds), not-found x3 (script/image/stylesheet 404: case mismatch, other folder, similar name), css-unknown-property, module-import. Fixture per rule in rules/fixtures.ts; rules.test.ts (every fixture → expected rule + honesty in zh-CN/en, original retained) + rules-1-8.test.ts (24 tests incl. exact wireframe 3 copy for userNmae and 头像.PNG) + text.test.ts; verify green @ 0085621"
     },
     {
       "id": "S22.3",
@@ -2034,7 +2034,7 @@
       "depends_on": [
         "S22.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
