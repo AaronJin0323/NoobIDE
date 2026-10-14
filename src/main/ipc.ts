@@ -11,6 +11,7 @@ import {
 } from '../shared/ipc/contract';
 import type { ProjectService } from '../workspace/project-service';
 import { safeOrigin } from './harden';
+import { registerRecoveryHandlers, type RecoveryJournalPort } from './recovery-ipc';
 
 /**
  * IPC handlers for the typed contract in src/shared/ipc (S03.1). Every call is checked in this order before any
@@ -43,17 +44,22 @@ export interface IpcDeps {
   revealFolder(folder: string): void;
   /** S04.4: called after a successful save so the preview can refresh. */
   afterSave?(projectId: string): void;
+  /** S12: crash-recovery journal (src/recovery/journal.ts). */
+  readonly journal: RecoveryJournalPort;
 }
+
+/** Registers one channel behind the sender and payload checks. */
+export type HandleFn = <P>(
+  channel: Channel,
+  parse: (payload: unknown) => P | null,
+  run: (payload: P, event: IpcMainInvokeEvent) => Promise<IpcResult<unknown, string>>,
+) => void;
 
 const FORBIDDEN = { ok: false, code: 'forbidden-sender', message: 'sender is not the workbench' } as const;
 const INVALID = { ok: false, code: 'invalid-request', message: 'payload does not match the contract' } as const;
 
 export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps): void {
-  function handle<P>(
-    channel: Channel,
-    parse: (payload: unknown) => P | null,
-    run: (payload: P, event: IpcMainInvokeEvent) => Promise<IpcResult<unknown, string>>,
-  ): void {
+  const handle: HandleFn = (channel, parse, run) => {
     ipc.handle(channel, async (event, ...args: unknown[]) => {
       if (!isTrustedSender(senderInfo(event), deps.allowedOrigin)) return FORBIDDEN;
       if (args.length > 1) return INVALID;
@@ -61,7 +67,7 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
       if (payload === null) return INVALID;
       return run(payload, event);
     });
-  }
+  };
 
   handle(CHANNELS.openFolder, parseNoPayload, async (_payload, event) => {
     const chosen = await deps.chooseFolder(event);
@@ -83,4 +89,7 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
     deps.revealFolder(root);
     return { ok: true, value: null };
   });
+
+  // S12: crash-recovery journal channels.
+  registerRecoveryHandlers(handle, deps.projects, deps.journal);
 }

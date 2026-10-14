@@ -1,0 +1,85 @@
+/* style.css 是"视觉样式"：决定网页长什么样（颜色、大小、间距）。 */
+
+/* 整个页面：背景色和文字字体 */
+body {
+  margin: 0;
+  padding: 32px 16px;
+  background-color: #f3f6fb;
+  color: #1f2933;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+  line-height: 1.6;
+}
+
+/* 白色卡片，放在页面中间 */
+.card {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 32px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(31, 41, 51, 0.08);
+  text-align: center;
+}
+
+/* 圆形头像 */
+.avatar {
+  border-radius: 50%;
+}
+
+/* 大标题：试着改一改颜色或字号 */
+h1 {
+  margin: 16px 0 8px;
+  color: #2563eb;
+  font-size: 32px;
+}
+
+h2 {
+  margin-top: 24px;
+  font-size: 20px;
+}
+
+.intro {
+  color: #52606d;
+}
+
+/* 爱好列表：去掉圆点，横着排 */
+.hobbies {
+  padding: 0;
+  list-style: none;
+}
+
+.hobbies li {
+  display: inline-block;
+  margin: 4px;
+  padding: 4px 12px;
+  background-color: #e0ecff;
+  border-radius: 999px;
+}
+
+/* 按钮 */
+button {
+  margin-top: 16px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background-color: #2563eb;
+  color: #ffffff;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #1d4ed8;
+}
+
+/* 点击按钮后出现的消息 */
+.message {
+  min-height: 1.6em;
+  font-weight: bold;
+}

@@ -11,6 +11,7 @@ import type { PlatformId } from '../../platform/labels';
 import type { Result } from '../result';
 // S04 preview: types live in preview-contract.ts; only the API field is added here.
 import type { PreviewApi } from './preview-contract';
+import type { RecoveryApi } from './recovery-contract';
 
 export const IPC_API_VERSION = 1;
 
@@ -19,6 +20,15 @@ export const CHANNELS = {
   readFile: 'workspace:read-file',
   writeFile: 'workspace:write-file',
   revealProject: 'workspace:reveal-project',
+  // --- S12 crash-recovery journal (types and parsers: recovery-contract.ts) ---
+  recoveryRecord: 'recovery:record',
+  recoveryDiscardSaved: 'recovery:discard-saved',
+  recoveryListPending: 'recovery:list-pending',
+  recoveryOpenProject: 'recovery:open-project',
+  recoveryRead: 'recovery:read',
+  recoveryDiscard: 'recovery:discard',
+  recoveryClear: 'recovery:clear',
+  // --- end S12 ---
 } as const;
 
 export type Channel = (typeof CHANNELS)[keyof typeof CHANNELS];
@@ -118,6 +128,8 @@ export interface NoobideApi {
   };
   /** Isolated webpage preview (S04.3); see preview-contract.ts. */
   readonly preview: PreviewApi;
+  /** S12: crash-recovery journal of unsaved buffers. */
+  readonly recovery: RecoveryApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */

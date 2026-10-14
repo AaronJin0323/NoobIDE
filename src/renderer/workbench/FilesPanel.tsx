@@ -1,6 +1,7 @@
 import { useI18n } from '../i18n/I18nProvider';
 import type { OpenedProject } from '../../shared/ipc/contract';
 import { FolderIcon, SmallFolderIcon, WarningIcon } from './icons';
+import { FileRoleTag } from './FileRole';
 
 interface FilesPanelProps {
   hidden: boolean;
@@ -57,6 +58,7 @@ export function FilesPanel({ hidden, project, activeRelPath, openFailed, onOpenF
                   onClick={() => onOpenFile(file.relPath)}
                 >
                   {file.relPath}
+                  <FileRoleTag relPath={file.relPath} />
                 </button>
               </li>
             ))}

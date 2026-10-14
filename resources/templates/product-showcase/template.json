@@ -1,0 +1,13 @@
+{
+  "id": "product-showcase",
+  "order": 2,
+  "default": false,
+  "name": { "zh-CN": "产品展示页", "en": "Product showcase" },
+  "description": {
+    "zh-CN": "介绍一件商品：大标题、产品图片、特点列表和一个“加入心愿单”按钮。",
+    "en": "Present a product: a banner, a product picture, a feature list and an “Add to wishlist” button."
+  },
+  "entry": "index.html",
+  "files": ["index.html", "style.css", "script.js", "images/product.svg"],
+  "thumbnail": "thumbnail.svg"
+}
