@@ -12,7 +12,9 @@ import { isIgnoredName, isIgnoredRelPath } from './ignore';
  * macOS may coalesce several, and both report atomic saves as renames.
  *
  * After a quiet period the batch is classified against an exact-name snapshot of the project, indexed by folder:
- *   exists now + known → changed (files only) · exists + unknown → created · gone + known → deleted.
+ *   exists now + known → changed (files only) · exists + unknown → created · gone + known → deleted ·
+ *   gone + unknown (created and removed again within the batch) → deleted, because a listing made meanwhile may
+ *   show it (a create and delete that fall into one batch is common with FSEvents' delivery latency on macOS).
  * Existence is decided by an exact, case-sensitive name match in the parent's listing, so a case-only rename on a
  * case-insensitive volume (Windows, default macOS) is still seen. A deletion and a creation of the same kind in one
  * batch pair up as a rename (same folder) or move (same name); `caseOnly` marks renames that only change case.
@@ -210,6 +212,8 @@ export class ProjectWatcher {
     const changed: string[] = [];
     const createdDirs = new Set<string>();
     const deletedDirs = new Set<string>();
+    /** Paths that came and went within this batch: neither in the snapshot nor on disk now. */
+    const vanished = new Set<string>();
     const underAny = (relPath: string, dirsSet: Set<string>) => {
       for (let p = parentOf(relPath); p !== ''; p = parentOf(p)) if (dirsSet.has(p)) return true;
       return false;
@@ -231,6 +235,14 @@ export class ProjectWatcher {
         // Written in place (`change`) or replaced by a rename (an external editor's atomic save).
         if (early.has(relPath) && (await this.predatesSnapshot(relPath))) continue;
         changed.push(relPath);
+      } else if (nowKind === undefined && before === undefined) {
+        // Created and removed again before the batch was classified. There is no net change against the snapshot,
+        // but a folder listing made in between (e.g. the tree reloading for an unrelated event) may show the entry:
+        // report it gone so it is refreshed. Entries inside a folder that is reported anyway are covered by it.
+        if (underAny(relPath, deletedDirs) || underAny(relPath, createdDirs) || underAny(relPath, vanished)) continue;
+        // FSEvents (via libuv) names an event on the watched folder itself by the folder's own name.
+        if (relPath === path.basename(this.root)) continue;
+        vanished.add(relPath);
       }
     }
 
@@ -257,6 +269,7 @@ export class ProjectWatcher {
       events.push({ type: 'deleted', relPath: d.relPath });
       this.forget(d.relPath);
     }
+    for (const relPath of vanished) events.push({ type: 'deleted', relPath });
     for (const c of created) {
       events.push({ type: 'created', relPath: c.relPath });
       this.remember(c.relPath, c.kind);

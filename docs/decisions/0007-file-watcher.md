@@ -57,3 +57,14 @@ reporting `changed` only when its raw event arrived within `replayWindowMs` (1 s
 file's ctime is not newer than the snapshot start (millisecond resolution). Outside that window nothing changes and
 no extra I/O is done; on Windows (no replays) the check finds a fresh ctime and reports the change as before. A
 replay large enough to exceed `maxBatch` still becomes one harmless `rescan`.
+
+## Amendment (2026-10-15): an entry created and removed within one batch is reported as deleted
+
+macOS arm64 e2e: another program created a file and deleted it ~50 ms later. FSEvents delivered both raw events
+within one debounce window, so the batch saw no net change against the snapshot (unknown before, absent now) and
+emitted nothing. But the tree had already listed the folder in between — reloading it for an unrelated event — and
+kept a ghost row. Such a path ("gone + unknown") is now reported as `deleted` (once, at its outermost folder), so
+listeners refresh it; for a path nobody listed it is a harmless reload. The raw event FSEvents/libuv sends for the
+watched folder itself (named by the folder's own basename) is not reported. Windows behaves the same way when its
+events fall into one batch; nothing else changes. Covered by `tests/integration/watcher.test.ts` (create→delete,
+create→delete→create, and a deterministic same-batch case with an injected watch).

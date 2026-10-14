@@ -66,6 +66,65 @@ describe('file watcher (S07.3)', () => {
     await expectEvents([{ type: 'deleted', relPath: '子 文件夹/页面 二.html' }]);
   });
 
+  it('a file created by another program and deleted right away ends up reported as deleted', async () => {
+    // FSEvents (macOS) often delivers the creation late enough that the deletion lands in the same debounced
+    // batch. Whether the two arrive together or apart, the last word on the path must be "deleted": the tree may
+    // already list the file (reloaded for another event) and would otherwise keep a ghost row.
+    await writeFile(p('外部 新建.js'), 'console.log(1);\n');
+    await rm(p('外部 新建.js'));
+    await expect.poll(() => events, { timeout: 5000 }).toContainEqual({ type: 'deleted', relPath: '外部 新建.js' });
+    await new Promise((r) => setTimeout(r, 250));
+    await watcher.idle();
+    expect(events.at(-1)).toEqual({ type: 'deleted', relPath: '外部 新建.js' });
+    expect(events.every((e) => e.type === 'created' || e.type === 'deleted')).toBe(true);
+  });
+
+  it('create, delete, create of the same file is reported as created, a later delete as deleted', async () => {
+    await writeFile(p('外部 新建.js'), '1\n');
+    await rm(p('外部 新建.js'));
+    await writeFile(p('外部 新建.js'), '2\n');
+    await expect.poll(() => events, { timeout: 5000 }).toContainEqual({ type: 'created', relPath: '外部 新建.js' });
+    await new Promise((r) => setTimeout(r, 250));
+    await watcher.idle();
+    expect(events.at(-1)).toEqual({ type: 'created', relPath: '外部 新建.js' });
+    events = [];
+    await rm(p('外部 新建.js'));
+    await expectEvents([{ type: 'deleted', relPath: '外部 新建.js' }]);
+  });
+
+  it('entries that came and went within one batch are reported as deleted, a folder once', async () => {
+    watcher.close();
+    let raw: (filename: string | null) => void = () => undefined;
+    const watch: WatchFn = (_root, onChange) => {
+      raw = onChange;
+      return { on: () => undefined, close: () => undefined };
+    };
+    events = [];
+    watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { debounceMs: 20, watch });
+    await watcher.start();
+    // The OS reports each step, but all of them before the batch is classified.
+    await writeFile(p('外部 新建.js'), '');
+    raw('外部 新建.js');
+    await rm(p('外部 新建.js'));
+    raw('外部 新建.js');
+    await mkdir(p('临时'));
+    raw('临时');
+    await writeFile(p('临时', 'a.js'), '');
+    raw(path.join('临时', 'a.js'));
+    await rm(p('临时'), { recursive: true });
+    raw(path.join('临时', 'a.js'));
+    raw('临时');
+    await expect.poll(() => events.length).toBeGreaterThan(0);
+    await watcher.idle();
+    expect(events).toEqual(
+      expect.arrayContaining([
+        { type: 'deleted', relPath: '外部 新建.js' },
+        { type: 'deleted', relPath: '临时' },
+      ]),
+    );
+    expect(events).toHaveLength(2);
+  });
+
   it('reports a rename in the same folder', async () => {
     await rename(p('index.html'), p('首页.html'));
     await expectEvents([{ type: 'renamed', from: 'index.html', to: '首页.html', caseOnly: false }]);
