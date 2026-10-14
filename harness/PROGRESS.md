@@ -3,6 +3,68 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 9 — 2026-10-15 — First macOS session; parallel wave 3 (S23, S24, S25.3, S26.1, S27, S28.1)
+
+**Agent:** Claude (Opus 5.5) as lead on a physical Apple Silicon Mac (MacBook Pro M3 Pro, 18 GB, macOS 27.2 arm64),
+with six parallel subagents in git worktrees. First time the project ever ran on macOS. Pulled the owner's
+S11.1–S11.3/S13.4 fixes (e3d9ffd) first. The wave-2 branches W1/W2/CI live only on the Windows machine (not pushed),
+so this wave deliberately avoided their areas: preview (S05.5/S05.7, S14, S15, S16), problem card (S22.4/S22.5), CI (S06).
+
+**Done (88 done + 7 needs_manual_check of 145; was 55 + 6)**
+
+- macOS verify fix: `npm run verify` was red on macOS (11 tests). Real product bug: FSEvents replays changes made just
+  before the watch attaches, so freshly created projects reported spurious `changed` events — `src/workspace/watcher.ts`
+  now ignores replays inside a 1 s window when ctime predates the snapshot (amendment in decision 0007). Two tests had
+  Windows-only assumptions (`/var` → `/private/var` realpath; ENOTDIR vs ENOENT for a broken history folder).
+- macOS e2e: real bug — the overflowing tab strip's overlay scrollbar swallowed tab clicks on macOS; strip now has no
+  scrollbar, scrolls the active tab into view and maps the wheel to sideways scroll (TabBar.tsx + regression e2e).
+  E2e made platform-neutral: `tempRoot()` and `keys.ts` (DOC_START/DOC_END/FIND_REPLACE) in tests/e2e, mac labels.
+  S02.6, S12.4 (recovery e2e now passed on Apple Silicon + Windows) and S05.6 (mac baseline row) done.
+  `selftest:packaged` and `selftest:dev` pass on darwin arm64.
+- S25.3 protected-folder errors (macOS TCC / Windows Controlled Folder Access) explained with OS-specific steps
+  (`src/platform/protected-folders.ts`). S26.1 fault suite: 55 tests with an injected `node:fs/promises`
+  (tests/integration/faults/), matrix in docs/release/fault-matrix.md. It found and fixed two data-safety bugs:
+  journal `discardSaved` deleted an unreadable record that could hold newer edits; a failed re-create left an empty
+  placeholder that later read as a false conflict. Both reviewed by a separate subagent and by the lead.
+- S27.1 perf scripts (`scripts/measure-perf.mjs`, docs/perf/darwin-arm64.md: cold start p95 853 ms, packaged 831 ms,
+  save→preview 61 ms), S27.2 offline acceptance e2e (network cut proven at three layers), S27.3 (no mac misses),
+  S28.1 icons (placeholder art, `scripts/make-icons.mjs`), forge metadata, DMG+ZIP on mac, About dialog.
+- S23.1–S23.4 walkthrough engine, PLAN §2 journey (steps detected from real saves/problems/restores), unguided final
+  task, glossary (22 terms). Progress in `<userData>/walkthrough.json`.
+- S24.1 command registry (`src/shared/commands.ts`, `src/platform/keybindings.ts`), S24.2 native menus per platform +
+  window lifecycle, S24.3 axe-core a11y pass (light/dark, F6 region cycling), S24.4 theme choice persisted. About,
+  walkthrough and glossary are registry commands in the Help / app menu.
+
+**Evidence:** `npm run verify` green on macOS (1326 tests). Full `npm run test:e2e` on macOS arm64: 180 passed, 2
+skipped, 1 flake (menus About/Escape race, fixed in the test by waiting for dialog focus; 10/10 on repeat). Per-feature
+evidence in features.json.
+
+**Decisions:** 0012 installers and app identity (Squirrel on Windows; DMG+ZIP on mac; Windows `iconUrl` stays
+default until a release host exists). 0013 onboarding walkthrough (renumbered from 0012 at merge). 0014 command
+registry and native menus. **W1's planned decisions 0012/0013 must be renumbered to 0015+ when W1 merges.**
+New devDependency `axe-core` 4.13.0 (pinned, pure JS); lockfile updated with `--package-lock-only` on the Mac —
+regenerate on Windows per AGENTS.md. `.gitignore` now ignores `node_modules` (also symlinks in agent worktrees).
+
+**Problems / risks:** Nothing from this wave verified on Windows yet — run `npm run verify` and `npm run test:e2e` there,
+especially watcher.test.ts (relies on NTFS ctime), the new tab-strip test, `tempRoot()` (8.3 short names) and the
+menus/lifecycle tests. Console flood (S05.3) stalls the main process 8–9 s on macOS vs 3–5 s on Windows — S05.7 is
+more urgent. Mac idle memory 551 MB / 649 MB with preview, close to the ~700 MB budget. `selftest:dev` replaces
+`.vite/build` with a dev build; run `npm run package` before any `--no-build` e2e afterwards.
+
+**Owner action needed:** push the W1/W2/CI worktree branches from the Windows machine (or decide to rebuild that work);
+then merge W1 → W2 → CI on top of this main. Windows manual checks: S24.2, S27.1, S27.3, S28.1, S25.3, S26.1 (sections
+in harness/MANUAL-CHECKS.md). Confirm icon art, copyright holder text in forge.config.ts, first release version
+(package.json is 0.0.0). Still open: H.1, H.2, H.5; S09.5 (real IME on mac) needs a person.
+
+**Next up**
+
+1. Merge the Windows-only wave-2 branches (see Session 4 "Paused again"): W1 (S05.5 security fixes, S05.7, S14,
+   S15, S16.2–S16.6), W2 (S22.4/S22.5 — then add suggested-checks to the walkthrough's deliberate-error step), CI
+   (S06.1/S06.2). Expect conflicts in Workbench.tsx (now uses the S24 command registry — W1/W2 key handlers and menu
+   items must become registry commands), i18n catalogs, contract.ts, preload.ts, main.ts, MANUAL-CHECKS.md.
+2. Re-run all new tests on Windows; integrate the paused W4 S13.5 work (Session 8), then S13.7 and S17.4 gate
+   reviews, S25.4 (after W1), S28.6 user docs.
+
 ## Session 8 — 2026-10-15 — S13.4 session restore lifecycle
 
 **Agent:** Codex on the Windows x64 development machine.
