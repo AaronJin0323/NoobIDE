@@ -1006,8 +1006,8 @@
       "depends_on": [
         "S07.1"
       ],
-      "status": "done",
-      "evidence": "src/workspace/text-codec.ts decodeForDisplay + ProjectService read/write guard; src/workspace/text-codec.test.ts (UTF-8 +/- BOM editable, BOM round trip, GB18030/Windows-1252/UTF-16 read-only, binary refused, EOL dominant style, new/empty files LF); tests/integration/project-service.test.ts (GBK read-only + never overwritten, binary write refused, CRLF+BOM preserved); tests/e2e/encodings.spec.ts (read-only notice, CRLF kept after edit+save in Monaco, binary not opened); verify + e2e green @ 579a472"
+      "status": "in_progress",
+      "evidence": "Reopened after review @ 2c4e14d: write skips the encoding check for files > 5 MB, so a large non-UTF-8/binary file can be overwritten. Fix in progress (workspace agent)."
     },
     {
       "id": "S08.1",
@@ -1036,8 +1036,8 @@
       "depends_on": [
         "S08.1"
       ],
-      "status": "done",
-      "evidence": "src/workspace/file-ops.ts + src/shared/file-names.ts checkFileName (Windows+macOS rules on every platform) + NameEditor; tests/integration/file-ops.test.ts (invalid names CON/aux/trailing dot/invalid chars/dotfile explained, case-only rename of file and folder on case-insensitive NTFS) + file-op-messages.test.ts + e2e file-tree.spec (explanations shown, case-only rename) @ a35504f"
+      "status": "in_progress",
+      "evidence": "Reopened after review @ 2c4e14d: failed case-only rename leaves the file hidden under a .noobide-rename dotfile; existing invalid names cannot be renamed or explained. Fix in progress (workspace agent)."
     },
     {
       "id": "S08.3",
@@ -1068,8 +1068,8 @@
       "depends_on": [
         "S08.2"
       ],
-      "status": "done",
-      "evidence": "create with wx/mkdir non-recursive, rename checks target + case-insensitive sibling conflict; tests/integration/file-ops.test.ts 'never silently overwrite' (create onto file/folder, rename onto file, move onto file in other folder, folder onto folder, case conflicts; contents unchanged) + e2e (exists/case-conflict explained) @ a35504f"
+      "status": "in_progress",
+      "evidence": "Reopened after review @ 2c4e14d: inode-based sibling skip can overwrite a distinct exact-name target on shares with unreliable inode numbers; case-only branch has no final existence check. Fix in progress (workspace agent)."
     },
     {
       "id": "S08.5",
