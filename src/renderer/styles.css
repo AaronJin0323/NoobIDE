@@ -290,6 +290,9 @@ button {
   min-width: 0;
   gap: 4px;
   overflow-x: auto;
+  /* No scrollbar: a macOS overlay scrollbar covers the tabs while shown and catches clicks meant for them. TabBar
+     scrolls the active tab into view; the mouse wheel and trackpad still scroll the strip. */
+  scrollbar-width: none;
 }
 .tab {
   display: inline-flex;

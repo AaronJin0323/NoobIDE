@@ -1,9 +1,8 @@
 import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { listTemplates } from '../../src/workspace/templates';
-import { launchApp, repoRoot } from './launch';
+import { launchApp, repoRoot, tempRoot } from './launch';
 
 /**
  * S20.3: a project made from the default template shows the role of index.html / style.css / script.js in the file
@@ -17,7 +16,7 @@ let tmp: string;
 let root: string;
 
 test.beforeAll(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-roles-'));
+  tmp = await mkdtemp(path.join(tempRoot(), 'noobide-roles-'));
   root = path.join(tmp, '我的 主页');
   const listing = await listTemplates(path.join(repoRoot, 'resources', 'templates'));
   if (!listing.ok) throw new Error(listing.message);

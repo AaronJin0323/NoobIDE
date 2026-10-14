@@ -1,8 +1,7 @@
 import { cp, mkdir, mkdtemp } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, type ElectronApplication, type Page } from '@playwright/test';
-import { repoRoot } from './launch';
+import { repoRoot, tempRoot } from './launch';
 
 /** Shared steps for the preview e2e specs (S04, S05). */
 
@@ -34,7 +33,7 @@ export async function openProject(app: ElectronApplication, page: Page, folder: 
 
 /** Copies a fixture to a temp folder whose path has Chinese characters and spaces. */
 export async function copyFixture(fixture: string, name = fixture): Promise<{ tmp: string; root: string }> {
-  const tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-e2e-'));
+  const tmp = await mkdtemp(path.join(tempRoot(), 'noobide-e2e-'));
   const root = path.join(tmp, '网页 练习', name);
   await mkdir(path.dirname(root), { recursive: true });
   await cp(path.join(repoRoot, 'tests', 'fixtures', fixture), root, { recursive: true });

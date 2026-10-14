@@ -3,6 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
 import { collectConsoleErrors, makeProject, openFile, openProject } from './project';
+import { DOC_START, FIND_REPLACE } from './keys';
 
 /**
  * S09.3 editing basics in the real editor: indent, comment toggle, find / replace, undo / redo, 16px default font,
@@ -30,7 +31,7 @@ async function saveAndExpect(expected: string): Promise<void> {
 
 async function cursorToStart() {
   await lines().click();
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
 }
 
 test.beforeAll(async () => {
@@ -82,7 +83,7 @@ test('find highlights matches and replace-all changes every one', async () => {
   await expect(widget.locator('.matchesCount')).toContainText('1');
   await page.keyboard.press('Escape');
   await lines().click();
-  await page.keyboard.press('ControlOrMeta+H');
+  await page.keyboard.press(FIND_REPLACE);
   await widget.locator('.find-part textarea').fill('let');
   await widget.locator('.replace-part textarea').fill('var');
   await widget.locator('.replace-part .codicon-find-replace-all').click();

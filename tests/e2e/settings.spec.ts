@@ -1,8 +1,7 @@
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { launchApp } from './launch';
+import { launchApp, tempRoot } from './launch';
 
 /**
  * S13.1 end to end: settings live in the app-data directory (here a fresh --user-data-dir whose path has Chinese
@@ -12,7 +11,7 @@ let tmp: string;
 let userData: string;
 
 test.beforeEach(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-settings-e2e-'));
+  tmp = await mkdtemp(path.join(tempRoot(), 'noobide-settings-e2e-'));
   userData = path.join(tmp, '用户 数据');
 });
 

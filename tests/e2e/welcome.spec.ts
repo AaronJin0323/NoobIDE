@@ -1,9 +1,8 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { listTemplates } from '../../src/workspace/templates';
-import { launchApp, repoRoot } from './launch';
+import { launchApp, repoRoot, tempRoot } from './launch';
 import { answerFolderDialog, collectConsoleErrors } from './project';
 import { waitForPreviewState } from './preview-helpers';
 
@@ -35,7 +34,7 @@ async function tree(dir: string, prefix = ''): Promise<string[]> {
 }
 
 test.beforeAll(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-welcome-'));
+  tmp = await mkdtemp(path.join(tempRoot(), 'noobide-welcome-'));
   documents = path.join(tmp, '我的 文档');
   await mkdir(documents);
   app = await launchApp();
