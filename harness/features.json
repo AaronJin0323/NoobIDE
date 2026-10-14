@@ -2268,8 +2268,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/platform/protected-folders.test.ts (classifier: TCC/CFA/probes) + tests/integration/protected-folder.test.ts (11 simulated TCC/CFA cases: open, save, tree, file ops, create project; no data change) + file-op-messages.test.ts (zh-CN/en per platform) @ 32d6eda; verify green except known macOS watcher/history-triggers/project-service failures"
     },
     {
       "id": "S25.4",
