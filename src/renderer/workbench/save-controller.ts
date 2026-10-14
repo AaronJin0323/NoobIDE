@@ -47,6 +47,8 @@ export class DocumentSaver {
   private inflight: Promise<boolean> | null = null;
   private timer: unknown = null;
   private composing = false;
+  /** Restored crash copy not yet touched by the user: never written on the user's behalf (S12.2). */
+  private hold = false;
   private disposed = false;
   private readonly savedListeners = new Set<(notice: SavedNotice) => void>();
   private readonly autosave: boolean;
@@ -73,10 +75,28 @@ export class DocumentSaver {
     return this.inflight !== null;
   }
 
+  /** True while the buffer holds a restored crash copy that the user has neither edited nor saved. */
+  get held(): boolean {
+    return this.hold && this.isUnsaved();
+  }
+
+  /**
+   * Puts a recovered crash copy into the buffer as unsaved edits (S12.2). Autosave, blur and "save every file" leave
+   * it alone — the recovery journal keeps it safe — until the user edits it or saves it explicitly.
+   */
+  restore(text: string): void {
+    if (this.disposed) return;
+    this.cancelTimer();
+    this.latestText = text;
+    this.hold = true;
+    this.apply({ type: 'edited' });
+  }
+
   /** Records an edit synchronously and (re)starts the autosave pause. */
   edit(text: string): void {
     if (this.disposed) return;
     this.latestText = text;
+    this.hold = false;
     this.apply({ type: 'edited' });
     this.schedule();
   }
@@ -117,7 +137,7 @@ export class DocumentSaver {
 
   /** The editor lost focus: write now instead of waiting for the pause (unless an IME composition is open). */
   blur(): void {
-    if (this.autosave && !this.composing && canSave(this.snapshot)) void this.save();
+    if (this.autosave && !this.composing && !this.hold && canSave(this.snapshot)) void this.save();
   }
 
   /** IME composition (e.g. Pinyin) started: autosave waits, so half-composed text is never written. */
@@ -164,7 +184,7 @@ export class DocumentSaver {
   }
 
   private schedule(): void {
-    if (!this.autosave || this.composing || this.disposed) return;
+    if (!this.autosave || this.composing || this.disposed || this.hold) return;
     this.cancelTimer();
     if (!canSave(this.snapshot)) return;
     this.timer = this.timers.set(() => {
@@ -194,8 +214,9 @@ export type SaveEveryResult<K> = { readonly ok: true } | { readonly ok: false; r
 export async function saveEvery<K>(entries: () => Iterable<readonly [K, DocumentSaver]>): Promise<SaveEveryResult<K>> {
   for (;;) {
     for (const [key, saver] of [...entries()]) {
+      if (saver.held) continue; // a restored crash copy stays in the journal until the user decides
       if (!(await saver.save())) return { ok: false, failed: key };
     }
-    if (![...entries()].some(([, saver]) => isUnsaved(saver.state))) return { ok: true };
+    if (![...entries()].some(([, saver]) => !saver.held && isUnsaved(saver.state))) return { ok: true };
   }
 }

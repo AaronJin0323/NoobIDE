@@ -16,6 +16,9 @@ const config: ForgeConfig = {
     executableName: 'noobide',
     appBundleId: 'app.noobide.desktop',
     asar: true,
+    // S20.1: built-in templates are copied next to app.asar as <resources>/templates (plain files, readable with fs).
+    // Resolved at runtime by resolveTemplatesDir() in src/workspace/templates.ts.
+    extraResource: ['resources/templates'],
     // Signing and notarisation are configured in S28 with credentials that live only in the release environment.
   },
   rebuildConfig: {},

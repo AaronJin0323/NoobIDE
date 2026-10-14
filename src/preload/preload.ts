@@ -28,9 +28,25 @@ const api: NoobideApi = {
     answerClose: (answer) => ipcRenderer.invoke(CHANNELS.answerClose, answer),
     closeDiscarding: () => ipcRenderer.invoke(CHANNELS.closeDiscarding),
   },
+  // --- S12 crash-recovery journal ---
+  recovery: {
+    record: (request) => ipcRenderer.invoke(CHANNELS.recoveryRecord, request),
+    discardSaved: (request) => ipcRenderer.invoke(CHANNELS.recoveryDiscardSaved, request),
+    listPending: () => ipcRenderer.invoke(CHANNELS.recoveryListPending),
+    openProject: (request) => ipcRenderer.invoke(CHANNELS.recoveryOpenProject, request),
+    read: (request) => ipcRenderer.invoke(CHANNELS.recoveryRead, request),
+    discard: (request) => ipcRenderer.invoke(CHANNELS.recoveryDiscard, request),
+    clear: () => ipcRenderer.invoke(CHANNELS.recoveryClear),
+  },
+  // --- end S12 ---
 };
 
 contextBridge.exposeInMainWorld(
   'noobide',
-  Object.freeze({ ...api, workspace: Object.freeze(api.workspace), app: Object.freeze(api.app) }),
+  Object.freeze({
+    ...api,
+    workspace: Object.freeze(api.workspace),
+    app: Object.freeze(api.app),
+    recovery: Object.freeze(api.recovery),
+  }),
 );

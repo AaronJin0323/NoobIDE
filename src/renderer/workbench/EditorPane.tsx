@@ -7,6 +7,7 @@ import { activeTab, type DocumentState } from './document-state';
 import { isUnsaved } from './save-machine';
 import { TabBar } from './TabBar';
 import { MinusIcon, PlusIcon, WarningIcon } from './icons';
+import { FileRoleHint } from './FileRole';
 
 // Monaco is large; load it as its own chunk so the shell paints first.
 const CodeEditor = lazy(() => import('../editor/CodeEditor').then((m) => ({ default: m.CodeEditor })));
@@ -131,6 +132,7 @@ export function EditorPane(props: EditorPaneProps) {
           </button>
         </div>
       </div>
+      {tab && <FileRoleHint relPath={tab.relPath} />}
       {docError && (
         <p className="inline-alert" role="alert" data-testid="open-error">
           <WarningIcon />

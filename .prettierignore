@@ -7,3 +7,5 @@ package-lock.json
 PLAN.md
 harness/features.json
 tests/fixtures/
+# Agent git worktrees (parallel sessions) are separate checkouts, never part of this tree.
+.claude/worktrees/

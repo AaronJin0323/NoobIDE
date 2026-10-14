@@ -1,0 +1,93 @@
+/* style.css 是"视觉样式"：决定网页长什么样（颜色、大小、间距）。 */
+
+body {
+  margin: 0;
+  background-color: #fffaf3;
+  color: #2d2a26;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+  line-height: 1.6;
+}
+
+/* 页面顶部的大横幅 */
+.hero {
+  padding: 40px 16px;
+  background-color: #f97316;
+  color: #ffffff;
+  text-align: center;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 36px;
+}
+
+.tagline {
+  margin: 8px 0 0;
+  font-size: 18px;
+}
+
+/* 产品图片和介绍并排显示；窗口变窄时自动换行 */
+.product {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  justify-content: center;
+  align-items: center;
+  max-width: 800px;
+  margin: 32px auto;
+  padding: 0 16px;
+}
+
+.product-image {
+  background-color: #ffffff;
+  border-radius: 16px;
+}
+
+.details {
+  max-width: 360px;
+}
+
+.features li {
+  margin: 4px 0;
+}
+
+.price {
+  font-size: 20px;
+}
+
+.price strong {
+  color: #c2410c;
+}
+
+button {
+  padding: 10px 20px;
+  border: 2px solid #f97316;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #c2410c;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* script.js 会给按钮加上 liked 这个 class */
+button.liked {
+  background-color: #f97316;
+  color: #ffffff;
+}
+
+.like-status {
+  color: #6b625a;
+}
+
+.footer {
+  padding: 16px;
+  color: #6b625a;
+  font-size: 14px;
+  text-align: center;
+}

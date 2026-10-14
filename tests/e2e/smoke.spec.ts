@@ -45,10 +45,12 @@ test('renders the five workbench regions (S02.3)', async () => {
 test('Monaco highlights HTML with every request local (S02.4, S02.6)', async () => {
   await expect(page.locator('.monaco-editor')).toHaveCount(1);
   await expect(page.locator('.view-lines')).toContainText('<h1 class="title">NoobIDE</h1>');
-  const tokenClasses = await page.$$eval('.view-lines .view-line span span', (spans) => [
-    ...new Set(spans.flatMap((s) => [...s.classList].filter((c) => /^mtk\d+$/.test(c)))),
-  ]);
-  expect(tokenClasses.length).toBeGreaterThanOrEqual(3); // tags, attributes, strings and text differ
+  // Tokenization is asynchronous; on a cold start (fresh app-data directory, no code cache) it can trail the text.
+  const tokenClasses = () =>
+    page.$$eval('.view-lines .view-line span span', (spans) => [
+      ...new Set(spans.flatMap((s) => [...s.classList].filter((c) => /^mtk\d+$/.test(c)))),
+    ]);
+  await expect.poll(async () => (await tokenClasses()).length).toBeGreaterThanOrEqual(3); // tags, attributes, strings and text differ
   // The network guard blocks every http(s)/ws(s) request from the workbench; none may have been attempted.
   const blocked = await app.evaluate(
     () =>
@@ -86,6 +88,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       apiVersion: (w.noobide as { apiVersion?: unknown } | undefined)?.apiVersion,
       workspace: Object.keys(((w.noobide as { workspace?: object } | undefined)?.workspace ?? {}) as object),
       app: Object.keys(((w.noobide as { app?: object } | undefined)?.app ?? {}) as object),
+      recovery: Object.keys(((w.noobide as { recovery?: object } | undefined)?.recovery ?? {}) as object),
     };
   });
   expect(probe).toEqual({
@@ -94,11 +97,13 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     inlineRan: false,
     violations: ['script-src-elem'],
     // S03.1: exactly the typed contract — no ipcRenderer, no generic send.
-    bridge: ['apiVersion', 'platform', 'workspace', 'app'],
+    bridge: ['apiVersion', 'platform', 'workspace', 'app', 'recovery'],
     apiVersion: 1,
     workspace: ['openFolder', 'readFile', 'writeFile', 'revealProject', 'saveCopy'],
     // S10.6: close requests arrive as a listener registration only; the IPC event object never reaches the page.
     app: ['onCloseRequested', 'answerClose', 'closeDiscarding'],
+    // S12: crash-recovery journal calls.
+    recovery: ['record', 'discardSaved', 'listPending', 'openProject', 'read', 'discard', 'clear'],
   });
 
   // The violation we just provoked is logged as a console error; drop exactly those so the final check stays strict.

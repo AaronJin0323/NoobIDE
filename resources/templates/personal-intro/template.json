@@ -1,0 +1,13 @@
+{
+  "id": "personal-intro",
+  "order": 1,
+  "default": true,
+  "name": { "zh-CN": "个人介绍页", "en": "Personal introduction" },
+  "description": {
+    "zh-CN": "一张介绍你自己的卡片：头像、名字、爱好和一个打招呼的按钮。",
+    "en": "A card that introduces you: avatar, name, hobbies and a button that says hello."
+  },
+  "entry": "index.html",
+  "files": ["index.html", "style.css", "script.js", "images/avatar.svg"],
+  "thumbnail": "thumbnail.svg"
+}

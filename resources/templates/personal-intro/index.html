@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- index.html 是"页面结构"：写网页上有什么内容（标题、段落、按钮、图片）。 -->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>我的个人主页</title>
+    <!-- 引入样式文件：网页长什么样写在 style.css 里 -->
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="card">
+      <img class="avatar" src="images/avatar.svg" alt="头像" width="120" height="120" />
+      <!-- 把下面的标题改成你的名字试试 -->
+      <h1>你好，我是小雨</h1>
+      <p class="intro">我正在学习做网页。我喜欢画画、听音乐，也喜欢和朋友一起散步。</p>
+
+      <h2>我的爱好</h2>
+      <ul class="hobbies">
+        <li>画画</li>
+        <li>听音乐</li>
+        <li>散步</li>
+      </ul>
+
+      <button id="greet-button" type="button">打个招呼</button>
+      <!-- 点击按钮后，script.js 会把消息写到这里 -->
+      <p id="message" class="message"></p>
+    </main>
+
+    <!-- 引入脚本文件：按钮被点击后做什么写在 script.js 里 -->
+    <script src="script.js"></script>
+  </body>
+</html>

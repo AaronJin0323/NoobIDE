@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- index.html 是"页面结构"：写网页上有什么内容（标题、段落、按钮、图片）。 -->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>产品展示</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <!-- 把产品名字改成你想介绍的东西 -->
+      <h1>晨光保温杯</h1>
+      <p class="tagline">一杯热水，暖一整天。</p>
+    </header>
+
+    <main class="product">
+      <img class="product-image" src="images/product.svg" alt="保温杯图片" width="240" height="240" />
+
+      <section class="details">
+        <h2>为什么选择它</h2>
+        <ul class="features">
+          <li>保温 12 小时</li>
+          <li>轻巧，只有 300 克</li>
+          <li>五种颜色可选</li>
+        </ul>
+        <p class="price">价格：<strong>¥ 89</strong></p>
+
+        <button id="like-button" type="button">加入心愿单</button>
+        <p id="like-status" class="like-status">还没有加入心愿单。</p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>这是一个练习用的网页，产品是虚构的。</p>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>

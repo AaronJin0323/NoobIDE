@@ -16,6 +16,7 @@ import {
   type WriteFileRequest,
 } from '../shared/ipc/contract';
 import { err, ok, type Result } from '../shared/result';
+import type { SaveHistoryHook } from '../recovery/history-triggers';
 import { FileInUseError, replaceFileAtomic, writeFileAtomic, type AtomicWriteOptions } from './atomic-write';
 import { decodeText, encodeText } from './text-codec';
 
@@ -40,6 +41,8 @@ interface Project {
 export interface ProjectServiceOptions {
   /** Injected file system and retry policy for saves (tests simulate ENOSPC, locks and read-only folders). */
   readonly atomic?: AtomicWriteOptions;
+  /** S21.2: local-history snapshots around each confirmed save. */
+  readonly history?: SaveHistoryHook;
 }
 
 /** A project file whose new content is confirmed on disk. */
@@ -54,8 +57,12 @@ export class ProjectService {
   private readonly projects = new Map<string, Project>();
   private readonly writeQueues = new Map<string, Promise<void>>();
   private readonly savedListeners = new Set<(file: SavedProjectFile) => void>();
+  /** S21.2: local-history snapshots around each save (optional; never blocks or fails a save). */
+  private readonly history: SaveHistoryHook | undefined;
 
-  constructor(private readonly options: ProjectServiceOptions = {}) {}
+  constructor(private readonly options: ProjectServiceOptions = {}) {
+    this.history = options.history;
+  }
 
   /** Registers a folder the user chose and lists its files. */
   async open(chosenPath: string): Promise<Result<OpenedProject, 'list-failed'>> {
@@ -115,10 +122,13 @@ export class ProjectService {
           if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
           // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
           await access(target.value, constants.W_OK);
+          // S21.2: keep the version on disk before this save batch replaces it.
+          await this.history?.beforeSave(this.rootOf(request.projectId) ?? '', request.relPath, target.value);
           await replaceFileAtomic(target.value, data, this.options.atomic);
         } catch (e) {
           return err(writeErrorCode(e), errorMessage(e), e);
         }
+        await this.history?.afterSave(this.rootOf(request.projectId) ?? '', request.relPath, data); // S21.2
         this.emitSaved({ projectId: request.projectId, relPath: request.relPath, path: target.value });
         return ok({ savedAt: Date.now() });
       });

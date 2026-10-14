@@ -1319,8 +1319,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/recovery-journal.test.ts (app-data only, project tree unchanged, atomic temp+rename, removed after save, out-of-order writes dropped) + src/renderer/recovery/journal-scheduler.test.ts (copy within 2 s under continuous typing) + tests/e2e/recovery.spec.ts S12.1 (record appears <=2 s, removed after Ctrl+S) + verify/e2e green @ 4c6bef4"
     },
     {
       "id": "S12.2",
@@ -1335,8 +1335,8 @@
       "depends_on": [
         "S12.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/recovery.spec.ts: SIGKILL/TerminateProcess of the Electron main pid, relaunch shows dialog with +line diff vs disk, restore as unsaved edits, save writes and clears journal; second test: restore never saves another restored copy silently @ 4c6bef4"
     },
     {
       "id": "S12.3",
@@ -1351,8 +1351,8 @@
       "depends_on": [
         "S12.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "recovery-journal.test.ts: per-entry/total/count limits (too-large, quota-exceeded, usage), 6 corruption kinds + misplaced skipped/logged/quarantined (bounded), unreadable dir survives, clearAll; e2e: clear-data control in dialog empties journal @ 4c6bef4"
     },
     {
       "id": "S12.4",
@@ -1368,7 +1368,7 @@
         "S12.2"
       ],
       "status": "todo",
-      "evidence": ""
+      "evidence": "steps in harness/MANUAL-CHECKS.md#S12.4; Windows e2e passes @ 4c6bef4"
     },
     {
       "id": "S13.1",
@@ -1665,8 +1665,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/problem.ts (ProblemRecord: source static|runtime|resource|console, severity, projectId, preview sessionId+generation, file/line/column, code, originalMessage/originalStack verbatim (capped, truncated flag), explanation{causes,checks,actions}, dedupeKey + count + first/last seen + last occurrence); src/shared/problem.test.ts (7 tests) + verify green @ 457213b"
     },
     {
       "id": "S16.2",
@@ -1729,8 +1729,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "Store logic done @ 825eb96: src/diagnostics/store.ts + store.test.ts (8 tests: dedupe with counts keeping first original + latest verbatim, token-bucket rate limit with per-source dropped counts, per-source LRU ring buffer with eviction counts, 20k console flood cannot evict runtime errors, 100k events < 2s). Cannot be set done: depends on S16.2 (runtime capture adapter, todo). Unblocks when S16.2 feeds captured events into ProblemStore; then add an integration test with a real flooding page and mark done."
     },
     {
       "id": "S16.6",
@@ -1745,8 +1745,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "Pure logic done @ 06f686b: src/diagnostics/normalize.ts (isOpaqueCrossOriginError, normalizePageError → code cross-origin-script-error with no file/line) + rules/cross-origin.ts (explains the browser hides cross-origin error details so no file/line can be shown, lists external <script> URLs, checks: bundle the library locally / crossorigin attribute); normalize.test.ts (7 tests, zh-CN+en, honesty). Cannot be done: depends on S16.2 (runtime capture adapter, todo) and the criterion needs a real opaque error from a cross-origin script in the sandboxed preview. Unblocks when S16.2 calls normalizePageError; then add an e2e/integration test loading a script from a second loopback origin that throws."
     },
     {
       "id": "S17.1",
@@ -1913,8 +1913,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "resources/templates/{personal-intro,product-showcase,button-counter} + README (CC0 provenance, hand-made SVGs, system fonts, no font files); tests/integration/templates.test.ts (24: exactly 3 templates zh-CN/en names, well-formed HTML, every local ref exists with exact case and is copied, no network URLs) + src/workspace/templates.test.ts (31: manifest/loader/resolveTemplatesDir); tests/e2e/templates.spec.ts (4: each template copied to a Chinese+spaces path previews offline in a sandboxed window with 0 console errors/exceptions/failed or non-file requests, images decoded, buttons work; packaged out/ has <resources>/templates with all 3); forge extraResource; verify + test:e2e (30) green @ 10fde49"
     },
     {
       "id": "S20.2",
@@ -1945,8 +1945,8 @@
       "depends_on": [
         "S20.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "Implemented and proven, but the CLI refuses done until dependency S20.2 is done. Proof: file-role.ts + file-role.test.ts (22 tests), FileRole.tsx wired into FilesPanel rows and EditorPane, tests/e2e/file-roles.spec.ts (3 tests), verify + test:e2e (33) green @ 0653227. Unblock: after S20.2 lands, re-run file-roles.spec.ts against the new tree/tabs and set done"
     },
     {
       "id": "S21.1",
@@ -1959,8 +1959,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/history-store.test.ts (11 tests): content-addressed blobs + JSON index in app data (project untouched), dedupe, per-file version/byte and total limits, usage()/fileUsage() report usage vs limits, cleanup()/clear(); corrupt index/blob tolerated. Usage is exposed by API; on-screen display comes with the S21.3/S21.4 UI @ b5cafbb"
     },
     {
       "id": "S21.2",
@@ -1975,8 +1975,8 @@
       "depends_on": [
         "S21.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/history-triggers.test.ts (8 tests): before/after-save through ProjectService.write with coalesced bursts, failed save, broken store never fails a save; before-format/restore/delete (file + folder) via HistoryTriggers API (callers arrive with format/delete/restore features); e2e recovery.spec S12.1 checks history index written in app data on save @ eec393b"
     },
     {
       "id": "S21.3",
@@ -2021,8 +2021,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/diagnostics/rules/engine.ts (pure Rule: ProblemRecord+RuleContext → explanation/causes/checks/certainty/actions; first match wins, throwing rules skipped, honest fallback), honesty.ts (uncertain ⇒ possibility wording in zh-CN+en + causes/checks; show-original always; no unfilled placeholders), messages/zh-CN.ts+en.ts (key+placeholder parity test); engine.test.ts (7 tests incl. original evidence unchanged by withExplanation) + verify green @ 35ba918"
     },
     {
       "id": "S22.2",
@@ -2037,8 +2037,8 @@
       "depends_on": [
         "S22.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Rules in src/diagnostics/rules/: undefined-name (did-you-mean via OSA edit distance on ctx.declaredNames or TS 2552; returns candidates + exact LineSpan, replace-text fix only with exactly one candidate located on the line), syntax (brackets, end of input, full-width punctuation), null-element (getElementById/querySelector vs htmlIds), not-found x3 (script/image/stylesheet 404: case mismatch, other folder, similar name), css-unknown-property, module-import. Fixture per rule in rules/fixtures.ts; rules.test.ts (every fixture → expected rule + honesty in zh-CN/en, original retained) + rules-1-8.test.ts (24 tests incl. exact wireframe 3 copy for userNmae and 头像.PNG) + text.test.ts; verify green @ 0085621"
     },
     {
       "id": "S22.3",
@@ -2053,8 +2053,8 @@
       "depends_on": [
         "S22.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Rules in src/diagnostics/rules/async-network.ts (unhandled-rejection, fetch-failed, cors [certain; never suggests disabling security], json-parse [HTML-instead-of-JSON, quotes/commas, undefined, empty]) and code-structure.ts (not-a-function with DOM/array method did-you-mean, html-unclosed-tag [code html-unclosed-tag + data.tagName, void elements excluded], selector-guided-checks [code css-selector-unmatched/guided-style-not-applied, certainty unknown, #/. prefix + similar id/class hints]). Fixtures per rule in rules/fixtures.ts; rules-9-15.test.ts (16 tests) + rules.test.ts honesty over all fixtures (41 at that commit) in zh-CN/en; verify green @ d32cc5a"
     },
     {
       "id": "S22.4",

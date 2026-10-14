@@ -11,10 +11,16 @@ import { ProblemsPanel } from './ProblemsPanel';
 import { INITIAL_LAYOUT, NARROW_QUERY, layoutReducer, visibleRegions } from './layout';
 import { INITIAL_DOCUMENT_STATE, activeSaveStatus, activeTab, cycleTab, documentReducer } from './document-state';
 import { DocumentSaver, saveEvery } from './save-controller';
+import { isUnsaved } from './save-machine';
 import { createSavedFileEvents } from './saved-file-events';
 import { DEFAULT_FONT_SIZE, zoomFontSize } from './zoom';
+// S12: crash-recovery journal
+import { useJournals } from '../recovery/useJournal';
+import { newBufferId, type JournalScheduler } from '../recovery/journal-scheduler';
+import { RecoveryDialog, type RestoreOutcome } from '../recovery/RecoveryDialog';
+import type { RecoveredEntry } from '../../shared/ipc/recovery-contract';
 
-const releaseModel = (uri: string) => void import('../editor/editor-models').then((m) => m.releaseModel(uri));
+const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
 
 /**
@@ -45,12 +51,27 @@ export function Workbench() {
   const loading = useRef(new Set<string>());
   /** Confirmed writes, for the preview refresh (S10.5): emitted strictly after the write and the status update. */
   const savedFiles = useRef(createSavedFileEvents());
+  // S12: each tab's unsaved buffer is journaled to app data until saved (independent of undo, autosave, history).
+  const journals = useJournals(bridge);
+  const tabJournals = useRef(new Map<string, JournalScheduler>());
 
   const saverOf = (relPath: string | null | undefined) => (relPath ? savers.current.get(relPath) : undefined);
   const relPathOfUri = (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath;
 
+  /**
+   * Creates the saver and the journal of a newly opened tab. `journal` continues a restored crash copy's record;
+   * otherwise every load gets a fresh buffer id, so it never overwrites another run's crash copy.
+   */
   const createSaver = useCallback(
-    (project: OpenedProject, relPath: string, content: FileContent) => {
+    (
+      project: OpenedProject,
+      relPath: string,
+      content: FileContent,
+      journal: { bufferId: string; baseRevision: number } = { bufferId: newBufferId(), baseRevision: 0 },
+    ) => {
+      const scheduler = journals.create();
+      scheduler.begin({ projectId: project.projectId, relPath, bom: content.bom, ...journal });
+      tabJournals.current.set(relPath, scheduler);
       const saver = new DocumentSaver({
         initialText: content.text,
         async write(text) {
@@ -65,11 +86,22 @@ export function Workbench() {
         },
         onState: (save) => dispatch({ type: 'saveState', relPath, save }),
       });
-      saver.onSaved(({ revision }) => savedFiles.current.emit({ relPath, uri: content.uri, revision }));
+      saver.onSaved(({ revision }) => {
+        scheduler.saved(revision); // S12: the journal record of this revision is no longer needed
+        savedFiles.current.emit({ relPath, uri: content.uri, revision });
+      });
       return saver;
     },
-    [bridge],
+    [bridge, journals],
   );
+
+  const forgetTab = (relPath: string) => {
+    savers.current.get(relPath)?.dispose();
+    savers.current.delete(relPath);
+    const journal = tabJournals.current.get(relPath);
+    if (journal) journals.release(journal);
+    tabJournals.current.delete(relPath);
+  };
 
   /**
    * Saves every open file until nothing is unsaved (edits typed during the pass are saved too). On a failure the
@@ -82,8 +114,7 @@ export function Workbench() {
   }, []);
 
   const closeProjectFiles = () => {
-    for (const saver of savers.current.values()) saver.dispose();
-    savers.current.clear();
+    for (const relPath of [...savers.current.keys()]) forgetTab(relPath);
     loading.current.clear();
     projectSeq.current += 1;
     releaseFileModels();
@@ -138,10 +169,9 @@ export function Workbench() {
       return;
     }
     // Order matters: the saver goes before the model is discarded (cleared), so that change reaches no saver.
-    saver.dispose();
-    savers.current.delete(relPath);
+    forgetTab(relPath);
     dispatch({ type: 'closed', relPath });
-    releaseModel(tab.uri);
+    void releaseModel(tab.uri);
   }, []);
 
   const saveActive = useCallback(() => void saverOf(docRef.current.active)?.save(), []);
@@ -167,8 +197,61 @@ export function Workbench() {
 
   const onChange = useCallback((uri: string, text: string) => {
     const relPath = relPathOfUri(uri);
-    if (relPath) saverOf(relPath)?.edit(text);
+    const saver = saverOf(relPath);
+    if (!relPath || !saver) return;
+    saver.edit(text);
+    tabJournals.current.get(relPath)?.edited(saver.state.revision, () => saver.text); // S12
   }, []);
+
+  // --- S12: restore after an abnormal termination (RecoveryDialog) ---
+  const adoptProject = useCallback(
+    async (project: OpenedProject) => {
+      if (!(await saveAll())) return false;
+      closeProjectFiles();
+      setCopyNotice(null);
+      dispatch({ type: 'projectOpened', project });
+      return true;
+    },
+    [saveAll],
+  );
+
+  /**
+   * Opens the file in a tab with the recovered text as unsaved edits; it reaches the disk only when the user saves
+   * (autosave leaves a restored copy alone until the user edits it). A tab of the same file with unsaved edits of
+   * its own is never overwritten: the user saves first.
+   */
+  const restoreRecovered = useCallback(
+    async (project: OpenedProject, entry: RecoveredEntry): Promise<RestoreOutcome> => {
+      if (!entry.disk || docRef.current.project?.projectId !== project.projectId) return 'failed';
+      const { relPath, bufferId, bom } = entry;
+      const open = saverOf(relPath);
+      if (open) {
+        if (open.busy || isUnsaved(open.state)) return 'save-first';
+        const tab = docRef.current.tabs.find((t) => t.relPath === relPath);
+        forgetTab(relPath);
+        dispatch({ type: 'closed', relPath });
+        if (tab) await releaseModel(tab.uri); // the restored text must get a fresh model, not the clean one
+        if (docRef.current.project?.projectId !== project.projectId || savers.current.has(relPath)) return 'failed';
+      }
+      const disk = { ...entry.disk, bom };
+      // Continue the crashed buffer's journal record so the first save removes it (journal revision = entry's).
+      const saver = createSaver(project, relPath, disk, { bufferId, baseRevision: entry.revision - 1 });
+      savers.current.set(relPath, saver);
+      saver.restore(entry.text);
+      dispatch({ type: 'docLoaded', relPath, content: { ...disk, text: entry.text } });
+      dispatch({ type: 'saveState', relPath, save: saver.state });
+      return 'restored';
+    },
+    [createSaver],
+  );
+
+  /** The journal was cleared: unsaved edits still open in the editor are journaled again right away. */
+  const rejournal = useCallback(() => {
+    for (const [relPath, saver] of savers.current) {
+      if (isUnsaved(saver.state)) tabJournals.current.get(relPath)?.resend(saver.state.revision, () => saver.text);
+    }
+  }, []);
+  // --- end S12 ---
   const onBlur = useCallback((uri: string) => saverOf(relPathOfUri(uri))?.blur(), []);
   const onComposition = useCallback((uri: string, composing: boolean) => {
     const saver = saverOf(relPathOfUri(uri));
@@ -281,6 +364,14 @@ export function Workbench() {
         <PreviewPane hidden={!visible.preview} />
       </div>
       <ProblemsPanel open={visible.problemsPanel} onToggle={() => dispatchLayout({ type: 'toggleProblems' })} />
+      {/* S12: crash-recovery prompt and journal health */}
+      <RecoveryDialog
+        bridge={bridge}
+        health={journals.health}
+        onProjectOpened={adoptProject}
+        onRestore={restoreRecovered}
+        onCleared={rejournal}
+      />
     </div>
   );
 }

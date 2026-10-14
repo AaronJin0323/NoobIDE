@@ -17,6 +17,10 @@ import {
 import { registerIpcHandlers } from './ipc';
 import { installCloseGuard, type CloseGuard } from './close-guard';
 import { ProjectService } from '../workspace/project-service';
+import { consoleLogger } from '../recovery/atomic-file';
+import { RecoveryJournal } from '../recovery/journal';
+import { SnapshotStore } from '../recovery/history';
+import { HistoryTriggers } from '../recovery/history-triggers';
 import { selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test';
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
@@ -39,6 +43,20 @@ function start(): void {
     typeof MAIN_WINDOW_VITE_DEV_SERVER_URL === 'string' ? MAIN_WINDOW_VITE_DEV_SERVER_URL : undefined;
   const devOrigin = devServerUrl ? new URL(devServerUrl).origin : undefined;
   const selfTest = selfTestRequested();
+
+  // --- S12: one running app per app-data directory, so two processes never share one recovery journal (a second
+  // instance would see the first one's live buffers as crash leftovers). The self-test probe is exempt. ---
+  if (!selfTest && !app.requestSingleInstanceLock()) {
+    app.quit();
+    return;
+  }
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (!win) return;
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  });
+  // --- end S12 ---
 
   // Read-only hook for the Playwright e2e suite (tests/e2e). Holds request metadata only, never source code.
   (globalThis as { __noobideTestHooks?: unknown }).__noobideTestHooks = { blockedRequests };
@@ -87,9 +105,18 @@ function start(): void {
     } else {
       handleAppProtocol(protocol, path.join(__dirname, '..', 'renderer', MAIN_WINDOW_VITE_NAME));
     }
+    // --- S12: unsaved-buffer journal in the app-data directory (PLAN §6), never inside a project ---
+    const appData = app.getPath('userData');
+    const journal = new RecoveryJournal({ dir: path.join(appData, 'recovery'), log: consoleLogger });
+    // --- end S12 ---
+    // --- S21: local history (snapshots around saves) in app data ---
+    const history = new SnapshotStore({ dir: path.join(appData, 'history'), log: consoleLogger });
+    const historyTriggers = new HistoryTriggers(history, consoleLogger);
+    // --- end S21 ---
     registerIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
-      projects: new ProjectService(),
+      projects: new ProjectService({ history: historyTriggers }),
+      journal,
       async chooseFolder(event) {
         const owner = BrowserWindow.fromWebContents(event.sender);
         const options = { properties: ['openDirectory' as const] };

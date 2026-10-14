@@ -9,6 +9,7 @@
  */
 import type { PlatformId } from '../../platform/labels';
 import type { Result } from '../result';
+import type { RecoveryApi } from './recovery-contract';
 
 export const IPC_API_VERSION = 1;
 
@@ -17,9 +18,20 @@ export const CHANNELS = {
   readFile: 'workspace:read-file',
   writeFile: 'workspace:write-file',
   revealProject: 'workspace:reveal-project',
+  // --- S10 save pipeline: save elsewhere, close / quit guard ---
   saveCopy: 'workspace:save-copy',
   answerClose: 'app:answer-close',
   closeDiscarding: 'app:close-discarding',
+  // --- end S10 ---
+  // --- S12 crash-recovery journal (types and parsers: recovery-contract.ts) ---
+  recoveryRecord: 'recovery:record',
+  recoveryDiscardSaved: 'recovery:discard-saved',
+  recoveryListPending: 'recovery:list-pending',
+  recoveryOpenProject: 'recovery:open-project',
+  recoveryRead: 'recovery:read',
+  recoveryDiscard: 'recovery:discard',
+  recoveryClear: 'recovery:clear',
+  // --- end S12 ---
 } as const;
 
 /** Main → workbench notifications (sent with webContents.send; the workbench only listens). */
@@ -150,6 +162,8 @@ export interface NoobideApi {
     /** After a refused close: the user chose to close the window without the edits that could not be saved. */
     closeDiscarding(): Promise<IpcResult<null, never>>;
   };
+  /** S12: crash-recovery journal of unsaved buffers. */
+  readonly recovery: RecoveryApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */
