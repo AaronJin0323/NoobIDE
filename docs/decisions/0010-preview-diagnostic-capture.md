@@ -1,4 +1,4 @@
-# 0007 — Capturing preview diagnostics: webContents events, not CDP
+# 0010 — Capturing preview diagnostics: webContents events, not CDP
 
 - **Status:** accepted (spike; revisit in S05.7 / S16.2)
 - **Date:** 2026-10-14
@@ -7,7 +7,7 @@
 ## Context
 
 The IDE needs raw records for uncaught exceptions, console errors, failed resources (404s) and module load failures
-from the sandboxed preview, with URL and line (PLAN §9), without a preload in the page (decision 0006) and without
+from the sandboxed preview, with URL and line (PLAN §9), without a preload in the page (decision 0009) and without
 breaking the user's own DevTools.
 
 ## Options considered

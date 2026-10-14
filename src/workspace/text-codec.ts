@@ -7,7 +7,7 @@ export type Eol = '\n' | '\r\n';
 const BOM = [0xef, 0xbb, 0xbf] as const;
 
 export type DecodeResult =
-  | { readonly ok: true; readonly text: string; readonly bom: boolean; readonly eol: Eol }
+  | { readonly ok: true; readonly text: string; readonly bom: boolean; readonly eol: Eol; readonly mixedEol: boolean }
   | { readonly ok: false; readonly reason: 'binary' | 'not-utf8' };
 
 export function hasBom(bytes: Uint8Array): boolean {
@@ -16,9 +16,19 @@ export function hasBom(bytes: Uint8Array): boolean {
 
 /** The dominant line ending; LF for files without line breaks (PLAN §7: LF for new content). */
 export function detectEol(text: string): Eol {
-  const crlf = text.match(/\r\n/g)?.length ?? 0;
-  const lf = (text.match(/\n/g)?.length ?? 0) - crlf;
+  const { crlf, lf } = countEols(text);
   return crlf > lf ? '\r\n' : '\n';
+}
+
+function countEols(text: string): { crlf: number; lf: number } {
+  const crlf = text.match(/\r\n/g)?.length ?? 0;
+  return { crlf, lf: (text.match(/\n/g)?.length ?? 0) - crlf };
+}
+
+/** Both CRLF and LF occur. The editor holds one line ending, so saving such a file unifies them (decision 0011). */
+export function hasMixedEol(text: string): boolean {
+  const { crlf, lf } = countEols(text);
+  return crlf > 0 && lf > 0;
 }
 
 export function decodeText(bytes: Uint8Array): DecodeResult {
@@ -31,7 +41,7 @@ export function decodeText(bytes: Uint8Array): DecodeResult {
   } catch {
     return { ok: false, reason: 'not-utf8' };
   }
-  return { ok: true, text, bom, eol: detectEol(text) };
+  return { ok: true, text, bom, eol: detectEol(text), mixedEol: hasMixedEol(text) };
 }
 
 export function encodeText(text: string, bom: boolean): Uint8Array {
@@ -96,7 +106,10 @@ export function decodeForDisplay(bytes: Uint8Array): DisplayDecodeResult {
   }
   if (looksBinary(bytes)) return { ok: false, reason: 'binary' };
   const utf8 = decodeText(bytes);
-  if (utf8.ok) return { ...utf8, encoding: 'utf-8', editable: true };
+  if (utf8.ok) {
+    const { text, bom, eol } = utf8; // mixed line endings are reported by the caller (hasMixedEol)
+    return { ok: true, text, bom, eol, encoding: 'utf-8', editable: true };
+  }
   for (const label of ['gb18030', 'windows-1252']) {
     const text = tryDecode(label, bytes);
     if (text !== null) return { ok: true, text, bom: false, eol: detectEol(text), encoding: label, editable: false };

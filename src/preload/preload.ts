@@ -6,7 +6,7 @@ import { platformId } from '../platform/index';
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
  * contract in src/shared/ipc — never ipcRenderer itself, Node or a generic "send any channel" function. Main
- * validates every payload and sender again; this file only forwards.
+ * validates every payload and sender again; this file only forwards. Event listeners never receive the IPC event.
  */
 const api: NoobideApi = {
   apiVersion: IPC_API_VERSION,
@@ -28,6 +28,18 @@ const api: NoobideApi = {
     renameEntry: (request) => ipcRenderer.invoke(CHANNELS.renameEntry, request),
     trashEntry: (request) => ipcRenderer.invoke(CHANNELS.trashEntry, request),
     revealEntry: (request) => ipcRenderer.invoke(CHANNELS.revealEntry, request),
+    saveCopy: (request) => ipcRenderer.invoke(CHANNELS.saveCopy, request),
+  },
+  app: {
+    onCloseRequested(listener) {
+      const forward = () => listener();
+      ipcRenderer.on(EVENTS.closeRequested, forward);
+      return () => {
+        ipcRenderer.removeListener(EVENTS.closeRequested, forward);
+      };
+    },
+    answerClose: (answer) => ipcRenderer.invoke(CHANNELS.answerClose, answer),
+    closeDiscarding: () => ipcRenderer.invoke(CHANNELS.closeDiscarding),
   },
   // S04.3 preview: the listener receives only the event payload, never the IpcRendererEvent (it exposes `sender`).
   preview: {
@@ -60,6 +72,7 @@ contextBridge.exposeInMainWorld(
     ...api,
     workspace: Object.freeze(api.workspace),
     preview: Object.freeze(api.preview),
+    app: Object.freeze(api.app),
     recovery: Object.freeze(api.recovery),
   }),
 );

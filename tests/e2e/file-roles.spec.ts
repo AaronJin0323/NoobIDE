@@ -58,7 +58,7 @@ test('file rows show the real name plus a short role (zh-CN default)', async () 
 test('the editor shows the role hint of the open file, and none before a file is open', async () => {
   await expect(page.getByTestId('file-role-hint')).toHaveCount(0);
   await row('style.css').click();
-  await expect(page.getByTestId('editor-tab')).toHaveText('style.css');
+  await expect(page.getByTestId('tab-bar').locator('[role="tab"][aria-selected="true"]')).toHaveText('style.css');
   const hint = page.getByRole('note', { name: '这个文件是做什么的' });
   await expect(hint).toHaveText(/^视觉样式.*颜色、大小、间距/);
   await row('script.js').click();

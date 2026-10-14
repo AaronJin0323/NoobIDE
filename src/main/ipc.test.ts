@@ -46,8 +46,9 @@ beforeEach(() => {
     allowedOrigin: ORIGIN,
     projects: {
       open: vi.fn(async () => ok({ projectId: ID, name: 'p', rootPath: '/p', files: [], truncated: false })),
-      read: vi.fn(async () => ok({ text: 'x', eol: '\n' as const, bom: false, uri: 'file:///p/x' })),
+      read: vi.fn(async () => ok({ text: 'x', eol: '\n' as const, bom: false, mixedEol: false, uri: 'file:///p/x' })),
       write: vi.fn(async () => ok({ savedAt: 1 })),
+      writeCopy: vi.fn(async (destination: string) => ok({ path: destination })),
       rootOf: vi.fn((id: string) => (id === ID ? '/p' : undefined)),
       listDir: vi.fn(async () => ok({ relPath: '', entries: [], truncated: false })),
       createEntry: vi.fn(async (r: { relPath: string }) => ok({ relPath: r.relPath })),
@@ -58,7 +59,10 @@ beforeEach(() => {
     trashItem: vi.fn(async () => undefined),
     revealItem: vi.fn((_fullPath: string) => undefined),
     chooseFolder: vi.fn(async () => '/p'),
+    chooseSaveFile: vi.fn(async (_event: IpcMainInvokeEvent, name: string) => `/backup/${name}`),
     revealFolder: vi.fn(),
+    closeAnswered: vi.fn(),
+    closeDiscarding: vi.fn(),
     journal: {
       record: vi.fn(async () => ok({ written: true })),
       discardSaved: vi.fn(async () => ok({ removed: true })),
@@ -114,7 +118,49 @@ describe('sender check (S03.1)', () => {
     expect(deps.projects.read).not.toHaveBeenCalled();
     expect(deps.projects.write).not.toHaveBeenCalled();
     expect(deps.revealFolder).not.toHaveBeenCalled();
+    expect(deps.chooseSaveFile).not.toHaveBeenCalled();
+    expect(deps.closeAnswered).not.toHaveBeenCalled();
+    expect(deps.closeDiscarding).not.toHaveBeenCalled();
     for (const fn of Object.values(deps.journal)) expect(fn).not.toHaveBeenCalled();
+  });
+});
+
+describe('save elsewhere and close answers (S10.3, S10.6)', () => {
+  const copy = { projectId: ID, relPath: '中文 路径/页面.html', text: '<p>你好</p>', bom: false };
+
+  it('asks for a destination named after the file and writes the copy there', async () => {
+    expect(await call(CHANNELS.saveCopy, workbench, copy)).toEqual({ ok: true, value: { path: '/backup/页面.html' } });
+    expect(deps.chooseSaveFile).toHaveBeenCalledWith(workbench, '页面.html');
+    expect(deps.projects.writeCopy).toHaveBeenCalledWith('/backup/页面.html', copy);
+  });
+
+  it('a cancelled save dialog writes nothing', async () => {
+    deps.chooseSaveFile = vi.fn(async () => null);
+    expect(await call(CHANNELS.saveCopy, workbench, copy)).toEqual({ ok: true, value: null });
+    expect(deps.projects.writeCopy).not.toHaveBeenCalled();
+  });
+
+  it('refuses a copy for a project that is not open, without a dialog', async () => {
+    const other = '00000000-0000-4000-8000-000000000000';
+    expect(await call(CHANNELS.saveCopy, workbench, { ...copy, projectId: other })).toMatchObject({
+      ok: false,
+      code: 'unknown-project',
+    });
+    expect(deps.chooseSaveFile).not.toHaveBeenCalled();
+  });
+
+  it('passes a valid close answer on and rejects anything else', async () => {
+    expect(await call(CHANNELS.answerClose, workbench, { ok: false })).toEqual({ ok: true, value: null });
+    expect(deps.closeAnswered).toHaveBeenCalledWith(workbench, { ok: false });
+    expect(await call(CHANNELS.answerClose, workbench, { ok: 'sure' })).toMatchObject({ code: 'invalid-request' });
+    expect(deps.closeAnswered).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes "close without saving" on, with no payload allowed', async () => {
+    expect(await call(CHANNELS.closeDiscarding, workbench)).toEqual({ ok: true, value: null });
+    expect(deps.closeDiscarding).toHaveBeenCalledWith(workbench);
+    expect(await call(CHANNELS.closeDiscarding, workbench, { force: true })).toMatchObject({ code: 'invalid-request' });
+    expect(deps.closeDiscarding).toHaveBeenCalledTimes(1);
   });
 });
 

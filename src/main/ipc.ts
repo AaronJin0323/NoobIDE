@@ -1,6 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import {
   CHANNELS,
+  parseCloseAnswer,
   parseCreateEntryRequest,
   parseDirRequest,
   parseFileRequest,
@@ -10,6 +11,7 @@ import {
   parseWriteFileRequest,
   toIpcResult,
   type Channel,
+  type CloseAnswer,
   type IpcResult,
 } from '../shared/ipc/contract';
 import type { ProjectService } from '../workspace/project-service';
@@ -43,13 +45,26 @@ export interface IpcDeps {
   readonly allowedOrigin: string;
   readonly projects: Pick<
     ProjectService,
-    'open' | 'read' | 'write' | 'rootOf' | 'listDir' | 'createEntry' | 'renameEntry' | 'trashEntry' | 'revealPath'
+    | 'open'
+    | 'read'
+    | 'write'
+    | 'writeCopy'
+    | 'rootOf'
+    | 'listDir'
+    | 'createEntry'
+    | 'renameEntry'
+    | 'trashEntry'
+    | 'revealPath'
   >;
   /** Shows the native folder picker; `null` when cancelled. */
   chooseFolder(event: IpcMainInvokeEvent): Promise<string | null>;
+  /** Shows the native save dialog for "save elsewhere", suggesting `fileName`; `null` when cancelled. */
+  chooseSaveFile(event: IpcMainInvokeEvent, fileName: string): Promise<string | null>;
   revealFolder(folder: string): void;
-  /** S04.4: called after a successful save so the preview can refresh. */
-  afterSave?(projectId: string): void;
+  /** The workbench answered a close request (S10.6). */
+  closeAnswered(event: IpcMainInvokeEvent, answer: CloseAnswer): void;
+  /** After a refused close, the user chose to close without the unsaved edits (S10.6). */
+  closeDiscarding(event: IpcMainInvokeEvent): void;
   // ── S07/S08: file tree, watcher and file operations ──
   /** Starts watching a just-opened project and reports changes to the window that opened it (S07.3). */
   projectOpened?(projectId: string, root: string, sender: IpcMainInvokeEvent['sender']): void;
@@ -92,10 +107,26 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
 
   handle(CHANNELS.readFile, parseFileRequest, async (request) => toIpcResult(await deps.projects.read(request)));
 
-  handle(CHANNELS.writeFile, parseWriteFileRequest, async (request) => {
-    const result = await deps.projects.write(request);
-    if (result.ok) deps.afterSave?.(request.projectId);
-    return toIpcResult(result);
+  handle(CHANNELS.writeFile, parseWriteFileRequest, async (request) => toIpcResult(await deps.projects.write(request)));
+
+  handle(CHANNELS.saveCopy, parseWriteFileRequest, async (request, event) => {
+    if (deps.projects.rootOf(request.projectId) === undefined) {
+      return { ok: false, code: 'unknown-project', message: 'project is not open' };
+    }
+    const fileName = request.relPath.slice(request.relPath.lastIndexOf('/') + 1);
+    const destination = await deps.chooseSaveFile(event, fileName);
+    if (destination === null) return { ok: true, value: null };
+    return toIpcResult(await deps.projects.writeCopy(destination, request));
+  });
+
+  handle(CHANNELS.answerClose, parseCloseAnswer, async (answer, event) => {
+    deps.closeAnswered(event, answer);
+    return { ok: true, value: null };
+  });
+
+  handle(CHANNELS.closeDiscarding, parseNoPayload, async (_payload, event) => {
+    deps.closeDiscarding(event);
+    return { ok: true, value: null };
   });
 
   handle(CHANNELS.revealProject, parseProjectRequest, async ({ projectId }) => {

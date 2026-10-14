@@ -87,6 +87,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       bridge: Object.keys((w.noobide ?? {}) as object),
       apiVersion: (w.noobide as { apiVersion?: unknown } | undefined)?.apiVersion,
       workspace: Object.keys(((w.noobide as { workspace?: object } | undefined)?.workspace ?? {}) as object),
+      app: Object.keys(((w.noobide as { app?: object } | undefined)?.app ?? {}) as object),
       recovery: Object.keys(((w.noobide as { recovery?: object } | undefined)?.recovery ?? {}) as object),
     };
   });
@@ -96,7 +97,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     inlineRan: false,
     violations: ['script-src-elem'],
     // S03.1: exactly the typed contract — no ipcRenderer, no generic send.
-    bridge: ['apiVersion', 'platform', 'workspace', 'preview', 'recovery'],
+    bridge: ['apiVersion', 'platform', 'workspace', 'preview', 'app', 'recovery'],
     apiVersion: 1,
     workspace: [
       'openFolder',
@@ -110,7 +111,11 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'renameEntry',
       'trashEntry',
       'revealEntry',
+      // S10.3: save elsewhere
+      'saveCopy',
     ],
+    // S10.6: close requests arrive as a listener registration only; the IPC event object never reaches the page.
+    app: ['onCloseRequested', 'answerClose', 'closeDiscarding'],
     // S12: crash-recovery journal calls.
     recovery: ['record', 'discardSaved', 'listPending', 'openProject', 'read', 'discard', 'clear'],
   });

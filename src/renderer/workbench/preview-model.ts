@@ -83,6 +83,14 @@ export function stageMessageKey(status: PreviewStatus, hasProject: boolean): Mes
   }
 }
 
+/**
+ * S10.5: a save failed, so the page shows older content than the editor. The preview refreshes only after a
+ * confirmed write; until the save succeeds the pill says "preview not updated" (wireframe editor-preview, pill).
+ */
+export function previewNotUpdated(status: PreviewStatus, saveFailed: boolean): boolean {
+  return saveFailed && (status.state === 'running' || status.state === 'refreshing' || status.state === 'starting');
+}
+
 /** The native view is shown only while a page is meant to be visible; overlays and messages need the stage. */
 export function viewVisible(status: PreviewStatus, paneVisible: boolean): boolean {
   return paneVisible && stageMessageKey(status, true) === null && status.state !== 'stopped';

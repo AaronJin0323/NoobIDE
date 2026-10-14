@@ -15,6 +15,7 @@ import {
   type FileRequest,
   type OpenedProject,
   type ReadFileError,
+  type SavedCopy,
   type SavedFile,
   type WriteFileError,
   type WriteFileRequest,
@@ -26,12 +27,12 @@ import type { SaveHistoryHook } from '../recovery/history-triggers';
 export type ProjectHistoryHook = SaveHistoryHook & {
   beforeDelete?(rootPath: string, relPath: string, absPath: string): Promise<void>;
 };
-import { replaceFileAtomic } from './atomic-write';
+import { FileInUseError, replaceFileAtomic, writeFileAtomic, type AtomicWriteOptions } from './atomic-write';
 import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
 import { listDirectory } from './tree';
 import { createEntry, renameEntry, resolveEntry, trashEntry } from './file-ops';
 import { isListedEntry } from './listing-filter';
-import { decodeForDisplay, decodeText, encodeText } from './text-codec';
+import { decodeForDisplay, decodeText, encodeText, hasMixedEol } from './text-codec';
 
 /**
  * Projects the user opened and file access inside them (S03.3, S03.4). Main process only.
@@ -51,14 +52,33 @@ interface Project {
   readonly root: string;
 }
 
+export interface ProjectServiceOptions {
+  /** Injected file system and retry policy for saves (tests simulate ENOSPC, locks and read-only folders). */
+  readonly atomic?: AtomicWriteOptions;
+  /** S21.2: local-history snapshots around each confirmed save. */
+  readonly history?: ProjectHistoryHook;
+  /** Fault injection for the replace step (S21 tests). Default: replaceFileAtomic. */
+  readonly replaceFile?: typeof replaceFileAtomic;
+}
+
+/** A project file whose new content is confirmed on disk. */
+export interface SavedProjectFile {
+  readonly projectId: string;
+  readonly relPath: string;
+  /** Real absolute path. */
+  readonly path: string;
+}
+
 export class ProjectService {
   private readonly projects = new Map<string, Project>();
+  private readonly writeQueues = new Map<string, Promise<void>>();
+  private readonly savedListeners = new Set<(file: SavedProjectFile) => void>();
   /** S21.2: local-history snapshots around each save (optional; never blocks or fails a save). */
   private readonly history: ProjectHistoryHook | undefined;
   /** Fault injection for tests (docs/testing.md); the real atomic replace otherwise. */
   private readonly replaceFile: typeof replaceFileAtomic;
 
-  constructor(options: { history?: ProjectHistoryHook; replaceFile?: typeof replaceFileAtomic } = {}) {
+  constructor(private readonly options: ProjectServiceOptions = {}) {
     this.history = options.history;
     this.replaceFile = options.replaceFile ?? replaceFileAtomic;
   }
@@ -143,36 +163,100 @@ export class ProjectService {
       text: decoded.text,
       eol: decoded.eol,
       bom: decoded.bom,
+      mixedEol: hasMixedEol(decoded.text),
       uri: toFileUri(target.value),
     };
     // S07.4: other encodings are shown read-only, with the encoding named in the notice.
     return ok(decoded.editable ? content : { ...content, encoding: decoded.encoding, readOnly: true });
   }
 
-  /** Saves over an existing file. Creating files arrives with the file operations of S08. */
-  async write(request: WriteFileRequest): Promise<Result<SavedFile, WriteFileError>> {
-    const target = await this.resolve(request);
-    if (!target.ok) return target;
+  /**
+   * Saves over an existing file (S10.1). Writes are serialized in arrival order — per request path from the first
+   * moment (before any await), and per real path around the write itself (two names for one file) — so an older
+   * write can never land after a newer one. "Saved" listeners run only after the temp file was renamed over the
+   * target (S10.5). Creating files arrives with the file operations of S08.
+   */
+  write(request: WriteFileRequest): Promise<Result<SavedFile, WriteFileError>> {
+    return this.serialized(`${request.projectId}\0${request.relPath}`, async () => {
+      const target = await this.resolve(request);
+      if (!target.ok) return target;
+      const data = encodeText(request.text, request.bom);
+      if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
+      return this.serialized(target.value, async (): Promise<Result<SavedFile, WriteFileError>> => {
+        // S21.2 capture, replace and record all run inside this per-file lock, so concurrent saves of one file
+        // capture their before-bytes in save order.
+        let before: Uint8Array | null = null;
+        try {
+          if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
+          // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
+          await access(target.value, constants.W_OK);
+          // S07.4: never replace a file that is not UTF-8 text (another encoding, binary): the save would destroy it.
+          const existing = await stat(target.value);
+          if (existing.size <= MAX_TEXT_FILE_BYTES && !decodeText(await readFile(target.value)).ok) {
+            return err('unsupported-encoding', 'the file on disk is not UTF-8 text');
+          }
+          before = await this.captureBeforeSave(target.value); // S21.2
+          await this.replaceFile(target.value, data, this.options.atomic);
+        } catch (e) {
+          this.recordSave(request.projectId, target.value, before, null); // S21.2
+          return err(writeErrorCode(e), errorMessage(e), e);
+        }
+        this.recordSave(request.projectId, target.value, before, data); // S21.2
+        this.emitSaved({ projectId: request.projectId, relPath: request.relPath, path: target.value });
+        return ok({ savedAt: Date.now() });
+      });
+    });
+  }
+
+  /**
+   * "Save elsewhere" (S10.3): writes the text of an open project file to a path the user chose in the native save
+   * dialog (which already asked before replacing an existing file). The project file itself is not touched.
+   */
+  async writeCopy(destination: string, request: WriteFileRequest): Promise<Result<SavedCopy, WriteFileError>> {
+    if (!this.projects.has(request.projectId)) return err('unknown-project', 'project is not open');
     const data = encodeText(request.text, request.bom);
     if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
-    let before: Uint8Array | null = null; // S21.2
-    try {
-      if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
-      // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
-      await access(target.value, constants.W_OK);
-      // S07.4: never replace a file that is not UTF-8 text (another encoding, binary): the save would destroy it.
-      const existing = await stat(target.value);
-      if (existing.size <= MAX_TEXT_FILE_BYTES && !decodeText(await readFile(target.value)).ok) {
-        return err('unsupported-encoding', 'the file on disk is not UTF-8 text');
+    const target = path.resolve(destination);
+    return this.serialized(target, async (): Promise<Result<SavedCopy, WriteFileError>> => {
+      try {
+        await writeFileAtomic(target, data, { ...this.options.atomic, createIfMissing: true });
+      } catch (e) {
+        return err(writeErrorCode(e), errorMessage(e), e);
       }
-      before = await this.captureBeforeSave(target.value); // S21.2
-      await this.replaceFile(target.value, data);
-    } catch (e) {
-      this.recordSave(request.projectId, target.value, before, null); // S21.2
-      return err(writeErrorCode(e), errorCode(e), e);
+      return ok({ path: target });
+    });
+  }
+
+  /** Subscribes to confirmed writes (main-side preview hook, S10.5). Returns the unsubscribe function. */
+  onSaved(listener: (file: SavedProjectFile) => void): () => void {
+    this.savedListeners.add(listener);
+    return () => this.savedListeners.delete(listener);
+  }
+
+  private emitSaved(file: SavedProjectFile): void {
+    for (const listener of [...this.savedListeners]) {
+      try {
+        listener(file);
+      } catch {
+        // A failing subscriber must not turn a confirmed save into a failure.
+      }
     }
-    this.recordSave(request.projectId, target.value, before, data); // S21.2
-    return ok({ savedAt: Date.now() });
+  }
+
+  /** Runs `task` after every earlier task for the same path has finished (per-path mutex). */
+  private async serialized<T>(key: string, task: () => Promise<T>): Promise<T> {
+    const previous = this.writeQueues.get(key) ?? Promise.resolve();
+    const run = previous.then(task, task);
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.writeQueues.set(key, tail);
+    try {
+      return await run;
+    } finally {
+      if (this.writeQueues.get(key) === tail) this.writeQueues.delete(key);
+    }
   }
 
   // --- S21.2: local history around saves. Only reading the old bytes precedes the replace (bounded by a timeout);
@@ -256,6 +340,11 @@ async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated:
   };
   await walk(root, []);
   return { files, truncated };
+}
+
+/** The OS error code for the "details" line; a lock that outlasted every retry says so. Never file contents. */
+function errorMessage(e: unknown): string {
+  return e instanceof FileInUseError ? e.message : errorCode(e);
 }
 
 function isNotFound(e: unknown): boolean {

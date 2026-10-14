@@ -1,4 +1,4 @@
-import { readFile, rm } from 'node:fs/promises';
+import { chmod, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
@@ -186,7 +186,10 @@ test('window.open is denied and off-origin navigation is blocked (S04.3)', async
 
 test('edit → save → the preview shows the new heading (S04.4)', async () => {
   await page.getByTestId('file-tree').getByRole('treeitem', { name: 'index.html', exact: true }).click();
-  await expect(page.getByTestId('editor-tab')).toHaveText('index.html');
+  await expect(page.getByTestId('tab-bar').getByRole('tab', { name: 'index.html' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   const original = await readFile(path.join(root, 'index.html'), 'utf8');
   const changed = original.replace('<h1 id="title">多文件预览</h1>', '<h1 id="title">保存后的新标题</h1>');
   expect(changed).not.toBe(original);
@@ -204,6 +207,36 @@ test('edit → save → the preview shows the new heading (S04.4)', async () => 
   console.log(`save → preview updated: ${elapsed} ms`);
   await waitForPreviewState(page, 'running');
   expect(await readFile(path.join(root, 'index.html'), 'utf8')).toContain('保存后的新标题');
+});
+
+test('a failed save does not refresh the preview and shows "preview not updated" (S10.5)', async () => {
+  const file = path.join(root, 'index.html');
+  const onDisk = await readFile(file, 'utf8');
+  const loadsBefore = await evalInPreview<number>(app, 'performance.timeOrigin');
+  await chmod(file, 0o444);
+  try {
+    await replaceEditorText(app, page, onDisk.replace('保存后的新标题', '只读时的标题'));
+    await page.keyboard.press('ControlOrMeta+S');
+    await expect(page.getByTestId('save-status')).toHaveText('保存失败 — 你的修改还在');
+    const pill = page.getByTestId('preview-state');
+    await expect(pill).toHaveAttribute('data-not-updated', 'true');
+    await expect(pill).toContainText('预览未更新');
+    // The page was not reloaded and still shows what is on disk.
+    await page.waitForTimeout(1_000);
+    expect(await evalInPreview<number>(app, 'performance.timeOrigin')).toBe(loadsBefore);
+    expect(await evalInPreview<string>(app, `document.getElementById('title').textContent`)).toBe('保存后的新标题');
+    expect(await readFile(file, 'utf8')).toBe(onDisk);
+  } finally {
+    await chmod(file, 0o644);
+  }
+  // Once the save succeeds, the preview refreshes and the warning disappears.
+  await page.keyboard.press('ControlOrMeta+S');
+  await expect(page.getByTestId('save-status')).toHaveText('已保存');
+  await expect
+    .poll(() => evalInPreview<string>(app, `document.getElementById('title')?.textContent ?? ''`), { timeout: 5_000 })
+    .toBe('只读时的标题');
+  await expect(page.getByTestId('preview-state')).not.toHaveAttribute('data-not-updated', 'true');
+  await waitForPreviewState(page, 'running');
 });
 
 test('Stop destroys the view and shuts the server down; switching projects stops the preview', async () => {

@@ -7,14 +7,20 @@
   <body>
     <h1>日志洪水</h1>
     <script>
-      // S05.3: log in a tight loop for a few seconds, as fast as the engine allows.
-      const end = Date.now() + 6000;
-      let count = 0;
-      while (Date.now() < end) {
-        console.log('洪水消息 ' + count);
-        count += 1;
+      // S05.3: log in a tight loop for a few seconds, as fast as the engine allows. Only once per preview session:
+      // typing in the IDE autosaves, and every confirmed save reloads the preview (S10.5).
+      if (sessionStorage.getItem('flooded')) {
+        document.body.dataset.count = sessionStorage.getItem('flooded');
+      } else {
+        const end = Date.now() + 6000;
+        let count = 0;
+        while (Date.now() < end) {
+          console.log('洪水消息 ' + count);
+          count += 1;
+        }
+        sessionStorage.setItem('flooded', String(count));
+        document.body.dataset.count = String(count);
       }
-      document.body.dataset.count = String(count);
     </script>
   </body>
 </html>

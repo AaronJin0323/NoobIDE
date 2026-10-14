@@ -1,4 +1,4 @@
-# 0006 — Preview isolation and the loopback static server
+# 0009 — Preview isolation and the loopback static server
 
 - **Status:** accepted
 - **Date:** 2026-10-14

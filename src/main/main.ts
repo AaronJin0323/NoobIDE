@@ -16,6 +16,7 @@ import {
 } from './harden';
 import { registerIpcHandlers } from './ipc';
 import { registerPreviewIpcHandlers } from './preview-ipc';
+import { installCloseGuard, type CloseGuard } from './close-guard';
 import { ProjectWatchHub } from './project-watch';
 import { ProjectService } from '../workspace/project-service';
 import { PreviewManager } from '../preview/preview-manager';
@@ -71,6 +72,13 @@ function start(): void {
     preview: () => preview.debugInfo(),
   };
 
+  // S10.6: every workbench window saves before it closes; an interrupted quit resumes once all windows agreed.
+  const closeGuards = new Map<number, CloseGuard>();
+  let quitting = false;
+  app.on('before-quit', () => {
+    quitting = true;
+  });
+
   function createWorkbenchWindow(): BrowserWindow {
     const options = createWorkbenchWindowOptions(path.join(__dirname, 'preload.cjs'));
     const insecure = insecurePreferences(options.webPreferences ?? {});
@@ -79,6 +87,19 @@ function start(): void {
     const win = new BrowserWindow(options);
     hardenWorkbenchContents(win.webContents, devOrigin ?? APP_ORIGIN);
     win.once('ready-to-show', () => win.show());
+    const contentsId = win.webContents.id;
+    closeGuards.set(
+      contentsId,
+      installCloseGuard(win, {
+        onAllowed: () => {
+          if (quitting) app.quit();
+        },
+        onRefused: () => {
+          quitting = false;
+        },
+      }),
+    );
+    win.on('closed', () => closeGuards.delete(contentsId));
     if (selfTest) watchSelfTest(win.webContents, (code) => app.exit(code));
 
     const entry = devServerUrl ?? APP_ENTRY_URL;
@@ -115,13 +136,22 @@ function start(): void {
         const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options);
         return result.canceled ? null : (result.filePaths[0] ?? null);
       },
+      async chooseSaveFile(event, fileName) {
+        const owner = BrowserWindow.fromWebContents(event.sender);
+        const options = { defaultPath: path.join(app.getPath('documents'), fileName) };
+        const result = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options);
+        return result.canceled || !result.filePath ? null : result.filePath;
+      },
       revealFolder: (folder) => shell.showItemInFolder(folder),
+      closeAnswered: (event, answer) => closeGuards.get(event.sender.id)?.answer(answer),
+      closeDiscarding: (event) => closeGuards.get(event.sender.id)?.discardAndClose(),
       // ── S07/S08: file tree, watcher and file operations ──
       projectOpened: (projectId, root, sender) => watchHub.watch(projectId, root, sender),
       trashItem: (fullPath) => shell.trashItem(fullPath),
       revealItem: (fullPath) => shell.showItemInFolder(fullPath),
-      afterSave: (projectId) => preview.fileSaved(projectId),
     });
+    // S10.5: refresh the preview only after a confirmed write (fires after the rename, never on a failed save).
+    projects.onSaved((file) => preview.fileSaved(file.projectId));
     registerPreviewIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       windowOf: (event) => BrowserWindow.fromWebContents(event.sender),

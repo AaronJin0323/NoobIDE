@@ -7,6 +7,7 @@ import {
   STOPPED,
   actionsFor,
   appendLogBatch,
+  previewNotUpdated,
   stageMessageKey,
   stateLabelKey,
   viewVisible,
@@ -18,6 +19,8 @@ interface PreviewPaneProps {
   /** Something of the workbench is drawn over the stage (e.g. the narrow-layout files overlay). */
   covered?: boolean;
   projectId: string | null;
+  /** A file of the project failed to save: the page is older than the editor (S10.5). */
+  saveFailed?: boolean;
 }
 
 /**
@@ -25,7 +28,7 @@ interface PreviewPaneProps {
  * stage element below — user HTML is never rendered into this React DOM (AGENTS.md invariant). This component only
  * reports where the stage is, offers Start / Stop / Refresh, and lists the page's console output (bounded, S05.3).
  */
-export function PreviewPane({ hidden, covered = false, projectId }: PreviewPaneProps) {
+export function PreviewPane({ hidden, covered = false, projectId, saveFailed = false }: PreviewPaneProps) {
   const { t } = useI18n();
   const bridge = window.noobide?.preview;
   const [status, setStatus] = useState<PreviewStatus>(STOPPED);
@@ -90,6 +93,7 @@ export function PreviewPane({ hidden, covered = false, projectId }: PreviewPaneP
   };
 
   const actions = actionsFor(status, projectId !== null);
+  const notUpdated = previewNotUpdated(status, saveFailed);
   const messageKey = stageMessageKey(status, projectId !== null);
   return (
     <section
@@ -100,15 +104,22 @@ export function PreviewPane({ hidden, covered = false, projectId }: PreviewPaneP
     >
       <div className="panel-header">
         <h2 className="region-title">{t('region.preview')}</h2>
-        <span className="state-pill" data-testid="preview-state" data-state={status.state} role="status">
-          {status.state === 'unresponsive' || status.state === 'failed' ? (
+        <span
+          className="state-pill"
+          data-testid="preview-state"
+          data-state={status.state}
+          data-not-updated={notUpdated ? 'true' : undefined}
+          title={notUpdated ? t('preview.notUpdatedDetail') : undefined}
+          role="status"
+        >
+          {notUpdated || status.state === 'unresponsive' || status.state === 'failed' ? (
             <WarningIcon />
           ) : status.state === 'stopped' ? (
             <StopIcon />
           ) : (
             <DotIcon />
           )}
-          {t(stateLabelKey(status.state))}
+          {notUpdated ? t('preview.notUpdated') : t(stateLabelKey(status.state))}
         </span>
         <div className="preview-actions">
           {actions.start && (

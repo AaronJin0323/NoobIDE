@@ -834,7 +834,7 @@
         "S05.1"
       ],
       "status": "blocked",
-      "evidence": "Log buffer capped and shown as 'N messages dropped' / 'at least N' (src/preview/log-buffer.ts + unit tests; e2e S05.3: <=200 lines shown, dropped notice, 20/20 keystrokes delivered, workbench renderer timer lag <=15 ms). NOT met: 'IDE input stays responsive' - Electron emits a main-process event per console message; ~650k msgs/6 s stalls the main/UI thread 3.2-4.7 s even with the flood guard (8 s without). Unblocked by S05.7 (in-page rate limiter before page scripts, decision needed; see docs/decisions/0007) @ 9566bea"
+      "evidence": "Log buffer capped and shown as 'N messages dropped' / 'at least N' (src/preview/log-buffer.ts + unit tests; e2e S05.3: <=200 lines shown, dropped notice, 20/20 keystrokes delivered, workbench renderer timer lag <=15 ms). NOT met: 'IDE input stays responsive' - Electron emits a main-process event per console message; ~650k msgs/6 s stalls the main/UI thread 3.2-4.7 s even with the flood guard (8 s without). Unblocked by S05.7 (in-page rate limiter before page scripts, decision needed; see docs/decisions/0010) @ 9566bea"
     },
     {
       "id": "S05.4",
@@ -849,7 +849,7 @@
       "verify": "auto",
       "depends_on": [],
       "status": "done",
-      "evidence": "Events approach (console-message, webRequest onCompleted/onErrorOccurred, did-fail-load) in preview-manager.ts; e2e S05.4: console error errors.js:1, uncaught ReferenceError errors.js:3, image 404 (URL), module import 404 (resourceType script) each produce a raw record, mapped to ProblemInput via src/preview/to-problem.ts (+ unit tests with ProblemStore); records keep arriving with DevTools open. Decision docs/decisions/0007-preview-diagnostic-capture.md @ 9566bea"
+      "evidence": "Events approach (console-message, webRequest onCompleted/onErrorOccurred, did-fail-load) in preview-manager.ts; e2e S05.4: console error errors.js:1, uncaught ReferenceError errors.js:3, image 404 (URL), module import 404 (resourceType script) each produce a raw record, mapped to ProblemInput via src/preview/to-problem.ts (+ unit tests with ProblemStore); records keep arriving with DevTools open. Decision docs/decisions/0010-preview-diagnostic-capture.md @ 9566bea"
     },
     {
       "id": "S05.5",
@@ -1116,8 +1116,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/editor/model-registry.ts + model-registry.test.ts (8 unit: one model per URI, reuse, view state per URI, dispose+forget on close, discard hook); e2e tests/e2e/tabs.spec.ts: folding+cursor (Ln 201)+scroll survive a tab switch, undo stack survives a switch, closing disposes (reopen = disk text, fresh undo stack — Monaco's restore-undo-on-reopen defeated by discard) — 36/36 e2e on Windows x64 @ 79434ec"
     },
     {
       "id": "S09.2",
@@ -1132,8 +1132,8 @@
       "depends_on": [
         "S09.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/TabBar.tsx (ARIA tablist, roving tabindex) + document-state.ts/test (9 unit: tabs, close→neighbour, Ctrl+Tab cycle); e2e tabs.spec.ts: unsaved tab shows icon+'未保存' (held by a real CDP IME composition), failed tab shows icon+'保存失败', close button, middle-click, Delete, ArrowRight/End, Ctrl+Tab/Ctrl+Shift+Tab — 36/36 e2e on Windows x64 @ 79434ec"
     },
     {
       "id": "S09.3",
@@ -1148,8 +1148,8 @@
       "depends_on": [
         "S09.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/editing.spec.ts (8 e2e): Tab/Shift+Tab indent, Ctrl/Cmd+/ comment toggle, Ctrl+F find + Ctrl+H replace-all, undo/redo (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z), each verified byte-exact on disk; 16px computed font; zoom buttons + Ctrl/Cmd = - 0 change only the code font (webContents zoom factor stays 1); Monaco vs/vs-dark under emulated light/dark; src/renderer/workbench/zoom.ts — 44/44 e2e on Windows x64 @ 55bfe3c"
     },
     {
       "id": "S09.4",
@@ -1164,8 +1164,8 @@
       "depends_on": [
         "S09.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "steps in harness/MANUAL-CHECKS.md#S09.4; automated part: tabs.spec.ts CDP Input.imeSetComposition holds autosave and only the committed char reaches disk, save-controller.test.ts composition tests @ 55bfe3c"
     },
     {
       "id": "S09.5",
@@ -1180,8 +1180,8 @@
       "depends_on": [
         "S09.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "steps in harness/MANUAL-CHECKS.md#S09.5 (macOS Pinyin, needs Apple Silicon Mac) @ 55bfe3c"
     },
     {
       "id": "S10.1",
@@ -1194,8 +1194,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/workspace/atomic-write.ts + tests/integration/atomic-write.test.ts (10): temp in same dir -> write -> chmod -> fsync -> close -> rename (call order asserted), dir fsync after rename, EPERM/EBUSY rename retried with backoff then succeeds, persistent lock -> FileInUseError(EBUSY) with temp removed and target unchanged, no retry without backoff (POSIX), ENOSPC not retried, permissions 0666/0640 preserved, own stale temp files cleaned only; backoff only on Windows via src/platform lockedRenameBackoffMs (platform test) @ ff0aec2"
     },
     {
       "id": "S10.2",
@@ -1210,8 +1210,8 @@
       "depends_on": [
         "S10.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/save-machine.ts (pure; save-machine.test.ts 9 tests: all six states clean/dirty/saving/saved/failed/conflict reached, typing during save stays dirty, savedRevision never goes backwards, conflict blocks writes) + save-controller.ts DocumentSaver (save-controller.test.ts: serialized coalescing writes, autosave after pause coalesces edits, blur flush, IME composition holds autosave, manual save loops until clean, saveEvery multi-file pass) ; e2e save.spec 'saved automatically after a typing pause', files.spec Ctrl/Cmd+S — 81/81 e2e Windows x64 @ 735fa36"
     },
     {
       "id": "S10.3",
@@ -1226,8 +1226,8 @@
       "depends_on": [
         "S10.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "TopBar status pill + TabBar state tag show icon + text for every state; EditorPane failure banner names file + reason + 'edits kept' + detail, actions Retry and Save a copy elsewhere (native save dialog via typed IPC workspace:save-copy, ProjectService.writeCopy); e2e save.spec S10.3 test (reason, retry while still failing, copy written with edits, original untouched, cancel, retry after fix) + tabs.spec icon/text checks; ipc.test + save-pipeline.test writeCopy — 81/81 e2e @ 735fa36"
     },
     {
       "id": "S10.4",
@@ -1242,8 +1242,8 @@
       "depends_on": [
         "S10.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/save-pipeline.test.ts drives DocumentSaver -> IPC result -> ProjectService -> atomic write on a real folder: read-only folder (injected EACCES; real chmod 0555 on POSIX), locked file (EBUSY / Windows EPERM after retries -> busy), permission denied (real read-only file), ENOSPC injected -> status failed, text kept, disk unchanged, no temp file left, preview subscriber never called; recovers after fix with exactly one refresh @ 735fa36"
     },
     {
       "id": "S10.5",
@@ -1258,8 +1258,27 @@
       "depends_on": [
         "S10.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "Save side done and contract-tested: save-pipeline.test.ts proves ProjectService.onSaved (main) fires only after the rename resolved and the renderer saved-file event (saved-file-events.ts, emitted from DocumentSaver.onSaved after the status update) fires strictly after the confirmed write, never on failure; save-controller.test.ts ordering tests. Blocked: needs S04 preview to wire the refresh (subscribe to Workbench savedFiles / ProjectService.onSaved) @ 735fa36"
+    },
+    {
+      "id": "S10.6",
+      "session": "S10",
+      "milestone": "M2",
+      "title": "Close and quit never drop unsaved edits",
+      "description": "Added after the S03 security review: closing the window or quitting dropped unsaved edits silently. Electron ignores beforeunload return values, so main intercepts the window 'close' event and asks the workbench over the typed IPC.",
+      "acceptance": [
+        "Closing the window or quitting the app with unsaved edits first saves them; the window closes / the app quits only after the writes are confirmed",
+        "If a save fails, the window stays open with the save-failure state (reason, retry, save elsewhere) and the edits stay in the editor",
+        "A crashed or unresponsive workbench cannot block closing forever (bounded wait)",
+        "Covered by e2e (window close success and failure, app quit) and unit tests of the close guard"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S10.2"
+      ],
+      "status": "done",
+      "evidence": "src/main/close-guard.ts (+close-guard.test.ts 8 tests: hold close, ask workbench, close on ok, stay open on refusal, unresponsive/gone renderer and 120 s backstop close, loading page not asked, close-without-saving only after a refusal) + typed IPC app:answer-close / app:close-discarding; Workbench saveEvery until clean; e2e save.spec: window close with failing save stays open with edits and offers 'close without saving', window close saves first, app quit saves first, close-without-saving closes leaving the file unchanged — 81/81 e2e Windows x64 @ 735fa36"
     },
     {
       "id": "S11.1",

@@ -3,6 +3,7 @@
  * control that has its own accessible name, so all of them are aria-hidden.
  */
 import type { ReactNode } from 'react';
+import type { SaveStatus } from './save-machine';
 
 function Icon({
   size = 16,
@@ -109,9 +110,15 @@ export const WarningIcon = ({ size = 13 }: { size?: number }) => (
 );
 
 /** One shape per save state, so the state never depends on colour alone (AGENTS.md accessibility). */
-export function SaveStateIcon({ state }: { state: 'clean' | 'dirty' | 'saving' | 'failed' }) {
+export function SaveStateIcon({ state }: { state: SaveStatus }) {
   switch (state) {
     case 'clean':
+      return (
+        <Icon size={13} strokeWidth={1.6}>
+          <circle cx="8" cy="8" r="5.5" />
+        </Icon>
+      );
+    case 'saved':
       return (
         <Icon size={13} strokeWidth={2.2}>
           <path d="M3 8.5l3 3 7-7" />
@@ -132,8 +139,33 @@ export function SaveStateIcon({ state }: { state: 'clean' | 'dirty' | 'saving' |
       );
     case 'failed':
       return <WarningIcon />;
+    case 'conflict':
+      return (
+        <Icon size={13} strokeWidth={1.8}>
+          <path d="M4 2v5a3 3 0 0 0 3 3h5M12 14V9" />
+          <path d="M10 8l2 2-2 2" />
+        </Icon>
+      );
   }
 }
+
+export const CloseIcon = () => (
+  <Icon size={12} strokeWidth={1.8}>
+    <path d="M4 4l8 8M12 4l-8 8" />
+  </Icon>
+);
+
+export const MinusIcon = () => (
+  <Icon size={13} strokeWidth={1.8}>
+    <path d="M3.5 8h9" />
+  </Icon>
+);
+
+export const PlusIcon = () => (
+  <Icon size={13} strokeWidth={1.8}>
+    <path d="M3.5 8h9M8 3.5v9" />
+  </Icon>
+);
 
 // ── S08: file tree ──────────────────────────────────────────────────────────────────────────────────────────────
 

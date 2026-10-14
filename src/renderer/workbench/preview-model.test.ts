@@ -6,6 +6,7 @@ import {
   STOPPED,
   actionsFor,
   appendLogBatch,
+  previewNotUpdated,
   stageMessageKey,
   stateLabelKey,
   viewVisible,
@@ -44,6 +45,14 @@ describe('preview pane model (S04.3, S05.2, S05.3)', () => {
     expect(stageMessageKey(status('unresponsive'), true)).toBe('preview.unresponsiveDetail');
     expect(stageMessageKey(STOPPED, true)).toBe('preview.startHint');
     expect(stageMessageKey(STOPPED, false)).toBe('preview.hint');
+  });
+
+  it('says "preview not updated" while a save has failed and a page is shown (S10.5)', () => {
+    expect(previewNotUpdated(status('running'), true)).toBe(true);
+    expect(previewNotUpdated(status('refreshing'), true)).toBe(true);
+    expect(previewNotUpdated(status('running'), false)).toBe(false);
+    expect(previewNotUpdated(STOPPED, true)).toBe(false);
+    expect(previewNotUpdated(status('unresponsive'), true)).toBe(false);
   });
 
   it('keeps the newest log entries and sums dropped counts', () => {
