@@ -1,3 +1,4 @@
+import { welcomeHistoryZhCN } from './welcome-history';
 /**
  * zh-CN is the default locale and the source of truth for message keys (AGENTS.md: i18n invariant).
  * Every key must also exist in en.ts — the type system and i18n.test.ts enforce it.
@@ -245,6 +246,8 @@ export const zhCN = {
   'entry.invalidExisting':
     '项目里的 .noobide/project.json 内容无法识别（可能来自更新的版本或被手动改过），为了不覆盖它，没有修改。',
   // --- end S13 ---
+  // S20.2 welcome + create wizard, S21.3/S21.4 local history (welcome-history.ts)
+  ...welcomeHistoryZhCN,
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

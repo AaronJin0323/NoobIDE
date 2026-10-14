@@ -20,6 +20,14 @@ stored in app data, never in the project. Undo, autosave, recovery and history s
 Main creates both stores from `app.getPath('userData')`; tests pass a temporary directory.
 
 **Project identity (decision 0006):** a project's history is keyed by its real root path, a file's by its path
-relative to that root (NFC). Moving or renaming the project folder orphans its history, so **S21.3 must list
-orphaned project histories** (with their size, and a way to clear them); S08's rename should move a file's history
-to its new path.
+relative to that root (NFC). Moving or renaming the project folder orphans its history; the history window lists
+orphaned project histories with their size and clears them (S21.4). S08's rename should move a file's history to
+its new path (not done yet: the old path shows as a deleted file with history).
+
+**History window (S21.3, S21.4):** `src/main/history-ipc.ts` (channels `history:*`, contract
+`src/shared/ipc/history-contract.ts`) and `src/renderer/history/HistoryDialog.tsx`. Restoring an existing file never
+writes it from main: the renderer saves unsaved edits, main takes a `before-restore` snapshot of the disk content,
+then the version becomes the tab's content (one undo step) and is saved through the save pipeline. A format, delete or
+restore snapshot that dedupes against the newest `after-save` version seals that save burst, so the restored
+content's save cannot coalesce over (and drop) the version kept before the restore. A deleted file is created again
+with link() from a temporary file, never replacing anything. User documentation: `docs/product/local-history.md`.

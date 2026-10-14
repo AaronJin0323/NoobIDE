@@ -122,6 +122,9 @@ test('placeholder states are honest and every control works (S30.3)', async () =
     'rail-files',
     'rail-problems',
     'open-folder',
+    // S20.2: welcome screen while no project is open
+    'welcome-create',
+    'welcome-open-folder',
     'zoom-out',
     'zoom-reset',
     'zoom-in',

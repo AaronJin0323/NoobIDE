@@ -1,4 +1,5 @@
 import type { MessageKey } from './zh-CN';
+import { welcomeHistoryEn } from './welcome-history';
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -260,4 +261,6 @@ export const en: Record<MessageKey, string> = {
   'entry.invalidExisting':
     'The project’s .noobide/project.json could not be read (maybe from a newer version or edited by hand); it was left unchanged so nothing is overwritten.',
   // --- end S13 ---
+  // S20.2 welcome + create wizard, S21.3/S21.4 local history (welcome-history.ts)
+  ...welcomeHistoryEn,
 };

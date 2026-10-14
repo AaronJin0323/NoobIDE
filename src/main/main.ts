@@ -32,6 +32,7 @@ import { AppLog } from './app-log';
 import { osInfo } from '../platform/os-info';
 import type { RecoveryLogger } from '../recovery/atomic-file';
 import { effectiveProjectConfig, previewEntryPath } from '../workspace/project-config';
+import { resolveTemplatesDir } from '../workspace/templates'; // S20.2
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
 // Windows installer events: create/remove shortcuts and quit without opening a window.
@@ -184,6 +185,27 @@ function start(): void {
       projectOpened: (projectId, root, sender) => watchHub.watch(projectId, root, sender),
       trashItem: (fullPath) => shell.trashItem(fullPath),
       revealItem: (fullPath) => shell.showItemInFolder(fullPath),
+      // --- S20.2: create-project wizard (built-in templates, default location in Documents) ---
+      create: {
+        templatesDir: resolveTemplatesDir({
+          isPackaged: app.isPackaged,
+          resourcesPath: process.resourcesPath,
+          appPath: app.getAppPath(),
+        }),
+        documentsDir: () => app.getPath('documents'),
+        async chooseFolder(event, defaultPath) {
+          const owner = BrowserWindow.fromWebContents(event.sender);
+          const options = {
+            properties: ['openDirectory' as const, 'createDirectory' as const],
+            ...(defaultPath ? { defaultPath } : {}),
+          };
+          const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options);
+          return result.canceled ? null : (result.filePaths[0] ?? null);
+        },
+      },
+      // --- end S20.2 ---
+      // S21.3/S21.4: local history window (store and triggers created above).
+      history: { store: history, triggers: historyTriggers, revealFolder: (folder) => void shell.openPath(folder) },
     });
     // S10.5: refresh the preview only after a confirmed write (fires after the rename, never on a failed save).
     // S13.2: unless the project's preview preferences turned automatic refresh off.

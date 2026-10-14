@@ -78,6 +78,27 @@ const api: NoobideApi = {
     setEntry: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.projectSetEntry, request),
   },
   // --- end S13 ---
+  // --- S20.2 create-project wizard ---
+  createProject: {
+    options: (request) => ipcRenderer.invoke(CHANNELS.createProjectOptions, request),
+    chooseLocation: () => ipcRenderer.invoke(CHANNELS.chooseProjectLocation),
+    check: (request) => ipcRenderer.invoke(CHANNELS.checkProjectName, request),
+    create: (request) => ipcRenderer.invoke(CHANNELS.createProject, request),
+  },
+  // --- end S20.2 ---
+  // --- S21.3/S21.4 local history ---
+  history: {
+    files: (request) => ipcRenderer.invoke(CHANNELS.historyFiles, request),
+    versions: (request) => ipcRenderer.invoke(CHANNELS.historyVersions, request),
+    read: (request) => ipcRenderer.invoke(CHANNELS.historyRead, request),
+    beforeRestore: (request) => ipcRenderer.invoke(CHANNELS.historyBeforeRestore, request),
+    restoreDeleted: (request) => ipcRenderer.invoke(CHANNELS.historyRestoreDeleted, request),
+    overview: (request) => ipcRenderer.invoke(CHANNELS.historyOverview, request),
+    clear: (request) => ipcRenderer.invoke(CHANNELS.historyClear, request),
+    cleanup: () => ipcRenderer.invoke(CHANNELS.historyCleanup),
+    reveal: () => ipcRenderer.invoke(CHANNELS.historyReveal),
+  },
+  // --- end S21.3/S21.4 ---
 };
 
 contextBridge.exposeInMainWorld(
@@ -91,5 +112,7 @@ contextBridge.exposeInMainWorld(
     settings: Object.freeze(api.settings), // S13
     logs: Object.freeze(api.logs),
     projectConfig: Object.freeze(api.projectConfig),
+    createProject: Object.freeze(api.createProject), // S20.2
+    history: Object.freeze(api.history), // S21.3/S21.4
   }),
 );

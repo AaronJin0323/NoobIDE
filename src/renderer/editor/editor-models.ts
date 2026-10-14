@@ -43,7 +43,7 @@ export function releaseFileModels(): void {
  * that differ, so the cursor, selections and scroll position stay where they are whenever they lie outside the
  * changed region (S11.1). Returns the model's new value, or `null` when the file has no model (not shown yet).
  */
-export function replaceModelText(uri: string, text: string, eol: '\n' | '\r\n'): string | null {
+export function reloadModelText(uri: string, text: string, eol: '\n' | '\r\n'): string | null {
   const model = models.get(uri);
   if (!model) return null;
   const wanted = eol === '\r\n' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF;
@@ -58,3 +58,35 @@ export function replaceModelText(uri: string, text: string, eol: '\n' | '\r\n'):
   model.pushStackElement();
   return model.getValue();
 }
+// --- S21.3: restoring a history version is an ordinary, undoable edit of the file's model ---
+/** Resolves with the model of `uri` once the editor has created it (the tab became visible), or null on timeout. */
+export async function waitForModel(uri: string, timeoutMs = 3000): Promise<monaco.editor.ITextModel | null> {
+  const started = Date.now();
+  for (;;) {
+    const model = models.get(uri);
+    if (model) return model;
+    if (Date.now() - started > timeoutMs) return null;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
+/**
+ * Replaces the whole text of an open file's model as one undo step (Ctrl+Z brings the previous text back). The
+ * editor's change listener passes the new text to the file's save pipeline like any typed edit. Returns the
+ * model's new text, or null when the model did not appear.
+ */
+export async function replaceModelText(uri: string, text: string): Promise<string | null> {
+  const model = await waitForModel(uri);
+  if (!model) return null;
+  model.pushStackElement();
+  model.pushEditOperations([], [{ range: model.getFullModelRange(), text }], () => null);
+  // The model inserts text in its own line ending; a version with the other one is restored with that one
+  // (part of the same undo step), so the saved file matches the version.
+  const crlf = text.includes('\r\n');
+  if (text.includes('\n') && crlf !== (model.getEOL() === '\r\n')) {
+    model.pushEOL(crlf ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF);
+  }
+  model.pushStackElement();
+  return model.getValue(); // in the model's own line ending
+}
+// --- end S21.3 ---

@@ -21,6 +21,11 @@ interface PreviewPaneProps {
   projectId: string | null;
   /** A file of the project failed to save: the page is older than the editor (S10.5). */
   saveFailed?: boolean;
+  /**
+   * S20.2: a project just created from a built-in template. Built-in templates are trusted (PLAN §8), so its preview
+   * starts by itself once, without the user pressing Start.
+   */
+  autoStartProjectId?: string | null;
 }
 
 /**
@@ -28,7 +33,13 @@ interface PreviewPaneProps {
  * stage element below — user HTML is never rendered into this React DOM (AGENTS.md invariant). This component only
  * reports where the stage is, offers Start / Stop / Refresh, and lists the page's console output (bounded, S05.3).
  */
-export function PreviewPane({ hidden, covered = false, projectId, saveFailed = false }: PreviewPaneProps) {
+export function PreviewPane({
+  hidden,
+  covered = false,
+  projectId,
+  saveFailed = false,
+  autoStartProjectId = null,
+}: PreviewPaneProps) {
   const { t } = useI18n();
   const bridge = window.noobide?.preview;
   const [status, setStatus] = useState<PreviewStatus>(STOPPED);
@@ -91,6 +102,17 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
     setLog(EMPTY_LOG);
     void bridge.start({ projectId });
   };
+
+  // --- S20.2: a project created from a built-in template previews immediately (once per project) ---
+  const autoStarted = useRef<string | null>(null);
+  useEffect(() => {
+    if (!bridge || autoStartProjectId === null || autoStartProjectId !== projectId) return;
+    if (autoStarted.current === projectId || status.state !== 'stopped') return;
+    autoStarted.current = projectId;
+    setLog(EMPTY_LOG);
+    void bridge.start({ projectId });
+  }, [bridge, autoStartProjectId, projectId, status.state]);
+  // --- end S20.2 ---
 
   const actions = actionsFor(status, projectId !== null);
   const notUpdated = previewNotUpdated(status, saveFailed);
