@@ -157,6 +157,11 @@ test('create from another template in a chosen folder: the project opens with it
   ).toBeVisible();
   // Built-in templates are trusted: the preview runs without pressing Start (PLAN §8, wireframe note 9).
   await waitForPreviewState(page, 'running');
+  // S20.3: the new project's files show their roles.
+  const row = (rel: string) => page.getByTestId('file-tree').locator(`[data-path="${rel}"]`);
+  await expect(row('index.html').getByTestId('file-role')).toHaveText('页面结构');
+  await expect(row('style.css').getByTestId('file-role')).toHaveText('视觉样式');
+  await expect(row('script.js').getByTestId('file-role')).toHaveText('交互行为');
 
   const counter = templates.find((t) => t.id === 'button-counter');
   expect(await tree(path.join(parent, '我的 主页'))).toEqual([...(counter?.files ?? [])].sort());

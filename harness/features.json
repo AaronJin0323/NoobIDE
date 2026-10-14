@@ -1947,8 +1947,8 @@
       "depends_on": [
         "S20.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Create my first webpage (name + location): tests/e2e/welcome.spec.ts (6: welcome screen with one primary create action focused for Enter + open folder; wizard with 3 templates, default selected with text mark, thumbnails decoded, exact folder + file list before anything is written; focus trap + Escape; default location <Documents>/NoobIDE 项目 created on demand and en 'NoobIDE Projects'; chosen folder via native dialog (Chinese + spaces); project opens with index.html tab and preview running without Start) + tests/integration/create-project.test.ts (20: byte-identical manifest files only for all 3 templates, no template.json/thumbnail/.noobide, illegal names explained, location missing, rollback removes only what it created, IPC rejects absolute paths/extra fields, unknown location/template) + src/renderer/welcome/welcome-model.test.ts (8). Open folder: welcome-open-folder button reuses the S03 flow. Recent projects: welcome list with full paths, missing folder = warning icon + text 'folder not found' + remove-from-list only (welcome-model.test.ts); shown only when the bridge provides the S13.3 store (feature-detected recentProjects {list, open, remove}) — no second settings store. Existing folders never overwritten: exists / non-empty folder / file / case-conflict refused (integration + e2e, existing file untouched). verify + test:e2e green @ 407b465"
     },
     {
       "id": "S20.3",
@@ -1963,8 +1963,8 @@
       "depends_on": [
         "S20.2"
       ],
-      "status": "blocked",
-      "evidence": "Implemented and proven, but the CLI refuses done until dependency S20.2 is done. Proof: file-role.ts + file-role.test.ts (22 tests), FileRole.tsx wired into FilesPanel rows and EditorPane, tests/e2e/file-roles.spec.ts (3 tests), verify + test:e2e (33) green @ 0653227. Unblock: after S20.2 lands, re-run file-roles.spec.ts against the new tree/tabs and set done"
+      "status": "done",
+      "evidence": "Re-run after S20.2: tests/e2e/file-roles.spec.ts (3) green against the current tree/tabs @ 407b465; welcome.spec.ts opens a template project whose file rows show the roles; file-role.test.ts (22) in verify"
     },
     {
       "id": "S21.1",
