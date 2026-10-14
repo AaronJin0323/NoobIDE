@@ -1413,8 +1413,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Stores entry page, preview prefs (autoRefresh) and config version only; unknown keys rejected; absolute paths rejected anywhere in the file (drive letters, POSIX roots, UNC, file URLs, home-relative) - tests/integration/project-config.test.ts 14 tests (an invalid hand-written file is never overwritten, only .noobide/project.json is added, written file holds no absolute path); deleting it leaves a working site: the static server still serves index.html and the pages. IPC checks in src/main/app-data-ipc.test.ts. e2e tests/e2e/project-config.spec.ts: tree menu Set as entry page writes version+entry only; preview opens the entry; after deleting .noobide the preview opens index.html. verify green + e2e 109/109 Windows x64 @ c874c32"
     },
     {
       "id": "S13.3",
