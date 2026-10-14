@@ -1940,8 +1940,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "done",
-      "evidence": "tests/integration/history-store.test.ts (11 tests): content-addressed blobs + JSON index in app data (project untouched), dedupe, per-file version/byte and total limits, usage()/fileUsage() report usage vs limits, cleanup()/clear(); corrupt index/blob tolerated. Usage is exposed by API; on-screen display comes with the S21.3/S21.4 UI @ b5cafbb"
+      "status": "in_progress",
+      "evidence": "Reopened after independent review @ deed77c: transient index read error treated as empty overwrites/GCs history; quarantine loses blobs. Fixes in progress (recovery agent)."
     },
     {
       "id": "S21.2",
@@ -1956,8 +1956,8 @@
       "depends_on": [
         "S21.1"
       ],
-      "status": "done",
-      "evidence": "tests/integration/history-triggers.test.ts (8 tests): before/after-save through ProjectService.write with coalesced bursts, failed save, broken store never fails a save; before-format/restore/delete (file + folder) via HistoryTriggers API (callers arrive with format/delete/restore features); e2e recovery.spec S12.1 checks history index written in app data on save @ eec393b"
+      "status": "in_progress",
+      "evidence": "Reopened after independent review @ deed77c: sliding coalescing window collapses long sessions; hooks awaited on the save path. Fixes in progress (recovery agent)."
     },
     {
       "id": "S21.3",
