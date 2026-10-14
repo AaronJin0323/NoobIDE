@@ -5,7 +5,7 @@ import { buildMenuTemplate } from '../platform/menu-template';
 import { translate } from '../renderer/i18n/index';
 import { COMMAND_EVENTS } from '../shared/ipc/commands-contract';
 
-const EDITING = { hasProject: true, hasActiveTab: true, modalOpen: false };
+const EDITING = { hasProject: true, hasActiveTab: true, modalOpen: false, theme: 'system' as const };
 
 function find(items: MenuItemConstructorOptions[], id: string): MenuItemConstructorOptions | undefined {
   for (const item of items) {
@@ -47,6 +47,18 @@ describe('Electron menu template (S24.2)', () => {
     expect(Array.isArray(edit?.submenu) && edit.submenu[0]).toMatchObject({ role: 'undo', label: 'Undo' });
     // Submenu roles are a macOS concept only.
     expect(template.some((item) => item.role !== undefined)).toBe(false);
+  });
+
+  it('theme choices become radio items (S24.4)', () => {
+    const entries = buildMenuTemplate({
+      platform: 'mac',
+      t: (k) => translate('en', k),
+      context: { ...EDITING, theme: 'light' },
+    });
+    const template = toElectronTemplate(entries, 'mac', vi.fn());
+    expect(find(template, 'theme-light')).toMatchObject({ type: 'radio', checked: true });
+    expect(find(template, 'theme-system')).toMatchObject({ type: 'radio', checked: false });
+    expect(find(template, 'save')?.type).toBeUndefined();
   });
 
   it('keeps the macOS application and window menu roles', () => {
@@ -92,11 +104,16 @@ describe('menu controller (S24.2)', () => {
     controller.setLocale('en');
     expect(find(applied[2] ?? [], 'save')?.label).toBe('Save');
     // Another window's context does not change the menu until that window is focused.
-    controller.setContext(9, { hasProject: false, hasActiveTab: false, modalOpen: true });
+    controller.setContext(9, { hasProject: false, hasActiveTab: false, modalOpen: true, theme: 'system' as const });
     expect(applied).toHaveLength(3);
     controller.windowFocused(9);
     expect(find(applied[3] ?? [], 'zoom-in')?.enabled).toBe(false);
     controller.windowClosed(9);
-    expect(controller.context).toEqual({ hasProject: false, hasActiveTab: false, modalOpen: false });
+    expect(controller.context).toEqual({
+      hasProject: false,
+      hasActiveTab: false,
+      modalOpen: false,
+      theme: 'system' as const,
+    });
   });
 });

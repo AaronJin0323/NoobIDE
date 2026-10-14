@@ -13,7 +13,7 @@ export const SETTINGS_VERSION = 1;
 export const SETTINGS_LOCALES = ['zh-CN', 'en'] as const;
 export type SettingsLocale = (typeof SETTINGS_LOCALES)[number];
 
-/** Colour theme choice. Only stored for now; the visible setting arrives with S24.4. */
+/** Colour theme choice (S24.4: chosen from the command menu or the View menu). */
 export const THEME_CHOICES = ['system', 'light', 'dark'] as const;
 export type ThemeChoice = (typeof THEME_CHOICES)[number];
 

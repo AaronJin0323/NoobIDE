@@ -506,6 +506,11 @@ button {
   background: var(--accent-soft);
   color: var(--accent-text);
 }
+/* S24.4: check mark of the current choice (theme) */
+.app-menu-check {
+  display: inline-block;
+  width: 1.4em;
+}
 /* S24.1: groups of the command menu */
 .app-menu-separator {
   height: 1px;

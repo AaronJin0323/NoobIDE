@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { PlatformId } from '../../platform/labels';
 import {
   APP_MENU_COMMANDS,
+  INITIAL_COMMAND_CONTEXT,
   commandById,
+  commandChecked,
   commandForKeyStroke,
   commandShortcutLabel,
   isCommandEnabled,
@@ -59,7 +61,7 @@ export function useCommands(platform: PlatformId, context: CommandContext, handl
   }, [platform, canRun, run]);
 
   // S24.2: main enables the native menu items from this context and sends their choices back by id.
-  const contextKey = `${context.hasProject}|${context.hasActiveTab}|${context.modalOpen}`;
+  const contextKey = `${context.hasProject}|${context.hasActiveTab}|${context.modalOpen}|${context.theme}`;
   useEffect(() => {
     void window.noobide?.commands?.setContext({ ...contextRef.current });
   }, [contextKey]);
@@ -79,7 +81,9 @@ export function useAppMenuItems(
   const visible = APP_MENU_COMMANDS.filter(
     (id) => id === '-' || (handlers[id] !== undefined && isCommandEnabled(id, context)),
   ).join(',');
+  const theme = context.theme; // the checked theme item (S24.4)
   return useMemo(() => {
+    const checkedIn = { ...INITIAL_COMMAND_CONTEXT, theme };
     const items: AppMenuItem[] = [];
     let separate = false;
     for (const raw of visible === '' ? [] : visible.split(',')) {
@@ -93,12 +97,13 @@ export function useAppMenuItems(
         label: commandById(id).label,
         shortcut: commandShortcutLabel(id, platform),
         separatorBefore: separate,
+        checked: commandChecked(id, checkedIn),
         onSelect: () => void run(id),
       });
       separate = false;
     }
     return items;
-  }, [visible, platform, run]);
+  }, [visible, theme, platform, run]);
 }
 
 /** A tooltip with the command's shortcut hint from the registry, e.g. `Save (⌘S)` / `Save (Ctrl+S)`. */

@@ -13,6 +13,10 @@ export const commandsZhCN = {
   'command.toggleProblems': '显示或隐藏问题面板',
   'command.nextTab': '下一个标签页',
   'command.previousTab': '上一个标签页',
+  // ── S24.4 主题 ──
+  'command.theme.system': '跟随系统的浅色或深色主题',
+  'command.theme.light': '浅色主题',
+  'command.theme.dark': '深色主题',
   // ── S24.2 系统菜单 ──
   'menu.about': '关于 NoobIDE',
   'menu.services': '服务',
@@ -50,6 +54,10 @@ export const commandsEn: Record<keyof typeof commandsZhCN, string> = {
   'command.toggleProblems': 'Show or hide problems',
   'command.nextTab': 'Next tab',
   'command.previousTab': 'Previous tab',
+  // ── S24.4 theme ──
+  'command.theme.system': 'Light or dark theme from the system',
+  'command.theme.light': 'Light theme',
+  'command.theme.dark': 'Dark theme',
   // ── S24.2 native menus ──
   'menu.about': 'About NoobIDE',
   'menu.services': 'Services',

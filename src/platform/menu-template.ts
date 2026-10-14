@@ -13,6 +13,7 @@ import { keybindingAccelerator } from './keybindings';
 import { isMac, type PlatformId } from './labels';
 import {
   commandById,
+  commandChecked,
   commandKeybinding,
   isCommandEnabled,
   type CommandContext,
@@ -51,6 +52,8 @@ export type MenuEntry =
       /** Shown in the menu; the renderer handles the key itself (see main/app-menu.ts). */
       readonly accelerator: string | null;
       readonly enabled: boolean;
+      /** S24.4: a choice (radio item) and whether it is the current one. */
+      readonly checked?: boolean;
     }
   | { readonly kind: 'role'; readonly role: MenuRole; readonly label: string; readonly accelerator?: string }
   | { readonly kind: 'separator' }
@@ -76,12 +79,14 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
   const mac = isMac(platform);
   const command = (id: CommandId): MenuEntry => {
     const binding = commandKeybinding(id, platform);
+    const checked = commandChecked(id, context);
     return {
       kind: 'command',
       id,
       label: t(commandById(id).label),
       accelerator: binding ? keybindingAccelerator(binding, platform) : null,
       enabled: isCommandEnabled(id, context),
+      ...(checked === null ? {} : { checked }),
     };
   };
   const role = (r: MenuRole, label: MessageKey, accelerator?: string): MenuEntry =>
@@ -147,6 +152,10 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       command('zoom-in'),
       command('zoom-out'),
       command('zoom-reset'),
+      SEPARATOR,
+      command('theme-system'),
+      command('theme-light'),
+      command('theme-dark'),
       SEPARATOR,
       command('next-tab'),
       command('previous-tab'),

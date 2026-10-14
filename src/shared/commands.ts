@@ -16,6 +16,7 @@ import {
 } from '../platform/keybindings';
 import type { PlatformId } from '../platform/labels';
 import type { MessageKey } from '../renderer/i18n/zh-CN';
+import { isThemeChoice, type ThemeChoice } from './settings';
 
 export const COMMAND_IDS = [
   'new-project',
@@ -32,6 +33,10 @@ export const COMMAND_IDS = [
   'next-tab',
   'previous-tab',
   'open-logs',
+  // S24.4
+  'theme-system',
+  'theme-light',
+  'theme-dark',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -42,9 +47,16 @@ export interface CommandContext {
   readonly hasActiveTab: boolean;
   /** A modal dialog (wizard, history, confirmation) has the focus: commands behind it wait. */
   readonly modalOpen: boolean;
+  /** S24.4: the theme choice, shown as the checked theme command. */
+  readonly theme: ThemeChoice;
 }
 
-export const INITIAL_COMMAND_CONTEXT: CommandContext = { hasProject: false, hasActiveTab: false, modalOpen: false };
+export const INITIAL_COMMAND_CONTEXT: CommandContext = {
+  hasProject: false,
+  hasActiveTab: false,
+  modalOpen: false,
+  theme: 'system',
+};
 
 export interface CommandDefinition {
   readonly id: CommandId;
@@ -52,6 +64,8 @@ export interface CommandDefinition {
   readonly keys?: PlatformKeybindings;
   /** When the command applies; always when absent. */
   readonly when?: (context: CommandContext) => boolean;
+  /** A choice among several (radio item in menus): whether it is the current one. */
+  readonly checked?: (context: CommandContext) => boolean;
 }
 
 const noModal = (c: CommandContext) => !c.modalOpen;
@@ -93,6 +107,10 @@ export const COMMANDS: readonly CommandDefinition[] = [
     when: (c) => c.hasActiveTab && !c.modalOpen,
   },
   { id: 'open-logs', label: 'appMenu.openLogs' },
+  // S24.4: theme choice, persisted in the app settings.
+  { id: 'theme-system', label: 'command.theme.system', checked: (c) => c.theme === 'system' },
+  { id: 'theme-light', label: 'command.theme.light', checked: (c) => c.theme === 'light' },
+  { id: 'theme-dark', label: 'command.theme.dark', checked: (c) => c.theme === 'dark' },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));
@@ -131,21 +149,36 @@ export function commandForKeyStroke(platform: PlatformId, stroke: KeyStroke): Co
 }
 
 /** Commands of the workbench's in-window "more actions" menu, in order; `-` separates groups. */
-export const APP_MENU_COMMANDS: readonly (CommandId | '-')[] = ['close-project', 'show-history', '-', 'open-logs'];
+export const APP_MENU_COMMANDS: readonly (CommandId | '-')[] = [
+  'close-project',
+  'show-history',
+  '-',
+  'theme-system',
+  'theme-light',
+  'theme-dark',
+  '-',
+  'open-logs',
+];
+
+/** Whether the command is a choice (radio item), and if so whether it is the current one; null otherwise. */
+export function commandChecked(id: CommandId, context: CommandContext): boolean | null {
+  const checked = commandById(id).checked;
+  return checked ? checked(context) : null;
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-/** IPC payload check for the context the renderer reports to main: exactly the known keys, each a boolean. */
+/** IPC payload check for the context the renderer reports to main: exactly the known keys, each valid. */
 export function parseCommandContext(payload: unknown): CommandContext | null {
   if (!isRecord(payload)) return null;
   const keys = Object.keys(payload).sort();
   const expected = Object.keys(INITIAL_COMMAND_CONTEXT).sort();
   if (keys.length !== expected.length || keys.some((key, i) => key !== expected[i])) return null;
-  if (!expected.every((key) => typeof payload[key] === 'boolean')) return null;
-  return {
-    hasProject: payload.hasProject as boolean,
-    hasActiveTab: payload.hasActiveTab as boolean,
-    modalOpen: payload.modalOpen as boolean,
-  };
+  const { hasProject, hasActiveTab, modalOpen, theme } = payload;
+  if (typeof hasProject !== 'boolean' || typeof hasActiveTab !== 'boolean' || typeof modalOpen !== 'boolean') {
+    return null;
+  }
+  if (!isThemeChoice(theme)) return null;
+  return { hasProject, hasActiveTab, modalOpen, theme };
 }

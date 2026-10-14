@@ -2226,8 +2226,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "ThemeProvider persists light/dark/system in settings.theme (S13 SettingsStore); zoom persisted via settings.editorFontSize with schema limits; unit src/renderer/theme/theme-choice.test.ts + registry/menu radio tests; e2e tests/e2e/theme.spec.ts (choice + zoom survive restart, in-window radio with check mark, native View menu) + settings.spec.ts pass on macOS arm64"
     },
     {
       "id": "S25.1",

@@ -3,7 +3,7 @@ import { buildMenuTemplate, type MenuEntry } from './menu-template';
 import { translate, type Locale } from '../renderer/i18n/index';
 import { INITIAL_COMMAND_CONTEXT, type CommandContext } from '../shared/commands';
 
-const EDITING: CommandContext = { hasProject: true, hasActiveTab: true, modalOpen: false };
+const EDITING: CommandContext = { hasProject: true, hasActiveTab: true, modalOpen: false, theme: 'system' as const };
 
 const build = (platform: 'mac' | 'windows', context = EDITING, locale: Locale = 'en') =>
   buildMenuTemplate({ platform, t: (key) => translate(locale, key), context });
@@ -56,11 +56,20 @@ describe('native menus (S24.2)', () => {
     expect(commandItem(build('mac'), 'close-project').accelerator).toBeNull();
   });
 
+  it('offers the theme as a choice with the current one checked (S24.4)', () => {
+    const dark = build('windows', { ...EDITING, theme: 'dark' });
+    expect(commandItem(dark, 'theme-dark')).toMatchObject({ label: 'Dark theme', checked: true });
+    expect(commandItem(dark, 'theme-light').checked).toBe(false);
+    expect(commandItem(dark, 'save').checked).toBeUndefined();
+  });
+
   it('enables items from the command context', () => {
     expect(commandItem(build('mac', INITIAL_COMMAND_CONTEXT), 'save').enabled).toBe(false);
     expect(commandItem(build('mac', INITIAL_COMMAND_CONTEXT), 'open-folder').enabled).toBe(true);
     expect(commandItem(build('windows', EDITING), 'save').enabled).toBe(true);
-    expect(commandItem(build('windows', { ...EDITING, modalOpen: true }), 'new-project').enabled).toBe(false);
+    expect(
+      commandItem(build('windows', { ...EDITING, modalOpen: true, theme: 'system' as const }), 'new-project').enabled,
+    ).toBe(false);
   });
 
   it('translates every label with the interface language', () => {

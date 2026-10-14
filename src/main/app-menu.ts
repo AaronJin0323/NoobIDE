@@ -43,6 +43,10 @@ export function toElectronTemplate(
           click: (_menuItem, window, event: KeyboardEvent | undefined) =>
             onCommand(entry.id, window, event?.triggeredByAccelerator === true),
         };
+        if (entry.checked !== undefined) {
+          item.type = 'radio';
+          item.checked = entry.checked;
+        }
         if (entry.accelerator !== null) {
           item.accelerator = entry.accelerator;
           // Windows/Linux: shown only. The page resolves its keys through the command registry (S24.1).

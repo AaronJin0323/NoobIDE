@@ -26,7 +26,7 @@ function setup() {
   return { call, setContext };
 }
 
-const CONTEXT = { hasProject: true, hasActiveTab: false, modalOpen: false };
+const CONTEXT = { hasProject: true, hasActiveTab: false, modalOpen: false, theme: 'system' as const };
 
 describe('command context channel (S24.2)', () => {
   it('accepts a valid context from the workbench', async () => {

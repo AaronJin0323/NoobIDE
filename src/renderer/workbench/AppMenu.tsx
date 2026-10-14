@@ -9,8 +9,12 @@ export interface AppMenuItem {
   readonly shortcut?: string | null;
   /** S24.1: a separator line goes above this item (a new group). */
   readonly separatorBefore?: boolean;
+  /** S24.4: a choice among several (menuitemradio): whether it is the current one; null/absent for actions. */
+  readonly checked?: boolean | null;
   readonly onSelect: () => void;
 }
+
+const isChoice = (item: AppMenuItem) => item.checked !== undefined && item.checked !== null;
 
 /**
  * The workbench's small command menu (S13.3 close project, S13.6 open logs folder). An ARIA menu button: Enter,
@@ -22,7 +26,7 @@ export function AppMenu({ items }: { items: readonly AppMenuItem[] }) {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
-  const entries = () => [...(menu.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])];
+  const entries = () => [...(menu.current?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]') ?? [])];
 
   useEffect(() => {
     if (!open) return undefined;
@@ -97,7 +101,8 @@ export function AppMenu({ items }: { items: readonly AppMenuItem[] }) {
               {item.separatorBefore && <div role="separator" className="app-menu-separator" />}
               <button
                 type="button"
-                role="menuitem"
+                role={isChoice(item) ? 'menuitemradio' : 'menuitem'}
+                aria-checked={isChoice(item) ? item.checked === true : undefined}
                 tabIndex={-1}
                 className="app-menu-item"
                 data-testid={`menu-${item.id}`}
@@ -106,7 +111,15 @@ export function AppMenu({ items }: { items: readonly AppMenuItem[] }) {
                   item.onSelect();
                 }}
               >
-                <span>{t(item.label)}</span>
+                <span>
+                  {/* S24.4: the current choice carries a check mark, not only a colour */}
+                  {isChoice(item) && (
+                    <span className="app-menu-check" aria-hidden="true">
+                      {item.checked ? '✓' : ''}
+                    </span>
+                  )}
+                  {t(item.label)}
+                </span>
                 {item.shortcut && <span className="menu-shortcut">{item.shortcut}</span>}
               </button>
             </Fragment>

@@ -60,6 +60,7 @@ const editorModels = () => import('../editor/editor-models');
 import type { SettingsSnapshot } from '../../shared/ipc/app-data-contract';
 import { SettingsNotice } from './SettingsNotice';
 import type { CommandContext } from '../../shared/commands'; // S24.1
+import { useThemeChoice } from '../theme/ThemeProvider'; // S24.4
 import { isEntryPath } from '../../shared/project-config';
 import type { TreeEntry } from '../../shared/ipc/contract';
 import { EntryNotice, type EntryNoticeState } from './EntryNotice';
@@ -670,6 +671,7 @@ export function Workbench() {
 
   // --- S24.1: command registry. Shortcuts (⌘S / Ctrl+S everywhere in the window, Ctrl+Tab, ⌘/Ctrl with + − 0 for
   // the code font, …), the in-window menu and its hints all come from src/shared/commands. ---
+  const theme = useThemeChoice();
   const switchTab = (step: 1 | -1) => {
     const next = cycleTab(docRef.current, step);
     if (next) dispatch({ type: 'activate', relPath: next });
@@ -678,6 +680,7 @@ export function Workbench() {
     hasProject: doc.project !== null,
     hasActiveTab: doc.active !== null,
     modalOpen: wizardOpen || historyFor !== null,
+    theme: theme.choice, // S24.4
   };
   const commandHandlers: CommandHandlers = {
     'new-project': bridge?.createProject ? () => setWizardOpen(true) : undefined,
@@ -697,6 +700,10 @@ export function Workbench() {
     'next-tab': () => switchTab(1),
     'previous-tab': () => switchTab(-1),
     'open-logs': bridge?.logs ? () => void bridge.logs?.openFolder() : undefined,
+    // S24.4: the theme choice is persisted in the app settings by the ThemeProvider.
+    'theme-system': () => theme.setChoice('system'),
+    'theme-light': () => theme.setChoice('light'),
+    'theme-dark': () => theme.setChoice('dark'),
   };
   const commands = useCommands(platform, commandContext, commandHandlers);
   const menuItems = useAppMenuItems(platform, commandContext, commandHandlers, commands.run);

@@ -4,6 +4,7 @@ import {
   COMMANDS,
   COMMAND_IDS,
   INITIAL_COMMAND_CONTEXT,
+  commandChecked,
   commandForKeyStroke,
   commandShortcutLabel,
   isCommandEnabled,
@@ -62,13 +63,13 @@ describe('command registry (S24.1)', () => {
 
   it('applies when clauses', () => {
     const none = INITIAL_COMMAND_CONTEXT;
-    const editing = { hasProject: true, hasActiveTab: true, modalOpen: false };
+    const editing = { hasProject: true, hasActiveTab: true, modalOpen: false, theme: 'system' as const };
     expect(isCommandEnabled('save', none)).toBe(false);
     expect(isCommandEnabled('save', editing)).toBe(true);
-    expect(isCommandEnabled('save', { ...editing, modalOpen: true })).toBe(true);
+    expect(isCommandEnabled('save', { ...editing, modalOpen: true, theme: 'system' as const })).toBe(true);
     expect(isCommandEnabled('close-project', none)).toBe(false);
     expect(isCommandEnabled('close-project', editing)).toBe(true);
-    expect(isCommandEnabled('zoom-in', { ...editing, modalOpen: true })).toBe(false);
+    expect(isCommandEnabled('zoom-in', { ...editing, modalOpen: true, theme: 'system' as const })).toBe(false);
     expect(isCommandEnabled('open-logs', none)).toBe(true);
   });
 
@@ -77,16 +78,30 @@ describe('command registry (S24.1)', () => {
   });
 
   it('validates the context the renderer reports', () => {
-    expect(parseCommandContext({ hasProject: true, hasActiveTab: false, modalOpen: false })).toEqual({
+    expect(
+      parseCommandContext({ hasProject: true, hasActiveTab: false, modalOpen: false, theme: 'system' as const }),
+    ).toEqual({
       hasProject: true,
       hasActiveTab: false,
       modalOpen: false,
+      theme: 'system',
     });
     expect(parseCommandContext({ hasProject: true, hasActiveTab: false })).toBeNull();
-    expect(parseCommandContext({ hasProject: 1, hasActiveTab: false, modalOpen: false })).toBeNull();
+    expect(parseCommandContext({ hasProject: true, hasActiveTab: false, modalOpen: false, theme: 'neon' })).toBeNull();
+    expect(
+      parseCommandContext({ hasProject: 1, hasActiveTab: false, modalOpen: false, theme: 'system' as const }),
+    ).toBeNull();
     expect(parseCommandContext({ hasProject: true, hasActiveTab: false, modalOpen: false, x: true })).toBeNull();
     expect(parseCommandContext(null)).toBeNull();
     expect(isCommandId('save')).toBe(true);
     expect(isCommandId('rm -rf')).toBe(false);
+  });
+
+  it('theme commands are a choice: exactly the current one is checked (S24.4)', () => {
+    const light = { ...INITIAL_COMMAND_CONTEXT, theme: 'light' as const };
+    expect(commandChecked('theme-light', light)).toBe(true);
+    expect(commandChecked('theme-dark', light)).toBe(false);
+    expect(commandChecked('theme-system', INITIAL_COMMAND_CONTEXT)).toBe(true);
+    expect(commandChecked('save', light)).toBeNull();
   });
 });
