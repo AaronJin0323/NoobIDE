@@ -134,3 +134,49 @@ export function SaveStateIcon({ state }: { state: 'clean' | 'dirty' | 'saving' |
       return <WarningIcon />;
   }
 }
+
+// ── S08: file tree ──────────────────────────────────────────────────────────────────────────────────────────────
+
+/** Points right when closed; CSS rotates it when the folder is open (shape, not colour, shows the state). */
+export const ChevronRightIcon = () => (
+  <Icon size={12} strokeWidth={1.8}>
+    <path d="M6 4l4 4-4 4" />
+  </Icon>
+);
+
+export const TreeFolderIcon = ({ open }: { open: boolean }) => (
+  <Icon size={15} strokeWidth={1.4}>
+    {open ? (
+      <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4A1.5 1.5 0 0 1 13.5 6v.5H5.2a1.5 1.5 0 0 0-1.4 1L2 12.5zM2 12.5l1.8-5A1.5 1.5 0 0 1 5.2 6.5H15l-2 6a1 1 0 0 1-1 .5H3a1 1 0 0 1-1-.5z" />
+    ) : (
+      <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z" />
+    )}
+  </Icon>
+);
+
+export const TreeFileIcon = () => (
+  <Icon size={15} strokeWidth={1.4}>
+    <path d="M9 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V6L9 2z" />
+    <path d="M9 2v4h4" />
+  </Icon>
+);
+
+export const LinkIcon = () => (
+  <Icon size={12} strokeWidth={1.6}>
+    <path d="M7 9a3 3 0 0 0 4.2 0l2-2a3 3 0 0 0-4.2-4.2l-.6.6M9 7a3 3 0 0 0-4.2 0l-2 2a3 3 0 0 0 4.2 4.2l.6-.6" />
+  </Icon>
+);
+
+export const NewFileIcon = () => (
+  <Icon size={15} strokeWidth={1.5}>
+    <path d="M9 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14H8M9 2l4 4v2M9 2v4h4" />
+    <path d="M12 10v4M10 12h4" />
+  </Icon>
+);
+
+export const NewFolderIcon = () => (
+  <Icon size={15} strokeWidth={1.5}>
+    <path d="M8 13H3.5A1.5 1.5 0 0 1 2 11.5v-7A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v2" />
+    <path d="M12 10v4M10 12h4" />
+  </Icon>
+);

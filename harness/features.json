@@ -1006,8 +1006,8 @@
       "depends_on": [
         "S07.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/workspace/text-codec.ts decodeForDisplay + ProjectService read/write guard; src/workspace/text-codec.test.ts (UTF-8 +/- BOM editable, BOM round trip, GB18030/Windows-1252/UTF-16 read-only, binary refused, EOL dominant style, new/empty files LF); tests/integration/project-service.test.ts (GBK read-only + never overwritten, binary write refused, CRLF+BOM preserved); tests/e2e/encodings.spec.ts (read-only notice, CRLF kept after edit+save in Monaco, binary not opened); verify + e2e green @ 579a472"
     },
     {
       "id": "S08.1",
@@ -1020,7 +1020,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

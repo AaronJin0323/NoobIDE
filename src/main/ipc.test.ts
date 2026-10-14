@@ -24,7 +24,13 @@ let deps: IpcDeps & {
     read: ReturnType<typeof vi.fn>;
     write: ReturnType<typeof vi.fn>;
     listDir: ReturnType<typeof vi.fn>;
+    createEntry: ReturnType<typeof vi.fn>;
+    renameEntry: ReturnType<typeof vi.fn>;
+    trashEntry: ReturnType<typeof vi.fn>;
+    revealPath: ReturnType<typeof vi.fn>;
   };
+  trashItem: ReturnType<typeof vi.fn>;
+  revealItem: ReturnType<typeof vi.fn>;
 };
 
 beforeEach(() => {
@@ -37,7 +43,13 @@ beforeEach(() => {
       write: vi.fn(async () => ok({ savedAt: 1 })),
       rootOf: vi.fn((id: string) => (id === ID ? '/p' : undefined)),
       listDir: vi.fn(async () => ok({ relPath: '', entries: [], truncated: false })),
+      createEntry: vi.fn(async (r: { relPath: string }) => ok({ relPath: r.relPath })),
+      renameEntry: vi.fn(async (r: { from: string; to: string }) => ok({ from: r.from, to: r.to })),
+      trashEntry: vi.fn(async () => ok(null)),
+      revealPath: vi.fn(async (r: { relPath: string }) => ok(r.relPath === '' ? '/p' : `/p/${r.relPath}`)),
     },
+    trashItem: vi.fn(async () => undefined),
+    revealItem: vi.fn((_fullPath: string) => undefined),
     chooseFolder: vi.fn(async () => '/p'),
     revealFolder: vi.fn(),
   };
@@ -168,5 +180,55 @@ describe('project watching (S07.3)', () => {
     const sender = { id: 1 };
     await call(CHANNELS.openFolder, { senderFrame: frame(`${ORIGIN}/index.html`), sender } as never);
     expect(projectOpened).toHaveBeenCalledWith(ID, '/p', sender);
+  });
+});
+
+describe('file operation channels (S08.2–S08.5)', () => {
+  it('create, rename, trash and reveal pass parsed requests through', async () => {
+    const create = { projectId: ID, relPath: '新 文件夹/页面.html', kind: 'file' };
+    expect(await call(CHANNELS.createEntry, workbench, create)).toEqual({
+      ok: true,
+      value: { relPath: '新 文件夹/页面.html' },
+    });
+    expect(deps.projects.createEntry).toHaveBeenCalledWith(create);
+    const move = { projectId: ID, from: 'a.html', to: 'pages/A.html' };
+    expect(await call(CHANNELS.renameEntry, workbench, move)).toMatchObject({ ok: true });
+    expect(deps.projects.renameEntry).toHaveBeenCalledWith(move);
+    expect(await call(CHANNELS.trashEntry, workbench, { projectId: ID, relPath: 'a.html' })).toEqual({
+      ok: true,
+      value: null,
+    });
+    expect(deps.projects.trashEntry).toHaveBeenCalledWith({ projectId: ID, relPath: 'a.html' }, deps.trashItem);
+    expect(await call(CHANNELS.revealEntry, workbench, { projectId: ID, relPath: 'css' })).toEqual({
+      ok: true,
+      value: null,
+    });
+    expect(deps.revealItem).toHaveBeenCalledWith('/p/css');
+  });
+
+  it.each([
+    ['an unknown kind', CHANNELS.createEntry, { projectId: ID, relPath: 'a', kind: 'symlink' }],
+    ['a parent segment in a rename target', CHANNELS.renameEntry, { projectId: ID, from: 'a', to: '../a' }],
+    ['an absolute rename source', CHANNELS.renameEntry, { projectId: ID, from: '/etc/passwd', to: 'a' }],
+    ['a device name as new name', CHANNELS.createEntry, { projectId: ID, relPath: 'CON', kind: 'file' }],
+    ['trashing the project root', CHANNELS.trashEntry, { projectId: ID, relPath: '' }],
+    ['revealing outside', CHANNELS.revealEntry, { projectId: ID, relPath: '..' }],
+  ])('rejects %s', async (_name, channel, payload) => {
+    expect(await call(channel, workbench, payload)).toMatchObject({ ok: false, code: 'invalid-request' });
+    expect(deps.projects.createEntry).not.toHaveBeenCalled();
+    expect(deps.projects.renameEntry).not.toHaveBeenCalled();
+    expect(deps.projects.trashEntry).not.toHaveBeenCalled();
+    expect(deps.trashItem).not.toHaveBeenCalled();
+    expect(deps.revealItem).not.toHaveBeenCalled();
+  });
+
+  it('a refused reveal shows nothing', async () => {
+    deps.projects.revealPath.mockResolvedValueOnce({ ok: false, code: 'not-found', message: 'ENOENT' });
+    expect(await call(CHANNELS.revealEntry, workbench, { projectId: ID, relPath: 'gone.html' })).toEqual({
+      ok: false,
+      code: 'not-found',
+      message: 'ENOENT',
+    });
+    expect(deps.revealItem).not.toHaveBeenCalled();
   });
 });

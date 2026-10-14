@@ -6,7 +6,7 @@
 import type { PlatformId } from './labels';
 
 export type { PlatformId } from './labels';
-export { isMac, isWindows, modifierLabel, revealLabelKey, shortcutLabel } from './labels';
+export { isMac, isWindows, modifierLabel, revealLabelKey, shortcutLabel, trashLabelKey } from './labels';
 
 export function platformId(platform: NodeJS.Platform = process.platform): PlatformId {
   if (platform === 'darwin') return 'mac';

@@ -23,6 +23,10 @@ const api: NoobideApi = {
       ipcRenderer.on(EVENTS.changed, handler);
       return () => void ipcRenderer.removeListener(EVENTS.changed, handler);
     },
+    createEntry: (request) => ipcRenderer.invoke(CHANNELS.createEntry, request),
+    renameEntry: (request) => ipcRenderer.invoke(CHANNELS.renameEntry, request),
+    trashEntry: (request) => ipcRenderer.invoke(CHANNELS.trashEntry, request),
+    revealEntry: (request) => ipcRenderer.invoke(CHANNELS.revealEntry, request),
   },
 };
 

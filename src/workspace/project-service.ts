@@ -5,7 +5,10 @@ import path from 'node:path';
 import {
   MAX_TEXT_FILE_BYTES,
   type FileContent,
+  type CreateEntryRequest,
   type DirListing,
+  type FileOpError,
+  type RenameEntryRequest,
   type DirRequest,
   type FileEntry,
   type ListDirError,
@@ -20,6 +23,7 @@ import { err, ok, type Result } from '../shared/result';
 import { replaceFileAtomic } from './atomic-write';
 import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
 import { listDirectory } from './tree';
+import { createEntry, renameEntry, resolveEntry, trashEntry } from './file-ops';
 import { decodeForDisplay, decodeText, encodeText } from './text-codec';
 
 /**
@@ -64,6 +68,36 @@ export class ProjectService {
     const project = this.projects.get(request.projectId);
     if (!project) return err('unknown-project', 'project is not open');
     return listDirectory(project.root, request.relPath);
+  }
+
+  // ── S08: file operations ──
+  async createEntry(request: CreateEntryRequest): Promise<Result<{ relPath: string }, FileOpError>> {
+    const root = this.rootOf(request.projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    return createEntry(root, request.relPath, request.kind);
+  }
+
+  async renameEntry(request: RenameEntryRequest): Promise<Result<{ from: string; to: string }, FileOpError>> {
+    const root = this.rootOf(request.projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    return renameEntry(root, request.from, request.to);
+  }
+
+  /** `trashItem` is Electron's shell.trashItem in the app (never a permanent delete). */
+  async trashEntry(
+    request: FileRequest,
+    trashItem: (fullPath: string) => Promise<void>,
+  ): Promise<Result<null, FileOpError>> {
+    const root = this.rootOf(request.projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    return trashEntry(root, request.relPath, trashItem);
+  }
+
+  /** The absolute path to show in the file manager: the entry itself (not a link's target), or the root. */
+  async revealPath(request: DirRequest): Promise<Result<string, FileOpError>> {
+    const root = this.rootOf(request.projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    return request.relPath === '' ? ok(root) : resolveEntry(root, request.relPath);
   }
 
   rootOf(projectId: string): string | undefined {

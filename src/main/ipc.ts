@@ -1,10 +1,12 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import {
   CHANNELS,
+  parseCreateEntryRequest,
   parseDirRequest,
   parseFileRequest,
   parseNoPayload,
   parseProjectRequest,
+  parseRenameEntryRequest,
   parseWriteFileRequest,
   toIpcResult,
   type Channel,
@@ -38,13 +40,20 @@ export function isTrustedSender(info: SenderInfo | null, allowedOrigin: string):
 export interface IpcDeps {
   /** `noobide://app` in production, the Vite dev server origin in development. */
   readonly allowedOrigin: string;
-  readonly projects: Pick<ProjectService, 'open' | 'read' | 'write' | 'rootOf' | 'listDir'>;
+  readonly projects: Pick<
+    ProjectService,
+    'open' | 'read' | 'write' | 'rootOf' | 'listDir' | 'createEntry' | 'renameEntry' | 'trashEntry' | 'revealPath'
+  >;
   /** Shows the native folder picker; `null` when cancelled. */
   chooseFolder(event: IpcMainInvokeEvent): Promise<string | null>;
   revealFolder(folder: string): void;
   // ── S07/S08: file tree, watcher and file operations ──
   /** Starts watching a just-opened project and reports changes to the window that opened it (S07.3). */
   projectOpened?(projectId: string, root: string, sender: IpcMainInvokeEvent['sender']): void;
+  /** Electron's shell.trashItem: moves to the OS trash, never deletes permanently (S08.3). */
+  trashItem(fullPath: string): Promise<void>;
+  /** Electron's shell.showItemInFolder (S08.5). */
+  revealItem(fullPath: string): void;
 }
 
 const FORBIDDEN = { ok: false, code: 'forbidden-sender', message: 'sender is not the workbench' } as const;
@@ -86,4 +95,18 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
 
   // ── S07/S08: file tree, watcher and file operations ──
   handle(CHANNELS.listDir, parseDirRequest, async (request) => toIpcResult(await deps.projects.listDir(request)));
+  handle(CHANNELS.createEntry, parseCreateEntryRequest, async (request) =>
+    toIpcResult(await deps.projects.createEntry(request)),
+  );
+  handle(CHANNELS.renameEntry, parseRenameEntryRequest, async (request) =>
+    toIpcResult(await deps.projects.renameEntry(request)),
+  );
+  handle(CHANNELS.trashEntry, parseFileRequest, async (request) =>
+    toIpcResult(await deps.projects.trashEntry(request, deps.trashItem)),
+  );
+  handle(CHANNELS.revealEntry, parseDirRequest, async (request) => {
+    const target = await deps.projects.revealPath(request);
+    if (target.ok) deps.revealItem(target.value);
+    return target.ok ? { ok: true, value: null } : toIpcResult(target);
+  });
 }

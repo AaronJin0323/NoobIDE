@@ -80,6 +80,8 @@ function start(): void {
       revealFolder: (folder) => shell.showItemInFolder(folder),
       // ── S07/S08: file tree, watcher and file operations ──
       projectOpened: (projectId, root, sender) => watchHub.watch(projectId, root, sender),
+      trashItem: (fullPath) => shell.trashItem(fullPath),
+      revealItem: (fullPath) => shell.showItemInFolder(fullPath),
     });
     createWorkbenchWindow();
 

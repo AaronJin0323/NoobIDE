@@ -20,6 +20,10 @@ export const CHANNELS = {
   revealProject: 'workspace:reveal-project',
   // ── S07/S08: file tree, watcher and file operations ──
   listDir: 'workspace:list-dir',
+  createEntry: 'workspace:create-entry',
+  renameEntry: 'workspace:rename-entry',
+  trashEntry: 'workspace:trash-entry',
+  revealEntry: 'workspace:reveal-entry',
 } as const;
 
 export type Channel = (typeof CHANNELS)[keyof typeof CHANNELS];
@@ -149,6 +153,49 @@ export function parseDirRequest(payload: unknown): DirRequest | null {
   return isProjectId(projectId) && (relPath === '' || isPortableRelPath(relPath)) ? { projectId, relPath } : null;
 }
 
+/** Why a file operation (S08.2–S08.5) was refused or failed. Explained to the user, never silently resolved. */
+export type FileOpError =
+  | 'unknown-project'
+  | 'outside-project'
+  | 'not-found'
+  /** The new name breaks the Windows or macOS rules (src/shared/file-names); message lists the problems. */
+  | 'invalid-name'
+  /** Something with that name already exists; message is its name. Never overwritten. */
+  | 'exists'
+  /** A sibling differs only in letter case; message is its name. It would clash on Windows and macOS. */
+  | 'case-conflict'
+  | 'into-itself'
+  | 'permission-denied'
+  | 'busy'
+  /** The OS could not move it to the trash (message from the OS); nothing was deleted. */
+  | 'trash-failed'
+  | 'op-failed';
+
+export interface CreateEntryRequest {
+  readonly projectId: string;
+  readonly relPath: string;
+  readonly kind: 'file' | 'directory';
+}
+
+export interface RenameEntryRequest {
+  readonly projectId: string;
+  readonly from: string;
+  readonly to: string;
+}
+
+export function parseCreateEntryRequest(payload: unknown): CreateEntryRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath', 'kind'])) return null;
+  const { projectId, relPath, kind } = payload;
+  if (!isProjectId(projectId) || !isPortableRelPath(relPath)) return null;
+  return kind === 'file' || kind === 'directory' ? { projectId, relPath, kind } : null;
+}
+
+export function parseRenameEntryRequest(payload: unknown): RenameEntryRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'from', 'to'])) return null;
+  const { projectId, from, to } = payload;
+  return isProjectId(projectId) && isPortableRelPath(from) && isPortableRelPath(to) ? { projectId, from, to } : null;
+}
+
 /** A change on disk, from the project watcher (S07.3). Paths are portable and relative to the project root. */
 export type WatchEvent =
   | { readonly type: 'created' | 'changed' | 'deleted'; readonly relPath: string }
@@ -184,6 +231,14 @@ export interface NoobideApi {
     listDir(request: DirRequest): Promise<IpcResult<DirListing, ListDirError>>;
     /** Subscribes to changes on disk in the open project (S07.3). Returns the unsubscribe function. */
     onChanged(listener: (change: WorkspaceChanged) => void): () => void;
+    /** Creates an empty file or folder; never replaces anything (S08.2, S08.4). */
+    createEntry(request: CreateEntryRequest): Promise<IpcResult<{ relPath: string }, FileOpError>>;
+    /** Renames or moves; refuses existing targets, allows case-only renames (S08.2, S08.4). */
+    renameEntry(request: RenameEntryRequest): Promise<IpcResult<{ from: string; to: string }, FileOpError>>;
+    /** Moves a file or folder to the OS trash (S08.3). The renderer confirms first. */
+    trashEntry(request: FileRequest): Promise<IpcResult<null, FileOpError>>;
+    /** Shows a file or folder in Finder / File Explorer (S08.5); `''` is the project folder. */
+    revealEntry(request: DirRequest): Promise<IpcResult<null, FileOpError>>;
   };
 }
 
