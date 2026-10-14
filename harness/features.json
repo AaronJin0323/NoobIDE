@@ -1429,8 +1429,8 @@
       "depends_on": [
         "S13.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Missing folders shown as unavailable: RecentProjects.list reports available=false (tests/integration/recent-projects.test.ts 5 tests, Chinese+space paths; removal edits only the list, folder untouched); e2e tests/e2e/recent-projects.spec.ts: after reopening the app the welcome screen lists the project with full path and opens it; a deleted folder shows the missing state with only the remove-from-list action, removal persists and the other project folder is unchanged. Closing a project tears down server and preview: app menu Close project -> preview stopped, view destroyed, old server origin unreachable, file watcher stopped (test hook), welcome shown. IPC sender/payload checks (no path from the renderer) in src/main/app-data-ipc.test.ts. verify green + e2e 126/126 Windows x64 @ b152ca8"
     },
     {
       "id": "S13.4",
