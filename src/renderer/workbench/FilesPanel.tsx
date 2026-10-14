@@ -21,6 +21,8 @@ export interface FileOpsHooks {
    */
   beforeChange(relPath: string): Promise<boolean>;
   afterChange(change: FilesChange): void;
+  /** The operation that `beforeChange` allowed failed on disk; nothing changed (S10: unlocks the editors). */
+  cancelled?(relPath: string): void;
 }
 
 interface FilesPanelProps {
@@ -114,6 +116,7 @@ export function FilesPanel({
       return;
     }
     busy.current = true;
+    let locked: string | null = null; // a path beforeChange locked; unlocked again if the rename throws
     try {
       if (editing.mode === 'create') {
         const relPath = editing.parent === '' ? name : `${editing.parent}/${name}`;
@@ -140,8 +143,11 @@ export function FilesPanel({
           setEditError(t('op.saveFirstFailed'));
           return;
         }
+        locked = from;
         const result = await api.renameEntry({ projectId, from, to });
+        locked = null;
         if (!result.ok) {
+          fileOps.cancelled?.(from);
           setEditError(opErrorMessage(t, result.code, result.message, name));
           return;
         }
@@ -154,6 +160,7 @@ export function FilesPanel({
       }
     } catch {
       // Never an unhandled rejection: the field stays open with an explanation (review finding 11).
+      if (locked !== null) fileOps.cancelled?.(locked);
       setEditError(t('op.generic'));
     } finally {
       busy.current = false;
@@ -171,6 +178,7 @@ export function FilesPanel({
     }
     const result = await api.trashEntry({ projectId, relPath: entry.relPath });
     if (!result.ok) {
+      fileOps.cancelled?.(entry.relPath);
       const text =
         result.code === 'trash-failed'
           ? fill(t('delete.failed'), { trash })

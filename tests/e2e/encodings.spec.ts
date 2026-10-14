@@ -52,7 +52,7 @@ test('a GBK file opens read-only with a notice naming the encoding, and is never
   await page.keyboard.type('改动');
   await page.keyboard.press('ControlOrMeta+S');
   await expect(page.locator('.view-lines')).not.toContainText('改动');
-  await expect(page.getByTestId('save-status')).toHaveText('已保存');
+  await expect(page.getByTestId('save-status')).toHaveText('无改动');
   expect(await readFile(path.join(root, 'gbk.txt'))).toEqual(GBK);
 });
 
@@ -72,5 +72,6 @@ test('an edited CRLF file keeps CRLF on every line after saving', async () => {
 test('a binary file is not opened in the editor', async () => {
   await openFile('photo.jpg');
   await expect(page.getByTestId('open-error')).toBeVisible();
-  await expect(page.getByTestId('save-status')).toHaveText('没有打开的文件');
+  // No tab is created for it; the tabs that were open stay as they are.
+  await expect(page.locator('[data-testid="tab"][data-path="photo.jpg"]')).toHaveCount(0);
 });

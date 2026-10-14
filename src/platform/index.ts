@@ -32,3 +32,17 @@ export function defaultCaseSensitive(platform: NodeJS.Platform = process.platfor
 export function recreatesWindowOnActivate(platform: NodeJS.Platform = process.platform): boolean {
   return platformId(platform) === 'mac';
 }
+
+/**
+ * Backoff (ms) for retrying a rename over a file that is briefly held open by another program. On Windows,
+ * antivirus scanners, search indexers, sync clients and editors open files without FILE_SHARE_DELETE, so the rename
+ * of a save fails with EPERM/EACCES/EBUSY for a moment (S10.1). POSIX renames do not hit this; no retries there.
+ */
+export function lockedRenameBackoffMs(platform: NodeJS.Platform = process.platform): readonly number[] {
+  return platformId(platform) === 'windows' ? [25, 50, 100, 200, 400] : [];
+}
+
+/** Whether a directory can be opened and fsynced so a completed rename survives a power loss (not on Windows). */
+export function canSyncDirectory(platform: NodeJS.Platform = process.platform): boolean {
+  return platformId(platform) !== 'windows';
+}

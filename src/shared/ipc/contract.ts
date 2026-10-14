@@ -19,6 +19,11 @@ export const CHANNELS = {
   readFile: 'workspace:read-file',
   writeFile: 'workspace:write-file',
   revealProject: 'workspace:reveal-project',
+  // --- S10 save pipeline: save elsewhere, close / quit guard ---
+  saveCopy: 'workspace:save-copy',
+  answerClose: 'app:answer-close',
+  closeDiscarding: 'app:close-discarding',
+  // --- end S10 ---
   // ── S07/S08: file tree, watcher and file operations ──
   listDir: 'workspace:list-dir',
   createEntry: 'workspace:create-entry',
@@ -86,6 +91,11 @@ export interface FileContent {
   /** The file started with a UTF-8 byte order mark; it is written back unchanged. */
   readonly bom: boolean;
   readonly uri: string;
+  /**
+   * The file mixes CRLF and LF line breaks. The editor shows it with `eol` throughout, so the first save writes
+   * `eol` everywhere; the workbench says so before that happens (docs/decisions/0011-mixed-line-endings.md).
+   */
+  readonly mixedEol: boolean;
   // ── S07.4: other encodings open read-only (absent = UTF-8, editable) ──
   /** WHATWG label of a non-UTF-8 encoding, e.g. `gb18030` or `utf-16le`. */
   readonly encoding?: string;
@@ -127,6 +137,16 @@ export interface SavedFile {
 }
 
 export type RevealError = 'unknown-project';
+
+/** Where "save elsewhere" wrote the copy (absolute path, chosen by the user in the native save dialog). */
+export interface SavedCopy {
+  readonly path: string;
+}
+
+/** The workbench's answer to `closeRequested`: `ok` false keeps the window open (a save failed). */
+export interface CloseAnswer {
+  readonly ok: boolean;
+}
 
 // ── S07/S08: file tree, watcher and file operations ─────────────────────────────────────────────────────────────
 
@@ -231,6 +251,8 @@ export interface WorkspaceChanged {
 /** Main → workbench notifications (sent with webContents.send, only to the window that opened the project). */
 export const EVENTS = {
   changed: 'workspace:changed',
+  /** The window is about to close or the app to quit: save everything, then answer on `answerClose` (S10.6). */
+  closeRequested: 'app:close-requested',
 } as const;
 
 // ── end S07/S08 ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -246,6 +268,11 @@ export interface NoobideApi {
     writeFile(request: WriteFileRequest): Promise<IpcResult<SavedFile, WriteFileError>>;
     /** Shows the project folder in Explorer / Finder. */
     revealProject(request: { readonly projectId: string }): Promise<IpcResult<null, RevealError>>;
+    /**
+     * "Save elsewhere" after a failed save (S10.3): shows the native save dialog and writes the text there.
+     * `null` when the user cancels. The original file and its unsaved state are left as they are.
+     */
+    saveCopy(request: WriteFileRequest): Promise<IpcResult<SavedCopy | null, WriteFileError>>;
     // ── S07/S08: file tree, watcher and file operations ──
     /** One folder of the lazy file tree (S07.2). */
     listDir(request: DirRequest): Promise<IpcResult<DirListing, ListDirError>>;
@@ -259,6 +286,13 @@ export interface NoobideApi {
     trashEntry(request: FileRequest): Promise<IpcResult<null, FileOpError>>;
     /** Shows a file or folder in Finder / File Explorer (S08.5); `''` is the project folder. */
     revealEntry(request: DirRequest): Promise<IpcResult<null, FileOpError>>;
+  };
+  readonly app: {
+    /** Registers the handler for close/quit requests. Returns the unsubscribe function. */
+    onCloseRequested(listener: () => void): () => void;
+    answerClose(answer: CloseAnswer): Promise<IpcResult<null, never>>;
+    /** After a refused close: the user chose to close the window without the edits that could not be saved. */
+    closeDiscarding(): Promise<IpcResult<null, never>>;
   };
   /** S12: crash-recovery journal of unsaved buffers. */
   readonly recovery: RecoveryApi;
@@ -334,6 +368,11 @@ export function parseFileRequest(payload: unknown): FileRequest | null {
   if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath'])) return null;
   const { projectId, relPath } = payload;
   return isProjectId(projectId) && isPortableRelPath(relPath) ? { projectId, relPath } : null;
+}
+
+export function parseCloseAnswer(payload: unknown): CloseAnswer | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['ok'])) return null;
+  return typeof payload.ok === 'boolean' ? { ok: payload.ok } : null;
 }
 
 export function parseWriteFileRequest(payload: unknown): WriteFileRequest | null {

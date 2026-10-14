@@ -2,7 +2,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import { otherLocale, type MessageKey } from '../i18n/index';
 import { revealLabelKey, shortcutLabel, type PlatformId } from '../../platform/labels';
 import type { OpenedProject } from '../../shared/ipc/contract';
-import type { SaveState } from './document-state';
+import type { SaveStatus } from './save-machine';
 import { CodeIcon, DotIcon, RevealIcon, SaveStateIcon } from './icons';
 import type { NarrowView } from './layout';
 
@@ -10,17 +10,19 @@ interface TopBarProps {
   platform: PlatformId;
   project: OpenedProject | null;
   /** `null` when no file is open. */
-  save: SaveState | null;
+  save: SaveStatus | null;
   onReveal: () => void;
   /** Present only in a narrow window (S30.4). */
   narrow?: { view: NarrowView; onShow: (view: NarrowView) => void } | undefined;
 }
 
-const SAVE_LABEL: Record<SaveState, MessageKey> = {
+const SAVE_LABEL: Record<SaveStatus, MessageKey> = {
   clean: 'save.clean',
   dirty: 'save.dirty',
   saving: 'save.saving',
+  saved: 'save.saved',
   failed: 'save.failed',
+  conflict: 'save.conflict',
 };
 
 export function TopBar({ platform, project, save, onReveal, narrow }: TopBarProps) {

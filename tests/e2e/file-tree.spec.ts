@@ -25,7 +25,7 @@ const row = (relPath: string) => tree().locator(`[data-path="${relPath}"]`);
 const focusedPath = () => page.evaluate(() => document.activeElement?.getAttribute('data-path') ?? null);
 const status = () => page.getByTestId('save-status');
 
-async function recordShell(mode: 'ok' | 'fail') {
+async function recordShell(mode: 'ok' | 'fail' | 'slow') {
   await app.evaluate(
     ({ shell }, { mode, trashDir }) => {
       const g = globalThis as unknown as { __trashed: string[]; __revealed: string[] };
@@ -38,6 +38,7 @@ async function recordShell(mode: 'ok' | 'fail') {
       (shell as unknown as { trashItem: (p: string) => Promise<void> }).trashItem = async (full: string) => {
         g.__trashed.push(full);
         if (mode === 'fail') throw new Error('The process cannot access the file because it is being used');
+        if (mode === 'slow') await new Promise((resolve) => setTimeout(resolve, 2000));
         fs.renameSync(full, nodePath.join(trashDir, `${Date.now()}-${nodePath.basename(full)}`));
       };
       (shell as unknown as { showItemInFolder: (p: string) => void }).showItemInFolder = (full: string) => {
@@ -106,7 +107,7 @@ test('keyboard only: Tab into the tree, arrows move and expand, Enter opens (S08
   await expect.poll(focusedPath).toBe('css/a.css');
   await expect(row('css/a.css')).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('Enter');
-  await expect(page.getByTestId('editor-tab')).toHaveText('css/a.css');
+  await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', 'css/a.css');
   await expect(row('css/a.css')).toHaveAttribute('aria-current', 'true');
   await page.keyboard.press('ArrowLeft'); // to the parent
   await expect.poll(focusedPath).toBe('css');
@@ -189,24 +190,30 @@ test('new file and folder are created where selected and the new file opens (S08
   await page.getByTestId('name-input').fill('关于 我.html');
   await page.getByTestId('name-input').press('Enter');
   await expect(row('子 文件夹/图片/关于 我.html')).toBeVisible();
-  await expect(page.getByTestId('editor-tab')).toHaveText('子 文件夹/图片/关于 我.html');
+  await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute(
+    'data-path',
+    '子 文件夹/图片/关于 我.html',
+  );
   expect(await readFile(p('子 文件夹', '图片', '关于 我.html'), 'utf8')).toBe('');
 });
 
 test('renaming the open file saves its edits first and the editor follows (S08.3)', async () => {
   await row('Index.html').click();
-  await expect(page.getByTestId('editor-tab')).toHaveText('Index.html');
+  await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', 'Index.html');
   await page.locator('.monaco-editor .view-lines').click();
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.type('改名前的修改');
-  await expect(status()).toHaveText('未保存');
+  // Autosave may already be writing; the rename must wait for it either way (S10 save queue).
+  await expect(status()).toHaveText(/未保存|正在保存|已保存/);
   await row('Index.html').click();
   await page.keyboard.press('F2');
   await page.getByTestId('name-input').fill('home.html');
   await page.getByTestId('name-input').press('Enter');
-  await expect(page.getByTestId('editor-tab')).toHaveText('home.html');
+  await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', 'home.html');
   await expect(page.locator('.view-lines')).toContainText('改名前的修改');
-  await expect(status()).toHaveText('已保存');
+  // The tab was saved before the rename and reopened from disk at the new path: nothing unsaved.
+  await expect(status()).toHaveText('无改动');
+  await expect(page.locator('[data-testid="tab"][data-path="Index.html"]')).toHaveCount(0);
   expect(await readFile(p('home.html'), 'utf8')).toContain('改名前的修改');
 });
 
@@ -235,7 +242,7 @@ test('a failed move to the trash is explained and the file stays (S08.3)', async
   await expect(page.getByTestId('file-op-error')).toContainText('没能移到回收站');
   await expect(page.getByTestId('file-op-error')).toContainText('being used');
   expect(await readdir(root)).toContain('home.html');
-  await expect(page.getByTestId('editor-tab')).toHaveText('home.html');
+  await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', 'home.html');
   await recordShell('ok');
 });
 
@@ -247,7 +254,8 @@ test('confirming moves the open file to the trash and closes it in the editor (S
   expect(await recorded('__trashed')).toEqual([p('home.html')]);
   expect(await readdir(root)).not.toContain('home.html');
   expect((await readdir(fakeTrash)).some((n) => n.endsWith('home.html'))).toBe(true);
-  await expect(status()).toHaveText('没有打开的文件');
+  // Its tab is closed; the other open tabs stay.
+  await expect(page.locator('[data-testid="tab"][data-path="home.html"]')).toHaveCount(0);
   await expect(page.getByTestId('file-op-error')).toHaveCount(0);
 });
 
@@ -281,4 +289,23 @@ test('changes made by other programs appear in the tree (S07.3)', async () => {
   await expect(row('外部 新建.js')).toBeVisible({ timeout: 5000 });
   await rm(p('外部 新建.js'));
   await expect(row('外部 新建.js')).toHaveCount(0, { timeout: 5000 });
+});
+
+test('an open file is read-only while it is being moved to the trash: nothing typed meanwhile is lost (S08.3, S10)', async () => {
+  await writeFile(p('慢 删除.js'), 'let keep = 1;\n');
+  await expect(row('慢 删除.js')).toBeVisible({ timeout: 5000 });
+  await row('慢 删除.js').click();
+  await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', '慢 删除.js');
+  await recordShell('slow');
+  await row('慢 删除.js').click();
+  await page.keyboard.press('Delete');
+  await page.getByTestId('confirm-button').click();
+  // While the slow trash runs, typing into the editor changes nothing (the tab is locked read-only).
+  await page.locator('.monaco-editor .view-lines').click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type('TYPEDDURINGDELETE');
+  await expect(page.locator('.view-lines')).not.toContainText('TYPEDDURINGDELETE');
+  await expect(row('慢 删除.js')).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.locator('[data-testid="tab"][data-path="慢 删除.js"]')).toHaveCount(0);
+  await recordShell('ok');
 });

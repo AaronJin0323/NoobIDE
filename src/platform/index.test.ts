@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { platformId, quitsWhenLastWindowCloses, recreatesWindowOnActivate } from './index';
+import {
+  canSyncDirectory,
+  lockedRenameBackoffMs,
+  platformId,
+  quitsWhenLastWindowCloses,
+  recreatesWindowOnActivate,
+} from './index';
+
+describe('save-related platform rules (S10.1)', () => {
+  it('retries locked renames on Windows only and syncs directories elsewhere', () => {
+    expect(lockedRenameBackoffMs('win32').length).toBeGreaterThan(0);
+    expect(lockedRenameBackoffMs('darwin')).toEqual([]);
+    expect(canSyncDirectory('win32')).toBe(false);
+    expect(canSyncDirectory('darwin')).toBe(true);
+  });
+});
 
 describe('platform adapter', () => {
   it('maps Node platform ids to the two supported platforms', () => {

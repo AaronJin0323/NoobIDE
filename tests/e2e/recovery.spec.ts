@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
@@ -102,8 +102,19 @@ async function openProjectAndFile(relPath: string) {
     if ((await folder.getAttribute('aria-expanded')) !== 'true') await folder.click();
   }
   await page.getByTestId('file-tree').locator(`[data-path="${relPath}"]`).click();
-  await expect(page.getByTestId('editor-tab')).toHaveText(relPath);
+  await expect(selectedTab()).toHaveText(segments[segments.length - 1] ?? relPath);
 }
+
+/** The visible editor tab (S09 tab bar), not the recovery dialog's own tabs. */
+const selectedTab = () => page.getByTestId('tab-bar').locator('[role="tab"][aria-selected="true"] .tab-name');
+
+/**
+ * Autosave (S10.2) writes edits after a one-second pause. To leave unsaved edits behind for a crash, the file is made
+ * read-only first: the autosave fails, the edits stay in the editor and in the journal — the situation recovery is
+ * for. `writable` undoes it.
+ */
+const readOnly = (relPath: string) => chmod(path.join(root, ...relPath.split('/')), 0o444);
+const writable = (relPath: string) => chmod(path.join(root, ...relPath.split('/')), 0o644);
 
 /** Plain text on a new last line (no markup, so Monaco's auto-closing does not edit the buffer again). */
 async function typeAtEnd(text: string) {
@@ -136,14 +147,14 @@ test('a dirty buffer is journaled outside the project within 2 s and removed aft
   await expect(page.getByTestId('recovery-dialog')).toHaveCount(0);
   await openProjectAndFile('index.html');
   const before = await projectTree(root);
-
+  await readOnly('index.html');
   await typeAtEnd('日志测试');
   const typedAt = Date.now();
   await expect.poll(journalRecords, { timeout: 2000, intervals: [50] }).toHaveLength(1);
   expect(Date.now() - typedAt).toBeLessThanOrEqual(2000);
   expect(await projectTree(root)).toEqual(before); // nothing written into the project
   expect(await readFile(path.join(root, 'index.html'), 'utf8')).not.toContain('日志测试');
-
+  await writable('index.html');
   await page.keyboard.press('ControlOrMeta+S');
   await expect(status()).toHaveText('已保存');
   await expect.poll(journalRecords, { timeout: 5000 }).toHaveLength(0);
@@ -162,9 +173,11 @@ test('after a forced termination the relaunched app offers the edits with a diff
   await openProjectAndFile('子 文件夹/页面 二.html');
   const file = path.join(root, '子 文件夹', '页面 二.html');
   const onDisk = await readFile(file, 'utf8');
+  await readOnly('子 文件夹/页面 二.html');
   await typeAtEnd('崩溃前没保存的一行');
   await expect.poll(journalRecords, { timeout: 2000, intervals: [50] }).toHaveLength(1);
   await kill();
+  await writable('子 文件夹/页面 二.html');
   expect(await readFile(file, 'utf8')).toBe(onDisk);
 
   await start();
@@ -182,9 +195,12 @@ test('after a forced termination the relaunched app offers the edits with a diff
 
   await dialog.getByTestId('recovery-restore').click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByTestId('editor-tab')).toHaveText('子 文件夹/页面 二.html');
+  await expect(selectedTab()).toHaveText('页面 二.html');
   await expect(editorText()).toContainText('崩溃前没保存的一行');
   await expect(status()).toHaveText('未保存'); // restored, not yet saved
+  // A restored copy is never written on the user's behalf: not even autosave touches it until the user acts.
+  await page.waitForTimeout(1500);
+  await expect(status()).toHaveText('未保存');
   expect(await readFile(file, 'utf8')).toBe(onDisk);
 
   await page.keyboard.press('ControlOrMeta+S');
@@ -194,21 +210,24 @@ test('after a forced termination the relaunched app offers the edits with a diff
   await stop();
 });
 
-test('restoring never saves another restored copy silently; the user saves first (S12.2)', async () => {
+test('restoring never saves a restored copy silently; each copy opens in its own tab (S12.2, S09)', async () => {
   await start();
   await openProjectAndFile('index.html');
+  await readOnly('index.html');
   await typeAtEnd('第一份副本');
   await expect.poll(journalRecords, { timeout: 2000, intervals: [50] }).toHaveLength(1);
   await kill();
-
+  await writable('index.html');
   await start();
   await page.getByTestId('recovery-later').click();
   await openProjectAndFile('script.js');
+  await readOnly('script.js');
   await typeAtEnd('第二份副本');
   await expect.poll(journalRecords, { timeout: 2000, intervals: [50] }).toHaveLength(2);
   await kill();
+  await writable('script.js');
   const indexOnDisk = await readFile(path.join(root, 'index.html'), 'utf8');
-
+  const scriptOnDisk = await readFile(path.join(root, 'script.js'), 'utf8');
   await start();
   const dialog = page.getByTestId('recovery-dialog');
   await dialog.getByTestId('recovery-review').click();
@@ -216,27 +235,26 @@ test('restoring never saves another restored copy silently; the user saves first
   await dialog.getByRole('tab', { name: 'script.js' }).click();
   await expect(dialog.getByTestId('recovery-diff')).toContainText('第二份副本');
   await dialog.getByTestId('recovery-restore').click();
-  await expect(page.getByTestId('editor-tab')).toHaveText('script.js');
+  await expect(selectedTab()).toHaveText('script.js');
   await expect(status()).toHaveText('未保存');
-
-  // The other copy is still offered; restoring it must not write the first restored copy to disk on its own.
+  // The other copy is still offered; restoring it opens a second tab and writes neither file.
   await expect(dialog.getByRole('tab')).toHaveCount(1);
   await expect(dialog.getByTestId('recovery-diff')).toContainText('第一份副本');
   await dialog.getByTestId('recovery-restore').click();
-  await expect(dialog.getByTestId('recovery-error')).toContainText('请先按保存');
-  expect(await readFile(path.join(root, 'script.js'), 'utf8')).not.toContain('第二份副本');
-  await expect(page.getByTestId('editor-tab')).toHaveText('script.js');
-
+  await expect(dialog).toHaveCount(0);
+  await expect(selectedTab()).toHaveText('index.html');
+  await expect(editorText()).toContainText('第一份副本');
+  await expect(status()).toHaveText('未保存');
+  expect(await readFile(path.join(root, 'index.html'), 'utf8')).toBe(indexOnDisk);
+  expect(await readFile(path.join(root, 'script.js'), 'utf8')).toBe(scriptOnDisk);
+  await page.keyboard.press('ControlOrMeta+S');
+  await expect(status()).toHaveText('已保存');
+  expect(await readFile(path.join(root, 'index.html'), 'utf8')).toContain('第一份副本');
+  await page.getByTestId('tab-bar').getByRole('tab', { name: 'script.js' }).click();
+  await expect(status()).toHaveText('未保存');
   await page.keyboard.press('ControlOrMeta+S');
   await expect(status()).toHaveText('已保存');
   expect(await readFile(path.join(root, 'script.js'), 'utf8')).toContain('第二份副本');
-  await dialog.getByTestId('recovery-restore').click();
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByTestId('editor-tab')).toHaveText('index.html');
-  await expect(editorText()).toContainText('第一份副本');
-  expect(await readFile(path.join(root, 'index.html'), 'utf8')).toBe(indexOnDisk);
-  await page.keyboard.press('ControlOrMeta+S');
-  await expect(status()).toHaveText('已保存');
   await expect.poll(journalRecords, { timeout: 5000 }).toHaveLength(0);
   await stop();
 });
@@ -244,9 +262,11 @@ test('restoring never saves another restored copy silently; the user saves first
 test('"decide later" keeps the copy; the clear-data control removes it (S12.3)', async () => {
   await start();
   await openProjectAndFile('style.css');
+  await readOnly('style.css');
   await typeAtEnd('稍后处理');
   await expect.poll(journalRecords, { timeout: 2000, intervals: [50] }).toHaveLength(1);
   await kill();
+  await writable('style.css');
 
   await start();
   await expect(page.getByTestId('recovery-dialog')).toBeVisible();

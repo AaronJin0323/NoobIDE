@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { err, ok } from '../result';
 import {
   CHANNELS,
+  EVENTS,
+  parseCloseAnswer,
   isPortableRelPath,
   parseFileRequest,
   parseNoPayload,
@@ -99,6 +101,14 @@ describe('IPC results', () => {
   it('channel names are unique and namespaced', () => {
     const names = Object.values(CHANNELS);
     expect(new Set(names).size).toBe(names.length);
-    for (const n of names) expect(n).toMatch(/^(workspace|recovery):[a-z-]+$/);
+    for (const n of [...names, ...Object.values(EVENTS)]) expect(n).toMatch(/^(workspace|app|recovery):[a-z-]+$/);
+  });
+
+  it('accepts only a boolean close answer', () => {
+    expect(parseCloseAnswer({ ok: true })).toEqual({ ok: true });
+    expect(parseCloseAnswer({ ok: false })).toEqual({ ok: false });
+    expect(parseCloseAnswer({ ok: 'yes' })).toBeNull();
+    expect(parseCloseAnswer({ ok: true, path: '/' })).toBeNull();
+    expect(parseCloseAnswer(undefined)).toBeNull();
   });
 });
