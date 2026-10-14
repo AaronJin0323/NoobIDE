@@ -54,7 +54,7 @@ point and commit; check `git log main..<branch>` and their features.json statuse
 (W1: S05.7, S14, S15, S16.2–S16.6 + preview security fixes), `worktree-agent-a809d2be3e8120aa3` (W2: S18, S19,
 S17.1–S17.3, S22.4, S22.5), `worktree-agent-a0d4b80affc818dbf` (W4: S11, S13.1–S13.6; recent projects must use the
 `recentProjects { list, open, remove }` shape from src/renderer/welcome/welcome-model.ts). Then: re-review W1's
-security fixes, S13.7 and S17.4 gate reviews, merge order W4 → W2 → W1 (W1 touches the most shared files).
+security fixes, S13.7 and S17.4 gate reviews. W4 reported (HEAD 232b852): S11.1–S11.3, S13.1–S13.4, S13.6 done, S13.5 todo; its S11 save-path hash check and S13 lifecycle need an independent review before merge; flaky once: session.spec crash-precedence, recent-projects.spec, merge order W4 → W2 → W1 (W1 touches the most shared files).
 
 **Next up:** wave 2 — S14/S15/S16.2–4 + S05.7 (preview & runtime diagnostics), S18/S19/S17/S22.4/S22.5 (language
 features, problems panel, problem card, one-click fix), S20.2 + S21.3/S21.4 (welcome wizard, history UI),
