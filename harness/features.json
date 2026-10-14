@@ -1726,8 +1726,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "Pure logic done @ 06f686b: src/diagnostics/normalize.ts (isOpaqueCrossOriginError, normalizePageError → code cross-origin-script-error with no file/line) + rules/cross-origin.ts (explains the browser hides cross-origin error details so no file/line can be shown, lists external <script> URLs, checks: bundle the library locally / crossorigin attribute); normalize.test.ts (7 tests, zh-CN+en, honesty). Cannot be done: depends on S16.2 (runtime capture adapter, todo) and the criterion needs a real opaque error from a cross-origin script in the sandboxed preview. Unblocks when S16.2 calls normalizePageError; then add an e2e/integration test loading a script from a second loopback origin that throws."
     },
     {
       "id": "S17.1",
@@ -2035,7 +2035,7 @@
         "S22.1"
       ],
       "status": "done",
-      "evidence": "Rules in src/diagnostics/rules/async-network.ts (unhandled-rejection, fetch-failed, cors [certain; never suggests disabling security], json-parse [HTML-instead-of-JSON, quotes/commas, undefined, empty]) and code-structure.ts (not-a-function with DOM/array method did-you-mean, html-unclosed-tag [code html-unclosed-tag + data.tagName, void elements excluded], selector-guided-checks [code css-selector-unmatched/guided-style-not-applied, certainty unknown, #/. prefix + similar id/class hints]). Fixtures per rule in rules/fixtures.ts; rules-9-15.test.ts (16 tests) + rules.test.ts honesty over all 46 fixtures in zh-CN/en; verify green @ d32cc5a"
+      "evidence": "Rules in src/diagnostics/rules/async-network.ts (unhandled-rejection, fetch-failed, cors [certain; never suggests disabling security], json-parse [HTML-instead-of-JSON, quotes/commas, undefined, empty]) and code-structure.ts (not-a-function with DOM/array method did-you-mean, html-unclosed-tag [code html-unclosed-tag + data.tagName, void elements excluded], selector-guided-checks [code css-selector-unmatched/guided-style-not-applied, certainty unknown, #/. prefix + similar id/class hints]). Fixtures per rule in rules/fixtures.ts; rules-9-15.test.ts (16 tests) + rules.test.ts honesty over all fixtures (41 at that commit) in zh-CN/en; verify green @ d32cc5a"
     },
     {
       "id": "S22.4",
