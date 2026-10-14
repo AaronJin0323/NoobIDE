@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nProvider } from './i18n/I18nProvider';
+import { ThemeProvider } from './theme/ThemeProvider';
 import { Workbench } from './workbench/Workbench';
 import './styles.css';
 
@@ -9,9 +10,11 @@ if (!rootElement) throw new Error('missing #root');
 
 createRoot(rootElement).render(
   <StrictMode>
-    <I18nProvider>
-      <Workbench />
-    </I18nProvider>
+    <ThemeProvider>
+      <I18nProvider>
+        <Workbench />
+      </I18nProvider>
+    </ThemeProvider>
   </StrictMode>,
 );
 

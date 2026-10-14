@@ -14,6 +14,7 @@ import CssWorker from 'monaco-editor/languages/features/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/languages/features/html/html.worker?worker';
 import JsonWorker from 'monaco-editor/languages/features/json/json.worker?worker';
 import TsWorker from 'monaco-editor/languages/features/typescript/ts.worker?worker';
+import { MONACO_THEME_NAME, buildMonacoTheme } from '../theme/monaco-theme';
 
 /** Labels of the workers Monaco has started — read by the worker probe (self-test / e2e). */
 export const startedWorkers: string[] = [];
@@ -44,5 +45,10 @@ self.MonacoEnvironment = {
     }
   },
 };
+
+// Editor themes built from the shell tokens (S30.2); CodeEditor selects one per system colour scheme.
+for (const scheme of ['dark', 'light'] as const) {
+  monaco.editor.defineTheme(MONACO_THEME_NAME[scheme], buildMonacoTheme(scheme));
+}
 
 export { monaco };
