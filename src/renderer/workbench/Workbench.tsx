@@ -20,6 +20,24 @@ import { useJournals } from '../recovery/useJournal';
 import { newBufferId, type JournalScheduler } from '../recovery/journal-scheduler';
 import { RecoveryDialog, type RestoreOutcome } from '../recovery/RecoveryDialog';
 import type { RecoveredEntry } from '../../shared/ipc/recovery-contract';
+// S20.2: welcome screen and create-project wizard
+import { WelcomeScreen } from '../welcome/WelcomeScreen';
+import { CreateProjectDialog } from '../welcome/CreateProjectDialog';
+import { recentProjectsSource } from '../welcome/welcome-model';
+import type { CreatedProject } from '../../shared/ipc/create-contract';
+// S21.3/S21.4: local history window
+import { HistoryDialog } from '../history/HistoryDialog';
+import type { RestoreOutcome as HistoryRestoreOutcome } from '../history/history-model';
+
+/** S21.3: polls until `get` returns a value (state that arrives with a later render), or undefined after `ms`. */
+async function eventually<T>(get: () => T | undefined, ms = 3000): Promise<T | undefined> {
+  const started = Date.now();
+  for (;;) {
+    const value = get();
+    if (value !== undefined || Date.now() - started > ms) return value;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
@@ -41,6 +59,12 @@ export function Workbench() {
   const [closeRefused, setCloseRefused] = useState(false);
   /** Paths being renamed, moved or trashed: their tabs are read-only until the operation ends (S08 + S10). */
   const [lockedPaths, setLockedPaths] = useState<readonly string[]>([]);
+  // S20.2: the create wizard; a created project's entry page to open, and its preview to start (trusted template).
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [pendingEntry, setPendingEntry] = useState<{ projectId: string; relPath: string } | null>(null);
+  const [autoPreview, setAutoPreview] = useState<string | null>(null);
+  // S21.3: the local-history window, opened for a file (the active tab) or for the whole project.
+  const [historyFor, setHistoryFor] = useState<{ relPath: string | null } | null>(null);
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
 
@@ -300,6 +324,77 @@ export function Workbench() {
     [createSaver],
   );
 
+  // --- S20.2: a project created by the wizard (or opened from the recent list) becomes the current project ---
+  const projectCreated = useCallback(
+    async (created: CreatedProject) => {
+      setWizardOpen(false);
+      if (!(await adoptProject(created.project))) return;
+      setPendingEntry({ projectId: created.project.projectId, relPath: created.entry });
+      setAutoPreview(created.project.projectId);
+    },
+    [adoptProject],
+  );
+
+  // The entry page opens once the new project is the current one (openFile reads the project from state).
+  useEffect(() => {
+    if (pendingEntry && doc.project?.projectId === pendingEntry.projectId) {
+      setPendingEntry(null);
+      void openFile(pendingEntry.relPath);
+    }
+  }, [pendingEntry, doc.project, openFile]);
+  const recentProjects = useMemo(() => recentProjectsSource(bridge), [bridge]);
+  // --- end S20.2 ---
+
+  // --- S21.3: local history. A restore never writes the file behind the editor's back: the version becomes the
+  // content of the file's tab (one undo step) and is saved through that tab's save pipeline. ---
+  const historyCurrentText = useCallback(
+    async (relPath: string): Promise<string | null> => {
+      const open = saverOf(relPath);
+      if (open) return open.text;
+      const project = docRef.current.project;
+      if (!bridge || !project) return null;
+      const result = await bridge.workspace.readFile({ projectId: project.projectId, relPath });
+      if (result.ok) return result.value.text;
+      if (result.code === 'not-found') return null;
+      // Any other failure: no comparison at all rather than a misleading one (the dialog explains).
+      throw new Error(result.code);
+    },
+    [bridge],
+  );
+
+  const restoreVersion = useCallback(
+    async (relPath: string, text: string): Promise<HistoryRestoreOutcome> => {
+      const project = docRef.current.project;
+      if (!bridge || !project) return 'failed';
+      // Every step below waits; the project must still be the same one afterwards.
+      const same = () => docRef.current.project?.projectId === project.projectId;
+      await openFile(relPath); // opens the tab (or shows it) through the normal editor path
+      if (!same()) return 'failed';
+      dispatch({ type: 'activate', relPath });
+      // The tab appears in state with the next render.
+      const tab = await eventually(() => docRef.current.tabs.find((open) => open.relPath === relPath));
+      const saver = saverOf(relPath);
+      if (!saver || !tab || !same()) return 'failed';
+      if (tab.content.readOnly) return 'read-only';
+      // 1. Edits not on disk yet are saved first (they become a version through the save itself).
+      if (!(await saver.save())) return 'save-failed';
+      if (!same()) return 'failed';
+      // 2. What is on disk now is kept as a version (reason "before restore").
+      const kept = await bridge.history.beforeRestore({ projectId: project.projectId, relPath });
+      if (!kept.ok || !same() || saver !== saverOf(relPath)) return 'failed';
+      // 3. The version becomes the editor content as one undoable edit, then goes through the save pipeline.
+      const applied = await import('../editor/editor-models').then((m) => m.replaceModelText(tab.uri, text));
+      if (applied === null) return 'failed';
+      if (saver.text !== applied) saver.edit(applied);
+      return (await saver.save()) ? 'restored' : 'save-failed';
+    },
+    [bridge, openFile],
+  );
+  // The history window belongs to one project: it closes when the project changes.
+  const historyProjectId = doc.project?.projectId;
+  useEffect(() => setHistoryFor(null), [historyProjectId]);
+  // --- end S21.3 ---
+
   /** The journal was cleared: unsaved edits still open in the editor are journaled again right away. */
   const rejournal = useCallback(() => {
     for (const [relPath, saver] of savers.current) {
@@ -345,6 +440,8 @@ export function Workbench() {
     // Capture phase, before Monaco and before the menu's whole-window zoom: Ctrl+Tab switches tabs (also on macOS,
     // like other editors), Ctrl/⌘ with + − 0 zooms the code font.
     const onKeyDownCapture = (event: KeyboardEvent) => {
+      // S20.2/S21.3: while a modal window is open, its own keys apply (no tab switching behind it).
+      if (document.querySelector('[aria-modal="true"]')) return;
       if (event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'Tab') {
         event.preventDefault();
         event.stopPropagation();
@@ -387,6 +484,7 @@ export function Workbench() {
       />
       <div className="workbench-middle">
         <Rail
+          onShowHistory={project && bridge?.history ? () => setHistoryFor({ relPath: doc.active }) : undefined}
           filesVisible={visible.files}
           problemsOpen={visible.problemsPanel}
           onToggleFiles={() => dispatchLayout({ type: 'toggleFiles', narrow })}
@@ -419,14 +517,24 @@ export function Workbench() {
           copyNotice={copyNotice}
           lockedPaths={lockedPaths}
           onCloseDiscarding={bridge && closeRefused ? () => void bridge.app.closeDiscarding() : undefined}
+          onShowHistory={bridge?.history ? (relPath) => setHistoryFor({ relPath }) : undefined}
+          welcome={
+            <WelcomeScreen
+              onCreate={bridge?.createProject ? () => setWizardOpen(true) : undefined}
+              onOpenFolder={bridge ? () => void openFolder() : undefined}
+              recent={recentProjects}
+              onOpenRecent={(opened) => void adoptProject(opened)}
+            />
+          }
         />
         {/* S04.3 isolated preview (hidden under the narrow-layout files overlay so the native view cannot cover it);
             S10.5: a failed save shows "preview not updated" — refreshes come only from confirmed writes in main. */}
         <PreviewPane
           hidden={!visible.preview}
-          covered={narrow && visible.files}
+          covered={(narrow && visible.files) || wizardOpen || historyFor !== null}
           projectId={project?.projectId ?? null}
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
+          autoStartProjectId={autoPreview}
         />
       </div>
       <ProblemsPanel open={visible.problemsPanel} onToggle={() => dispatchLayout({ type: 'toggleProblems' })} />
@@ -438,6 +546,26 @@ export function Workbench() {
         onRestore={restoreRecovered}
         onCleared={rejournal}
       />
+      {/* S21.3/S21.4: local history */}
+      {historyFor && project && bridge?.history && (
+        <HistoryDialog
+          api={bridge.history}
+          project={project}
+          initialRelPath={historyFor.relPath}
+          currentText={historyCurrentText}
+          onRestore={restoreVersion}
+          onRestoredDeleted={(relPath) => void openFile(relPath)}
+          onClose={() => setHistoryFor(null)}
+        />
+      )}
+      {/* S20.2: create-project wizard */}
+      {wizardOpen && bridge?.createProject && (
+        <CreateProjectDialog
+          api={bridge.createProject}
+          onCreated={(created) => void projectCreated(created)}
+          onCancel={() => setWizardOpen(false)}
+        />
+      )}
     </div>
   );
 }

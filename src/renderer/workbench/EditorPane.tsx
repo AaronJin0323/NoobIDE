@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { SAMPLE_HTML } from '../editor/sample';
@@ -7,7 +7,7 @@ import { activeTab, type DocumentState } from './document-state';
 import { isUnsaved } from './save-machine';
 import { TabBar } from './TabBar';
 import { isSameOrBelow } from './file-tree-model';
-import { MinusIcon, PlusIcon, WarningIcon } from './icons';
+import { HistoryIcon, MinusIcon, PlusIcon, WarningIcon } from './icons';
 import { FileRoleHint } from './FileRole';
 
 // Monaco is large; load it as its own chunk so the shell paints first.
@@ -40,6 +40,10 @@ interface EditorPaneProps {
   onCloseDiscarding: (() => void) | undefined;
   /** Paths being renamed, moved or trashed: their tabs are read-only meanwhile, so no edit can get lost. */
   lockedPaths: readonly string[];
+  /** S20.2: the welcome screen, shown above the sample while no project is open. */
+  welcome?: ReactNode;
+  /** S21.3: opens the local history of the active file. */
+  onShowHistory?: ((relPath: string) => void) | undefined;
 }
 
 function openErrorKey(code: string): MessageKey {
@@ -93,6 +97,7 @@ export function EditorPane(props: EditorPaneProps) {
   return (
     // Hidden, not unmounted, in the narrow Preview view: the buffer and cursor survive switching back.
     <main className="region panel editor" aria-label={t('region.editor')} data-testid="region-editor" hidden={hidden}>
+      {!project && props.welcome /* S20.2: welcome screen above the sample */}
       <div className="panel-header tabs-header">
         {project ? (
           <TabBar tabs={tabs} active={state.active} onActivate={props.onActivate} onClose={props.onClose} />
@@ -107,6 +112,19 @@ export function EditorPane(props: EditorPaneProps) {
           <span className="badge" data-testid="sample-badge">
             {t('editor.sampleBadge')}
           </span>
+        )}
+        {tab && props.onShowHistory && (
+          <button
+            type="button"
+            className="quiet-button history-button"
+            title={t('history.openFor')}
+            aria-haspopup="dialog"
+            data-testid="show-history"
+            onClick={() => props.onShowHistory?.(tab.relPath)}
+          >
+            <HistoryIcon size={15} />
+            {t('history.open')}
+          </button>
         )}
         <div className="zoom" role="group" aria-label={t('zoom.label')} data-testid="zoom">
           <button

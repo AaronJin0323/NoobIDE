@@ -50,3 +50,7 @@ compatible design for `.noobide/project.json` (opt-in, no absolute paths).
 - `usage()` already counts orphaned histories in `totalBytes` and `onDiskBytes`, so limits stay truthful.
 - Verification when S21.3 lands: an integration test renames a project folder (Chinese characters and spaces) and
   checks that its old history is listed as orphaned with its size, on both platforms' CI runners.
+- Implemented in S21.3/S21.4: the history window lists orphaned project histories (folder no longer exists) with
+  their old path, file count and size, and clears them by opaque key; main refuses to clear a key whose folder
+  exists. Verified by `tests/integration/history-ipc.test.ts` (renamed project folder with Chinese characters and
+  spaces) and `tests/e2e/history.spec.ts` on Windows x64. User documentation: `docs/product/local-history.md`.

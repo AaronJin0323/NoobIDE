@@ -1947,8 +1947,8 @@
       "depends_on": [
         "S20.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Create my first webpage (name + location): tests/e2e/welcome.spec.ts (6: welcome screen with one primary create action focused for Enter + open folder; wizard with 3 templates, default selected with text mark, thumbnails decoded, exact folder + file list before anything is written; focus trap + Escape; default location <Documents>/NoobIDE 项目 created on demand and en 'NoobIDE Projects'; chosen folder via native dialog (Chinese + spaces); project opens with index.html tab and preview running without Start) + tests/integration/create-project.test.ts (20: byte-identical manifest files only for all 3 templates, no template.json/thumbnail/.noobide, illegal names explained, location missing, rollback removes only what it created, IPC rejects absolute paths/extra fields, unknown location/template) + src/renderer/welcome/welcome-model.test.ts (8). Open folder: welcome-open-folder button reuses the S03 flow. Recent projects: welcome list with full paths, missing folder = warning icon + text 'folder not found' + remove-from-list only (welcome-model.test.ts); shown only when the bridge provides the S13.3 store (feature-detected recentProjects {list, open, remove}) — no second settings store. Existing folders never overwritten: exists / non-empty folder / file / case-conflict refused (integration + e2e, existing file untouched). verify + test:e2e green @ 407b465"
     },
     {
       "id": "S20.3",
@@ -1963,8 +1963,8 @@
       "depends_on": [
         "S20.2"
       ],
-      "status": "blocked",
-      "evidence": "Implemented and proven, but the CLI refuses done until dependency S20.2 is done. Proof: file-role.ts + file-role.test.ts (22 tests), FileRole.tsx wired into FilesPanel rows and EditorPane, tests/e2e/file-roles.spec.ts (3 tests), verify + test:e2e (33) green @ 0653227. Unblock: after S20.2 lands, re-run file-roles.spec.ts against the new tree/tabs and set done"
+      "status": "done",
+      "evidence": "Re-run after S20.2: tests/e2e/file-roles.spec.ts (3) green against the current tree/tabs @ 407b465; welcome.spec.ts opens a template project whose file rows show the roles; file-role.test.ts (22) in verify"
     },
     {
       "id": "S21.1",
@@ -2009,8 +2009,8 @@
       "depends_on": [
         "S21.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Version list per file: tests/e2e/history.spec.ts (8) lists files with history (deleted ones flagged with icon + text) and versions newest first with time/reason/size; diff vs current: line diff of a version against the editor's current content (+ comes back, − replaced, screen-reader labels); restore saves current first: unsaved edits saved through the save pipeline, disk content kept via history:before-restore, version applied as one undoable model edit and saved through the tab's DocumentSaver (e2e: disk equals version, replaced content still listed as a version, Ctrl+Z brings it back, unsaved typed text becomes a version); restore deleted file: e2e deletes style.css via the tree, restores it byte-identical and opens it; tests/integration/history-ipc.test.ts (12: listing, read/BOM/not-text, before-restore, burst seal keeps the pre-restore content, deleted file + folder restored with link() never overwriting, payload validation) + src/renderer/history/history-model.test.ts (6). Independent review: no high findings; 2 medium + 6 low fixed @ 7326ad3. verify + test:e2e green (file-tree S07.3 watcher test flaky under full-suite load only, pre-existing)"
     },
     {
       "id": "S21.4",
@@ -2025,8 +2025,8 @@
       "depends_on": [
         "S21.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Controls exist and work: history window storage section with usage vs limit + cleanup policy text, history folder path, Open history folder (shell.openPath, folder created), Clean up now (reports freed bytes), Clear this project's history / Clear all history (confirmation, Escape cancels it), orphaned project histories (ADR 0006) with old path, file count and size + Clear with confirmation, offline drives never treated as orphaned — tests/e2e/history.spec.ts (storage/reveal/cleanup, orphan after renaming a project folder with Chinese+spaces, clear with confirmation, en locale) + tests/integration/history-ipc.test.ts (orphans, clear scopes, cleanup, reveal, offline volume). Documented: docs/product/local-history.md, src/recovery/README.md, ADR 0006 consequences @ 7326ad3"
     },
     {
       "id": "S22.1",

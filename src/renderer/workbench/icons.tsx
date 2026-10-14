@@ -212,3 +212,12 @@ export const NewFolderIcon = () => (
     <path d="M12 10v4M10 12h4" />
   </Icon>
 );
+
+// S21.3: local history (clock with a back arrow)
+export const HistoryIcon = ({ size = 18 }: { size?: number }) => (
+  <Icon size={size} strokeWidth={1.5}>
+    <path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9" />
+    <path d="M2.5 2.5v2.5H5" />
+    <path d="M8 5v3l2 1.5" />
+  </Icon>
+);
