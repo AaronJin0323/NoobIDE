@@ -329,8 +329,6 @@ export const en: Record<MessageKey, string> = {
   'about.close': 'Close',
   // --- end S28.1 ---
   // --- S23 onboarding walkthrough, final task and glossary ---
-  'appMenu.walkthrough': 'Help: walkthrough',
-  'appMenu.glossary': 'Help: glossary',
   'walkthrough.region': 'Walkthrough',
   'walkthrough.progress': 'Step {n} of {total}',
   'walkthrough.where': 'Where: ',

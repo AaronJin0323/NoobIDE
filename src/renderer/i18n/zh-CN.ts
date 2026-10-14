@@ -312,8 +312,6 @@ export const zhCN = {
   'about.close': '关闭',
   // --- end S28.1 ---
   // --- S23 onboarding walkthrough, final task and glossary ---
-  'appMenu.walkthrough': '帮助：入门导览',
-  'appMenu.glossary': '帮助：术语表',
   'walkthrough.region': '入门导览',
   'walkthrough.progress': '第 {n} 步，共 {total} 步',
   'walkthrough.where': '在哪里：',
