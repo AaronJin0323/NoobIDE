@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -71,6 +71,47 @@ describe('binding and ownership (S04.1)', () => {
   it('listens on 127.0.0.1 only', () => {
     expect(server.origin).toBe(`http://127.0.0.1:${server.port}`);
     expect(server.port).toBeGreaterThan(0);
+  });
+
+  it('reuses a preferred port when it is free and falls back to a random one when it is taken', async () => {
+    const port = server.port;
+    await server.close();
+    server = await PreviewServer.start(root, { preferredPort: port });
+    expect(server.port).toBe(port);
+    const second = await PreviewServer.start(root, { preferredPort: port });
+    try {
+      expect(second.port).not.toBe(port);
+      expect(second.port).toBeGreaterThan(0);
+    } finally {
+      await second.close();
+    }
+  });
+
+  it('serves the bytes it announced while the file is replaced by atomic saves', async () => {
+    const file = path.join(root, 'big.txt');
+    await writeFile(file, 'a'.repeat(200_000));
+    const replacing = (async () => {
+      for (let i = 0; i < 20; i += 1) {
+        const tmpFile = path.join(root, `big.tmp${i}`);
+        await writeFile(tmpFile, 'b'.repeat(100_000 + i));
+        // Windows refuses to rename over a file another handle has open; the server keeps that window tiny.
+        for (let attempt = 0; ; attempt += 1) {
+          try {
+            await rename(tmpFile, file);
+            break;
+          } catch (e) {
+            if (attempt > 50) throw e;
+            await new Promise((r) => setTimeout(r, 2));
+          }
+        }
+      }
+    })();
+    for (let i = 0; i < 20; i += 1) {
+      const res = await raw('/big.txt');
+      expect(res.status).toBe(200);
+      expect(Buffer.byteLength(res.body)).toBe(Number(res.headers['content-length']));
+    }
+    await replacing;
   });
 
   it('is not reachable on another local interface address', async () => {

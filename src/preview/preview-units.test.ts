@@ -61,6 +61,9 @@ describe('preview request policy (S04.3, S05.5)', () => {
     'http://127.0.0.1/',
     'http://127.1.2.3:8080/',
     'http://localhost:51234/index.html',
+    'http://localhost.:6000/',
+    'http://x.localhost.:6000/',
+    'http://0.0.0.1:6000/',
     'http://app.localhost/',
     'http://[::1]:51234/',
     'http://0.0.0.0:51234/',
@@ -115,9 +118,16 @@ describe('log buffer (S05.3)', () => {
   it('starts a fresh batch after take and truncates long messages', () => {
     const buffer = new LogBuffer({ maxBatch: 2, maxMessageLength: 5 });
     buffer.push({ ...entry(1), message: 'abcdefghij' });
-    expect(buffer.take()).toEqual({ entries: [{ ...entry(1), message: 'abcde…' }], dropped: 0 });
+    expect(buffer.take()).toEqual({ entries: [{ ...entry(1), message: 'abcde…' }], dropped: 0, throttled: false });
     buffer.push(entry(2));
     expect(buffer.take()?.entries).toHaveLength(1);
+  });
+
+  it('reports a throttled interval even when nothing was counted', () => {
+    const buffer = new LogBuffer({ maxBatch: 2, maxMessageLength: 5 });
+    buffer.markThrottled();
+    expect(buffer.take()).toEqual({ entries: [], dropped: 0, throttled: true });
+    expect(buffer.take()).toBeNull();
   });
 
   it('clear forgets pending records', () => {

@@ -10,15 +10,23 @@ export interface LogView {
   readonly entries: readonly PreviewLogEntry[];
   /** Messages main dropped because the page logged faster than the cap (shown as "N messages dropped"). */
   readonly dropped: number;
+  /** Some messages were skipped without being counted, so `dropped` is a lower bound ("at least N"). */
+  readonly throttled: boolean;
 }
 
-export const EMPTY_LOG: LogView = { entries: [], dropped: 0 };
+export const EMPTY_LOG: LogView = { entries: [], dropped: 0, throttled: false };
 
-export function appendLogBatch(view: LogView, entries: readonly PreviewLogEntry[], dropped: number): LogView {
+export function appendLogBatch(
+  view: LogView,
+  entries: readonly PreviewLogEntry[],
+  dropped: number,
+  throttled = false,
+): LogView {
   const merged = entries.length === 0 ? view.entries : [...view.entries, ...entries];
   return {
     entries: merged.length > MAX_VISIBLE_LOG_ENTRIES ? merged.slice(-MAX_VISIBLE_LOG_ENTRIES) : merged,
     dropped: view.dropped + dropped,
+    throttled: view.throttled || throttled,
   };
 }
 

@@ -36,7 +36,7 @@ export function PreviewPane({ hidden, covered = false, projectId }: PreviewPaneP
     if (!bridge) return undefined;
     return bridge.onEvent((event) => {
       if (event.kind === 'status') setStatus(event.status);
-      else setLog((view) => appendLogBatch(view, event.entries, event.dropped));
+      else setLog((view) => appendLogBatch(view, event.entries, event.dropped, event.throttled));
     });
   }, [bridge]);
 
@@ -164,9 +164,12 @@ function PreviewConsole({ log }: { log: LogView }) {
   const { t } = useI18n();
   return (
     <div className="preview-console" aria-label={t('preview.console')} data-testid="preview-console">
-      {log.dropped > 0 && (
+      {(log.dropped > 0 || log.throttled) && (
         <p className="preview-console-dropped" data-testid="preview-console-dropped">
-          {t('preview.console.dropped').replace('{count}', String(log.dropped))}
+          {t(log.throttled ? 'preview.console.droppedAtLeast' : 'preview.console.dropped').replace(
+            '{count}',
+            String(log.dropped),
+          )}
         </p>
       )}
       {log.entries.length === 0 ? (

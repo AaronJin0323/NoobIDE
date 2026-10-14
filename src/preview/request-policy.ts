@@ -2,8 +2,11 @@
  * What the preview page may request and where it may navigate (S04.3, S05.5, PLAN §8). Pure functions, applied in
  * main through the preview session's webRequest and the view's navigation events.
  *
- * - Requests: the project's own server is allowed. `file:` and every other loopback address (other ports,
- *   `localhost`, `[::1]`, `0.0.0.0`) are blocked, so a page cannot read local files or talk to other local services.
+ * - Requests: the project's own server is allowed. `file:` and loopback addresses (other ports, `localhost`,
+ *   `localhost.`, `[::1]`, `0.0.0.0/8`) are blocked, so a page cannot read local files or talk to other local
+ *   services. Known limit (docs/decisions/0006): a public DNS name that resolves to 127.0.0.1 (e.g. *.nip.io) cannot
+ *   be recognised by hostname. Our own server still refuses it (Host header + token); other local services that
+ *   trust any loopback client remain exposed to it, as they are to any browser tab.
  *   Public web resources stay allowed — the user's page may use a CDN like any webpage, and normal browser
  *   same-origin and CORS checks still apply (PLAN §8 does not let us disable them).
  * - Top-level navigation: only within the project's server origin. Leaving it is blocked; the workbench may later
@@ -21,9 +24,13 @@ export function urlOrigin(url: string): string | null {
 
 /** Hostnames that reach this machine without DNS. The WHATWG URL parser already normalises 0x7f.1, 2130706433 etc. */
 export function isLoopbackHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  // "localhost." (fully qualified, trailing dot) resolves exactly like "localhost".
+  const host = hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.+$/, '');
   if (host === 'localhost' || host.endsWith('.localhost')) return true;
-  if (/^127\.\d+\.\d+\.\d+$/.test(host) || host === '0.0.0.0') return true;
+  if (/^(127|0)\.\d+\.\d+\.\d+$/.test(host)) return true;
   if (host === '::1' || host === '::' || /^0*:(0*:)*0*:?0*1$/.test(host)) return true;
   // IPv4-mapped IPv6 loopback, e.g. ::ffff:127.0.0.1 (normalised by URL to ::ffff:7f00:1).
   return /^::ffff:(7f[0-9a-f]{2}:[0-9a-f]{1,4}|127\.\d+\.\d+\.\d+|0:0)$/.test(host);

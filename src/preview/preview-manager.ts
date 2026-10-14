@@ -60,6 +60,11 @@ interface LivePreview {
   beforeUnresponsive: PreviewState;
 }
 
+const RECENT_RECORDS = 100;
+/** Console flood guard: more than FLOOD_LIMIT messages within FLOOD_WINDOW_MS pauses capture for FLOOD_PAUSE_MS. */
+const FLOOD_WINDOW_MS = 100;
+const FLOOD_LIMIT = 500;
+const FLOOD_PAUSE_MS = 1_000;
 const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 };
 
 export class PreviewManager {
@@ -72,6 +77,14 @@ export class PreviewManager {
   private readonly configuredSessions = new WeakSet<Session>();
   /** Metadata of blocked requests for tests and diagnostics: scheme + host only, never paths or contents. */
   readonly blockedRequests: { readonly scheme: string; readonly host: string }[] = [];
+  /** The most recent raw records (S05.4) for diagnostics and tests; bounded, cleared with the preview. */
+  private recent: PreviewLogEntry[] = [];
+  /** Window of a start that is still waiting for its server (no view yet). */
+  private startingWindow: BrowserWindow | null = null;
+  /** A save arrived while the page was loading; reload when the load finishes. */
+  private reloadPending = false;
+  /** Last port per project root, reused so the page keeps its origin (and its storage) across starts. */
+  private readonly lastPorts = new Map<string, number>();
 
   constructor(private readonly deps: PreviewManagerDeps) {}
 
@@ -85,11 +98,15 @@ export class PreviewManager {
     if (window.isDestroyed()) return err('no-window', 'window is gone');
     await this.stop({ announce: false });
     const generation = ++this.generation;
+    this.startingWindow = window;
+    this.reloadPending = false;
     this.setStatus(window, { state: 'starting', projectId });
 
     let server: PreviewServer;
     try {
-      server = await PreviewServer.start(root);
+      // Reuse the project's previous port when free: storage is per origin, so a stable port keeps localStorage.
+      server = await PreviewServer.start(root, { preferredPort: this.lastPorts.get(root) });
+      this.lastPorts.set(root, server.port);
     } catch (e) {
       if (generation === this.generation)
         this.setStatus(window, { state: 'failed', projectId, failure: 'server-failed' });
@@ -105,7 +122,10 @@ export class PreviewManager {
     this.configureSession(ses, server);
     const webPreferences = createPreviewWebPreferences(partition);
     const insecure = insecurePreviewPreferences(webPreferences);
-    if (insecure.length > 0) throw new Error(`insecure preview webPreferences: ${insecure.join(', ')}`);
+    if (insecure.length > 0) {
+      await server.close();
+      throw new Error(`insecure preview webPreferences: ${insecure.join(', ')}`);
+    }
 
     const view = new WebContentsView({ webPreferences });
     view.setBackgroundColor('#ffffff');
@@ -124,7 +144,9 @@ export class PreviewManager {
       beforeUnresponsive: 'starting',
     };
     this.live = live;
+    this.startingWindow = null;
     this.logs.clear();
+    this.recent = [];
     this.wireContents(live, view.webContents);
     window.contentView.addChildView(view);
     this.applyBounds();
@@ -141,9 +163,20 @@ export class PreviewManager {
   /** Destroys the view (crashing a hung page first) and shuts the server down. */
   async stop(options: { announce?: boolean } = {}): Promise<PreviewStatus> {
     const live = this.live;
-    if (!live) return this.status;
-    this.live = null;
+    // Always invalidate a start that is still waiting for its server, so Stop during startup is never lost.
     this.generation += 1;
+    this.reloadPending = false;
+    if (!live) {
+      const starting = this.startingWindow;
+      this.startingWindow = null;
+      if (this.status.state !== 'stopped') {
+        const status: PreviewStatus = { state: 'stopped', projectId: null };
+        if (starting && !starting.isDestroyed() && (options.announce ?? true)) this.setStatus(starting, status);
+        else this.status = status;
+      }
+      return this.status;
+    }
+    this.live = null;
     for (const timer of live.timers) clearInterval(timer);
     live.window.removeListener('closed', live.onWindowClosed);
     const contents = live.view.webContents;
@@ -164,8 +197,13 @@ export class PreviewManager {
   reload(): PreviewStatus {
     const live = this.live;
     if (!live || live.view.webContents.isDestroyed()) return this.status;
+    // Still loading: refresh once the load has finished, so a save during startup is not lost.
+    if (this.status.state === 'starting' || this.status.state === 'refreshing') {
+      this.reloadPending = true;
+      return this.status;
+    }
     // A hung page cannot reload itself; the user has to Stop (which recreates the view on the next Start).
-    if (this.status.state === 'unresponsive' || this.status.state === 'starting') return this.status;
+    if (this.status.state === 'unresponsive') return this.status;
     if (this.status.state === 'failed' && this.status.failure === 'crashed') return this.status;
     this.update(live, 'refreshing');
     live.view.webContents.reloadIgnoringCache();
@@ -199,6 +237,7 @@ export class PreviewManager {
         ? (contents as unknown as { getLastWebPreferences(): Record<string, unknown> | null }).getLastWebPreferences()
         : null,
       blockedRequests: [...this.blockedRequests],
+      recentRecords: [...this.recent],
     };
   }
 
@@ -281,7 +320,32 @@ export class PreviewManager {
     contents.on('will-redirect', (event) => guard(event, event.url));
     contents.on('will-attach-webview', (event) => event.preventDefault());
 
-    contents.on('console-message', (event) => {
+    // Console flood guard (S05.3). Electron builds an event object in the main process for every console message
+    // while a listener is attached; a page logging ~400k messages/s would keep main (and with it all keyboard and
+    // mouse input) busy. Above FLOOD_LIMIT messages per FLOOD_WINDOW_MS the listener is detached for
+    // FLOOD_PAUSE_MS: those messages are skipped without counting, and the batch says so ("at least N dropped").
+    let windowStart = 0;
+    let inWindow = 0;
+    const onConsole = (event: Electron.Event<Electron.WebContentsConsoleMessageEventParams>) => {
+      const now = Date.now();
+      if (now - windowStart > FLOOD_WINDOW_MS) {
+        windowStart = now;
+        inWindow = 0;
+      }
+      inWindow += 1;
+      if (inWindow > FLOOD_LIMIT) {
+        contents.off('console-message', onConsole);
+        this.logs.markThrottled();
+        live.timers.push(
+          setTimeout(() => {
+            if (this.live !== live || contents.isDestroyed()) return;
+            windowStart = Date.now();
+            inWindow = 0;
+            contents.on('console-message', onConsole);
+          }, FLOOD_PAUSE_MS),
+        );
+        return;
+      }
       const { message, level, lineNumber, sourceId } = event;
       this.pushLog({
         source: /^Uncaught\b/.test(message) ? 'exception' : 'console',
@@ -289,9 +353,10 @@ export class PreviewManager {
         message,
         ...(sourceId ? { url: sourceId } : {}),
         ...(lineNumber > 0 ? { line: lineNumber } : {}),
-        at: Date.now(),
+        at: now,
       });
-    });
+    };
+    contents.on('console-message', onConsole);
 
     contents.on('did-start-navigation', (event) => {
       if (!isCurrent() || !event.isMainFrame || event.isSameDocument) return;
@@ -302,6 +367,10 @@ export class PreviewManager {
       if (!isCurrent()) return;
       const state = this.status.state;
       if (state === 'starting' || state === 'refreshing') this.update(live, 'running');
+      if (this.reloadPending && this.status.state === 'running') {
+        this.reloadPending = false;
+        this.reload();
+      }
     });
     contents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
       if (!isCurrent() || !isMainFrame || errorCode === -3) return; // -3: aborted by a newer navigation.
@@ -385,14 +454,25 @@ export class PreviewManager {
   }
 
   private pushLog(entry: PreviewLogEntry): void {
-    if (this.live) this.logs.push(entry);
+    if (!this.live) return;
+    this.logs.push(entry);
+    if (this.recent.length >= RECENT_RECORDS) this.recent.shift();
+    const max = DEFAULT_LOG_BUFFER.maxMessageLength;
+    this.recent.push(entry.message.length > max ? { ...entry, message: `${entry.message.slice(0, max)}…` } : entry);
   }
 
   private flushLogs(): void {
     const live = this.live;
     if (!live) return;
     const batch = this.logs.take();
-    if (batch) this.send(live.window, { kind: 'log', entries: batch.entries, dropped: batch.dropped });
+    if (batch) {
+      this.send(live.window, {
+        kind: 'log',
+        entries: batch.entries,
+        dropped: batch.dropped,
+        throttled: batch.throttled,
+      });
+    }
   }
 
   private send(window: BrowserWindow, event: PreviewEvent): void {

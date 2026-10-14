@@ -17,11 +17,14 @@ export const DEFAULT_LOG_BUFFER: LogBufferOptions = { maxBatch: 200, maxMessageL
 export interface LogBatch {
   readonly entries: PreviewLogEntry[];
   readonly dropped: number;
+  /** Capture was paused during this interval, so more messages were skipped than `dropped` counts. */
+  readonly throttled: boolean;
 }
 
 export class LogBuffer {
   private entries: PreviewLogEntry[] = [];
   private dropped = 0;
+  private throttled = false;
 
   constructor(private readonly options: LogBufferOptions = DEFAULT_LOG_BUFFER) {}
 
@@ -35,21 +38,28 @@ export class LogBuffer {
     this.entries.push(entry.message.length > max ? { ...entry, message: `${entry.message.slice(0, max)}…` } : entry);
   }
 
+  /** The producer skipped messages without counting them (see the console flood guard). */
+  markThrottled(): void {
+    this.throttled = true;
+  }
+
   get pending(): number {
     return this.entries.length + this.dropped;
   }
 
   /** Returns the pending batch and starts a new one; null when there is nothing to send. */
   take(): LogBatch | null {
-    if (this.entries.length === 0 && this.dropped === 0) return null;
-    const batch = { entries: this.entries, dropped: this.dropped };
+    if (this.entries.length === 0 && this.dropped === 0 && !this.throttled) return null;
+    const batch = { entries: this.entries, dropped: this.dropped, throttled: this.throttled };
     this.entries = [];
     this.dropped = 0;
+    this.throttled = false;
     return batch;
   }
 
   clear(): void {
     this.entries = [];
     this.dropped = 0;
+    this.throttled = false;
   }
 }

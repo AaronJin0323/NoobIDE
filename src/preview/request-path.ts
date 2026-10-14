@@ -24,7 +24,11 @@ export interface RequestTarget {
 }
 
 const MAX_TARGET_LENGTH = 4096;
-const WINDOWS_DEVICE = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³]|conin\$|conout\$)(\..*)?$/i;
+// Win32 trims trailing spaces and dots, so "con .txt" and "nul." name devices too.
+const WINDOWS_DEVICE = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³]|conin\$|conout\$)[ .]*(\..*)?$/i;
+// Characters Windows forbids in names (wildcards are interpreted by some APIs) and control characters.
+// eslint-disable-next-line no-control-regex -- control characters are exactly what this rejects
+const FORBIDDEN_CHARS = /[<>"|?*\u0000-\u001f]/;
 
 export function parseRequestTarget(rawTarget: string): Result<RequestTarget, TargetError> {
   if (rawTarget.length === 0 || rawTarget.length > MAX_TARGET_LENGTH) return err('bad-request', 'target length');
@@ -45,6 +49,7 @@ export function parseRequestTarget(rawTarget: string): Result<RequestTarget, Tar
     }
     if (segment === '' || segment === '.' || segment === '..') return err('bad-request', 'empty or dot segment');
     if (/[/\\\0:]/.test(segment)) return err('bad-request', 'separator, NUL or colon in segment');
+    if (FORBIDDEN_CHARS.test(segment)) return err('bad-request', 'reserved character in segment');
     if (WINDOWS_DEVICE.test(segment)) return err('bad-request', 'device name');
     if (segment.startsWith('.')) return err('forbidden', 'dotfile');
     segments.push(segment);

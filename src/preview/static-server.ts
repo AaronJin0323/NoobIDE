@@ -1,6 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { realpath, stat } from 'node:fs/promises';
+import { open, realpath, stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { mimeTypeFor } from './mime';
@@ -26,6 +25,8 @@ export const LOOPBACK_HOST = '127.0.0.1';
 export interface PreviewServerOptions {
   /** Test-only: start without the ownership header check. Production always requires it. */
   readonly requireToken?: boolean;
+  /** Port to try first (the project's previous one); falls back to a random free port. */
+  readonly preferredPort?: number | undefined;
 }
 
 export class PreviewServer {
@@ -55,13 +56,20 @@ export class PreviewServer {
     });
     // No keep-alive surprises after close(): idle sockets are closed with the server.
     server.keepAliveTimeout = 2_000;
-    await new Promise<void>((resolve, reject) => {
-      server.once('error', reject);
-      server.listen({ host: LOOPBACK_HOST, port: 0, exclusive: true }, () => {
-        server.off('error', reject);
-        resolve();
+    const listen = (wanted: number) =>
+      new Promise<void>((resolve, reject) => {
+        server.once('error', reject);
+        server.listen({ host: LOOPBACK_HOST, port: wanted, exclusive: true }, () => {
+          server.off('error', reject);
+          resolve();
+        });
       });
-    });
+    const preferred = options.preferredPort;
+    if (preferred !== undefined && Number.isInteger(preferred) && preferred > 1024 && preferred < 65536) {
+      await listen(preferred).catch(() => listen(0));
+    } else {
+      await listen(0);
+    }
     port = (server.address() as AddressInfo).port;
     return new PreviewServer(server, root, port, token);
   }
@@ -113,20 +121,57 @@ async function handle(req: IncomingMessage, res: ServerResponse, ctx: HandleCont
     return;
   }
   const file = resolved.value;
-  const info = await stat(file);
-  res.writeHead(200, {
-    ...BASE_HEADERS,
-    'Content-Type': mimeTypeFor(file),
-    'Content-Length': String(info.size),
-  });
-  if (req.method === 'HEAD') {
-    res.end();
+  // Open once and serve from the handle: the length matches the bytes sent even if an atomic save replaces the
+  // file meanwhile, and the checked real path cannot be swapped for a link between check and read.
+  // Windows refuses to rename over a file that is open, so the IDE's own atomic save could fail while we read:
+  // ordinary files are read whole and closed at once (milliseconds); only large media files are streamed.
+  let handle;
+  try {
+    handle = await open(file, 'r');
+  } catch {
+    send(res, 404);
     return;
   }
-  const stream = createReadStream(file);
-  stream.on('error', () => res.destroy());
-  stream.pipe(res);
+  let streaming = false;
+  try {
+    const info = await handle.stat();
+    if (!info.isFile()) {
+      send(res, 404);
+      return;
+    }
+    res.writeHead(200, {
+      ...BASE_HEADERS,
+      'Content-Type': mimeTypeFor(file),
+      'Content-Length': String(info.size),
+    });
+    if (req.method === 'HEAD' || info.size === 0) {
+      res.end();
+      return;
+    }
+    if (info.size <= MAX_BUFFERED_BYTES) {
+      const body = Buffer.alloc(info.size);
+      const { bytesRead } = await handle.read(body, 0, info.size, 0);
+      await handle.close();
+      streaming = true; // closed already
+      // A file that shrank between fstat and read is padded rather than sending fewer bytes than announced.
+      res.end(
+        bytesRead === info.size
+          ? body
+          : Buffer.concat([body.subarray(0, bytesRead), Buffer.alloc(info.size - bytesRead)]),
+      );
+      return;
+    }
+    const stream = handle.createReadStream({ start: 0, end: info.size - 1, autoClose: true });
+    streaming = true;
+    stream.on('error', () => res.destroy());
+    stream.pipe(res);
+  } finally {
+    if (!streaming) await handle.close().catch(() => undefined);
+  }
 }
+
+/** Files up to this size are read into memory and closed before sending (see handle()). */
+const MAX_BUFFERED_BYTES = 16 * 1024 * 1024;
 
 const BASE_HEADERS = {
   'Cache-Control': 'no-store',

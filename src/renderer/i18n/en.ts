@@ -43,6 +43,8 @@ export const en: Record<MessageKey, string> = {
   'preview.console': 'Page console',
   'preview.console.empty': 'The page has not logged anything yet.',
   'preview.console.dropped': 'Too much output: {count} messages were left out.',
+  'preview.console.droppedAtLeast':
+    'Too much output: at least {count} messages were left out (some were not counted, to keep the editor smooth).',
   'preview.level.debug': 'Debug',
   'preview.level.info': 'Info',
   'preview.level.warning': 'Warning',

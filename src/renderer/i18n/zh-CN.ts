@@ -43,6 +43,7 @@ export const zhCN = {
   'preview.console': '网页控制台',
   'preview.console.empty': '网页还没有输出。',
   'preview.console.dropped': '输出太多，已省略 {count} 条消息。',
+  'preview.console.droppedAtLeast': '输出太多，已省略至少 {count} 条消息（为了让编辑器保持流畅，部分消息没有计数）。',
   'preview.level.debug': '调试',
   'preview.level.info': '信息',
   'preview.level.warning': '警告',

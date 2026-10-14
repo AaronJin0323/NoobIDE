@@ -53,6 +53,8 @@ export type PreviewEvent =
       readonly entries: readonly PreviewLogEntry[];
       /** Entries dropped since the previous batch because the page logged faster than the cap. */
       readonly dropped: number;
+      /** Capture was paused by the flood guard: even more messages were skipped than `dropped` counts. */
+      readonly throttled: boolean;
     };
 
 export interface PreviewBounds {

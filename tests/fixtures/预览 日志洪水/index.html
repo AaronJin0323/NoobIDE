@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>日志洪水</title>
+  </head>
+  <body>
+    <h1>日志洪水</h1>
+    <script>
+      // S05.3: log in a tight loop for a few seconds, as fast as the engine allows.
+      const end = Date.now() + 6000;
+      let count = 0;
+      while (Date.now() < end) {
+        console.log('洪水消息 ' + count);
+        count += 1;
+      }
+      document.body.dataset.count = String(count);
+    </script>
+  </body>
+</html>

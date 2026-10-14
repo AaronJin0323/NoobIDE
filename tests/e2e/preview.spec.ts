@@ -207,7 +207,7 @@ test('edit → save → the preview shows the new heading (S04.4)', async () => 
 });
 
 test('Stop destroys the view and shuts the server down; switching projects stops the preview', async () => {
-  const { origin } = await previewInfo(app);
+  const { origin, status: running } = await previewInfo(app);
   await page.getByTestId('preview-stop').click();
   await waitForPreviewState(page, 'stopped');
   const info = await previewInfo(app);
@@ -218,6 +218,19 @@ test('Stop destroys the view and shuts the server down; switching projects stops
     () => false,
   );
   expect(reachable).toBe(false);
+
+  // Stop while the server is still starting is not lost: no view appears afterwards.
+  await page.evaluate(async (id) => {
+    const preview = (
+      window as unknown as { noobide: { preview: { start(r: object): Promise<unknown>; stop(): Promise<unknown> } } }
+    ).noobide.preview;
+    const starting = preview.start({ projectId: id });
+    await preview.stop();
+    await starting;
+  }, running.projectId ?? '');
+  await page.waitForTimeout(500);
+  await waitForPreviewState(page, 'stopped');
+  expect((await previewInfo(app)).previewWebContentsId).toBeNull();
 
   await page.getByTestId('preview-start').click();
   await waitForPreviewState(page, 'running');

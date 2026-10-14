@@ -35,6 +35,14 @@ describe('parseRequestTarget (S04.1)', () => {
     ['/CON', 'device name'],
     ['/nul.txt', 'device name with extension'],
     ['/com1.html', 'COM device'],
+    ['/con%20.txt', 'device name with trailing space'],
+    ['/nul.', 'device name with trailing dot'],
+    ['/a%3Fb.html', 'question mark'],
+    ['/a%2Ab', 'wildcard'],
+    ['/a%22b', 'double quote'],
+    ['/a%3Cb%3E', 'angle brackets'],
+    ['/a%7Cb', 'pipe'],
+    ['/a%0Ab', 'control character'],
   ])('rejects %s (%s) as a bad request', (target) => {
     expect(parseRequestTarget(target)).toMatchObject({ ok: false, code: 'bad-request' });
   });
