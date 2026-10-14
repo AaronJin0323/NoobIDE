@@ -188,7 +188,7 @@ describe('delete to the OS trash (S08.3)', () => {
   it('snapshots into local history (S21) before trashing, but never through a link', async () => {
     const beforeDelete = vi.fn(async (_root: string, _rel: string, _abs: string) => undefined);
     const withHistory = new ProjectService({
-      history: { beforeSave: async () => undefined, afterSave: async () => undefined, beforeDelete },
+      history: { captureBeforeSave: async () => null, recordSave: () => undefined, beforeDelete },
     });
     const opened = await withHistory.open(root);
     if (!opened.ok) throw new Error(opened.message);
@@ -213,8 +213,8 @@ describe('delete to the OS trash (S08.3)', () => {
   it('a failing history snapshot never blocks the move to the trash', async () => {
     const withHistory = new ProjectService({
       history: {
-        beforeSave: async () => undefined,
-        afterSave: async () => undefined,
+        captureBeforeSave: async () => null,
+        recordSave: () => undefined,
         beforeDelete: async () => {
           throw new Error('disk full');
         },
