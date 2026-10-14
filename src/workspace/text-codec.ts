@@ -65,18 +65,24 @@ export type DisplayDecodeResult =
       readonly encoding: string;
       /** Only UTF-8 files can be saved in v1; anything else is shown read-only so a save cannot re-encode it. */
       readonly editable: boolean;
+      /** Legacy encodings carry no marker: the label is a best guess (only shown, never used to write). */
+      readonly guessed: boolean;
     }
   | { readonly ok: false; readonly reason: 'binary' };
 
-/** Control characters other than tab, line feed, form feed and carriage return are rare in text. */
+/**
+ * Control characters other than tab, line feed, form feed, carriage return and escape are rare in text. Only applied
+ * to content that is not valid UTF-8 (valid UTF-8 without NUL is always text) and only on samples big enough for a
+ * ratio to mean anything.
+ */
 function looksBinary(bytes: Uint8Array): boolean {
   const sample = bytes.subarray(0, 8192);
+  if (sample.length < 64) return false;
   let control = 0;
   for (const b of sample) {
-    if (b === 0) return true;
     if (b < 0x20 && b !== 0x09 && b !== 0x0a && b !== 0x0c && b !== 0x0d && b !== 0x1b) control += 1;
   }
-  return sample.length > 0 && control / sample.length > 0.1;
+  return control / sample.length > 0.1;
 }
 
 function tryDecode(label: string, bytes: Uint8Array): string | null {
@@ -88,9 +94,26 @@ function tryDecode(label: string, bytes: Uint8Array): string | null {
 }
 
 /**
+ * GB18030 decodes almost any byte sequence, so it is chosen only when the result looks like Chinese text: most
+ * non-ASCII characters are common CJK ideographs or CJK punctuation. Otherwise Windows-1252 (Latin) is the guess.
+ */
+function looksChinese(text: string): boolean {
+  let nonAscii = 0;
+  let cjk = 0;
+  for (const ch of text) {
+    const cp = ch.codePointAt(0) ?? 0;
+    if (cp < 0x80) continue;
+    nonAscii += 1;
+    if ((cp >= 0x4e00 && cp <= 0x9fff) || (cp >= 0x3000 && cp <= 0x303f) || (cp >= 0xff00 && cp <= 0xffef)) cjk += 1;
+  }
+  return nonAscii > 0 && cjk / nonAscii >= 0.9;
+}
+
+/**
  * Decodes any file the editor may show (S07.4, PLAN §7). UTF-8 (± BOM) is editable. UTF-16 with a BOM and legacy
- * single/multi-byte text (GB18030, which covers GBK/GB2312 used by Chinese Windows, then Windows-1252) are shown
- * read-only. Binary content (NUL bytes without a UTF-16 BOM, or many control characters) is refused.
+ * text are shown read-only; for legacy text the encoding is a labelled best guess (GB18030 for Chinese-looking
+ * text, which covers GBK/GB2312 of Chinese Windows, else Windows-1252). NUL bytes without a UTF-16 BOM, or many
+ * control characters in non-UTF-8 content, mean binary and are refused.
  */
 export function decodeForDisplay(bytes: Uint8Array): DisplayDecodeResult {
   const utf16 =
@@ -101,18 +124,19 @@ export function decodeForDisplay(bytes: Uint8Array): DisplayDecodeResult {
         : null;
   if (utf16) {
     const text = tryDecode(utf16, bytes.subarray(2));
-    if (text !== null) return { ok: true, text, bom: true, eol: detectEol(text), encoding: utf16, editable: false };
-    return { ok: false, reason: 'binary' };
+    if (text === null) return { ok: false, reason: 'binary' };
+    return { ok: true, text, bom: true, eol: detectEol(text), encoding: utf16, editable: false, guessed: false };
   }
-  if (looksBinary(bytes)) return { ok: false, reason: 'binary' };
+  if (bytes.includes(0)) return { ok: false, reason: 'binary' };
   const utf8 = decodeText(bytes);
   if (utf8.ok) {
     const { text, bom, eol } = utf8; // mixed line endings are reported by the caller (hasMixedEol)
-    return { ok: true, text, bom, eol, encoding: 'utf-8', editable: true };
+    return { ok: true, text, bom, eol, encoding: 'utf-8', editable: true, guessed: false };
   }
-  for (const label of ['gb18030', 'windows-1252']) {
-    const text = tryDecode(label, bytes);
-    if (text !== null) return { ok: true, text, bom: false, eol: detectEol(text), encoding: label, editable: false };
-  }
-  return { ok: false, reason: 'binary' };
+  if (looksBinary(bytes)) return { ok: false, reason: 'binary' };
+  const gb = tryDecode('gb18030', bytes);
+  const [encoding, text] =
+    gb !== null && looksChinese(gb) ? ['gb18030', gb] : ['windows-1252', tryDecode('windows-1252', bytes)];
+  if (text === null) return { ok: false, reason: 'binary' };
+  return { ok: true, text, bom: false, eol: detectEol(text), encoding, editable: false, guessed: true };
 }

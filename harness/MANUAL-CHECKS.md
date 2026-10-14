@@ -163,3 +163,24 @@ also pass on the macOS arm64 CI runner (S06); until that runner exists, please c
   5. Rename `index.html` to `Index.html` with F2 — Finder shows the new case.
 - **Expected:** as described; no error banners.
 - **Result:** _(owner fills in: pass/fail, notes, date)_
+
+### S08.3 — the real OS trash never deletes permanently (manual-win and manual-mac)
+
+The e2e suite replaces `shell.trashItem` with a recorder, so the real Recycle Bin / Trash is only exercised here.
+
+- **Platform:** Windows 11 x64 and macOS on Apple Silicon (run the steps on both)
+- **Build:** the commit that closed the S08 review fixes (see harness/PROGRESS.md)
+- **Steps:** `npm start`, open a scratch project, then for each case select the entry in the file tree, press
+  Delete (⌘⌫ on macOS) and confirm:
+  1. A file `a.html` on the internal disk → it appears in the Recycle Bin / Trash and "Restore" / "Put Back" brings
+     it back with its content.
+  2. A folder junction (Windows: `mklink /J jump C:\some\outside\folder`) or symbolic link (macOS:
+     `ln -s ~/Documents jump`) inside the project → only the link goes to the trash; the outside folder and its
+     files are untouched.
+  3. A file symbolic link (Windows needs Developer Mode: `mklink link.txt C:\outside\x.txt`; macOS `ln -s`) → only
+     the link goes to the trash; the target file is untouched.
+  4. A project on a volume without a recycle bin (USB stick formatted FAT32/exFAT, or a network share) → either the
+     item goes to a trash, or NoobIDE shows "没能移到回收站 / could not be moved to the Trash" and the file is still
+     there. It must never disappear without being recoverable.
+- **Expected:** as described for every case; no file outside the project changes.
+- **Result:** _(owner fills in: pass/fail per case and platform, notes, date)_

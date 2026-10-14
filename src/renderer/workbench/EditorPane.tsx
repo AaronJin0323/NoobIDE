@@ -195,6 +195,7 @@ export function EditorPane(props: EditorPaneProps) {
           <WarningIcon />
           <span>
             {t('editor.readOnlyEncoding')} <strong>{tab.content.encoding}</strong>
+            {tab.content.encodingGuessed && <> {t('editor.encodingGuessed')}</>}
           </span>
         </p>
       )}

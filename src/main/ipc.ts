@@ -4,6 +4,8 @@ import {
   parseCloseAnswer,
   parseCreateEntryRequest,
   parseDirRequest,
+  parseEntryRequest,
+  parseRevealRequest,
   parseFileRequest,
   parseNoPayload,
   parseProjectRequest,
@@ -144,14 +146,15 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
   handle(CHANNELS.renameEntry, parseRenameEntryRequest, async (request) =>
     toIpcResult(await deps.projects.renameEntry(request)),
   );
-  handle(CHANNELS.trashEntry, parseFileRequest, async (request) =>
+  handle(CHANNELS.trashEntry, parseEntryRequest, async (request) =>
     toIpcResult(await deps.projects.trashEntry(request, deps.trashItem)),
   );
-  handle(CHANNELS.revealEntry, parseDirRequest, async (request) => {
+  handle(CHANNELS.revealEntry, parseRevealRequest, async (request) => {
     const target = await deps.projects.revealPath(request);
     if (target.ok) deps.revealItem(target.value);
     return target.ok ? { ok: true, value: null } : toIpcResult(target);
   });
   // S12: crash-recovery journal channels.
-  registerRecoveryHandlers(handle, deps.projects, deps.journal);
+  // S07.3: projects reopened by crash recovery are watched too (passes the sender like openFolder).
+  registerRecoveryHandlers(handle, deps.projects, deps.journal, deps.projectOpened?.bind(deps));
 }

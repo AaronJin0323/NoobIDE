@@ -13,6 +13,7 @@ describe('encodings (S07.4)', () => {
       eol: '\n',
       encoding: 'utf-8',
       editable: true,
+      guessed: false,
     });
     const withBom = Uint8Array.from([0xef, 0xbb, 0xbf, ...utf8('a\r\n')]);
     expect(decodeForDisplay(withBom)).toMatchObject({ ok: true, text: 'a\r\n', bom: true, editable: true });
@@ -28,6 +29,7 @@ describe('encodings (S07.4)', () => {
       eol: '\n',
       encoding: 'gb18030',
       editable: false,
+      guessed: true,
     });
   });
 
@@ -38,7 +40,17 @@ describe('encodings (S07.4)', () => {
       text: 'café ',
       encoding: 'windows-1252',
       editable: false,
+      guessed: true,
     });
+  });
+
+  it('labels legacy encodings as a guess and does not call Latin text GB18030 (review finding 10)', () => {
+    const latin1 = Uint8Array.from(Buffer.from('Grüße aus Köln, café crème\n', 'latin1'));
+    expect(decodeForDisplay(latin1)).toMatchObject({ encoding: 'windows-1252', guessed: true, editable: false });
+    expect(decodeForDisplay(latin1)).toMatchObject({ text: 'Grüße aus Köln, café crème\n' });
+    // Shift-JIS has no marker either: whatever is chosen, it is read-only and marked as a guess.
+    const sjis = bytes(0x82, 0xb1, 0x82, 0xf1, 0x82, 0xc9, 0x82, 0xbf, 0x82, 0xcd, 0x0a);
+    expect(decodeForDisplay(sjis)).toMatchObject({ ok: true, editable: false, guessed: true });
   });
 
   it('UTF-16 with a BOM opens read-only (its NUL bytes are not mistaken for binary)', () => {
@@ -58,9 +70,18 @@ describe('encodings (S07.4)', () => {
 
   it('binaries are refused', () => {
     expect(decodeForDisplay(bytes(0x89, 0x50, 0x4e, 0x47, 0x00, 0x01))).toEqual({ ok: false, reason: 'binary' });
-    expect(decodeForDisplay(bytes(1, 2, 3, 4, 5, 6, 7, 8, 0x41))).toEqual({ ok: false, reason: 'binary' });
+    // Non-UTF-8 content full of control characters.
+    const controls = Uint8Array.from({ length: 128 }, (_, i) => (i % 2 ? 0x01 : 0x9f));
+    expect(decodeForDisplay(controls)).toEqual({ ok: false, reason: 'binary' });
     // The strict UTF-8 decoder still refuses everything that is not UTF-8.
     expect(decodeText(bytes(0xc4, 0xe3))).toEqual({ ok: false, reason: 'not-utf8' });
+  });
+});
+
+describe('small files (review finding 10)', () => {
+  it('a tiny valid UTF-8 file with control characters is text, not binary', () => {
+    expect(decodeForDisplay(bytes(1, 2, 3, 4, 5, 6, 7, 8, 0x41))).toMatchObject({ ok: true, editable: true });
+    expect(decodeForDisplay(utf8('\x1b[31mred\x1b[0m\n'))).toMatchObject({ ok: true, editable: true });
   });
 });
 

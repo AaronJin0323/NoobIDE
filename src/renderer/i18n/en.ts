@@ -177,6 +177,12 @@ export const en: Record<MessageKey, string> = {
   'menu.open': 'Open',
   'menu.rename': 'Rename…',
   'menu.delete': 'Delete…',
+  'editor.encodingGuessed': '(legacy encodings carry no marker: this is a best guess, so the text may look wrong).',
+  'tree.unportable': 'Name not valid on Windows or macOS',
+  'tree.unportableExplain':
+    'The name "{name}" is not valid on Windows or macOS (for example it ends with a dot or a space, contains a colon or backslash, or is a reserved name like CON), so NoobIDE does not open it. Press F2 to give it a new name; then it works normally.',
+  'op.interrupted':
+    'The rename did not finish, but nothing is lost: the item is now called "{name}" in the same folder. Rename it again.',
   'editor.readOnlyEncoding':
     'This file is not UTF-8, so it is shown read-only and cannot be damaged by saving. File encoding:',
   // --- S12 crash recovery ---

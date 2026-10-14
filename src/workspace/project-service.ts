@@ -167,7 +167,9 @@ export class ProjectService {
       uri: toFileUri(target.value),
     };
     // S07.4: other encodings are shown read-only, with the encoding named in the notice.
-    return ok(decoded.editable ? content : { ...content, encoding: decoded.encoding, readOnly: true });
+    if (decoded.editable) return ok(content);
+    const readOnly = { ...content, encoding: decoded.encoding, readOnly: true };
+    return ok(decoded.guessed ? { ...readOnly, encodingGuessed: true } : readOnly);
   }
 
   /**
@@ -191,8 +193,13 @@ export class ProjectService {
           // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
           await access(target.value, constants.W_OK);
           // S07.4: never replace a file that is not UTF-8 text (another encoding, binary): the save would destroy it.
+          // A file over the limit was never opened in the editor, so it is not this text's file: refuse it outright
+          // (never "skip the check" for big files). Otherwise the whole file must decode as UTF-8.
           const existing = await stat(target.value);
-          if (existing.size <= MAX_TEXT_FILE_BYTES && !decodeText(await readFile(target.value)).ok) {
+          if (existing.size > MAX_TEXT_FILE_BYTES) {
+            return err('too-large', `the file on disk has ${existing.size} bytes`);
+          }
+          if (!decodeText(await readFile(target.value)).ok) {
             return err('unsupported-encoding', 'the file on disk is not UTF-8 text');
           }
           before = await this.captureBeforeSave(target.value); // S21.2

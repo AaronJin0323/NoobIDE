@@ -309,3 +309,19 @@ test('an open file is read-only while it is being moved to the trash: nothing ty
   await expect(page.locator('[data-testid="tab"][data-path="慢 删除.js"]')).toHaveCount(0);
   await recordShell('ok');
 });
+
+test('a name Windows cannot represent is flagged, explained and can be renamed (review finding 9)', async () => {
+  // As from a zip or a Mac: a trailing dot. Node on Windows writes it through a namespaced path.
+  await writeFile(p('旧 页面.'), '<p>旧</p>\n');
+  const bad = row('旧 页面.');
+  await expect(bad).toBeVisible({ timeout: 5000 });
+  await expect(bad.getByTestId('tree-unportable')).toBeVisible();
+  await expect(bad).toHaveAccessibleDescription(/名称在 Windows 或 macOS 上无效/);
+  await bad.click();
+  await expect(page.getByTestId('file-op-error')).toContainText('请按 F2 给它改个名字');
+  await page.keyboard.press('F2');
+  await page.getByTestId('name-input').fill('旧 页面.html');
+  await page.getByTestId('name-input').press('Enter');
+  await expect(row('旧 页面.html')).toBeVisible();
+  expect(await readFile(p('旧 页面.html'), 'utf8')).toBe('<p>旧</p>\n');
+});

@@ -26,6 +26,8 @@ export interface FileTreeCommands {
   onDelete?(entry: TreeEntry): void;
   onContextMenu?(entry: TreeEntry, anchor: { x: number; y: number }): void;
   onReveal?(entry: TreeEntry): void;
+  /** Enter/click on an entry whose name Windows or macOS cannot represent: explain instead of opening. */
+  onUnportable?(entry: TreeEntry): void;
 }
 
 /** An inline name field in the tree (S08.2): renaming a row, or naming a new entry inside `parent`. */
@@ -148,6 +150,7 @@ export function FileTree(props: FileTreeProps) {
   const activate = useCallback(
     (row: TreeRow) => {
       if (row.expandable) dispatch({ type: row.expanded ? 'collapse' : 'expand', relPath: row.entry.relPath });
+      else if (row.entry.unportable) commands.current.onUnportable?.(row.entry);
       else if (row.entry.kind === 'file') onOpenFile(row.entry.relPath);
     },
     [onOpenFile],
@@ -333,7 +336,8 @@ function TreeRowItem({
   // S20.3: the file's role ("页面结构") is shown after the real name; screen readers hear it as the description,
   // while the row's name stays exactly the file name.
   const role = entry.kind === 'file' ? fileRoleFor(entry.relPath) : null;
-  const description = [role ? t(fileRoleLabelKey(role)) : '', note].filter(Boolean).join(' · ');
+  const unportable = entry.unportable ? t('tree.unportable') : '';
+  const description = [unportable, role ? t(fileRoleLabelKey(role)) : '', note].filter(Boolean).join(' · ');
   const nameId = useId();
   return (
     <>
@@ -372,6 +376,11 @@ function TreeRowItem({
           </span>
         )}
         {!editor && entry.kind === 'file' && <FileRoleTag relPath={entry.relPath} />}
+        {entry.unportable && !editor && (
+          <span className="tree-unportable" title={unportable} data-testid="tree-unportable">
+            <WarningIcon />
+          </span>
+        )}
         {entry.isLink && (
           <span className="tree-link" aria-hidden="true">
             <LinkIcon />
