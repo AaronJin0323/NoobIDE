@@ -1,6 +1,11 @@
 /// <reference types="vite/client" />
+import type { NoobideApi } from '../shared/ipc/contract';
 
-interface Window {
-  /** Placeholder bridge from src/preload/preload.ts; replaced by the typed API in S03.1. */
-  readonly noobide?: { readonly apiVersion: number };
+declare global {
+  interface Window {
+    /** Typed bridge from src/preload/preload.ts (S03.1). Absent only if the preload failed to load. */
+    readonly noobide?: NoobideApi;
+  }
 }
+
+export {};

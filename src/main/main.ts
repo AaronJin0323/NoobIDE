@@ -1,7 +1,7 @@
 /// <reference types="@electron-forge/plugin-vite/forge-vite-env" />
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { app, BrowserWindow, protocol, session } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, protocol, session, shell } from 'electron';
 import { quitsWhenLastWindowCloses, recreatesWindowOnActivate } from '../platform/index';
 import { currentSquirrelAction } from '../platform/squirrel';
 import { APP_ENTRY_URL, APP_ORIGIN } from './app-asset';
@@ -14,6 +14,8 @@ import {
   installDevCsp,
   installNetworkGuard,
 } from './harden';
+import { registerIpcHandlers } from './ipc';
+import { ProjectService } from '../workspace/project-service';
 import { selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test';
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
@@ -64,6 +66,17 @@ function start(): void {
     } else {
       handleAppProtocol(protocol, path.join(__dirname, '..', 'renderer', MAIN_WINDOW_VITE_NAME));
     }
+    registerIpcHandlers(ipcMain, {
+      allowedOrigin: devOrigin ?? APP_ORIGIN,
+      projects: new ProjectService(),
+      async chooseFolder(event) {
+        const owner = BrowserWindow.fromWebContents(event.sender);
+        const options = { properties: ['openDirectory' as const] };
+        const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options);
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+      },
+      revealFolder: (folder) => shell.showItemInFolder(folder),
+    });
     createWorkbenchWindow();
 
     app.on('activate', () => {

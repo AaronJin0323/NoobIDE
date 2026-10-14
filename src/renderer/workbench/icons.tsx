@@ -87,3 +87,50 @@ export const ChevronDownIcon = () => (
     <path d="M4 6l4 4 4-4" />
   </Icon>
 );
+
+export const RevealIcon = () => (
+  <Icon size={15} strokeWidth={1.5}>
+    <path d="M9 3h4v4M13 3L7 9" />
+    <path d="M12 10v2.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-8a.5.5 0 0 1 .5-.5H6" />
+  </Icon>
+);
+
+export const SmallFolderIcon = () => (
+  <Icon size={15} strokeWidth={1.5}>
+    <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z" />
+  </Icon>
+);
+
+export const WarningIcon = ({ size = 13 }: { size?: number }) => (
+  <Icon size={size} strokeWidth={1.8}>
+    <path d="M8 2.5l6 11H2z" />
+    <path d="M8 7v3M8 12v.01" />
+  </Icon>
+);
+
+/** One shape per save state, so the state never depends on colour alone (AGENTS.md accessibility). */
+export function SaveStateIcon({ state }: { state: 'clean' | 'dirty' | 'saving' | 'failed' }) {
+  switch (state) {
+    case 'clean':
+      return (
+        <Icon size={13} strokeWidth={2.2}>
+          <path d="M3 8.5l3 3 7-7" />
+        </Icon>
+      );
+    case 'dirty':
+      return (
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+          <circle cx="5" cy="5" r="4" fill="currentColor" />
+        </svg>
+      );
+    case 'saving':
+      return (
+        <Icon size={13} strokeWidth={2}>
+          <path d="M13 8a5 5 0 1 1-1.5-3.5" />
+          <path d="M13 2.5v3h-3" />
+        </Icon>
+      );
+    case 'failed':
+      return <WarningIcon />;
+  }
+}

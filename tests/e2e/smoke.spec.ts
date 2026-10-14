@@ -82,7 +82,9 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       process: typeof w.process,
       inlineRan: w.__inlineRan === true,
       violations: [...new Set(violations)],
-      bridge: w.noobide,
+      bridge: Object.keys((w.noobide ?? {}) as object),
+      apiVersion: (w.noobide as { apiVersion?: unknown } | undefined)?.apiVersion,
+      workspace: Object.keys(((w.noobide as { workspace?: object } | undefined)?.workspace ?? {}) as object),
     };
   });
   expect(probe).toEqual({
@@ -90,7 +92,10 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     process: 'undefined',
     inlineRan: false,
     violations: ['script-src-elem'],
-    bridge: { apiVersion: 0 },
+    // S03.1: exactly the typed contract — no ipcRenderer, no generic send.
+    bridge: ['apiVersion', 'platform', 'workspace'],
+    apiVersion: 1,
+    workspace: ['openFolder', 'readFile', 'writeFile', 'revealProject'],
   });
 
   // The violation we just provoked is logged as a console error; drop exactly those so the final check stays strict.

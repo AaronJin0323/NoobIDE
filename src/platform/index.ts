@@ -1,8 +1,12 @@
 /**
  * Platform adapter — the only module that may read `process.platform` (AGENTS.md invariant, enforced by ESLint).
- * Main-process only. Grows in S03 (filesystem quirks, app-data), S24 (menus, shortcuts) and S25.
+ * Main process and preload only; the renderer gets the id from `window.noobide.platform` and uses labels.ts.
+ * Grows in S24 (menus, shortcuts) and S25.
  */
-export type PlatformId = 'mac' | 'windows' | 'other';
+import type { PlatformId } from './labels';
+
+export type { PlatformId } from './labels';
+export { isMac, isWindows, modifierLabel, revealLabelKey, shortcutLabel } from './labels';
 
 export function platformId(platform: NodeJS.Platform = process.platform): PlatformId {
   if (platform === 'darwin') return 'mac';

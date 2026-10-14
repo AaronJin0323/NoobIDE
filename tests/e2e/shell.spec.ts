@@ -116,7 +116,7 @@ test('placeholder states are honest and every control works (S30.3)', async () =
   expect(await buttons.evaluateAll((els) => els.filter((b) => (b as HTMLButtonElement).disabled).length)).toBe(0);
   expect(
     await buttons.evaluateAll((els) => els.map((b) => b.getAttribute('data-testid') ?? b.getAttribute('aria-label'))),
-  ).toEqual(['switch-language', 'rail-files', 'rail-problems', '收起问题面板', 'problems-toggle']);
+  ).toEqual(['switch-language', 'rail-files', 'rail-problems', 'open-folder', '收起问题面板', 'problems-toggle']);
 });
 
 test('editor and preview split the remaining width equally (S30.3)', async () => {
