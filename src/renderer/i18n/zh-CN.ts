@@ -123,6 +123,10 @@ export const zhCN = {
   'menu.rename': '重命名…',
   'menu.delete': '删除…',
   'editor.encodingGuessed': '（旧式编码没有标记，这是猜测的结果，显示的文字可能不对。）',
+  'tree.unportable': '名称在 Windows 或 macOS 上无效',
+  'tree.unportableExplain':
+    '“{name}”这个名称在 Windows 或 macOS 上无效（比如结尾有点或空格、含有冒号或反斜杠，或是 CON 这样的保留名），所以 NoobIDE 不打开它。请按 F2 给它改个名字，改名后就能正常使用。',
+  'op.interrupted': '改名没有完成，但文件没有丢失：它现在叫“{name}”，就在同一个文件夹里。请再给它改一次名。',
   'editor.readOnlyEncoding': '这个文件不是 UTF-8 编码，只能查看、不能修改，这样它不会被损坏。文件编码：',
   // --- S12 crash recovery ---
   'recovery.title': '找到了上次没保存的修改',

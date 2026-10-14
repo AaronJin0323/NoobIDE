@@ -29,6 +29,12 @@ describe('file operation explanations (S08.2, S08.4)', () => {
     expect(opErrorMessage(en, 'case-conflict', 'Index.html', 'index.html')).toContain('"Index.html"');
   });
 
+  it('names the temporary name when a case-only rename was interrupted', () => {
+    expect(opErrorMessage(zh, 'interrupted', 'NoobIDE-renaming-1a2b3c4d-Index.html', 'Index.html')).toContain(
+      '“NoobIDE-renaming-1a2b3c4d-Index.html”',
+    );
+  });
+
   it('has a message for every refusal code', () => {
     const codes = [
       'unknown-project',
@@ -41,6 +47,7 @@ describe('file operation explanations (S08.2, S08.4)', () => {
       'permission-denied',
       'busy',
       'trash-failed',
+      'interrupted',
       'op-failed',
       'invalid-request',
       'forbidden-sender',

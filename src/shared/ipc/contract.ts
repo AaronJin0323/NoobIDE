@@ -141,6 +141,11 @@ export interface TreeEntry {
    */
   readonly kind: 'file' | 'directory' | 'link-outside' | 'link-broken';
   readonly isLink: boolean;
+  /**
+   * The name is not valid on Windows or macOS (trailing dot/space, `:`, `\`, a device name — e.g. from a zip or
+   * another system). It is listed with an explanation and can be renamed, trashed or revealed, but not opened.
+   */
+  readonly unportable?: true;
 }
 
 export interface DirRequest {
@@ -181,6 +186,8 @@ export type FileOpError =
   | 'busy'
   /** The OS could not move it to the trash (message from the OS); nothing was deleted. */
   | 'trash-failed'
+  /** A case-only rename could neither finish nor be undone; message is the temporary name the entry now has. */
+  | 'interrupted'
   | 'op-failed';
 
 export interface CreateEntryRequest {
@@ -205,7 +212,8 @@ export function parseCreateEntryRequest(payload: unknown): CreateEntryRequest | 
 export function parseRenameEntryRequest(payload: unknown): RenameEntryRequest | null {
   if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'from', 'to'])) return null;
   const { projectId, from, to } = payload;
-  return isProjectId(projectId) && isPortableRelPath(from) && isPortableRelPath(to) ? { projectId, from, to } : null;
+  // `from` may be an existing entry with a non-portable name (renaming it is how the user repairs it).
+  return isProjectId(projectId) && isListedRelPath(from) && isPortableRelPath(to) ? { projectId, from, to } : null;
 }
 
 /** A change on disk, from the project watcher (S07.3). Paths are portable and relative to the project root. */
@@ -266,6 +274,32 @@ const PROJECT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
  * not absolute, no `:` in any segment (drive or URL prefix, NTFS stream), no trailing dot or space and no Windows
  * device name (src/shared/file-names). Main still realpath-checks the result inside the project root.
  */
+/**
+ * The path of an existing entry the tree listed: like {@link isPortableRelPath}, except that the LAST segment may be
+ * a name that is not portable (trailing dot/space, `:`, `\`, a device name), so such files can be renamed, trashed
+ * or revealed. Main accepts it only if the parent folder really lists exactly that name (file-ops resolveEntry).
+ */
+export function isListedRelPath(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > MAX_REL_PATH_LENGTH) return false;
+  if (value.includes('\0') || value.startsWith('/')) return false;
+  const slash = value.lastIndexOf('/');
+  const name = value.slice(slash + 1);
+  if (name === '' || name === '.' || name === '..') return false;
+  return slash < 0 || isPortableRelPath(value.slice(0, slash));
+}
+
+export function parseEntryRequest(payload: unknown): FileRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath'])) return null;
+  const { projectId, relPath } = payload;
+  return isProjectId(projectId) && isListedRelPath(relPath) ? { projectId, relPath } : null;
+}
+
+export function parseRevealRequest(payload: unknown): DirRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath'])) return null;
+  const { projectId, relPath } = payload;
+  return isProjectId(projectId) && (relPath === '' || isListedRelPath(relPath)) ? { projectId, relPath } : null;
+}
+
 export function isPortableRelPath(value: unknown): value is string {
   if (typeof value !== 'string' || value.length === 0 || value.length > MAX_REL_PATH_LENGTH) return false;
   if (value.includes('\\') || value.includes('\0') || value.startsWith('/')) return false;

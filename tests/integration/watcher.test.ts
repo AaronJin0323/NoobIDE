@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { WatchEvent } from '../../src/shared/ipc/contract';
-import { ProjectWatcher } from '../../src/workspace/watcher';
+import { ProjectWatcher, type WatchFn } from '../../src/workspace/watcher';
 
 /**
  * S07.3: the watcher on the real file system (ReadDirectoryChangesW on Windows, FSEvents on macOS) in a project
@@ -116,5 +116,72 @@ describe('file watcher (S07.3)', () => {
     await writeFile(p('late.html'), '');
     await new Promise((r) => setTimeout(r, 400));
     expect(events).toEqual([]);
+  });
+});
+
+describe('bounded cost and recovery (review findings 5, 7, 11)', () => {
+  it('a mass delete becomes one rescan and never blocks the main process for long', async () => {
+    watcher.close();
+    await mkdir(p('many'));
+    await Promise.all(Array.from({ length: 3000 }, (_, i) => writeFile(p('many', `f${i}.txt`), '')));
+    events = [];
+    watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { debounceMs: 80 });
+    await watcher.start();
+    expect(watcher.snapshotSize).toBeGreaterThan(3000);
+    await new Promise((r) => setTimeout(r, 150));
+    // Measure event-loop stalls while the deletes are classified.
+    let maxLag = 0;
+    let last = Date.now();
+    const probe = setInterval(() => {
+      const now = Date.now();
+      maxLag = Math.max(maxLag, now - last - 10);
+      last = now;
+    }, 10);
+    try {
+      await Promise.all(Array.from({ length: 3000 }, (_, i) => rm(p('many', `f${i}.txt`))));
+      const deadline = Date.now() + 8000;
+      while (!events.some((e) => e.type === 'rescan') && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      await watcher.idle();
+    } finally {
+      clearInterval(probe);
+    }
+    expect(events).toContainEqual({ type: 'rescan' });
+    expect(maxLag).toBeLessThan(500);
+    expect(watcher.snapshotSize).toBeLessThan(10);
+  }, 20000);
+
+  it('releases its snapshot on close', async () => {
+    expect(watcher.snapshotSize).toBeGreaterThan(0);
+    watcher.close();
+    expect(watcher.snapshotSize).toBe(0);
+  });
+
+  it('restarts with a growing delay after the OS watch fails or dies, and reports a rescan', async () => {
+    watcher.close();
+    let calls = 0;
+    let failNext = true;
+    const handlers: ((e: unknown) => void)[] = [];
+    const watch: WatchFn = () => {
+      calls += 1;
+      if (failNext) {
+        failNext = false;
+        throw Object.assign(new Error('EMFILE'), { code: 'EMFILE' });
+      }
+      return {
+        on: (_event: 'error', listener: (e: unknown) => void) => handlers.push(listener),
+        close: () => undefined,
+      };
+    };
+    events = [];
+    watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { watch, restartDelaysMs: [20, 40] });
+    await watcher.start(); // the first attach throws: a restart is scheduled, start() still resolves
+    await expect.poll(() => calls).toBe(2);
+    await expect.poll(() => events).toContainEqual({ type: 'rescan' });
+    events = [];
+    handlers[0]?.(new Error('watch died'));
+    expect(events).toEqual([{ type: 'rescan' }]);
+    await expect.poll(() => calls).toBe(3);
   });
 });

@@ -855,3 +855,7 @@ button {
   z-index: 40;
   max-width: 420px;
 }
+.tree-unportable {
+  display: inline-flex;
+  color: var(--warn);
+}

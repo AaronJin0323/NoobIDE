@@ -134,6 +134,10 @@ function flipCase(name: string): string | null {
  * writing anything: looks up the path with one letter's case flipped in the nearest name that has letters. If that
  * finds the same file, the volume is case-insensitive. Falls back to the platform default when no component has a
  * cased letter (e.g. a folder named only in Chinese directly under a drive root).
+ *
+ * File operations deliberately do not use it to allow siblings that differ only in case: projects must keep
+ * working on case-insensitive Windows and macOS, so such names are refused everywhere (ADR 0008). It is kept for
+ * diagnostics (e.g. explaining a case conflict found in an existing project).
  */
 export async function isCaseSensitive(dir: string, fs: StatFs = realFs, api: PathApi = nodePath): Promise<boolean> {
   let current = dir;

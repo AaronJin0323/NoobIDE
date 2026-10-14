@@ -1,4 +1,4 @@
-import { watch as fsWatch, type FSWatcher } from 'node:fs';
+import { watch as fsWatch } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { WatchEvent } from '../shared/ipc/contract';
@@ -11,11 +11,15 @@ import { isIgnoredName, isIgnoredRelPath } from './ignore';
  * classification, because raw events differ per platform: Windows reports a rename as two `rename` events,
  * macOS may coalesce several, and both report atomic saves as renames.
  *
- * After a quiet period the batch is classified against `known`, an exact-name snapshot of the project:
+ * After a quiet period the batch is classified against an exact-name snapshot of the project, indexed by folder:
  *   exists now + known → changed (files only) · exists + unknown → created · gone + known → deleted.
  * Existence is decided by an exact, case-sensitive name match in the parent's listing, so a case-only rename on a
  * case-insensitive volume (Windows, default macOS) is still seen. A deletion and a creation of the same kind in one
  * batch pair up as a rename (same folder) or move (same name); `caseOnly` marks renames that only change case.
+ *
+ * Cost stays bounded: snapshot updates touch only the affected folder subtree, and a batch with more than
+ * `maxBatch` paths (a mass delete, an unzip) becomes one `rescan` instead of per-path work. If the OS watch fails
+ * or stops (`error`), the watcher reports `rescan` and restarts itself with a growing delay.
  */
 export interface WatcherOptions {
   /** Quiet period before a batch is emitted. */
@@ -24,21 +28,43 @@ export interface WatcherOptions {
   readonly maxWaitMs?: number;
   /** Largest number of entries kept in the snapshot; beyond it, unknown paths count as created. */
   readonly maxKnown?: number;
+  /** Batches with more changed paths than this are reported as a single `rescan`. */
+  readonly maxBatch?: number;
+  /** Delays before restart attempts after the OS watch failed (the last one repeats). */
+  readonly restartDelaysMs?: readonly number[];
+  /** The OS watch, injectable for tests. */
+  readonly watch?: WatchFn;
 }
+
+/** The part of fs.watch the watcher uses. */
+export type WatchFn = (
+  root: string,
+  onChange: (filename: string | null) => void,
+) => { on(event: 'error', listener: (error: unknown) => void): unknown; close(): void };
+
+const defaultWatch: WatchFn = (root, onChange) =>
+  fsWatch(root, { recursive: true, encoding: 'utf8' }, (_eventType, filename) => onChange(filename));
 
 type Kind = 'file' | 'directory';
 
 export class ProjectWatcher {
-  private watcher: FSWatcher | null = null;
-  private readonly known = new Map<string, Kind>();
+  private watcher: ReturnType<WatchFn> | null = null;
+  /** Snapshot: children (exact name → kind) per folder relPath; `''` is the root. */
+  private readonly dirs = new Map<string, Map<string, Kind>>();
+  private knownCount = 0;
   private pending = new Set<string>();
   private timer: NodeJS.Timeout | null = null;
+  private restartTimer: NodeJS.Timeout | null = null;
+  private restartAttempt = 0;
   private firstPendingAt = 0;
   private flushing: Promise<void> = Promise.resolve();
   private closed = false;
   private readonly debounceMs: number;
   private readonly maxWaitMs: number;
   private readonly maxKnown: number;
+  private readonly maxBatch: number;
+  private readonly restartDelaysMs: readonly number[];
+  private readonly watchFn: WatchFn;
 
   constructor(
     private readonly root: string,
@@ -48,30 +74,81 @@ export class ProjectWatcher {
     this.debounceMs = options.debounceMs ?? 100;
     this.maxWaitMs = options.maxWaitMs ?? 1000;
     this.maxKnown = options.maxKnown ?? 50_000;
+    this.maxBatch = options.maxBatch ?? 500;
+    this.restartDelaysMs = options.restartDelaysMs ?? [1000, 2000, 5000, 10_000, 30_000];
+    this.watchFn = options.watch ?? defaultWatch;
   }
 
-  /** Takes the snapshot, then starts watching. Resolves once events will be reported. */
+  /** Takes the snapshot, then starts watching. Resolves once events will be reported (or a restart is scheduled). */
   async start(): Promise<void> {
-    await this.scan(this.root, '');
-    if (this.closed) return;
-    this.watcher = fsWatch(this.root, { recursive: true, encoding: 'utf8' }, (_eventType, filename) =>
-      this.onRaw(filename),
-    );
-    // The project folder itself was removed, renamed or became unreadable: the tree must be reloaded.
-    this.watcher.on('error', () => this.emit([{ type: 'rescan' }]));
+    await this.rebuildSnapshot();
+    this.attach();
   }
 
   close(): void {
     this.closed = true;
-    this.watcher?.close();
-    this.watcher = null;
+    this.detach();
     if (this.timer) clearTimeout(this.timer);
+    if (this.restartTimer) clearTimeout(this.restartTimer);
     this.timer = null;
+    this.restartTimer = null;
+    this.pending.clear();
+    this.dirs.clear();
+    this.knownCount = 0;
   }
 
   /** Resolves when every batch received so far has been emitted (tests). */
   async idle(): Promise<void> {
     await this.flushing;
+  }
+
+  /** Number of entries in the snapshot (tests). */
+  get snapshotSize(): number {
+    return this.knownCount;
+  }
+
+  private attach(): void {
+    if (this.closed) return;
+    try {
+      const watcher = this.watchFn(this.root, (filename) => this.onRaw(filename));
+      watcher.on('error', () => this.lost(watcher));
+      this.watcher = watcher;
+      this.restartAttempt = 0;
+    } catch {
+      this.scheduleRestart();
+    }
+  }
+
+  private detach(): void {
+    try {
+      this.watcher?.close();
+    } catch {
+      // already closed by the OS
+    }
+    this.watcher = null;
+  }
+
+  /** The OS watch died (folder removed or renamed, handle limit…): report it and try again later. */
+  private lost(watcher: ReturnType<WatchFn>): void {
+    if (this.closed || watcher !== this.watcher) return;
+    this.detach();
+    this.emit([{ type: 'rescan' }]);
+    this.scheduleRestart();
+  }
+
+  private scheduleRestart(): void {
+    if (this.closed || this.restartTimer) return;
+    const delays = this.restartDelaysMs;
+    const delay = delays[Math.min(this.restartAttempt, delays.length - 1)] ?? 30_000;
+    this.restartAttempt += 1;
+    this.restartTimer = setTimeout(() => {
+      this.restartTimer = null;
+      void this.rebuildSnapshot().then(() => {
+        if (this.closed) return;
+        this.attach();
+        if (this.watcher) this.emit([{ type: 'rescan' }]); // changes while not watching are picked up by a reload
+      });
+    }, delay);
   }
 
   private onRaw(filename: string | null): void {
@@ -97,6 +174,12 @@ export class ProjectWatcher {
 
   private async flush(batch: Set<string>): Promise<void> {
     if (this.closed) return;
+    if (batch.size > this.maxBatch) {
+      // Mass change: one reload is cheaper than classifying every path, and keeps the main process responsive.
+      await this.rebuildSnapshot();
+      if (!this.closed) this.emit([{ type: 'rescan' }]);
+      return;
+    }
     const listings = new Map<string, Map<string, Kind> | null>();
     const listing = async (dirRel: string) => {
       if (!listings.has(dirRel)) listings.set(dirRel, await this.list(dirRel));
@@ -106,20 +189,25 @@ export class ProjectWatcher {
     const created: { relPath: string; kind: Kind }[] = [];
     const deleted: { relPath: string; kind: Kind }[] = [];
     const changed: string[] = [];
+    const createdDirs = new Set<string>();
+    const deletedDirs = new Set<string>();
+    const underAny = (relPath: string, dirsSet: Set<string>) => {
+      for (let p = parentOf(relPath); p !== ''; p = parentOf(p)) if (dirsSet.has(p)) return true;
+      return false;
+    };
     // Parents first, so a folder created together with its files is reported once, as the folder.
     const paths = [...batch].sort((a, b) => a.split('/').length - b.split('/').length);
     for (const relPath of paths) {
-      const slash = relPath.lastIndexOf('/');
-      const parent = slash < 0 ? '' : relPath.slice(0, slash);
-      const name = relPath.slice(slash + 1);
-      const nowKind = (await listing(parent))?.get(name);
-      const before = this.known.get(relPath);
+      const nowKind = (await listing(parentOf(relPath)))?.get(baseOf(relPath));
+      const before = this.getKnown(relPath);
       if (nowKind !== undefined && before === undefined) {
-        if (created.some((c) => c.kind === 'directory' && relPath.startsWith(`${c.relPath}/`))) continue;
+        if (underAny(relPath, createdDirs)) continue;
         created.push({ relPath, kind: nowKind });
+        if (nowKind === 'directory') createdDirs.add(relPath);
       } else if (nowKind === undefined && before !== undefined) {
-        if (deleted.some((d) => d.kind === 'directory' && relPath.startsWith(`${d.relPath}/`))) continue;
+        if (underAny(relPath, deletedDirs)) continue;
         deleted.push({ relPath, kind: before });
+        if (before === 'directory') deletedDirs.add(relPath);
       } else if (nowKind === 'file' && before === 'file') {
         // Written in place (`change`) or replaced by a rename (an external editor's atomic save).
         changed.push(relPath);
@@ -152,7 +240,7 @@ export class ProjectWatcher {
     for (const c of created) {
       events.push({ type: 'created', relPath: c.relPath });
       this.remember(c.relPath, c.kind);
-      if (c.kind === 'directory') await this.scan(path.join(this.root, ...c.relPath.split('/')), c.relPath);
+      if (c.kind === 'directory') await this.scan(c.relPath);
     }
     for (const relPath of changed) events.push({ type: 'changed', relPath });
     if (events.length > 0 && !this.closed) this.emit(events);
@@ -175,34 +263,79 @@ export class ProjectWatcher {
     }
   }
 
-  private async scan(dir: string, relDir: string): Promise<void> {
-    if (this.known.size >= this.maxKnown) return;
-    const names = await this.list(relDir);
-    if (!names) return;
-    for (const [name, kind] of names) {
-      if (this.known.size >= this.maxKnown) return;
-      const relPath = relDir === '' ? name : `${relDir}/${name}`;
-      this.known.set(relPath, kind);
-      if (kind === 'directory') await this.scan(path.join(dir, name), relPath);
+  private async rebuildSnapshot(): Promise<void> {
+    this.dirs.clear();
+    this.knownCount = 0;
+    await this.scan('');
+  }
+
+  /** Adds `relDir`'s subtree to the snapshot (breadth-first, async, bounded by maxKnown). */
+  private async scan(relDir: string): Promise<void> {
+    const queue = [relDir];
+    while (queue.length > 0 && !this.closed) {
+      const dir = queue.shift() as string;
+      if (this.knownCount >= this.maxKnown) return;
+      const names = await this.list(dir);
+      if (!names) continue;
+      for (const [name, kind] of names) {
+        if (this.knownCount >= this.maxKnown) return;
+        const relPath = dir === '' ? name : `${dir}/${name}`;
+        this.remember(relPath, kind);
+        if (kind === 'directory') queue.push(relPath);
+      }
     }
+  }
+
+  private getKnown(relPath: string): Kind | undefined {
+    return this.dirs.get(parentOf(relPath))?.get(baseOf(relPath));
   }
 
   private remember(relPath: string, kind: Kind): void {
-    if (this.known.size < this.maxKnown) this.known.set(relPath, kind);
-  }
-
-  private forget(relPath: string): void {
-    for (const key of [...this.known.keys()]) {
-      if (key === relPath || key.startsWith(`${relPath}/`)) this.known.delete(key);
+    const parent = parentOf(relPath);
+    let children = this.dirs.get(parent);
+    if (!children) {
+      children = new Map();
+      this.dirs.set(parent, children);
     }
+    if (!children.has(baseOf(relPath))) {
+      if (this.knownCount >= this.maxKnown) return;
+      this.knownCount += 1;
+    }
+    children.set(baseOf(relPath), kind);
   }
 
+  /** Removes an entry and, for a folder, its subtree — cost proportional to that subtree only. */
+  private forget(relPath: string): void {
+    const children = this.dirs.get(parentOf(relPath));
+    if (children?.delete(baseOf(relPath))) this.knownCount -= 1;
+    this.dropSubtree(relPath);
+  }
+
+  private dropSubtree(dir: string): Map<string, Map<string, Kind>> {
+    const removed = new Map<string, Map<string, Kind>>();
+    const stack = [dir];
+    while (stack.length > 0) {
+      const current = stack.pop() as string;
+      const children = this.dirs.get(current);
+      if (!children) continue;
+      this.dirs.delete(current);
+      removed.set(current, children);
+      this.knownCount -= children.size;
+      for (const [name, kind] of children) if (kind === 'directory') stack.push(`${current}/${name}`);
+    }
+    return removed;
+  }
+
+  /** Moves an entry (and a folder's subtree) to its new path. */
   private rebaseKnown(from: string, to: string): void {
-    for (const [key, kind] of [...this.known.entries()]) {
-      if (key === from || key.startsWith(`${from}/`)) {
-        this.known.delete(key);
-        this.known.set(to + key.slice(from.length), kind);
-      }
+    const kind = this.getKnown(from);
+    if (kind === undefined) return;
+    if (this.dirs.get(parentOf(from))?.delete(baseOf(from))) this.knownCount -= 1;
+    const subtree = this.dropSubtree(from);
+    this.remember(to, kind);
+    for (const [dir, children] of subtree) {
+      this.dirs.set(to + dir.slice(from.length), children);
+      this.knownCount += children.size;
     }
   }
 }

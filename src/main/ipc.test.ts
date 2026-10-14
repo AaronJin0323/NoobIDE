@@ -231,6 +231,42 @@ describe('project watching (S07.3)', () => {
     await call(CHANNELS.openFolder, { senderFrame: frame(`${ORIGIN}/index.html`), sender } as never);
     expect(projectOpened).toHaveBeenCalledWith(ID, '/p', sender);
   });
+
+  it('also watches a project reopened by crash recovery (review finding 6)', async () => {
+    const projectOpened = vi.fn();
+    handlers.clear();
+    registerIpcHandlers({ handle: (c: string, h: Handler) => void handlers.set(c, h) } as never, {
+      ...deps,
+      projectOpened,
+    });
+    const sender = { id: 2 };
+    const event = { senderFrame: frame(`${ORIGIN}/index.html`), sender } as never;
+    expect(await call(CHANNELS.recoveryOpenProject, event, { key: KEY })).toMatchObject({ ok: true });
+    expect(projectOpened).toHaveBeenCalledWith(ID, '/p', sender);
+    projectOpened.mockClear();
+    await call(CHANNELS.recoveryOpenProject, event, { key: 'f'.repeat(32) });
+    expect(projectOpened).not.toHaveBeenCalled();
+  });
+});
+
+describe('entries with non-portable names (review finding 9)', () => {
+  it('rename source, trash and reveal accept a listed non-portable last segment', async () => {
+    expect(
+      await call(CHANNELS.renameEntry, workbench, { projectId: ID, from: 'css/page.', to: 'css/page.html' }),
+    ).toMatchObject({ ok: true });
+    expect(await call(CHANNELS.trashEntry, workbench, { projectId: ID, relPath: 'CON' })).toMatchObject({ ok: true });
+    expect(await call(CHANNELS.revealEntry, workbench, { projectId: ID, relPath: 'a:b' })).toMatchObject({ ok: true });
+  });
+
+  it.each([
+    ['as a rename target', CHANNELS.renameEntry, { projectId: ID, from: 'a.html', to: 'page.' }],
+    ['in a parent folder', CHANNELS.trashEntry, { projectId: ID, relPath: 'CON/a.html' }],
+    ['for reading', CHANNELS.readFile, { projectId: ID, relPath: 'page.' }],
+    ['as a parent segment', CHANNELS.trashEntry, { projectId: ID, relPath: '../x' }],
+    ['as a dot name', CHANNELS.trashEntry, { projectId: ID, relPath: 'a/..' }],
+  ])('still rejects a non-portable name %s', async (_name, channel, payload) => {
+    expect(await call(channel, workbench, payload)).toMatchObject({ ok: false, code: 'invalid-request' });
+  });
 });
 
 describe('file operation channels (S08.2–S08.5)', () => {

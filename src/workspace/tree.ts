@@ -3,6 +3,7 @@ import { readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { DirListing, ListDirError, TreeEntry } from '../shared/ipc/contract';
 import { err, ok, type Result } from '../shared/result';
+import { isUnsafePathSegment } from '../shared/file-names';
 import { isIgnoredName } from './ignore';
 import { errorCode, isInside, resolveExisting } from './paths';
 
@@ -40,7 +41,8 @@ export async function listDirectory(root: string, relPath: string): Promise<Resu
   for (const dirent of truncated ? visible.slice(0, MAX_DIR_ENTRIES) : visible) {
     const childRel = relPath === '' ? dirent.name : `${relPath}/${dirent.name}`;
     const entry = await describe(root, path.join(dir.path, dirent.name), dirent, childRel);
-    if (entry) entries.push(entry);
+    // Names other systems allow but Windows/macOS cannot represent: listed with a flag so the user can repair them.
+    if (entry) entries.push(isUnportableName(entry.name) ? { ...entry, unportable: true } : entry);
   }
   entries.sort(compareEntries);
   return ok({ relPath, entries, truncated });
@@ -80,4 +82,9 @@ function listErrorCode(code: string): ListDirError {
     default:
       return 'list-failed';
   }
+}
+
+/** Not a valid name on Windows or macOS: the IPC contract would refuse paths through it (src/shared/file-names). */
+export function isUnportableName(name: string): boolean {
+  return isUnsafePathSegment(name) || name.includes('\\');
 }

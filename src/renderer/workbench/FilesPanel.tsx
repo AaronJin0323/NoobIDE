@@ -152,6 +152,9 @@ export function FilesPanel({
         reload([parent], to);
         fileOps.afterChange({ type: 'renamed', from, to });
       }
+    } catch {
+      // Never an unhandled rejection: the field stays open with an explanation (review finding 11).
+      setEditError(t('op.generic'));
     } finally {
       busy.current = false;
     }
@@ -191,8 +194,10 @@ export function FilesPanel({
 
   const menuItems = (entry: TreeEntry): MenuItem[] => {
     const items: MenuItem[] = [];
-    if (entry.kind === 'file') items.push({ id: 'open', label: t('menu.open'), run: () => onOpenFile(entry.relPath) });
-    if (entry.kind === 'directory') {
+    if (entry.kind === 'file' && !entry.unportable) {
+      items.push({ id: 'open', label: t('menu.open'), run: () => onOpenFile(entry.relPath) });
+    }
+    if (entry.kind === 'directory' && !entry.unportable) {
       items.push({ id: 'new-file', label: t('files.newFile'), run: () => startCreate('file', entry.relPath) });
       items.push({ id: 'new-folder', label: t('files.newFolder'), run: () => startCreate('directory', entry.relPath) });
     }
@@ -307,6 +312,9 @@ export function FilesPanel({
               setConfirmDelete(entry);
             }}
             onReveal={reveal}
+            onUnportable={(entry) =>
+              setOpError({ text: fill(t('tree.unportableExplain'), { name: entry.name }), detail: '' })
+            }
             onContextMenu={(entry, anchor) => setMenu({ entry, ...anchor })}
             onSelectionChange={(entry) => {
               selected.current = entry;

@@ -45,6 +45,8 @@ export function opErrorMessage(t: Translate, code: FileOpError | RequestError, m
       return fill(t('op.caseConflict'), { name: message });
     case 'invalid-name':
       return nameProblemMessage(t, name) ?? t('op.generic');
+    case 'interrupted':
+      return fill(t('op.interrupted'), { name: message });
     case 'into-itself':
       return t('op.intoItself');
     case 'not-found':

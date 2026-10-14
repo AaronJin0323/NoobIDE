@@ -136,7 +136,8 @@ export interface TreeRow {
 }
 
 export function isExpandable(entry: TreeEntry): boolean {
-  return entry.kind === 'directory';
+  // A folder with a non-portable name cannot be listed through the IPC contract; it can only be renamed first.
+  return entry.kind === 'directory' && !entry.unportable;
 }
 
 /** The rows a screen reader and the keyboard move through: depth-first over expanded, loaded folders. */

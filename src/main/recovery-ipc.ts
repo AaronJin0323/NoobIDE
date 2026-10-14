@@ -1,4 +1,5 @@
 import path from 'node:path';
+import type { IpcMainInvokeEvent } from 'electron';
 import { CHANNELS, parseNoPayload, toIpcResult, type IpcResult } from '../shared/ipc/contract';
 import {
   parseBufferRef,
@@ -28,6 +29,8 @@ export function registerRecoveryHandlers(
   handle: HandleFn,
   projects: Pick<ProjectService, 'open' | 'read' | 'rootOf'>,
   journal: RecoveryJournalPort,
+  /** S07.3: a project reopened from recovery is watched like one opened from the folder dialog. */
+  projectOpened?: (projectId: string, root: string, sender: IpcMainInvokeEvent['sender']) => void,
 ): void {
   const target = (projectId: string, relPath: string) => {
     const rootPath = projects.rootOf(projectId);
@@ -68,10 +71,12 @@ export function registerRecoveryHandlers(
     };
   });
 
-  handle(CHANNELS.recoveryOpenProject, parseRecoveryKeyRequest, async ({ key }) => {
+  handle(CHANNELS.recoveryOpenProject, parseRecoveryKeyRequest, async ({ key }, event) => {
     const rootPath = await journal.rootOfPending(key);
     if (rootPath === undefined) return { ok: false, code: 'not-found', message: 'no recovery data for this key' };
-    return toIpcResult(await projects.open(rootPath));
+    const opened = await projects.open(rootPath);
+    if (opened.ok) projectOpened?.(opened.value.projectId, opened.value.rootPath, event.sender);
+    return toIpcResult(opened);
   });
 
   handle(CHANNELS.recoveryRead, parseBufferRef, async (request) => {
