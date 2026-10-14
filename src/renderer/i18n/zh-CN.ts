@@ -252,6 +252,50 @@ export const zhCN = {
   // --- end S13 ---
   // S20.2 welcome + create wizard, S21.3/S21.4 local history (welcome-history.ts)
   ...welcomeHistoryZhCN,
+  // --- S18.3 formatting ---
+  'format.button': '整理格式',
+  'format.title': '整理代码格式：缩进和换行（{shortcut}）',
+  // --- end S18.3 ---
+  // --- S17.1 problems panel ---
+  'problems.section.static': '代码检查',
+  'problems.section.runtime': '页面运行时',
+  'problems.section.resource': '文件加载',
+  'problems.sectionEmpty': '没有',
+  'problems.severity.error': '错误',
+  'problems.severity.warning': '警告',
+  'problems.severity.info': '提示',
+  'problems.count.errors': '{n} 个错误',
+  'problems.count.warnings': '{n} 个警告',
+  'problems.count.info': '{n} 个提示',
+  'problems.none': '没有发现问题',
+  'problems.noneDetail': '已打开的文件和正在运行的预览里没有发现问题。只检查打开的文件。',
+  'problems.announce.new': '发现 {n} 个新问题，在“问题”里可以看到说明。',
+  'problems.announce.cleared': '问题都解决了。',
+  'problems.stale': '刷新后没有再出现',
+  'problems.clearResolved': '清除已解决的问题',
+  // --- end S17.1 ---
+  // --- S17.2 go to code and original error ---
+  'problems.original.sourceStatic': '来源：代码检查（{owner}）',
+  'problems.original.sourcePreview': '来源：预览页面（会话 {session}，第 {generation} 次加载）',
+  'problems.original.sourcePage': '来源：预览页面',
+  'problems.original.latest': '最近一次的原文：',
+  'problems.original.truncated': '原文太长，只保留了前面的部分。',
+  'problems.original.code': '代码',
+  'problems.original.firstSeen': '首次',
+  'problems.original.lastSeen': '最近',
+  // --- end S17.2 ---
+  // --- S17.3 console view ---
+  'preview.console.filter': '显示',
+  'preview.console.level.all': '全部',
+  'preview.console.level.error': '只看错误',
+  'preview.console.level.warning': '只看警告',
+  'preview.console.level.info': '只看信息',
+  'preview.console.clear': '清空',
+  'preview.console.cap': '最多保留最近 {count} 条输出',
+  'preview.console.onlyCurrent': '隐藏刷新前的输出（{count} 条）',
+  'preview.console.olderTag': '刷新前',
+  'preview.console.emptyFiltered': '没有符合筛选条件的输出。',
+  // --- end S17.3 ---
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

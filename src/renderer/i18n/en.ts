@@ -267,4 +267,48 @@ export const en: Record<MessageKey, string> = {
   // --- end S13 ---
   // S20.2 welcome + create wizard, S21.3/S21.4 local history (welcome-history.ts)
   ...welcomeHistoryEn,
+  // --- S18.3 formatting ---
+  'format.button': 'Format',
+  'format.title': 'Format the code: indentation and line breaks ({shortcut})',
+  // --- end S18.3 ---
+  // --- S17.1 problems panel ---
+  'problems.section.static': 'Code check',
+  'problems.section.runtime': 'While the page runs',
+  'problems.section.resource': 'Loading files',
+  'problems.sectionEmpty': 'None',
+  'problems.severity.error': 'Error',
+  'problems.severity.warning': 'Warning',
+  'problems.severity.info': 'Note',
+  'problems.count.errors': '{n} errors',
+  'problems.count.warnings': '{n} warnings',
+  'problems.count.info': '{n} notes',
+  'problems.none': 'No problems found',
+  'problems.noneDetail': 'Nothing found in the open files or the running preview. Only open files are checked.',
+  'problems.announce.new': '{n} new problems. See Problems for an explanation.',
+  'problems.announce.cleared': 'All problems are solved.',
+  'problems.stale': 'Not seen again after refresh',
+  'problems.clearResolved': 'Clear resolved problems',
+  // --- end S17.1 ---
+  // --- S17.2 go to code and original error ---
+  'problems.original.sourceStatic': 'Source: code check ({owner})',
+  'problems.original.sourcePreview': 'Source: preview page (session {session}, load {generation})',
+  'problems.original.sourcePage': 'Source: preview page',
+  'problems.original.latest': 'Latest occurrence:',
+  'problems.original.truncated': 'The original text was too long; only the beginning is kept.',
+  'problems.original.code': 'Code',
+  'problems.original.firstSeen': 'First',
+  'problems.original.lastSeen': 'Latest',
+  // --- end S17.2 ---
+  // --- S17.3 console view ---
+  'preview.console.filter': 'Show',
+  'preview.console.level.all': 'All',
+  'preview.console.level.error': 'Errors only',
+  'preview.console.level.warning': 'Warnings only',
+  'preview.console.level.info': 'Info only',
+  'preview.console.clear': 'Clear',
+  'preview.console.cap': 'Keeps the latest {count} lines at most',
+  'preview.console.onlyCurrent': 'Hide output from before the refresh ({count})',
+  'preview.console.olderTag': 'Before refresh',
+  'preview.console.emptyFiltered': 'No output matches the filter.',
+  // --- end S17.3 ---
 };

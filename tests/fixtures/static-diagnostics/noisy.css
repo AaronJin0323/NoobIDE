@@ -1,0 +1,21 @@
+/* Valid CSS that style linters complain about: none of it is a problem for a beginner. */
+#title {
+  margin: 0px;
+  color: red !important;
+}
+.empty {
+}
+* {
+  box-sizing: border-box;
+}
+.box {
+  width: 100px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  float: left;
+  -webkit-transition: opacity 1s;
+}
+/* Control: one real mistake, so the file is known to have been checked. */
+h2 {
+  colr: blue;
+}

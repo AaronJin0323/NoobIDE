@@ -1106,3 +1106,163 @@ button {
   flex: none;
   color: var(--muted);
 }
+
+/* ── S17.1: Problems panel ─────────────────────────────── */
+.problems-panel:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  height: 260px;
+}
+.problems-panel .panel-header {
+  gap: 8px;
+}
+.problems-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 12px 12px;
+}
+.problems-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.problems-badge {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--raised);
+  color: var(--text);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.problems-section-empty {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.problems-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.problem-row {
+  border-radius: var(--radius-control);
+}
+.problem-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.problem-summary:hover,
+.problem-summary[aria-expanded='true'] {
+  background: var(--hover);
+}
+.problem-severity {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.problem-row.severity-error .problem-severity {
+  color: var(--danger);
+}
+.problem-row.severity-warning .problem-severity {
+  color: var(--warn);
+}
+.problem-where {
+  flex: none;
+  color: var(--muted);
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+.problem-title {
+  flex: 1;
+  min-width: 0;
+}
+.problem-count,
+.problem-stale {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+.problem-row.stale .problem-title {
+  color: var(--muted);
+}
+.problem-details {
+  padding: 4px 8px 10px 28px;
+}
+.status-button[data-errors]:not([data-errors='0']) > svg {
+  color: var(--danger);
+}
+
+/* ── S17.2: problem details (go to code, original error) ── */
+.problem-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.problem-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.problem-original {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+.problem-original-text {
+  margin: 0 0 6px;
+  font-family: var(--font-code);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.problem-original-label,
+.problem-original-meta {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ── S17.3: console view (filter, clear, page-load attribution) ── */
+.preview-console-toolbar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  background: var(--panel);
+  font-family: var(--font-ui);
+}
+.preview-console-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+.preview-console-line.older {
+  color: var(--muted);
+}
+.preview-console-older {
+  flex: none;
+  font-style: italic;
+}

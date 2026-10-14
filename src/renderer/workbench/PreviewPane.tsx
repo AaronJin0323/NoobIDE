@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { PreviewLogEntry, PreviewStatus } from '../../shared/ipc/preview-contract';
+import type { PreviewStatus } from '../../shared/ipc/preview-contract';
 import { useI18n } from '../i18n/I18nProvider';
 import { DotIcon, MonitorIcon, StopIcon, WarningIcon } from './icons';
+// S17.3: console view (levels, filter, clear, page-load attribution) on the same bounded log model.
+import { ConsoleView } from './ConsoleView';
 import {
   EMPTY_LOG,
   STOPPED,
   actionsFor,
   appendLogBatch,
+  clearLog,
+  nextGeneration,
   previewNotUpdated,
   stageMessageKey,
   stateLabelKey,
@@ -48,9 +52,15 @@ export function PreviewPane({
 
   useEffect(() => {
     if (!bridge) return undefined;
+    let state: PreviewStatus['state'] = 'stopped';
     return bridge.onEvent((event) => {
-      if (event.kind === 'status') setStatus(event.status);
-      else setLog((view) => appendLogBatch(view, event.entries, event.dropped, event.throttled));
+      if (event.kind === 'status') {
+        // S17.3: a start or refresh begins a new page load; its console lines are attributed to it.
+        const next = event.status.state;
+        if ((next === 'starting' || next === 'refreshing') && next !== state) setLog(nextGeneration);
+        state = next;
+        setStatus(event.status);
+      } else setLog((view) => appendLogBatch(view, event.entries, event.dropped, event.throttled));
     });
   }, [bridge]);
 
@@ -188,53 +198,7 @@ export function PreviewPane({
           </div>
         )}
       </div>
-      <PreviewConsole log={log} />
+      <ConsoleView log={log} onClear={() => setLog(clearLog)} />
     </section>
   );
-}
-
-function PreviewConsole({ log }: { log: LogView }) {
-  const { t } = useI18n();
-  return (
-    <div className="preview-console" aria-label={t('preview.console')} data-testid="preview-console">
-      {(log.dropped > 0 || log.throttled) && (
-        <p className="preview-console-dropped" data-testid="preview-console-dropped">
-          {t(log.throttled ? 'preview.console.droppedAtLeast' : 'preview.console.dropped').replace(
-            '{count}',
-            String(log.dropped),
-          )}
-        </p>
-      )}
-      {log.entries.length === 0 ? (
-        <p className="preview-console-empty">{t('preview.console.empty')}</p>
-      ) : (
-        <ol className="preview-console-list">
-          {log.entries.map((entry, index) => (
-            <LogLine key={index} entry={entry} />
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}
-
-function LogLine({ entry }: { entry: PreviewLogEntry }) {
-  const { t } = useI18n();
-  const where = entry.url ? `${fileName(entry.url)}${entry.line ? `:${entry.line}` : ''}` : '';
-  return (
-    <li className={`preview-console-line level-${entry.level}`} data-source={entry.source}>
-      <span className="preview-console-level">{t(`preview.level.${entry.level}`)}</span>
-      <span className="preview-console-text">{entry.message}</span>
-      {where && <span className="preview-console-where">{where}</span>}
-    </li>
-  );
-}
-
-function fileName(url: string): string {
-  try {
-    const u = new URL(url);
-    return decodeURIComponent(u.pathname.split('/').pop() || u.host);
-  } catch {
-    return url;
-  }
 }

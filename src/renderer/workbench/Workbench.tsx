@@ -38,6 +38,17 @@ async function eventually<T>(get: () => T | undefined, ms = 3000): Promise<T | u
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
 }
+// S18.4: the project's other JavaScript files feed the JavaScript language service.
+import { useProjectScripts } from '../editor/useProjectScripts';
+// S19.1: static problems (language-service markers of the open files).
+import { useStaticProblems } from '../problems/useStaticProblems';
+// S17.1: runtime / resource problems (main's store when present, else the preview's events) and the panel view.
+import { useRuntimeProblems } from '../problems/useRuntimeProblems';
+import { buildView } from '../problems/problems-view';
+// S17.2: go to code + original error in the problem details.
+import { ProblemCard } from '../problems/ProblemCard';
+import { explain } from '../../diagnostics/rules';
+import { requestReveal } from '../editor/editor-handle';
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
@@ -150,6 +161,13 @@ export function Workbench() {
     [bridge],
   );
   // --- end S13.2 ---
+  useProjectScripts(bridge, doc.project); // S18.4
+  const staticProblems = useStaticProblems(doc.project?.projectId ?? null, doc.tabs); // S19.1
+  const runtimeProblems = useRuntimeProblems(bridge); // S17.1
+  const problemsView = useMemo(
+    () => buildView(doc.project?.projectId ?? null, staticProblems.records, runtimeProblems.records),
+    [doc.project?.projectId, staticProblems.records, runtimeProblems.records],
+  );
 
   const saverOf = (relPath: string | null | undefined) => (relPath ? savers.current.get(relPath) : undefined);
   const relPathOfUri = (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath;
@@ -613,6 +631,34 @@ export function Workbench() {
     else saver?.compositionEnd();
   }, []);
 
+  // --- S17.2: Go to code. Opens the file (if needed), then the editor moves to the reported place and takes focus. ---
+  const [pendingGoTo, setPendingGoTo] = useState<{ file: string; line: number; column?: number } | null>(null);
+  const goTo = useCallback(
+    (target: { file: string; line: number; column?: number }) => {
+      setPendingGoTo(target);
+      if (narrow) dispatchLayout({ type: 'showNarrowView', view: 'code' }); // the code must be visible
+      void openFile(target.file);
+    },
+    [openFile, narrow],
+  );
+  useEffect(() => {
+    if (!pendingGoTo) return;
+    const tab = doc.tabs.find((open) => open.relPath === pendingGoTo.file);
+    if (!tab || doc.active !== tab.relPath) return;
+    requestReveal({
+      uri: tab.uri,
+      line: pendingGoTo.line,
+      ...(pendingGoTo.column !== undefined ? { column: pendingGoTo.column } : {}),
+      focus: true,
+    });
+    setPendingGoTo(null);
+  }, [pendingGoTo, doc.tabs, doc.active]);
+  // A file that could not be opened ends the request (its error is shown by the editor pane).
+  useEffect(() => {
+    if (pendingGoTo && doc.docError?.relPath === pendingGoTo.file) setPendingGoTo(null);
+  }, [pendingGoTo, doc.docError]);
+  // --- end S17.2 ---
+
   // Closing the window or quitting: main asks first; we answer after every file is saved (S10.6).
   useEffect(() => {
     if (!bridge) return;
@@ -863,7 +909,15 @@ export function Workbench() {
           autoStartProjectId={autoPreview}
         />
       </div>
-      <ProblemsPanel open={visible.problemsPanel} onToggle={() => dispatchLayout({ type: 'toggleProblems' })} />
+      {/* S17.1: problems panel in the status strip (never opens or takes focus by itself) */}
+      <ProblemsPanel
+        open={visible.problemsPanel}
+        onToggle={() => dispatchLayout({ type: 'toggleProblems' })}
+        projectOpen={project !== null}
+        view={problemsView}
+        onClearResolved={runtimeProblems.clearResolved}
+        renderDetails={(record) => <ProblemCard record={record} explanation={explain(record)} onGoTo={goTo} />}
+      />
       {/* S13.1: the settings file was unusable and was backed up */}
       {settingsNotice && <SettingsNotice snapshot={settingsNotice} onDismiss={() => setSettingsNotice(null)} />}
       {entryNotice && <EntryNotice state={entryNotice} onDismiss={() => setEntryNotice(null)} />}

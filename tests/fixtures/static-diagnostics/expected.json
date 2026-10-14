@@ -1,0 +1,13 @@
+{
+  "$comment": "S19.2: static problems expected for each fixture (line:code:severity). Empty = must stay quiet. noisy.js and noisy.css end with one real mistake (a control proving the file was checked); every other line there is valid code that must not be reported. errors.js line 4 is a syntax error whose follow-on errors (lines 5-6) TypeScript also reports.",
+  "files": {
+    "noisy.js": ["20:2304:error"],
+    "errors.js": ["2:2552:error", "3:2304:error", "4:1005:error", "5:1005:error", "5:2552:error", "6:1128:error"],
+    "noisy.css": ["20:unknownProperties:warning"],
+    "errors.css": ["2:unknownProperties:warning", "6:css-rcurlyexpected:error"],
+    "unclosed.html": ["8:html-unclosed-tag:warning"],
+    "clean.html": [],
+    "template.js": [],
+    "template.css": []
+  }
+}

@@ -26,3 +26,9 @@ Codes producers must use for NoobIDE's own checks: `html-unclosed-tag` (`data.ta
 
 The did-you-mean rule (`undefined-name`) returns `candidates` and the exact `span`; it adds a `replace-text` action
 only when there is exactly one candidate and the name was located on the reported line (input for S22.5).
+
+`html-check.ts` (S19.2) is NoobIDE's own static HTML check: elements opened but never closed, reported as
+`html-unclosed-tag` with `data.tagName` (the renderer shows the findings as `noobide-html` markers). Beginner tuning
+of the language services (ignored TypeScript codes, CSS lint levels) is in `src/renderer/editor/language-config.ts`,
+proven by `tests/fixtures/static-diagnostics`. `css-selector-unmatched` is not emitted yet (it needs the project's
+HTML ids and classes); the guided-checks rule handles it once a producer exists.

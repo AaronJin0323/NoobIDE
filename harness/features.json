@@ -1777,8 +1777,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/ProblemsPanel.tsx + src/renderer/problems/{problems-view,sources,useRuntimeProblems}.ts. Sections static/runtime(+console)/resource with per-section badges; strip shows icon + text counts ('问题 · 1 个错误'); polite debounced live region (role=status, aria-live=polite). Unit: problems-view.test.ts (sections, project filter, stale not counted, announcements only for news), sources.test.ts (preview-event fallback: runtime/resource records, generation + stale after refresh, dedupe, clearResolved, project switch; S16 bridge API preferred when present). e2e tests/e2e/problems.spec.ts: typing a new error raises the count while the panel stays closed and focus stays in the editor, announcer text changes; opening the panel leaves focus on the toggle; real preview run puts the browser's ReferenceError (userNmae) in runtime and images/头像.PNG 404 in resource; en labels. Runtime records come from the preview event stream until window.noobide.problems (S16) lands. verify green, e2e 110/110 @ 639db73"
     },
     {
       "id": "S17.2",
@@ -1793,8 +1793,8 @@
       "depends_on": [
         "S17.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/problems/ProblemCard.tsx (actions from the explanation: go-to-code when file+line known, show-original always) + Workbench goTo (openFile then requestReveal via editor-handle; CodeEditor reveals once the file is shown). tests/e2e/problems.spec.ts: from the RUNTIME row (real preview ReferenceError) Go to code opens the closed script.js at 行 3, 列 1 with editor focus; static row via keyboard only (Enter on summary, Enter on Go to code) lands on 行 3, 列 13 with focus; Show original error (aria-expanded disclosure) shows 'Uncaught ReferenceError: userNmae is not defined', code and '来源：预览页面', static shows the TS message, '代码 2552', '来源：代码检查（javascript）'. problem-card.test.ts: stack verbatim, attribution, latest repeat, truncation note (zh-CN/en). verify green, e2e 112/112 @ 4ce06ca"
     },
     {
       "id": "S17.3",
@@ -1807,8 +1807,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/ConsoleView.tsx + preview-model.ts (ConsoleEntry.generation, nextGeneration on starting/refreshing, clearLog, visibleLog, olderCount; cap MAX_VISIBLE_LOG_ENTRIES=200 kept). preview-model.test.ts (4 new: attribution, level filter, clear, cap across loads). tests/e2e/problems.spec.ts: levels spelled out per line, filter errors/warnings, refresh labels earlier lines '刷新前' and 'hide older' shows only current load, Clear empties; preview-isolation flood test (cap) still passes. verify green; affected e2e specs green @ 8a99899 (full-suite run before this change: 112/112)"
     },
     {
       "id": "S17.4",
@@ -1839,8 +1839,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/editor/language-config.ts (HTML/CSS/JS services: checkJs JS, CSS lint) applied in monaco-setup.ts; tests/e2e/language.spec.ts spawns the PACKAGED binary (out/NoobIDE-win32-x64) with NOOBIDE_SELF_TEST_OFFLINE=1 (main: session.enableNetworkEmulation offline + network guard, 0 blocked requests): html/css/ts workers start and all 10 capability cases (completion + hover for HTML, CSS, JS; src/renderer/editor/capability-probe.ts drives the real suggest/hover commands) pass; unit tests language-config.test.ts, capability-cases.test.ts, self-test.test.ts; verify green, e2e 99/99 on Windows x64 @ e6064af"
     },
     {
       "id": "S18.2",
@@ -1855,8 +1855,8 @@
       "depends_on": [
         "S18.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/fixtures/lang-capabilities/cases.json: 19 cases with expected completions/hovers (HTML tags, closing tags, attributes, attribute values; CSS properties, values, colours, property + selector hover; JS DOM/string/array/console/event-name/local completions, DOM/variable/function hover), all passing in the packaged app offline (tests/e2e/language.spec.ts requires every case); docs/capabilities.md lists only those case ids (capability-cases.test.ts fails on any id not in the suite and on any row without a case) plus a 'Not claimed' section; verify green, e2e 99/99 @ 536858d"
     },
     {
       "id": "S18.3",
@@ -1871,8 +1871,8 @@
       "depends_on": [
         "S18.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Command: 整理格式/Format button (EditorPane, title names the platform shortcut via labels.formatShortcutLabel) + Monaco's Shift+Alt+F / ⇧⌥F; tests/e2e/language-workbench.spec.ts: button formats style.css and autosave writes it, Ctrl+Z restores, Shift+Alt+F formats script.js, each fires exactly one pre-format event. Hook: src/renderer/editor/format-hook.ts wraps every formatting provider so any path (button, shortcut, context menu, palette) emits onBeforeFormat({uri,text,languageId}) before formatting (format-hook.test.ts: order, idempotent, failing subscriber cannot block). HTML/CSS/JS format cases pass in the packaged capability suite; docs/capabilities.md Formatting section. History consumes the hook in S21 (no IPC added here). verify green, e2e 102/102 @ 90b5428"
     },
     {
       "id": "S18.4",
@@ -1887,8 +1887,8 @@
       "depends_on": [
         "S18.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Imports: src/renderer/editor/project-scripts.ts feeds closed project .js/.mjs files to the JS service as extra libs (open model wins; bounded 60 files/256K chars; project-scripts.test.ts 6 tests). tests/e2e/language-workbench.spec.ts on a Chinese+space path: 'import * as util from ./util.mjs' with util.mjs never opened -> util.gr completes 'greet'; global from closed config.js known, misspelling reported as 2552 only. Capability cases js-module-import-completion + js-cross-script-completion pass in the packaged suite; docs/capabilities.md lists exactly these (same-folder relative imports). Recovery: worker-supervisor.ts (unanswered request 15 s or error event -> terminate + restart via defaults; loop cap 5/min; worker-supervisor.test.ts 5 tests); e2e kills the TS worker: typing shows immediately, completion 'document' and a 2304 diagnostic return after restart. verify green, e2e 105/105 @ f47f58a"
     },
     {
       "id": "S19.1",
@@ -1901,8 +1901,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/problems/static-problems.ts (markerToProblem + StaticProblems: debounce 300 ms, per-file replace, retain/dispose) with static-problems.test.ts (7 tests: mapping, severities/hints, code forms, one publish per burst, cleared on empty markers / closed file / project switch, first-seen kept); Monaco adapter static-problems-monaco.ts + useStaticProblems in Workbench; tests/e2e/problems.spec.ts: userNmae → static 2552 record at script.js:3:13 with the verbatim message, colr → unknownProperties warning, fixing colr removes only its record, closing script.js empties the list. verify green, e2e 107/107 @ d3033ee"
     },
     {
       "id": "S19.2",
@@ -1917,8 +1917,8 @@
       "depends_on": [
         "S19.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Noisy codes off: language-config.ts NOISY_TS_CODES (2339 DOM props, 2322/2345 type mismatch, 2362/2365 arithmetic, 2554 arity, 2451 const name, 2307 …), CSS lint opinions ignored; kept: all 1xxx syntax, 2304/2552/2448, CSS unknown property + parse errors, plus new html-check.ts (html-unclosed-tag with data.tagName; html-check.test.ts 5 tests). Fixtures tests/fixtures/static-diagnostics + expected.json: beginner-diagnostics.test.ts runs TypeScript (checkJs + DOM) on them — noisy.js raw has >=6 noise diagnostics of >=5 codes, after tuning only its control 2304 remains; errors.js keeps 2552/2304/1005/1128; template.js quiet. tests/e2e/problems.spec.ts opens every fixture in the real editor and gets exactly the expected records (noisy files: only the control line; clean.html, template.js/.css quiet after a 3 s settle). verify green, e2e 108/108 @ 39b9180"
     },
     {
       "id": "S20.1",

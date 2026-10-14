@@ -5,16 +5,21 @@ import type { MessageKey } from '../i18n/index';
 
 export const MAX_VISIBLE_LOG_ENTRIES = 200;
 
+/** S17.3: a console line plus the preview generation (page load) it came from. */
+export type ConsoleEntry = PreviewLogEntry & { readonly generation: number };
+
 export interface LogView {
   /** Newest last; at most MAX_VISIBLE_LOG_ENTRIES. */
-  readonly entries: readonly PreviewLogEntry[];
+  readonly entries: readonly ConsoleEntry[];
   /** Messages main dropped because the page logged faster than the cap (shown as "N messages dropped"). */
   readonly dropped: number;
   /** Some messages were skipped without being counted, so `dropped` is a lower bound ("at least N"). */
   readonly throttled: boolean;
+  /** S17.3: the current page load; every start or refresh of the preview begins a new one. */
+  readonly generation: number;
 }
 
-export const EMPTY_LOG: LogView = { entries: [], dropped: 0, throttled: false };
+export const EMPTY_LOG: LogView = { entries: [], dropped: 0, throttled: false, generation: 0 };
 
 export function appendLogBatch(
   view: LogView,
@@ -22,11 +27,13 @@ export function appendLogBatch(
   dropped: number,
   throttled = false,
 ): LogView {
-  const merged = entries.length === 0 ? view.entries : [...view.entries, ...entries];
+  const tagged = entries.map((entry) => ({ ...entry, generation: view.generation })); // S17.3
+  const merged = tagged.length === 0 ? view.entries : [...view.entries, ...tagged];
   return {
     entries: merged.length > MAX_VISIBLE_LOG_ENTRIES ? merged.slice(-MAX_VISIBLE_LOG_ENTRIES) : merged,
     dropped: view.dropped + dropped,
     throttled: view.throttled || throttled,
+    generation: view.generation,
   };
 }
 
@@ -95,3 +102,35 @@ export function previewNotUpdated(status: PreviewStatus, saveFailed: boolean): b
 export function viewVisible(status: PreviewStatus, paneVisible: boolean): boolean {
   return paneVisible && stageMessageKey(status, true) === null && status.state !== 'stopped';
 }
+
+// --- S17.3 console view: levels, filter, clear, attribution to the current page load ---
+
+/** A start or refresh of the preview: later lines belong to the new page load; earlier ones stay, marked older. */
+export function nextGeneration(view: LogView): LogView {
+  return { ...view, generation: view.generation + 1 };
+}
+
+/** The Clear button: the list and the dropped counters are emptied; the page load stays the same. */
+export function clearLog(view: LogView): LogView {
+  return { ...EMPTY_LOG, generation: view.generation };
+}
+
+export type ConsoleLevelFilter = 'all' | 'error' | 'warning' | 'info';
+export const CONSOLE_LEVEL_FILTERS: readonly ConsoleLevelFilter[] = ['all', 'error', 'warning', 'info'];
+
+/** Lines to show: by level ('info' includes debug output) and, unless `older` is set, only the current page load. */
+export function visibleLog(view: LogView, level: ConsoleLevelFilter, older: boolean): ConsoleEntry[] {
+  return view.entries.filter(
+    (entry) =>
+      (older || entry.generation === view.generation) &&
+      (level === 'all' ||
+        entry.level === level ||
+        (level === 'info' && (entry.level === 'info' || entry.level === 'debug'))),
+  );
+}
+
+/** Lines from earlier page loads (hidden unless the user asks for them). */
+export function olderCount(view: LogView): number {
+  return view.entries.filter((entry) => entry.generation !== view.generation).length;
+}
+// --- end S17.3 ---
