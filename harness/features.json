@@ -1646,8 +1646,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/problem.ts (ProblemRecord: source static|runtime|resource|console, severity, projectId, preview sessionId+generation, file/line/column, code, originalMessage/originalStack verbatim (capped, truncated flag), explanation{causes,checks,actions}, dedupeKey + count + first/last seen + last occurrence); src/shared/problem.test.ts (7 tests) + verify green @ 457213b"
     },
     {
       "id": "S16.2",
@@ -1710,7 +1710,7 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
