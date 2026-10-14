@@ -17,7 +17,9 @@ let handlers: Map<string, Handler>;
 let deps: AppDataIpcDeps & {
   settings: { snapshot: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
   openLogsFolder: ReturnType<typeof vi.fn>;
+  projects: { rootOf: ReturnType<typeof vi.fn> };
 };
+const ID = '3f1c2a9e-8b7d-4c6e-9f00-1a2b3c4d5e6f';
 
 beforeEach(() => {
   handlers = new Map();
@@ -28,6 +30,7 @@ beforeEach(() => {
       update: vi.fn(async (patch: object) => ({ ...DEFAULT_SETTINGS, ...patch })),
     },
     openLogsFolder: vi.fn(async () => ''),
+    projects: { rootOf: vi.fn(() => undefined) },
   };
   registerAppDataIpcHandlers({ handle: (channel: string, h: Handler) => void handlers.set(channel, h) } as never, deps);
 });
@@ -88,5 +91,37 @@ describe('open logs folder (S13.6)', () => {
   it('reports a folder the OS could not open', async () => {
     deps.openLogsFolder.mockResolvedValueOnce('Failed to open');
     expect(await call(APP_DATA_CHANNELS.openLogsFolder, workbench)).toMatchObject({ ok: false, code: 'open-failed' });
+  });
+});
+
+describe('project configuration channels (S13.2)', () => {
+  it('accept only a project id and a portable .html entry (or null)', async () => {
+    for (const bad of [
+      { projectId: ID, entry: 'C:/Users/x/index.html' },
+      { projectId: ID, entry: '/etc/index.html' },
+      { projectId: ID, entry: '../outside.html' },
+      { projectId: ID, entry: 'style.css' },
+      { projectId: ID, entry: '.noobide/project.html' },
+      { projectId: ID },
+      { projectId: ID, entry: 'index.html', extra: 1 },
+      { projectId: 'nope', entry: 'index.html' },
+    ]) {
+      expect(await call(APP_DATA_CHANNELS.projectSetEntry, workbench, bad)).toMatchObject({ code: 'invalid-request' });
+    }
+    expect(deps.projects.rootOf).not.toHaveBeenCalled();
+  });
+
+  it('unknown projects are refused; other senders never reach the project', async () => {
+    expect(await call(APP_DATA_CHANNELS.projectConfig, workbench, { projectId: ID })).toMatchObject({
+      code: 'unknown-project',
+    });
+    expect(
+      await call(APP_DATA_CHANNELS.projectSetEntry, workbench, { projectId: ID, entry: '子 文件夹/页面 二.html' }),
+    ).toMatchObject({ code: 'unknown-project' });
+    for (const event of strangers) {
+      expect(await call(APP_DATA_CHANNELS.projectSetEntry, event, { projectId: ID, entry: null })).toMatchObject({
+        code: 'forbidden-sender',
+      });
+    }
   });
 });

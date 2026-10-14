@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
+import type { MessageKey } from '../i18n/index';
 import type { NoobideApi, OpenedProject, TreeEntry } from '../../shared/ipc/contract';
 import { revealLabelKey, trashLabelKey, treeShortcutLabel, type PlatformId } from '../../platform/labels';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -37,6 +38,15 @@ interface FilesPanelProps {
   api: NoobideApi['workspace'] | undefined;
   platform: PlatformId;
   fileOps: FileOpsHooks;
+  /** S13: extra context-menu commands for a row (e.g. "set as entry page"), labels as message keys. */
+  extraMenuItems?: ((entry: TreeEntry) => readonly ExtraMenuItem[]) | undefined;
+}
+
+/** A context-menu command contributed by the workbench (S13.2). */
+export interface ExtraMenuItem {
+  readonly id: string;
+  readonly label: MessageKey;
+  readonly run: () => void;
 }
 
 interface Refresh {
@@ -60,6 +70,7 @@ export function FilesPanel({
   api,
   platform,
   fileOps,
+  extraMenuItems,
 }: FilesPanelProps) {
   const { t } = useI18n();
   const [editing, setEditing] = useState<TreeEditing | null>(null);
@@ -229,6 +240,8 @@ export function FilesPanel({
         run: () => reveal(entry),
       },
     );
+    for (const extra of extraMenuItems?.(entry) ?? [])
+      items.push({ id: extra.id, label: t(extra.label), run: extra.run });
     return items;
   };
 

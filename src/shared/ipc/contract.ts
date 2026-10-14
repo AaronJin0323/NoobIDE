@@ -14,7 +14,7 @@ import type { PreviewApi } from './preview-contract';
 import { isUnsafePathSegment } from '../file-names';
 import type { RecoveryApi } from './recovery-contract';
 // S13 app data (settings, recent projects, session, logs): types and parsers in app-data-contract.ts.
-import type { LogsApi, SettingsApi } from './app-data-contract';
+import type { LogsApi, ProjectConfigApi, SettingsApi } from './app-data-contract';
 
 export const IPC_API_VERSION = 1;
 
@@ -347,6 +347,8 @@ export interface NoobideApi {
   readonly settings?: SettingsApi;
   /** S13.6: local logs in app data. */
   readonly logs?: LogsApi;
+  /** S13.2: the project's optional `.noobide/project.json` (entry page, preview preferences). */
+  readonly projectConfig?: ProjectConfigApi;
   // --- end S13 ---
 }
 

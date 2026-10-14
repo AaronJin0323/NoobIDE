@@ -5,6 +5,7 @@
  * payload with the parsers here and checks the sender before any store is touched.
  */
 import type { AppSettings, SettingsNotice, SettingsPatch } from '../settings';
+import { isEntryPath, type ProjectConfig } from '../project-config';
 import { isPortableRelPath, isProjectId, type IpcResult, type OpenedProject } from './contract';
 
 export const APP_DATA_CHANNELS = {
@@ -13,6 +14,9 @@ export const APP_DATA_CHANNELS = {
   settingsUpdate: 'settings:update',
   // S13.6
   openLogsFolder: 'app:open-logs-folder',
+  // S13.2
+  projectConfig: 'project:config',
+  projectSetEntry: 'project:set-entry',
 } as const;
 
 // ── S13.1 settings ──
@@ -35,8 +39,36 @@ export interface LogsApi {
   openFolder(): Promise<IpcResult<null, 'open-failed'>>;
 }
 
+// ── S13.2 .noobide/project.json ──
+export interface ProjectConfigInfo {
+  /** The configuration in effect (defaults when the file is missing, invalid or unreadable). */
+  readonly config: ProjectConfig;
+  /** What was found on disk. An invalid file is left as it is and never overwritten. */
+  readonly state: 'missing' | 'ok' | 'invalid' | 'unreadable';
+}
+
+export type SetEntryError = 'unknown-project' | 'invalid' | 'invalid-existing' | 'outside-project' | 'write-failed';
+
+export interface SetEntryRequest {
+  readonly projectId: string;
+  /** Portable relative path of an .html page, or null to go back to index.html. */
+  readonly entry: string | null;
+}
+
+export interface ProjectConfigApi {
+  get(request: { readonly projectId: string }): Promise<IpcResult<ProjectConfigInfo, 'unknown-project'>>;
+  setEntry(request: SetEntryRequest): Promise<IpcResult<ProjectConfig, SetEntryError>>;
+}
+
+export function parseSetEntryRequest(payload: unknown): SetEntryRequest | null {
+  if (!isRecord(payload) || !hasOnlyKeys(payload, ['projectId', 'entry'])) return null;
+  const { projectId, entry } = payload;
+  if (!isProjectId(projectId)) return null;
+  return entry === null || isEntryPath(entry) ? { projectId, entry } : null;
+}
+
 // Re-exported for the renderer and main.
-export type { AppSettings, SettingsPatch, OpenedProject };
+export type { AppSettings, SettingsPatch, OpenedProject, ProjectConfig };
 
 /** Shared helpers for the parsers below. */
 export const isRecord = (value: unknown): value is Record<string, unknown> =>

@@ -31,6 +31,7 @@ import { SettingsStore } from './settings-store';
 import { AppLog } from './app-log';
 import { osInfo } from '../platform/os-info';
 import type { RecoveryLogger } from '../recovery/atomic-file';
+import { effectiveProjectConfig, previewEntryPath } from '../workspace/project-config';
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
 // Windows installer events: create/remove shortcuts and quit without opening a window.
@@ -69,7 +70,14 @@ function start(): void {
 
   // --- S04 preview: the project service is created when the app is ready; the preview asks it for roots. ---
   let projects: ProjectService | undefined;
-  const preview = new PreviewManager({ rootOf: (id) => projects?.rootOf(id) });
+  const preview = new PreviewManager({
+    rootOf: (id) => projects?.rootOf(id),
+    // S13.2: the entry page from .noobide/project.json (when that file exists), else the project's index.html.
+    entryPathOf: async (id) => {
+      const root = projects?.rootOf(id);
+      return root === undefined ? '' : previewEntryPath(root);
+    },
+  });
   // --- end S04 ---
 
   // Read-only hook for the Playwright e2e suite (tests/e2e). Holds request metadata only, never source code.
@@ -178,7 +186,15 @@ function start(): void {
       revealItem: (fullPath) => shell.showItemInFolder(fullPath),
     });
     // S10.5: refresh the preview only after a confirmed write (fires after the rename, never on a failed save).
-    projects.onSaved((file) => preview.fileSaved(file.projectId));
+    // S13.2: unless the project's preview preferences turned automatic refresh off.
+    const savedIn = projects;
+    savedIn.onSaved((file) => {
+      const root = savedIn.rootOf(file.projectId);
+      if (root === undefined) return;
+      void effectiveProjectConfig(root).then((config) => {
+        if (config.preview?.autoRefresh !== false) preview.fileSaved(file.projectId);
+      });
+    });
     registerPreviewIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       windowOf: (event) => BrowserWindow.fromWebContents(event.sender),
@@ -191,6 +207,7 @@ function start(): void {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       settings,
       openLogsFolder: () => shell.openPath(appLog.dir),
+      projects,
     });
     // --- end S13 ---
     createWorkbenchWindow();

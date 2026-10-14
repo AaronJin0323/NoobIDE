@@ -4,7 +4,7 @@ import type { FileContent, FileVersion, OpenedProject } from '../../shared/ipc/c
 import { useMediaQuery } from '../theme/useMediaQuery';
 import { TopBar } from './TopBar';
 import { Rail } from './Rail';
-import { FilesPanel, type FileOpsHooks } from './FilesPanel';
+import { FilesPanel, type ExtraMenuItem, type FileOpsHooks } from './FilesPanel';
 import { isSameOrBelow } from './file-tree-model';
 import { EditorPane, type SaveCopyNotice } from './EditorPane';
 import { PreviewPane } from './PreviewPane';
@@ -31,6 +31,9 @@ const editorModels = () => import('../editor/editor-models');
 import type { SettingsSnapshot } from '../../shared/ipc/app-data-contract';
 import { SettingsNotice } from './SettingsNotice';
 import type { AppMenuItem } from './AppMenu';
+import { isEntryPath } from '../../shared/project-config';
+import type { TreeEntry } from '../../shared/ipc/contract';
+import { EntryNotice, type EntryNoticeState } from './EntryNotice';
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -103,6 +106,28 @@ export function Workbench() {
     return items;
   }, [bridge]);
   // --- end S13 command menu ---
+  // --- S13.2: "set as entry page" writes .noobide/project.json (the only file NoobIDE writes into a project) ---
+  const [entryNotice, setEntryNotice] = useState<EntryNoticeState | null>(null);
+  const extraMenuItems = useCallback(
+    (entry: TreeEntry): ExtraMenuItem[] => {
+      const project = docRef.current.project;
+      const api = bridge?.projectConfig;
+      if (!project || !api || entry.kind !== 'file' || entry.unportable || !isEntryPath(entry.relPath)) return [];
+      const run = () =>
+        void api
+          .setEntry({ projectId: project.projectId, entry: entry.relPath })
+          .then((result) =>
+            setEntryNotice(
+              result.ok
+                ? { relPath: entry.relPath, error: null }
+                : { relPath: entry.relPath, error: result.code === 'invalid-existing' ? 'invalid-existing' : 'failed' },
+            ),
+          );
+      return [{ id: 'set-entry', label: 'files.setEntry', run }];
+    },
+    [bridge],
+  );
+  // --- end S13.2 ---
 
   const saverOf = (relPath: string | null | undefined) => (relPath ? savers.current.get(relPath) : undefined);
   const relPathOfUri = (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath;
@@ -558,6 +583,7 @@ export function Workbench() {
           api={bridge?.workspace}
           platform={platform}
           fileOps={fileOps}
+          extraMenuItems={extraMenuItems}
         />
         <EditorPane
           hidden={!visible.editor}
@@ -590,6 +616,7 @@ export function Workbench() {
       <ProblemsPanel open={visible.problemsPanel} onToggle={() => dispatchLayout({ type: 'toggleProblems' })} />
       {/* S13.1: the settings file was unusable and was backed up */}
       {settingsNotice && <SettingsNotice snapshot={settingsNotice} onDismiss={() => setSettingsNotice(null)} />}
+      {entryNotice && <EntryNotice state={entryNotice} onDismiss={() => setEntryNotice(null)} />}
       {/* S12: crash-recovery prompt and journal health */}
       <RecoveryDialog
         bridge={bridge}

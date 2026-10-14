@@ -252,5 +252,12 @@ export const en: Record<MessageKey, string> = {
   'settings.backup': 'Backup:',
   'appMenu.label': 'More actions',
   'appMenu.openLogs': 'Open logs folder',
+  'files.setEntry': 'Set as entry page',
+  'entry.set': 'Entry page set:',
+  'entry.setDetail':
+    'The preview opens it first next time it starts. The setting is kept in the project’s .noobide/project.json; deleting that file does not affect the website.',
+  'entry.failed': 'The entry page setting could not be saved.',
+  'entry.invalidExisting':
+    'The project’s .noobide/project.json could not be read (maybe from a newer version or edited by hand); it was left unchanged so nothing is overwritten.',
   // --- end S13 ---
 };

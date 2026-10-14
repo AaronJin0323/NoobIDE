@@ -73,6 +73,10 @@ const api: NoobideApi = {
   logs: {
     openFolder: () => ipcRenderer.invoke(APP_DATA_CHANNELS.openLogsFolder),
   },
+  projectConfig: {
+    get: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.projectConfig, request),
+    setEntry: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.projectSetEntry, request),
+  },
   // --- end S13 ---
 };
 
@@ -86,5 +90,6 @@ contextBridge.exposeInMainWorld(
     recovery: Object.freeze(api.recovery),
     settings: Object.freeze(api.settings), // S13
     logs: Object.freeze(api.logs),
+    projectConfig: Object.freeze(api.projectConfig),
   }),
 );
