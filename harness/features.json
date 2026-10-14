@@ -515,6 +515,24 @@
       "evidence": ""
     },
     {
+      "id": "S01.5",
+      "session": "S01",
+      "milestone": "M0",
+      "title": "Current interface assessment and visual redesign direction",
+      "description": "Owner-requested review of the current scaffold's appearance and beginner usability; design guidance only.",
+      "acceptance": [
+        "docs/reviews/interface-assessment-2026-10-14.md identifies concrete current UI issues with source evidence and distinguishes implemented behavior from placeholders",
+        "The review proposes prioritized improvements to hierarchy, layout, typography, themes, welcome, preview and problem states consistent with PLAN sections 2, 3, 9 and 11",
+        "The review defines implementation order and observable validation criteria without claiming that the proposed redesign is implemented"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S01.3"
+      ],
+      "status": "done",
+      "evidence": "docs/reviews/interface-assessment-2026-10-14.md checked against all three criteria and PLAN sections 2,3,9,11; Windows Edge renderer measurements at 1280x800 light/dark and 640x480; source links checked; npm run verify green (42 tests)"
+    },
+    {
       "id": "S02.1",
       "session": "S02",
       "milestone": "M1",

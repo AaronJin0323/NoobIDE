@@ -3,6 +3,43 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 2 — 2026-10-14 — Interface assessment and design direction
+
+**Agent:** Codex on the Windows x64 dev machine, Node 22.22.2.
+
+**Done**
+
+- S01.5 — Owner-requested appearance and beginner-usability assessment in
+  `docs/reviews/interface-assessment-2026-10-14.md`. Added the review feature without changing existing criteria.
+- Inspected the actual React/Monaco renderer in headless Edge at 1280×800 (light/dark) and 640×480.
+  Confirmed the 176px empty Problems region, a white Monaco surface in dark mode, and a 210px narrow editor.
+- Proposed a shared visual foundation, welcome/workbench/error states, implementation order, and observable
+  acceptance checks. Prepared an interactive concept in the chat; application source remains unchanged.
+
+**Evidence:** Review checked against all three S01.5 criteria and PLAN §§2, 3, 9, 11; relative source links
+resolve. Baseline and closing `npm run verify` pass: harness, typecheck, lint, formatting, 42 tests in 9 files.
+Ignored inspection artifacts: `test-results/interface-audit/current-{light,dark,narrow}.png`.
+
+**Decisions:** This is design guidance, not implementation or evidence of beginner task success. Recommend
+establishing typography, spacing, control hierarchy, and shared shell/Monaco themes before expanding the UI.
+Connect functional states as the existing backlog delivers files, saving, preview, diagnostics and recovery.
+
+**Problems / risks:** Native Electron launch did not stay open in this tool session; renderer inspection does
+not establish native-frame behavior or macOS compatibility. Existing untracked `.idea/`, `CLAUDE.md` and
+`package-lock.json` were left untouched. No redesign feature or platform check has been marked complete.
+
+**Owner action needed:** None for this assessment. Existing H.1 minimum-platform decision still gates S01.4;
+existing H.3 beginner wireframe review remains open.
+
+**Next up**
+
+1. For the proposed redesign, implement shared visual tokens and synchronized editor themes, then integrate
+   welcome, responsive workbench and honest status states as described in the review.
+2. Formal current session remains S01, with S01.4 waiting on H.1. Preserve the existing technical-spike gates
+   and platform checks when scheduling design implementation.
+
+---
+
 ## Session 1 — 2026-10-14 — Git, scope docs, wireframes, secure Electron shell
 
 **Agent:** Claude (cloud workspace, Linux x64, Node 22.22; no shell on the Windows machine — files written back to
