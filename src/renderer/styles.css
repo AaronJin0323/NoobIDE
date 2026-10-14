@@ -480,3 +480,50 @@ button {
   border-color: var(--danger);
   color: var(--danger);
 }
+
+/* ── Preview (S04.3, S05.3) ────────────────────────────── */
+.preview-actions {
+  display: flex;
+  gap: 4px;
+}
+.preview-console {
+  flex: none;
+  max-height: 120px;
+  margin: 0 10px 10px;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+}
+.preview-console-empty,
+.preview-console-dropped {
+  margin: 6px 0;
+  color: var(--muted);
+}
+.preview-console-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.preview-console-line {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+}
+.preview-console-level {
+  flex: none;
+  font-weight: 600;
+}
+.preview-console-line.level-error .preview-console-level,
+.preview-console-line.level-warning .preview-console-level {
+  text-decoration: underline;
+}
+.preview-console-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.preview-console-where {
+  flex: none;
+  color: var(--muted);
+}

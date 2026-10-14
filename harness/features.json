@@ -735,8 +735,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/preview/static-server.ts + request-path.ts; tests/integration/preview-server.test.ts (42 pass: 127.0.0.1-only bind incl. ::1/LAN refused, GET/HEAD only, Host check 421, per-server token header 403, Sec-Fetch-Site cross/same-site 403, traversal/encoded/backslash/absolute/drive/ADS blocked, junction escape + 8.3 short-name alias 403, dotfiles .git/.noobide/.env 403; file-symlink case skips without Windows Developer Mode) + src/preview/request-path.test.ts (35) + verify green @ 514ea55"
     },
     {
       "id": "S04.2",
@@ -752,7 +752,7 @@
       "depends_on": [
         "S04.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

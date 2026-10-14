@@ -265,3 +265,59 @@ describe('path guard (S04.1)', () => {
     expect(res.headers['x-content-type-options']).toBe('nosniff');
   });
 });
+
+describe('content types of the multi-file fixture (S04.2)', () => {
+  const MULTI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', '预览 多文件');
+  let multi: PreviewServer;
+
+  const get = (target: string) => {
+    const previous = server;
+    server = multi;
+    return raw(target).finally(() => {
+      server = previous;
+    });
+  };
+
+  beforeEach(async () => {
+    const copy = path.join(tmp, '预览 多文件');
+    await cp(MULTI, copy, { recursive: true });
+    await writeFile(path.join(copy, 'font.woff2'), Buffer.from('wOF2'));
+    multi = await PreviewServer.start(copy);
+  });
+
+  afterEach(async () => {
+    await multi.close();
+  });
+
+  it.each([
+    ['/', 'text/html; charset=utf-8'],
+    ['/index.html', 'text/html; charset=utf-8'],
+    ['/css/style.css', 'text/css; charset=utf-8'],
+    ['/js/main.js', 'text/javascript; charset=utf-8'],
+    ['/js/classic.js', 'text/javascript; charset=utf-8'],
+    ['/js/util.mjs', 'text/javascript; charset=utf-8'],
+    ['/data/data.json', 'application/json; charset=utf-8'],
+    [`/${encodeURIComponent('图片')}/${encodeURIComponent('标志.svg')}`, 'image/svg+xml'],
+    [`/${encodeURIComponent('图片')}/photo.png`, 'image/png'],
+    ['/font.woff2', 'font/woff2'],
+  ])('%s is served as %s', async (target, type) => {
+    const res = await get(target);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe(type);
+  });
+
+  it('every resource the fixture page references exists and is served', async () => {
+    const html = (await get('/index.html')).body;
+    const refs = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1] ?? '');
+    const main = (await get('/js/main.js')).body;
+    const imports = [...main.matchAll(/from '\.\/([^']+)'|fetch\('([^']+)'\)/g)].map((m) =>
+      m[1] ? `js/${m[1]}` : (m[2] ?? ''),
+    );
+    expect(refs.length).toBe(5);
+    expect(imports).toEqual(['js/util.mjs', 'data/data.json']);
+    for (const ref of [...refs, ...imports]) {
+      const target = `/${ref.split('/').map(encodeURIComponent).join('/')}`;
+      expect((await get(target)).status, ref).toBe(200);
+    }
+  });
+});

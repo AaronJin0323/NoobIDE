@@ -15,7 +15,9 @@ import {
   installNetworkGuard,
 } from './harden';
 import { registerIpcHandlers } from './ipc';
+import { registerPreviewIpcHandlers } from './preview-ipc';
 import { ProjectService } from '../workspace/project-service';
+import { PreviewManager } from '../preview/preview-manager';
 import { selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test';
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
@@ -39,8 +41,14 @@ function start(): void {
   const devOrigin = devServerUrl ? new URL(devServerUrl).origin : undefined;
   const selfTest = selfTestRequested();
 
+  const projects = new ProjectService();
+  const preview = new PreviewManager({ rootOf: (id) => projects.rootOf(id) });
+
   // Read-only hook for the Playwright e2e suite (tests/e2e). Holds request metadata only, never source code.
-  (globalThis as { __noobideTestHooks?: unknown }).__noobideTestHooks = { blockedRequests };
+  (globalThis as { __noobideTestHooks?: unknown }).__noobideTestHooks = {
+    blockedRequests,
+    preview: () => preview.debugInfo(),
+  };
 
   function createWorkbenchWindow(): BrowserWindow {
     const options = createWorkbenchWindowOptions(path.join(__dirname, 'preload.cjs'));
@@ -68,7 +76,7 @@ function start(): void {
     }
     registerIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
-      projects: new ProjectService(),
+      projects,
       async chooseFolder(event) {
         const owner = BrowserWindow.fromWebContents(event.sender);
         const options = { properties: ['openDirectory' as const] };
@@ -76,6 +84,12 @@ function start(): void {
         return result.canceled ? null : (result.filePaths[0] ?? null);
       },
       revealFolder: (folder) => shell.showItemInFolder(folder),
+      afterSave: (projectId) => preview.fileSaved(projectId),
+    });
+    registerPreviewIpcHandlers(ipcMain, {
+      allowedOrigin: devOrigin ?? APP_ORIGIN,
+      windowOf: (event) => BrowserWindow.fromWebContents(event.sender),
+      preview,
     });
     createWorkbenchWindow();
 

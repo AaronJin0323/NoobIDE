@@ -9,6 +9,8 @@
  */
 import type { PlatformId } from '../../platform/labels';
 import type { Result } from '../result';
+// S04 preview: types live in preview-contract.ts; only the API field is added here.
+import type { PreviewApi } from './preview-contract';
 
 export const IPC_API_VERSION = 1;
 
@@ -114,6 +116,8 @@ export interface NoobideApi {
     /** Shows the project folder in Explorer / Finder. */
     revealProject(request: { readonly projectId: string }): Promise<IpcResult<null, RevealError>>;
   };
+  /** Isolated webpage preview (S04.3); see preview-contract.ts. */
+  readonly preview: PreviewApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */

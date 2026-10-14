@@ -41,6 +41,8 @@ export interface IpcDeps {
   /** Shows the native folder picker; `null` when cancelled. */
   chooseFolder(event: IpcMainInvokeEvent): Promise<string | null>;
   revealFolder(folder: string): void;
+  /** S04.4: called after a successful save so the preview can refresh. */
+  afterSave?(projectId: string): void;
 }
 
 const FORBIDDEN = { ok: false, code: 'forbidden-sender', message: 'sender is not the workbench' } as const;
@@ -69,7 +71,11 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
 
   handle(CHANNELS.readFile, parseFileRequest, async (request) => toIpcResult(await deps.projects.read(request)));
 
-  handle(CHANNELS.writeFile, parseWriteFileRequest, async (request) => toIpcResult(await deps.projects.write(request)));
+  handle(CHANNELS.writeFile, parseWriteFileRequest, async (request) => {
+    const result = await deps.projects.write(request);
+    if (result.ok) deps.afterSave?.(request.projectId);
+    return toIpcResult(result);
+  });
 
   handle(CHANNELS.revealProject, parseProjectRequest, async ({ projectId }) => {
     const root = deps.projects.rootOf(projectId);

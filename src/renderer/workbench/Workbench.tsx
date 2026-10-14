@@ -143,7 +143,12 @@ export function Workbench() {
           onOpenFile={(relPath) => void openFile(relPath)}
         />
         <EditorPane hidden={!visible.editor} state={doc} onChange={onChange} onSave={() => void save()} />
-        <PreviewPane hidden={!visible.preview} />
+        {/* S04.3: isolated preview; hidden under the narrow-layout files overlay so the native view cannot cover it. */}
+        <PreviewPane
+          hidden={!visible.preview}
+          covered={narrow && visible.files}
+          projectId={project?.projectId ?? null}
+        />
       </div>
       <ProblemsPanel open={visible.problemsPanel} onToggle={() => dispatchLayout({ type: 'toggleProblems' })} />
     </div>
