@@ -1130,8 +1130,8 @@
       "depends_on": [
         "S09.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/editing.spec.ts (8 e2e): Tab/Shift+Tab indent, Ctrl/Cmd+/ comment toggle, Ctrl+F find + Ctrl+H replace-all, undo/redo (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z), each verified byte-exact on disk; 16px computed font; zoom buttons + Ctrl/Cmd = - 0 change only the code font (webContents zoom factor stays 1); Monaco vs/vs-dark under emulated light/dark; src/renderer/workbench/zoom.ts — 44/44 e2e on Windows x64 @ 55bfe3c"
     },
     {
       "id": "S09.4",
@@ -1146,8 +1146,8 @@
       "depends_on": [
         "S09.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "steps in harness/MANUAL-CHECKS.md#S09.4; automated part: tabs.spec.ts CDP Input.imeSetComposition holds autosave and only the committed char reaches disk, save-controller.test.ts composition tests @ 55bfe3c"
     },
     {
       "id": "S09.5",
@@ -1162,8 +1162,8 @@
       "depends_on": [
         "S09.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "steps in harness/MANUAL-CHECKS.md#S09.5 (macOS Pinyin, needs Apple Silicon Mac) @ 55bfe3c"
     },
     {
       "id": "S10.1",
@@ -1176,7 +1176,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
