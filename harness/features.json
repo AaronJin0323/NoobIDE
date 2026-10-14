@@ -877,6 +877,24 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
+      "status": "in_progress",
+      "evidence": ""
+    },
+    {
+      "id": "S05.7",
+      "session": "S05",
+      "milestone": "M1",
+      "title": "Console flood cannot stall the main process",
+      "description": "Found by the S05.3 spike: Electron emits a main-process event per console message, so a page logging ~100k messages/s stalls the browser UI thread for seconds even with the listener-detaching flood guard. Candidate fix: an in-page rate limiter installed before page scripts without a preload (e.g. CDP Page.addScriptToEvaluateOnNewDocument with getter-based console methods, which keeps the user's call site as the message location). Needs a decision record.",
+      "acceptance": [
+        "Page logging in a tight loop (fixture 预览 日志洪水): longest main-thread stall < 200 ms, measured in e2e",
+        "Console messages below the rate limit keep their original file and line (S05.4 records unchanged)",
+        "Decision recorded in docs/decisions/ incl. DevTools coexistence and how a page can observe the limiter"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S05.3"
+      ],
       "status": "todo",
       "evidence": ""
     },

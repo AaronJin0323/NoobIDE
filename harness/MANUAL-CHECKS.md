@@ -78,3 +78,29 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 - **Result:** _(owner fills in: pass/fail, OS versions, date)_
 - **Close with:**
   `node harness/session.mjs set S12.4 done --evidence "manual: macOS <ver> + Win 11 <build>, <date>, steps pass"`
+
+### S05.6 — Baseline measurements on Apple Silicon (and the Windows reference machine)
+
+- **Platform:** macOS (current) on a physical Apple Silicon Mac; ideally also the fixed 8 GB Windows x64 reference
+  machine of PLAN §11
+- **Build:** the commit that closed S05
+- **Steps:**
+  1. `npm install`, then `npm run package` (builds `.vite/` and `out/`).
+  2. Close other heavy apps. Run `node scripts/measure-baseline.mjs --runs 10` (about 2 minutes; windows open and
+     close by themselves — do not click them).
+  3. Copy the printed Markdown row into the table in `docs/perf/baseline.md` (replace the "not measured yet" row) and
+     note the Mac model, RAM and macOS version.
+- **Expected:** a row with startup median/p95 and idle memory for macOS arm64 (no pass/fail threshold yet).
+- **Result:** _(owner fills in)_
+
+### S04-S05-macos — Preview isolation suite on macOS arm64
+
+- **Platform:** macOS on Apple Silicon (or the macOS CI runner from S06)
+- **Build:** the commit that closed S05
+- **Steps:**
+  1. `npm run test:e2e -- preview` — runs `tests/e2e/preview.spec.ts` and `preview-isolation.spec.ts`.
+  2. Note the logged lines `typing while the preview is hung`, `console flood: …` and `attack results: …`.
+  3. Manually: open a project, Start preview, drag the window between a Retina and a non-Retina display and resize
+     it; the page must stay exactly inside the preview pane.
+- **Expected:** all tests pass; every attack result is `failed`; the view follows the pane on both displays.
+- **Result:** _(owner fills in)_
