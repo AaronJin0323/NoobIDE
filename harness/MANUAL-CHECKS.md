@@ -78,3 +78,21 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 - **Result:** _(owner fills in: pass/fail, OS versions, date)_
 - **Close with:**
   `node harness/session.mjs set S12.4 done --evidence "manual: macOS <ver> + Win 11 <build>, <date>, steps pass"`
+
+### S07.3 / S08 — file watcher and file operations on Apple Silicon (confirmation)
+
+S07.3 and S08.1–S08.5 are proven by automated tests on Windows x64. The same tests are platform-neutral and should
+also pass on the macOS arm64 CI runner (S06); until that runner exists, please confirm once on a Mac.
+
+- **Platform:** macOS on Apple Silicon (default case-insensitive APFS volume)
+- **Build:** the commit that closed S08 (see harness/PROGRESS.md)
+- **Steps:**
+  1. `npm install`, `npx vitest run tests/integration/watcher.test.ts tests/integration/file-ops.test.ts` — all pass
+     (FSEvents watcher incl. case-only rename; never-overwrite rules).
+  2. `npm run test:e2e -- file-tree` — all pass (uses ⌥⌘R for reveal and the Finder label on macOS).
+  3. `npm start`, open a project in a folder with Chinese characters and spaces. In the file tree: select a file and
+     press ⌘⌫ — the dialog says "移到废纸篓？"; confirm; the file is in the Finder Trash and can be put back.
+  4. Right-click a folder → "在访达中显示": Finder opens with that folder selected.
+  5. Rename `index.html` to `Index.html` with F2 — Finder shows the new case.
+- **Expected:** as described; no error banners.
+- **Result:** _(owner fills in: pass/fail, notes, date)_
