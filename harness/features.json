@@ -2009,8 +2009,8 @@
       "depends_on": [
         "S21.2"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Version list per file: tests/e2e/history.spec.ts (8) lists files with history (deleted ones flagged with icon + text) and versions newest first with time/reason/size; diff vs current: line diff of a version against the editor's current content (+ comes back, − replaced, screen-reader labels); restore saves current first: unsaved edits saved through the save pipeline, disk content kept via history:before-restore, version applied as one undoable model edit and saved through the tab's DocumentSaver (e2e: disk equals version, replaced content still listed as a version, Ctrl+Z brings it back, unsaved typed text becomes a version); restore deleted file: e2e deletes style.css via the tree, restores it byte-identical and opens it; tests/integration/history-ipc.test.ts (12: listing, read/BOM/not-text, before-restore, burst seal keeps the pre-restore content, deleted file + folder restored with link() never overwriting, payload validation) + src/renderer/history/history-model.test.ts (6). Independent review: no high findings; 2 medium + 6 low fixed @ 7326ad3. verify + test:e2e green (file-tree S07.3 watcher test flaky under full-suite load only, pre-existing)"
     },
     {
       "id": "S21.4",
@@ -2025,8 +2025,8 @@
       "depends_on": [
         "S21.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Controls exist and work: history window storage section with usage vs limit + cleanup policy text, history folder path, Open history folder (shell.openPath, folder created), Clean up now (reports freed bytes), Clear this project's history / Clear all history (confirmation, Escape cancels it), orphaned project histories (ADR 0006) with old path, file count and size + Clear with confirmation, offline drives never treated as orphaned — tests/e2e/history.spec.ts (storage/reveal/cleanup, orphan after renaming a project folder with Chinese+spaces, clear with confirmation, en locale) + tests/integration/history-ipc.test.ts (orphans, clear scopes, cleanup, reveal, offline volume). Documented: docs/product/local-history.md, src/recovery/README.md, ADR 0006 consequences @ 7326ad3"
     },
     {
       "id": "S22.1",
