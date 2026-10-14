@@ -1,3 +1,4 @@
+import { welcomeHistoryZhCN } from './welcome-history';
 /**
  * zh-CN is the default locale and the source of truth for message keys (AGENTS.md: i18n invariant).
  * Every key must also exist in en.ts — the type system and i18n.test.ts enforce it.
@@ -208,6 +209,8 @@ export const zhCN = {
   'recovery.discardConfirm': '确定丢弃？这份修改将无法找回',
   'recovery.recoveredText': '恢复副本的内容',
   // --- end S12 ---
+  // S20.2 welcome + create wizard, S21.3/S21.4 local history (welcome-history.ts)
+  ...welcomeHistoryZhCN,
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

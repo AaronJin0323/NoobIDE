@@ -1,4 +1,5 @@
 import type { MessageKey } from './zh-CN';
+import { welcomeHistoryEn } from './welcome-history';
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -219,4 +220,6 @@ export const en: Record<MessageKey, string> = {
   'recovery.discardConfirm': 'Discard now? These changes cannot be brought back',
   'recovery.recoveredText': 'Content of the recovery copy',
   // --- end S12 ---
+  // S20.2 welcome + create wizard, S21.3/S21.4 local history (welcome-history.ts)
+  ...welcomeHistoryEn,
 };

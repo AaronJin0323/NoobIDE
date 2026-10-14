@@ -13,6 +13,7 @@ import type { Result } from '../result';
 import type { PreviewApi } from './preview-contract';
 import { isUnsafePathSegment } from '../file-names';
 import type { RecoveryApi } from './recovery-contract';
+import type { CreateProjectApi } from './create-contract'; // S20.2
 
 export const IPC_API_VERSION = 1;
 
@@ -41,6 +42,12 @@ export const CHANNELS = {
   recoveryDiscard: 'recovery:discard',
   recoveryClear: 'recovery:clear',
   // --- end S12 ---
+  // --- S20.2 create-project wizard (types and parsers: create-contract.ts) ---
+  createProjectOptions: 'workspace:create-project-options',
+  chooseProjectLocation: 'workspace:choose-project-location',
+  checkProjectName: 'workspace:check-project-name',
+  createProject: 'workspace:create-project',
+  // --- end S20.2 ---
 } as const;
 
 export type Channel = (typeof CHANNELS)[keyof typeof CHANNELS];
@@ -300,6 +307,8 @@ export interface NoobideApi {
   };
   /** S12: crash-recovery journal of unsaved buffers. */
   readonly recovery: RecoveryApi;
+  /** S20.2: create-project wizard (create-contract.ts). */
+  readonly createProject: CreateProjectApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */

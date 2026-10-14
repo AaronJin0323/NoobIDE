@@ -25,6 +25,7 @@ import { RecoveryJournal } from '../recovery/journal';
 import { SnapshotStore } from '../recovery/history';
 import { HistoryTriggers } from '../recovery/history-triggers';
 import { selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test';
+import { resolveTemplatesDir } from '../workspace/templates'; // S20.2
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
 // Windows installer events: create/remove shortcuts and quit without opening a window.
@@ -149,6 +150,25 @@ function start(): void {
       projectOpened: (projectId, root, sender) => watchHub.watch(projectId, root, sender),
       trashItem: (fullPath) => shell.trashItem(fullPath),
       revealItem: (fullPath) => shell.showItemInFolder(fullPath),
+      // --- S20.2: create-project wizard (built-in templates, default location in Documents) ---
+      create: {
+        templatesDir: resolveTemplatesDir({
+          isPackaged: app.isPackaged,
+          resourcesPath: process.resourcesPath,
+          appPath: app.getAppPath(),
+        }),
+        documentsDir: () => app.getPath('documents'),
+        async chooseFolder(event, defaultPath) {
+          const owner = BrowserWindow.fromWebContents(event.sender);
+          const options = {
+            properties: ['openDirectory' as const, 'createDirectory' as const],
+            ...(defaultPath ? { defaultPath } : {}),
+          };
+          const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options);
+          return result.canceled ? null : (result.filePaths[0] ?? null);
+        },
+      },
+      // --- end S20.2 ---
     });
     // S10.5: refresh the preview only after a confirmed write (fires after the rename, never on a failed save).
     projects.onSaved((file) => preview.fileSaved(file.projectId));

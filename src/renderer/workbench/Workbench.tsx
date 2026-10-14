@@ -20,6 +20,11 @@ import { useJournals } from '../recovery/useJournal';
 import { newBufferId, type JournalScheduler } from '../recovery/journal-scheduler';
 import { RecoveryDialog, type RestoreOutcome } from '../recovery/RecoveryDialog';
 import type { RecoveredEntry } from '../../shared/ipc/recovery-contract';
+// S20.2: welcome screen and create-project wizard
+import { WelcomeScreen } from '../welcome/WelcomeScreen';
+import { CreateProjectDialog } from '../welcome/CreateProjectDialog';
+import { recentProjectsSource } from '../welcome/welcome-model';
+import type { CreatedProject } from '../../shared/ipc/create-contract';
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
@@ -41,6 +46,10 @@ export function Workbench() {
   const [closeRefused, setCloseRefused] = useState(false);
   /** Paths being renamed, moved or trashed: their tabs are read-only until the operation ends (S08 + S10). */
   const [lockedPaths, setLockedPaths] = useState<readonly string[]>([]);
+  // S20.2: the create wizard; a created project's entry page to open, and its preview to start (trusted template).
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [pendingEntry, setPendingEntry] = useState<{ projectId: string; relPath: string } | null>(null);
+  const [autoPreview, setAutoPreview] = useState<string | null>(null);
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
 
@@ -300,6 +309,27 @@ export function Workbench() {
     [createSaver],
   );
 
+  // --- S20.2: a project created by the wizard (or opened from the recent list) becomes the current project ---
+  const projectCreated = useCallback(
+    async (created: CreatedProject) => {
+      setWizardOpen(false);
+      if (!(await adoptProject(created.project))) return;
+      setPendingEntry({ projectId: created.project.projectId, relPath: created.entry });
+      setAutoPreview(created.project.projectId);
+    },
+    [adoptProject],
+  );
+
+  // The entry page opens once the new project is the current one (openFile reads the project from state).
+  useEffect(() => {
+    if (pendingEntry && doc.project?.projectId === pendingEntry.projectId) {
+      setPendingEntry(null);
+      void openFile(pendingEntry.relPath);
+    }
+  }, [pendingEntry, doc.project, openFile]);
+  const recentProjects = useMemo(() => recentProjectsSource(bridge), [bridge]);
+  // --- end S20.2 ---
+
   /** The journal was cleared: unsaved edits still open in the editor are journaled again right away. */
   const rejournal = useCallback(() => {
     for (const [relPath, saver] of savers.current) {
@@ -419,14 +449,23 @@ export function Workbench() {
           copyNotice={copyNotice}
           lockedPaths={lockedPaths}
           onCloseDiscarding={bridge && closeRefused ? () => void bridge.app.closeDiscarding() : undefined}
+          welcome={
+            <WelcomeScreen
+              onCreate={bridge?.createProject ? () => setWizardOpen(true) : undefined}
+              onOpenFolder={bridge ? () => void openFolder() : undefined}
+              recent={recentProjects}
+              onOpenRecent={(opened) => void adoptProject(opened)}
+            />
+          }
         />
         {/* S04.3 isolated preview (hidden under the narrow-layout files overlay so the native view cannot cover it);
             S10.5: a failed save shows "preview not updated" — refreshes come only from confirmed writes in main. */}
         <PreviewPane
           hidden={!visible.preview}
-          covered={narrow && visible.files}
+          covered={(narrow && visible.files) || wizardOpen}
           projectId={project?.projectId ?? null}
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
+          autoStartProjectId={autoPreview}
         />
       </div>
       <ProblemsPanel open={visible.problemsPanel} onToggle={() => dispatchLayout({ type: 'toggleProblems' })} />
@@ -438,6 +477,14 @@ export function Workbench() {
         onRestore={restoreRecovered}
         onCleared={rejournal}
       />
+      {/* S20.2: create-project wizard */}
+      {wizardOpen && bridge?.createProject && (
+        <CreateProjectDialog
+          api={bridge.createProject}
+          onCreated={(created) => void projectCreated(created)}
+          onCancel={() => setWizardOpen(false)}
+        />
+      )}
     </div>
   );
 }

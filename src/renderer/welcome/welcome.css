@@ -1,0 +1,247 @@
+/* Welcome screen and create wizard (S20.2). Colours only from the theme tokens (src/renderer/theme/tokens.ts). */
+.welcome {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  margin: 10px;
+  padding: 18px 20px 12px;
+  border-radius: var(--radius-panel);
+  background: var(--raised);
+  overflow: auto;
+  max-height: 55%;
+  flex: none;
+}
+.welcome-start {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.welcome-title {
+  margin: 0 0 6px;
+  font-size: 20px;
+  line-height: 1.3;
+}
+.welcome-lead {
+  margin: 0;
+  color: var(--muted);
+  max-width: 52ch;
+}
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.welcome-actions .primary-button {
+  margin-top: 0;
+}
+.welcome-create,
+.welcome-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.welcome-create {
+  height: 40px;
+  padding: 0 20px;
+  font-size: 14px;
+}
+.welcome-open {
+  height: 36px;
+}
+.welcome-recent {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.welcome-recent-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.welcome-recent-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.welcome-recent-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+.welcome-recent-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.welcome-recent-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.welcome-recent-missing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 400;
+  color: var(--text);
+}
+.welcome-recent-missing > svg {
+  color: var(--warn);
+}
+.welcome-recent-path,
+.welcome-recent-error {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.welcome-sample-note {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+/* Wizard */
+.wizard-backdrop {
+  z-index: 60;
+}
+.dialog.wizard {
+  display: flex;
+  flex-direction: column;
+  width: min(820px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+.wizard-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.wizard-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1 1 360px;
+  min-width: 0;
+}
+.wizard-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.wizard-label {
+  padding: 0;
+  font-weight: 600;
+}
+.wizard-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.wizard-template {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  cursor: pointer;
+}
+.wizard-template:hover {
+  background: var(--hover);
+}
+.wizard-template.selected {
+  border-color: var(--accent);
+}
+.wizard-template:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.wizard-thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--bg);
+}
+.wizard-template-name {
+  font-weight: 600;
+}
+.wizard-template-state {
+  font-size: 12px;
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.wizard-input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.wizard-input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.wizard-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wizard-path {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+.wizard-message {
+  margin: 0;
+}
+.wizard-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+.wizard-preview-image {
+  width: 100%;
+  border-radius: 6px;
+}
+.wizard-preview-name {
+  margin: 0;
+  font-weight: 600;
+}
+.wizard-preview .dialog-hint {
+  margin: 0;
+}
+.wizard-destination {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.wizard-files {
+  margin: 0;
+  padding-left: 18px;
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+.dialog-actions .primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

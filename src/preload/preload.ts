@@ -64,6 +64,14 @@ const api: NoobideApi = {
     clear: () => ipcRenderer.invoke(CHANNELS.recoveryClear),
   },
   // --- end S12 ---
+  // --- S20.2 create-project wizard ---
+  createProject: {
+    options: (request) => ipcRenderer.invoke(CHANNELS.createProjectOptions, request),
+    chooseLocation: () => ipcRenderer.invoke(CHANNELS.chooseProjectLocation),
+    check: (request) => ipcRenderer.invoke(CHANNELS.checkProjectName, request),
+    create: (request) => ipcRenderer.invoke(CHANNELS.createProject, request),
+  },
+  // --- end S20.2 ---
 };
 
 contextBridge.exposeInMainWorld(
@@ -74,5 +82,6 @@ contextBridge.exposeInMainWorld(
     preview: Object.freeze(api.preview),
     app: Object.freeze(api.app),
     recovery: Object.freeze(api.recovery),
+    createProject: Object.freeze(api.createProject), // S20.2
   }),
 );

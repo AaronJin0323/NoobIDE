@@ -89,6 +89,9 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       workspace: Object.keys(((w.noobide as { workspace?: object } | undefined)?.workspace ?? {}) as object),
       app: Object.keys(((w.noobide as { app?: object } | undefined)?.app ?? {}) as object),
       recovery: Object.keys(((w.noobide as { recovery?: object } | undefined)?.recovery ?? {}) as object),
+      createProject: Object.keys(
+        ((w.noobide as { createProject?: object } | undefined)?.createProject ?? {}) as object,
+      ),
     };
   });
   expect(probe).toEqual({
@@ -97,7 +100,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     inlineRan: false,
     violations: ['script-src-elem'],
     // S03.1: exactly the typed contract — no ipcRenderer, no generic send.
-    bridge: ['apiVersion', 'platform', 'workspace', 'app', 'preview', 'recovery'],
+    bridge: ['apiVersion', 'platform', 'workspace', 'app', 'preview', 'recovery', 'createProject'],
     apiVersion: 1,
     workspace: [
       'openFolder',
@@ -118,6 +121,8 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     app: ['onCloseRequested', 'answerClose', 'closeDiscarding'],
     // S12: crash-recovery journal calls.
     recovery: ['record', 'discardSaved', 'listPending', 'openProject', 'read', 'discard', 'clear'],
+    // S20.2: create-project wizard (locations are opaque ids chosen in main).
+    createProject: ['options', 'chooseLocation', 'check', 'create'],
   });
 
   // The violation we just provoked is logged as a console error; drop exactly those so the final check stays strict.

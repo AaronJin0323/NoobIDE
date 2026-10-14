@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { SAMPLE_HTML } from '../editor/sample';
@@ -40,6 +40,8 @@ interface EditorPaneProps {
   onCloseDiscarding: (() => void) | undefined;
   /** Paths being renamed, moved or trashed: their tabs are read-only meanwhile, so no edit can get lost. */
   lockedPaths: readonly string[];
+  /** S20.2: the welcome screen, shown above the sample while no project is open. */
+  welcome?: ReactNode;
 }
 
 function openErrorKey(code: string): MessageKey {
@@ -93,6 +95,7 @@ export function EditorPane(props: EditorPaneProps) {
   return (
     // Hidden, not unmounted, in the narrow Preview view: the buffer and cursor survive switching back.
     <main className="region panel editor" aria-label={t('region.editor')} data-testid="region-editor" hidden={hidden}>
+      {!project && props.welcome /* S20.2: welcome screen above the sample */}
       <div className="panel-header tabs-header">
         {project ? (
           <TabBar tabs={tabs} active={state.active} onActivate={props.onActivate} onClose={props.onClose} />
