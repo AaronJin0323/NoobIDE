@@ -59,4 +59,7 @@ export const en: Record<MessageKey, string> = {
   'reveal.finder': 'Show in Finder',
   'reveal.explorer': 'Show in File Explorer',
   'reveal.fileManager': 'Show in file manager',
+  // ── S07/S08: file tree, encodings and file operations ──
+  'editor.readOnlyEncoding':
+    'This file is not UTF-8, so it is shown read-only and cannot be damaged by saving. File encoding:',
 };

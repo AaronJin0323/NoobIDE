@@ -989,8 +989,8 @@
       "depends_on": [
         "S07.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "ADR docs/decisions/0007-file-watcher.md (recursive fs.watch, no dependency); src/workspace/watcher.ts + src/main/project-watch.ts; tests/integration/watcher.test.ts (11 real-FS tests on Windows: create, debounced change, delete, rename, case-only rename, move, folder rename/create/delete, ignore list, atomic replace, close) + project-watch.test.ts + ipc.test.ts; verify + e2e green @ 44af2b6. macOS FSEvents run pending on macOS CI (S06)"
     },
     {
       "id": "S07.4",
@@ -1006,7 +1006,7 @@
       "depends_on": [
         "S07.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

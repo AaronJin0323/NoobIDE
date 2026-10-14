@@ -59,6 +59,8 @@ export const zhCN = {
   'reveal.finder': '在访达中显示',
   'reveal.explorer': '在文件资源管理器中显示',
   'reveal.fileManager': '在文件管理器中显示',
+  // ── S07/S08: file tree, encodings and file operations ──
+  'editor.readOnlyEncoding': '这个文件不是 UTF-8 编码，只能查看、不能修改，这样它不会被损坏。文件编码：',
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

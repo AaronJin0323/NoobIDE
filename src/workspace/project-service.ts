@@ -20,7 +20,7 @@ import { err, ok, type Result } from '../shared/result';
 import { replaceFileAtomic } from './atomic-write';
 import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
 import { listDirectory } from './tree';
-import { decodeText, encodeText } from './text-codec';
+import { decodeForDisplay, decodeText, encodeText } from './text-codec';
 
 /**
  * Projects the user opened and file access inside them (S03.3, S03.4). Main process only.
@@ -82,9 +82,16 @@ export class ProjectService {
     } catch (e) {
       return err(isNotFound(e) ? 'not-found' : 'read-failed', errorCode(e), e);
     }
-    const decoded = decodeText(bytes);
+    const decoded = decodeForDisplay(bytes);
     if (!decoded.ok) return err('unsupported-encoding', decoded.reason);
-    return ok({ text: decoded.text, eol: decoded.eol, bom: decoded.bom, uri: toFileUri(target.value) });
+    const content: FileContent = {
+      text: decoded.text,
+      eol: decoded.eol,
+      bom: decoded.bom,
+      uri: toFileUri(target.value),
+    };
+    // S07.4: other encodings are shown read-only, with the encoding named in the notice.
+    return ok(decoded.editable ? content : { ...content, encoding: decoded.encoding, readOnly: true });
   }
 
   /** Saves over an existing file. Creating files arrives with the file operations of S08. */
@@ -97,6 +104,11 @@ export class ProjectService {
       if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
       // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
       await access(target.value, constants.W_OK);
+      // S07.4: never replace a file that is not UTF-8 text (another encoding, binary): the save would destroy it.
+      const existing = await stat(target.value);
+      if (existing.size <= MAX_TEXT_FILE_BYTES && !decodeText(await readFile(target.value)).ok) {
+        return err('unsupported-encoding', 'the file on disk is not UTF-8 text');
+      }
       await replaceFileAtomic(target.value, data);
     } catch (e) {
       return err(writeErrorCode(e), errorCode(e), e);

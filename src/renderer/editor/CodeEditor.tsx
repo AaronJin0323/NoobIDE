@@ -14,12 +14,23 @@ interface CodeEditorProps {
   onChange?: (text: string) => void;
   /** Ctrl+S on Windows, ⌘S on macOS — Monaco's CtrlCmd maps to each platform's convention. */
   onSave?: () => void;
+  /** S07.4: files in another encoding are shown but cannot be edited. */
+  readOnly?: boolean;
 }
 
 const CODE_FONT = "'Cascadia Mono', 'SF Mono', Menlo, Consolas, 'Microsoft YaHei UI', 'PingFang SC', monospace";
 
 /** Thin React wrapper around one Monaco editor instance. Tabs and model reuse across files: S09. */
-export function CodeEditor({ uri, language, initialValue, ariaLabel, eol, onChange, onSave }: CodeEditorProps) {
+export function CodeEditor({
+  uri,
+  language,
+  initialValue,
+  ariaLabel,
+  eol,
+  onChange,
+  onSave,
+  readOnly,
+}: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const scheme = useColorScheme();
   const themeName = MONACO_THEME_NAME[scheme];
@@ -52,6 +63,7 @@ export function CodeEditor({ uri, language, initialValue, ariaLabel, eol, onChan
       scrollBeyondLastLine: false,
       renderLineHighlight: 'all',
       tabSize: 2,
+      readOnly: readOnly ?? false,
     });
     const changes = model.onDidChangeContent(() => callbacks.current.onChange?.(model.getValue()));
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => callbacks.current.onSave?.());
@@ -62,7 +74,7 @@ export function CodeEditor({ uri, language, initialValue, ariaLabel, eol, onChan
       editor.dispose();
       model.dispose();
     };
-  }, [uri, language, initialValue, eol]);
+  }, [uri, language, initialValue, eol, readOnly]);
 
   useEffect(() => {
     initialAriaLabel.current = ariaLabel;

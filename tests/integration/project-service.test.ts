@@ -90,11 +90,35 @@ describe('reading files (S03.3)', () => {
     expect(result.ok && result.value.text).toBe('<p>第二页</p>\n');
   });
 
-  it('refuses binary and non-UTF-8 files instead of mangling them', async () => {
+  it('refuses binary files instead of mangling them', async () => {
     await writeFile(path.join(root, 'logo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01]));
-    await writeFile(path.join(root, 'gbk.txt'), Buffer.from([0xc4, 0xe3, 0xba, 0xc3])); // 你好 in GBK
     expect(await service.read(request('logo.png'))).toMatchObject({ ok: false, code: 'unsupported-encoding' });
-    expect(await service.read(request('gbk.txt'))).toMatchObject({ ok: false, code: 'unsupported-encoding' });
+  });
+
+  // S07.4 replaces "non-UTF-8 is refused" (S03): other encodings open read-only with a notice, never saved.
+  it('opens non-UTF-8 text read-only and never overwrites it', async () => {
+    const gbk = Buffer.from([0xc4, 0xe3, 0xba, 0xc3]); // 你好 in GBK
+    await writeFile(path.join(root, 'gbk.txt'), gbk);
+    expect(await service.read(request('gbk.txt'))).toMatchObject({
+      ok: true,
+      value: { text: '你好', encoding: 'gb18030', readOnly: true },
+    });
+    expect(await service.write({ ...request('gbk.txt'), text: '你好', bom: false })).toMatchObject({
+      ok: false,
+      code: 'unsupported-encoding',
+    });
+    expect(await readFile(path.join(root, 'gbk.txt'))).toEqual(gbk);
+    await writeFile(path.join(root, 'logo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01]));
+    expect(await service.write({ ...request('logo.png'), text: 'x', bom: false })).toMatchObject({
+      ok: false,
+      code: 'unsupported-encoding',
+    });
+  });
+
+  it('UTF-8 files carry no encoding notice', async () => {
+    const result = await service.read(request('index.html'));
+    expect(result.ok && result.value.readOnly).toBeFalsy();
+    expect(result.ok && result.value.encoding).toBeUndefined();
   });
 
   it('distinguishes missing files, folders and unknown projects', async () => {

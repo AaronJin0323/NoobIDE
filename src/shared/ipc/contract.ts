@@ -72,6 +72,11 @@ export interface FileContent {
   /** The file started with a UTF-8 byte order mark; it is written back unchanged. */
   readonly bom: boolean;
   readonly uri: string;
+  // ── S07.4: other encodings open read-only (absent = UTF-8, editable) ──
+  /** WHATWG label of a non-UTF-8 encoding, e.g. `gb18030` or `utf-16le`. */
+  readonly encoding?: string;
+  /** The file is shown but cannot be saved: saving would re-encode it as UTF-8. */
+  readonly readOnly?: boolean;
 }
 
 export type ReadFileError =
@@ -97,6 +102,8 @@ export type WriteFileError =
   | 'permission-denied'
   | 'busy'
   | 'disk-full'
+  /** S07.4: the file on disk is not UTF-8 text (another encoding or binary); it is never overwritten. */
+  | 'unsupported-encoding'
   | 'write-failed';
 
 export interface SavedFile {
