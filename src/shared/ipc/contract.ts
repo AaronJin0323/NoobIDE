@@ -9,6 +9,7 @@
  */
 import type { PlatformId } from '../../platform/labels';
 import type { Result } from '../result';
+import type { RecoveryApi } from './recovery-contract';
 
 export const IPC_API_VERSION = 1;
 
@@ -17,6 +18,15 @@ export const CHANNELS = {
   readFile: 'workspace:read-file',
   writeFile: 'workspace:write-file',
   revealProject: 'workspace:reveal-project',
+  // --- S12 crash-recovery journal (types and parsers: recovery-contract.ts) ---
+  recoveryRecord: 'recovery:record',
+  recoveryDiscardSaved: 'recovery:discard-saved',
+  recoveryListPending: 'recovery:list-pending',
+  recoveryOpenProject: 'recovery:open-project',
+  recoveryRead: 'recovery:read',
+  recoveryDiscard: 'recovery:discard',
+  recoveryClear: 'recovery:clear',
+  // --- end S12 ---
 } as const;
 
 export type Channel = (typeof CHANNELS)[keyof typeof CHANNELS];
@@ -114,6 +124,8 @@ export interface NoobideApi {
     /** Shows the project folder in Explorer / Finder. */
     revealProject(request: { readonly projectId: string }): Promise<IpcResult<null, RevealError>>;
   };
+  /** S12: crash-recovery journal of unsaved buffers. */
+  readonly recovery: RecoveryApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */

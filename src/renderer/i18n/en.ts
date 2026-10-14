@@ -74,4 +74,38 @@ export const en: Record<MessageKey, string> = {
   'reveal.finder': 'Show in Finder',
   'reveal.explorer': 'Show in File Explorer',
   'reveal.fileManager': 'Show in file manager',
+  // --- S12 crash recovery ---
+  'recovery.title': 'Unsaved changes from last time were found',
+  'recovery.intro':
+    'NoobIDE did not close normally last time. These changes were not saved to your files yet, but they are kept safe in the app data. Compare them and restore them.',
+  'recovery.files': '{n} file(s) with unsaved changes',
+  'recovery.review': 'Open project and review',
+  'recovery.later': 'Decide later',
+  'recovery.restore': 'Restore into editor',
+  'recovery.discard': 'Discard this copy',
+  'recovery.compareTitle': 'Compared with the file on disk',
+  'recovery.legend': '+ lines are added by the recovered copy, − lines on disk are replaced. Save after restoring.',
+  'recovery.added': '{n} line(s) added',
+  'recovery.removed': '{n} line(s) removed',
+  'recovery.identical': 'The content is the same as the file on disk.',
+  'recovery.tooLarge': 'Too many changes to show line by line.',
+  'recovery.skipped': '… {n} unchanged line(s) …',
+  'recovery.diskMissing':
+    'The file on disk is gone or cannot be opened, so the copy cannot be restored into the editor. Its full text is shown below; you can select and copy it.',
+  'recovery.openFailed': 'The project folder cannot be opened. It may have been moved or deleted.',
+  'recovery.readFailed': 'This recovery copy is damaged and cannot be read.',
+  'recovery.updatedAt': 'Last changed',
+  'recovery.usage': 'Recovery data uses {used} (limit {limit})',
+  'recovery.clearAll': 'Clear all recovery data',
+  'recovery.clearConfirm': 'Clear now? These unsaved changes cannot be brought back',
+  'recovery.cancel': 'Cancel',
+  'recovery.journalFailed': 'The crash-recovery copy could not be written. Save your file soon.',
+  'recovery.lineAdded': 'added',
+  'recovery.lineRemoved': 'removed',
+  'recovery.saveFirst':
+    'The editor still has unsaved changes (perhaps a file restored just now). Save first, then restore the next file — or decide later.',
+  'recovery.restoreFailed': 'This file could not be restored. The recovery copy is still kept.',
+  'recovery.discardConfirm': 'Discard now? These changes cannot be brought back',
+  'recovery.recoveredText': 'Content of the recovery copy',
+  // --- end S12 ---
 };

@@ -1300,8 +1300,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/recovery-journal.test.ts (app-data only, project tree unchanged, atomic temp+rename, removed after save, out-of-order writes dropped) + src/renderer/recovery/journal-scheduler.test.ts (copy within 2 s under continuous typing) + tests/e2e/recovery.spec.ts S12.1 (record appears <=2 s, removed after Ctrl+S) + verify/e2e green @ 4c6bef4"
     },
     {
       "id": "S12.2",
@@ -1316,8 +1316,8 @@
       "depends_on": [
         "S12.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/recovery.spec.ts: SIGKILL/TerminateProcess of the Electron main pid, relaunch shows dialog with +line diff vs disk, restore as unsaved edits, save writes and clears journal; second test: restore never saves another restored copy silently @ 4c6bef4"
     },
     {
       "id": "S12.3",
@@ -1332,8 +1332,8 @@
       "depends_on": [
         "S12.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "recovery-journal.test.ts: per-entry/total/count limits (too-large, quota-exceeded, usage), 6 corruption kinds + misplaced skipped/logged/quarantined (bounded), unreadable dir survives, clearAll; e2e: clear-data control in dialog empties journal @ 4c6bef4"
     },
     {
       "id": "S12.4",
@@ -1349,7 +1349,7 @@
         "S12.2"
       ],
       "status": "todo",
-      "evidence": ""
+      "evidence": "steps in harness/MANUAL-CHECKS.md#S12.4; Windows e2e passes @ 4c6bef4"
     },
     {
       "id": "S13.1",
@@ -1940,8 +1940,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/history-store.test.ts (11 tests): content-addressed blobs + JSON index in app data (project untouched), dedupe, per-file version/byte and total limits, usage()/fileUsage() report usage vs limits, cleanup()/clear(); corrupt index/blob tolerated. Usage is exposed by API; on-screen display comes with the S21.3/S21.4 UI @ b5cafbb"
     },
     {
       "id": "S21.2",
@@ -1956,8 +1956,8 @@
       "depends_on": [
         "S21.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/history-triggers.test.ts (8 tests): before/after-save through ProjectService.write with coalesced bursts, failed save, broken store never fails a save; before-format/restore/delete (file + folder) via HistoryTriggers API (callers arrive with format/delete/restore features); e2e recovery.spec S12.1 checks history index written in app data on save @ eec393b"
     },
     {
       "id": "S21.3",
