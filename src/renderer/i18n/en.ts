@@ -127,6 +127,7 @@ export const en: Record<MessageKey, string> = {
   'menu.open': 'Open',
   'menu.rename': 'Rename…',
   'menu.delete': 'Delete…',
+  'editor.encodingGuessed': '(legacy encodings carry no marker: this is a best guess, so the text may look wrong).',
   'editor.readOnlyEncoding':
     'This file is not UTF-8, so it is shown read-only and cannot be damaged by saving. File encoding:',
   // --- S12 crash recovery ---

@@ -101,7 +101,7 @@ describe('reading files (S03.3)', () => {
     await writeFile(path.join(root, 'gbk.txt'), gbk);
     expect(await service.read(request('gbk.txt'))).toMatchObject({
       ok: true,
-      value: { text: '你好', encoding: 'gb18030', readOnly: true },
+      value: { text: '你好', encoding: 'gb18030', readOnly: true, encodingGuessed: true },
     });
     expect(await service.write({ ...request('gbk.txt'), text: '你好', bom: false })).toMatchObject({
       ok: false,
@@ -113,6 +113,25 @@ describe('reading files (S03.3)', () => {
       ok: false,
       code: 'unsupported-encoding',
     });
+  });
+
+  it('never overwrites a file on disk that is larger than the editor limit (review finding 1)', async () => {
+    const big = Buffer.alloc(6 * 1024 * 1024, 0xff);
+    await writeFile(path.join(root, 'big.bin'), big);
+    expect(await service.write({ ...request('big.bin'), text: 'oops', bom: false })).toMatchObject({
+      ok: false,
+      code: 'too-large',
+    });
+    const after = await readFile(path.join(root, 'big.bin'));
+    expect(after.length).toBe(big.length);
+    expect(after.equals(big)).toBe(true);
+    // Also a big file that is valid UTF-8 text: it was never opened, so it is never replaced.
+    await writeFile(path.join(root, 'big.txt'), 'a'.repeat(6 * 1024 * 1024));
+    expect(await service.write({ ...request('big.txt'), text: 'oops', bom: false })).toMatchObject({
+      ok: false,
+      code: 'too-large',
+    });
+    expect((await readFile(path.join(root, 'big.txt'))).length).toBe(6 * 1024 * 1024);
   });
 
   it('UTF-8 files carry no encoding notice', async () => {

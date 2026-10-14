@@ -84,6 +84,7 @@ export function EditorPane({ hidden, state, onChange, onSave }: EditorPaneProps)
           <WarningIcon />
           <span>
             {t('editor.readOnlyEncoding')} <strong>{doc.content.encoding}</strong>
+            {doc.content.encodingGuessed && <> {t('editor.encodingGuessed')}</>}
           </span>
         </p>
       )}

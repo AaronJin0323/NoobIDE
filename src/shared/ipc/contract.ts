@@ -91,6 +91,8 @@ export interface FileContent {
   readonly encoding?: string;
   /** The file is shown but cannot be saved: saving would re-encode it as UTF-8. */
   readonly readOnly?: boolean;
+  /** The encoding is a best guess (legacy text has no marker); the notice says so. */
+  readonly encodingGuessed?: boolean;
 }
 
 export type ReadFileError =

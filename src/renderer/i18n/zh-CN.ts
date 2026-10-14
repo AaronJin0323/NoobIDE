@@ -122,6 +122,7 @@ export const zhCN = {
   'menu.open': '打开',
   'menu.rename': '重命名…',
   'menu.delete': '删除…',
+  'editor.encodingGuessed': '（旧式编码没有标记，这是猜测的结果，显示的文字可能不对。）',
   'editor.readOnlyEncoding': '这个文件不是 UTF-8 编码，只能查看、不能修改，这样它不会被损坏。文件编码：',
   // --- S12 crash recovery ---
   'recovery.title': '找到了上次没保存的修改',
