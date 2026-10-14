@@ -100,6 +100,11 @@ export class ProjectService {
     }
   }
 
+  /** S13.3: closes a project; its projectId no longer reaches any file. False when it was not open. */
+  close(projectId: string): boolean {
+    return this.projects.delete(projectId);
+  }
+
   /** One folder of the lazy tree (S07.2). */
   async listDir(request: DirRequest): Promise<Result<DirListing, ListDirError>> {
     const project = this.projects.get(request.projectId);

@@ -239,6 +239,7 @@ export const zhCN = {
   'settings.backup': '备份位置：',
   'appMenu.label': '更多操作',
   'appMenu.openLogs': '打开日志文件夹',
+  'appMenu.closeProject': '关闭项目',
   'files.setEntry': '设为入口页面',
   'entry.set': '已设为入口页面：',
   'entry.setDetail': '下次启动预览时会先打开它。设置保存在项目的 .noobide/project.json 里，删掉这个文件也不影响网页。',

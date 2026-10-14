@@ -34,6 +34,8 @@ export interface DocumentState {
 export type DocumentAction =
   | { type: 'projectOpened'; project: OpenedProject }
   | { type: 'projectOpenFailed' }
+  /** S13.3: the project was closed; the welcome screen shows again. */
+  | { type: 'projectClosed' }
   | { type: 'docLoaded'; relPath: string; content: FileContent }
   | { type: 'docFailed'; relPath: string; code: OpenErrorCode }
   | { type: 'activate'; relPath: string }
@@ -58,6 +60,8 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
   switch (action.type) {
     case 'projectOpened':
       return { ...INITIAL_DOCUMENT_STATE, project: action.project };
+    case 'projectClosed':
+      return INITIAL_DOCUMENT_STATE;
     case 'projectOpenFailed':
       return { ...state, openFailed: true };
     case 'docLoaded': {

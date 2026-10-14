@@ -32,6 +32,8 @@ import { AppLog } from './app-log';
 import { osInfo } from '../platform/os-info';
 import type { RecoveryLogger } from '../recovery/atomic-file';
 import { effectiveProjectConfig, previewEntryPath } from '../workspace/project-config';
+import { RecentProjects } from './recent-projects';
+import type { WebContents } from 'electron';
 import { resolveTemplatesDir } from '../workspace/templates'; // S20.2
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
@@ -157,6 +159,25 @@ function start(): void {
     // --- end S13.6 ---
     const journal = new RecoveryJournal({ dir: path.join(appData, 'recovery'), log: logger });
     // --- end S12 ---
+    // --- S13.3: project lifecycle. Every opened project (folder dialog, recent list, wizard, crash recovery,
+    // session restore) is watched and remembered; a preview of another project stops with its server. Closing a
+    // project stops its watcher, preview and server. ---
+    const recent = new RecentProjects({ file: path.join(appData, 'recent-projects.json'), log: logger });
+    const projectOpened = (projectId: string, root: string, sender: WebContents) => {
+      watchHub.watch(projectId, root, sender);
+      void recent.touch(root);
+      const previewed = preview.getStatus().projectId;
+      if (previewed !== null && previewed !== projectId) void preview.stop();
+    };
+    const projectClosed = (projectId: string) => {
+      watchHub.stop();
+      const previewed = preview.getStatus().projectId;
+      if (previewed === null || previewed === projectId) void preview.stop();
+    };
+    Object.assign((globalThis as { __noobideTestHooks?: object }).__noobideTestHooks ?? {}, {
+      watching: () => watchHub.active,
+    });
+    // --- end S13.3 ---
     // --- S21: local history (snapshots around saves) in app data ---
     const history = new SnapshotStore({ dir: path.join(appData, 'history'), log: logger });
     const historyTriggers = new HistoryTriggers(history, logger);
@@ -182,7 +203,7 @@ function start(): void {
       closeAnswered: (event, answer) => closeGuards.get(event.sender.id)?.answer(answer),
       closeDiscarding: (event) => closeGuards.get(event.sender.id)?.discardAndClose(),
       // ── S07/S08: file tree, watcher and file operations ──
-      projectOpened: (projectId, root, sender) => watchHub.watch(projectId, root, sender),
+      projectOpened, // S13.3: watch + remember + stop another project's preview
       trashItem: (fullPath) => shell.trashItem(fullPath),
       revealItem: (fullPath) => shell.showItemInFolder(fullPath),
       // --- S20.2: create-project wizard (built-in templates, default location in Documents) ---
@@ -230,6 +251,9 @@ function start(): void {
       settings,
       openLogsFolder: () => shell.openPath(appLog.dir),
       projects,
+      recent,
+      projectOpened,
+      projectClosed,
     });
     // --- end S13 ---
     createWorkbenchWindow();

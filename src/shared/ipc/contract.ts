@@ -14,7 +14,13 @@ import type { PreviewApi } from './preview-contract';
 import { isUnsafePathSegment } from '../file-names';
 import type { RecoveryApi } from './recovery-contract';
 // S13 app data (settings, recent projects, session, logs): types and parsers in app-data-contract.ts.
-import type { LogsApi, ProjectConfigApi, SettingsApi } from './app-data-contract';
+import type {
+  LogsApi,
+  ProjectConfigApi,
+  ProjectLifecycleApi,
+  RecentProjectsApi,
+  SettingsApi,
+} from './app-data-contract';
 import type { CreateProjectApi } from './create-contract'; // S20.2
 import type { HistoryApi } from './history-contract'; // S21.3/S21.4
 
@@ -368,6 +374,10 @@ export interface NoobideApi {
   readonly logs?: LogsApi;
   /** S13.2: the project's optional `.noobide/project.json` (entry page, preview preferences). */
   readonly projectConfig?: ProjectConfigApi;
+  /** S13.3: recent projects (consumed by the welcome screen, src/renderer/welcome/welcome-model.ts). */
+  readonly recentProjects?: RecentProjectsApi;
+  /** S13.3: closing the open project. */
+  readonly lifecycle?: ProjectLifecycleApi;
   // --- end S13 ---
   /** S20.2: create-project wizard (create-contract.ts). */
   readonly createProject: CreateProjectApi;

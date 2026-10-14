@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_DATA_CHANNELS } from '../shared/ipc/app-data-contract';
 import { DEFAULT_SETTINGS } from '../shared/settings';
 import { registerAppDataIpcHandlers, type AppDataIpcDeps } from './app-data-ipc';
+import { ok } from '../shared/result';
 
 /** S13 app-data channels: sender and payload are checked before any store runs (same rules as ipc.ts). */
 const ORIGIN = 'noobide://app';
@@ -17,8 +18,12 @@ let handlers: Map<string, Handler>;
 let deps: AppDataIpcDeps & {
   settings: { snapshot: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
   openLogsFolder: ReturnType<typeof vi.fn>;
-  projects: { rootOf: ReturnType<typeof vi.fn> };
+  projects: { rootOf: ReturnType<typeof vi.fn>; open: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> };
+  recent: { list: ReturnType<typeof vi.fn>; rootOf: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> };
+  projectOpened: ReturnType<typeof vi.fn>;
+  projectClosed: ReturnType<typeof vi.fn>;
 };
+const RECENT = '9b2f6c1e-4d3a-4b8c-8e7f-0a1b2c3d4e5f';
 const ID = '3f1c2a9e-8b7d-4c6e-9f00-1a2b3c4d5e6f';
 
 beforeEach(() => {
@@ -30,7 +35,20 @@ beforeEach(() => {
       update: vi.fn(async (patch: object) => ({ ...DEFAULT_SETTINGS, ...patch })),
     },
     openLogsFolder: vi.fn(async () => ''),
-    projects: { rootOf: vi.fn(() => undefined) },
+    projects: {
+      rootOf: vi.fn(() => undefined),
+      open: vi.fn(async (root: string) =>
+        ok({ projectId: ID, name: 'p', rootPath: root, files: [], truncated: false }),
+      ),
+      close: vi.fn((id: string) => id === ID),
+    },
+    recent: {
+      list: vi.fn(async () => [{ id: RECENT, name: 'p', path: '/p', available: true, lastOpened: 1 }]),
+      rootOf: vi.fn(async (id: string) => (id === RECENT ? '/p' : undefined)),
+      remove: vi.fn(async () => true),
+    },
+    projectOpened: vi.fn((_id: string, _root: string, _sender: unknown) => undefined),
+    projectClosed: vi.fn((_id: string) => undefined),
   };
   registerAppDataIpcHandlers({ handle: (channel: string, h: Handler) => void handlers.set(channel, h) } as never, deps);
 });
@@ -123,5 +141,43 @@ describe('project configuration channels (S13.2)', () => {
         code: 'forbidden-sender',
       });
     }
+  });
+});
+
+describe('recent projects and closing a project (S13.3)', () => {
+  it('lists, opens by opaque id (main supplies the path) and removes from the list only', async () => {
+    expect(await call(APP_DATA_CHANNELS.recentList, workbench)).toEqual({
+      ok: true,
+      value: [{ id: RECENT, name: 'p', path: '/p', available: true, lastOpened: 1 }],
+    });
+    const opened = await call(APP_DATA_CHANNELS.recentOpen, workbench, { id: RECENT });
+    expect(opened).toMatchObject({ ok: true, value: { projectId: ID, rootPath: '/p' } });
+    expect(deps.projects.open).toHaveBeenCalledWith('/p');
+    expect(deps.projectOpened).toHaveBeenCalledWith(ID, '/p', undefined);
+    expect(await call(APP_DATA_CHANNELS.recentRemove, workbench, { id: RECENT })).toEqual({ ok: true, value: null });
+    expect(deps.recent.remove).toHaveBeenCalledWith(RECENT);
+  });
+
+  it('never accepts a path from the renderer, and refuses unknown ids', async () => {
+    for (const bad of [{ id: '/p' }, { path: '/p' }, { id: RECENT, path: 'C:/x' }, 'C:/x', { id: 1 }]) {
+      expect(await call(APP_DATA_CHANNELS.recentOpen, workbench, bad)).toMatchObject({ code: 'invalid-request' });
+      expect(await call(APP_DATA_CHANNELS.recentRemove, workbench, bad)).toMatchObject({ code: 'invalid-request' });
+    }
+    expect(await call(APP_DATA_CHANNELS.recentOpen, workbench, { id: ID })).toMatchObject({ code: 'not-found' });
+    expect(deps.projects.open).not.toHaveBeenCalled();
+    for (const event of strangers) {
+      expect(await call(APP_DATA_CHANNELS.recentOpen, event, { id: RECENT })).toMatchObject({
+        code: 'forbidden-sender',
+      });
+    }
+  });
+
+  it('closing tears the project down; an unknown project is refused', async () => {
+    expect(await call(APP_DATA_CHANNELS.closeProject, workbench, { projectId: ID })).toEqual({ ok: true, value: null });
+    expect(deps.projectClosed).toHaveBeenCalledWith(ID);
+    expect(
+      await call(APP_DATA_CHANNELS.closeProject, workbench, { projectId: '0f1c2a9e-8b7d-4c6e-9f00-1a2b3c4d5e6f' }),
+    ).toMatchObject({ code: 'unknown-project' });
+    expect(deps.projectClosed).toHaveBeenCalledTimes(1);
   });
 });

@@ -60,8 +60,9 @@ test('the welcome screen offers one prominent create action and open folder; the
   await expect(page.getByTestId('welcome-open-folder')).toHaveText('打开文件夹…');
   // Only the create action is a filled (primary) button on the welcome screen.
   await expect(welcome.locator('.primary-button')).toHaveCount(1);
-  // No recent-projects store in this build yet (S13.3): the list is not shown rather than faked.
-  await expect(page.getByTestId('welcome-recent')).toHaveCount(0);
+  // S13.3: the recent-projects store exists; a fresh app-data directory has no projects yet.
+  await expect(page.getByTestId('welcome-recent')).toContainText('你还没有项目');
+  await expect(page.getByTestId('welcome-recent-item')).toHaveCount(0);
   await expect(page.getByTestId('sample-badge')).toBeVisible();
 });
 

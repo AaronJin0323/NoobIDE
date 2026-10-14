@@ -1,6 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { parseNoPayload, parseProjectRequest, toIpcResult, type IpcResult } from '../shared/ipc/contract';
-import { APP_DATA_CHANNELS, parseSetEntryRequest } from '../shared/ipc/app-data-contract';
+import { APP_DATA_CHANNELS, parseRecentRequest, parseSetEntryRequest } from '../shared/ipc/app-data-contract';
+import type { RecentProjects } from './recent-projects';
 import type { ProjectService } from '../workspace/project-service';
 import {
   EMPTY_PROJECT_CONFIG,
@@ -23,7 +24,13 @@ export interface AppDataIpcDeps {
   /** S13.6: shows the log folder in the file manager; resolves to an error text ('' on success, like shell.openPath). */
   openLogsFolder(): Promise<string>;
   /** Open projects (S13.2 and later): only a projectId crosses IPC, main knows the root. */
-  readonly projects: Pick<ProjectService, 'rootOf'>;
+  readonly projects: Pick<ProjectService, 'rootOf' | 'open' | 'close'>;
+  /** S13.3: recent projects in app data. */
+  readonly recent: Pick<RecentProjects, 'list' | 'rootOf' | 'remove'>;
+  /** S13.3: a project was opened (watch it, remember it, stop another project's preview). */
+  projectOpened(projectId: string, root: string, sender: IpcMainInvokeEvent['sender']): void;
+  /** S13.3: a project was closed (stop its watcher, preview and server). */
+  projectClosed(projectId: string): void;
 }
 
 type Run<P> = (payload: P, event: IpcMainInvokeEvent) => Promise<IpcResult<unknown, string>>;
@@ -57,6 +64,25 @@ export function registerAppDataIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: A
   handle(APP_DATA_CHANNELS.openLogsFolder, parseNoPayload, async () => {
     const error = await deps.openLogsFolder();
     return error === '' ? { ok: true, value: null } : { ok: false, code: 'open-failed', message: 'could not open' };
+  });
+
+  // ── S13.3 recent projects and project lifecycle ──
+  handle(APP_DATA_CHANNELS.recentList, parseNoPayload, async () => ({ ok: true, value: await deps.recent.list() }));
+  handle(APP_DATA_CHANNELS.recentOpen, parseRecentRequest, async ({ id }, event) => {
+    const root = await deps.recent.rootOf(id);
+    if (root === undefined) return { ok: false, code: 'not-found', message: 'not in the recent list' };
+    const opened = await deps.projects.open(root);
+    if (opened.ok) deps.projectOpened(opened.value.projectId, opened.value.rootPath, event.sender);
+    return toIpcResult(opened);
+  });
+  handle(APP_DATA_CHANNELS.recentRemove, parseRecentRequest, async ({ id }) => {
+    await deps.recent.remove(id); // the list only; the folder is never touched
+    return { ok: true, value: null };
+  });
+  handle(APP_DATA_CHANNELS.closeProject, parseProjectRequest, async ({ projectId }) => {
+    if (!deps.projects.close(projectId)) return UNKNOWN_PROJECT;
+    deps.projectClosed(projectId);
+    return { ok: true, value: null };
   });
 
   // ── S13.2 .noobide/project.json ──

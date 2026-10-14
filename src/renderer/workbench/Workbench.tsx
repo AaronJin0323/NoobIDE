@@ -122,14 +122,6 @@ export function Workbench() {
     if (settingsLoaded.current) void bridge?.settings?.update({ editorFontSize: fontSize });
   }, [bridge, fontSize]);
   // --- end S13.1 ---
-  // --- S13 command menu ---
-  const menuItems = useMemo<AppMenuItem[]>(() => {
-    const items: AppMenuItem[] = [];
-    const logs = bridge?.logs;
-    if (logs) items.push({ id: 'open-logs', label: 'appMenu.openLogs', onSelect: () => void logs.openFolder() });
-    return items;
-  }, [bridge]);
-  // --- end S13 command menu ---
   // --- S13.2: "set as entry page" writes .noobide/project.json (the only file NoobIDE writes into a project) ---
   const [entryNotice, setEntryNotice] = useState<EntryNoticeState | null>(null);
   const extraMenuItems = useCallback(
@@ -228,6 +220,31 @@ export function Workbench() {
     projectSeq.current += 1;
     releaseFileModels();
   };
+  // --- S13 command menu ---
+  // S13.3: closing a project saves every file first (a failed save keeps it open), then main stops its watcher,
+  // preview and server; the welcome screen with the recent projects shows again.
+  const closeProject = useCallback(async () => {
+    const project = docRef.current.project;
+    const lifecycle = bridge?.lifecycle;
+    if (!project || !lifecycle || !(await saveAll())) return;
+    const result = await lifecycle.closeProject({ projectId: project.projectId });
+    if (!result.ok && result.code !== 'unknown-project') return;
+    if (docRef.current.project?.projectId !== project.projectId) return;
+    closeProjectFiles();
+    setCopyNotice(null);
+    dispatch({ type: 'projectClosed' });
+  }, [bridge, saveAll]);
+  const hasProject = doc.project !== null;
+  const menuItems = useMemo<AppMenuItem[]>(() => {
+    const items: AppMenuItem[] = [];
+    if (hasProject && bridge?.lifecycle) {
+      items.push({ id: 'close-project', label: 'appMenu.closeProject', onSelect: () => void closeProject() });
+    }
+    const logs = bridge?.logs;
+    if (logs) items.push({ id: 'open-logs', label: 'appMenu.openLogs', onSelect: () => void logs.openFolder() });
+    return items;
+  }, [bridge, hasProject, closeProject]);
+  // --- end S13 command menu ---
 
   const openFolder = useCallback(async () => {
     if (!bridge || !(await saveAll())) return;

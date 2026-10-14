@@ -17,6 +17,11 @@ export const APP_DATA_CHANNELS = {
   // S13.2
   projectConfig: 'project:config',
   projectSetEntry: 'project:set-entry',
+  // S13.3
+  recentList: 'projects:recent',
+  recentOpen: 'projects:open-recent',
+  recentRemove: 'projects:remove-recent',
+  closeProject: 'workspace:close-project',
 } as const;
 
 // ── S13.1 settings ──
@@ -65,6 +70,41 @@ export function parseSetEntryRequest(payload: unknown): SetEntryRequest | null {
   const { projectId, entry } = payload;
   if (!isProjectId(projectId)) return null;
   return entry === null || isEntryPath(entry) ? { projectId, entry } : null;
+}
+
+// ── S13.3 recent projects and project lifecycle ──
+/** One recent project (the shape src/renderer/welcome/welcome-model.ts RecentProject consumes). */
+export interface RecentProject {
+  /** Opaque id; main keeps the real path. */
+  readonly id: string;
+  readonly name: string;
+  /** Absolute path, for display only (Chinese characters and spaces shown as they are). */
+  readonly path: string;
+  /** False when the folder no longer exists: shown as unavailable, only removable. */
+  readonly available: boolean;
+  /** When it was last opened (ms since the epoch). */
+  readonly lastOpened: number;
+}
+
+/** `window.noobide.recentProjects` — exactly the welcome screen's RecentProjectsSource. */
+export interface RecentProjectsApi {
+  list(): Promise<readonly RecentProject[]>;
+  /** Opens the project by id (main looks up its path); `null` when it cannot be opened (e.g. the folder is gone). */
+  open(id: string): Promise<OpenedProject | null>;
+  /** Removes the entry from the list only. Never touches anything on disk. */
+  remove(id: string): Promise<void>;
+}
+
+export interface ProjectLifecycleApi {
+  /** Closes the project: its watcher, preview and preview server stop and its projectId stops working. */
+  closeProject(request: { readonly projectId: string }): Promise<IpcResult<null, 'unknown-project'>>;
+}
+
+const RECENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export function parseRecentRequest(payload: unknown): { id: string } | null {
+  if (!isRecord(payload) || !hasOnlyKeys(payload, ['id'])) return null;
+  return typeof payload.id === 'string' && RECENT_ID.test(payload.id) ? { id: payload.id } : null;
 }
 
 // Re-exported for the renderer and main.

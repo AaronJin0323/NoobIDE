@@ -253,6 +253,7 @@ export const en: Record<MessageKey, string> = {
   'settings.backup': 'Backup:',
   'appMenu.label': 'More actions',
   'appMenu.openLogs': 'Open logs folder',
+  'appMenu.closeProject': 'Close project',
   'files.setEntry': 'Set as entry page',
   'entry.set': 'Entry page set:',
   'entry.setDetail':

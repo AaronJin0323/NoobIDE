@@ -43,6 +43,11 @@ export class ProjectWatchHub {
     watcher.start().catch(() => undefined);
   }
 
+  /** S13.3: whether a project is being watched (tests of closing a project). */
+  get active(): boolean {
+    return this.current !== null;
+  }
+
   stop(): void {
     const current = this.current;
     if (!current) return;

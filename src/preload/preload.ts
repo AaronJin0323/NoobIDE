@@ -77,6 +77,23 @@ const api: NoobideApi = {
     get: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.projectConfig, request),
     setEntry: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.projectSetEntry, request),
   },
+  // The welcome screen's shape (plain values); a refused call reads as "nothing" (empty list / not opened).
+  recentProjects: {
+    list: async () => {
+      const result = await ipcRenderer.invoke(APP_DATA_CHANNELS.recentList);
+      return result?.ok ? result.value : [];
+    },
+    open: async (id) => {
+      const result = await ipcRenderer.invoke(APP_DATA_CHANNELS.recentOpen, { id });
+      return result?.ok ? result.value : null;
+    },
+    remove: async (id) => {
+      await ipcRenderer.invoke(APP_DATA_CHANNELS.recentRemove, { id });
+    },
+  },
+  lifecycle: {
+    closeProject: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.closeProject, request),
+  },
   // --- end S13 ---
   // --- S20.2 create-project wizard ---
   createProject: {
@@ -112,6 +129,8 @@ contextBridge.exposeInMainWorld(
     settings: Object.freeze(api.settings), // S13
     logs: Object.freeze(api.logs),
     projectConfig: Object.freeze(api.projectConfig),
+    recentProjects: Object.freeze(api.recentProjects),
+    lifecycle: Object.freeze(api.lifecycle),
     createProject: Object.freeze(api.createProject), // S20.2
     history: Object.freeze(api.history), // S21.3/S21.4
   }),
