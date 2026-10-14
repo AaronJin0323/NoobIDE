@@ -114,6 +114,7 @@ export const welcomeHistoryZhCN = {
   'history.orphansNone': '没有。',
   'history.orphanSize': '{files} 个文件，{size}',
   'history.orphanClear': '清除',
+  'history.clearOrphanConfirm': '确定清除这份历史？清除后无法找回。',
   'history.unavailableCount': '有 {n} 个项目的历史暂时无法读取，清理会等它们恢复后再进行。',
   'history.quarantined': '有 {n} 份损坏的历史索引被单独保存；清除全部历史会删除它们。',
 } as const;
@@ -236,6 +237,7 @@ export const welcomeHistoryEn: Record<WelcomeHistoryKey, string> = {
   'history.orphansNone': 'None.',
   'history.orphanSize': '{files} files, {size}',
   'history.orphanClear': 'Clear',
+  'history.clearOrphanConfirm': 'Clear this history? This cannot be undone.',
   'history.unavailableCount':
     'The history of {n} projects cannot be read right now; cleanup waits until it can be read again.',
   'history.quarantined': '{n} damaged history indexes are kept aside; clearing all history removes them.',

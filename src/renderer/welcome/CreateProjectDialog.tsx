@@ -90,7 +90,10 @@ export function CreateProjectDialog({ api, onCreated, onCancel }: CreateProjectD
     return () => clearTimeout(timer);
   }, [api, location, name]);
 
-  useModalKeys(dialogRef, onCancel);
+  // While main creates the project, the wizard stays open: it must adopt the result.
+  useModalKeys(dialogRef, () => {
+    if (!creating) onCancel();
+  });
 
   const view = wizardView(t, { templateId, name, hasLocation: location !== null, check, creating });
   const selected = templates?.find((tpl) => tpl.id === templateId) ?? null;
@@ -252,7 +255,13 @@ export function CreateProjectDialog({ api, onCreated, onCancel }: CreateProjectD
           </aside>
         </div>
         <div className="dialog-actions">
-          <button type="button" className="quiet-button dialog-button" data-testid="wizard-cancel" onClick={onCancel}>
+          <button
+            type="button"
+            className="quiet-button dialog-button"
+            data-testid="wizard-cancel"
+            disabled={creating}
+            onClick={onCancel}
+          >
             {t('wizard.cancel')}
           </button>
           <button

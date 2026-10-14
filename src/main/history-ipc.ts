@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { link, lstat, mkdir, realpath, stat, unlink, writeFile } from 'node:fs/promises';
+import { link, lstat, mkdir, open, realpath, rmdir, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseNoPayload, parseProjectRequest, type IpcResult } from '../shared/ipc/contract';
 import {
@@ -53,6 +53,24 @@ async function keyOf(root: string, relPath: string): Promise<{ key: string; absP
   return { key: historyKey(relPath), absPath: null };
 }
 
+/**
+ * A project's folder is gone only when the OS says so (ENOENT / ENOTDIR) while its volume is still there. An unplugged
+ * drive, an offline share or a permission error is not "gone": such a history is never offered for clearing.
+ */
+async function folderGone(rootPath: string): Promise<boolean> {
+  try {
+    await stat(rootPath);
+    return false;
+  } catch (e) {
+    const code = errorCode(e);
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') return false;
+    return stat(path.parse(rootPath).root).then(
+      () => true,
+      () => false,
+    );
+  }
+}
+
 async function isFile(absPath: string | null): Promise<boolean> {
   if (absPath === null) return false;
   try {
@@ -102,35 +120,59 @@ export async function createFileExclusive(root: string, relPath: string, data: U
     }
     if (probe.code === 'outside-project') throw Object.assign(new Error('outside'), { code: 'OUTSIDE' });
   }
-  let parent = existing;
-  for (const segment of segments.slice(depth, -1)) {
-    parent = path.join(parent, segment);
-    await mkdir(parent).catch((e: unknown) => {
-      if (errorCode(e) !== 'EEXIST') throw e;
-    });
-  }
-  const realParent = await realpath(parent);
-  if (realParent !== root && !isInside(root, realParent))
-    throw Object.assign(new Error('outside'), { code: 'OUTSIDE' });
-  const name = segments[segments.length - 1] as string;
-  const final = path.join(realParent, name);
-  // Refuse early with a clear code; link() / `wx` below make the check race-free.
-  const taken = await lstat(final).then(
-    () => true,
-    () => false,
-  );
-  if (taken) throw Object.assign(new Error('exists'), { code: 'EEXIST' });
-  const temp = path.join(realParent, `.noobide-restore-${randomBytes(6).toString('hex')}.tmp`);
-  await writeFile(temp, data, { flag: 'wx' });
+  // Folders this call creates are removed again (only if still empty) when the restore fails.
+  const created: string[] = [];
   try {
-    await link(temp, final);
+    let parent = existing;
+    for (const segment of segments.slice(depth, -1)) {
+      parent = path.join(parent, segment);
+      try {
+        await mkdir(parent);
+        created.push(parent);
+      } catch (e) {
+        if (errorCode(e) !== 'EEXIST') throw e;
+      }
+    }
+    const realParent = await realpath(parent);
+    if (realParent !== root && !isInside(root, realParent)) {
+      throw Object.assign(new Error('outside'), { code: 'OUTSIDE' });
+    }
+    const name = segments[segments.length - 1] as string;
+    const final = path.join(realParent, name);
+    // Refuse early with a clear code; link() / the exclusive create below make the check race-free.
+    const taken = await lstat(final).then(
+      () => true,
+      () => false,
+    );
+    if (taken) throw Object.assign(new Error('exists'), { code: 'EEXIST' });
+    const temp = path.join(realParent, `.noobide-restore-${randomBytes(6).toString('hex')}.tmp`);
+    await writeFile(temp, data, { flag: 'wx' });
+    try {
+      await link(temp, final);
+    } catch (e) {
+      if (!LINK_UNSUPPORTED.has(errorCode(e))) throw e;
+      await writeExclusive(final, data);
+    } finally {
+      await unlink(temp).catch(() => undefined);
+    }
+    return final;
   } catch (e) {
-    if (!LINK_UNSUPPORTED.has(errorCode(e))) throw e;
-    await writeFile(final, data, { flag: 'wx' });
-  } finally {
-    await unlink(temp).catch(() => undefined);
+    for (const dir of created.reverse()) await rmdir(dir).catch(() => undefined);
+    throw e;
   }
-  return final;
+}
+
+/** Creates `file` with `data` only if it does not exist; a write that fails half-way removes what it created. */
+async function writeExclusive(file: string, data: Uint8Array): Promise<void> {
+  const handle = await open(file, 'wx'); // EEXIST: someone else's file, never touched
+  try {
+    await handle.writeFile(data);
+    await handle.close();
+  } catch (e) {
+    await handle.close().catch(() => undefined);
+    await unlink(file).catch(() => undefined); // ours: created by the 'wx' open above
+    throw e;
+  }
 }
 
 export function registerHistoryHandlers(
@@ -232,13 +274,7 @@ export function registerHistoryHandlers(
       let current = null;
       for (const project of all) {
         if (root !== undefined && project.rootPath === root) current = project;
-        else if (
-          !(await stat(project.rootPath).then(
-            (s) => s.isDirectory(),
-            () => false,
-          ))
-        )
-          orphans.push(project);
+        else if (await folderGone(project.rootPath)) orphans.push(project);
       }
       return {
         ok: true,
@@ -271,12 +307,7 @@ export function registerHistoryHandlers(
       // Only a history main itself lists as orphaned can be cleared by key (never an open project's by accident).
       const project = (await port.store.projects()).find((p) => p.key === request.key);
       if (!project) return { ok: false, code: 'not-found', message: 'no history with this key' };
-      if (
-        await stat(project.rootPath).then(
-          () => true,
-          () => false,
-        )
-      ) {
+      if (!(await folderGone(project.rootPath))) {
         return { ok: false, code: 'not-found', message: 'the project folder exists; it is not orphaned' };
       }
       rootPath = project.rootPath;

@@ -58,6 +58,12 @@ export async function replaceModelText(uri: string, text: string): Promise<strin
   if (!model) return null;
   model.pushStackElement();
   model.pushEditOperations([], [{ range: model.getFullModelRange(), text }], () => null);
+  // The model inserts text in its own line ending; a version with the other one is restored with that one
+  // (part of the same undo step), so the saved file matches the version.
+  const crlf = text.includes('\r\n');
+  if (text.includes('\n') && crlf !== (model.getEOL() === '\r\n')) {
+    model.pushEOL(crlf ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF);
+  }
   model.pushStackElement();
   return model.getValue(); // in the model's own line ending
 }

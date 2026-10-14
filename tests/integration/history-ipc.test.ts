@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -246,6 +247,19 @@ describe('storage, orphans, clear and reveal (S21.4, ADR 0006)', () => {
     // Clearing history never touches the project itself.
     expect(await readdir(root)).toEqual(['css 样式']);
   });
+
+  it.runIf(process.platform === 'win32' && !existsSync('Q:\\'))(
+    'a project on a drive that is not connected (Windows, unused Q:) is not orphaned and cannot be cleared as one',
+    async () => {
+      const offline = 'Q:\\网页 练习\\U盘 项目';
+      await store.snapshot(offline, 'a.html', enc('x'), 'after-save');
+      const overview = (await call(CHANNELS.historyOverview, { projectId: null })) as { value: { orphans: unknown[] } };
+      expect(overview.value.orphans).toEqual([]);
+      const key = (await store.projects()).find((p) => p.rootPath === offline)?.key;
+      expect(await call(CHANNELS.historyClear, { scope: 'orphan', key })).toMatchObject({ code: 'not-found' });
+      expect(await store.files(offline)).toEqual({ ok: true, value: ['a.html'] });
+    },
+  );
 
   it('overview without an open project lists every history whose folder is gone', async () => {
     openRoot = undefined;

@@ -219,7 +219,9 @@ test('a moved project leaves an orphaned history that is listed with its size an
   await expect(orphan).toHaveCount(1);
   await expect(orphan).toContainText(rootA);
   await expect(orphan).toContainText(/2 个文件，\d+(\.\d)? (B|KB)/);
-  await orphan.getByRole('button', { name: '清除' }).click();
+  await orphan.getByTestId('history-orphan-clear').click();
+  await expect(orphan).toContainText('确定清除这份历史？清除后无法找回。'); // asks first, like the other clears
+  await orphan.getByTestId('history-orphan-confirm').click();
   await expect(orphan).toHaveCount(0);
   await expect(page.getByTestId('history-orphans')).toBeEmpty();
   await expect(page.getByText('没有。')).toBeVisible();

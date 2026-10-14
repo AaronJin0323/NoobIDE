@@ -72,7 +72,12 @@ inside the window while it is open.
 History is keyed by the project folder's real path (decision 0006). After a project folder is moved, renamed or
 deleted, its history is no longer shown for the project but still uses space. The section **找不到文件夹的项目的
 历史 / History of projects whose folder is gone** lists these histories with their old path, number of files and
-size, each with **清除 / Clear**. A history can only be cleared this way while its folder really does not exist.
+size, each with **清除 / Clear** (asks for confirmation first). A history is listed and can be cleared this way only
+while its folder really does not exist: a project on a drive that is not connected, an offline network share or a
+folder that cannot be read right now is not listed.
+
+A restored version keeps its own line endings (CRLF or LF): the editor switches the file to them as part of the same
+undo step.
 
 If history cannot be read at the moment (another program holds the index), the window says so, nothing is deleted,
 and cleanup waits until it can be read again.

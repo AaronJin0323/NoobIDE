@@ -355,7 +355,9 @@ export function Workbench() {
       if (!bridge || !project) return null;
       const result = await bridge.workspace.readFile({ projectId: project.projectId, relPath });
       if (result.ok) return result.value.text;
-      return result.code === 'not-found' ? null : '';
+      if (result.code === 'not-found') return null;
+      // Any other failure: no comparison at all rather than a misleading one (the dialog explains).
+      throw new Error(result.code);
     },
     [bridge],
   );
@@ -364,18 +366,22 @@ export function Workbench() {
     async (relPath: string, text: string): Promise<HistoryRestoreOutcome> => {
       const project = docRef.current.project;
       if (!bridge || !project) return 'failed';
+      // Every step below waits; the project must still be the same one afterwards.
+      const same = () => docRef.current.project?.projectId === project.projectId;
       await openFile(relPath); // opens the tab (or shows it) through the normal editor path
+      if (!same()) return 'failed';
       dispatch({ type: 'activate', relPath });
       // The tab appears in state with the next render.
       const tab = await eventually(() => docRef.current.tabs.find((open) => open.relPath === relPath));
       const saver = saverOf(relPath);
-      if (!saver || !tab) return 'failed';
+      if (!saver || !tab || !same()) return 'failed';
       if (tab.content.readOnly) return 'read-only';
       // 1. Edits not on disk yet are saved first (they become a version through the save itself).
       if (!(await saver.save())) return 'save-failed';
+      if (!same()) return 'failed';
       // 2. What is on disk now is kept as a version (reason "before restore").
       const kept = await bridge.history.beforeRestore({ projectId: project.projectId, relPath });
-      if (!kept.ok) return 'failed';
+      if (!kept.ok || !same() || saver !== saverOf(relPath)) return 'failed';
       // 3. The version becomes the editor content as one undoable edit, then goes through the save pipeline.
       const applied = await import('../editor/editor-models').then((m) => m.replaceModelText(tab.uri, text));
       if (applied === null) return 'failed';
@@ -384,6 +390,9 @@ export function Workbench() {
     },
     [bridge, openFile],
   );
+  // The history window belongs to one project: it closes when the project changes.
+  const historyProjectId = doc.project?.projectId;
+  useEffect(() => setHistoryFor(null), [historyProjectId]);
   // --- end S21.3 ---
 
   /** The journal was cleared: unsaved edits still open in the editor are journaled again right away. */
@@ -431,6 +440,8 @@ export function Workbench() {
     // Capture phase, before Monaco and before the menu's whole-window zoom: Ctrl+Tab switches tabs (also on macOS,
     // like other editors), Ctrl/⌘ with + − 0 zooms the code font.
     const onKeyDownCapture = (event: KeyboardEvent) => {
+      // S20.2/S21.3: while a modal window is open, its own keys apply (no tab switching behind it).
+      if (document.querySelector('[aria-modal="true"]')) return;
       if (event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'Tab') {
         event.preventDefault();
         event.stopPropagation();

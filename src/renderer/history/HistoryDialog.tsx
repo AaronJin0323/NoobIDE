@@ -42,7 +42,7 @@ interface HistoryDialogProps {
 }
 
 type Notice = { readonly kind: 'ok' | 'error'; readonly text: string };
-type Confirm = 'project' | 'all' | null;
+type Confirm = 'project' | 'all' | { readonly orphan: string } | null;
 
 /**
  * Local history (S21.3, S21.4; PLAN §7 "show the diff first; save the current version before restoring"). Lists the
@@ -60,11 +60,20 @@ export function HistoryDialog(props: HistoryDialogProps) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [versions, setVersions] = useState<readonly HistoryVersion[] | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
-  const [content, setContent] = useState<{ version: HistoryVersionText; current: string | null } | null>(null);
+  /** The compared version, tagged with the file and version it belongs to (late answers are ignored). */
+  const [content, setContent] = useState<{
+    relPath: string;
+    id: string;
+    exists: boolean;
+    version: HistoryVersionText;
+    current: string | null;
+  } | null>(null);
   const [overview, setOverview] = useState<HistoryOverview | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
+  /** Bumped by every file or version choice: an answer for an older choice is dropped. */
+  const choice = useRef(0);
   const time = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'medium' }), [locale]);
 
   const loadFiles = useCallback(async () => {
@@ -86,10 +95,13 @@ export function HistoryDialog(props: HistoryDialogProps) {
 
   const loadVersions = useCallback(
     async (relPath: string) => {
+      choice.current += 1;
+      const mine = choice.current;
       setVersions(null);
       setSelectedVersion(null);
       setContent(null);
       const result = await api.versions({ projectId: project.projectId, relPath });
+      if (mine !== choice.current) return;
       if (!result.ok) {
         setVersions([]);
         setNotice({ kind: 'error', text: t(historyErrorKey(result.code)) });
@@ -131,18 +143,30 @@ export function HistoryDialog(props: HistoryDialogProps) {
 
   const chooseVersion = async (id: string) => {
     if (!file) return;
+    choice.current += 1;
+    const mine = choice.current;
+    const { relPath, exists } = file;
     setNotice(null);
     setSelectedVersion(id);
     setContent(null);
-    const [version, current] = await Promise.all([
-      api.read({ projectId: project.projectId, relPath: file.relPath, id }),
-      file.exists ? currentText(file.relPath) : Promise.resolve(null),
-    ]);
+    let current: string | null;
+    let version;
+    try {
+      [version, current] = await Promise.all([
+        api.read({ projectId: project.projectId, relPath, id }),
+        exists ? currentText(relPath) : Promise.resolve(null),
+      ]);
+    } catch {
+      // The current content could not be read: no comparison is shown rather than a wrong one.
+      if (mine === choice.current) setNotice({ kind: 'error', text: t('history.error.generic') });
+      return;
+    }
+    if (mine !== choice.current) return;
     if (!version.ok) {
       setNotice({ kind: 'error', text: t(historyErrorKey(version.code)) });
       return;
     }
-    setContent({ version: version.value, current });
+    setContent({ relPath, id, exists: exists && current !== null, version: version.value, current });
   };
 
   const refreshAfterChange = async (relPath: string) => {
@@ -155,19 +179,20 @@ export function HistoryDialog(props: HistoryDialogProps) {
   };
 
   const restore = async () => {
-    if (!file || !content || !selectedVersion) return;
+    // Exactly the version whose comparison is on screen, for the file it belongs to.
+    if (!content || content.relPath !== selectedFile || content.id !== selectedVersion) return;
     setBusy(true);
     setNotice(null);
     try {
-      if (file.exists) {
-        const outcome = await onRestore(file.relPath, content.version.text);
+      if (content.exists) {
+        const outcome = await onRestore(content.relPath, content.version.text);
         setNotice({ kind: outcome === 'restored' ? 'ok' : 'error', text: t(restoreOutcomeKey(outcome)) });
-        if (outcome === 'restored') await refreshAfterChange(file.relPath);
+        if (outcome === 'restored') await refreshAfterChange(content.relPath);
       } else {
         const result = await api.restoreDeleted({
           projectId: project.projectId,
-          relPath: file.relPath,
-          id: selectedVersion,
+          relPath: content.relPath,
+          id: content.id,
         });
         if (!result.ok) {
           setNotice({ kind: 'error', text: t(historyErrorKey(result.code)) });
@@ -201,11 +226,17 @@ export function HistoryDialog(props: HistoryDialogProps) {
   };
 
   const clearOrphan = async (key: string) => {
-    const result = await api.clear({ scope: 'orphan', key });
-    setNotice(
-      result.ok ? { kind: 'ok', text: t('history.cleared') } : { kind: 'error', text: t('history.clearFailed') },
-    );
-    await loadOverview();
+    setConfirm(null);
+    setBusy(true);
+    try {
+      const result = await api.clear({ scope: 'orphan', key });
+      setNotice(
+        result.ok ? { kind: 'ok', text: t('history.cleared') } : { kind: 'error', text: t('history.clearFailed') },
+      );
+      await loadOverview();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const cleanup = async () => {
@@ -218,6 +249,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
 
   // Escape first cancels an open confirmation, then closes; Tab stays inside (also when focus fell to the page).
   useModalKeys(dialogRef, () => {
+    if (busy) return; // the result of a running restore or clear must stay visible
     if (confirm) setConfirm(null);
     else onClose();
   });
@@ -239,7 +271,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
           <h2 className="dialog-title" id={titleId}>
             {t('history.title')}
           </h2>
-          <button type="button" className="quiet-button" data-testid="history-close" onClick={onClose}>
+          <button type="button" className="quiet-button" data-testid="history-close" disabled={busy} onClick={onClose}>
             {t('history.close')}
           </button>
         </div>
@@ -268,6 +300,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
                     className="history-item"
                     aria-current={f.relPath === selectedFile}
                     data-testid="history-file"
+                    disabled={busy}
                     data-path={f.relPath}
                     data-autofocus={f.relPath === initialRelPath || (index === 0 && !initialRelPath) || undefined}
                     onClick={() => chooseFile(f.relPath)}
@@ -297,6 +330,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
                     className="history-item"
                     aria-current={v.id === selectedVersion}
                     data-testid="history-version"
+                    disabled={busy}
                     data-reason={v.reason}
                     onClick={() => void chooseVersion(v.id)}
                   >
@@ -367,6 +401,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
               type="button"
               className="secondary-button"
               data-testid="history-reveal"
+              disabled={busy}
               onClick={() => void api.reveal()}
             >
               {t('history.reveal')}
@@ -375,6 +410,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
               type="button"
               className="secondary-button"
               data-testid="history-cleanup"
+              disabled={busy}
               onClick={() => void cleanup()}
             >
               {t('history.cleanup')}
@@ -398,7 +434,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
               {t('history.clearAll')}
             </button>
           </div>
-          {confirm && (
+          {(confirm === 'project' || confirm === 'all') && (
             <div className="inline-alert history-confirm" role="alert" data-testid="history-confirm">
               <WarningIcon />
               <div>
@@ -412,6 +448,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
                     className="secondary-button danger-button"
                     data-testid="history-confirm-clear"
                     onClick={() => void clear(confirm)}
+                    disabled={busy}
                   >
                     {t('history.confirm')}
                   </button>
@@ -431,9 +468,32 @@ export function HistoryDialog(props: HistoryDialogProps) {
                     {fill(t('history.orphanSize'), { files: o.files, size: formatBytes(o.bytes) })}
                   </small>
                 </span>
-                <button type="button" className="secondary-button" onClick={() => void clearOrphan(o.key)}>
-                  {t('history.orphanClear')}
-                </button>
+                {typeof confirm === 'object' && confirm?.orphan === o.key ? (
+                  <span className="alert-actions history-orphan-confirm" role="alert">
+                    <span>{t('history.clearOrphanConfirm')}</span>
+                    <button type="button" className="secondary-button" onClick={() => setConfirm(null)}>
+                      {t('history.cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button danger-button"
+                      data-testid="history-orphan-confirm"
+                      onClick={() => void clearOrphan(o.key)}
+                    >
+                      {t('history.confirm')}
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    data-testid="history-orphan-clear"
+                    disabled={busy}
+                    onClick={() => setConfirm({ orphan: o.key })}
+                  >
+                    {t('history.orphanClear')}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
