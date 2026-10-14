@@ -250,5 +250,7 @@ export const en: Record<MessageKey, string> = {
   'settings.newer': 'The settings file comes from a newer NoobIDE that this version cannot read.',
   'settings.reset': 'The original file was backed up; the default settings are used now.',
   'settings.backup': 'Backup:',
+  'appMenu.label': 'More actions',
+  'appMenu.openLogs': 'Open logs folder',
   // --- end S13 ---
 };

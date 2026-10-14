@@ -236,6 +236,8 @@ export const zhCN = {
   'settings.newer': '设置文件来自更新版本的 NoobIDE，这个版本读不懂它。',
   'settings.reset': '原来的文件已备份，现在使用默认设置。',
   'settings.backup': '备份位置：',
+  'appMenu.label': '更多操作',
+  'appMenu.openLogs': '打开日志文件夹',
   // --- end S13 ---
 } as const;
 

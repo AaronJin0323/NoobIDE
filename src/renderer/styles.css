@@ -432,6 +432,43 @@ button {
   z-index: 40;
   max-width: 420px;
 }
+/* S13: command menu next to the project name (opens over the left half, never under the native preview) */
+.app-menu {
+  position: relative;
+  flex: none;
+}
+.app-menu .icon-button {
+  margin-left: 4px;
+}
+.app-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 30%);
+}
+.app-menu-item {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.app-menu-item:hover,
+.app-menu-item:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
 /* S11.2: conflict comparison (Monaco diff) in place of the editor */
 .conflict-diff {
   display: flex;

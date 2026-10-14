@@ -91,6 +91,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       recovery: Object.keys(((w.noobide as { recovery?: object } | undefined)?.recovery ?? {}) as object),
       // S13 app data
       settings: Object.keys(((w.noobide as { settings?: object } | undefined)?.settings ?? {}) as object),
+      logs: Object.keys(((w.noobide as { logs?: object } | undefined)?.logs ?? {}) as object),
     };
   });
   expect(probe).toEqual({
@@ -99,7 +100,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     inlineRan: false,
     violations: ['script-src-elem'],
     // S03.1: exactly the typed contract — no ipcRenderer, no generic send.
-    bridge: ['apiVersion', 'platform', 'workspace', 'app', 'preview', 'recovery', 'settings'],
+    bridge: ['apiVersion', 'platform', 'workspace', 'app', 'preview', 'recovery', 'settings', 'logs'],
     apiVersion: 1,
     workspace: [
       'openFolder',
@@ -122,6 +123,8 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     recovery: ['record', 'discardSaved', 'listPending', 'openProject', 'read', 'discard', 'clear'],
     // S13.1: settings in app data.
     settings: ['get', 'update'],
+    // S13.6: open the log folder (no path crosses the bridge).
+    logs: ['openFolder'],
   });
 
   // The violation we just provoked is logged as a console error; drop exactly those so the final check stays strict.

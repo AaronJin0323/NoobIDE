@@ -14,7 +14,10 @@ const workbench = eventFrom(`${ORIGIN}/index.html`);
 const strangers = [eventFrom('https://evil.example/'), eventFrom(`${ORIGIN}/index.html`, false), eventFrom(null)];
 
 let handlers: Map<string, Handler>;
-let deps: AppDataIpcDeps & { settings: { snapshot: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> } };
+let deps: AppDataIpcDeps & {
+  settings: { snapshot: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
+  openLogsFolder: ReturnType<typeof vi.fn>;
+};
 
 beforeEach(() => {
   handlers = new Map();
@@ -24,6 +27,7 @@ beforeEach(() => {
       snapshot: vi.fn(async () => ({ settings: DEFAULT_SETTINGS, notice: null, backupPath: null })),
       update: vi.fn(async (patch: object) => ({ ...DEFAULT_SETTINGS, ...patch })),
     },
+    openLogsFolder: vi.fn(async () => ''),
   };
   registerAppDataIpcHandlers({ handle: (channel: string, h: Handler) => void handlers.set(channel, h) } as never, deps);
 });
@@ -66,5 +70,23 @@ describe('settings channels (S13.1)', () => {
       code: 'invalid-request',
     });
     expect(deps.settings.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('open logs folder (S13.6)', () => {
+  it('opens the folder for the workbench only, with no payload', async () => {
+    expect(await call(APP_DATA_CHANNELS.openLogsFolder, workbench)).toEqual({ ok: true, value: null });
+    expect(await call(APP_DATA_CHANNELS.openLogsFolder, workbench, 'C:/Windows')).toMatchObject({
+      code: 'invalid-request',
+    });
+    for (const event of strangers) {
+      expect(await call(APP_DATA_CHANNELS.openLogsFolder, event)).toMatchObject({ code: 'forbidden-sender' });
+    }
+    expect(deps.openLogsFolder).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a folder the OS could not open', async () => {
+    deps.openLogsFolder.mockResolvedValueOnce('Failed to open');
+    expect(await call(APP_DATA_CHANNELS.openLogsFolder, workbench)).toMatchObject({ ok: false, code: 'open-failed' });
   });
 });

@@ -11,6 +11,8 @@ export const APP_DATA_CHANNELS = {
   // S13.1
   settingsGet: 'settings:get',
   settingsUpdate: 'settings:update',
+  // S13.6
+  openLogsFolder: 'app:open-logs-folder',
 } as const;
 
 // ── S13.1 settings ──
@@ -25,6 +27,12 @@ export interface SettingsSnapshot {
 export interface SettingsApi {
   get(): Promise<IpcResult<SettingsSnapshot, never>>;
   update(patch: SettingsPatch): Promise<IpcResult<AppSettings, never>>;
+}
+
+// ── S13.6 local logs ──
+export interface LogsApi {
+  /** Shows the log folder (in app data) in Explorer / Finder. */
+  openFolder(): Promise<IpcResult<null, 'open-failed'>>;
 }
 
 // Re-exported for the renderer and main.

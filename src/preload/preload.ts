@@ -70,6 +70,9 @@ const api: NoobideApi = {
     get: () => ipcRenderer.invoke(APP_DATA_CHANNELS.settingsGet),
     update: (patch) => ipcRenderer.invoke(APP_DATA_CHANNELS.settingsUpdate, patch),
   },
+  logs: {
+    openFolder: () => ipcRenderer.invoke(APP_DATA_CHANNELS.openLogsFolder),
+  },
   // --- end S13 ---
 };
 
@@ -82,5 +85,6 @@ contextBridge.exposeInMainWorld(
     app: Object.freeze(api.app),
     recovery: Object.freeze(api.recovery),
     settings: Object.freeze(api.settings), // S13
+    logs: Object.freeze(api.logs),
   }),
 );

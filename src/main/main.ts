@@ -28,6 +28,9 @@ import { selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test
 // S13 app data: settings, recent projects, session, logs
 import { registerAppDataIpcHandlers } from './app-data-ipc';
 import { SettingsStore } from './settings-store';
+import { AppLog } from './app-log';
+import { osInfo } from '../platform/os-info';
+import type { RecoveryLogger } from '../recovery/atomic-file';
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
 // Windows installer events: create/remove shortcuts and quit without opening a window.
@@ -122,11 +125,32 @@ function start(): void {
     const watchHub = new ProjectWatchHub();
     // --- S12: unsaved-buffer journal in the app-data directory (PLAN §6), never inside a project ---
     const appData = app.getPath('userData');
-    const journal = new RecoveryJournal({ dir: path.join(appData, 'recovery'), log: consoleLogger });
+    // --- S13.6: rotating, content-free log in app data; recovery and history events go there too ---
+    const appLog = new AppLog({ dir: path.join(appData, 'logs') });
+    appLog.started({
+      app: app.getVersion(),
+      electron: process.versions.electron ?? '',
+      chrome: process.versions.chrome ?? '',
+      node: process.versions.node,
+      ...osInfo(),
+    });
+    const logger: RecoveryLogger = (event, fields) => {
+      consoleLogger(event, fields);
+      appLog.write('warn', event, fields);
+    };
+    app.on('render-process-gone', (_event, _contents, details) =>
+      appLog.write('error', 'render-process-gone', { reason: details.reason, exitCode: details.exitCode }),
+    );
+    app.on('child-process-gone', (_event, details) =>
+      appLog.write('error', 'child-process-gone', { type: details.type, reason: details.reason }),
+    );
+    app.on('will-quit', () => appLog.write('info', 'app-quit'));
+    // --- end S13.6 ---
+    const journal = new RecoveryJournal({ dir: path.join(appData, 'recovery'), log: logger });
     // --- end S12 ---
     // --- S21: local history (snapshots around saves) in app data ---
-    const history = new SnapshotStore({ dir: path.join(appData, 'history'), log: consoleLogger });
-    const historyTriggers = new HistoryTriggers(history, consoleLogger);
+    const history = new SnapshotStore({ dir: path.join(appData, 'history'), log: logger });
+    const historyTriggers = new HistoryTriggers(history, logger);
     // --- end S21 ---
     projects = new ProjectService({ history: historyTriggers });
     registerIpcHandlers(ipcMain, {
@@ -161,9 +185,13 @@ function start(): void {
       preview,
     });
     // --- S13 app data (all in app.getPath('userData'), never inside a project) ---
-    const settings = new SettingsStore({ file: path.join(appData, 'settings.json'), log: consoleLogger });
+    const settings = new SettingsStore({ file: path.join(appData, 'settings.json'), log: logger });
     void settings.load();
-    registerAppDataIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, settings });
+    registerAppDataIpcHandlers(ipcMain, {
+      allowedOrigin: devOrigin ?? APP_ORIGIN,
+      settings,
+      openLogsFolder: () => shell.openPath(appLog.dir),
+    });
     // --- end S13 ---
     createWorkbenchWindow();
 

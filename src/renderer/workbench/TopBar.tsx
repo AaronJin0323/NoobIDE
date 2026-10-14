@@ -5,6 +5,7 @@ import type { OpenedProject } from '../../shared/ipc/contract';
 import type { SaveStatus } from './save-machine';
 import { CodeIcon, DotIcon, RevealIcon, SaveStateIcon } from './icons';
 import type { NarrowView } from './layout';
+import { AppMenu, type AppMenuItem } from './AppMenu'; // S13
 
 interface TopBarProps {
   platform: PlatformId;
@@ -14,6 +15,8 @@ interface TopBarProps {
   onReveal: () => void;
   /** Present only in a narrow window (S30.4). */
   narrow?: { view: NarrowView; onShow: (view: NarrowView) => void } | undefined;
+  /** S13: commands of the menu next to the project (close project, open logs folder). */
+  menuItems?: readonly AppMenuItem[] | undefined;
 }
 
 const SAVE_LABEL: Record<SaveStatus, MessageKey> = {
@@ -26,7 +29,7 @@ const SAVE_LABEL: Record<SaveStatus, MessageKey> = {
   deleted: 'save.deleted', // S11.3
 };
 
-export function TopBar({ platform, project, save, onReveal, narrow }: TopBarProps) {
+export function TopBar({ platform, project, save, onReveal, narrow, menuItems }: TopBarProps) {
   const { t, locale, setLocale } = useI18n();
   return (
     <header className="region topbar" role="banner" aria-label={t('region.topbar')} data-testid="region-topbar">
@@ -54,6 +57,7 @@ export function TopBar({ platform, project, save, onReveal, narrow }: TopBarProp
           <RevealIcon />
         </button>
       )}
+      {menuItems && <AppMenu items={menuItems} />}
       {narrow && (
         <div className="segmented" role="group" aria-label={t('narrow.switch')} data-testid="narrow-switch">
           {(['code', 'preview'] as const).map((view) => (

@@ -13,6 +13,8 @@ import type { SettingsStore } from './settings-store';
 export interface AppDataIpcDeps {
   readonly allowedOrigin: string;
   readonly settings: Pick<SettingsStore, 'snapshot' | 'update'>;
+  /** S13.6: shows the log folder in the file manager; resolves to an error text ('' on success, like shell.openPath). */
+  openLogsFolder(): Promise<string>;
 }
 
 type Run<P> = (payload: P, event: IpcMainInvokeEvent) => Promise<IpcResult<unknown, string>>;
@@ -40,4 +42,10 @@ export function registerAppDataIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: A
     ok: true,
     value: await deps.settings.update(patch),
   }));
+
+  // ── S13.6 local logs ──
+  handle(APP_DATA_CHANNELS.openLogsFolder, parseNoPayload, async () => {
+    const error = await deps.openLogsFolder();
+    return error === '' ? { ok: true, value: null } : { ok: false, code: 'open-failed', message: 'could not open' };
+  });
 }

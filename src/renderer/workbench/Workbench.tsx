@@ -30,6 +30,7 @@ const editorModels = () => import('../editor/editor-models');
 // S13 app data
 import type { SettingsSnapshot } from '../../shared/ipc/app-data-contract';
 import { SettingsNotice } from './SettingsNotice';
+import type { AppMenuItem } from './AppMenu';
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -94,6 +95,14 @@ export function Workbench() {
     if (settingsLoaded.current) void bridge?.settings?.update({ editorFontSize: fontSize });
   }, [bridge, fontSize]);
   // --- end S13.1 ---
+  // --- S13 command menu ---
+  const menuItems = useMemo<AppMenuItem[]>(() => {
+    const items: AppMenuItem[] = [];
+    const logs = bridge?.logs;
+    if (logs) items.push({ id: 'open-logs', label: 'appMenu.openLogs', onSelect: () => void logs.openFolder() });
+    return items;
+  }, [bridge]);
+  // --- end S13 command menu ---
 
   const saverOf = (relPath: string | null | undefined) => (relPath ? savers.current.get(relPath) : undefined);
   const relPathOfUri = (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath;
@@ -530,6 +539,7 @@ export function Workbench() {
             ? { view: layout.narrowView, onShow: (view) => dispatchLayout({ type: 'showNarrowView', view }) }
             : undefined
         }
+        menuItems={menuItems}
       />
       <div className="workbench-middle">
         <Rail
