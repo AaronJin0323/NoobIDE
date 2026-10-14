@@ -1006,8 +1006,8 @@
       "depends_on": [
         "S07.1"
       ],
-      "status": "in_progress",
-      "evidence": "Reopened after review @ 2c4e14d: write skips the encoding check for files > 5 MB, so a large non-UTF-8/binary file can be overwritten. Fix in progress (workspace agent)."
+      "status": "done",
+      "evidence": "review fixes: write refuses on-disk files over 5 MB (too-large) and any non-UTF-8 file (project-service.test 'never overwrites a file larger than the editor limit', 6 MB 0xFF + 6 MB text unchanged); legacy encodings labelled as a guess (GB18030 only for Chinese-looking text, else Windows-1252; encodingGuessed notice); small valid UTF-8 with control chars is text (text-codec.test); verify + e2e (82) green @ cb161a4"
     },
     {
       "id": "S08.1",
@@ -1036,8 +1036,8 @@
       "depends_on": [
         "S08.1"
       ],
-      "status": "in_progress",
-      "evidence": "Reopened after review @ 2c4e14d: failed case-only rename leaves the file hidden under a .noobide-rename dotfile; existing invalid names cannot be renamed or explained. Fix in progress (workspace agent)."
+      "status": "done",
+      "evidence": "review fixes: case-only rename direct + readdir-verified, visible NoobIDE-renaming-* hop only as fallback, rollback, temp name reported as 'interrupted' (file-ops.test injected failures between renames); into-itself after resolving (SUB/inner, junction); non-portable names flagged in listDir, explained, repairable via rename/trash/reveal with exact-name readdir check (file-ops.test, ipc.test, e2e file-tree.spec); unguarded lstat removed, commitName catch; ADR 0008; verify + e2e (82) green @ cb161a4"
     },
     {
       "id": "S08.3",
@@ -1068,8 +1068,8 @@
       "depends_on": [
         "S08.2"
       ],
-      "status": "in_progress",
-      "evidence": "Reopened after review @ 2c4e14d: inode-based sibling skip can overwrite a distinct exact-name target on shares with unreliable inode numbers; case-only branch has no final existence check. Fix in progress (workspace agent)."
+      "status": "done",
+      "evidence": "review fixes: only the sibling with the source's exact name is skipped (no inode trust; file-ops.test 'exact-name sibling is always a conflict'); file moves use link()+unlink() refusing a target that appears after the check, rename fallback where hard links unsupported, rollback when unlink fails (file-ops.test); residual folder window documented in ADR 0008; verify + e2e (82) green @ cb161a4"
     },
     {
       "id": "S08.5",
