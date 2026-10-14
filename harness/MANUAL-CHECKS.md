@@ -184,3 +184,25 @@ The e2e suite replaces `shell.trashItem` with a recorder, so the real Recycle Bi
      there. It must never disappear without being recoverable.
 - **Expected:** as described for every case; no file outside the project changes.
 - **Result:** _(owner fills in: pass/fail per case and platform, notes, date)_
+
+### S25.3 — OS folder protection messages on real hardware (confirmation)
+
+S25.3 is proven by simulated tests (`tests/integration/protected-folder.test.ts`); this confirms the error codes the
+simulation assumes (macOS TCC: `EPERM`; Windows Controlled Folder Access: `EPERM`/`EACCES` on writes only).
+
+- **Platform:** macOS on Apple Silicon (packaged, unsigned dev build is fine) and Windows 11 x64
+- **Build:** the commit that closed S25.3
+- **Steps:**
+  1. macOS: put a project in `~/Documents`, open it once, quit. System Settings › Privacy & Security › Files and
+     Folders › NoobIDE (or Electron for `npm start`): turn **Documents Folder** off. Start NoobIDE, open the project
+     from Recent projects.
+  2. macOS: in Finder, Get Info on a project file in `~/Desktop` and tick **Locked**; edit it in NoobIDE and save.
+  3. Windows: Windows Security › Virus & threat protection › Ransomware protection: turn **Controlled folder access**
+     on (do not allow NoobIDE). Open a project in `Documents`, edit `index.html` and save; also create a new file and
+     a new project in `Documents`.
+  4. Windows: with Controlled folder access off, set a file in `Documents` read-only (Properties › Read-only), edit
+     and save it.
+- **Expected:** 1 and 3 explain the privacy setting with the exact place to allow NoobIDE (zh-CN and en); edits stay
+  in the editor and nothing on disk changes. 2 and 4 show the ordinary "read-only" message instead. Undo the
+  settings afterwards.
+- **Result:** _(owner fills in: pass/fail per step and platform, notes, date)_

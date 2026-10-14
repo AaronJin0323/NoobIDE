@@ -1,6 +1,7 @@
 import type { MessageKey } from '../i18n/index';
 import type { FileOpError, RequestError } from '../../shared/ipc/contract';
 import { checkFileName, type FileNameProblem } from '../../shared/file-names';
+import { protectedFolderKey, type PlatformId } from '../../platform/labels';
 
 /**
  * Explanations for file operations (S08.2–S08.4). Pure so every refusal is tested to have a message; the text
@@ -10,6 +11,16 @@ export type Translate = (key: MessageKey) => string;
 
 export function fill(template: string, values: Readonly<Record<string, string>>): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);
+}
+
+/** The platform preload exposes; `other` outside the app (unit tests, no bridge). */
+export function rendererPlatform(): PlatformId {
+  return (typeof window === 'undefined' ? undefined : window.noobide?.platform) ?? 'other';
+}
+
+/** S25.3: the OS privacy protection blocked the folder; says how to allow NoobIDE on this platform. */
+export function protectedFolderMessage(t: Translate, platform: PlatformId = rendererPlatform()): string {
+  return t(protectedFolderKey(platform));
 }
 
 const PROBLEM_KEYS: Record<FileNameProblem, MessageKey> = {
@@ -37,7 +48,13 @@ export function nameProblemMessage(t: Translate, name: string): string | null {
 }
 
 /** The explanation for a refused or failed operation. `message` is main's detail (e.g. the existing name). */
-export function opErrorMessage(t: Translate, code: FileOpError | RequestError, message: string, name: string): string {
+export function opErrorMessage(
+  t: Translate,
+  code: FileOpError | RequestError,
+  message: string,
+  name: string,
+  platform: PlatformId = rendererPlatform(),
+): string {
   switch (code) {
     case 'exists':
       return fill(t('op.exists'), { name: message || name });
@@ -53,6 +70,8 @@ export function opErrorMessage(t: Translate, code: FileOpError | RequestError, m
       return t('op.notFound');
     case 'permission-denied':
       return t('op.permission');
+    case 'protected-folder':
+      return protectedFolderMessage(t, platform);
     case 'busy':
       return t('op.busy');
     case 'outside-project':

@@ -6,6 +6,7 @@ import { err, ok, type Result } from '../shared/result';
 import { isUnsafePathSegment } from '../shared/file-names';
 import { isIgnoredName } from './ignore';
 import { errorCode, isInside, resolveExisting } from './paths';
+import { protectedFolderCauseOf } from '../platform/protected-folders';
 
 /**
  * One level of the lazy project tree (S07.2). The renderer asks for a folder's children only when the user expands
@@ -33,7 +34,7 @@ export async function listDirectory(root: string, relPath: string): Promise<Resu
     if (!(await stat(dir.path)).isDirectory()) return err('not-a-directory', 'not a directory');
     dirents = await readdir(dir.path, { withFileTypes: true });
   } catch (e) {
-    return err(listErrorCode(errorCode(e)), errorCode(e), e);
+    return err(protectedFolderCauseOf(e, 'read') ? 'protected-folder' : listErrorCode(errorCode(e)), errorCode(e), e);
   }
   const visible = dirents.filter((d) => !isIgnoredName(d.name));
   const truncated = visible.length > MAX_DIR_ENTRIES;

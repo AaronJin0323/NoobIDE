@@ -95,8 +95,11 @@ export interface RecentProject {
 /** `window.noobide.recentProjects` — exactly the welcome screen's RecentProjectsSource. */
 export interface RecentProjectsApi {
   list(): Promise<readonly RecentProject[]>;
-  /** Opens the project by id (main looks up its path); `null` when it cannot be opened (e.g. the folder is gone). */
-  open(id: string): Promise<OpenedProject | null>;
+  /**
+   * Opens the project by id (main looks up its path); `null` when it cannot be opened (e.g. the folder is gone),
+   * `protected-folder` when the OS privacy protection blocked it (S25.3).
+   */
+  open(id: string): Promise<OpenedProject | 'protected-folder' | null>;
   /** Removes the entry from the list only. Never touches anything on disk. */
   remove(id: string): Promise<void>;
 }

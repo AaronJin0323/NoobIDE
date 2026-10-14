@@ -30,6 +30,7 @@ export type ProjectHistoryHook = SaveHistoryHook & {
 };
 import { FileInUseError, replaceFileAtomic, writeFileAtomic, type AtomicWriteOptions } from './atomic-write';
 import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
+import { protectedFolderCauseOf } from '../platform/protected-folders';
 import { listDirectory } from './tree';
 import { createEntry, renameEntry, resolveEntry, trashEntry } from './file-ops';
 import { isListedEntry } from './listing-filter';
@@ -91,7 +92,7 @@ export class ProjectService {
   async open(
     chosenPath: string,
     options: { readonly restore?: boolean } = {},
-  ): Promise<Result<OpenedProject, 'list-failed'>> {
+  ): Promise<Result<OpenedProject, 'list-failed' | 'protected-folder'>> {
     // A late startup restore must not revoke a project the user has already opened or closed.
     if (options.restore && this.openGeneration !== 0) return err('list-failed', 'project open superseded');
     const generation = ++this.openGeneration;
@@ -106,7 +107,8 @@ export class ProjectService {
       this.projects.set(projectId, { root });
       return ok({ projectId, name: path.basename(root), rootPath: root, files, truncated });
     } catch (e) {
-      return err('list-failed', errorCode(e), e);
+      // S25.3: macOS privacy protection refuses the folder itself (e.g. a recent project in Documents).
+      return err(protectedFolderCauseOf(e, 'read') ? 'protected-folder' : 'list-failed', errorCode(e), e);
     }
   }
 
@@ -435,6 +437,7 @@ function createErrorCode(code: FileOpError): WriteFileError {
     case 'outside-project':
     case 'not-found':
     case 'permission-denied':
+    case 'protected-folder':
     case 'busy':
     case 'invalid-name':
       return code;
@@ -451,6 +454,7 @@ function isNotFound(e: unknown): boolean {
 
 function writeErrorCode(e: unknown): WriteFileError {
   if (e instanceof ChangedOnDiskError) return 'changed-on-disk';
+  if (protectedFolderCauseOf(e, 'write')) return 'protected-folder'; // S25.3
   switch (errorCode(e)) {
     case 'ENOENT':
     case 'ENOTDIR':

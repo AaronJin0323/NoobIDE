@@ -1,7 +1,8 @@
 import type { NoobideApi, OpenedProject, RequestError } from '../../shared/ipc/contract';
 import type { CreateProjectError, TemplatesError } from '../../shared/ipc/create-contract';
 import type { MessageKey } from '../i18n/index';
-import { fill, nameProblemMessage, type Translate } from '../workbench/file-op-messages';
+import { fill, nameProblemMessage, protectedFolderMessage, type Translate } from '../workbench/file-op-messages';
+import type { PlatformId } from '../../platform/labels';
 
 /**
  * Pure view logic of the welcome screen and the create-project wizard (S20.2). Text comes from the i18n
@@ -28,8 +29,11 @@ export interface RecentProject {
  */
 export interface RecentProjectsSource {
   list(): Promise<readonly RecentProject[]>;
-  /** Opens the project (main looks its path up by id); `null` when the folder cannot be opened. */
-  open(id: string): Promise<OpenedProject | null>;
+  /**
+   * Opens the project (main looks its path up by id); `null` when the folder cannot be opened, `protected-folder`
+   * when the OS privacy protection blocked it (S25.3).
+   */
+  open(id: string): Promise<OpenedProject | 'protected-folder' | null>;
   /** Removes the entry from the list only. Never touches anything on disk. */
   remove(id: string): Promise<void>;
 }
@@ -90,8 +94,11 @@ export function createErrorMessage(
   code: CreateProjectError | TemplatesError | RequestError,
   message: string,
   name: string,
+  platform?: PlatformId,
 ): string {
   switch (code) {
+    case 'protected-folder':
+      return protectedFolderMessage(t, platform);
     case 'invalid-name':
       return nameProblemMessage(t, name) ?? t('wizard.error.generic');
     case 'exists':

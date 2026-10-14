@@ -273,7 +273,7 @@ export function Workbench() {
   const openFolder = useCallback(async () => {
     if (!bridge || !(await saveAll())) return;
     const result = await bridge.workspace.openFolder();
-    if (!result.ok) dispatch({ type: 'projectOpenFailed' });
+    if (!result.ok) dispatch({ type: 'projectOpenFailed', code: result.code });
     else if (result.value) {
       // Edits typed while the dialog was open are saved too; a failure keeps the current project.
       if (!(await saveAll())) return;

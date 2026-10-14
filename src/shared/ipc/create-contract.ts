@@ -65,6 +65,8 @@ export type CreateProjectError =
   | 'unknown-location'
   | 'unknown-template'
   | 'permission-denied'
+  /** S25.3: blocked by the OS privacy protection (macOS TCC, Windows Controlled Folder Access). */
+  | 'protected-folder'
   | 'disk-full'
   | 'template-broken'
   | 'create-failed'
