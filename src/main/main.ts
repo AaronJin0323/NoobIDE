@@ -24,7 +24,7 @@ import { consoleLogger } from '../recovery/atomic-file';
 import { RecoveryJournal } from '../recovery/journal';
 import { SnapshotStore } from '../recovery/history';
 import { HistoryTriggers } from '../recovery/history-triggers';
-import { selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test';
+import { selfTestOffline, selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test';
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
 // Windows installer events: create/remove shortcuts and quit without opening a window.
@@ -100,7 +100,18 @@ function start(): void {
       }),
     );
     win.on('closed', () => closeGuards.delete(contentsId));
-    if (selfTest) watchSelfTest(win.webContents, (code) => app.exit(code));
+    if (selfTest) {
+      // S18.1: the result line also says whether the network was off and what the network guard refused.
+      watchSelfTest(
+        win.webContents,
+        (code) => app.exit(code),
+        undefined,
+        () => ({
+          offline: selfTestOffline(),
+          blockedRequests: blockedRequests.length,
+        }),
+      );
+    }
 
     const entry = devServerUrl ?? APP_ENTRY_URL;
     void win.loadURL(selfTest ? withSelfTestQuery(entry) : entry);
@@ -111,6 +122,8 @@ function start(): void {
     const ses = session.defaultSession;
     denyAllPermissions(ses);
     installNetworkGuard(ses, devOrigin);
+    // S18.1: the offline self-test proves the language services need no network.
+    if (selfTestOffline()) ses.enableNetworkEmulation({ offline: true });
     if (devOrigin) {
       installDevCsp(ses, devOrigin, buildCsp('development', devOrigin));
     } else {

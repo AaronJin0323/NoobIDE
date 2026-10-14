@@ -14,7 +14,10 @@ import CssWorker from 'monaco-editor/languages/features/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/languages/features/html/html.worker?worker';
 import JsonWorker from 'monaco-editor/languages/features/json/json.worker?worker';
 import TsWorker from 'monaco-editor/languages/features/typescript/ts.worker?worker';
+import { javascriptDefaults } from 'monaco-editor/languages/features/typescript/register';
+import { cssDefaults } from 'monaco-editor/languages/features/css/register';
 import { MONACO_THEME_NAME, buildMonacoTheme } from '../theme/monaco-theme';
+import { configureLanguages } from './language-config';
 
 /** Labels of the workers Monaco has started — read by the worker probe (self-test / e2e). */
 export const startedWorkers: string[] = [];
@@ -50,5 +53,9 @@ self.MonacoEnvironment = {
 for (const scheme of ['dark', 'light'] as const) {
   monaco.editor.defineTheme(MONACO_THEME_NAME[scheme], buildMonacoTheme(scheme));
 }
+
+// S18.1 / S19.2: HTML, CSS and JavaScript services with beginner-tuned diagnostics (language-config.ts).
+export const languageDefaults = { javascript: javascriptDefaults, css: cssDefaults };
+configureLanguages(languageDefaults);
 
 export { monaco };

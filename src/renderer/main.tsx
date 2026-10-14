@@ -20,8 +20,8 @@ createRoot(rootElement).render(
 
 // Packaged-app self-test (src/main/self-test.ts): only when main loaded us with ?selftest=1.
 if (new URLSearchParams(window.location.search).get('selftest') === '1') {
-  void import('./editor/worker-probe').then(async ({ probeMonacoWorkers }) => {
-    const result = await probeMonacoWorkers();
+  void import('./editor/self-test-run').then(async ({ runSelfTest }) => {
+    const result = await runSelfTest();
     console.info(`NOOBIDE_SELFTEST ${JSON.stringify(result)}`);
   });
 }
