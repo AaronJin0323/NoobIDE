@@ -19,6 +19,15 @@ export function quitsWhenLastWindowCloses(platform: NodeJS.Platform = process.pl
   return platformId(platform) !== 'mac';
 }
 
+/**
+ * The usual file-name case sensitivity of the platform's default volumes (NTFS and APFS: insensitive). Only a
+ * fallback: src/workspace/paths probes the real volume, since a Mac can have a case-sensitive APFS volume and a
+ * Windows folder can be marked case-sensitive (S07.1).
+ */
+export function defaultCaseSensitive(platform: NodeJS.Platform = process.platform): boolean {
+  return platformId(platform) === 'other';
+}
+
 /** macOS re-creates a window when the dock icon is clicked and no windows are open (PLAN §3). */
 export function recreatesWindowOnActivate(platform: NodeJS.Platform = process.platform): boolean {
   return platformId(platform) === 'mac';

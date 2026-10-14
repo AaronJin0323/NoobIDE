@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { access, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import {
   MAX_TEXT_FILE_BYTES,
   type FileContent,
@@ -16,6 +15,7 @@ import {
 } from '../shared/ipc/contract';
 import { err, ok, type Result } from '../shared/result';
 import { replaceFileAtomic } from './atomic-write';
+import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
 import { decodeText, encodeText } from './text-codec';
 
 /**
@@ -71,7 +71,7 @@ export class ProjectService {
     }
     const decoded = decodeText(bytes);
     if (!decoded.ok) return err('unsupported-encoding', decoded.reason);
-    return ok({ text: decoded.text, eol: decoded.eol, bom: decoded.bom, uri: pathToFileURL(target.value).href });
+    return ok({ text: decoded.text, eol: decoded.eol, bom: decoded.bom, uri: toFileUri(target.value) });
   }
 
   /** Saves over an existing file. Creating files arrives with the file operations of S08. */
@@ -96,25 +96,15 @@ export class ProjectService {
   ): Promise<Result<string, 'unknown-project' | 'outside-project' | 'not-found'>> {
     const project = this.projects.get(request.projectId);
     if (!project) return err('unknown-project', 'project is not open');
-    const candidate = path.resolve(project.root, ...request.relPath.split(path.posix.sep));
-    if (!isInside(project.root, candidate)) return err('outside-project', 'path leaves the project');
-    let real: string;
-    try {
-      real = await realpath(candidate);
-    } catch (e) {
-      return err('not-found', errorCode(e), e);
-    }
     // Symbolic links and junctions may point anywhere; the real target must still be inside the project.
-    if (!isInside(project.root, real)) return err('outside-project', 'link target leaves the project');
-    return ok(real);
+    const resolved = await resolveExisting(project.root, request.relPath);
+    if (!resolved.ok) return err(resolved.code, resolved.message);
+    if (resolved.path === project.root) return err('outside-project', 'the project root is not a file');
+    return ok(resolved.path);
   }
 }
 
-/** True when `candidate` lies strictly below `root` (the root itself is not a file), using path APIs only. */
-export function isInside(root: string, candidate: string): boolean {
-  const rel = path.relative(root, candidate);
-  return rel !== '' && !path.isAbsolute(rel) && rel.split(path.sep)[0] !== '..';
-}
+export { isInside };
 
 async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated: boolean }> {
   const files: FileEntry[] = [];
@@ -139,17 +129,12 @@ async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated:
         }
         await walk(full, segments);
       } else if (entry.isFile()) {
-        files.push({ relPath: segments.join(path.posix.sep), uri: pathToFileURL(full).href });
+        files.push({ relPath: segments.join(path.posix.sep), uri: toFileUri(full) });
       }
     }
   };
   await walk(root, []);
   return { files, truncated };
-}
-
-function errorCode(e: unknown): string {
-  const code = (e as { code?: unknown } | null)?.code;
-  return typeof code === 'string' ? code : e instanceof Error ? e.name : 'unknown';
 }
 
 function isNotFound(e: unknown): boolean {
