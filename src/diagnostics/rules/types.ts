@@ -24,6 +24,8 @@ export interface RuleContext {
   readonly htmlIds?: readonly string[];
   /** `class` names present in the project's HTML. */
   readonly htmlClasses?: readonly string[];
+  /** URLs of <script src> on other websites that the page loads (for cross-origin "Script error."). */
+  readonly externalScripts?: readonly string[];
 }
 
 /** What a rule returns; the engine adds the standard actions (go to code, show original) and the rule id. */

@@ -5,6 +5,7 @@
 import type { ProblemExplanation, ProblemRecord } from '../../shared/problem';
 import { corsRule, fetchFailureRule, jsonParseRule, unhandledRejectionRule } from './async-network';
 import { htmlUnclosedTagRule, notAFunctionRule, selectorGuidedRule } from './code-structure';
+import { crossOriginRule } from './cross-origin';
 import { cssPropertyRule } from './css-property';
 import { explainProblem, withExplanation } from './engine';
 import { moduleImportRule } from './module-import';
@@ -15,6 +16,7 @@ import type { Rule, RuleContext } from './types';
 import { undefinedNameRule } from './undefined-name';
 
 export const DEFAULT_RULES: readonly Rule[] = [
+  crossOriginRule,
   moduleImportRule,
   corsRule,
   jsonParseRule,

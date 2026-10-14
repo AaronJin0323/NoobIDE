@@ -215,4 +215,14 @@ export const en: Record<DiagnosticsMessageKey, string> = {
     'Make sure the <head> of the HTML includes this CSS file with <link rel="stylesheet" href="…"> and that the path is right.',
   'selector.check.override': 'Look for a later rule or a more specific selector that sets the same property.',
   'selector.check.saved': 'Save the file and make sure the preview has refreshed.',
+  // S16.6 — opaque cross-origin "Script error."
+  'crossOrigin.title': 'A script from another website failed, but the browser hid the details (Script error.).',
+  'crossOrigin.explanation':
+    'This error likely comes from a script on another website (such as a library from a CDN). For security reasons the browser does not give the page the details of such errors, so NoobIDE cannot show a file name or line number.',
+  'crossOrigin.cause.script': 'The page loads a script from another website: {url}',
+  'crossOrigin.check.download':
+    "Put the library's .js file in the project and load it with a relative path; then the exact location is shown next time.",
+  'crossOrigin.check.crossorigin':
+    'If that website supports CORS, you can also add the crossorigin attribute to the <script> to see the error details.',
+  'crossOrigin.check.console': 'Look in the console for other, more specific errors at the same time.',
 };

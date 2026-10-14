@@ -1726,7 +1726,7 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
@@ -2034,8 +2034,8 @@
       "depends_on": [
         "S22.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Rules in src/diagnostics/rules/async-network.ts (unhandled-rejection, fetch-failed, cors [certain; never suggests disabling security], json-parse [HTML-instead-of-JSON, quotes/commas, undefined, empty]) and code-structure.ts (not-a-function with DOM/array method did-you-mean, html-unclosed-tag [code html-unclosed-tag + data.tagName, void elements excluded], selector-guided-checks [code css-selector-unmatched/guided-style-not-applied, certainty unknown, #/. prefix + similar id/class hints]). Fixtures per rule in rules/fixtures.ts; rules-9-15.test.ts (16 tests) + rules.test.ts honesty over all 46 fixtures in zh-CN/en; verify green @ d32cc5a"
     },
     {
       "id": "S22.4",

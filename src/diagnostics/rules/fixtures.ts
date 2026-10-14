@@ -75,6 +75,14 @@ export const USER_NMAE_LINE = "  alert('你好，' + userNmae);";
 export const USER_NMAE_COLUMN = USER_NMAE_LINE.indexOf('userNmae') + 1;
 
 export const RULE_FIXTURES: readonly RuleFixture[] = [
+  // S16.6 — opaque cross-origin error (as normalizePageError produces it)
+  fx(
+    'cross-origin-script-error',
+    'cross-origin-script-error',
+    { ...base, source: 'runtime', preview, code: 'cross-origin-script-error', message: 'Script error.' },
+    { externalScripts: ['https://cdn.example.com/lib.min.js'] },
+  ),
+
   // Rule 1 — misspelled / undefined variable
   fx(
     'runtime-referenceerror-one-candidate',

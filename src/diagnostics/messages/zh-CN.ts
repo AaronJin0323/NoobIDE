@@ -185,6 +185,15 @@ export const zhCN = {
     '确认 HTML 的 <head> 里用 <link rel="stylesheet" href="…"> 引入了这个 CSS 文件，并且路径正确。',
   'selector.check.override': '看看后面有没有其他规则或更具体的选择器设置了同一个属性。',
   'selector.check.saved': '保存文件，并确认预览已经刷新。',
+  // S16.6 — opaque cross-origin "Script error."
+  'crossOrigin.title': '另一个网站的脚本出错了，但浏览器隐藏了详细信息（Script error.）。',
+  'crossOrigin.explanation':
+    '这个错误很可能来自另一个网站的脚本（例如 CDN 上的库）。出于安全原因，浏览器不会把这类错误的细节告诉页面，所以 NoobIDE 无法显示文件名和行号。',
+  'crossOrigin.cause.script': '页面加载了另一个网站的脚本：{url}',
+  'crossOrigin.check.download': '把这个库的 .js 文件放进项目里，再用相对路径引入；之后再出错时就能看到具体位置。',
+  'crossOrigin.check.crossorigin':
+    '如果那个网站支持 CORS，也可以给 <script> 加上 crossorigin 属性，这样能看到错误详情。',
+  'crossOrigin.check.console': '在控制台里看看同一时间有没有其他更具体的错误。',
 } as const satisfies Record<string, string>;
 
 export type DiagnosticsMessageKey = keyof typeof zhCN;
