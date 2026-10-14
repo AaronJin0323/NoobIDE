@@ -1,12 +1,14 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import {
   CHANNELS,
+  parseCloseAnswer,
   parseFileRequest,
   parseNoPayload,
   parseProjectRequest,
   parseWriteFileRequest,
   toIpcResult,
   type Channel,
+  type CloseAnswer,
   type IpcResult,
 } from '../shared/ipc/contract';
 import type { ProjectService } from '../workspace/project-service';
@@ -37,10 +39,14 @@ export function isTrustedSender(info: SenderInfo | null, allowedOrigin: string):
 export interface IpcDeps {
   /** `noobide://app` in production, the Vite dev server origin in development. */
   readonly allowedOrigin: string;
-  readonly projects: Pick<ProjectService, 'open' | 'read' | 'write' | 'rootOf'>;
+  readonly projects: Pick<ProjectService, 'open' | 'read' | 'write' | 'writeCopy' | 'rootOf'>;
   /** Shows the native folder picker; `null` when cancelled. */
   chooseFolder(event: IpcMainInvokeEvent): Promise<string | null>;
+  /** Shows the native save dialog for "save elsewhere", suggesting `fileName`; `null` when cancelled. */
+  chooseSaveFile(event: IpcMainInvokeEvent, fileName: string): Promise<string | null>;
   revealFolder(folder: string): void;
+  /** The workbench answered a close request (S10.6). */
+  closeAnswered(event: IpcMainInvokeEvent, answer: CloseAnswer): void;
 }
 
 const FORBIDDEN = { ok: false, code: 'forbidden-sender', message: 'sender is not the workbench' } as const;
@@ -70,6 +76,21 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
   handle(CHANNELS.readFile, parseFileRequest, async (request) => toIpcResult(await deps.projects.read(request)));
 
   handle(CHANNELS.writeFile, parseWriteFileRequest, async (request) => toIpcResult(await deps.projects.write(request)));
+
+  handle(CHANNELS.saveCopy, parseWriteFileRequest, async (request, event) => {
+    if (deps.projects.rootOf(request.projectId) === undefined) {
+      return { ok: false, code: 'unknown-project', message: 'project is not open' };
+    }
+    const fileName = request.relPath.slice(request.relPath.lastIndexOf('/') + 1);
+    const destination = await deps.chooseSaveFile(event, fileName);
+    if (destination === null) return { ok: true, value: null };
+    return toIpcResult(await deps.projects.writeCopy(destination, request));
+  });
+
+  handle(CHANNELS.answerClose, parseCloseAnswer, async (answer, event) => {
+    deps.closeAnswered(event, answer);
+    return { ok: true, value: null };
+  });
 
   handle(CHANNELS.revealProject, parseProjectRequest, async ({ projectId }) => {
     const root = deps.projects.rootOf(projectId);

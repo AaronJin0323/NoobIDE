@@ -17,6 +17,14 @@ export const CHANNELS = {
   readFile: 'workspace:read-file',
   writeFile: 'workspace:write-file',
   revealProject: 'workspace:reveal-project',
+  saveCopy: 'workspace:save-copy',
+  answerClose: 'app:answer-close',
+} as const;
+
+/** Main → workbench notifications (sent with webContents.send; the workbench only listens). */
+export const EVENTS = {
+  /** The window is about to close or the app to quit: save everything, then answer on `answerClose` (S10.6). */
+  closeRequested: 'app:close-requested',
 } as const;
 
 export type Channel = (typeof CHANNELS)[keyof typeof CHANNELS];
@@ -69,6 +77,11 @@ export interface FileContent {
   /** The file started with a UTF-8 byte order mark; it is written back unchanged. */
   readonly bom: boolean;
   readonly uri: string;
+  /**
+   * The file mixes CRLF and LF line breaks. The editor shows it with `eol` throughout, so the first save writes
+   * `eol` everywhere; the workbench says so before that happens (docs/decisions/0011-mixed-line-endings.md).
+   */
+  readonly mixedEol: boolean;
 }
 
 export type ReadFileError =
@@ -102,6 +115,16 @@ export interface SavedFile {
 
 export type RevealError = 'unknown-project';
 
+/** Where "save elsewhere" wrote the copy (absolute path, chosen by the user in the native save dialog). */
+export interface SavedCopy {
+  readonly path: string;
+}
+
+/** The workbench's answer to `closeRequested`: `ok` false keeps the window open (a save failed). */
+export interface CloseAnswer {
+  readonly ok: boolean;
+}
+
 /** What preload exposes as `window.noobide`. */
 export interface NoobideApi {
   readonly apiVersion: typeof IPC_API_VERSION;
@@ -113,6 +136,16 @@ export interface NoobideApi {
     writeFile(request: WriteFileRequest): Promise<IpcResult<SavedFile, WriteFileError>>;
     /** Shows the project folder in Explorer / Finder. */
     revealProject(request: { readonly projectId: string }): Promise<IpcResult<null, RevealError>>;
+    /**
+     * "Save elsewhere" after a failed save (S10.3): shows the native save dialog and writes the text there.
+     * `null` when the user cancels. The original file and its unsaved state are left as they are.
+     */
+    saveCopy(request: WriteFileRequest): Promise<IpcResult<SavedCopy | null, WriteFileError>>;
+  };
+  readonly app: {
+    /** Registers the handler for close/quit requests. Returns the unsubscribe function. */
+    onCloseRequested(listener: () => void): () => void;
+    answerClose(answer: CloseAnswer): Promise<IpcResult<null, never>>;
   };
 }
 
@@ -158,6 +191,11 @@ export function parseFileRequest(payload: unknown): FileRequest | null {
   if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath'])) return null;
   const { projectId, relPath } = payload;
   return isProjectId(projectId) && isPortableRelPath(relPath) ? { projectId, relPath } : null;
+}
+
+export function parseCloseAnswer(payload: unknown): CloseAnswer | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['ok'])) return null;
+  return typeof payload.ok === 'boolean' ? { ok: payload.ok } : null;
 }
 
 export function parseWriteFileRequest(payload: unknown): WriteFileRequest | null {

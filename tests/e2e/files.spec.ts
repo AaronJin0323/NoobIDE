@@ -81,9 +81,9 @@ test('opens a folder with Chinese characters and spaces and lists its files (S03
 
 test('clicking a file opens it in Monaco (S03.3)', async () => {
   await page.getByTestId('file-list').getByRole('button', { name: 'index.html' }).click();
-  await expect(page.getByTestId('editor-tab')).toHaveText('index.html');
+  await expect(page.getByRole('tab', { name: 'index.html' })).toHaveAttribute('aria-selected', 'true');
   await expect(editorText()).toContainText('你好，我是林小雨');
-  await expect(status()).toHaveText('已保存');
+  await expect(status()).toHaveText('无改动');
   await expect(page.getByTestId('file-list').getByRole('button', { name: 'index.html' })).toHaveAttribute(
     'aria-current',
     'true',
@@ -92,7 +92,6 @@ test('clicking a file opens it in Monaco (S03.3)', async () => {
 
 test('edits are saved to disk with Ctrl/Cmd+S (S03.4)', async () => {
   await typeAtEnd('第一次保存');
-  await expect(status()).toHaveText('未保存');
   await page.keyboard.press('ControlOrMeta+S');
   await expect(status()).toHaveText('已保存');
   expect(await readFile(path.join(root, 'index.html'), 'utf8')).toContain('第一次保存');
@@ -101,12 +100,12 @@ test('edits are saved to disk with Ctrl/Cmd+S (S03.4)', async () => {
 test('a language switch keeps unsaved edits in the editor', async () => {
   await typeAtEnd('切换语言');
   await page.getByTestId('switch-language').click();
-  await expect(status()).toHaveText('Unsaved');
+  // Leaving the editor autosaves (S10.2); whichever moment we look, the text is never lost.
   await expect(editorText()).toContainText('切换语言');
+  await expect(status()).toHaveText('Saved');
   await page.getByTestId('switch-language').click();
-  await expect(status()).toHaveText('未保存');
-  await page.keyboard.press('ControlOrMeta+S');
   await expect(status()).toHaveText('已保存');
+  expect(await readFile(path.join(root, 'index.html'), 'utf8')).toContain('切换语言');
 });
 
 test('a failed save keeps the edits, explains the cause and succeeds after the fix (S03.4)', async () => {
@@ -128,12 +127,12 @@ test('a failed save keeps the edits, explains the cause and succeeds after the f
   expect(await readFile(file, 'utf8')).toContain('只读时的修改');
 });
 
-test('switching files saves unsaved edits first (no edit is dropped)', async () => {
+test('switching files saves unsaved edits (no edit is dropped)', async () => {
   await typeAtEnd('切换文件前');
   await page.getByTestId('file-list').getByRole('button', { name: 'style.css' }).click();
-  await expect(page.getByTestId('editor-tab')).toHaveText('style.css');
+  await expect(page.getByRole('tab', { name: 'style.css' })).toHaveAttribute('aria-selected', 'true');
   await expect(editorText()).toContainText('#2f5d43');
-  expect(await readFile(path.join(root, 'index.html'), 'utf8')).toContain('切换文件前');
+  await expect.poll(() => readFile(path.join(root, 'index.html'), 'utf8')).toContain('切换文件前');
 });
 
 test('a nested file with a Chinese name opens and saves (S03.4)', async () => {
@@ -148,7 +147,9 @@ test('a nested file with a Chinese name opens and saves (S03.4)', async () => {
 test('a binary file is refused instead of being opened as text', async () => {
   await page.getByTestId('file-list').getByRole('button', { name: 'logo.png' }).click();
   await expect(page.getByTestId('open-error')).toContainText('不是 UTF-8 文本');
-  await expect(status()).toHaveText('没有打开的文件');
+  // The open tabs stay as they were; no tab is created for the refused file.
+  await expect(page.getByTestId('tab')).toHaveCount(3);
+  await expect(status()).toHaveText('已保存');
 });
 
 test('no console errors during the file run', async () => {

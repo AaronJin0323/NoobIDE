@@ -1,55 +1,47 @@
-import type { FileContent, OpenedProject, ReadFileError, WriteFileError } from '../../shared/ipc/contract';
+import type { FileContent, OpenedProject, ReadFileError } from '../../shared/ipc/contract';
+import { INITIAL_SAVE, saveStatus, type SaveSnapshot, type SaveStatus } from './save-machine';
 
 /**
- * Project, open document and save state of the workbench (S03.3, S03.4). Pure reducer so the save rules are tested:
- * a save only counts as "saved" for the revision it wrote — typing during a save leaves the document unsaved — and a
- * failed save keeps the text and says why (AGENTS.md: user data is sacred). Tabs and multiple models: S09.
+ * Project, open tabs and their save state (S03.3, S09.2, S10.2). Pure reducer. Each tab's save snapshot is produced
+ * by its DocumentSaver (save-controller.ts) and only stored here, so the save rules live in one tested place.
  */
-export type SaveState = 'clean' | 'dirty' | 'saving' | 'failed';
-
-export interface OpenDocument {
+export interface OpenTab {
   readonly relPath: string;
+  /** Stable `file://` URI: the editor model key (S09.1). */
+  readonly uri: string;
+  /** The file as it was read from disk; the live text is in the editor model and the tab's saver. */
   readonly content: FileContent;
+  readonly save: SaveSnapshot;
 }
+
+export type OpenErrorCode = ReadFileError | 'invalid-request' | 'forbidden-sender';
 
 export interface DocumentState {
   readonly project: OpenedProject | null;
   readonly openFailed: boolean;
-  readonly doc: OpenDocument | null;
-  readonly docError: {
-    readonly relPath: string;
-    readonly code: ReadFileError | 'invalid-request' | 'forbidden-sender';
-  } | null;
-  /** Incremented on every edit of the open document. */
-  readonly revision: number;
-  /** The revision on disk; `revision === savedRevision` means nothing is unsaved. */
-  readonly savedRevision: number;
-  readonly savingRevision: number | null;
-  readonly saveError: { readonly code: string; readonly message: string } | null;
+  readonly tabs: readonly OpenTab[];
+  /** relPath of the visible tab. */
+  readonly active: string | null;
+  /** A file that could not be opened; shown until another file opens or a tab is chosen. */
+  readonly docError: { readonly relPath: string; readonly code: OpenErrorCode } | null;
 }
 
 export type DocumentAction =
   | { type: 'projectOpened'; project: OpenedProject }
   | { type: 'projectOpenFailed' }
   | { type: 'docLoaded'; relPath: string; content: FileContent }
-  | { type: 'docFailed'; relPath: string; code: ReadFileError | 'invalid-request' | 'forbidden-sender' }
-  | { type: 'edited' }
-  | { type: 'saveStarted' }
-  | { type: 'saveSucceeded'; revision: number }
-  | { type: 'saveFailed'; code: WriteFileError | 'invalid-request' | 'forbidden-sender'; message: string };
+  | { type: 'docFailed'; relPath: string; code: OpenErrorCode }
+  | { type: 'activate'; relPath: string }
+  | { type: 'closed'; relPath: string }
+  | { type: 'saveState'; relPath: string; save: SaveSnapshot };
 
 export const INITIAL_DOCUMENT_STATE: DocumentState = {
   project: null,
   openFailed: false,
-  doc: null,
+  tabs: [],
+  active: null,
   docError: null,
-  revision: 0,
-  savedRevision: 0,
-  savingRevision: null,
-  saveError: null,
 };
-
-const freshDocument = { revision: 0, savedRevision: 0, savingRevision: null, saveError: null } as const;
 
 export function documentReducer(state: DocumentState, action: DocumentAction): DocumentState {
   switch (action.type) {
@@ -57,29 +49,53 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
       return { ...INITIAL_DOCUMENT_STATE, project: action.project };
     case 'projectOpenFailed':
       return { ...state, openFailed: true };
-    case 'docLoaded':
-      return { ...state, ...freshDocument, doc: { relPath: action.relPath, content: action.content }, docError: null };
+    case 'docLoaded': {
+      const known = state.tabs.some((tab) => tab.relPath === action.relPath);
+      const tabs = known
+        ? state.tabs
+        : [
+            ...state.tabs,
+            { relPath: action.relPath, uri: action.content.uri, content: action.content, save: INITIAL_SAVE },
+          ];
+      return { ...state, tabs, active: action.relPath, docError: null };
+    }
     case 'docFailed':
-      return { ...state, ...freshDocument, doc: null, docError: { relPath: action.relPath, code: action.code } };
-    case 'edited':
-      return state.doc ? { ...state, revision: state.revision + 1 } : state;
-    case 'saveStarted':
-      return { ...state, savingRevision: state.revision };
-    case 'saveSucceeded':
-      return { ...state, savingRevision: null, savedRevision: action.revision, saveError: null };
-    case 'saveFailed':
-      return { ...state, savingRevision: null, saveError: { code: action.code, message: action.message } };
+      return { ...state, docError: { relPath: action.relPath, code: action.code } };
+    case 'activate':
+      return state.tabs.some((tab) => tab.relPath === action.relPath)
+        ? { ...state, active: action.relPath, docError: null }
+        : state;
+    case 'closed': {
+      const index = state.tabs.findIndex((tab) => tab.relPath === action.relPath);
+      if (index < 0) return state;
+      const tabs = state.tabs.filter((tab) => tab.relPath !== action.relPath);
+      // Closing the visible tab shows its right neighbour, else its left one — the usual editor convention.
+      const active =
+        state.active === action.relPath ? (tabs[Math.min(index, tabs.length - 1)]?.relPath ?? null) : state.active;
+      return { ...state, tabs, active };
+    }
+    case 'saveState':
+      return {
+        ...state,
+        tabs: state.tabs.map((tab) => (tab.relPath === action.relPath ? { ...tab, save: action.save } : tab)),
+      };
   }
 }
 
-export function hasUnsavedChanges(state: DocumentState): boolean {
-  return state.doc !== null && state.revision !== state.savedRevision;
+export function activeTab(state: DocumentState): OpenTab | null {
+  return state.tabs.find((tab) => tab.relPath === state.active) ?? null;
 }
 
-/** What the top bar shows. `null` when no file is open. */
-export function saveState(state: DocumentState): SaveState | null {
-  if (!state.doc) return null;
-  if (state.savingRevision !== null) return 'saving';
-  if (state.saveError && hasUnsavedChanges(state)) return 'failed';
-  return hasUnsavedChanges(state) ? 'dirty' : 'clean';
+/** What the top bar shows: the status of the visible file, `null` when no file is open. */
+export function activeSaveStatus(state: DocumentState): SaveStatus | null {
+  const tab = activeTab(state);
+  return tab ? saveStatus(tab.save) : null;
+}
+
+/** The tab after (`step` 1) or before (`step` -1) the visible one, wrapping around; for Ctrl+Tab switching. */
+export function cycleTab(state: DocumentState, step: 1 | -1): string | null {
+  if (state.tabs.length === 0) return null;
+  const index = state.tabs.findIndex((tab) => tab.relPath === state.active);
+  const next = (index + step + state.tabs.length) % state.tabs.length;
+  return state.tabs[index < 0 ? 0 : next]?.relPath ?? null;
 }

@@ -1,115 +1,230 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { isMac } from '../../platform/labels';
+import type { FileContent, OpenedProject } from '../../shared/ipc/contract';
 import { useMediaQuery } from '../theme/useMediaQuery';
 import { TopBar } from './TopBar';
 import { Rail } from './Rail';
 import { FilesPanel } from './FilesPanel';
-import { EditorPane } from './EditorPane';
+import { EditorPane, type SaveCopyNotice } from './EditorPane';
 import { PreviewPane } from './PreviewPane';
 import { ProblemsPanel } from './ProblemsPanel';
 import { INITIAL_LAYOUT, NARROW_QUERY, layoutReducer, visibleRegions } from './layout';
-import { INITIAL_DOCUMENT_STATE, documentReducer, saveState } from './document-state';
+import { INITIAL_DOCUMENT_STATE, activeSaveStatus, activeTab, cycleTab, documentReducer } from './document-state';
+import { DocumentSaver } from './save-controller';
+import { createSavedFileEvents } from './saved-file-events';
+import { DEFAULT_FONT_SIZE, zoomFontSize } from './zoom';
+
+const releaseModel = (uri: string) => void import('../editor/editor-models').then((m) => m.releaseModel(uri));
+const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
 
 /**
- * The five workbench regions of PLAN §3 in the 2026-10-14 prototype layout (S30.3), now backed by real files
- * (S03.3, S03.4): open a folder, open a file into Monaco, save with Ctrl/Cmd+S through the typed bridge.
- * One file at a time until tabs (S09); autosave and the full save pipeline arrive in S10.
+ * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
+ * save through the save pipeline (S10): every tab has a DocumentSaver that coalesces edits, autosaves after a pause
+ * and on blur, writes one revision at a time and reports confirmed writes. Edits are never dropped: closing a tab,
+ * switching projects or closing the window first saves, and a failed save cancels the action.
  */
 export function Workbench() {
   const bridge = window.noobide;
   const platform = bridge?.platform ?? 'other';
   const [layout, dispatchLayout] = useReducer(layoutReducer, INITIAL_LAYOUT);
   const [doc, dispatch] = useReducer(documentReducer, INITIAL_DOCUMENT_STATE);
+  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
+  const [copyNotice, setCopyNotice] = useState<SaveCopyNotice | null>(null);
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
 
-  // Async handlers read the latest state and text without being re-created on every keystroke.
+  // Async handlers read the latest state without being re-created on every keystroke.
   const docRef = useRef(doc);
   docRef.current = doc;
-  const textRef = useRef('');
-  // Edit and save revisions are counted synchronously with each change, not read from the last render: the text
-  // a save writes and the revision it records must always match, or a save could skip or mislabel the newest edit.
-  const editsRef = useRef({ revision: 0, saved: 0 });
-  const unsaved = () => docRef.current.doc !== null && editsRef.current.revision !== editsRef.current.saved;
-  const savingRef = useRef<Promise<boolean> | null>(null);
+  /** One saver per open tab, keyed by relPath. Owns the live text and the save state of that file. */
+  const savers = useRef(new Map<string, DocumentSaver>());
+  /** Bumped whenever the project changes: file reads that started for an older project are dropped. */
+  const projectSeq = useRef(0);
+  const loading = useRef(new Set<string>());
+  /** Confirmed writes, for the preview refresh (S10.5): emitted strictly after the write and the status update. */
+  const savedFiles = useRef(createSavedFileEvents());
 
-  const save = useCallback(async (): Promise<boolean> => {
-    const current = docRef.current;
-    if (!bridge || !current.project || !current.doc) return true;
-    if (savingRef.current) await savingRef.current;
-    if (!unsaved()) return true;
-    const revision = editsRef.current.revision;
-    const request = {
-      projectId: current.project.projectId,
-      relPath: current.doc.relPath,
-      text: textRef.current,
-      bom: current.doc.content.bom,
-    };
-    dispatch({ type: 'saveStarted' });
-    const pending = bridge.workspace.writeFile(request).then((result) => {
-      if (result.ok) {
-        editsRef.current.saved = Math.max(editsRef.current.saved, revision);
-        dispatch({ type: 'saveSucceeded', revision });
-      } else dispatch({ type: 'saveFailed', code: result.code, message: result.message });
-      return result.ok;
-    });
-    savingRef.current = pending;
-    try {
-      return await pending;
-    } finally {
-      savingRef.current = null;
+  const saverOf = (relPath: string | null | undefined) => (relPath ? savers.current.get(relPath) : undefined);
+  const relPathOfUri = (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath;
+
+  const createSaver = useCallback(
+    (project: OpenedProject, relPath: string, content: FileContent) => {
+      const saver = new DocumentSaver({
+        initialText: content.text,
+        async write(text) {
+          if (!bridge) return { ok: false, code: 'write-failed', message: 'no bridge' };
+          const result = await bridge.workspace.writeFile({
+            projectId: project.projectId,
+            relPath,
+            text,
+            bom: content.bom,
+          });
+          return result.ok ? { ok: true } : { ok: false, code: result.code, message: result.message };
+        },
+        onState: (save) => dispatch({ type: 'saveState', relPath, save }),
+      });
+      saver.onSaved(({ revision }) => savedFiles.current.emit({ relPath, uri: content.uri, revision }));
+      return saver;
+    },
+    [bridge],
+  );
+
+  /** Saves every open file. On a failure the failing tab is shown (its banner explains) and false is returned. */
+  const saveAll = useCallback(async (): Promise<boolean> => {
+    for (const [relPath, saver] of [...savers.current]) {
+      if (!(await saver.save())) {
+        dispatch({ type: 'activate', relPath });
+        return false;
+      }
     }
-  }, [bridge]);
+    return true;
+  }, []);
 
-  /** Never drops edits: unsaved text is saved first, and a failed save cancels the switch. */
-  const saveBeforeLeaving = useCallback(async () => !unsaved() || (await save()), [save]);
+  const closeProjectFiles = () => {
+    for (const saver of savers.current.values()) saver.dispose();
+    savers.current.clear();
+    loading.current.clear();
+    projectSeq.current += 1;
+    releaseFileModels();
+  };
 
   const openFolder = useCallback(async () => {
-    if (!bridge || !(await saveBeforeLeaving())) return;
+    if (!bridge || !(await saveAll())) return;
     const result = await bridge.workspace.openFolder();
     if (!result.ok) dispatch({ type: 'projectOpenFailed' });
     else if (result.value) {
-      editsRef.current = { revision: 0, saved: 0 };
+      // Edits typed while the dialog was open are saved too; a failure keeps the current project.
+      if (!(await saveAll())) return;
+      closeProjectFiles();
+      setCopyNotice(null);
       dispatch({ type: 'projectOpened', project: result.value });
     }
-  }, [bridge, saveBeforeLeaving]);
+  }, [bridge, saveAll]);
 
   const openFile = useCallback(
     async (relPath: string) => {
       const project = docRef.current.project;
-      if (!bridge || !project || docRef.current.doc?.relPath === relPath) return;
-      if (!(await saveBeforeLeaving())) return;
+      if (!bridge || !project) return;
+      if (savers.current.has(relPath)) {
+        dispatch({ type: 'activate', relPath });
+        return;
+      }
+      if (loading.current.has(relPath)) return;
+      const seq = projectSeq.current;
+      loading.current.add(relPath);
       const result = await bridge.workspace.readFile({ projectId: project.projectId, relPath });
+      // A read that finishes after the project changed belongs to nothing any more.
+      if (seq !== projectSeq.current) return;
+      loading.current.delete(relPath);
+      if (savers.current.has(relPath)) return;
       if (result.ok) {
-        textRef.current = result.value.text;
-        editsRef.current = { revision: 0, saved: 0 };
+        savers.current.set(relPath, createSaver(project, relPath, result.value));
         dispatch({ type: 'docLoaded', relPath, content: result.value });
       } else {
-        editsRef.current = { revision: 0, saved: 0 };
         dispatch({ type: 'docFailed', relPath, code: result.code });
       }
     },
-    [bridge, saveBeforeLeaving],
+    [bridge, createSaver],
   );
 
-  const onChange = useCallback((text: string) => {
-    textRef.current = text;
-    editsRef.current.revision += 1;
-    dispatch({ type: 'edited' });
+  const closeTab = useCallback(async (relPath: string) => {
+    const saver = saverOf(relPath);
+    const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
+    if (!saver || !tab) return;
+    // Never drops edits: unsaved text is written first; a failed write keeps the tab open with its banner.
+    if (!(await saver.save())) {
+      dispatch({ type: 'activate', relPath });
+      return;
+    }
+    saver.dispose();
+    savers.current.delete(relPath);
+    dispatch({ type: 'closed', relPath });
+    releaseModel(tab.uri);
   }, []);
 
-  // Ctrl+S / ⌘S also works when focus is outside the editor (Monaco handles it while the editor is focused).
+  const saveActive = useCallback(() => void saverOf(docRef.current.active)?.save(), []);
+
+  const saveCopy = useCallback(async () => {
+    const project = docRef.current.project;
+    const tab = activeTab(docRef.current);
+    const saver = saverOf(tab?.relPath);
+    if (!bridge || !project || !tab || !saver) return;
+    const result = await bridge.workspace.saveCopy({
+      projectId: project.projectId,
+      relPath: tab.relPath,
+      text: saver.text,
+      bom: tab.content.bom,
+    });
+    if (result.ok && result.value === null) return; // cancelled
+    setCopyNotice(
+      result.ok
+        ? { relPath: tab.relPath, path: result.value?.path ?? null }
+        : { relPath: tab.relPath, path: null, code: result.code, message: result.message },
+    );
+  }, [bridge]);
+
+  const onChange = useCallback((uri: string, text: string) => {
+    const relPath = relPathOfUri(uri);
+    if (relPath) saverOf(relPath)?.edit(text);
+  }, []);
+  const onBlur = useCallback((uri: string) => saverOf(relPathOfUri(uri))?.blur(), []);
+  const onComposition = useCallback((uri: string, composing: boolean) => {
+    const saver = saverOf(relPathOfUri(uri));
+    if (composing) saver?.compositionStart();
+    else saver?.compositionEnd();
+  }, []);
+
+  // Closing the window or quitting: main asks first; we answer after every file is saved (S10.6).
+  useEffect(() => {
+    if (!bridge) return;
+    return bridge.app.onCloseRequested(() => {
+      void saveAll().then((ok) => bridge.app.answerClose({ ok }));
+    });
+  }, [bridge, saveAll]);
+
+  useEffect(
+    () => () => {
+      for (const saver of savers.current.values()) saver.dispose();
+    },
+    [],
+  );
+
+  // Window-wide shortcuts. Ctrl+S / ⌘S also works when focus is outside the editor (Monaco handles it inside).
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const modifier = isMac(platform) ? event.metaKey : event.ctrlKey;
-      if (modifier && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 's') {
+      const key = event.key.toLowerCase();
+      if (modifier && !event.altKey && !event.shiftKey && key === 's') {
         event.preventDefault();
-        void save();
+        saveActive();
+      }
+    };
+    // Capture phase, before Monaco and before the menu's whole-window zoom: Ctrl+Tab switches tabs (also on macOS,
+    // like other editors), Ctrl/⌘ with + − 0 zooms the code font.
+    const onKeyDownCapture = (event: KeyboardEvent) => {
+      if (event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
+        const next = cycleTab(docRef.current, event.shiftKey ? -1 : 1);
+        if (next) dispatch({ type: 'activate', relPath: next });
+        return;
+      }
+      const modifier = isMac(platform) ? event.metaKey : event.ctrlKey;
+      if (!modifier || event.altKey) return;
+      const step = { '=': 1, '+': 1, '-': -1, _: -1, '0': 0 }[event.key] as 1 | -1 | 0 | undefined;
+      if (step !== undefined) {
+        event.preventDefault();
+        event.stopPropagation();
+        setFontSize((size) => zoomFontSize(size, step));
       }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [platform, save]);
+    window.addEventListener('keydown', onKeyDownCapture, true);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keydown', onKeyDownCapture, true);
+    };
+  }, [platform, saveActive]);
 
   const project = doc.project;
   return (
@@ -117,7 +232,7 @@ export function Workbench() {
       <TopBar
         platform={platform}
         project={project}
-        save={saveState(doc)}
+        save={activeSaveStatus(doc)}
         onReveal={() => {
           if (bridge && project) void bridge.workspace.revealProject({ projectId: project.projectId });
         }}
@@ -137,12 +252,26 @@ export function Workbench() {
         <FilesPanel
           hidden={!visible.files}
           project={project}
-          activeRelPath={doc.doc?.relPath ?? null}
+          activeRelPath={doc.active}
           openFailed={doc.openFailed}
           onOpenFolder={bridge ? () => void openFolder() : undefined}
           onOpenFile={(relPath) => void openFile(relPath)}
         />
-        <EditorPane hidden={!visible.editor} state={doc} onChange={onChange} onSave={() => void save()} />
+        <EditorPane
+          hidden={!visible.editor}
+          state={doc}
+          fontSize={fontSize}
+          onZoom={(step) => setFontSize((size) => zoomFontSize(size, step))}
+          onActivate={(relPath) => dispatch({ type: 'activate', relPath })}
+          onClose={(relPath) => void closeTab(relPath)}
+          onChange={onChange}
+          onSave={saveActive}
+          onBlur={onBlur}
+          onComposition={onComposition}
+          onRetry={saveActive}
+          onSaveCopy={bridge ? () => void saveCopy() : undefined}
+          copyNotice={copyNotice}
+        />
         <PreviewPane hidden={!visible.preview} />
       </div>
       <ProblemsPanel open={visible.problemsPanel} onToggle={() => dispatchLayout({ type: 'toggleProblems' })} />

@@ -10,12 +10,13 @@ import {
   type FileRequest,
   type OpenedProject,
   type ReadFileError,
+  type SavedCopy,
   type SavedFile,
   type WriteFileError,
   type WriteFileRequest,
 } from '../shared/ipc/contract';
 import { err, ok, type Result } from '../shared/result';
-import { replaceFileAtomic } from './atomic-write';
+import { FileInUseError, replaceFileAtomic, writeFileAtomic, type AtomicWriteOptions } from './atomic-write';
 import { decodeText, encodeText } from './text-codec';
 
 /**
@@ -36,8 +37,25 @@ interface Project {
   readonly root: string;
 }
 
+export interface ProjectServiceOptions {
+  /** Injected file system and retry policy for saves (tests simulate ENOSPC, locks and read-only folders). */
+  readonly atomic?: AtomicWriteOptions;
+}
+
+/** A project file whose new content is confirmed on disk. */
+export interface SavedProjectFile {
+  readonly projectId: string;
+  readonly relPath: string;
+  /** Real absolute path. */
+  readonly path: string;
+}
+
 export class ProjectService {
   private readonly projects = new Map<string, Project>();
+  private readonly writeQueues = new Map<string, Promise<void>>();
+  private readonly savedListeners = new Set<(file: SavedProjectFile) => void>();
+
+  constructor(private readonly options: ProjectServiceOptions = {}) {}
 
   /** Registers a folder the user chose and lists its files. */
   async open(chosenPath: string): Promise<Result<OpenedProject, 'list-failed'>> {
@@ -71,24 +89,89 @@ export class ProjectService {
     }
     const decoded = decodeText(bytes);
     if (!decoded.ok) return err('unsupported-encoding', decoded.reason);
-    return ok({ text: decoded.text, eol: decoded.eol, bom: decoded.bom, uri: pathToFileURL(target.value).href });
+    return ok({
+      text: decoded.text,
+      eol: decoded.eol,
+      bom: decoded.bom,
+      mixedEol: decoded.mixedEol,
+      uri: pathToFileURL(target.value).href,
+    });
   }
 
-  /** Saves over an existing file. Creating files arrives with the file operations of S08. */
+  /**
+   * Saves over an existing file (S10.1). Writes to one real path are serialized, so an older write can never land
+   * after a newer one. "Saved" listeners run only after the temp file was renamed over the target (S10.5).
+   * Creating files arrives with the file operations of S08.
+   */
   async write(request: WriteFileRequest): Promise<Result<SavedFile, WriteFileError>> {
     const target = await this.resolve(request);
     if (!target.ok) return target;
     const data = encodeText(request.text, request.bom);
     if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
-    try {
-      if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
-      // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
-      await access(target.value, constants.W_OK);
-      await replaceFileAtomic(target.value, data);
-    } catch (e) {
-      return err(writeErrorCode(e), errorCode(e), e);
+    const result = await this.serialized(target.value, async (): Promise<Result<SavedFile, WriteFileError>> => {
+      try {
+        if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
+        // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
+        await access(target.value, constants.W_OK);
+        await replaceFileAtomic(target.value, data, this.options.atomic);
+      } catch (e) {
+        return err(writeErrorCode(e), errorMessage(e), e);
+      }
+      return ok({ savedAt: Date.now() });
+    });
+    if (result.ok) this.emitSaved({ projectId: request.projectId, relPath: request.relPath, path: target.value });
+    return result;
+  }
+
+  /**
+   * "Save elsewhere" (S10.3): writes the text of an open project file to a path the user chose in the native save
+   * dialog (which already asked before replacing an existing file). The project file itself is not touched.
+   */
+  async writeCopy(destination: string, request: WriteFileRequest): Promise<Result<SavedCopy, WriteFileError>> {
+    if (!this.projects.has(request.projectId)) return err('unknown-project', 'project is not open');
+    const data = encodeText(request.text, request.bom);
+    if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
+    const target = path.resolve(destination);
+    return this.serialized(target, async (): Promise<Result<SavedCopy, WriteFileError>> => {
+      try {
+        await writeFileAtomic(target, data, { ...this.options.atomic, createIfMissing: true });
+      } catch (e) {
+        return err(writeErrorCode(e), errorMessage(e), e);
+      }
+      return ok({ path: target });
+    });
+  }
+
+  /** Subscribes to confirmed writes (main-side preview hook, S10.5). Returns the unsubscribe function. */
+  onSaved(listener: (file: SavedProjectFile) => void): () => void {
+    this.savedListeners.add(listener);
+    return () => this.savedListeners.delete(listener);
+  }
+
+  private emitSaved(file: SavedProjectFile): void {
+    for (const listener of [...this.savedListeners]) {
+      try {
+        listener(file);
+      } catch {
+        // A failing subscriber must not turn a confirmed save into a failure.
+      }
     }
-    return ok({ savedAt: Date.now() });
+  }
+
+  /** Runs `task` after every earlier task for the same path has finished (per-path mutex). */
+  private async serialized<T>(key: string, task: () => Promise<T>): Promise<T> {
+    const previous = this.writeQueues.get(key) ?? Promise.resolve();
+    const run = previous.then(task, task);
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.writeQueues.set(key, tail);
+    try {
+      return await run;
+    } finally {
+      if (this.writeQueues.get(key) === tail) this.writeQueues.delete(key);
+    }
   }
 
   private async resolve(
@@ -145,6 +228,11 @@ async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated:
   };
   await walk(root, []);
   return { files, truncated };
+}
+
+/** The OS error code for the "details" line; a lock that outlasted every retry says so. Never file contents. */
+function errorMessage(e: unknown): string {
+  return e instanceof FileInUseError ? e.message : errorCode(e);
 }
 
 function errorCode(e: unknown): string {

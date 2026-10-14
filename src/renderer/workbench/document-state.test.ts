@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { FileContent, OpenedProject } from '../../shared/ipc/contract';
 import {
   INITIAL_DOCUMENT_STATE,
+  activeSaveStatus,
+  activeTab,
+  cycleTab,
   documentReducer,
-  hasUnsavedChanges,
-  saveState,
   type DocumentAction,
 } from './document-state';
+import { INITIAL_SAVE, saveReducer } from './save-machine';
 
 const project: OpenedProject = {
   projectId: '3f1c2a9e-8b7d-4c6e-9f00-1a2b3c4d5e6f',
@@ -15,69 +17,85 @@ const project: OpenedProject = {
   files: [{ relPath: 'index.html', uri: 'file:///D:/x/index.html' }],
   truncated: false,
 };
-const content: FileContent = { text: '<p>你好</p>\n', eol: '\n', bom: false, uri: 'file:///D:/x/index.html' };
+const file = (name: string): FileContent => ({
+  text: `<p>${name}</p>\n`,
+  eol: '\n',
+  bom: false,
+  mixedEol: false,
+  uri: `file:///D:/x/${encodeURIComponent(name)}`,
+});
 
 const run = (...actions: DocumentAction[]) => actions.reduce(documentReducer, INITIAL_DOCUMENT_STATE);
-const loaded = (): DocumentAction[] => [
+const opened = (...names: string[]): DocumentAction[] => [
   { type: 'projectOpened', project },
-  { type: 'docLoaded', relPath: 'index.html', content },
+  ...names.map((relPath): DocumentAction => ({ type: 'docLoaded', relPath, content: file(relPath) })),
 ];
+const dirty = saveReducer(INITIAL_SAVE, { type: 'edited' });
 
-describe('document and save state (S03.3, S03.4)', () => {
-  it('no file open means no save state', () => {
-    expect(saveState(INITIAL_DOCUMENT_STATE)).toBeNull();
-    expect(saveState(run({ type: 'projectOpened', project }))).toBeNull();
+describe('open tabs (S09.2)', () => {
+  it('no file open means no save status', () => {
+    expect(activeSaveStatus(INITIAL_DOCUMENT_STATE)).toBeNull();
+    expect(activeSaveStatus(run({ type: 'projectOpened', project }))).toBeNull();
   });
 
-  it('a freshly opened file is saved; an edit makes it unsaved', () => {
-    expect(saveState(run(...loaded()))).toBe('clean');
-    expect(saveState(run(...loaded(), { type: 'edited' }))).toBe('dirty');
-  });
-
-  it('a successful save of the current revision is clean', () => {
-    const s = run(...loaded(), { type: 'edited' }, { type: 'saveStarted' });
-    expect(saveState(s)).toBe('saving');
-    expect(saveState(documentReducer(s, { type: 'saveSucceeded', revision: s.savingRevision ?? -1 }))).toBe('clean');
-  });
-
-  it('typing during a save leaves the document unsaved after the save finishes', () => {
-    const saving = run(...loaded(), { type: 'edited' }, { type: 'saveStarted' });
-    const typed = documentReducer(saving, { type: 'edited' });
-    const done = documentReducer(typed, { type: 'saveSucceeded', revision: saving.savingRevision ?? -1 });
-    expect(saveState(done)).toBe('dirty');
-    expect(hasUnsavedChanges(done)).toBe(true);
-  });
-
-  it('a failed save is reported, keeps the document unsaved and recovers on the next success', () => {
-    const failed = run(
-      ...loaded(),
-      { type: 'edited' },
-      { type: 'saveStarted' },
-      { type: 'saveFailed', code: 'permission-denied', message: 'EACCES' },
-    );
-    expect(saveState(failed)).toBe('failed');
-    expect(failed.saveError).toEqual({ code: 'permission-denied', message: 'EACCES' });
-    expect(hasUnsavedChanges(failed)).toBe(true);
-    const retried = documentReducer(documentReducer(failed, { type: 'saveStarted' }), {
-      type: 'saveSucceeded',
-      revision: failed.revision,
+  it('each opened file gets one tab and becomes visible; reopening an open file only shows it', () => {
+    const s = run(...opened('index.html', 'style.css'), {
+      type: 'docLoaded',
+      relPath: 'index.html',
+      content: file('x'),
     });
-    expect(saveState(retried)).toBe('clean');
-    expect(retried.saveError).toBeNull();
+    expect(s.tabs.map((tab) => tab.relPath)).toEqual(['index.html', 'style.css']);
+    expect(s.active).toBe('index.html');
+    expect(activeTab(s)?.content.text).toBe('<p>index.html</p>\n');
+    expect(activeSaveStatus(s)).toBe('clean');
   });
 
-  it('opening another file starts from a clean slate; a file that cannot be opened is reported', () => {
-    const s = run(
-      ...loaded(),
-      { type: 'edited' },
-      { type: 'docFailed', relPath: 'logo.png', code: 'unsupported-encoding' },
-    );
-    expect(s.doc).toBeNull();
+  it('keeps every tab its own save state', () => {
+    const s = run(...opened('index.html', 'style.css'), { type: 'saveState', relPath: 'index.html', save: dirty });
+    expect(s.tabs.map((tab) => tab.save.revision)).toEqual([1, 0]);
+    expect(activeSaveStatus(s)).toBe('clean'); // style.css is visible
+    expect(activeSaveStatus(documentReducer(s, { type: 'activate', relPath: 'index.html' }))).toBe('dirty');
+  });
+
+  it('closing the visible tab shows its right neighbour, else the left one', () => {
+    let s = run(...opened('a.html', 'b.css', 'c.js'), { type: 'activate', relPath: 'b.css' });
+    s = documentReducer(s, { type: 'closed', relPath: 'b.css' });
+    expect(s.active).toBe('c.js');
+    s = documentReducer(s, { type: 'closed', relPath: 'c.js' });
+    expect(s.active).toBe('a.html');
+    s = documentReducer(s, { type: 'closed', relPath: 'a.html' });
+    expect(s.active).toBeNull();
+    expect(s.tabs).toEqual([]);
+  });
+
+  it('closing a background tab keeps the visible one', () => {
+    const s = documentReducer(run(...opened('a.html', 'b.css')), { type: 'closed', relPath: 'a.html' });
+    expect(s.active).toBe('b.css');
+  });
+
+  it('Ctrl+Tab order wraps around in both directions', () => {
+    const s = run(...opened('a.html', 'b.css', 'c.js'));
+    expect(cycleTab(s, 1)).toBe('a.html');
+    expect(cycleTab(s, -1)).toBe('b.css');
+    expect(cycleTab(INITIAL_DOCUMENT_STATE, 1)).toBeNull();
+  });
+
+  it('a file that cannot be opened is reported without closing the open tabs', () => {
+    const s = run(...opened('index.html'), { type: 'docFailed', relPath: 'logo.png', code: 'unsupported-encoding' });
     expect(s.docError).toEqual({ relPath: 'logo.png', code: 'unsupported-encoding' });
-    expect(hasUnsavedChanges(s)).toBe(false);
+    expect(s.active).toBe('index.html');
+    expect(documentReducer(s, { type: 'activate', relPath: 'index.html' }).docError).toBeNull();
   });
 
-  it('edits without a document are ignored', () => {
-    expect(run({ type: 'edited' })).toEqual(INITIAL_DOCUMENT_STATE);
+  it('activating an unknown tab and saving state for a closed tab change nothing', () => {
+    const s = run(...opened('index.html'));
+    expect(documentReducer(s, { type: 'activate', relPath: 'gone.css' })).toBe(s);
+    expect(documentReducer(s, { type: 'saveState', relPath: 'gone.css', save: dirty }).tabs).toEqual(s.tabs);
+  });
+
+  it('opening another project closes all tabs', () => {
+    const s = run(...opened('index.html'), { type: 'projectOpened', project: { ...project, name: 'b' } });
+    expect(s.tabs).toEqual([]);
+    expect(s.active).toBeNull();
   });
 });

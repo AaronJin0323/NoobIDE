@@ -85,6 +85,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       bridge: Object.keys((w.noobide ?? {}) as object),
       apiVersion: (w.noobide as { apiVersion?: unknown } | undefined)?.apiVersion,
       workspace: Object.keys(((w.noobide as { workspace?: object } | undefined)?.workspace ?? {}) as object),
+      app: Object.keys(((w.noobide as { app?: object } | undefined)?.app ?? {}) as object),
     };
   });
   expect(probe).toEqual({
@@ -93,9 +94,11 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     inlineRan: false,
     violations: ['script-src-elem'],
     // S03.1: exactly the typed contract — no ipcRenderer, no generic send.
-    bridge: ['apiVersion', 'platform', 'workspace'],
+    bridge: ['apiVersion', 'platform', 'workspace', 'app'],
     apiVersion: 1,
-    workspace: ['openFolder', 'readFile', 'writeFile', 'revealProject'],
+    workspace: ['openFolder', 'readFile', 'writeFile', 'revealProject', 'saveCopy'],
+    // S10.6: close requests arrive as a listener registration only; the IPC event object never reaches the page.
+    app: ['onCloseRequested', 'answerClose'],
   });
 
   // The violation we just provoked is logged as a console error; drop exactly those so the final check stays strict.
