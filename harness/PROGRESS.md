@@ -3,6 +3,53 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 4 — 2026-10-14 — S03, then parallel agents: wave 1 (S04/S05, S07/S08, S09/S10, S12, S16/S22, S20, S21)
+
+**Agent:** Claude (Opus 5.5) as lead on the Windows x64 dev machine, with parallel subagents in git worktrees
+(`.claude/worktrees/`, ignored by git/lint/format). Owner asked to "finish as much as we can instead of following the
+weekly plan", so sessions ran in parallel by module; the lead merged, resolved conflicts and ran independent reviews.
+
+**Done (55 of 145 features done; was 15)**
+
+- S03.1–S03.4 (lead): typed IPC contract (`src/shared/ipc/`), sender + payload validation in main, platform labels,
+  open folder/file, atomic save. Independent review found save races, stale loads, ADS paths, Windows lock handling,
+  close-without-save gap — all fixed in S10/S07/S08 below (owner chose to keep S03 done).
+- S04.1–S04.4, S05.1, S05.2, S05.4, S05.5, S10.5: loopback static server with path guard, sandboxed per-project
+  WebContentsView, save → refresh only after a confirmed write, infinite loop / unresponsive handling, diagnostic
+  capture via webContents events, malicious-page fixture (14 attacks fail). Decisions 0009, 0010.
+- S07.1–S07.4, S08.1–S08.5: path utilities, lazy tree, fs.watch watcher (decision 0007), encodings (non-UTF-8 opens
+  read-only), accessible tree, create/rename/delete-to-trash/reveal, never-overwrite (decision 0008). Reviewed; 11
+  findings fixed (incl. >5 MB overwrite, hidden case-rename temp, watcher leak/cost, unportable names).
+- S09.1–S09.3, S10.1–S10.4, new S10.6: tabs with per-file model registry, save state machine with autosave +
+  serialized/coalesced writes, Windows lock retries, failure banner with retry/save-elsewhere, close/quit guard.
+  Mixed line endings: decision 0011.
+- S12.1–S12.3 (crash-recovery journal in app data, restore after forced kill), S21.1–S21.2 (snapshot store +
+  triggers). History review found index-loss bugs; reopened, fixed, re-marked done. Project identity: decision 0006.
+- S16.1 ProblemRecord, S22.1–S22.3 rules engine + 15 rules (zh-CN/en, honesty checks).
+- S20.1 three offline templates in `resources/templates` (packaged via extraResource).
+
+**Evidence:** `npm run verify` green (≈690 unit/integration tests); `npm run test:e2e` 98/98 twice on Windows x64
+@ bba57a2. Each feature's evidence is in features.json.
+
+**Blocked / manual:** S05.3 (console flood stalls main 3–5 s; follow-up S05.7 in-page rate limit), S16.5/S16.6 (need
+runtime capture S16.2), S20.3 (built; waits on S20.2 dependency). Manual: S02.6/S02.7, S05.6 (mac baseline row),
+S09.4/S09.5 (real IME), S12.4 (forced kill on both platforms), Recycle Bin/Trash and macOS file-tree checks — all in
+`harness/MANUAL-CHECKS.md`.
+
+**Decisions / notes:** decisions 0006–0011 added (0003 never existed). Unchanged-file status now reads 无改动.
+Rename reopens tabs (undo history lost). History is keyed by project path (moving a project orphans its history;
+S21.3 must list orphans).
+
+**Problems / risks:** nothing verified on macOS. Occasional e2e flake seen by agents (recovery.spec S12.1 timing,
+file-tree watcher timing); not reproduced in the lead's runs. Preview isolation full-security review in progress.
+
+**Owner action needed:** H.1 (OS versions, physical Apple Silicon Mac), H.5 (GitHub repo + Actions for macOS CI),
+H.2 (signing). Manual checks above.
+
+**Next up:** wave 2 — S14/S15/S16.2–4 + S05.7 (preview & runtime diagnostics), S18/S19/S17/S22.4/S22.5 (language
+features, problems panel, problem card, one-click fix), S20.2 + S21.3/S21.4 (welcome wizard, history UI),
+S11 + S13 (external-change conflicts, settings/recent/session restore).
+
 ## Session 3 — 2026-10-14 — UI prototype, quick-fix backlog item, prototype shell (S30)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, Node 22.22.2.
