@@ -465,8 +465,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/product/scope.md: audience, in-scope table, 16 exclusions each linked to its PLAN section, support matrix with min OS TBD -> H.1; checked against criteria"
     },
     {
       "id": "S01.2",
