@@ -527,8 +527,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "forge.config.ts + vite.*.config.ts, src/{main,preload,renderer} per PLAN §6, versions in docs/decisions/0004; npm start (electron-forge start) opens the window and passes the dev self-test; e2e asserts window title NoobIDE; verify green @ 0c43853 (Linux)"
     },
     {
       "id": "S02.2",
@@ -544,8 +544,8 @@
       "depends_on": [
         "S02.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/main/window-options.test.ts pins contextIsolation/nodeIntegration=false/sandbox/webSecurity (+startup assertion); csp.test.ts strict CSP; e2e smoke S02.2: live webPreferences, no require/process, inline script blocked (script-src-elem), CSP header; decision 0005 @ 0c43853"
     },
     {
       "id": "S02.3",
@@ -561,8 +561,8 @@
       "depends_on": [
         "S02.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/*: top bar, files, editor, preview, problems; e2e smoke asserts each by data-testid and by role+name @ 0c43853"
     },
     {
       "id": "S02.4",
@@ -578,8 +578,8 @@
       "depends_on": [
         "S02.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "monaco-editor ESM bundled by Vite, workers as local assets; network guard blocks all http(s)/ws(s) and e2e asserts 0 blocked requests + >=3 token classes in HTML; workers answer in dev (npm run selftest:dev) and packaged (npm run selftest:packaged, Linux x64) + e2e workers.spec @ 0c43853; Windows packaged run in MANUAL-CHECKS#S02.7 step 3"
     },
     {
       "id": "S02.5",
@@ -595,8 +595,8 @@
       "depends_on": [
         "S02.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "zh-CN.ts/en.ts dictionaries (key parity test), hardcoded-ui-strings.test.ts scans all .tsx (fails on Latin/CJK JSX text, visible attrs, CJK literals; self-tested); e2e: zh-CN default, switch to en survives reload (sessionStorage) @ 0c43853"
     },
     {
       "id": "S02.6",
@@ -612,8 +612,8 @@
       "depends_on": [
         "S02.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "npm run test:e2e: 8/8 on Linux x64 under xvfb (launches app, finds Monaco, zero console errors) @ 0c43853; Windows/macOS runs: harness/MANUAL-CHECKS.md#S02.6"
     },
     {
       "id": "S02.7",
@@ -628,8 +628,8 @@
       "depends_on": [
         "S02.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "MakerSquirrel configured (forge.config.ts), Squirrel events in src/platform/squirrel.ts (tested); must be built and installed on Windows: harness/MANUAL-CHECKS.md#S02.7"
     },
     {
       "id": "S03.1",

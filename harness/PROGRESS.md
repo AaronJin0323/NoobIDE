@@ -3,6 +3,78 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 1 — 2026-10-14 — Git, scope docs, wireframes, secure Electron shell
+
+**Agent:** Claude (cloud workspace, Linux x64, Node 22.22; no shell on the Windows machine — files written back to
+`D:\NoobIDE`, git history handed over as `noobide.bundle`, see Owner action)
+
+**Done**
+
+- S00.2 — Git initialised (`main`), LF policy checked: `git ls-files --eol` all `i/lf w/lf`. `PLAN.md` had mixed
+  CRLF/LF on disk; it is stored LF (content unchanged).
+- S01.1 — `docs/product/scope.md`: audience, in-scope table, 16 exclusions each linked to its PLAN section, support
+  matrix (minimum OS versions TBD → H.1).
+- S01.2 — `docs/product/task-script.md`: the 8 PLAN §2 steps with facilitator prompts, expected IDE feedback and
+  pass conditions; metrics M1–M5 (PLAN §11 beginner metrics) mapped to steps with measurement methods; hints,
+  unguided follow-up task, recording sheet.
+- S01.3 — `docs/wireframes/` (open `index.html`): welcome + create wizard, editor+preview (wide and narrow with a
+  working Code/Preview switch), problem card (PLAN §9 example, original error, uncertain cause, unresponsive page).
+  zh-CN copy, English notes under each screen, no external assets.
+- S02.1–S02.5 — Electron 44.7.0 + Forge 8.0.1 (Vite) + React 19.3 + Monaco 0.57 scaffold (decision 0004):
+  `src/main/main.ts`, sandboxed preload placeholder, React shell with the five regions, zh-CN/en i18n with
+  session-persisted switch, Monaco bundled locally with HTML/CSS/JS/JSON workers.
+- Security baseline (decision 0005): webPreferences factory + startup assertion, UI served from `noobide://app/`
+  (custom protocol, path-guarded) instead of file://, CSP response header (no eval / inline scripts / remote
+  origins), window-open/navigation/webview/permission denial, a network guard that blocks every http(s)/ws(s)
+  request from the workbench, fuses (RunAsNode, NODE_OPTIONS, --inspect off; ASAR integrity on).
+- S02.6 — Playwright Electron e2e (`npm run test:e2e`, 8 tests) — **needs_manual_check** for Windows/macOS runs.
+- S02.7 — Squirrel/DMG/ZIP makers configured; Squirrel install events handled in `src/platform/squirrel.ts` —
+  **needs_manual_check** (build + install on Windows).
+
+**Evidence:** `npm run verify -- --e2e` green @ 0c43853: harness, typecheck, lint, format, 42 unit tests (9 files),
+e2e 8/8 (Linux under xvfb). `npm run selftest:packaged` and `npm run selftest:dev` pass (CSS + TS workers answer in
+~1 s). Wireframes rendered offline with Playwright: 0 non-file requests, 0 console errors, switch works.
+
+**Decisions**
+
+- 0004 stack versions: Electron pinned to 44.7.0 rather than 44.7.2 (published hours earlier) — bump patches
+  deliberately. Monaco via its 0.56+ tree-shakeable entry points. No `electron-squirrel-startup` dependency.
+- 0005 workbench security baseline (above). Because the `--inspect` fuse is off, e2e drives the production bundles
+  with the stock Electron binary; the packaged binary is checked by the built-in self-test (`NOOBIDE_SELF_TEST=1`).
+- `package-lock.json` still not committed (generate on Windows, session 0 decision). It is git-ignored nowhere;
+  the cloud clone excluded it locally.
+- Refinement, not a backlog change: S02.3 placeholders already use the i18n dictionaries.
+
+**Problems / risks**
+
+- Nothing has run on Windows or macOS yet. The first Windows run (MANUAL-CHECKS S02.7) may surface
+  platform-specific issues (paths with spaces in scripts, Squirrel, SmartScreen for the unsigned installer).
+- `getLastWebPreferences()` used by one e2e assertion is missing from electron.d.ts (cast); if Electron removes it
+  the test fails loudly — the unit test on the factory remains the primary evidence.
+- S01.4 is blocked by H.1 (minimum OS versions). Electron 44's own minimums are the floor.
+- `eslint-plugin-react-hooks` is not installed yet; consider adding it in S09 when hooks get complex.
+
+**Owner action needed**
+
+1. Adopt the git history (D:\NoobIDE has none yet). In a terminal in `D:\NoobIDE`:
+   `git init -b main`, `git fetch noobide.bundle main`, `git reset --hard FETCH_HEAD`, then `git status` should be
+   clean apart from two leftover untracked files, `docs/wireframes/.gitkeep` and `scripts/.gitkeep` (delete them). Then delete the bundle.
+2. `npm install`, commit the generated `package-lock.json`, `npm run verify -- --e2e`.
+3. Run harness/MANUAL-CHECKS.md → S02.7 (Windows installer) and S02.6.
+4. Owner tasks now unblocked: H.1 (unblocks S01.4), H.2, H.3 (walk beginners through `docs/wireframes/`), H.4, H.5.
+
+**Next up**
+
+1. S03 — restricted IPC + open/save a real file: S03.1 typed IPC contract in `src/shared/ipc` (replace the
+   preload placeholder `window.noobide.apiVersion`), S03.2 extend `src/platform` (isMac/isWindows, modifier and
+   reveal labels; add an ESLint rule fixture), then S03.3/S03.4 file open/save in a `中文 路径` path.
+2. S01.4 after H.1. S02.6/S02.7 after the owner's Windows run.
+
+**Ideas / backlog candidates:** a `npm run dev:selftest` CI job once S06 exists; bundle a CJK-capable UI font
+(offline) in S24 instead of relying on system fonts.
+
+---
+
 ## Session 0 — 2026-10-14 — Plan structured, harness built
 
 **Agent:** Claude (cloud workspace, files handed back to `D:\NoobIDE`; no shell on the Windows machine)
