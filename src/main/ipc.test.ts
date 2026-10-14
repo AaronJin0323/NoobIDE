@@ -37,6 +37,7 @@ beforeEach(() => {
     chooseSaveFile: vi.fn(async (_event: IpcMainInvokeEvent, name: string) => `/backup/${name}`),
     revealFolder: vi.fn(),
     closeAnswered: vi.fn(),
+    closeDiscarding: vi.fn(),
   };
   registerIpcHandlers({ handle: (channel: string, h: Handler) => void handlers.set(channel, h) } as never, deps);
 });
@@ -76,6 +77,7 @@ describe('sender check (S03.1)', () => {
     expect(deps.revealFolder).not.toHaveBeenCalled();
     expect(deps.chooseSaveFile).not.toHaveBeenCalled();
     expect(deps.closeAnswered).not.toHaveBeenCalled();
+    expect(deps.closeDiscarding).not.toHaveBeenCalled();
   });
 });
 
@@ -108,6 +110,13 @@ describe('save elsewhere and close answers (S10.3, S10.6)', () => {
     expect(deps.closeAnswered).toHaveBeenCalledWith(workbench, { ok: false });
     expect(await call(CHANNELS.answerClose, workbench, { ok: 'sure' })).toMatchObject({ code: 'invalid-request' });
     expect(deps.closeAnswered).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes "close without saving" on, with no payload allowed', async () => {
+    expect(await call(CHANNELS.closeDiscarding, workbench)).toEqual({ ok: true, value: null });
+    expect(deps.closeDiscarding).toHaveBeenCalledWith(workbench);
+    expect(await call(CHANNELS.closeDiscarding, workbench, { force: true })).toMatchObject({ code: 'invalid-request' });
+    expect(deps.closeDiscarding).toHaveBeenCalledTimes(1);
   });
 });
 

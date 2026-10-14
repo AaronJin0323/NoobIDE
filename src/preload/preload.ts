@@ -26,6 +26,7 @@ const api: NoobideApi = {
       };
     },
     answerClose: (answer) => ipcRenderer.invoke(CHANNELS.answerClose, answer),
+    closeDiscarding: () => ipcRenderer.invoke(CHANNELS.closeDiscarding),
   },
 };
 

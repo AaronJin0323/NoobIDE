@@ -147,6 +147,11 @@ async function renameWithRetry(
   }
 }
 
+/**
+ * Removes our own leftovers for one target. Writes within this app are serialized per file, so a temp file seen here
+ * is from a crash; a second NoobIDE instance saving the same file at the same moment could lose its temp file and
+ * report a failed save (its edits are kept), which is acceptable for a case the single-instance lock already rules out.
+ */
 async function removeStaleTempFiles(fs: AtomicFs, dir: string, targetName: string): Promise<void> {
   let entries: string[];
   try {

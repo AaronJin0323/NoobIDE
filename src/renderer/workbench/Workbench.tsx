@@ -10,7 +10,7 @@ import { PreviewPane } from './PreviewPane';
 import { ProblemsPanel } from './ProblemsPanel';
 import { INITIAL_LAYOUT, NARROW_QUERY, layoutReducer, visibleRegions } from './layout';
 import { INITIAL_DOCUMENT_STATE, activeSaveStatus, activeTab, cycleTab, documentReducer } from './document-state';
-import { DocumentSaver } from './save-controller';
+import { DocumentSaver, saveEvery } from './save-controller';
 import { createSavedFileEvents } from './saved-file-events';
 import { DEFAULT_FONT_SIZE, zoomFontSize } from './zoom';
 
@@ -30,6 +30,8 @@ export function Workbench() {
   const [doc, dispatch] = useReducer(documentReducer, INITIAL_DOCUMENT_STATE);
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [copyNotice, setCopyNotice] = useState<SaveCopyNotice | null>(null);
+  /** A window close was refused because a save failed: offer "close without saving" (S10.6). */
+  const [closeRefused, setCloseRefused] = useState(false);
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
 
@@ -69,15 +71,14 @@ export function Workbench() {
     [bridge],
   );
 
-  /** Saves every open file. On a failure the failing tab is shown (its banner explains) and false is returned. */
+  /**
+   * Saves every open file until nothing is unsaved (edits typed during the pass are saved too). On a failure the
+   * failing tab is shown (its banner explains) and false is returned.
+   */
   const saveAll = useCallback(async (): Promise<boolean> => {
-    for (const [relPath, saver] of [...savers.current]) {
-      if (!(await saver.save())) {
-        dispatch({ type: 'activate', relPath });
-        return false;
-      }
-    }
-    return true;
+    const result = await saveEvery(() => savers.current.entries());
+    if (!result.ok) dispatch({ type: 'activate', relPath: result.failed });
+    return result.ok;
   }, []);
 
   const closeProjectFiles = () => {
@@ -136,6 +137,7 @@ export function Workbench() {
       dispatch({ type: 'activate', relPath });
       return;
     }
+    // Order matters: the saver goes before the model is discarded (cleared), so that change reaches no saver.
     saver.dispose();
     savers.current.delete(relPath);
     dispatch({ type: 'closed', relPath });
@@ -178,7 +180,10 @@ export function Workbench() {
   useEffect(() => {
     if (!bridge) return;
     return bridge.app.onCloseRequested(() => {
-      void saveAll().then((ok) => bridge.app.answerClose({ ok }));
+      void saveAll().then((ok) => {
+        if (!ok) setCloseRefused(true);
+        return bridge.app.answerClose({ ok });
+      });
     });
   }, [bridge, saveAll]);
 
@@ -271,6 +276,7 @@ export function Workbench() {
           onRetry={saveActive}
           onSaveCopy={bridge ? () => void saveCopy() : undefined}
           copyNotice={copyNotice}
+          onCloseDiscarding={bridge && closeRefused ? () => void bridge.app.closeDiscarding() : undefined}
         />
         <PreviewPane hidden={!visible.preview} />
       </div>

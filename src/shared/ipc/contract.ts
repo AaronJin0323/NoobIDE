@@ -19,6 +19,7 @@ export const CHANNELS = {
   revealProject: 'workspace:reveal-project',
   saveCopy: 'workspace:save-copy',
   answerClose: 'app:answer-close',
+  closeDiscarding: 'app:close-discarding',
 } as const;
 
 /** Main → workbench notifications (sent with webContents.send; the workbench only listens). */
@@ -146,6 +147,8 @@ export interface NoobideApi {
     /** Registers the handler for close/quit requests. Returns the unsubscribe function. */
     onCloseRequested(listener: () => void): () => void;
     answerClose(answer: CloseAnswer): Promise<IpcResult<null, never>>;
+    /** After a refused close: the user chose to close the window without the edits that could not be saved. */
+    closeDiscarding(): Promise<IpcResult<null, never>>;
   };
 }
 

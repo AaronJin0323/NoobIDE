@@ -4,9 +4,12 @@ import { installCloseGuard, type CloseEventLike } from './close-guard';
 
 function fakeWindow() {
   let listener: ((event: CloseEventLike) => void) | undefined;
+  const contentsListeners = new Map<string, () => void>();
   const win = {
     closed: 0,
     crashed: false,
+    loading: false,
+    emit: (event: string) => contentsListeners.get(event)?.(),
     sent: [] as string[],
     on: (_event: 'close', l: (event: CloseEventLike) => void) => {
       listener = l;
@@ -15,6 +18,8 @@ function fakeWindow() {
     webContents: {
       send: (channel: string) => void win.sent.push(channel),
       isCrashed: () => win.crashed,
+      isLoading: () => win.loading,
+      on: (event: string, l: () => void) => void contentsListeners.set(event, l),
     },
     /** What Electron does on win.close(): emit 'close'; the window closes unless a listener prevented it. */
     close() {
@@ -86,7 +91,41 @@ describe('close guard (S10.6)', () => {
     expect(win.sent).toHaveLength(1);
   });
 
-  it('closes after the timeout when the workbench never answers (hung renderer)', () => {
+  it('closes when the renderer becomes unresponsive or goes away while we wait', () => {
+    for (const event of ['unresponsive', 'render-process-gone']) {
+      const win = fakeWindow();
+      installCloseGuard(win, fakeTimers());
+      win.emit(event); // nothing pending: ignored
+      expect(win.closed).toBe(0);
+      win.close();
+      win.emit(event);
+      expect(win.closed).toBe(1);
+    }
+  });
+
+  it('does not ask a page that is still loading (it has no edits yet)', () => {
+    const win = fakeWindow();
+    installCloseGuard(win, fakeTimers());
+    win.loading = true;
+    win.close();
+    expect(win.closed).toBe(1);
+    expect(win.sent).toEqual([]);
+  });
+
+  it('closes without saving only after a refused close, on explicit request', () => {
+    const win = fakeWindow();
+    const onAllowed = vi.fn();
+    const guard = installCloseGuard(win, { ...fakeTimers(), onAllowed });
+    guard.discardAndClose(); // no refused close yet: ignored
+    expect(win.closed).toBe(0);
+    win.close();
+    guard.answer({ ok: false });
+    guard.discardAndClose();
+    expect(win.closed).toBe(1);
+    expect(onAllowed).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes after the long backstop when the workbench never answers', () => {
     const win = fakeWindow();
     const timers = fakeTimers();
     installCloseGuard(win, timers);

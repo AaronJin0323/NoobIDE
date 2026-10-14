@@ -47,6 +47,8 @@ export interface IpcDeps {
   revealFolder(folder: string): void;
   /** The workbench answered a close request (S10.6). */
   closeAnswered(event: IpcMainInvokeEvent, answer: CloseAnswer): void;
+  /** After a refused close, the user chose to close without the unsaved edits (S10.6). */
+  closeDiscarding(event: IpcMainInvokeEvent): void;
 }
 
 const FORBIDDEN = { ok: false, code: 'forbidden-sender', message: 'sender is not the workbench' } as const;
@@ -89,6 +91,11 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
 
   handle(CHANNELS.answerClose, parseCloseAnswer, async (answer, event) => {
     deps.closeAnswered(event, answer);
+    return { ok: true, value: null };
+  });
+
+  handle(CHANNELS.closeDiscarding, parseNoPayload, async (_payload, event) => {
+    deps.closeDiscarding(event);
     return { ok: true, value: null };
   });
 

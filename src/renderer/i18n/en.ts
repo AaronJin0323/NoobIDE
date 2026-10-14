@@ -62,6 +62,7 @@ export const en: Record<MessageKey, string> = {
   'save.elsewhere': 'Save a copy elsewhere…',
   'save.copySaved': 'A copy was saved to:',
   'save.copyFailed': 'Saving the copy failed:',
+  'save.closeDiscarding': 'Close the window without these unsaved edits',
   'tabs.label': 'Open files',
   'tabs.close': 'Close',
   'tab.state.dirty': 'Unsaved',

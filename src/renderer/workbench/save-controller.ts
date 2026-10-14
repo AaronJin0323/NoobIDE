@@ -1,4 +1,4 @@
-import { INITIAL_SAVE, canSave, saveReducer, type SaveEvent, type SaveSnapshot } from './save-machine';
+import { INITIAL_SAVE, canSave, isUnsaved, saveReducer, type SaveEvent, type SaveSnapshot } from './save-machine';
 
 /**
  * Save pipeline of one open file (S10.2, PLAN §7): edit → coalesce writes over a short pause → write (temp file +
@@ -181,5 +181,21 @@ export class DocumentSaver {
   private apply(event: SaveEvent): void {
     this.snapshot = saveReducer(this.snapshot, event);
     if (!this.disposed) this.options.onState?.(this.snapshot);
+  }
+}
+
+export type SaveEveryResult<K> = { readonly ok: true } | { readonly ok: false; readonly failed: K };
+
+/**
+ * Saves every open file until one full pass finds nothing unsaved (before a project switch or a window close).
+ * A single pass is not enough: while file B is being written, the user can still type in file A, which was already
+ * saved in this pass. `entries` is read again on every pass so tabs opened meanwhile are included.
+ */
+export async function saveEvery<K>(entries: () => Iterable<readonly [K, DocumentSaver]>): Promise<SaveEveryResult<K>> {
+  for (;;) {
+    for (const [key, saver] of [...entries()]) {
+      if (!(await saver.save())) return { ok: false, failed: key };
+    }
+    if (![...entries()].some(([, saver]) => isUnsaved(saver.state))) return { ok: true };
   }
 }

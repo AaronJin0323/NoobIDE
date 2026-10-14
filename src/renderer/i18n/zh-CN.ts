@@ -62,6 +62,7 @@ export const zhCN = {
   'save.elsewhere': '另存一份到别处…',
   'save.copySaved': '已另存一份到：',
   'save.copyFailed': '另存失败：',
+  'save.closeDiscarding': '关闭窗口，放弃未能保存的修改',
   'tabs.label': '打开的文件',
   'tabs.close': '关闭',
   'tab.state.dirty': '未保存',

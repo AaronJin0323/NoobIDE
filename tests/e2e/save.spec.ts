@@ -127,6 +127,8 @@ test('closing the window with a failing save keeps the window open and the edits
   await lines().click();
   await page.keyboard.press('ControlOrMeta+End');
   await expect(lines()).toContainText('NOTDROPPED');
+  // A file that can never be saved must not trap the user: an explicit way out is offered.
+  await expect(page.getByTestId('close-discarding')).toBeVisible();
   await chmod(file, 0o644);
 });
 
@@ -150,4 +152,26 @@ test('quitting the app saves unsaved edits first (S10.6)', async () => {
   await app.evaluate(({ app: electronApp }) => electronApp.quit());
   await exited;
   expect(await disk('style.css')).toContain('SAVEDONQUIT');
+});
+
+test('after a refused close, "close without saving" closes the window and leaves the file as it was (S10.6)', async () => {
+  await start();
+  await openFile(page, 'script.js');
+  const file = path.join(root, 'script.js');
+  const before = await disk('script.js');
+  await chmod(file, 0o444);
+  try {
+    await typeAtEnd(page, 'CANNOTSAVE');
+    await expect(status()).toHaveText('保存失败 — 你的修改还在');
+    await expect(page.getByTestId('close-discarding')).toHaveCount(0); // only offered after a refused close
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close());
+    await expect(page.getByTestId('close-discarding')).toBeVisible();
+    const closed = page.waitForEvent('close');
+    await page.getByTestId('close-discarding').click();
+    await closed;
+    expect(await disk('script.js')).toBe(before);
+  } finally {
+    await chmod(file, 0o644);
+    await app.close().catch(() => undefined);
+  }
 });

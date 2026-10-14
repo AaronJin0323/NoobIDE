@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DocumentSaver, type Timers, type WriteOutcome } from './save-controller';
+import { DocumentSaver, saveEvery, type Timers, type WriteOutcome } from './save-controller';
 import { saveStatus, type SaveSnapshot } from './save-machine';
 
 /** A write that resolves only when the test says so — models a slow disk or a rename that is still pending. */
@@ -250,6 +250,38 @@ describe('document saver: "saved" notifications for the preview (S10.5)', () => 
     await disk.settle();
     await done;
     expect(notified).toBe(0);
+  });
+});
+
+describe('saving every open file (close / project switch)', () => {
+  it('saves edits typed in an already-saved file while another file is still being written', async () => {
+    const a = setup({ autosave: false });
+    const b = setup({ autosave: false });
+    a.saver.edit('a1');
+    b.saver.edit('b1');
+    const all = saveEvery(() => [['a.html', a.saver] as const, ['b.html', b.saver] as const]);
+    await flush();
+    await a.disk.settle(); // a.html done in this pass
+    expect(b.disk.writes.map((w) => w.text)).toEqual(['b1']);
+    a.saver.edit('a2'); // typed while b.html is still being written
+    await b.disk.settle();
+    expect(a.disk.writes.map((w) => w.text)).toEqual(['a2']); // a second pass picks it up
+    await a.disk.settle();
+    expect(await all).toEqual({ ok: true });
+    expect(a.disk.disk).toBe('a2');
+    expect(b.disk.disk).toBe('b1');
+  });
+
+  it('stops at the first file that cannot be saved and names it', async () => {
+    const a = setup({ autosave: false });
+    const b = setup({ autosave: false });
+    a.saver.edit('a1');
+    b.saver.edit('b1');
+    const all = saveEvery(() => [['a.html', a.saver] as const, ['b.html', b.saver] as const]);
+    await flush();
+    await a.disk.settle(FAIL);
+    expect(await all).toEqual({ ok: false, failed: 'a.html' });
+    expect(b.disk.writes).toHaveLength(0);
   });
 });
 

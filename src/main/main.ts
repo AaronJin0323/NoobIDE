@@ -104,6 +104,7 @@ function start(): void {
       },
       revealFolder: (folder) => shell.showItemInFolder(folder),
       closeAnswered: (event, answer) => closeGuards.get(event.sender.id)?.answer(answer),
+      closeDiscarding: (event) => closeGuards.get(event.sender.id)?.discardAndClose(),
     });
     createWorkbenchWindow();
 

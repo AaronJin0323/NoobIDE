@@ -98,7 +98,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     apiVersion: 1,
     workspace: ['openFolder', 'readFile', 'writeFile', 'revealProject', 'saveCopy'],
     // S10.6: close requests arrive as a listener registration only; the IPC event object never reaches the page.
-    app: ['onCloseRequested', 'answerClose'],
+    app: ['onCloseRequested', 'answerClose', 'closeDiscarding'],
   });
 
   // The violation we just provoked is logged as a console error; drop exactly those so the final check stays strict.

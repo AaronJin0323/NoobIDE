@@ -34,6 +34,8 @@ interface EditorPaneProps {
   /** Absent when the bridge offers no save dialog. */
   onSaveCopy: (() => void) | undefined;
   copyNotice: SaveCopyNotice | null;
+  /** Present after a window close was refused because of this failure (S10.6). */
+  onCloseDiscarding: (() => void) | undefined;
 }
 
 function openErrorKey(code: string): MessageKey {
@@ -153,6 +155,16 @@ export function EditorPane(props: EditorPaneProps) {
               {props.onSaveCopy && (
                 <button type="button" className="secondary-button" data-testid="save-copy" onClick={props.onSaveCopy}>
                   {t('save.elsewhere')}
+                </button>
+              )}
+              {props.onCloseDiscarding && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  data-testid="close-discarding"
+                  onClick={props.onCloseDiscarding}
+                >
+                  {t('save.closeDiscarding')}
                 </button>
               )}
             </span>
