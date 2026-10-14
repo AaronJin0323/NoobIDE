@@ -36,8 +36,10 @@ so this wave deliberately avoided their areas: preview (S05.5/S05.7, S14, S15, S
   walkthrough and glossary are registry commands in the Help / app menu.
 
 **Evidence:** `npm run verify` green on macOS (1326 tests). Full `npm run test:e2e` on macOS arm64: 180 passed, 2
-skipped, 1 flake (menus About/Escape race, fixed in the test by waiting for dialog focus; 10/10 on repeat). Per-feature
-evidence in features.json.
+skipped, 1 flake (menus About/Escape race, fixed in the test by waiting for dialog focus; 10/10 on repeat). **Open
+failure:** `file-tree.spec.ts:289` (S07.3) fails ~3 of 4 runs on macOS — a file created then deleted by another
+program stays in the tree. Pre-existing (also fails with the pre-fix watcher); passed on Windows. A fix agent was
+working on it when this entry was written. Per-feature evidence in features.json.
 
 **Decisions:** 0012 installers and app identity (Squirrel on Windows; DMG+ZIP on mac; Windows `iconUrl` stays
 default until a release host exists). 0013 onboarding walkthrough (renumbered from 0012 at merge). 0014 command
