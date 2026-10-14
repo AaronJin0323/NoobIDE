@@ -1,4 +1,5 @@
 import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -188,6 +189,25 @@ describe('S26.1 PLAN §11 project cases', () => {
       expect(await text('index.html')).toBe(edited);
     },
   );
+
+  it('a failed re-create never removes content another program wrote into the reserved file', async () => {
+    await rm(file('index.html'));
+    const theirs = '<p>另一个程序刚写入的内容</p>';
+    faults.add({
+      op: 'write',
+      code: 'ENOSPC',
+      times: 1,
+      where: (p) => {
+        if (!(inRoot(p) && p.endsWith('.noobide-tmp'))) return false;
+        writeFileSync(file('index.html'), theirs); // lands between the reservation and our write
+        return true;
+      },
+    });
+    const failed = await service.write({ projectId, relPath: 'index.html', text: 'mine', bom: false, create: true });
+    expect(failed.ok).toBe(false);
+    faults.restart();
+    expect(await text('index.html')).toBe(theirs);
+  });
 
   it('recovery after deletion: a file deleted outside NoobIDE keeps the edits and can be written again', async () => {
     const read = await service.read({ projectId, relPath: 'index.html' });
