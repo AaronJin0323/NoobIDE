@@ -91,6 +91,17 @@ export interface FileHistoryUsage {
   readonly maxBytes: number;
 }
 
+/** One project's history as the S21.4 storage view lists it (ADR 0006: orphans are shown with their size). */
+export interface ProjectHistorySummary {
+  readonly key: string;
+  /** The real root path the history was recorded under; it may not exist any more (moved or renamed project). */
+  readonly rootPath: string;
+  readonly files: number;
+  readonly versions: number;
+  /** Unique bytes of this project's versions (identical versions counted once). */
+  readonly bytes: number;
+}
+
 export type SnapshotError = 'too-large' | 'write-failed';
 export type HistoryReadError = 'unavailable';
 
@@ -103,6 +114,8 @@ const REASONS: readonly SnapshotReason[] = [
   'before-delete',
   'before-restore',
 ];
+/** Snapshots taken around an operation (not a save) end the current save burst (S21.3). */
+const SEALS_BURST: ReadonlySet<SnapshotReason> = new Set(['before-format', 'before-delete', 'before-restore']);
 const TRANSIENT = new Set(['EBUSY', 'EPERM', 'EACCES', 'EMFILE', 'ENFILE', 'EAGAIN']);
 const HASH_IN_TEXT = /[0-9a-f]{64}/g;
 const STALE_TEMP_MS = 60_000;
@@ -192,7 +205,19 @@ export class SnapshotStore {
         const index = this.indexes.get(key) ?? newIndex(rootPath);
         const versions = index.files[rel] ?? [];
         const newest = versions.at(-1);
-        if (newest && newest.hash === hash) return ok({ snapshot: newest, deduped: true });
+        if (newest && newest.hash === hash) {
+          // S21.3: a format, delete or restore is a boundary. When it finds the content already kept as the newest
+          // after-save version, that version's save burst is sealed, so the next save (e.g. the restored content)
+          // is added as a new version instead of replacing — and losing — the one kept "before" the operation.
+          if (SEALS_BURST.has(reason) && newest.burstStart !== undefined) {
+            const { burstStart: _sealed, ...rest } = newest;
+            const sealed: SnapshotMeta = rest;
+            index.files[rel] = [...versions.slice(0, -1), sealed];
+            await this.writeIndex(index);
+            return ok({ snapshot: sealed, deduped: true });
+          }
+          return ok({ snapshot: newest, deduped: true });
+        }
 
         await this.ensureBlob(hash, data);
         const createdAt = this.now();
@@ -245,6 +270,25 @@ export class SnapshotStore {
       const index = await this.readableIndex(rootPath);
       if (!index.ok) return index;
       return ok(Object.keys(index.value?.files ?? {}).sort());
+    });
+  }
+
+  /** Every project with readable history, with its stored root path and size (S21.4, ADR 0006). */
+  projects(): Promise<ProjectHistorySummary[]> {
+    return this.queue.run(async () => {
+      await this.load();
+      return [...this.indexes.entries()].map(([key, index]) => {
+        const lists = Object.values(index.files);
+        const unique = new Map<string, number>();
+        for (const m of lists.flat()) unique.set(m.hash, m.size);
+        return {
+          key,
+          rootPath: index.rootPath,
+          files: lists.length,
+          versions: lists.reduce((n, list) => n + list.length, 0),
+          bytes: [...unique.values()].reduce((n, size) => n + size, 0),
+        };
+      });
     });
   }
 

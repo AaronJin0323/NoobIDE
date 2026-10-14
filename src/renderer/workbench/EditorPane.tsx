@@ -7,7 +7,7 @@ import { activeTab, type DocumentState } from './document-state';
 import { isUnsaved } from './save-machine';
 import { TabBar } from './TabBar';
 import { isSameOrBelow } from './file-tree-model';
-import { MinusIcon, PlusIcon, WarningIcon } from './icons';
+import { HistoryIcon, MinusIcon, PlusIcon, WarningIcon } from './icons';
 import { FileRoleHint } from './FileRole';
 
 // Monaco is large; load it as its own chunk so the shell paints first.
@@ -42,6 +42,8 @@ interface EditorPaneProps {
   lockedPaths: readonly string[];
   /** S20.2: the welcome screen, shown above the sample while no project is open. */
   welcome?: ReactNode;
+  /** S21.3: opens the local history of the active file. */
+  onShowHistory?: ((relPath: string) => void) | undefined;
 }
 
 function openErrorKey(code: string): MessageKey {
@@ -110,6 +112,19 @@ export function EditorPane(props: EditorPaneProps) {
           <span className="badge" data-testid="sample-badge">
             {t('editor.sampleBadge')}
           </span>
+        )}
+        {tab && props.onShowHistory && (
+          <button
+            type="button"
+            className="quiet-button history-button"
+            title={t('history.openFor')}
+            aria-haspopup="dialog"
+            data-testid="show-history"
+            onClick={() => props.onShowHistory?.(tab.relPath)}
+          >
+            <HistoryIcon size={15} />
+            {t('history.open')}
+          </button>
         )}
         <div className="zoom" role="group" aria-label={t('zoom.label')} data-testid="zoom">
           <button

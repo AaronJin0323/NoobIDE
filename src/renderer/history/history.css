@@ -1,0 +1,184 @@
+/* Local-history window (S21.3, S21.4). Colours only from the theme tokens (src/renderer/theme/tokens.ts). */
+.history-backdrop {
+  z-index: 60;
+}
+.dialog.history-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(1100px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.history-head .dialog-title {
+  margin: 0;
+}
+.history-intro {
+  margin: 0;
+}
+.history-notice {
+  margin: 0;
+}
+.history-ok {
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  background: var(--ok-soft);
+}
+.history-columns {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(170px, 1fr) minmax(280px, 2fr);
+  gap: 12px;
+  min-height: 240px;
+}
+.history-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.history-column-title {
+  margin: 0;
+  font-size: 13px;
+}
+.history-subtitle {
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+.history-list {
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.history-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.history-item:hover {
+  background: var(--hover);
+}
+.history-item[aria-current='true'] {
+  background: var(--raised);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.history-item-main {
+  overflow-wrap: anywhere;
+}
+.history-item-detail {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.history-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text);
+}
+.history-tag > svg {
+  color: var(--warn);
+}
+.history-compare .diff-lines {
+  max-height: 300px;
+}
+.history-text {
+  white-space: pre-wrap;
+  padding: 8px 10px;
+}
+.history-restore {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.history-restore .dialog-hint {
+  margin: 0;
+}
+.history-restore .primary-button {
+  margin-top: 0;
+}
+.history-restore .primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.history-storage {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.history-storage .dialog-hint,
+.history-usage {
+  margin: 0;
+}
+.history-usage {
+  font-weight: 600;
+}
+.history-path {
+  overflow-wrap: anywhere;
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.history-confirm {
+  margin: 6px 0 0;
+}
+.history-orphans {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.history-orphan {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+.history-orphan-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  .history-columns {
+    grid-template-columns: 1fr;
+  }
+}
+/* The editor header's "History" button (EditorPane) sits before the zoom group. */
+.history-button {
+  flex: none;
+  margin-left: auto;
+}
+.history-button + .zoom {
+  margin-left: 4px;
+}
+/* The window scrolls as a whole; its sections never shrink into each other. */
+.history-dialog > * {
+  flex: none;
+}

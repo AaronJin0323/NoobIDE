@@ -35,3 +35,30 @@ export function releaseModel(uri: string): void {
 export function releaseFileModels(): void {
   models.retainOnly(models.uris().filter((uri) => !uri.startsWith('file:')));
 }
+
+// --- S21.3: restoring a history version is an ordinary, undoable edit of the file's model ---
+/** Resolves with the model of `uri` once the editor has created it (the tab became visible), or null on timeout. */
+export async function waitForModel(uri: string, timeoutMs = 3000): Promise<monaco.editor.ITextModel | null> {
+  const started = Date.now();
+  for (;;) {
+    const model = models.get(uri);
+    if (model) return model;
+    if (Date.now() - started > timeoutMs) return null;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
+/**
+ * Replaces the whole text of an open file's model as one undo step (Ctrl+Z brings the previous text back). The
+ * editor's change listener passes the new text to the file's save pipeline like any typed edit. Returns the
+ * model's new text, or null when the model did not appear.
+ */
+export async function replaceModelText(uri: string, text: string): Promise<string | null> {
+  const model = await waitForModel(uri);
+  if (!model) return null;
+  model.pushStackElement();
+  model.pushEditOperations([], [{ range: model.getFullModelRange(), text }], () => null);
+  model.pushStackElement();
+  return model.getValue(); // in the model's own line ending
+}
+// --- end S21.3 ---

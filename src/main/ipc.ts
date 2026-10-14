@@ -20,6 +20,7 @@ import type { ProjectService } from '../workspace/project-service';
 import { safeOrigin } from './harden';
 import { registerRecoveryHandlers, type RecoveryJournalPort } from './recovery-ipc';
 import { registerCreateProjectHandlers, type CreateProjectPort } from './create-project-ipc'; // S20.2
+import { registerHistoryHandlers, type HistoryPort } from './history-ipc'; // S21.3/S21.4
 
 /**
  * IPC handlers for the typed contract in src/shared/ipc (S03.1). Every call is checked in this order before any
@@ -79,6 +80,8 @@ export interface IpcDeps {
   readonly journal: RecoveryJournalPort;
   /** S20.2: templates, default location and folder dialog of the create-project wizard. */
   readonly create?: CreateProjectPort;
+  /** S21.3/S21.4: local history store, restore trigger and "reveal history folder". */
+  readonly history?: HistoryPort;
 }
 
 /** Registers one channel behind the sender and payload checks. */
@@ -162,4 +165,6 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
   registerRecoveryHandlers(handle, deps.projects, deps.journal, deps.projectOpened?.bind(deps));
   // S20.2: create-project wizard; the new project is watched like one opened from the folder dialog.
   registerCreateProjectHandlers(handle, deps.projects, deps.create, deps.projectOpened?.bind(deps));
+  // S21.3/S21.4: local history window.
+  registerHistoryHandlers(handle, deps.projects, deps.history);
 }

@@ -92,6 +92,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       createProject: Object.keys(
         ((w.noobide as { createProject?: object } | undefined)?.createProject ?? {}) as object,
       ),
+      history: Object.keys(((w.noobide as { history?: object } | undefined)?.history ?? {}) as object),
     };
   });
   expect(probe).toEqual({
@@ -100,7 +101,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     inlineRan: false,
     violations: ['script-src-elem'],
     // S03.1: exactly the typed contract — no ipcRenderer, no generic send.
-    bridge: ['apiVersion', 'platform', 'workspace', 'app', 'preview', 'recovery', 'createProject'],
+    bridge: ['apiVersion', 'platform', 'workspace', 'app', 'preview', 'recovery', 'createProject', 'history'],
     apiVersion: 1,
     workspace: [
       'openFolder',
@@ -123,6 +124,8 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     recovery: ['record', 'discardSaved', 'listPending', 'openProject', 'read', 'discard', 'clear'],
     // S20.2: create-project wizard (locations are opaque ids chosen in main).
     createProject: ['options', 'chooseLocation', 'check', 'create'],
+    // S21.3/S21.4: local history (files by project id + relative path, other histories by opaque key).
+    history: ['files', 'versions', 'read', 'beforeRestore', 'restoreDeleted', 'overview', 'clear', 'cleanup', 'reveal'],
   });
 
   // The violation we just provoked is logged as a console error; drop exactly those so the final check stays strict.

@@ -245,3 +245,7 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* The wizard scrolls as a whole in a small window; its sections never shrink into each other. */
+.dialog.wizard > * {
+  flex: none;
+}

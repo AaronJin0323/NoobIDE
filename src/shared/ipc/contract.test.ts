@@ -101,7 +101,8 @@ describe('IPC results', () => {
   it('channel names are unique and namespaced', () => {
     const names = Object.values(CHANNELS);
     expect(new Set(names).size).toBe(names.length);
-    for (const n of [...names, ...Object.values(EVENTS)]) expect(n).toMatch(/^(workspace|app|recovery):[a-z-]+$/);
+    for (const n of [...names, ...Object.values(EVENTS)])
+      expect(n).toMatch(/^(workspace|app|recovery|history):[a-z-]+$/);
   });
 
   it('accepts only a boolean close answer', () => {

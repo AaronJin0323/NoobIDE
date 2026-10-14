@@ -169,6 +169,8 @@ function start(): void {
         },
       },
       // --- end S20.2 ---
+      // S21.3/S21.4: local history window (store and triggers created above).
+      history: { store: history, triggers: historyTriggers, revealFolder: (folder) => void shell.openPath(folder) },
     });
     // S10.5: refresh the preview only after a confirmed write (fires after the rename, never on a failed save).
     projects.onSaved((file) => preview.fileSaved(file.projectId));

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OpenedProject } from '../../shared/ipc/contract';
 import { useI18n } from '../i18n/I18nProvider';
-import { FolderIcon, PlusIcon, WarningIcon } from '../workbench/icons';
+import { PlusIcon, SmallFolderIcon, WarningIcon } from '../workbench/icons';
 import { recentRowView, type RecentProject, type RecentProjectsSource } from './welcome-model';
 import './welcome.css';
 
@@ -81,7 +81,7 @@ export function WelcomeScreen({ onCreate, onOpenFolder, recent, onOpenRecent }: 
               data-testid="welcome-open-folder"
               onClick={onOpenFolder}
             >
-              <FolderIcon />
+              <SmallFolderIcon />
               {t('welcome.openFolder')}
             </button>
           )}

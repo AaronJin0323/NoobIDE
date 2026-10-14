@@ -6,7 +6,7 @@ import type {
   TemplateSummary,
 } from '../../shared/ipc/create-contract';
 import { useI18n } from '../i18n/I18nProvider';
-import { trapTab } from '../workbench/focus-trap';
+import { useModalKeys } from '../workbench/focus-trap';
 import { WarningIcon } from '../workbench/icons';
 import { createErrorMessage, topLevelEntries, wizardView, type NameCheck } from './welcome-model';
 import './welcome.css';
@@ -90,6 +90,8 @@ export function CreateProjectDialog({ api, onCreated, onCancel }: CreateProjectD
     return () => clearTimeout(timer);
   }, [api, location, name]);
 
+  useModalKeys(dialogRef, onCancel);
+
   const view = wizardView(t, { templateId, name, hasLocation: location !== null, check, creating });
   const selected = templates?.find((tpl) => tpl.id === templateId) ?? null;
 
@@ -123,12 +125,6 @@ export function CreateProjectDialog({ api, onCreated, onCancel }: CreateProjectD
         aria-modal="true"
         aria-labelledby={titleId}
         data-testid="create-wizard"
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            onCancel();
-          } else trapTab(event, dialogRef.current);
-        }}
       >
         <h2 className="dialog-title" id={titleId}>
           {t('wizard.title')}

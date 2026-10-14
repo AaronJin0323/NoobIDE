@@ -48,6 +48,7 @@ export const welcomeHistoryZhCN = {
   'wizard.error.generic': '项目没有创建成功。你电脑上的文件没有被改动。',
   // ── S21.3 本地历史 ──
   'history.open': '历史版本',
+  'rail.history': '历史',
   'history.openFor': '查看这个文件的历史版本',
   'history.title': '本地历史',
   'history.intro':
@@ -65,7 +66,6 @@ export const welcomeHistoryZhCN = {
   'history.reason.before-format': '格式化前',
   'history.reason.before-delete': '删除前',
   'history.reason.before-restore': '恢复前',
-  'history.size': '{size}',
   'history.compareCurrent': '和现在的内容对比',
   'history.compareDeleted': '这个文件已经被删除。下面是这个版本的全部内容。',
   'history.legend': '+ 是恢复后会回来的行，− 是现在有、恢复后会被替换的行。',
@@ -166,6 +166,7 @@ export const welcomeHistoryEn: Record<WelcomeHistoryKey, string> = {
   'wizard.error.templatesUnavailable': 'The built-in templates could not be found. Please reinstall NoobIDE.',
   'wizard.error.generic': 'The project could not be created. Nothing on your computer was changed.',
   'history.open': 'History',
+  'rail.history': 'History',
   'history.openFor': 'Show the earlier versions of this file',
   'history.title': 'Local history',
   'history.intro':
@@ -183,7 +184,6 @@ export const welcomeHistoryEn: Record<WelcomeHistoryKey, string> = {
   'history.reason.before-format': 'Before formatting',
   'history.reason.before-delete': 'Before deleting',
   'history.reason.before-restore': 'Before restoring',
-  'history.size': '{size}',
   'history.compareCurrent': 'Compared with the current content',
   'history.compareDeleted': 'This file has been deleted. Below is the full content of this version.',
   'history.legend': '+ lines come back when you restore, − lines exist now and would be replaced.',
