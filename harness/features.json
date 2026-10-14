@@ -2356,8 +2356,8 @@
       "depends_on": [
         "S27.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "docs/perf/targets.md: macOS arm64 run (docs/perf/darwin-arm64.md) has no target misses; decisions recorded for the reference-machine gap, dev vs packaged measurement, upper-bound save timing, memory variance. Windows misses unknown until the owner's run: harness/MANUAL-CHECKS.md#S27.3"
     },
     {
       "id": "S28.1",

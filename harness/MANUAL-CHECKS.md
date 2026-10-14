@@ -221,3 +221,14 @@ The e2e suite replaces `shell.trashItem` with a recorder, so the real Recycle Bi
      until a release host for `iconUrl` exists (ADR 0012) — not a failure.
 - **Expected:** as described for each step.
 - **Result:** _(owner fills in: pass/fail, Windows version, date, notes)_
+
+### S27.3 — Windows target misses recorded
+
+- **Platform:** Windows x64 (after the S27.1 Windows run above)
+- **Build:** same as S27.1
+- **Steps:**
+  1. Open the new `docs/perf/win32-x64.md` and look for "**target missed**".
+  2. For each miss, add it to `docs/perf/targets.md` under "Misses" with a fix or a decision (or ask an agent
+     session to do it); fill the Windows column of the status table.
+- **Expected:** every miss in `win32-x64.md` has an entry in `targets.md`; with no misses, the status table says so.
+- **Result:** _(owner fills in: date, misses found, where recorded)_
