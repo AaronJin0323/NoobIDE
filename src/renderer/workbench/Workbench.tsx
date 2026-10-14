@@ -20,6 +20,8 @@ import { useJournals } from '../recovery/useJournal';
 import { newBufferId, type JournalScheduler } from '../recovery/journal-scheduler';
 import { RecoveryDialog, type RestoreOutcome } from '../recovery/RecoveryDialog';
 import type { RecoveredEntry } from '../../shared/ipc/recovery-contract';
+// S18.4: the project's other JavaScript files feed the JavaScript language service.
+import { useProjectScripts } from '../editor/useProjectScripts';
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
@@ -57,6 +59,7 @@ export function Workbench() {
   // S12: each tab's unsaved buffer is journaled to app data until saved (independent of undo, autosave, history).
   const journals = useJournals(bridge);
   const tabJournals = useRef(new Map<string, JournalScheduler>());
+  useProjectScripts(bridge, doc.project); // S18.4
 
   const saverOf = (relPath: string | null | undefined) => (relPath ? savers.current.get(relPath) : undefined);
   const relPathOfUri = (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath;

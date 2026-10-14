@@ -44,6 +44,20 @@ remove its row. Help texts and release notes may only claim what is listed here.
 | Hovering a variable shows its declaration                 | `userName` → `const userName: "Lin"`          | `js-local-hover`              |
 | Hovering a function shows its parameters                  | `greet` → `function greet(name: any): string` | `js-function-hover`           |
 
+### Several JavaScript files
+
+The project's other `.js` / `.mjs` files (up to 60, each up to 256 KB of text) are known to the JavaScript service
+even when they are not open. Validated in the workbench on a project whose path has Chinese characters and spaces
+(`tests/e2e/language-workbench.spec.ts`): an import from a closed file and a global from a closed script.
+
+| Capability                                                         | Example                                                   | Case                          |
+| ------------------------------------------------------------------ | --------------------------------------------------------- | ----------------------------- |
+| Exports of a relative ES module import (same folder) are suggested | `import * as util from './util.mjs'`; `util.gr` → `greet` | `js-module-import-completion` |
+| Names declared in another classic script are suggested             | `appT` → `appTitle` (from `config.js`)                    | `js-cross-script-completion`  |
+
+If a language worker crashes, hangs or is killed, it is restarted within about 15 seconds; typing is never blocked
+meanwhile (`tests/e2e/language-workbench.spec.ts`).
+
 ## Formatting
 
 Format with the **整理格式 / Format** button above the editor or with Shift+Alt+F (Windows) / ⇧⌥F (macOS). Formatting is

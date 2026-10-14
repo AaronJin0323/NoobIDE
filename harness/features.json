@@ -1871,8 +1871,8 @@
       "depends_on": [
         "S18.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Command: 整理格式/Format button (EditorPane, title names the platform shortcut via labels.formatShortcutLabel) + Monaco's Shift+Alt+F / ⇧⌥F; tests/e2e/language-workbench.spec.ts: button formats style.css and autosave writes it, Ctrl+Z restores, Shift+Alt+F formats script.js, each fires exactly one pre-format event. Hook: src/renderer/editor/format-hook.ts wraps every formatting provider so any path (button, shortcut, context menu, palette) emits onBeforeFormat({uri,text,languageId}) before formatting (format-hook.test.ts: order, idempotent, failing subscriber cannot block). HTML/CSS/JS format cases pass in the packaged capability suite; docs/capabilities.md Formatting section. History consumes the hook in S21 (no IPC added here). verify green, e2e 102/102 @ 90b5428"
     },
     {
       "id": "S18.4",
@@ -1887,7 +1887,7 @@
       "depends_on": [
         "S18.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

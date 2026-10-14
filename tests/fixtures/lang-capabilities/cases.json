@@ -173,6 +173,32 @@
       ]
     },
     {
+      "id": "js-module-import-completion",
+      "language": "javascript",
+      "kind": "completion",
+      "fileName": "main.js",
+      "files": {
+        "util.mjs": "export function greet(name) {\n  return `Hi ${name}`;\n}\n"
+      },
+      "text": "import * as util from './util.mjs';\nutil.gr|\n",
+      "expect": [
+        "greet"
+      ]
+    },
+    {
+      "id": "js-cross-script-completion",
+      "language": "javascript",
+      "kind": "completion",
+      "fileName": "app.js",
+      "files": {
+        "config.js": "const appTitle = 'Home';\n"
+      },
+      "text": "console.log(appT|);\n",
+      "expect": [
+        "appTitle"
+      ]
+    },
+    {
       "id": "html-format",
       "language": "html",
       "kind": "format",

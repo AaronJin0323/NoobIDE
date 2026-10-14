@@ -20,11 +20,12 @@ import { htmlDefaults } from 'monaco-editor/languages/features/html/register';
 import { MONACO_THEME_NAME, buildMonacoTheme } from '../theme/monaco-theme';
 import { configureLanguages } from './language-config';
 import { installFormatHook, onBeforeFormat, type FormattingRegistry } from './format-hook';
+import { WorkerSupervisor, type WorkerKind } from './worker-supervisor';
 
 /** Labels of the workers Monaco has started — read by the worker probe (self-test / e2e). */
 export const startedWorkers: string[] = [];
 
-export function workerKind(label: string): 'css' | 'html' | 'json' | 'ts' | 'editor' {
+export function workerKind(label: string): WorkerKind {
   if (label === 'css' || label === 'scss' || label === 'less') return 'css';
   if (label === 'html' || label === 'handlebars' || label === 'razor') return 'html';
   if (label === 'json') return 'json';
@@ -32,22 +33,38 @@ export function workerKind(label: string): 'css' | 'html' | 'json' | 'ts' | 'edi
   return 'editor';
 }
 
+// S18.4: every worker is supervised; a killed, crashed or stuck worker is replaced (worker-supervisor.ts).
+const restartLanguage: Record<WorkerKind, () => void> = {
+  // Re-applying the same options makes Monaco drop the worker client and start a new worker on the next request;
+  // the diagnostics adapters re-check every open model when their options change.
+  ts: () => javascriptDefaults.setCompilerOptions(javascriptDefaults.getCompilerOptions()),
+  css: () => cssDefaults.setOptions(cssDefaults.options),
+  html: () => htmlDefaults.setOptions(htmlDefaults.options),
+  json: () => undefined,
+  editor: () => undefined,
+};
+export const workerSupervisor = new WorkerSupervisor({ restart: (kind) => restartLanguage[kind]() });
+
+function createWorker(kind: WorkerKind): Worker {
+  switch (kind) {
+    case 'css':
+      return new CssWorker();
+    case 'html':
+      return new HtmlWorker();
+    case 'json':
+      return new JsonWorker();
+    case 'ts':
+      return new TsWorker();
+    default:
+      return new EditorWorker();
+  }
+}
+
 self.MonacoEnvironment = {
   getWorker(_workerId: string, label: string): Worker {
     const kind = workerKind(label);
     startedWorkers.push(kind);
-    switch (kind) {
-      case 'css':
-        return new CssWorker();
-      case 'html':
-        return new HtmlWorker();
-      case 'json':
-        return new JsonWorker();
-      case 'ts':
-        return new TsWorker();
-      default:
-        return new EditorWorker();
-    }
+    return workerSupervisor.watch(kind, createWorker(kind));
   },
 };
 
@@ -66,10 +83,26 @@ installFormatHook(monaco.languages as unknown as FormattingRegistry<unknown>);
 
 /**
  * Read-only facts for the e2e suite (like main's __noobideTestHooks): metadata only, never file contents.
- * S18.3: which documents fired the pre-format hook.
+ * S18.3: which documents fired the pre-format hook. S18.4: worker kill switch and restart count.
  */
 export const editorTestHooks = {
   preFormat: [] as { uri: string; languageId: string }[],
+  /** S18.4: kills the live workers of a kind the way a crash would (no goodbye), to prove recovery. */
+  killWorkers: (kind: WorkerKind): number => {
+    const live = workerSupervisor.live(kind);
+    for (const worker of live) worker.terminate();
+    return live.length;
+  },
+  restartCount: () => workerSupervisor.restartCount,
+  /** Current diagnostics (language-service messages name identifiers; they hold no file contents). */
+  markers: () =>
+    monaco.editor.getModelMarkers({}).map((m) => ({
+      resource: m.resource.toString(true),
+      owner: m.owner,
+      code: typeof m.code === 'string' ? m.code : m.code?.value,
+      message: m.message,
+      line: m.startLineNumber,
+    })),
 };
 onBeforeFormat(({ uri, languageId }) => {
   if (editorTestHooks.preFormat.length < 100) editorTestHooks.preFormat.push({ uri, languageId });
