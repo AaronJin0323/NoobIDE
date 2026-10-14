@@ -1710,8 +1710,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "Store logic done @ 825eb96: src/diagnostics/store.ts + store.test.ts (8 tests: dedupe with counts keeping first original + latest verbatim, token-bucket rate limit with per-source dropped counts, per-source LRU ring buffer with eviction counts, 20k console flood cannot evict runtime errors, 100k events < 2s). Cannot be set done: depends on S16.2 (runtime capture adapter, todo). Unblocks when S16.2 feeds captured events into ProblemStore; then add an integration test with a real flooding page and mark done."
     },
     {
       "id": "S16.6",
@@ -2002,7 +2002,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
