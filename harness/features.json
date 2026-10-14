@@ -2002,8 +2002,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/diagnostics/rules/engine.ts (pure Rule: ProblemRecord+RuleContext → explanation/causes/checks/certainty/actions; first match wins, throwing rules skipped, honest fallback), honesty.ts (uncertain ⇒ possibility wording in zh-CN+en + causes/checks; show-original always; no unfilled placeholders), messages/zh-CN.ts+en.ts (key+placeholder parity test); engine.test.ts (7 tests incl. original evidence unchanged by withExplanation) + verify green @ 35ba918"
     },
     {
       "id": "S22.2",
@@ -2018,7 +2018,7 @@
       "depends_on": [
         "S22.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
