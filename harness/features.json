@@ -2044,6 +2044,27 @@
       "evidence": ""
     },
     {
+      "id": "S22.5",
+      "session": "S22",
+      "milestone": "M5",
+      "title": "One-click fix for a misspelled name",
+      "description": "Owner-approved addition from the 2026-10-14 UI prototype: the problem card for a misspelled variable offers a primary action that replaces the misspelled name with the declared one (e.g. “改成 userName”). Deterministic rule output only; not AI.",
+      "acceptance": [
+        "Offered only when the did-you-mean rule (S22.2) finds exactly one declared name in scope; zero or several candidates show the normal explanation and Go to code instead",
+        "The button label names the exact replacement, and the edit changes only that span in that file, as a normal editor edit undoable with Ctrl+Z and with an Undo action on the card",
+        "The fixed file goes through the normal atomic save pipeline; a failed save keeps the edit in memory, shows the save-failure state and never shows the problem as resolved",
+        "The card shows a resolved state only after re-checking or a preview refresh no longer reports the problem; the original error stays available until cleared",
+        "Keyboard-reachable, with the result announced as text, not colour alone (zh-CN + en)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S22.2",
+        "S22.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
       "id": "S23.1",
       "session": "S23",
       "milestone": "M5",

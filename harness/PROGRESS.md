@@ -3,6 +3,37 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 3 — 2026-10-14 — UI prototype and quick-fix backlog item
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine.
+
+**Done**
+
+- Owner-requested UI prototype (design canvas, outside the repo): welcome, create wizard, workbench, problem
+  card, narrow window and state vocabulary. After owner feedback (“more modern, more intuitive”) it uses a dark
+  studio style with a command bar, a labelled side rail, a “下一步” coach card and an inline problem card.
+- Added **S22.5 — One-click fix for a misspelled name** (owner-approved from the prototype). No existing
+  feature or criterion changed.
+
+**Evidence:** `npm run verify` green after the backlog edit.
+
+**Decisions:** The one-click fix is deterministic (did-you-mean rule output), not AI, so it stays within PLAN §4
+exclusions. It must use the normal edit/undo and atomic save paths and only show “resolved” after a re-check.
+Prototype ideas not yet in the backlog: command bar (Ctrl K), coach card driven by `resources/lessons` (fits S23),
+bundled Geist font (would need bundling to stay offline), dark-first theme.
+
+**Problems / risks:** Prototype colour contrast is unchecked; the faint line-number grey is the likeliest failure.
+
+**Owner action needed:** Decide whether the command bar, coach card and dark-first theme become backlog items.
+
+**Next up**
+
+1. Unchanged from Session 2: S01 remains current; S01.4 waits on H.1.
+
+## Ideas / backlog candidates (Session 3)
+
+- Command bar “找文件、命令或帮助… Ctrl K”; coach card for step-by-step lessons (S23); dark-first theme.
+
 ## Session 2 — 2026-10-14 — Interface assessment and design direction
 
 **Agent:** Codex on the Windows x64 dev machine, Node 22.22.2.
