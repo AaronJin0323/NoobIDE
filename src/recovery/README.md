@@ -10,7 +10,16 @@ stored in app data, never in the project. Undo, autosave, recovery and history s
   `src/renderer/recovery/` (journal scheduler: a copy within 2 s of an edit; restore dialog with a diff vs disk).
 - `history.ts` (S21) — `SnapshotStore`: `<userData>/history/objects/<hh>/<sha256>` blobs and
   `<userData>/history/index/<projectKey>.json`. Dedupe, per-file and total limits, `usage()`, `cleanup()`, `clear()`.
-- `history-triggers.ts` (S21.2) — snapshots around saves and before format, delete and restore.
+  Only a missing index means "no history": a locked or unreadable index makes that project's history _unavailable_
+  (no writes, no blob deletion anywhere), damaged entries are dropped one by one, unparseable indexes are
+  quarantined (no blob is deleted while any is kept), indexes from a newer app version are left untouched.
+- `history-triggers.ts` (S21.2) — snapshots around saves (the save only reads the old bytes, bounded by a timeout;
+  storing is queued) and before format, delete (listing filters: no dotfiles, no `node_modules`) and restore.
 - `atomic-file.ts`, `keys.ts` — atomic app-data writes, content-free logger, hashed storage keys.
 
 Main creates both stores from `app.getPath('userData')`; tests pass a temporary directory.
+
+**Project identity (decision 0006):** a project's history is keyed by its real root path, a file's by its path
+relative to that root (NFC). Moving or renaming the project folder orphans its history, so **S21.3 must list
+orphaned project histories** (with their size, and a way to clear them); S08's rename should move a file's history
+to its new path.
