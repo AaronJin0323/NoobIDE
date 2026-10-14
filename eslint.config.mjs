@@ -13,6 +13,7 @@ export default tseslint.config(
       'tests/fixtures/',
       'resources/templates/',
       'docs/wireframes/',
+      '.claude/worktrees/',
     ],
   },
   js.configs.recommended,
