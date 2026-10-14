@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants, type Dirent } from 'node:fs';
-import { access, readFile, readdir, realpath, stat } from 'node:fs/promises';
+import { access, lstat, readFile, readdir, realpath, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import {
   MAX_TEXT_FILE_BYTES,
@@ -208,6 +208,7 @@ export class ProjectService {
       if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
       // S11.3: re-create a file that was deleted outside NoobIDE — exclusively, never over something that is there.
       let expectedHash = request.expectedHash;
+      let reserved = false;
       if (request.create) {
         const root = this.rootOf(request.projectId);
         if (root === undefined) return err('unknown-project', 'project is not open');
@@ -219,10 +220,11 @@ export class ProjectService {
           return err(createErrorCode(created.code), created.message);
         }
         expectedHash = EMPTY_HASH;
+        reserved = true;
       }
       const target = await this.resolve(request);
       if (!target.ok) return target;
-      return this.serialized(target.value, async (): Promise<Result<SavedFile, WriteFileError>> => {
+      const result = await this.serialized(target.value, async (): Promise<Result<SavedFile, WriteFileError>> => {
         // S21.2 capture, replace and record all run inside this per-file lock, so concurrent saves of one file
         // capture their before-bytes in save order.
         let before: Uint8Array | null = null;
@@ -278,6 +280,10 @@ export class ProjectService {
         );
         return ok({ savedAt: Date.now(), version: versionOf(data, mtimeMs) });
       });
+      // S26.1: a failed re-create must not leave the empty file that reserved the name: on retry it would read as
+      // "the deleted file came back with other content". Only a still-empty regular file is removed.
+      if (!result.ok && reserved) await removeEmptyFile(target.value);
+      return result;
     });
   }
 
@@ -413,6 +419,15 @@ async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated:
   };
   await walk(root, []);
   return { files, truncated };
+}
+
+async function removeEmptyFile(absPath: string): Promise<void> {
+  try {
+    const info = await lstat(absPath);
+    if (info.isFile() && info.size === 0) await unlink(absPath);
+  } catch {
+    // Already gone or not removable: the renderer's disk check resolves what is there.
+  }
 }
 
 /** The OS error code for the "details" line; a lock that outlasted every retry says so. Never file contents. */

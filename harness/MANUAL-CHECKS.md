@@ -206,3 +206,26 @@ simulation assumes (macOS TCC: `EPERM`; Windows Controlled Folder Access: `EPERM
   in the editor and nothing on disk changes. 2 and 4 show the ordinary "read-only" message instead. Undo the
   settings afterwards.
 - **Result:** _(owner fills in: pass/fail per step and platform, notes, date)_
+
+### S26.1 — Fault cases that need real hardware (confirmation of the simulated suite)
+
+The automated suite (`tests/integration/faults/`, mapped in `docs/release/fault-matrix.md`) simulates these with
+injected errno codes; this confirms the real OS behaves the same.
+
+- **Platform:** Windows 11 x64 and macOS on Apple Silicon (`npm start` or a packaged build)
+- **Build:** the commit that closed S26.1
+- **Steps:**
+  1. Full volume: create a small disk image / USB stick (e.g. 10 MB, exFAT), fill it with a large file until a few
+     KB are free, open a project on it, paste a few MB of text into `index.html` and save.
+  2. Windows locked file: open the project's `style.css` in a program that holds it without delete sharing (e.g.
+     `powershell -c "$f=[IO.File]::Open('style.css','Open','Read','None'); Read-Host"`), edit and save in NoobIDE;
+     then release the file and save again.
+  3. Windows read-only folder via ACL: `icacls <project> /deny %USERNAME%:(W)`, edit and save; afterwards
+     `icacls <project> /remove:d %USERNAME%`.
+  4. Page network failures: a page that `fetch`es `https://unreachable.invalid/data.json` and loads an image from an
+     unreachable host; run the preview with the network unplugged and with it connected.
+- **Expected:** 1–3: the save fails with a clear reason (disk full / in use / no permission), the edits stay in the
+  editor, the file on disk is the previous version, no `.noobide-tmp` file remains, and saving succeeds after the
+  cause is removed. 4: the IDE stays responsive, the failures appear as problems/log entries with an explanation,
+  and nothing else breaks.
+- **Result:** _(owner fills in: pass/fail per step and platform, notes, date)_
