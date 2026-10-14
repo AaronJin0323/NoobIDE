@@ -296,6 +296,13 @@ export const zhCN = {
   'preview.console.olderTag': '刷新前',
   'preview.console.emptyFiltered': '没有符合筛选条件的输出。',
   // --- end S17.3 ---
+  // --- S28.1 About ---
+  'about.title': '关于 NoobIDE',
+  'about.description': '给初学者用的网页编辑器：编写 HTML、CSS 和 JavaScript，并在旁边预览网页。',
+  'about.version': '版本 {version}',
+  'about.runtime': 'Electron {electron} · Chromium {chromium}',
+  'about.close': '关闭',
+  // --- end S28.1 ---
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

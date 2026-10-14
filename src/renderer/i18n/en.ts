@@ -311,4 +311,12 @@ export const en: Record<MessageKey, string> = {
   'preview.console.olderTag': 'Before refresh',
   'preview.console.emptyFiltered': 'No output matches the filter.',
   // --- end S17.3 ---
+  // --- S28.1 About ---
+  'about.title': 'About NoobIDE',
+  'about.description':
+    'A webpage editor for beginners: write HTML, CSS and JavaScript and preview the page next to it.',
+  'about.version': 'Version {version}',
+  'about.runtime': 'Electron {electron} · Chromium {chromium}',
+  'about.close': 'Close',
+  // --- end S28.1 ---
 };

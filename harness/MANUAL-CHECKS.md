@@ -200,3 +200,24 @@ The e2e suite replaces `shell.trashItem` with a recorder, so the real Recycle Bi
   n=3). Rows marked "**target missed**" are not a failure of this check: record them in `docs/perf/targets.md`
   (S27.3) with a fix or a decision.
 - **Result:** _(owner fills in: device, date, pass/fail, notes)_
+
+### S28.1 — Windows installer with icon and version information
+
+- **Platform:** Windows 11 x64 (installer test ideally on a clean machine or VM without Node.js)
+- **Build:** the commit that closed S28.1 (docs/decisions/0012-installers-and-app-identity.md) or later
+- **Steps:**
+  1. In `D:\NoobIDE`: `npm install`, `npm run verify`, then `npm run test:e2e -- -g "packaged Windows|About"`.
+     Expected: the "packaged Windows executable carries the version resource" and both About tests pass.
+  2. `npm run make`. Expected: `out\make\squirrel.windows\x64\NoobIDE-Setup.exe` shows the green `</>` icon in File
+     Explorer (placeholder artwork from `scripts/make-icons.mjs`).
+  3. Right-click `out\NoobIDE-win32-x64\noobide.exe` → Properties → Details. Expected: File description "NoobIDE",
+     Product name "NoobIDE", Product version and File version = package.json `version`, Copyright "Copyright ©
+     2026 NoobIDE contributors".
+  4. Run `NoobIDE-Setup.exe`. Expected: installs per-user without an admin prompt, Start-menu and desktop shortcuts
+     with the green `</>` icon, the app starts; the taskbar shows the same icon.
+  5. Open About (once the S24 menu has its entry; until then skip this step). Expected: "关于 NoobIDE", "版本
+     <version>", Electron/Chromium versions; Escape closes it.
+  6. Settings → Apps → Installed apps: NoobIDE is listed with its version. Its icon there is the generic/Electron one
+     until a release host for `iconUrl` exists (ADR 0012) — not a failure.
+- **Expected:** as described for each step.
+- **Result:** _(owner fills in: pass/fail, Windows version, date, notes)_

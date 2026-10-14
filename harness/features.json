@@ -2370,8 +2370,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "ADR docs/decisions/0012; tests/integration/distribution.test.ts (7) + tests/e2e/distribution.spec.ts (About version zh-CN/en, preview hidden under About, packaged macOS Info.plist version/icon/arm64) pass on macOS arm64; npm run make → out/make/dmg/arm64/NoobIDE-0.0.0-arm64.dmg (mounted: app 0.0.0, arm64). Windows installer: harness/MANUAL-CHECKS.md#S28.1"
     },
     {
       "id": "S28.2",
