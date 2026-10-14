@@ -1894,8 +1894,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "resources/templates/{personal-intro,product-showcase,button-counter} + README (CC0 provenance, hand-made SVGs, system fonts, no font files); tests/integration/templates.test.ts (24: exactly 3 templates zh-CN/en names, well-formed HTML, every local ref exists with exact case and is copied, no network URLs) + src/workspace/templates.test.ts (31: manifest/loader/resolveTemplatesDir); tests/e2e/templates.spec.ts (4: each template copied to a Chinese+spaces path previews offline in a sandboxed window with 0 console errors/exceptions/failed or non-file requests, images decoded, buttons work; packaged out/ has <resources>/templates with all 3); forge extraResource; verify + test:e2e (30) green @ 10fde49"
     },
     {
       "id": "S20.2",
@@ -1926,7 +1926,7 @@
       "depends_on": [
         "S20.2"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
