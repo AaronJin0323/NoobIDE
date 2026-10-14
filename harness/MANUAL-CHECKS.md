@@ -229,3 +229,51 @@ injected errno codes; this confirms the real OS behaves the same.
   cause is removed. 4: the IDE stays responsive, the failures appear as problems/log entries with an explanation,
   and nothing else breaks.
 - **Result:** _(owner fills in: pass/fail per step and platform, notes, date)_
+
+### S27.1 — Performance measurements on Windows x64 (docs/perf/win32-x64.md)
+
+- **Platform:** Windows x64. For a PLAN §11 claim: the fixed Windows reference machine (8 GB RAM, SSD); the developer
+  machine is fine for a first row, but say so.
+- **Build:** the commit that added `scripts/measure-perf.mjs` (S27.1) or later
+- **Steps:**
+  1. In `D:\NoobIDE`: `npm install`, `npm run package` (builds `.vite\` and `out\NoobIDE-win32-x64\`).
+  2. Close other heavy programs; plug in the laptop if it is one. Do not touch the windows that open and close.
+  3. `node scripts/measure-perf.mjs --write` (about 4 minutes: 20 cold starts of the development binary, 20 starts
+     of the packaged `noobide.exe`, 22 save → preview samples on a generated 50-file project, 3 memory runs).
+  4. The script writes `docs\perf\win32-x64.md` (prettier-formatted). Commit it.
+- **Expected:** the document has every row filled (cold start n=20, packaged start n=20, save → preview n=20, memory
+  n=3). Rows marked "**target missed**" are not a failure of this check: record them in `docs/perf/targets.md`
+  (S27.3) with a fix or a decision.
+- **Result:** _(owner fills in: device, date, pass/fail, notes)_
+
+### S28.1 — Windows installer with icon and version information
+
+- **Platform:** Windows 11 x64 (installer test ideally on a clean machine or VM without Node.js)
+- **Build:** the commit that closed S28.1 (docs/decisions/0012-installers-and-app-identity.md) or later
+- **Steps:**
+  1. In `D:\NoobIDE`: `npm install`, `npm run verify`, then `npm run test:e2e -- -g "packaged Windows|About"`.
+     Expected: the "packaged Windows executable carries the version resource" and both About tests pass.
+  2. `npm run make`. Expected: `out\make\squirrel.windows\x64\NoobIDE-Setup.exe` shows the green `</>` icon in File
+     Explorer (placeholder artwork from `scripts/make-icons.mjs`).
+  3. Right-click `out\NoobIDE-win32-x64\noobide.exe` → Properties → Details. Expected: File description "NoobIDE",
+     Product name "NoobIDE", Product version and File version = package.json `version`, Copyright "Copyright ©
+     2026 NoobIDE contributors".
+  4. Run `NoobIDE-Setup.exe`. Expected: installs per-user without an admin prompt, Start-menu and desktop shortcuts
+     with the green `</>` icon, the app starts; the taskbar shows the same icon.
+  5. Open About (once the S24 menu has its entry; until then skip this step). Expected: "关于 NoobIDE", "版本
+     <version>", Electron/Chromium versions; Escape closes it.
+  6. Settings → Apps → Installed apps: NoobIDE is listed with its version. Its icon there is the generic/Electron one
+     until a release host for `iconUrl` exists (ADR 0012) — not a failure.
+- **Expected:** as described for each step.
+- **Result:** _(owner fills in: pass/fail, Windows version, date, notes)_
+
+### S27.3 — Windows target misses recorded
+
+- **Platform:** Windows x64 (after the S27.1 Windows run above)
+- **Build:** same as S27.1
+- **Steps:**
+  1. Open the new `docs/perf/win32-x64.md` and look for "**target missed**".
+  2. For each miss, add it to `docs/perf/targets.md` under "Misses" with a fix or a decision (or ask an agent
+     session to do it); fill the Windows column of the status table.
+- **Expected:** every miss in `win32-x64.md` has an entry in `targets.md`; with no misses, the status table says so.
+- **Result:** _(owner fills in: date, misses found, where recorded)_

@@ -2326,8 +2326,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "scripts/measure-perf.mjs + scripts/perf-fixture.mjs; macOS arm64 measured (M3 Pro 18 GB): docs/perf/darwin-arm64.md — cold start p95 853 ms (n=20), packaged start→editor p95 831 ms (n=20), save→preview p95 61 ms (50 files, n=20), memory idle 529 / typical 533 MB median (n=3). Windows run: harness/MANUAL-CHECKS.md#S27.1"
     },
     {
       "id": "S27.2",
@@ -2340,8 +2340,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/offline.spec.ts (6 tests, pass on macOS arm64 @ S27.2 commit): Chromium proxy+resolver cut, workbench offline emulation, Node net/dns guard (tests/e2e/offline-guard.cjs); negative control without the cut reaches the internet; template create, edit+save, preview update, code-check + runtime explanations with problem card all work; app made 0 outside requests"
     },
     {
       "id": "S27.3",
@@ -2356,8 +2356,8 @@
       "depends_on": [
         "S27.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "docs/perf/targets.md: macOS arm64 run (docs/perf/darwin-arm64.md) has no target misses; decisions recorded for the reference-machine gap, dev vs packaged measurement, upper-bound save timing, memory variance. Windows misses unknown until the owner's run: harness/MANUAL-CHECKS.md#S27.3"
     },
     {
       "id": "S28.1",
@@ -2370,8 +2370,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "ADR docs/decisions/0012; tests/integration/distribution.test.ts (7) + tests/e2e/distribution.spec.ts (About version zh-CN/en, preview hidden under About, packaged macOS Info.plist version/icon/arm64) pass on macOS arm64; npm run make → out/make/dmg/arm64/NoobIDE-0.0.0-arm64.dmg (mounted: app 0.0.0, arm64). Windows installer: harness/MANUAL-CHECKS.md#S28.1"
     },
     {
       "id": "S28.2",
