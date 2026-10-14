@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { CHANNELS, EVENTS, IPC_API_VERSION, type NoobideApi, type WorkspaceChanged } from '../shared/ipc/contract';
 import { PREVIEW_CHANNELS, PREVIEW_EVENT_CHANNEL, type PreviewEvent } from '../shared/ipc/preview-contract';
 import { platformId } from '../platform/index';
+import { APP_DATA_CHANNELS } from '../shared/ipc/app-data-contract';
 
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
@@ -64,6 +65,42 @@ const api: NoobideApi = {
     clear: () => ipcRenderer.invoke(CHANNELS.recoveryClear),
   },
   // --- end S12 ---
+  // --- S13 app data ---
+  settings: {
+    get: () => ipcRenderer.invoke(APP_DATA_CHANNELS.settingsGet),
+    update: (patch) => ipcRenderer.invoke(APP_DATA_CHANNELS.settingsUpdate, patch),
+  },
+  logs: {
+    openFolder: () => ipcRenderer.invoke(APP_DATA_CHANNELS.openLogsFolder),
+  },
+  projectConfig: {
+    get: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.projectConfig, request),
+    setEntry: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.projectSetEntry, request),
+  },
+  // The welcome screen's shape (plain values); a refused call reads as "nothing" (empty list / not opened).
+  recentProjects: {
+    list: async () => {
+      const result = await ipcRenderer.invoke(APP_DATA_CHANNELS.recentList);
+      return result?.ok ? result.value : [];
+    },
+    open: async (id) => {
+      const result = await ipcRenderer.invoke(APP_DATA_CHANNELS.recentOpen, { id });
+      return result?.ok ? result.value : null;
+    },
+    remove: async (id) => {
+      await ipcRenderer.invoke(APP_DATA_CHANNELS.recentRemove, { id });
+    },
+  },
+  lifecycle: {
+    closeProject: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.closeProject, request),
+  },
+  session: {
+    restore: () => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionRestore),
+    tabs: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionTabs, request),
+    saveTabs: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionSaveTabs, request),
+    saveLayout: (layout) => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionSaveLayout, layout),
+  },
+  // --- end S13 ---
   // --- S20.2 create-project wizard ---
   createProject: {
     options: (request) => ipcRenderer.invoke(CHANNELS.createProjectOptions, request),
@@ -95,6 +132,12 @@ contextBridge.exposeInMainWorld(
     preview: Object.freeze(api.preview),
     app: Object.freeze(api.app),
     recovery: Object.freeze(api.recovery),
+    settings: Object.freeze(api.settings), // S13
+    logs: Object.freeze(api.logs),
+    projectConfig: Object.freeze(api.projectConfig),
+    recentProjects: Object.freeze(api.recentProjects),
+    lifecycle: Object.freeze(api.lifecycle),
+    session: Object.freeze(api.session),
     createProject: Object.freeze(api.createProject), // S20.2
     history: Object.freeze(api.history), // S21.3/S21.4
   }),

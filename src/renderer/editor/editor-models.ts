@@ -1,5 +1,6 @@
 import { monaco } from './monaco-setup';
 import { ModelRegistry, type ModelSpec } from './model-registry';
+import { changedRegion } from './changed-region';
 
 /**
  * The Monaco text models of open files (S09.1): one per URI, shared by every editor mount, released when its tab
@@ -36,6 +37,27 @@ export function releaseFileModels(): void {
   models.retainOnly(models.uris().filter((uri) => !uri.startsWith('file:')));
 }
 
+// ── S11: a file changed outside NoobIDE ──
+/**
+ * Puts `text` (the new disk version) into the open model of `uri` as one undoable edit that replaces only the lines
+ * that differ, so the cursor, selections and scroll position stay where they are whenever they lie outside the
+ * changed region (S11.1). Returns the model's new value, or `null` when the file has no model (not shown yet).
+ */
+export function reloadModelText(uri: string, text: string, eol: '\n' | '\r\n'): string | null {
+  const model = models.get(uri);
+  if (!model) return null;
+  const wanted = eol === '\r\n' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF;
+  if (model.getEOL() !== eol) model.pushEOL(wanted);
+  const next = text.replace(/\r?\n/g, eol);
+  const current = model.getValue();
+  if (current === next) return current;
+  const { start, endCurrent, endNext } = changedRegion(current, next);
+  const range = monaco.Range.fromPositions(model.getPositionAt(start), model.getPositionAt(endCurrent));
+  model.pushStackElement();
+  model.pushEditOperations([], [{ range, text: next.slice(start, endNext) }], () => null);
+  model.pushStackElement();
+  return model.getValue();
+}
 // --- S21.3: restoring a history version is an ordinary, undoable edit of the file's model ---
 /** Resolves with the model of `uri` once the editor has created it (the tab became visible), or null on timeout. */
 export async function waitForModel(uri: string, timeoutMs = 3000): Promise<monaco.editor.ITextModel | null> {

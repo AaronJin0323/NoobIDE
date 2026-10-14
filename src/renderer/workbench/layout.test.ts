@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INITIAL_LAYOUT, layoutReducer, visibleRegions, type LayoutState } from './layout';
+import { INITIAL_LAYOUT, layoutReducer, persistedLayout, visibleRegions, type LayoutState } from './layout';
 
 describe('workbench layout (S30.3, S30.4)', () => {
   it('wide window starts with files, editor and preview visible and problems collapsed', () => {
@@ -49,5 +49,33 @@ describe('workbench layout (S30.3, S30.4)', () => {
     const open = layoutReducer(INITIAL_LAYOUT, { type: 'toggleProblems' });
     expect(visibleRegions(open, false).problemsPanel).toBe(true);
     expect(layoutReducer(open, { type: 'toggleProblems' }).problemsOpen).toBe(false);
+  });
+});
+
+describe('layout sizes (S13.4)', () => {
+  it('starts at 220px files and an even editor / preview split', () => {
+    expect(persistedLayout(INITIAL_LAYOUT)).toEqual({
+      filesOpen: true,
+      problemsOpen: false,
+      filesWidth: 220,
+      editorShare: 0.5,
+    });
+  });
+
+  it('resizing is clamped to sensible limits', () => {
+    expect(layoutReducer(INITIAL_LAYOUT, { type: 'resizeFiles', width: 300.4 }).filesWidth).toBe(300);
+    expect(layoutReducer(INITIAL_LAYOUT, { type: 'resizeFiles', width: 10 }).filesWidth).toBe(160);
+    expect(layoutReducer(INITIAL_LAYOUT, { type: 'resizeFiles', width: Infinity }).filesWidth).toBe(480);
+    expect(layoutReducer(INITIAL_LAYOUT, { type: 'resizeEditor', share: 0.6543 }).editorShare).toBe(0.654);
+    expect(layoutReducer(INITIAL_LAYOUT, { type: 'resizeEditor', share: -Infinity }).editorShare).toBe(0.2);
+    expect(layoutReducer(INITIAL_LAYOUT, { type: 'resizeEditor', share: 2 }).editorShare).toBe(0.8);
+  });
+
+  it('a restored layout comes back exactly, and round-trips through persistedLayout', () => {
+    const saved = { filesOpen: false, problemsOpen: true, filesWidth: 333, editorShare: 0.65 };
+    const restored = layoutReducer(INITIAL_LAYOUT, { type: 'restoreLayout', layout: saved });
+    expect(persistedLayout(restored)).toEqual(saved);
+    expect(visibleRegions(restored, false).files).toBe(false);
+    expect(visibleRegions(restored, false).problemsPanel).toBe(true);
   });
 });

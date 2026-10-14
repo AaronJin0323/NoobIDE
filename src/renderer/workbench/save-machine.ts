@@ -6,14 +6,23 @@
  *   saving   — a write is in flight (for the revision recorded in `savingRevision`)
  *   saved    — the newest edit was written and the write was confirmed
  *   failed   — the last write failed; the edits are still only in memory (the error says why)
- *   conflict — the file changed on disk while it had unsaved edits; nothing is written automatically (S11)
+ *   conflict — the file changed on disk while it had unsaved edits; nothing is written automatically (S11.2)
+ *   deleted  — the file was deleted (or moved away) outside NoobIDE; the text stays here, the user may re-save (S11.3)
  *
  * A write only counts for the revision it carried: typing during a save leaves the file dirty. Saving is a separate
  * mechanism from undo, crash recovery and local history (AGENTS.md); this module knows nothing about them.
  */
-export type SaveStatus = 'clean' | 'dirty' | 'saving' | 'saved' | 'failed' | 'conflict';
+export type SaveStatus = 'clean' | 'dirty' | 'saving' | 'saved' | 'failed' | 'conflict' | 'deleted';
 
-export const SAVE_STATUSES: readonly SaveStatus[] = ['clean', 'dirty', 'saving', 'saved', 'failed', 'conflict'];
+export const SAVE_STATUSES: readonly SaveStatus[] = [
+  'clean',
+  'dirty',
+  'saving',
+  'saved',
+  'failed',
+  'conflict',
+  'deleted',
+];
 
 export interface SaveError {
   /** Contract error code, e.g. `permission-denied`, `busy`, `disk-full`. */
@@ -33,6 +42,8 @@ export interface SaveSnapshot {
   readonly error: SaveError | null;
   /** Disk changed under unsaved edits; autosave stops until the user decides (S11.2). */
   readonly conflict: boolean;
+  /** S11.3: the file is gone from disk; autosave stops, the text is kept until the user re-saves or closes. */
+  readonly deleted: boolean;
   /** At least one write succeeded since the file was opened. */
   readonly hasSaved: boolean;
 }
@@ -43,7 +54,11 @@ export type SaveEvent =
   | { readonly type: 'saveSucceeded'; readonly revision: number }
   | { readonly type: 'saveFailed'; readonly error: SaveError }
   | { readonly type: 'externalChange' }
-  | { readonly type: 'conflictResolved' };
+  | { readonly type: 'conflictResolved' }
+  // --- S11: the buffer now holds the disk version (clean reload, or "take the disk version") ---
+  | { readonly type: 'reloaded' }
+  | { readonly type: 'deletedOnDisk' }
+  | { readonly type: 'reappeared' };
 
 export const INITIAL_SAVE: SaveSnapshot = {
   revision: 0,
@@ -51,6 +66,7 @@ export const INITIAL_SAVE: SaveSnapshot = {
   savingRevision: null,
   error: null,
   conflict: false,
+  deleted: false,
   hasSaved: false,
 };
 
@@ -74,7 +90,16 @@ export function saveReducer(state: SaveSnapshot, event: SaveEvent): SaveSnapshot
       // A clean buffer simply reloads (S11.1); only unsaved edits make a conflict.
       return isUnsaved(state) ? { ...state, conflict: true } : state;
     case 'conflictResolved':
-      return { ...state, conflict: false };
+      return { ...state, conflict: false, error: null };
+    case 'reloaded': {
+      // The disk text replaces the buffer: one new revision, already "on disk". Nothing is left to write.
+      const revision = state.revision + 1;
+      return { ...state, revision, savedRevision: revision, error: null, conflict: false, deleted: false };
+    }
+    case 'deletedOnDisk':
+      return { ...state, deleted: true };
+    case 'reappeared':
+      return { ...state, deleted: false };
   }
 }
 
@@ -84,12 +109,16 @@ export function isUnsaved(state: SaveSnapshot): boolean {
 
 export function saveStatus(state: SaveSnapshot): SaveStatus {
   if (state.conflict) return 'conflict';
+  if (state.deleted) return 'deleted';
   if (state.savingRevision !== null) return 'saving';
   if (isUnsaved(state)) return state.error ? 'failed' : 'dirty';
   return state.hasSaved ? 'saved' : 'clean';
 }
 
-/** A write is allowed whenever there is something to write, except over a conflict (resolved by the user, S11.2). */
+/**
+ * A write is allowed whenever there is something to write, except over a conflict (resolved by the user, S11.2) or
+ * for a file deleted on disk (re-created only when the user asks, S11.3).
+ */
 export function canSave(state: SaveSnapshot): boolean {
-  return isUnsaved(state) && !state.conflict;
+  return isUnsaved(state) && !state.conflict && !state.deleted;
 }

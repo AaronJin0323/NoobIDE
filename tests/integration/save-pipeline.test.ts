@@ -1,7 +1,7 @@
 import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toIpcResult, type WriteFileRequest } from '../../src/shared/ipc/contract';
 import { nodeAtomicFs, type AtomicFs } from '../../src/workspace/atomic-write';
 import { ProjectService, type ProjectServiceOptions } from '../../src/workspace/project-service';
@@ -229,6 +229,8 @@ describe('writes to one file are serialized (review finding: concurrent saves)',
     const { service, request } = await pipeline({ atomic: { fs } });
     const a = service.write(request('older'));
     const b = service.write(request('newer'));
+    // Wait until A reached its rename (a fixed 20 ms was flaky on a loaded machine), then give B time to race.
+    await vi.waitFor(() => expect(events.length).toBeGreaterThan(0), { timeout: 5000, interval: 5 });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(events).toEqual(['A start']); // B waits for A instead of racing it
     releaseFirst();

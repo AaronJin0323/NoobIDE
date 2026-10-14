@@ -209,6 +209,47 @@ export const zhCN = {
   'recovery.discardConfirm': '确定丢弃？这份修改将无法找回',
   'recovery.recoveredText': '恢复副本的内容',
   // --- end S12 ---
+  // --- S11 external changes ---
+  'save.deleted': '文件已在磁盘上删除 — 内容还在编辑器里',
+  'tab.state.deleted': '已删除',
+  'disk.reloaded': '这个文件在 NoobIDE 之外被修改了，已载入磁盘上的新版本（可以用"撤销"回到之前的内容）。',
+  'disk.dismiss': '知道了',
+  'conflict.title': '这个文件在 NoobIDE 之外被修改了，而你还有没保存的修改。',
+  'conflict.explain': '为了不丢失任何一方的内容，NoobIDE 没有自动保存。请先比较两个版本，再选择保留哪一个。',
+  'conflict.compare': '比较两个版本',
+  'conflict.hideCompare': '收起比较',
+  'conflict.keepMine': '保留我的版本（覆盖磁盘上的文件）',
+  'conflict.takeDisk': '使用磁盘上的版本',
+  'conflict.loading': '正在读取磁盘上的版本…',
+  'conflict.undoHint': '选择"使用磁盘上的版本"后，你的修改仍然可以用"撤销"找回。',
+  'conflict.diffLabel': '比较：左边是磁盘上的版本，右边是你的版本',
+  'conflict.summary': '与磁盘上的版本相比，你的版本新增 {added} 行，删除 {removed} 行。',
+  'conflict.identical': '两个版本的内容相同（只有换行符不同）。',
+  'deleted.title': '这个文件已经在磁盘上被删除或移走了。',
+  'deleted.explain': '它的内容还保留在编辑器里，没有丢失。你可以把它重新保存到原来的位置，或另存一份到别处。',
+  'deleted.resave': '重新保存到原位置',
+  'deleted.resaveFailed': '重新保存没有成功。',
+  'deleted.close': '关闭，不保留这些内容',
+  'deleted.closeConfirm': '确定关闭？磁盘上已经没有这个文件，关闭后编辑器里的内容将不再保留',
+  // --- end S11 ---
+  // --- S13 app data ---
+  'settings.corrupt': '设置文件已损坏，无法读取。',
+  'settings.newer': '设置文件来自更新版本的 NoobIDE，这个版本读不懂它。',
+  'settings.reset': '原来的文件已备份，现在使用默认设置。',
+  'settings.backup': '备份位置：',
+  'appMenu.label': '更多操作',
+  'appMenu.openLogs': '打开日志文件夹',
+  'appMenu.closeProject': '关闭项目',
+  'layout.resizeFiles': '调整文件面板的宽度',
+  'layout.resizeEditor': '调整代码和预览的宽度比例',
+  'session.restored': '已重新打开上次的项目，位置：',
+  'files.setEntry': '设为入口页面',
+  'entry.set': '已设为入口页面：',
+  'entry.setDetail': '下次启动预览时会先打开它。设置保存在项目的 .noobide/project.json 里，删掉这个文件也不影响网页。',
+  'entry.failed': '没能保存入口页面的设置。',
+  'entry.invalidExisting':
+    '项目里的 .noobide/project.json 内容无法识别（可能来自更新的版本或被手动改过），为了不覆盖它，没有修改。',
+  // --- end S13 ---
   // S20.2 welcome + create wizard, S21.3/S21.4 local history (welcome-history.ts)
   ...welcomeHistoryZhCN,
 } as const;

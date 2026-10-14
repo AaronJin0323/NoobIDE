@@ -14,6 +14,14 @@ import { INITIAL_SAVE, canSave, isUnsaved, saveReducer, type SaveEvent, type Sav
 export type WriteOutcome =
   { readonly ok: true } | { readonly ok: false; readonly code: string; readonly message: string };
 
+/** S11.1: main refused the write because the file on disk is not the version the editor knows. */
+export const CHANGED_ON_DISK = 'changed-on-disk';
+
+/** Options of one write (S11.3: `create` re-creates a file deleted outside NoobIDE, never over an existing one). */
+export interface WriteOptions {
+  readonly create: boolean;
+}
+
 export interface SavedNotice {
   readonly revision: number;
 }
@@ -28,7 +36,7 @@ export const AUTOSAVE_DELAY_MS = 1000;
 export interface DocumentSaverOptions {
   readonly initialText: string;
   /** Writes the text to the file; resolves once main confirmed (or refused) the write. Must not throw. */
-  readonly write: (text: string) => Promise<WriteOutcome>;
+  readonly write: (text: string, options: WriteOptions) => Promise<WriteOutcome>;
   /** Called with every new snapshot, after it is applied. */
   readonly onState?: (snapshot: SaveSnapshot) => void;
   readonly autosave?: boolean;
@@ -50,6 +58,8 @@ export class DocumentSaver {
   /** Restored crash copy not yet touched by the user: never written on the user's behalf (S12.2). */
   private hold = false;
   private disposed = false;
+  /** S11.3: the next write re-creates the deleted file. */
+  private createNext = false;
   private readonly savedListeners = new Set<(notice: SavedNotice) => void>();
   private readonly autosave: boolean;
   private readonly delay: number;
@@ -110,7 +120,8 @@ export class DocumentSaver {
     this.cancelTimer();
     for (;;) {
       while (this.inflight) await this.inflight;
-      if (!canSave(this.snapshot)) return !this.isUnsaved();
+      // S11.3: a file deleted on disk is never "saved" by doing nothing; the user re-saves or closes it explicitly.
+      if (!canSave(this.snapshot)) return !this.isUnsaved() && !this.snapshot.deleted;
       if (!(await this.writeOnce())) return false;
     }
   }
@@ -119,13 +130,15 @@ export class DocumentSaver {
   private writeOnce(): Promise<boolean> {
     const revision = this.snapshot.revision;
     const text = this.latestText;
+    const create = this.createNext;
     this.apply({ type: 'saveStarted' });
-    const pending = this.options.write(text).then(
-      (outcome) => this.finish(outcome, revision),
+    const pending = this.options.write(text, { create }).then(
+      (outcome) => this.finish(outcome, revision, create),
       (error: unknown) =>
         this.finish(
           { ok: false, code: 'write-failed', message: error instanceof Error ? error.name : 'unknown' },
           revision,
+          create,
         ),
     );
     const gate: Promise<boolean> = pending.finally(() => {
@@ -157,6 +170,53 @@ export class DocumentSaver {
     if (this.snapshot.conflict) this.cancelTimer();
   }
 
+  // ── S11: external changes ──
+  /** Resolves once no write is in flight (a disk check must not mistake our own write for someone else's). */
+  async whenIdle(): Promise<void> {
+    while (this.inflight) await this.inflight;
+  }
+
+  /**
+   * The buffer now holds `text`, the version on disk: a clean buffer reloaded after an external change (S11.1), or
+   * the user chose "use the disk version" in a conflict (S11.2). Nothing is left to write.
+   */
+  reload(text: string): void {
+    if (this.disposed) return;
+    this.cancelTimer();
+    this.latestText = text;
+    this.hold = false;
+    this.createNext = false;
+    this.apply({ type: 'reloaded' });
+  }
+
+  /** S11.2 "keep my version": the conflict ends and the buffer is written over the disk version just compared. */
+  keepMine(): Promise<boolean> {
+    this.apply({ type: 'conflictResolved' });
+    return this.save();
+  }
+
+  /** S11.3: the file is gone from disk. The text stays; autosave stops until the user re-saves or closes. */
+  markDeleted(): void {
+    if (this.snapshot.deleted) return;
+    this.cancelTimer();
+    this.apply({ type: 'deletedOnDisk' });
+  }
+
+  /** S11.3: the deleted file exists again (restored from the trash, undone in another program). */
+  markReappeared(): void {
+    if (this.snapshot.deleted) this.apply({ type: 'reappeared' });
+  }
+
+  /** S11.3 "save it again": re-creates the deleted file with the buffer's text (never over an existing file). */
+  recreate(): Promise<boolean> {
+    if (!this.snapshot.deleted) return this.save();
+    this.createNext = true;
+    this.apply({ type: 'reappeared' });
+    if (!this.isUnsaved()) this.apply({ type: 'edited' }); // a clean buffer still has to be written
+    return this.save();
+  }
+  // ── end S11 ──
+
   /** Subscribes to confirmed writes. Returns the unsubscribe function. */
   onSaved(listener: (notice: SavedNotice) => void): () => void {
     this.savedListeners.add(listener);
@@ -173,12 +233,20 @@ export class DocumentSaver {
     return this.snapshot.revision !== this.snapshot.savedRevision;
   }
 
-  private finish(outcome: WriteOutcome, revision: number): boolean {
+  private finish(outcome: WriteOutcome, revision: number, created: boolean): boolean {
+    if (created) this.createNext = false;
     if (outcome.ok) {
       this.apply({ type: 'saveSucceeded', revision });
       for (const listener of [...this.savedListeners]) listener({ revision });
     } else {
       this.apply({ type: 'saveFailed', error: { code: outcome.code, message: outcome.message } });
+      if (outcome.code === CHANGED_ON_DISK) {
+        // S11.1: the check before write found someone else's version: never overwrite it, ask the user (S11.2).
+        this.apply({ type: 'externalChange' });
+        this.cancelTimer();
+      } else if (created && outcome.code === 'not-found') {
+        this.apply({ type: 'deletedOnDisk' }); // its folder is gone too: still deleted, the text stays here
+      }
     }
     return outcome.ok;
   }

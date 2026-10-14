@@ -12,6 +12,11 @@ export interface OpenTab {
   /** The file as it was read from disk; the live text is in the editor model and the tab's saver. */
   readonly content: FileContent;
   readonly save: SaveSnapshot;
+  // ── S11: external changes ──
+  /** A clean buffer was reloaded because the file changed outside NoobIDE (S11.1); shown until dismissed or edited. */
+  readonly diskNotice?: 'reloaded';
+  /** The disk version that conflicts with unsaved edits (S11.2), for the comparison. */
+  readonly conflictDisk?: FileContent;
 }
 
 export type OpenErrorCode = ReadFileError | 'invalid-request' | 'forbidden-sender';
@@ -29,11 +34,19 @@ export interface DocumentState {
 export type DocumentAction =
   | { type: 'projectOpened'; project: OpenedProject }
   | { type: 'projectOpenFailed' }
+  /** S13.3: the project was closed; the welcome screen shows again. */
+  | { type: 'projectClosed' }
   | { type: 'docLoaded'; relPath: string; content: FileContent }
   | { type: 'docFailed'; relPath: string; code: OpenErrorCode }
   | { type: 'activate'; relPath: string }
   | { type: 'closed'; relPath: string }
-  | { type: 'saveState'; relPath: string; save: SaveSnapshot };
+  | { type: 'saveState'; relPath: string; save: SaveSnapshot }
+  // --- S11: external changes ---
+  /** The buffer now holds this disk version (clean reload, or "use the disk version"). */
+  | { type: 'diskReloaded'; relPath: string; content: FileContent; notice: boolean }
+  | { type: 'diskConflict'; relPath: string; content: FileContent }
+  | { type: 'conflictCleared'; relPath: string }
+  | { type: 'diskNoticeDismissed'; relPath: string };
 
 export const INITIAL_DOCUMENT_STATE: DocumentState = {
   project: null,
@@ -47,6 +60,8 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
   switch (action.type) {
     case 'projectOpened':
       return { ...INITIAL_DOCUMENT_STATE, project: action.project };
+    case 'projectClosed':
+      return INITIAL_DOCUMENT_STATE;
     case 'projectOpenFailed':
       return { ...state, openFailed: true };
     case 'docLoaded': {
@@ -79,7 +94,36 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
         ...state,
         tabs: state.tabs.map((tab) => (tab.relPath === action.relPath ? { ...tab, save: action.save } : tab)),
       };
+    // --- S11 ---
+    case 'diskReloaded':
+      return mapTab(state, action.relPath, (tab) => {
+        const { conflictDisk: _gone, diskNotice: _old, ...rest } = tab;
+        return action.notice
+          ? { ...rest, content: action.content, diskNotice: 'reloaded' }
+          : { ...rest, content: action.content };
+      });
+    case 'diskConflict':
+      return mapTab(state, action.relPath, (tab) => {
+        const { diskNotice: _old, ...rest } = tab;
+        return { ...rest, conflictDisk: action.content };
+      });
+    case 'conflictCleared':
+      return mapTab(state, action.relPath, (tab) => {
+        const { conflictDisk: _gone, ...rest } = tab;
+        return rest;
+      });
+    case 'diskNoticeDismissed':
+      return mapTab(state, action.relPath, (tab) => {
+        if (!tab.diskNotice) return tab;
+        const { diskNotice: _old, ...rest } = tab;
+        return rest;
+      });
   }
+}
+
+function mapTab(state: DocumentState, relPath: string, update: (tab: OpenTab) => OpenTab): DocumentState {
+  if (!state.tabs.some((tab) => tab.relPath === relPath)) return state;
+  return { ...state, tabs: state.tabs.map((tab) => (tab.relPath === relPath ? update(tab) : tab)) };
 }
 
 export function activeTab(state: DocumentState): OpenTab | null {

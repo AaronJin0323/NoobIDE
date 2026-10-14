@@ -25,6 +25,16 @@ import { RecoveryJournal } from '../recovery/journal';
 import { SnapshotStore } from '../recovery/history';
 import { HistoryTriggers } from '../recovery/history-triggers';
 import { selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test';
+// S13 app data: settings, recent projects, session, logs
+import { registerAppDataIpcHandlers } from './app-data-ipc';
+import { SettingsStore } from './settings-store';
+import { AppLog } from './app-log';
+import { osInfo } from '../platform/os-info';
+import type { RecoveryLogger } from '../recovery/atomic-file';
+import { effectiveProjectConfig, previewEntryPath } from '../workspace/project-config';
+import { RecentProjects } from './recent-projects';
+import { SessionStore } from './session-store';
+import type { WebContents } from 'electron';
 import { resolveTemplatesDir } from '../workspace/templates'; // S20.2
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
 
@@ -64,7 +74,14 @@ function start(): void {
 
   // --- S04 preview: the project service is created when the app is ready; the preview asks it for roots. ---
   let projects: ProjectService | undefined;
-  const preview = new PreviewManager({ rootOf: (id) => projects?.rootOf(id) });
+  const preview = new PreviewManager({
+    rootOf: (id) => projects?.rootOf(id),
+    // S13.2: the entry page from .noobide/project.json (when that file exists), else the project's index.html.
+    entryPathOf: async (id) => {
+      const root = projects?.rootOf(id);
+      return root === undefined ? '' : previewEntryPath(root);
+    },
+  });
   // --- end S04 ---
 
   // Read-only hook for the Playwright e2e suite (tests/e2e). Holds request metadata only, never source code.
@@ -120,11 +137,55 @@ function start(): void {
     const watchHub = new ProjectWatchHub();
     // --- S12: unsaved-buffer journal in the app-data directory (PLAN §6), never inside a project ---
     const appData = app.getPath('userData');
-    const journal = new RecoveryJournal({ dir: path.join(appData, 'recovery'), log: consoleLogger });
+    // --- S13.6: rotating, content-free log in app data; recovery and history events go there too ---
+    const appLog = new AppLog({ dir: path.join(appData, 'logs') });
+    appLog.started({
+      app: app.getVersion(),
+      electron: process.versions.electron ?? '',
+      chrome: process.versions.chrome ?? '',
+      node: process.versions.node,
+      ...osInfo(),
+    });
+    const logger: RecoveryLogger = (event, fields) => {
+      consoleLogger(event, fields);
+      appLog.write('warn', event, fields);
+    };
+    app.on('render-process-gone', (_event, _contents, details) =>
+      appLog.write('error', 'render-process-gone', { reason: details.reason, exitCode: details.exitCode }),
+    );
+    app.on('child-process-gone', (_event, details) =>
+      appLog.write('error', 'child-process-gone', { type: details.type, reason: details.reason }),
+    );
+    app.on('will-quit', () => appLog.write('info', 'app-quit'));
+    // --- end S13.6 ---
+    const journal = new RecoveryJournal({ dir: path.join(appData, 'recovery'), log: logger });
     // --- end S12 ---
+    // --- S13.3: project lifecycle. Every opened project (folder dialog, recent list, wizard, crash recovery,
+    // session restore) is watched and remembered; a preview of another project stops with its server. Closing a
+    // project stops its watcher, preview and server. ---
+    const recent = new RecentProjects({ file: path.join(appData, 'recent-projects.json'), log: logger });
+    const sessionStore = new SessionStore({ file: path.join(appData, 'session.json'), log: logger }); // S13.4
+    const projectOpened = (projectId: string, root: string, sender: WebContents) => {
+      watchHub.watch(projectId, root, sender);
+      void recent.touch(root);
+      void sessionStore.projectOpened(root); // S13.4: reopened on the next normal start
+      const previewed = preview.getStatus().projectId;
+      if (previewed !== null && previewed !== projectId) void preview.stop();
+    };
+    const projectClosed = async (projectId: string, root: string) => {
+      watchHub.stop();
+      const previewed = preview.getStatus().projectId;
+      if (previewed === null || previewed === projectId) void preview.stop();
+      // S13.4: the next start shows the welcome screen. Awaited, so a quit right after closing cannot lose it.
+      await sessionStore.projectClosed(root);
+    };
+    Object.assign((globalThis as { __noobideTestHooks?: object }).__noobideTestHooks ?? {}, {
+      watching: () => watchHub.active,
+    });
+    // --- end S13.3 ---
     // --- S21: local history (snapshots around saves) in app data ---
-    const history = new SnapshotStore({ dir: path.join(appData, 'history'), log: consoleLogger });
-    const historyTriggers = new HistoryTriggers(history, consoleLogger);
+    const history = new SnapshotStore({ dir: path.join(appData, 'history'), log: logger });
+    const historyTriggers = new HistoryTriggers(history, logger);
     // --- end S21 ---
     projects = new ProjectService({ history: historyTriggers });
     registerIpcHandlers(ipcMain, {
@@ -147,7 +208,7 @@ function start(): void {
       closeAnswered: (event, answer) => closeGuards.get(event.sender.id)?.answer(answer),
       closeDiscarding: (event) => closeGuards.get(event.sender.id)?.discardAndClose(),
       // ── S07/S08: file tree, watcher and file operations ──
-      projectOpened: (projectId, root, sender) => watchHub.watch(projectId, root, sender),
+      projectOpened, // S13.3: watch + remember + stop another project's preview
       trashItem: (fullPath) => shell.trashItem(fullPath),
       revealItem: (fullPath) => shell.showItemInFolder(fullPath),
       // --- S20.2: create-project wizard (built-in templates, default location in Documents) ---
@@ -173,12 +234,36 @@ function start(): void {
       history: { store: history, triggers: historyTriggers, revealFolder: (folder) => void shell.openPath(folder) },
     });
     // S10.5: refresh the preview only after a confirmed write (fires after the rename, never on a failed save).
-    projects.onSaved((file) => preview.fileSaved(file.projectId));
+    // S13.2: unless the project's preview preferences turned automatic refresh off.
+    const savedIn = projects;
+    savedIn.onSaved((file) => {
+      const root = savedIn.rootOf(file.projectId);
+      if (root === undefined) return;
+      void effectiveProjectConfig(root).then((config) => {
+        if (config.preview?.autoRefresh !== false) preview.fileSaved(file.projectId);
+      });
+    });
     registerPreviewIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       windowOf: (event) => BrowserWindow.fromWebContents(event.sender),
       preview,
     });
+    // --- S13 app data (all in app.getPath('userData'), never inside a project) ---
+    const settings = new SettingsStore({ file: path.join(appData, 'settings.json'), log: logger });
+    void settings.load();
+    registerAppDataIpcHandlers(ipcMain, {
+      allowedOrigin: devOrigin ?? APP_ORIGIN,
+      settings,
+      openLogsFolder: () => shell.openPath(appLog.dir),
+      projects,
+      recent,
+      projectOpened,
+      projectClosed,
+      session: sessionStore,
+      pendingRecovery: async () => (await journal.listPending()).length,
+      restoreEnabled: async () => (await settings.snapshot()).settings.restoreSession,
+    });
+    // --- end S13 ---
     createWorkbenchWindow();
 
     app.on('activate', () => {

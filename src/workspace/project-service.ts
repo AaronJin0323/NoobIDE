@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { constants, type Dirent } from 'node:fs';
 import { access, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -11,6 +11,7 @@ import {
   type RenameEntryRequest,
   type DirRequest,
   type FileEntry,
+  type FileVersion,
   type ListDirError,
   type FileRequest,
   type OpenedProject,
@@ -99,6 +100,11 @@ export class ProjectService {
     }
   }
 
+  /** S13.3: closes a project; its projectId no longer reaches any file. False when it was not open. */
+  close(projectId: string): boolean {
+    return this.projects.delete(projectId);
+  }
+
   /** One folder of the lazy tree (S07.2). */
   async listDir(request: DirRequest): Promise<Result<DirListing, ListDirError>> {
     const project = this.projects.get(request.projectId);
@@ -149,11 +155,13 @@ export class ProjectService {
     const target = await this.resolve(request);
     if (!target.ok) return target;
     let bytes: Uint8Array;
+    let mtimeMs: number;
     try {
       const info = await stat(target.value);
       if (!info.isFile()) return err('not-a-file', 'not a regular file');
       if (info.size > MAX_TEXT_FILE_BYTES) return err('too-large', `${info.size} bytes`);
       bytes = await readFile(target.value);
+      mtimeMs = info.mtimeMs;
     } catch (e) {
       return err(isNotFound(e) ? 'not-found' : 'read-failed', errorCode(e), e);
     }
@@ -165,6 +173,7 @@ export class ProjectService {
       bom: decoded.bom,
       mixedEol: hasMixedEol(decoded.text),
       uri: toFileUri(target.value),
+      version: versionOf(bytes, mtimeMs), // S11.1
     };
     // S07.4: other encodings are shown read-only, with the encoding named in the notice.
     if (decoded.editable) return ok(content);
@@ -180,6 +189,20 @@ export class ProjectService {
    */
   write(request: WriteFileRequest): Promise<Result<SavedFile, WriteFileError>> {
     return this.serialized(`${request.projectId}\0${request.relPath}`, async () => {
+      // S11.3: re-create a file that was deleted outside NoobIDE — exclusively, never over something that is there.
+      let expectedHash = request.expectedHash;
+      if (request.create) {
+        const root = this.rootOf(request.projectId);
+        if (root === undefined) return err('unknown-project', 'project is not open');
+        const created = await createEntry(root, request.relPath, 'file');
+        if (!created.ok) {
+          if (created.code === 'exists' || created.code === 'case-conflict') {
+            return err('changed-on-disk', 'a file with this name exists again');
+          }
+          return err(createErrorCode(created.code), created.message);
+        }
+        expectedHash = EMPTY_HASH;
+      }
       const target = await this.resolve(request);
       if (!target.ok) return target;
       const data = encodeText(request.text, request.bom);
@@ -199,8 +222,13 @@ export class ProjectService {
           if (existing.size > MAX_TEXT_FILE_BYTES) {
             return err('too-large', `the file on disk has ${existing.size} bytes`);
           }
-          if (!decodeText(await readFile(target.value)).ok) {
+          const onDisk = await readFile(target.value);
+          if (!decodeText(onDisk).ok) {
             return err('unsupported-encoding', 'the file on disk is not UTF-8 text');
+          }
+          // S11.1: the check before write — the file must still be the version the editor knows.
+          if (expectedHash !== undefined && sha256(onDisk) !== expectedHash) {
+            return err('changed-on-disk', 'the file was changed outside NoobIDE');
           }
           before = await this.captureBeforeSave(target.value); // S21.2
           await this.replaceFile(target.value, data, this.options.atomic);
@@ -210,7 +238,12 @@ export class ProjectService {
         }
         this.recordSave(request.projectId, target.value, before, data); // S21.2
         this.emitSaved({ projectId: request.projectId, relPath: request.relPath, path: target.value });
-        return ok({ savedAt: Date.now() });
+        // S11.1: the version now on disk is ours; the editor expects it on the next save.
+        const mtimeMs = await stat(target.value).then(
+          (info) => info.mtimeMs,
+          () => Date.now(),
+        );
+        return ok({ savedAt: Date.now(), version: versionOf(data, mtimeMs) });
       });
     });
   }
@@ -353,6 +386,32 @@ async function listFiles(root: string): Promise<{ files: FileEntry[]; truncated:
 function errorMessage(e: unknown): string {
   return e instanceof FileInUseError ? e.message : errorCode(e);
 }
+
+// ── S11.1: file versions ──
+export function sha256(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+export const EMPTY_HASH = sha256(new Uint8Array(0));
+
+function versionOf(bytes: Uint8Array, mtimeMs: number): FileVersion {
+  return { mtimeMs, size: bytes.length, hash: sha256(bytes) };
+}
+
+function createErrorCode(code: FileOpError): WriteFileError {
+  switch (code) {
+    case 'unknown-project':
+    case 'outside-project':
+    case 'not-found':
+    case 'permission-denied':
+    case 'busy':
+    case 'invalid-name':
+      return code;
+    default:
+      return 'write-failed';
+  }
+}
+// ── end S11.1 ──
 
 function isNotFound(e: unknown): boolean {
   const code = errorCode(e);

@@ -146,6 +146,13 @@ export function SaveStateIcon({ state }: { state: SaveStatus }) {
           <path d="M10 8l2 2-2 2" />
         </Icon>
       );
+    case 'deleted': // S11.3: a page with a cross — the file is gone from disk
+      return (
+        <Icon size={13} strokeWidth={1.8}>
+          <path d="M4 1.5h5l3 3v10H4z" />
+          <path d="M6 8l4 4M10 8l-4 4" />
+        </Icon>
+      );
   }
 }
 

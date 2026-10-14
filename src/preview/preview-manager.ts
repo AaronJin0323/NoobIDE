@@ -41,6 +41,8 @@ export interface WatchdogOptions {
 export interface PreviewManagerDeps {
   /** Real root of an open project, or undefined (ProjectService.rootOf). */
   rootOf(projectId: string): string | undefined;
+  /** S13.2: URL path of the configured entry page ('' for index.html), from `.noobide/project.json`. */
+  entryPathOf?(projectId: string): Promise<string>;
   readonly watchdog?: WatchdogOptions;
   /** How often buffered log records are sent to the workbench. */
   readonly logFlushMs?: number;
@@ -112,6 +114,9 @@ export class PreviewManager {
         this.setStatus(window, { state: 'failed', projectId, failure: 'server-failed' });
       return err('server-failed', e instanceof Error ? e.message : 'server failed', e);
     }
+    // S13.2: the configured entry page ('' = the server's index.html); a broken config never blocks the preview.
+    // Read while this start is current; the generation check below catches a Stop that arrived meanwhile.
+    const entryPath = (await this.deps.entryPathOf?.(projectId).catch(() => '')) ?? '';
     if (generation !== this.generation || window.isDestroyed()) {
       await server.close();
       return ok(this.status);
@@ -154,7 +159,7 @@ export class PreviewManager {
     const watchdog = this.deps.watchdog ?? DEFAULT_WATCHDOG;
     live.timers.push(setInterval(() => this.checkResponsive(live, watchdog), watchdog.intervalMs));
 
-    const url = `${server.origin}/`;
+    const url = `${server.origin}/${entryPath}`;
     this.setStatus(window, { state: 'starting', projectId, url });
     view.webContents.loadURL(url).catch(() => undefined); // Failures arrive as did-fail-load.
     return ok(this.status);

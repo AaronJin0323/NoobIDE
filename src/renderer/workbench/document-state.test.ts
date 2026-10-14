@@ -23,6 +23,7 @@ const file = (name: string): FileContent => ({
   bom: false,
   mixedEol: false,
   uri: `file:///D:/x/${encodeURIComponent(name)}`,
+  version: { mtimeMs: 1, size: 1, hash: '0'.repeat(64) },
 });
 
 const run = (...actions: DocumentAction[]) => actions.reduce(documentReducer, INITIAL_DOCUMENT_STATE);

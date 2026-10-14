@@ -1291,8 +1291,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "mtime+size+hash: FileVersion on every read/save, versionChanged by size+hash (tests/integration/external-change.test.ts 11 tests: touch/new mtime is not a change, same-size edit is); check before write: expectedHash re-hashed in ProjectService.write -> changed-on-disk, external bytes untouched; watcher event -> re-read + hash compare (src/renderer/workbench/disk-sync.test.ts 19 tests incl. own write in flight is no conflict); clean buffer reloads with notice, cursor kept: tests/e2e/external-change.spec.ts (own saves never flagged; reload notice + cursor + disk untouched). verify green + e2e 104/104 on Windows x64 @ 0464613"
     },
     {
       "id": "S11.2",
@@ -1307,8 +1307,8 @@
       "depends_on": [
         "S11.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Dirty buffer + disk change -> conflict status (save-machine.test, disk-sync.test: autosave/save write nothing, refused write is conflict not a retry loop); Monaco diff (ConflictDiff: createDiffEditor, disk left / live buffer right) + line-diff summary; keep mine / take disk only on click: tests/e2e/external-change.spec.ts (conflict banner, .monaco-diff-editor shows both versions, disk unchanged after 2 s, use-disk replaces buffer without writing, keep-mine overwrites the compared version). verify green + e2e 104/104 Windows x64 @ 0464613"
     },
     {
       "id": "S11.3",
@@ -1323,8 +1323,8 @@
       "depends_on": [
         "S11.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Tab marked deleted (SaveStatus 'deleted', tab text + icon), content retained, autosave stops, save() never reports success for a deleted tab; re-save re-creates exclusively (WriteFileRequest.create; refuses if a file appeared -> conflict; missing folder -> not-found): tests/integration/external-change.test.ts, disk-sync.test.ts, tests/e2e/external-change.spec.ts (deleted banner, text kept, no auto re-create after 2 s, close asks to confirm, re-save restores KEPT+UNSAVED). verify green + e2e 104/104 Windows x64 @ 0464613"
     },
     {
       "id": "S12.1",
@@ -1399,8 +1399,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "JSON schema with version + defaults + per-field validation + migration chain (src/shared/settings.test.ts 9 tests: v0 unversioned -> v1, injected v1->v2->v3 chain, newer/bad/throwing migrations rejected, strict IPC patch); SettingsStore in app data: corrupt file (bad JSON, non-object) and newer file moved to timestamped backup byte-for-byte, defaults written, notice (tests/integration/settings-store.test.ts 9 tests, Chinese+space path; src/main/app-data-ipc.test.ts sender/payload checks); e2e tests/e2e/settings.spec.ts: language + zoom persist across restart, corrupt file -> backup + reset + notice. verify green + e2e 106/106 Windows x64 @ 435f209"
     },
     {
       "id": "S13.2",
@@ -1413,8 +1413,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Stores entry page, preview prefs (autoRefresh) and config version only; unknown keys rejected; absolute paths rejected anywhere in the file (drive letters, POSIX roots, UNC, file URLs, home-relative) - tests/integration/project-config.test.ts 14 tests (an invalid hand-written file is never overwritten, only .noobide/project.json is added, written file holds no absolute path); deleting it leaves a working site: the static server still serves index.html and the pages. IPC checks in src/main/app-data-ipc.test.ts. e2e tests/e2e/project-config.spec.ts: tree menu Set as entry page writes version+entry only; preview opens the entry; after deleting .noobide the preview opens index.html. verify green + e2e 109/109 Windows x64 @ c874c32"
     },
     {
       "id": "S13.3",
@@ -1429,8 +1429,8 @@
       "depends_on": [
         "S13.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Missing folders shown as unavailable: RecentProjects.list reports available=false (tests/integration/recent-projects.test.ts 5 tests, Chinese+space paths; removal edits only the list, folder untouched); e2e tests/e2e/recent-projects.spec.ts: after reopening the app the welcome screen lists the project with full path and opens it; a deleted folder shows the missing state with only the remove-from-list action, removal persists and the other project folder is unchanged. Closing a project tears down server and preview: app menu Close project -> preview stopped, view destroyed, old server origin unreachable, file watcher stopped (test hook), welcome shown. IPC sender/payload checks (no path from the renderer) in src/main/app-data-ipc.test.ts. verify green + e2e 126/126 Windows x64 @ b152ca8"
     },
     {
       "id": "S13.4",
@@ -1446,8 +1446,8 @@
         "S13.1",
         "S13.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Reopen restores tabs, active tab, layout sizes: tests/e2e/session.spec.ts (3 tabs in order, active tab, files width and 60 percent editor split survive a normal quit and relaunch; restore notice shows the project path; project-path in the top bar); crash recovery precedence: after a forced kill with a journaled buffer the recovery dialog shows and the project is not reopened (e2e + src/main/app-data-ipc.test.ts + tests/integration/session-store.test.ts decideRestore); store in app data, relative tab paths, validated payloads; layout reducer clamps (layout.test.ts). verify green + e2e 128/128 Windows x64 @ f82fbca. Note: the crash-precedence e2e failed once in an earlier full run (recovery dialog not shown) and passed in 3 isolated reruns and the final full run - watch for flakiness."
     },
     {
       "id": "S13.5",
@@ -1474,8 +1474,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Rotating log in app data (<userData>/logs, 1 MB x 5 files) - tests/integration/app-log.test.ts 5 tests (rotation keeps maxFiles, sizes within limit, continues across runs, never throws); no source content: string fields that are not short single-line tokens are redacted (test passes <script>, multi-line text, a Chinese path: none reach the file); version info: first line of each run has app/electron/chrome/node/platform/arch/os; 'Open logs folder' command in the app menu, IPC with sender+payload checks (src/main/app-data-ipc.test.ts); e2e tests/e2e/logs.spec.ts: header matches the running versions, an edited+saved source marker is in no log file, menu (keyboard + click) opens exactly <userData>/logs. verify green + e2e 107/107 (shell.spec list updated for the menu button) Windows x64 @ 88eb645"
     },
     {
       "id": "S13.7",

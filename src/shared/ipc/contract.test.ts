@@ -75,6 +75,19 @@ describe('payload parsers reject malformed requests (S03.1)', () => {
     expect(parseWriteFileRequest({ ...good, text: 'x'.repeat(5 * 1024 * 1024 + 1) })).toBeNull();
   });
 
+  it('S11: an optional expected content hash and create flag, strictly typed', () => {
+    const good = { projectId: ID, relPath: 'index.html', text: 'x', bom: false };
+    const hash = 'ab'.repeat(32);
+    expect(parseWriteFileRequest({ ...good, expectedHash: hash })).toEqual({ ...good, expectedHash: hash });
+    expect(parseWriteFileRequest({ ...good, create: true })).toEqual({ ...good, create: true });
+    expect(parseWriteFileRequest({ ...good, expectedHash: 'AB'.repeat(32) })).toBeNull();
+    expect(parseWriteFileRequest({ ...good, expectedHash: 'ab' })).toBeNull();
+    expect(parseWriteFileRequest({ ...good, expectedHash: undefined })).toBeNull();
+    expect(parseWriteFileRequest({ ...good, create: false })).toBeNull();
+    expect(parseWriteFileRequest({ ...good, create: 'yes' })).toBeNull();
+    expect(parseWriteFileRequest({ ...good, create: true, other: 1 })).toBeNull();
+  });
+
   it('project request and no-payload channels', () => {
     expect(parseProjectRequest({ projectId: ID })).toEqual({ projectId: ID });
     expect(parseProjectRequest({ projectId: ID, x: 1 })).toBeNull();

@@ -17,7 +17,7 @@ const succeeded = (revision: number): SaveEvent => ({ type: 'saveSucceeded', rev
 const failed: SaveEvent = { type: 'saveFailed', error: { code: 'permission-denied', message: 'EACCES' } };
 
 describe('save state machine (S10.2)', () => {
-  it('has the six states clean/dirty/saving/saved/failed/conflict', () => {
+  it('has the states clean/dirty/saving/saved/failed/conflict, and deleted (S11.3)', () => {
     const reached = new Set([
       saveStatus(run()),
       saveStatus(run(edited)),
@@ -25,6 +25,7 @@ describe('save state machine (S10.2)', () => {
       saveStatus(run(edited, started, succeeded(1))),
       saveStatus(run(edited, started, failed)),
       saveStatus(run(edited, { type: 'externalChange' })),
+      saveStatus(run({ type: 'deletedOnDisk' })),
     ]);
     expect([...reached].sort()).toEqual([...SAVE_STATUSES].sort());
   });
@@ -85,5 +86,48 @@ describe('save state machine (S10.2)', () => {
     saveReducer(before, started);
     saveReducer(before, failed);
     expect(before).toEqual(copy);
+  });
+});
+
+describe('external changes (S11)', () => {
+  it('a reload makes the buffer clean at a new revision and ends a conflict', () => {
+    const s = run(edited, { type: 'externalChange' }, { type: 'reloaded' });
+    expect(s.revision).toBe(2);
+    expect(s.savedRevision).toBe(2);
+    expect(saveStatus(s)).toBe('clean');
+    expect(s.conflict).toBe(false);
+    expect(canSave(s)).toBe(false);
+  });
+
+  it('resolving a conflict clears the refused write’s error', () => {
+    const refused = run(edited, started, {
+      type: 'saveFailed',
+      error: { code: 'changed-on-disk', message: 'x' },
+    });
+    const s = run(
+      edited,
+      started,
+      { type: 'saveFailed', error: { code: 'changed-on-disk', message: 'x' } },
+      {
+        type: 'externalChange',
+      },
+    );
+    expect(refused.error?.code).toBe('changed-on-disk');
+    expect(saveStatus(s)).toBe('conflict');
+    const resolved = saveReducer(s, { type: 'conflictResolved' });
+    expect(resolved.error).toBeNull();
+    expect(saveStatus(resolved)).toBe('dirty');
+  });
+
+  it('a deleted file keeps its unsaved state but is never written until the user asks', () => {
+    const s = run(edited, { type: 'deletedOnDisk' });
+    expect(saveStatus(s)).toBe('deleted');
+    expect(isUnsaved(s)).toBe(true);
+    expect(canSave(s)).toBe(false);
+    expect(saveStatus(saveReducer(s, { type: 'reappeared' }))).toBe('dirty');
+  });
+
+  it('a conflict outranks deleted in the status (the user must decide first)', () => {
+    expect(saveStatus(run(edited, { type: 'deletedOnDisk' }, { type: 'externalChange' }))).toBe('conflict');
   });
 });
