@@ -2340,8 +2340,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/offline.spec.ts (6 tests, pass on macOS arm64 @ S27.2 commit): Chromium proxy+resolver cut, workbench offline emulation, Node net/dns guard (tests/e2e/offline-guard.cjs); negative control without the cut reaches the internet; template create, edit+save, preview update, code-check + runtime explanations with problem card all work; app made 0 outside requests"
     },
     {
       "id": "S27.3",
