@@ -1901,8 +1901,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/problems/static-problems.ts (markerToProblem + StaticProblems: debounce 300 ms, per-file replace, retain/dispose) with static-problems.test.ts (7 tests: mapping, severities/hints, code forms, one publish per burst, cleared on empty markers / closed file / project switch, first-seen kept); Monaco adapter static-problems-monaco.ts + useStaticProblems in Workbench; tests/e2e/problems.spec.ts: userNmae → static 2552 record at script.js:3:13 with the verbatim message, colr → unknownProperties warning, fixing colr removes only its record, closing script.js empties the list. verify green, e2e 107/107 @ d3033ee"
     },
     {
       "id": "S19.2",
@@ -1917,7 +1917,7 @@
       "depends_on": [
         "S19.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

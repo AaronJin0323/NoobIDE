@@ -67,6 +67,15 @@ describe('marker → ProblemRecord (S19.1)', () => {
     expect(markerToProblem(marker(), { projectId: 'p1', relPath: 'js/script.js', at: 9 })?.id).toBe(record?.id);
   });
 
+  it('keeps the tag name of NoobIDE’s unclosed-element check for the explanation rule (S19.2)', () => {
+    const record = markerToProblem(
+      marker({ owner: 'noobide-html', severity: 4, code: 'html-unclosed-tag', message: 'Unclosed element `div`.' }),
+      { projectId: 'p1', relPath: 'index.html', at: 0 },
+    );
+    expect(record?.data).toMatchObject({ tagName: 'div', owner: 'noobide-html' });
+    expect(record?.severity).toBe('warning');
+  });
+
   it('maps severities and drops hints', () => {
     expect([8, 4, 2, 1].map(severityOf)).toEqual(['error', 'warning', 'info', null]);
     expect(markerToProblem(marker({ severity: 1 }), { projectId: 'p', relPath: 'a.js', at: 0 })).toBeNull();

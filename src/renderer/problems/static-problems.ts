@@ -11,6 +11,7 @@
  * Monaco-free: markers come in as plain objects, timers are injected, so the rules are unit-tested.
  */
 import { createProblemRecord, type ProblemRecord, type ProblemSeverity } from '../../shared/problem';
+import { HTML_UNCLOSED_CODE } from '../../diagnostics/html-check';
 
 /** The fields of a Monaco IMarker this needs (MarkerSeverity: Hint 1, Info 2, Warning 4, Error 8). */
 export interface MarkerLike {
@@ -61,6 +62,9 @@ export function markerToProblem(
   const severity = severityOf(marker.severity);
   if (!severity) return null;
   const line = Math.max(1, Math.floor(marker.startLineNumber));
+  const code = codeOf(marker);
+  // The explanation rule for an unclosed element needs the tag name (src/diagnostics/README.md).
+  const tagName = code === HTML_UNCLOSED_CODE ? /`([A-Za-z][\w-]*)`/.exec(marker.message)?.[1] : undefined;
   const column = Math.max(1, Math.floor(marker.startColumn));
   const input = {
     source: 'static' as const,
@@ -69,9 +73,14 @@ export function markerToProblem(
     file: context.relPath,
     line,
     column,
-    code: codeOf(marker),
+    code,
     message: marker.message,
-    data: { endLine: marker.endLineNumber, endColumn: marker.endColumn, owner: marker.owner },
+    data: {
+      endLine: marker.endLineNumber,
+      endColumn: marker.endColumn,
+      owner: marker.owner,
+      ...(tagName ? { tagName } : {}),
+    },
     at: context.at,
   };
   const record = createProblemRecord(input, 'pending');

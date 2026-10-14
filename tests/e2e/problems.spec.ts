@@ -1,8 +1,8 @@
-import { rm, writeFile } from 'node:fs/promises';
+import { cp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { ProblemRecord } from '../../src/shared/problem';
-import { launchApp } from './launch';
+import { launchApp, repoRoot } from './launch';
 import { collectConsoleErrors, makeProject, openFile, openProject } from './project';
 
 /**
@@ -36,6 +36,10 @@ test.beforeAll(async () => {
   ({ tmp, root } = await makeProject('noobide-e2e-problems-'));
   await writeFile(path.join(root, 'script.js'), SCRIPT);
   await writeFile(path.join(root, 'style.css'), 'h1 {\n  colr: red;\n}\n');
+  // S19.2: beginner-tuning fixtures (noise that must stay quiet, mistakes that must be reported).
+  await cp(path.join(repoRoot, 'tests', 'fixtures', 'static-diagnostics'), path.join(root, 'diag'), {
+    recursive: true,
+  });
   app = await launchApp();
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
@@ -80,6 +84,25 @@ test('language-service markers become static problem records, and fixing clears 
   // Closing a file removes its records.
   await page.locator('[data-testid="tab"][data-path="script.js"] [data-testid="tab-close"]').click();
   await expect.poll(staticRecords).toEqual([]);
+});
+
+test('beginner tuning: noisy-but-valid code stays quiet; undefined names and syntax errors are kept (S19.2)', async () => {
+  const expected = JSON.parse(
+    await readFile(path.join(repoRoot, 'tests', 'fixtures', 'static-diagnostics', 'expected.json'), 'utf8'),
+  ) as { files: Record<string, string[]> };
+  for (const [file, codes] of Object.entries(expected.files)) {
+    await openFile(page, `diag/${file}`);
+    const mine = async () =>
+      (await staticRecords()).filter((r) => r.file === `diag/${file}`).map((r) => `${r.line}:${r.code}:${r.severity}`);
+    await expect.poll(mine, { timeout: 30_000 }).toEqual(codes);
+  }
+  // The quiet files stay quiet once every file has been checked: the services answer within about a second here
+  // (the files with errors above show they are running), so 3 s later nothing may have arrived for a quiet file.
+  await page.waitForTimeout(3000);
+  for (const [file, codes] of Object.entries(expected.files)) {
+    if (codes.length) continue;
+    expect((await staticRecords()).filter((r) => r.file === `diag/${file}`)).toEqual([]);
+  }
 });
 
 test('no console errors during the problems run', () => {

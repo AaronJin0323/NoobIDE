@@ -1,0 +1,73 @@
+/* style.css 是"视觉样式"：决定网页长什么样（颜色、大小、间距）。 */
+
+body {
+  margin: 0;
+  padding: 32px 16px;
+  background-color: #f0fdf4;
+  color: #14532d;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+  text-align: center;
+}
+
+.counter {
+  max-width: 360px;
+  margin: 0 auto;
+  padding: 24px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(20, 83, 45, 0.1);
+}
+
+h1 {
+  margin: 8px 0;
+  font-size: 28px;
+}
+
+.hint {
+  color: #3f6212;
+}
+
+/* 大大的数字 */
+.count {
+  margin: 16px 0;
+  font-size: 72px;
+  font-weight: bold;
+  color: #16a34a;
+}
+
+.buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background-color: #16a34a;
+  color: #ffffff;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #15803d;
+}
+
+/* 归零按钮用浅色，和加减按钮区分开 */
+.reset {
+  margin-top: 16px;
+  background-color: #dcfce7;
+  color: #14532d;
+}
+
+.reset:hover {
+  background-color: #bbf7d0;
+}
