@@ -1,5 +1,6 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
+import { DOC_END } from './keys';
 
 let app: ElectronApplication;
 let page: Page;
@@ -62,7 +63,7 @@ test('Monaco highlights HTML with every request local (S02.4, S02.6)', async () 
 
 test('typing into the editor keeps highlighting (S02.4)', async () => {
   await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.type('<p class="x">hi</p>');
   await expect(page.locator('.view-lines')).toContainText('<p class="x">hi</p>');
 });

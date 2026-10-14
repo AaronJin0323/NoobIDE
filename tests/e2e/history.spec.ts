@@ -1,9 +1,8 @@
 import { cp, mkdir, mkdtemp, readFile, rename, rm } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { listTemplates } from '../../src/workspace/templates';
-import { launchApp, repoRoot } from './launch';
+import { launchApp, repoRoot, tempRoot } from './launch';
 import { answerFolderDialog, collectConsoleErrors, openFile, tabOf, treeRow, typeAtEnd } from './project';
 import { replaceEditorText } from './preview-helpers';
 
@@ -67,7 +66,7 @@ async function openFolder(root: string, testId: 'open-folder' | 'open-other-fold
 }
 
 test.beforeAll(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-history-'));
+  tmp = await mkdtemp(path.join(tempRoot(), 'noobide-history-'));
   userData = path.join(tmp, 'userdata');
   await mkdir(path.join(tmp, 'trash'));
   rootA = path.join(tmp, '网页 练习', '我的 主页');

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +13,15 @@ export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 export function electronArgs(): string[] {
   const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
   return isRoot ? ['--no-sandbox', '.'] : ['.'];
+}
+
+/**
+ * The OS temp folder with symbolic links resolved. On macOS `os.tmpdir()` is under `/var/folders/…`, a link to
+ * `/private/var/folders/…`; the app resolves a project root to its real path (the static server's realpath guard
+ * depends on it) and shows that, so tests that compare shown paths must start from the real path too.
+ */
+export function tempRoot(): string {
+  return realpathSync.native(os.tmpdir());
 }
 
 const tempUserDataDirs: string[] = [];
@@ -38,7 +47,7 @@ export async function launchApp(
 ): Promise<ElectronApplication> {
   let userDataDir = options.userDataDir;
   if (!userDataDir) {
-    userDataDir = mkdtempSync(path.join(os.tmpdir(), 'noobide-e2e-userdata-'));
+    userDataDir = mkdtempSync(path.join(tempRoot(), 'noobide-e2e-userdata-'));
     tempUserDataDirs.push(userDataDir);
   }
   const args = [`--user-data-dir=${userDataDir}`, ...electronArgs()];

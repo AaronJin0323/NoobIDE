@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { launchApp } from './launch';
+import { launchApp, tempRoot } from './launch';
+import { DOC_END } from './keys';
 
 /**
  * S08 end to end: the accessible file tree (keyboard only), create and rename with cross-platform validation,
@@ -18,6 +18,8 @@ let page: Page;
 let tmp: string;
 let root: string;
 let fakeTrash: string;
+/** The OS trash as the app names it: 废纸篓 (Trash) on macOS, 回收站 (Recycle Bin) elsewhere. */
+const trashName = process.platform === 'darwin' ? '废纸篓' : '回收站';
 
 const p = (...segments: string[]) => path.join(root, ...segments);
 const tree = () => page.getByTestId('file-tree');
@@ -53,7 +55,7 @@ const recorded = (name: '__trashed' | '__revealed') =>
   app.evaluate((_electron, key) => (globalThis as unknown as Record<string, string[]>)[key] ?? [], name);
 
 test.beforeAll(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-e2e-tree-'));
+  tmp = await mkdtemp(path.join(tempRoot(), 'noobide-e2e-tree-'));
   root = path.join(tmp, '网页 练习', '树 项目');
   fakeTrash = path.join(tmp, 'trash');
   await mkdir(fakeTrash, { recursive: true });
@@ -201,7 +203,7 @@ test('renaming the open file saves its edits first and the editor follows (S08.3
   await row('Index.html').click();
   await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', 'Index.html');
   await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.type('改名前的修改');
   // Autosave may already be writing; the rename must wait for it either way (S10 save queue).
   await expect(status()).toHaveText(/未保存|正在保存|已保存/);
@@ -222,7 +224,7 @@ test('Delete asks first; Escape and Cancel keep the file (S08.3)', async () => {
   await page.keyboard.press('Delete');
   const dialog = page.getByTestId('delete-dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText('回收站');
+  await expect(dialog).toContainText(trashName);
   await expect(dialog.getByRole('button', { name: '取消' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
@@ -239,7 +241,7 @@ test('a failed move to the trash is explained and the file stays (S08.3)', async
   await row('home.html').click();
   await page.keyboard.press('Delete');
   await page.getByTestId('confirm-button').click();
-  await expect(page.getByTestId('file-op-error')).toContainText('没能移到回收站');
+  await expect(page.getByTestId('file-op-error')).toContainText(`没能移到${trashName}`);
   await expect(page.getByTestId('file-op-error')).toContainText('being used');
   expect(await readdir(root)).toContain('home.html');
   await expect(page.locator('[data-testid="tab"].selected')).toHaveAttribute('data-path', 'home.html');
@@ -302,7 +304,7 @@ test('an open file is read-only while it is being moved to the trash: nothing ty
   await page.getByTestId('confirm-button').click();
   // While the slow trash runs, typing into the editor changes nothing (the tab is locked read-only).
   await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.type('TYPEDDURINGDELETE');
   await expect(page.locator('.view-lines')).not.toContainText('TYPEDDURINGDELETE');
   await expect(row('慢 删除.js')).toHaveCount(0, { timeout: 10_000 });

@@ -17,6 +17,7 @@ import {
   waitForPreviewState,
   workbenchPid,
 } from './preview-helpers';
+import { DOC_END } from './keys';
 
 /**
  * S05.1–S05.5 end to end: hostile or broken pages cannot hurt the editor. An endless loop, a console flood, page
@@ -46,7 +47,7 @@ async function openInEditor(name: string) {
 async function typeAndMeasure(text: string): Promise<number> {
   const started = Date.now();
   await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.press('Enter');
   await page.keyboard.type(text);
   await expect(editorText()).toContainText(text);

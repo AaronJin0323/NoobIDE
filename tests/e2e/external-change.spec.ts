@@ -3,6 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
 import { collectConsoleErrors, makeProject, openFile, openProject, tabOf, typeAtEnd } from './project';
+import { DOC_END, DOC_START } from './keys';
 
 /**
  * S11.1–S11.3 end to end, project path with Chinese characters and spaces: a file changed by another program is
@@ -25,7 +26,7 @@ const disk = (relPath: string) => readFile(file(relPath), 'utf8');
 /** Banners make the editor shorter; bring the last line into view before reading the visible lines. */
 async function showEnd() {
   await lines().click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
 }
 
 test.beforeAll(async () => {
@@ -63,7 +64,7 @@ test('our own saves are never mistaken for external edits (S11.1)', async () => 
 test('a clean buffer reloads silently with a notice and keeps the cursor (S11.1)', async () => {
   await openFile(page, 'lines.txt');
   await lines().click();
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('End');

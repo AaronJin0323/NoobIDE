@@ -11,6 +11,7 @@ import {
   tabOf,
   typeAtEnd,
 } from './project';
+import { DOC_END } from './keys';
 
 /**
  * S10 save pipeline end to end: autosave after a typing pause, the failure banner with retry and "save elsewhere",
@@ -125,7 +126,7 @@ test('closing the window with a failing save keeps the window open and the edits
   expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1);
   // The banner made the editor shorter; bring the last line into view before reading it.
   await lines().click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await expect(lines()).toContainText('NOTDROPPED');
   // A file that can never be saved must not trap the user: an explicit way out is offered.
   await expect(page.getByTestId('close-discarding')).toBeVisible();

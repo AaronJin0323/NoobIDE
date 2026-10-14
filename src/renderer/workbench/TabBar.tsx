@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type WheelEvent } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import type { OpenTab } from './document-state';
@@ -34,6 +34,28 @@ export function tabTitle(relPath: string): string {
 export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
   const { t } = useI18n();
   const refs = useRef(new Map<string, HTMLButtonElement>());
+  const barRef = useRef<HTMLDivElement>(null);
+
+  // When the tabs overflow the strip, the active tab is scrolled fully into view (only the strip scrolls, never the
+  // workbench). The strip shows no scrollbar: a macOS overlay scrollbar covers the lower half of the tabs while it is
+  // shown and swallows clicks meant for them.
+  useEffect(() => {
+    const bar = barRef.current;
+    const tab = active ? refs.current.get(active)?.parentElement : undefined;
+    if (!bar || !tab) return;
+    const barRect = bar.getBoundingClientRect();
+    const tabRect = tab.getBoundingClientRect();
+    if (tabRect.left < barRect.left) bar.scrollLeft -= barRect.left - tabRect.left;
+    else if (tabRect.right > barRect.right) bar.scrollLeft += tabRect.right - barRect.right;
+  }, [active, tabs.length]);
+
+  /** A vertical mouse wheel scrolls the strip sideways (a trackpad already scrolls it horizontally). */
+  const onWheel = (event: WheelEvent<HTMLDivElement>) => {
+    const bar = event.currentTarget;
+    if (bar.scrollWidth > bar.clientWidth && Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+      bar.scrollLeft += event.deltaY;
+    }
+  };
 
   const focusAndShow = (relPath: string | undefined) => {
     if (!relPath) return;
@@ -54,7 +76,14 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
   };
 
   return (
-    <div className="tabs" role="tablist" aria-label={t('tabs.label')} data-testid="tab-bar">
+    <div
+      ref={barRef}
+      className="tabs"
+      role="tablist"
+      aria-label={t('tabs.label')}
+      data-testid="tab-bar"
+      onWheel={onWheel}
+    >
       {tabs.map((tab, index) => {
         const status = saveStatus(tab.save);
         const label = TAB_STATE_LABEL[status];

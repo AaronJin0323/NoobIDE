@@ -1,8 +1,7 @@
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { launchApp } from './launch';
+import { launchApp, tempRoot } from './launch';
 import { makeProject, openFile, openProject, typeAtEnd } from './project';
 
 /**
@@ -11,7 +10,7 @@ import { makeProject, openFile, openProject, typeAtEnd } from './project';
  * "Open logs folder" command shows exactly that folder.
  */
 test('the log lives in app data, starts with version info, holds no source code; the menu opens its folder (S13.6)', async () => {
-  const tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-logs-e2e-'));
+  const tmp = await mkdtemp(path.join(tempRoot(), 'noobide-logs-e2e-'));
   const userData = path.join(tmp, '用户 数据');
   const project = await makeProject('noobide-logs-project-');
   const app = await launchApp({}, { userDataDir: userData });

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
 import { collectConsoleErrors, makeProject, openFile, openProject, tabOf } from './project';
+import { DOC_END } from './keys';
 
 /**
  * Language features in the workbench (S18.3 formatting, S18.4 multi-file JS + worker recovery). One app, one
@@ -93,7 +94,7 @@ test('Format button formats CSS, saves it, and fires the pre-format hook first (
   const before = (await preFormat())?.length ?? 0;
   const button = page.getByTestId('format-document');
   await expect(button).toHaveText('整理格式');
-  await expect(button).toHaveAttribute('title', /Shift\+Alt\+F/);
+  await expect(button).toHaveAttribute('title', process.platform === 'darwin' ? /⇧⌥F/ : /Shift\+Alt\+F/);
   await button.click();
   await expect.poll(() => onDisk('style.css')).toBe('h1 {\n  color: red;\n  margin: 0\n}');
   const events = (await preFormat()) ?? [];
@@ -121,7 +122,7 @@ test('Shift+Alt+F formats JavaScript and fires the hook (S18.3)', async () => {
 test('relative ES module import of a closed file resolves for completion (S18.4)', async () => {
   await openFile(page, 'js/main.js');
   await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.press('ArrowUp'); // end of `util.gr`
   await page.keyboard.press('End');
   const labels = await suggestions('greet');
@@ -145,7 +146,7 @@ test('a killed language worker is restarted and the editor stays usable (S18.4)'
   expect(await killWorkers('ts')).toBeGreaterThan(0);
   // Typing is never blocked by the dead worker: the text shows up at once.
   await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.press('Enter');
   await page.keyboard.type('const heading = docu');
   await expect(page.locator('.view-lines')).toContainText('const heading = docu');
@@ -153,7 +154,7 @@ test('a killed language worker is restarted and the editor stays usable (S18.4)'
   await suggestions('document', 60_000);
   expect(await restartCount()).toBeGreaterThan(restartsBefore);
   // Diagnostics come back too: an undefined name in the edited file is reported by the new worker.
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.press('Enter');
   await page.keyboard.type('console.log(userNmae);');
   await expect

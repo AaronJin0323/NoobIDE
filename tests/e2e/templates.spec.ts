@@ -1,11 +1,10 @@
 import { cp, mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import os from 'node:os';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { listTemplates, resolveTemplatesDir, type TemplateInfo } from '../../src/workspace/templates';
-import { launchApp, repoRoot } from './launch';
+import { launchApp, repoRoot, tempRoot } from './launch';
 
 /**
  * S20.1: every built-in template, copied into a folder whose path has Chinese characters and spaces, previews in a
@@ -28,7 +27,7 @@ interface LoadLog {
 }
 
 test.beforeAll(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-tpl-'));
+  tmp = await mkdtemp(path.join(tempRoot(), 'noobide-tpl-'));
   app = await launchApp();
   await app.firstWindow();
   // The running app resolves the same folder the tests read (development layout: <app path>/resources/templates).
