@@ -1152,3 +1152,29 @@ button {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* ── S17.3: console view (filter, clear, page-load attribution) ── */
+.preview-console-toolbar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  background: var(--panel);
+  font-family: var(--font-ui);
+}
+.preview-console-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+.preview-console-line.older {
+  color: var(--muted);
+}
+.preview-console-older {
+  flex: none;
+  font-style: italic;
+}

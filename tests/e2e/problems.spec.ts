@@ -4,6 +4,7 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import type { ProblemRecord } from '../../src/shared/problem';
 import { launchApp, repoRoot } from './launch';
 import { collectConsoleErrors, makeProject, openFile, openProject } from './project';
+import { evalInPreview } from './preview-helpers';
 
 /**
  * Static diagnostics → problems (S19), the Problems panel (S17) and the problem card (S22.4/S22.5), on a project whose
@@ -231,6 +232,42 @@ test('Show original error reveals the exact message, stack and where it came fro
   );
   await expect(staticRow.getByTestId('problem-original-meta')).toContainText('代码 2552');
   await expect(staticRow.getByTestId('problem-original-meta')).toContainText('来源：代码检查（javascript）');
+});
+
+test('console view: levels, filter, clear, and attribution to the current page load (S17.3)', async () => {
+  const consoleView = page.getByTestId('preview-console');
+  const lines = consoleView.locator('li');
+  await evalInPreview(app, "console.info('信息一'); console.warn('警告一'); console.error('错误一'); 1");
+  await expect(consoleView).toContainText('错误一');
+  // Levels are spelled out on every line (not colour alone).
+  await expect(lines.filter({ hasText: '警告一' })).toContainText('警告');
+  await expect(lines.filter({ hasText: '信息一' })).toContainText('信息');
+
+  const level = page.getByTestId('console-level');
+  await level.selectOption('error');
+  await expect(lines.filter({ hasText: '错误一' })).toHaveCount(1);
+  await expect(lines.filter({ hasText: '警告一' })).toHaveCount(0);
+  await expect(lines.filter({ hasText: '信息一' })).toHaveCount(0);
+  await level.selectOption('warning');
+  await expect(lines).toHaveCount(1);
+  await expect(lines).toContainText('警告一');
+  await level.selectOption('all');
+
+  // A refresh starts a new page load: earlier output is labelled "before refresh" and can be hidden.
+  await page.getByTestId('preview-reload').click();
+  await expect(page.getByTestId('preview-state')).toHaveAttribute('data-state', 'running', { timeout: 20_000 });
+  await evalInPreview(app, "console.info('刷新后'); 1");
+  await expect(lines.filter({ hasText: '刷新后' })).toHaveCount(1);
+  await expect(lines.filter({ hasText: '刷新后' })).not.toContainText('刷新前');
+  await expect(lines.filter({ hasText: '信息一' })).toContainText('刷新前');
+  const onlyCurrent = page.getByTestId('console-only-current');
+  await onlyCurrent.check();
+  await expect(lines.filter({ hasText: '信息一' })).toHaveCount(0);
+  await expect(lines.filter({ hasText: '刷新后' })).toHaveCount(1);
+
+  await page.getByTestId('console-clear').click();
+  await expect(lines).toHaveCount(0);
+  await expect(consoleView).toContainText('网页还没有输出。');
 });
 
 test('no console errors during the problems run', () => {

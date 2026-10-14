@@ -251,4 +251,16 @@ export const en: Record<MessageKey, string> = {
   'problems.original.firstSeen': 'First',
   'problems.original.lastSeen': 'Latest',
   // --- end S17.2 ---
+  // --- S17.3 console view ---
+  'preview.console.filter': 'Show',
+  'preview.console.level.all': 'All',
+  'preview.console.level.error': 'Errors only',
+  'preview.console.level.warning': 'Warnings only',
+  'preview.console.level.info': 'Info only',
+  'preview.console.clear': 'Clear',
+  'preview.console.cap': 'Keeps the latest {count} lines at most',
+  'preview.console.onlyCurrent': 'Hide output from before the refresh ({count})',
+  'preview.console.olderTag': 'Before refresh',
+  'preview.console.emptyFiltered': 'No output matches the filter.',
+  // --- end S17.3 ---
 };

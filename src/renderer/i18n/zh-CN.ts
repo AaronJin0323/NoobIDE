@@ -240,6 +240,18 @@ export const zhCN = {
   'problems.original.firstSeen': '首次',
   'problems.original.lastSeen': '最近',
   // --- end S17.2 ---
+  // --- S17.3 console view ---
+  'preview.console.filter': '显示',
+  'preview.console.level.all': '全部',
+  'preview.console.level.error': '只看错误',
+  'preview.console.level.warning': '只看警告',
+  'preview.console.level.info': '只看信息',
+  'preview.console.clear': '清空',
+  'preview.console.cap': '最多保留最近 {count} 条输出',
+  'preview.console.onlyCurrent': '隐藏刷新前的输出（{count} 条）',
+  'preview.console.olderTag': '刷新前',
+  'preview.console.emptyFiltered': '没有符合筛选条件的输出。',
+  // --- end S17.3 ---
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

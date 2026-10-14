@@ -1793,8 +1793,8 @@
       "depends_on": [
         "S17.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/problems/ProblemCard.tsx (actions from the explanation: go-to-code when file+line known, show-original always) + Workbench goTo (openFile then requestReveal via editor-handle; CodeEditor reveals once the file is shown). tests/e2e/problems.spec.ts: from the RUNTIME row (real preview ReferenceError) Go to code opens the closed script.js at 行 3, 列 1 with editor focus; static row via keyboard only (Enter on summary, Enter on Go to code) lands on 行 3, 列 13 with focus; Show original error (aria-expanded disclosure) shows 'Uncaught ReferenceError: userNmae is not defined', code and '来源：预览页面', static shows the TS message, '代码 2552', '来源：代码检查（javascript）'. problem-card.test.ts: stack verbatim, attribution, latest repeat, truncation note (zh-CN/en). verify green, e2e 112/112 @ 4ce06ca"
     },
     {
       "id": "S17.3",
@@ -1807,7 +1807,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
