@@ -241,4 +241,14 @@ export const en: Record<MessageKey, string> = {
   'problems.stale': 'Not seen again after refresh',
   'problems.clearResolved': 'Clear resolved problems',
   // --- end S17.1 ---
+  // --- S17.2 go to code and original error ---
+  'problems.original.sourceStatic': 'Source: code check ({owner})',
+  'problems.original.sourcePreview': 'Source: preview page (session {session}, load {generation})',
+  'problems.original.sourcePage': 'Source: preview page',
+  'problems.original.latest': 'Latest occurrence:',
+  'problems.original.truncated': 'The original text was too long; only the beginning is kept.',
+  'problems.original.code': 'Code',
+  'problems.original.firstSeen': 'First',
+  'problems.original.lastSeen': 'Latest',
+  // --- end S17.2 ---
 };

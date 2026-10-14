@@ -230,6 +230,16 @@ export const zhCN = {
   'problems.stale': '刷新后没有再出现',
   'problems.clearResolved': '清除已解决的问题',
   // --- end S17.1 ---
+  // --- S17.2 go to code and original error ---
+  'problems.original.sourceStatic': '来源：代码检查（{owner}）',
+  'problems.original.sourcePreview': '来源：预览页面（会话 {session}，第 {generation} 次加载）',
+  'problems.original.sourcePage': '来源：预览页面',
+  'problems.original.latest': '最近一次的原文：',
+  'problems.original.truncated': '原文太长，只保留了前面的部分。',
+  'problems.original.code': '代码',
+  'problems.original.firstSeen': '首次',
+  'problems.original.lastSeen': '最近',
+  // --- end S17.2 ---
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

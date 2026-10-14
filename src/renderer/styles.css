@@ -1121,3 +1121,34 @@ button {
 .status-button[data-errors]:not([data-errors='0']) > svg {
   color: var(--danger);
 }
+
+/* ── S17.2: problem details (go to code, original error) ── */
+.problem-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.problem-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.problem-original {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+.problem-original-text {
+  margin: 0 0 6px;
+  font-family: var(--font-code);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.problem-original-label,
+.problem-original-meta {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}

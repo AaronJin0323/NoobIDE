@@ -182,6 +182,57 @@ test('the panel lists static, runtime and resource problems in separate sections
   await page.getByTestId('switch-language').click();
 });
 
+test('Go to code opens the file at the reported line and column and focuses the editor (S17.2)', async () => {
+  // A static problem: the editor moves to script.js line 3, column 13 (where userNmae starts).
+  await page.locator('[data-testid="tab"][data-path="script.js"] [data-testid="tab-close"]').click();
+  const staticRow = section('static').getByTestId('problem-row');
+  await expect(staticRow).toHaveCount(0); // closed file: its static problem is gone, the runtime one stays
+  const runtimeRow = section('runtime').getByTestId('problem-row');
+  await runtimeRow.getByTestId('problem-summary').click();
+  await expect(runtimeRow.getByTestId('problem-summary')).toHaveAttribute('aria-expanded', 'true');
+  // The runtime record reports line 3 (Chromium gives no column for this record): the closed file opens there.
+  await runtimeRow.getByTestId('problem-go-to').click();
+  await expect(page.locator('[data-testid="tab"][data-path="script.js"] [role="tab"]')).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(page.getByTestId('cursor-position')).toHaveText('行 3, 列 1');
+  await expect.poll(editorHasFocus).toBe(true);
+
+  // The static problem is back (the file is open again) and goes to the exact column, keyboard only.
+  await expect(staticRow).toHaveCount(1, { timeout: 30_000 });
+  await staticRow.getByTestId('problem-summary').focus();
+  await page.keyboard.press('Enter');
+  await staticRow.getByTestId('problem-go-to').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('cursor-position')).toHaveText('行 3, 列 13');
+  await expect.poll(editorHasFocus).toBe(true);
+});
+
+test('Show original error reveals the exact message, stack and where it came from (S17.2)', async () => {
+  const runtimeRow = section('runtime').getByTestId('problem-row');
+  await runtimeRow.getByTestId('problem-summary').click(); // one problem's details at a time
+  const show = runtimeRow.getByTestId('problem-show-original');
+  await expect(show).toHaveAttribute('aria-expanded', 'false');
+  await expect(runtimeRow.getByTestId('problem-original')).toHaveCount(0);
+  await show.click();
+  await expect(show).toHaveAttribute('aria-expanded', 'true');
+  await expect(runtimeRow.getByTestId('problem-original-message')).toHaveText(
+    'Uncaught ReferenceError: userNmae is not defined',
+  );
+  await expect(runtimeRow.getByTestId('problem-original-meta')).toContainText('代码 ReferenceError');
+  await expect(runtimeRow.getByTestId('problem-original-meta')).toContainText('来源：预览页面');
+
+  const staticRow = section('static').getByTestId('problem-row');
+  await staticRow.getByTestId('problem-summary').click();
+  await staticRow.getByTestId('problem-show-original').click();
+  await expect(staticRow.getByTestId('problem-original-message')).toHaveText(
+    "Cannot find name 'userNmae'. Did you mean 'userName'?",
+  );
+  await expect(staticRow.getByTestId('problem-original-meta')).toContainText('代码 2552');
+  await expect(staticRow.getByTestId('problem-original-meta')).toContainText('来源：代码检查（javascript）');
+});
+
 test('no console errors during the problems run', () => {
   expect(consoleErrors).toEqual([]);
 });

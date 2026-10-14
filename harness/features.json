@@ -1777,8 +1777,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/ProblemsPanel.tsx + src/renderer/problems/{problems-view,sources,useRuntimeProblems}.ts. Sections static/runtime(+console)/resource with per-section badges; strip shows icon + text counts ('问题 · 1 个错误'); polite debounced live region (role=status, aria-live=polite). Unit: problems-view.test.ts (sections, project filter, stale not counted, announcements only for news), sources.test.ts (preview-event fallback: runtime/resource records, generation + stale after refresh, dedupe, clearResolved, project switch; S16 bridge API preferred when present). e2e tests/e2e/problems.spec.ts: typing a new error raises the count while the panel stays closed and focus stays in the editor, announcer text changes; opening the panel leaves focus on the toggle; real preview run puts the browser's ReferenceError (userNmae) in runtime and images/头像.PNG 404 in resource; en labels. Runtime records come from the preview event stream until window.noobide.problems (S16) lands. verify green, e2e 110/110 @ 639db73"
     },
     {
       "id": "S17.2",
@@ -1793,7 +1793,7 @@
       "depends_on": [
         "S17.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
