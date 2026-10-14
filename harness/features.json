@@ -450,8 +450,8 @@
       "depends_on": [
         "S00.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "initial commit f4e399b; git ls-files --eol: all text i/lf w/lf; git status clean (package-lock.json excluded until generated on Windows)"
     },
     {
       "id": "S01.1",
