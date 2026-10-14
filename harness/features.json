@@ -1258,8 +1258,8 @@
       "depends_on": [
         "S10.2"
       ],
-      "status": "blocked",
-      "evidence": "Save side done and contract-tested: save-pipeline.test.ts proves ProjectService.onSaved (main) fires only after the rename resolved and the renderer saved-file event (saved-file-events.ts, emitted from DocumentSaver.onSaved after the status update) fires strictly after the confirmed write, never on failure; save-controller.test.ts ordering tests. Blocked: needs S04 preview to wire the refresh (subscribe to Workbench savedFiles / ProjectService.onSaved) @ 735fa36"
+      "status": "done",
+      "evidence": "Preview refresh wired to ProjectService.onSaved in main (fires strictly after the rename, never on failure; contract test save-pipeline.test.ts) -> PreviewManager.fileSaved; the earlier ipc afterSave hook removed. e2e tests/e2e/preview.spec.ts: successful save refreshes (S04.4, ~35 ms); read-only index.html -> save fails, preview not reloaded (performance.timeOrigin unchanged, old heading shown, file unchanged), pill shows '预览未更新' (data-not-updated); after fixing permissions the save succeeds, preview refreshes and the warning clears. Unit: preview-model.test.ts previewNotUpdated @ 3a8af05"
     },
     {
       "id": "S10.6",
