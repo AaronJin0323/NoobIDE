@@ -97,7 +97,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     inlineRan: false,
     violations: ['script-src-elem'],
     // S03.1: exactly the typed contract — no ipcRenderer, no generic send.
-    bridge: ['apiVersion', 'platform', 'workspace', 'preview', 'app', 'recovery'],
+    bridge: ['apiVersion', 'platform', 'workspace', 'app', 'preview', 'recovery'],
     apiVersion: 1,
     workspace: [
       'openFolder',
