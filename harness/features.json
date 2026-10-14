@@ -1926,8 +1926,8 @@
       "depends_on": [
         "S20.2"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "Implemented and proven, but the CLI refuses done until dependency S20.2 is done. Proof: file-role.ts + file-role.test.ts (22 tests), FileRole.tsx wired into FilesPanel rows and EditorPane, tests/e2e/file-roles.spec.ts (3 tests), verify + test:e2e (33) green @ 0653227. Unblock: after S20.2 lands, re-run file-roles.spec.ts against the new tree/tabs and set done"
     },
     {
       "id": "S21.1",
