@@ -18,6 +18,11 @@ import { isIgnoredName, isIgnoredRelPath } from './ignore';
  * Existence is decided by an exact, case-sensitive name match in the parent's listing, so a case-only rename on a
  * case-insensitive volume (Windows, default macOS) is still seen. A deletion and a creation of the same kind in one
  * batch pair up as a rename (same folder) or move (same name); `caseOnly` marks renames that only change case.
+ * The two halves of a rename can arrive in different batches: libuv creates its FSEvents stream with `NoDefer`, so
+ * the first event after a quiet period (the old name) is delivered at once and the rest (the new name) only after
+ * the stream's 50 ms latency, which on a busy machine can exceed the debounce. So a deletion that finds no partner is
+ * held for `renameWaitMs` (re-checked with the next batch) before it is reported; a creation arriving meanwhile
+ * still pairs with it. Only unpaired deletions wait; everything else is reported after the debounce as before.
  *
  * Cost stays bounded: snapshot updates touch only the affected folder subtree, and a batch with more than
  * `maxBatch` paths (a mass delete, an unzip) becomes one `rescan` instead of per-path work. If the OS watch fails
@@ -42,6 +47,8 @@ export interface WatcherOptions {
   readonly restartDelaysMs?: readonly number[];
   /** After attaching, how long raw events are checked for being replays of changes made before the snapshot. */
   readonly replayWindowMs?: number;
+  /** How long a deletion without a matching creation waits for the other half of a rename (see class comment). */
+  readonly renameWaitMs?: number;
   /** The OS watch, injectable for tests. */
   readonly watch?: WatchFn;
 }
@@ -74,7 +81,10 @@ export class ProjectWatcher {
   private attachedAt = 0;
   /** Paths whose raw events arrived inside the replay window (see class comment). */
   private early = new Set<string>();
+  /** Deletions waiting for the other half of a rename: relPath → when to report them as deleted (ms since epoch). */
+  private readonly held = new Map<string, number>();
   private readonly replayWindowMs: number;
+  private readonly renameWaitMs: number;
   private readonly debounceMs: number;
   private readonly maxWaitMs: number;
   private readonly maxKnown: number;
@@ -94,6 +104,7 @@ export class ProjectWatcher {
     this.restartDelaysMs = options.restartDelaysMs ?? [1000, 2000, 5000, 10_000, 30_000];
     this.watchFn = options.watch ?? defaultWatch;
     this.replayWindowMs = options.replayWindowMs ?? 1000;
+    this.renameWaitMs = options.renameWaitMs ?? 400;
   }
 
   /** Takes the snapshot, then starts watching. Resolves once events will be reported (or a restart is scheduled). */
@@ -111,6 +122,7 @@ export class ProjectWatcher {
     this.restartTimer = null;
     this.pending.clear();
     this.early.clear();
+    this.held.clear();
     this.dirs.clear();
     this.knownCount = 0;
   }
@@ -184,12 +196,26 @@ export class ProjectWatcher {
     if (this.timer === null) this.firstPendingAt = now;
     else clearTimeout(this.timer);
     const wait = Math.max(0, Math.min(this.debounceMs, this.firstPendingAt + this.maxWaitMs - now));
-    this.timer = setTimeout(() => {
-      this.timer = null;
-      const batch = this.pending;
-      this.pending = new Set();
-      this.flushing = this.flushing.then(() => this.flush(batch)).catch(() => this.emit([{ type: 'rescan' }]));
-    }, wait);
+    this.timer = setTimeout(this.fire, wait);
+  }
+
+  /** Classifies everything pending as one batch (after the batches before it). */
+  private readonly fire = (): void => {
+    this.timer = null;
+    const batch = this.pending;
+    this.pending = new Set();
+    this.flushing = this.flushing.then(() => this.flush(batch)).catch(() => this.emit([{ type: 'rescan' }]));
+  };
+
+  /** Puts held deletions back into the pending batch; it is classified by the next raw event or when the first wait ends. */
+  private requeueHeld(relPaths: readonly string[]): void {
+    if (relPaths.length === 0 || this.closed) return;
+    for (const relPath of relPaths) this.pending.add(relPath);
+    if (this.timer !== null) return; // a batch is already scheduled and takes them along
+    const now = Date.now();
+    const due = Math.min(...relPaths.map((relPath) => this.held.get(relPath) ?? now));
+    this.firstPendingAt = now;
+    this.timer = setTimeout(this.fire, Math.max(0, due - now));
   }
 
   private async flush(batch: Set<string>): Promise<void> {
@@ -197,6 +223,7 @@ export class ProjectWatcher {
     const early = new Set([...batch].filter((relPath) => this.early.delete(relPath)));
     if (batch.size > this.maxBatch) {
       // Mass change: one reload is cheaper than classifying every path, and keeps the main process responsive.
+      this.held.clear();
       await this.rebuildSnapshot();
       if (!this.closed) this.emit([{ type: 'rescan' }]);
       return;
@@ -210,6 +237,8 @@ export class ProjectWatcher {
     const created: { relPath: string; kind: Kind }[] = [];
     const deleted: { relPath: string; kind: Kind }[] = [];
     const changed: string[] = [];
+    /** Held deletions that are back on disk: reported as deleted, then created (listeners may have dropped them). */
+    const returned: { relPath: string; kind: Kind }[] = [];
     const createdDirs = new Set<string>();
     const deletedDirs = new Set<string>();
     /** Paths that came and went within this batch: neither in the snapshot nor on disk now. */
@@ -231,6 +260,8 @@ export class ProjectWatcher {
         if (underAny(relPath, deletedDirs)) continue;
         deleted.push({ relPath, kind: before });
         if (before === 'directory') deletedDirs.add(relPath);
+      } else if (nowKind !== undefined && before !== undefined && this.held.has(relPath)) {
+        returned.push({ relPath, kind: nowKind });
       } else if (nowKind === 'file' && before === 'file') {
         // Written in place (`change`) or replaced by a rename (an external editor's atomic save).
         if (early.has(relPath) && (await this.predatesSnapshot(relPath))) continue;
@@ -265,11 +296,30 @@ export class ProjectWatcher {
       });
       this.rebaseKnown(gone.relPath, match.relPath);
     }
+    // A deletion without a partner may be the first half of a rename whose second half is still on its way.
+    const now = Date.now();
+    const waiting: string[] = [];
+    for (const relPath of batch) {
+      if (!deleted.some((d) => d.relPath === relPath)) this.held.delete(relPath); // paired, back, or something else
+    }
     for (const d of deleted) {
+      const due = this.held.get(d.relPath) ?? now + this.renameWaitMs;
+      if (due > now) {
+        this.held.set(d.relPath, due);
+        waiting.push(d.relPath);
+        continue;
+      }
+      this.held.delete(d.relPath);
       events.push({ type: 'deleted', relPath: d.relPath });
       this.forget(d.relPath);
     }
     for (const relPath of vanished) events.push({ type: 'deleted', relPath });
+    for (const r of returned) {
+      events.push({ type: 'deleted', relPath: r.relPath }, { type: 'created', relPath: r.relPath });
+      this.forget(r.relPath);
+      this.remember(r.relPath, r.kind);
+      if (r.kind === 'directory') await this.scan(r.relPath);
+    }
     for (const c of created) {
       events.push({ type: 'created', relPath: c.relPath });
       this.remember(c.relPath, c.kind);
@@ -277,6 +327,7 @@ export class ProjectWatcher {
     }
     for (const relPath of changed) events.push({ type: 'changed', relPath });
     if (events.length > 0 && !this.closed) this.emit(events);
+    this.requeueHeld(waiting);
   }
 
   /** Whether the file's last change (ctime) is older than the snapshot, i.e. the raw event was a replay. */
