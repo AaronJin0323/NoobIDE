@@ -3,6 +3,58 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 12 — 2026-10-15 — AI assistant (M9), console limiter redesign, Windows CI fixes — paused for Windows
+
+**Agent:** Claude (Opus 5.5) as lead on the Apple Silicon Mac with parallel subagents in git worktrees. Owner paused
+here to continue on the Windows desktop; everything is pushed to origin/main.
+
+**Owner decisions this session**
+
+- **AI is in scope** (lifts PLAN §4 "no AI chat"): decision 0025, plan docs/product/ai-plan.md, milestone M9,
+  sessions S31–S36. Direct Anthropic + OpenAI APIs with the user's key (OS keychain via safeStorage); on by default
+  once a key exists, full power; agent proposes, user approves every diff. **PLAN §4/§7 still need an owner edit**.
+- **Console limiter option 1**: no page may hold an unthrottled console method (decision 0016, second amendment).
+- Open owner question: backlog item to bring AudioWorklet back to the preview (removed by the limiter; works via
+  "Open in browser").
+
+**Done (125 done + 16 needs_manual_check of 159; M9 13/13 with S36.1 manual)**
+
+- S14.7 (owner-reported 404): a project without index.html previews its first page; a project with no `.html` page
+  explains it and offers "rename to … .html" for files that start like HTML (only on click).
+- M9: S31.1–S31.4 foundation (`src/ai/`: providers over `@anthropic-ai/sdk` 0.134.0 and `openai` 7.34.0, keys,
+  config, consent, service, IPC, Settings → AI, fake provider `NOOBIDE_AI_FAKE`), S32.1 inline ghost text, S33.1/S33.2
+  chat + explain + Ask AI, S34.1/S34.2 agent (project-confined tools, diff review, applied through the save pipeline,
+  agent turns as local-history groups with undo that survives restart; history index v2), S35.1/S35.2 inline edit
+  (Ctrl/Cmd+I) and Fix with AI, S36.2 docs + docs/reviews/G9.md. S36.1 security review: 7 findings fixed (fake env
+  ignored when packaged, SDK egress locked to the two provider hosts, consent/AI-off abort running requests, …);
+  `npm run test:ai-live` wired, needs owner keys (MANUAL-CHECKS#S36.1).
+- S05.7/S05.3 redesign (`src/preview/page-guard.ts`): no native console method reachable; one console budget per page
+  (frames share it, workers 20/50 per s); main stall ≤ 92 ms even with simulated slow main. Trade-offs:
+  `IsolateSandboxedIframes` disabled app-wide (only sandboxed frames inside the preview lose their own process), paint
+  and audio worklets removed from the preview, DevTools console links point at the guard stub.
+- Real bugs fixed from Windows CI and reviews: session restore stole the user's tab choice (typing could land in the
+  wrong file, S13.4); watcher paired late FSEvents rename halves (S07.3); history dialog close race; permission test
+  uses fake capture devices on camera-less runners.
+
+**Evidence:** `npm run verify` green (2002 tests). Full e2e on macOS after S31: 235 passed / 0 failed; later full runs
+show only `language.spec` / `upgrade.spec` timing out under load (pass alone). CI run 38708368168 (first with the AI
+work and limiter redesign) was **still running at pause** — check it first; the S36 security fixes came after it.
+
+**Problems / risks:** `language.spec` / `upgrade.spec` packaged-app timeouts in full runs (an agent was investigating —
+see its branch note below). No single CI run has had both jobs green yet (S06.1/S06.2/S26.2 open). package-lock.json
+regenerated on macOS (new AI deps) — regenerate on Windows per AGENTS.md.
+
+**Owner action needed (on Windows):** `git pull`; `npm install`; run `npm run verify` and `npm run test:e2e`; check CI
+run 38708368168 and the next one; run `npm run test:ai-live` with your keys (S36.1); Windows manual checks in
+MANUAL-CHECKS.md (S05.5-windows, S15.5, S17.4, S24.2, S25.3, S26.1, S27.1, S28.1, S28.4, S36.1, IME S09.4); edit PLAN
+§4/§7 for AI; decide AudioWorklet; H.1, H.2.
+
+**Next up**
+
+1. Get one CI run green on both jobs (closes S06.1/S06.2/S26.2); fix the packaged-app timeouts.
+2. G9 conditions: live AI test, Windows key-store restart check.
+3. Signing (H.2) → S28.2/S28.3/S28.5 → S29 acceptance runs (docs/release/acceptance.md).
+
 ## Session 11 — 2026-10-15 — First CI runs on Windows; wave 5 (Windows fixes, S25.4, S26.2, S28.4, S28.6, gates, memory)
 
 **Agent:** Claude (Opus 5.5) as lead on the Apple Silicon Mac, seven parallel subagents in git worktrees. Owner
