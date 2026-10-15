@@ -493,7 +493,26 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   console.log(`200 iframes without console output (baseline): longest main stall ${framesOnly.max} ms`);
   expect(framesOnly.result).toBe('finished');
   expect(framesOnly.max).toBeLessThan(1_500); // frame lifecycle alone stays bounded too
-  const stallBudget = (name: string) => 200 + (name.startsWith('200 iframes') ? framesOnly.max : 0);
+  // The same holds for creating and removing iframes as fast as possible (Windows runner: 263–703 ms with console
+  // output, the 200-iframe baseline alone 320–328 ms there; macOS runner and dev machines < 70 ms).
+  const churnOnly = await measureMainStall(
+    app,
+    previewId,
+    `(() => {
+      let frames = 0;
+      ${loop("const f = document.createElement('iframe'); document.body.append(f); void f.contentWindow.console.log; f.remove(); frames += 1")}
+      return frames > 100 ? 'finished' : 'only ' + frames + ' frames';
+    })()`,
+  );
+  console.log(
+    `iframes created and removed in a loop without console output (baseline): longest main stall ${churnOnly.max} ms`,
+  );
+  expect(churnOnly.result).toBe('finished');
+  expect(churnOnly.max).toBeLessThan(1_500);
+  const stallBudget = (name: string) =>
+    200 +
+    (name.startsWith('200 iframes') ? framesOnly.max : 0) +
+    (name.startsWith('iframes created and removed') ? churnOnly.max : 0);
   for (const [name, code] of bypasses) {
     const run = await measureMainStall(app, previewId, code);
     console.log(
@@ -507,17 +526,23 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   await expect(page.locator('.preview-console-line[data-notice="console-flood-stopped"]')).toHaveCount(0);
 
   // The design does not depend on main being fast: with an artificial 0.6 ms of main-thread work per console
-  // message (what a loaded Windows CI runner measured), the same saved references keep main's stall within budget.
+  // message (what a loaded Windows CI runner measured), main never has to take more than the limiter's bursts in one
+  // go (page-guard.ts: CONSOLE_BURST + MAX_GUARDED_SCOPES × WORKER_CONSOLE_BURST messages, ≤ 156 ms of that work),
+  // and the rest of each stall stays within the budget. The simulated work is wall-clock time: on the 3-core macOS
+  // runner, where "20 workers" itself runs 8 busy threads, 170–208 messages in one go took 196–250 ms, so the
+  // simulated part is checked through the batch size, not the wall-clock total.
+  const MOST_AT_ONCE = CONSOLE_BURST + MAX_GUARDED_SCOPES * WORKER_CONSOLE_BURST;
   for (const [name, code] of bypasses.filter(([n]) =>
     /page|worker$|sandboxed|^200 iframes|^20 workers|in a loop/.test(n),
   )) {
     const run = await measureMainStall(app, previewId, code, { costMs: 0.6 });
     console.log(
       `${name} (main 0.6 ms per message): ${run.messages} messages; longest main stall ${run.max} ms; ` +
-        `most messages between two 10 ms ticks ${run.batch}`,
+        `most messages between two 10 ms ticks ${run.batch}; longest stall beyond the simulated work ${run.unexplained} ms`,
     );
     expect(run.result, name).toBe('finished');
-    expect(run.max, name).toBeLessThan(stallBudget(name));
+    expect(run.batch, name).toBeLessThanOrEqual(MOST_AT_ONCE);
+    expect(run.unexplained, name).toBeLessThan(stallBudget(name));
   }
 
   // Defence in depth (decision 0016, first amendment): output the limiter cannot see — here a DevTools isolated
@@ -555,11 +580,11 @@ async function measureMainStall(
   previewId: number,
   code: string,
   options: { costMs?: number; isolatedWorld?: boolean } = {},
-): Promise<{ max: number; result: string; ms: number; messages: number; batch: number }> {
+): Promise<{ max: number; result: string; ms: number; messages: number; batch: number; unexplained: number }> {
   return app.evaluate(
     async ({ webContents }, { id, js, costMs, isolatedWorld }) => {
       const wc = webContents.fromId(id);
-      if (!wc) return { max: 0, result: 'no preview', ms: 0, messages: 0, batch: 0 };
+      if (!wc) return { max: 0, result: 'no preview', ms: 0, messages: 0, batch: 0, unexplained: 0 };
       let messages = 0;
       let sinceTick = 0;
       let batch = 0;
@@ -576,9 +601,12 @@ async function measureMainStall(
       wc.on('console-message', onMessage);
       let last = performance.now();
       let max = 0;
+      let unexplained = 0;
       const timer = setInterval(() => {
         const now = performance.now();
         max = Math.max(max, now - last - 10);
+        // The part of this gap that the simulated per-message work does not account for.
+        unexplained = Math.max(unexplained, now - last - 10 - sinceTick * costMs);
         last = now;
         batch = Math.max(batch, sinceTick);
         sinceTick = 0;
@@ -607,7 +635,7 @@ async function measureMainStall(
       await new Promise((r) => setTimeout(r, 1_000)); // whatever main still had queued
       clearInterval(timer);
       wc.off('console-message', onMessage);
-      return { max: Math.round(max), result, ms, messages, batch };
+      return { max: Math.round(max), result, ms, messages, batch, unexplained: Math.round(unexplained) };
     },
     { id: previewId, js: code, costMs: options.costMs ?? 0, isolatedWorld: options.isolatedWorld ?? false },
   );
