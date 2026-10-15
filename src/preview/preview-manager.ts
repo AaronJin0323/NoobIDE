@@ -217,7 +217,9 @@ export class PreviewManager {
     const webPreferences = createPreviewWebPreferences(partition);
     const insecure = insecurePreviewPreferences(webPreferences);
     if (insecure.length > 0) {
-      await this.servers.release(projectId);
+      await this.servers.release(projectId, owner);
+      if (this.startingOwner === owner) this.startingOwner = null;
+      this.startingWindow = null;
       throw new Error(`insecure preview webPreferences: ${insecure.join(', ')}`);
     }
     // S05.5: every request of the session goes through the proxy, which decides on resolved addresses. Service
@@ -425,7 +427,7 @@ export class PreviewManager {
    * S15.4: opens the page that is showing (same path and query) in the default browser through a one-time grant;
    * the grant URL goes straight to the OS and never to the renderer or a log.
    */
-  async openExternal(): Promise<Result<null, 'not-running'>> {
+  async openExternal(): Promise<Result<null, 'not-running' | 'open-failed'>> {
     const live = this.live;
     if (!live || !this.deps.openExternal) return err('not-running', 'no preview');
     let target = '/';
@@ -437,7 +439,12 @@ export class PreviewManager {
     } catch {
       // keep '/'
     }
-    await this.deps.openExternal(live.server.grantExternal(target));
+    try {
+      await this.deps.openExternal(live.server.grantExternal(target));
+    } catch (e) {
+      // No default browser, or the OS refused: report it; the grant URL itself is never logged.
+      return err('open-failed', 'the system browser could not be opened', e);
+    }
     return ok(null);
   }
 

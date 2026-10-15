@@ -37,7 +37,7 @@ export interface PreviewIpcDeps {
     // S14.2 / S14.5 / S15.4 (optional so older fakes stay valid; main.ts passes the real manager)
     typing?(): void;
     clearData?(projectId: string): Promise<Result<null, 'unknown-project'>>;
-    openExternal?(): Promise<Result<null, 'not-running'>>;
+    openExternal?(): Promise<Result<null, 'not-running' | 'open-failed'>>;
     openDevTools?(): Result<null, 'not-running'>;
   };
   /** S14.2/S14.3: project preview settings (.noobide/project.json) and one-time notes (app data). */
