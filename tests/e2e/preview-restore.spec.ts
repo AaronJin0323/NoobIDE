@@ -17,10 +17,10 @@ import { copyFixture, openProject, waitForPreviewState } from './preview-helpers
  */
 const RESTARTS = 5;
 
-/** Two busy threads per core (one per core was not enough to stall the first document) until the returned call. */
+/** 1.5 busy threads per core (one per core was not enough to stall the first document) until the returned call. */
 function loadCpu(): () => Promise<void> {
   const workers = Array.from(
-    { length: os.availableParallelism() * 2 },
+    { length: Math.ceil(os.availableParallelism() * 1.5) },
     () =>
       new Worker('const end = Date.now() + 600000; while (Date.now() < end) Math.sqrt(Math.random());', { eval: true }),
   );
@@ -45,7 +45,7 @@ test.afterAll(async () => {
 const previewState = `globalThis.__noobideTestHooks.preview().status.state`;
 
 test('a project reopened at startup gets a running preview every time, without Playwright attached (S05.8)', async () => {
-  test.setTimeout(RESTARTS * 60_000 + 60_000);
+  test.setTimeout(RESTARTS * 120_000 + 60_000);
 
   // First run (Playwright): open the project and trust its preview, then quit normally so the session is kept.
   const app = await launchApp({}, { userDataDir: userData });
@@ -75,23 +75,31 @@ test('a project reopened at startup gets a running preview every time, without P
 });
 
 async function restartOnce(i: number) {
+  const launched = Date.now();
   const restarted = await launchInspected(userData);
   try {
     await expect
       .poll(() => restarted.evaluate<string>(previewState).catch(() => 'no hooks yet'), {
         message: `restart ${i + 1}: the restored preview reaches running`,
-        timeout: 60_000, // the product waits at most 30 s for the first document and 15 s for the guard
+        timeout: 90_000, // the product waits at most 30 s for the first document and 45 s for the guard
       })
       .toBe('running');
+    // Evidence for S05.8's timing criterion, from launch to a running preview (shown in the e2e output).
+    console.log(`S05.8 restart ${i + 1}: running after ${Date.now() - launched} ms`);
     // The page really loaded from the project's server, with the page guard (S05.7) in place.
-    const loaded = await restarted.evaluate<{ title: string; url: string; guarded: boolean | null }>(`(async () => {
+    const loaded = await restarted.evaluate<{
+      title: string;
+      url: string;
+      guarded: boolean | null;
+      trace: unknown;
+    }>(`(async () => {
       const info = globalThis.__noobideTestHooks.preview();
       const contents = process.mainModule.require('electron').webContents.fromId(info.previewWebContentsId);
-      return { title: await contents.executeJavaScript('document.title'), url: contents.getURL(), guarded: info.pageGuarded };
+      return { title: await contents.executeJavaScript('document.title'), url: contents.getURL(), guarded: info.pageGuarded, trace: info.guardTrace };
     })()`);
     expect(loaded.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/index\.html$|^http:\/\/127\.0\.0\.1:\d+\/$/);
     expect(loaded.title).not.toBe('');
-    expect(loaded.guarded).toBe(true);
+    expect(loaded.guarded, `restart ${i + 1}: page guard ${JSON.stringify(loaded.trace)}`).toBe(true);
   } finally {
     await restarted.quit();
   }

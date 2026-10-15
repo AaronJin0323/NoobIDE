@@ -638,6 +638,7 @@ export class PreviewManager {
         : null,
       blockedRequests: [...this.blockedRequests],
       pageGuarded: live?.pageGuarded ?? null,
+      guardTrace: guardTraceOf(contents), // S05.8
       floodTrace: live ? [...live.floodTrace] : [],
       recentRecords: [...this.recent],
     };
@@ -1102,10 +1103,11 @@ export class PreviewManager {
 }
 
 /**
- * Longest the page guard's DevTools commands may take once the view has a document. They need the view's renderer
- * process, which a loaded machine is slow to start (S05.8: 2–5 s measured under full CPU load on Windows x64).
+ * Longest the page guard's DevTools commands may take once the view has a document. They answer only once the view's
+ * renderer process runs, which a loaded machine is slow to start (S05.8, Windows x64: 2–5 s with 1.5 busy threads per
+ * core, more than 15 s with 2). Waiting keeps the page guarded; a Stop or a newer Start ends the wait at once.
  */
-const GUARD_TIMEOUT_MS = 15_000;
+const GUARD_TIMEOUT_MS = 45_000;
 /**
  * S05.8: a new view's first navigation (to about:blank, which needs no request) can stay pending for 30–45 s on a
  * loaded machine before it commits (measured on Windows x64, stock Electron 44 too), while a second load of the same
@@ -1114,6 +1116,14 @@ const GUARD_TIMEOUT_MS = 15_000;
  */
 const FIRST_DOCUMENT_RETRY_MS = 1_000;
 const FIRST_DOCUMENT_TIMEOUT_MS = 30_000;
+/** S05.8: how the last page guard install of a view went (timings and outcome only), for diagnostics and e2e. */
+export interface GuardTrace {
+  firstDocumentMs: number | null;
+  firstDocumentAttempts: number;
+  commandsMs: number | null;
+  outcome: 'pending' | 'installed' | 'no-first-document' | 'commands-failed' | 'commands-timeout' | 'not-wanted';
+}
+const guardTraces = new WeakMap<WebContents, GuardTrace>();
 const guardListening = new WeakSet<WebContents>();
 const guardSources = new WeakMap<WebContents, string>();
 /** Auto-attached child targets (dedicated workers, out-of-process iframes) of each preview, by protocol session. */
@@ -1261,8 +1271,17 @@ async function installPageGuard(
   },
 ): Promise<boolean> {
   guardSources.set(contents, options.source);
+  const trace: GuardTrace = { firstDocumentMs: null, firstDocumentAttempts: 0, commandsMs: null, outcome: 'pending' };
+  guardTraces.set(contents, trace);
+  const wanted = options.wanted ?? (() => true);
   if (options.navigateFirst ?? true) {
-    if (!(await showFirstDocument(contents, options.wanted ?? (() => true)))) return false;
+    const started = Date.now();
+    const shown = await showFirstDocument(contents, wanted, trace);
+    trace.firstDocumentMs = Date.now() - started;
+    if (!shown) {
+      trace.outcome = wanted() ? 'no-first-document' : 'not-wanted';
+      return false;
+    }
   }
   const install = async () => {
     const dbg = contents.debugger;
@@ -1302,18 +1321,36 @@ async function installPageGuard(
     await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH);
     return true;
   };
-  const wanted = options.wanted ?? (() => true);
-  if (!wanted()) return false;
+  if (!wanted()) {
+    trace.outcome = 'not-wanted';
+    return false;
+  }
   // Bounded, and given up as soon as the preview is no longer wanted: starts are serialised, so a Stop or a newer
   // Start must not wait for these commands. A late install still guards the view's later documents.
+  const commandsStarted = Date.now();
   const running = install().catch(() => false);
-  const deadline = Date.now() + GUARD_TIMEOUT_MS;
+  const deadline = commandsStarted + GUARD_TIMEOUT_MS;
   let installed: boolean | null = null;
   void running.then((ok) => (installed = ok));
   while (installed === null && Date.now() < deadline && wanted() && !contents.isDestroyed()) {
     await withTimeout(running, 250, false);
   }
+  trace.commandsMs = Date.now() - commandsStarted;
+  trace.outcome =
+    installed === true
+      ? 'installed'
+      : installed === false
+        ? 'commands-failed'
+        : wanted()
+          ? 'commands-timeout'
+          : 'not-wanted';
   return installed === true;
+}
+
+/** S05.8: the last page guard install's trace of a view (null before any). */
+function guardTraceOf(contents: WebContents | null): GuardTrace | null {
+  const trace = contents ? guardTraces.get(contents) : undefined;
+  return trace ? { ...trace } : null;
 }
 
 /**
@@ -1321,12 +1358,14 @@ async function installPageGuard(
  * away, the preview is no longer wanted or FIRST_DOCUMENT_TIMEOUT_MS passed. A load still pending after
  * FIRST_DOCUMENT_RETRY_MS is replaced by a new one (the replaced load rejects as aborted; that is expected). When
  * either bound runs out the preview still opens, without the guard (decision 0016: best effort for the page itself,
- * fail-closed only for workers and frames) — measured: 7–8 s to a guarded page under full load, 0.4 s idle.
+ * fail-closed only for workers and frames) — measured: 7–8 s to a guarded page with 1.5 busy threads per core, 0.4 s
+ * idle.
  */
-async function showFirstDocument(contents: WebContents, wanted: () => boolean): Promise<boolean> {
+async function showFirstDocument(contents: WebContents, wanted: () => boolean, trace: GuardTrace): Promise<boolean> {
   const deadline = Date.now() + FIRST_DOCUMENT_TIMEOUT_MS;
   let shown = false;
   while (!shown && !contents.isDestroyed() && Date.now() < deadline && wanted()) {
+    trace.firstDocumentAttempts += 1;
     const attempt = contents.loadURL('about:blank').then(
       () => true,
       () => false,
