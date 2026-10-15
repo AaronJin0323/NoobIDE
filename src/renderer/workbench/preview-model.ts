@@ -180,7 +180,8 @@ export function pillFor(
 /** S14.3: the value the entry picker shows: the configured entry, else index.html when the project has one. */
 export function entryChoice(pages: readonly string[], entry: string | null): string {
   if (entry !== null && pages.includes(entry)) return entry;
-  return pages.find((page) => page.toLowerCase() === 'index.html') ?? '';
+  // No configured entry: index.html, else the first page — the one the preview opens (defaultEntryPath, same order).
+  return pages.find((page) => page.toLowerCase() === 'index.html') ?? pages[0] ?? '';
 }
 
 /** S14.3: what to store for a picked page — null (the default) for the top-level index.html. */

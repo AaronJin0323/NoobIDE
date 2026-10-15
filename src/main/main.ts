@@ -20,6 +20,7 @@ import { installCloseGuard, type CloseGuard } from './close-guard';
 import { ProjectWatchHub } from './project-watch';
 import { ProjectService } from '../workspace/project-service';
 import { PreviewManager } from '../preview/preview-manager';
+import { defaultEntryPath } from '../preview/entry-pages';
 import { PreviewStore } from './preview-store'; // S14.4 trust, S14.2 one-time notes (app data)
 import { readPreviewOptions, refreshModeOf, writeRefreshMode } from '../preview/project-options'; // S14.2/S14.3
 import { err, ok } from '../shared/result';
@@ -87,10 +88,12 @@ function start(): void {
   const preview = new PreviewManager({
     capture: problems,
     rootOf: (id) => projects?.rootOf(id),
-    // S13.2: the entry page from .noobide/project.json (when that file exists), else the project's index.html.
+    // S13.2: the entry page from .noobide/project.json (when that file exists), else the project's index.html, else
+    // its first page (a folder without index.html must not preview as 404).
     entryPathOf: async (id) => {
       const root = projects?.rootOf(id);
-      return root === undefined ? '' : previewEntryPath(root);
+      if (root === undefined) return '';
+      return (await previewEntryPath(root)) || defaultEntryPath(root);
     },
     // S15.4: "Open in external browser" (a one-time grant URL; never logged, never sent to the renderer).
     openExternal: (url) => shell.openExternal(url),

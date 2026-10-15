@@ -71,3 +71,18 @@ test('the preview opens the entry page; without .noobide it opens index.html (S1
   await page.getByTestId('preview-stop').click();
   await waitForPreviewState(page, 'stopped');
 });
+
+test('a folder without index.html previews its first page instead of 404', async () => {
+  // The user's page is not called index.html (e.g. a folder with only "主页.html" and a stylesheet).
+  await rm(path.join(root, 'index.html'));
+  await page.getByTestId('preview-start').click();
+  await waitForPreviewState(page, 'running');
+  const info = await previewInfo(app);
+  expect(info.status.url).not.toBe(`${info.origin}/`);
+  expect(await evalInPreview<string>(app, 'document.body.innerText')).not.toContain('Not Found');
+  expect(await evalInPreview<string>(app, "document.contentType + ' ' + location.pathname")).toMatch(
+    /^text\/html .*\.html$/,
+  );
+  await page.getByTestId('preview-stop').click();
+  await waitForPreviewState(page, 'stopped');
+});

@@ -73,3 +73,16 @@ export function sortPages(pages: readonly string[]): string[] {
     (a, b) => rank(a) - rank(b) || depth(a) - depth(b) || a.localeCompare(b, 'zh-CN', { numeric: true }),
   );
 }
+
+/**
+ * The page the preview opens when `.noobide/project.json` names no entry: '' (the server's `index.html` for `/`) when
+ * the project has a root `index.html`, otherwise the first page in picker order — a folder whose only page is
+ * `hello.html` or `主页.html` previews that page instead of answering 404. Still '' when the project has no page at
+ * all. Returned URL-encoded per segment, like the configured entry.
+ */
+export async function defaultEntryPath(root: string): Promise<string> {
+  const { pages } = await listEntryPages(root);
+  const first = pages[0];
+  if (first === undefined || first === 'index.html') return '';
+  return first.split('/').map(encodeURIComponent).join('/');
+}

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { listEntryPages, sortPages } from '../../src/preview/entry-pages';
+import { defaultEntryPath, listEntryPages, sortPages } from '../../src/preview/entry-pages';
 
 /** S14.3: pages offered by the entry picker (Chinese names and spaces, ignored folders, links, limits). */
 let tmp: string;
@@ -70,5 +70,31 @@ describe('entry pages (S14.3)', () => {
       'z.html',
       'b/c.html',
     ]);
+  });
+});
+
+describe('default entry page (preview without index.html)', () => {
+  it('uses the root index.html when there is one: the server serves it for /', async () => {
+    expect(await defaultEntryPath(root)).toBe('');
+  });
+
+  it('opens the first page when there is no index.html, encoded for the URL', async () => {
+    const only = path.join(tmp, '我的 网站');
+    await mkdir(path.join(only, '页面'), { recursive: true });
+    await writeFile(path.join(only, '页面', '主页 1.html'), '<p>x</p>');
+    await writeFile(path.join(only, 'style.css'), 'p{}');
+    expect(await defaultEntryPath(only)).toBe(`${encodeURIComponent('页面')}/${encodeURIComponent('主页 1.html')}`);
+  });
+
+  it('prefers a shallow page, and stays at / when the folder has no page at all', async () => {
+    const two = path.join(tmp, 'two');
+    await mkdir(path.join(two, 'sub'), { recursive: true });
+    await writeFile(path.join(two, 'sub', 'a.html'), '<p>a</p>');
+    await writeFile(path.join(two, 'hello.html'), '<p>h</p>');
+    expect(await defaultEntryPath(two)).toBe('hello.html');
+    const none = path.join(tmp, 'none');
+    await mkdir(none);
+    await writeFile(path.join(none, 'app.js'), '1');
+    expect(await defaultEntryPath(none)).toBe('');
   });
 });

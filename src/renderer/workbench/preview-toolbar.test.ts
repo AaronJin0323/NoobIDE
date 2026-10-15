@@ -75,7 +75,8 @@ describe('entry page picker (S14.3)', () => {
     expect(entryChoice(pages, 'about.html')).toBe('about.html');
     expect(entryChoice(pages, null)).toBe('index.html');
     expect(entryChoice(pages, 'gone.html')).toBe('index.html');
-    expect(entryChoice(['a.html'], null)).toBe('');
+    expect(entryChoice(['a.html'], null)).toBe('a.html'); // no index.html: the page the preview opens
+    expect(entryChoice([], null)).toBe('');
   });
 
   it('stores index.html as "no entry" (the default) and other pages as their relative path', () => {
