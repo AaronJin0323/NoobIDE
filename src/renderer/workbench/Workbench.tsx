@@ -53,11 +53,13 @@ import { FixCard } from '../problems/FixCard';
 import { createFixHost } from '../problems/fix-host';
 import { useProblemFix } from '../problems/useProblemFix';
 import { usePreviewLoads } from '../problems/usePreviewLoads';
-import { requestReveal } from '../editor/editor-handle';
+import { activeEditor, requestReveal } from '../editor/editor-handle';
 // S23: onboarding walkthrough, final task and glossary
 import { useWalkthrough } from '../walkthrough/useWalkthrough';
 import { WalkthroughPanel } from '../walkthrough/WalkthroughPanel';
 import { GlossaryDialog } from '../walkthrough/GlossaryDialog';
+// S33: AI chat panel, "Explain this code" and "Ask AI" on problems
+import { useAiChat } from '../ai/useAiChat';
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
@@ -84,10 +86,10 @@ import { persistedLayout } from './layout';
 import { EDITOR_SHARE, FILES_WIDTH, MAX_SESSION_TABS } from '../../shared/session';
 import { AboutDialog, useAboutRequests } from './AboutDialog'; // S28.1
 // S34.2: AI agent (proposals reviewed as diffs, applied through the save pipeline)
-import { AgentRegion } from '../ai/AgentRegion';
 import type { AgentApplyHost } from '../ai/agent-apply';
-import type { AiApi } from '../../shared/ipc/ai-contract';
-import type { NoobideApi } from '../../shared/ipc/contract';
+import { AgentDecisionStore } from '../ai/agent-decisions';
+import { agentChatExtensions } from '../ai/AgentProposalCard';
+import { aiBridge } from '../ai/ai-bridge';
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -114,9 +116,6 @@ export function Workbench() {
   // S21.3: the local-history window, opened for a file (the active tab) or for the whole project.
   const [historyFor, setHistoryFor] = useState<{ relPath: string | null } | null>(null);
   const aboutOpen = useAboutRequests(); // S28.1: opened by openAbout() (menus: S24)
-  // S34.2: the AI agent panel (only when the AI bridge of S31 is present)
-  const aiApi = (bridge as (NoobideApi & { readonly ai?: AiApi }) | undefined)?.ai;
-  const [agentOpen, setAgentOpen] = useState(false);
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
 
@@ -789,6 +788,28 @@ export function Workbench() {
   );
   // --- end S22.4/S22.5 ---
 
+  // --- S33: AI chat. The chat reads the open buffers and the editor selection only when the user adds them as context
+  // (and sends exactly what the chips show); every AI surface is absent without the AI bridge or with AI off. ---
+  const aiHost = useMemo(
+    () => ({
+      activeFile: () => (docRef.current.project ? docRef.current.active : null),
+      fileText: (relPath: string) => savers.current.get(relPath)?.text,
+      relPathOf: (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath,
+      editorSelection: () => activeEditor()?.selection?.() ?? null,
+    }),
+    [],
+  );
+  // S34.2: agent turns in the chat; their proposals are reviewed as diffs and applied through agentHost.
+  const agentHostRef = useRef(agentHost);
+  agentHostRef.current = agentHost;
+  const [agentDecisions] = useState(() => new AgentDecisionStore());
+  const agentExtensions = useMemo(
+    () => agentChatExtensions({ store: agentDecisions, api: aiBridge, host: () => agentHostRef.current }),
+    [agentDecisions],
+  );
+  const ai = useAiChat(doc.project?.projectId ?? null, aiHost, { extensions: agentExtensions });
+  // --- end S33 ---
+
   // Closing the window or quitting: main asks first; we answer after every file is saved (S10.6).
   useEffect(() => {
     if (!bridge) return;
@@ -817,7 +838,7 @@ export function Workbench() {
   const commandContext: CommandContext = {
     hasProject: doc.project !== null,
     hasActiveTab: doc.active !== null,
-    modalOpen: wizardOpen || historyFor !== null || aboutOpen.open || glossaryFor !== null || agentOpen,
+    modalOpen: wizardOpen || historyFor !== null || aboutOpen.open || glossaryFor !== null,
     theme: theme.choice, // S24.4
   };
   const commandHandlers: CommandHandlers = {
@@ -849,6 +870,9 @@ export function Workbench() {
     // S23: onboarding help
     'help-walkthrough': () => walkthroughRef.current.open(),
     'help-glossary': () => setGlossaryFor({ term: null }),
+    // S33: AI chat and "Explain this code" (only while AI is offered)
+    'ai-toggle-chat': ai.shown ? ai.toggle : undefined,
+    'ai-explain-code': ai.shown ? () => ai.explainSelection() : undefined,
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
   };
   const commands = useCommands(platform, commandContext, commandHandlers);
@@ -956,11 +980,11 @@ export function Workbench() {
       >
         <Rail
           onShowHistory={project && bridge?.history ? () => setHistoryFor({ relPath: doc.active }) : undefined}
-          onShowAgent={project && aiApi ? () => setAgentOpen(true) : undefined}
           filesVisible={visible.files}
           problemsOpen={visible.problemsPanel}
           onToggleFiles={() => dispatchLayout({ type: 'toggleFiles', narrow })}
           onToggleProblems={() => dispatchLayout({ type: 'toggleProblems' })}
+          ai={ai.shown ? { open: ai.open, onToggle: ai.toggle } : undefined}
         />
         <FilesPanel
           hidden={!visible.files}
@@ -1045,17 +1069,18 @@ export function Workbench() {
           hidden={!visible.preview}
           covered={
             (narrow && visible.files) ||
+            (narrow && ai.panel !== null) || // S33: the chat overlays the column in a narrow window
             wizardOpen ||
             historyFor !== null ||
             aboutOpen.open ||
-            glossaryFor !== null ||
-            agentOpen
+            glossaryFor !== null
           }
           projectId={project?.projectId ?? null}
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
           autoStartProjectId={autoPreview}
           onRenamePage={renamePage}
         />
+        {ai.panel /* S33.1 AI chat region */}
       </div>
       {/* S23: walkthrough strip / final task card (in the layout flow: never covers the editor or the preview) */}
       <WalkthroughPanel
@@ -1081,6 +1106,7 @@ export function Workbench() {
             onGoTo={goTo}
             onFix={problemFix.apply}
             fixBusy={problemFix.fix?.phase === 'applying' || problemFix.fix?.phase === 'undoing'}
+            onAskAi={ai.shown ? ai.askAboutProblem : undefined}
           />
         )}
         fixCard={
@@ -1115,16 +1141,6 @@ export function Workbench() {
           onRestore={restoreVersion}
           onRestoredDeleted={(relPath) => void openFile(relPath)}
           onClose={() => setHistoryFor(null)}
-        />
-      )}
-      {/* S34.2: AI agent (kept mounted while hidden so a running turn keeps its state; one per project) */}
-      {project && aiApi && (
-        <AgentRegion
-          key={project.projectId}
-          api={aiApi}
-          host={agentHost}
-          open={agentOpen}
-          onClose={() => setAgentOpen(false)}
         />
       )}
       {/* S23.4: terminology glossary */}

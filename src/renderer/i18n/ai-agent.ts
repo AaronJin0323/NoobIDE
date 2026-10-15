@@ -1,24 +1,7 @@
 /**
- * Messages of the AI agent panel and the proposal review (S34.2). Spread into zh-CN.ts / en.ts.
+ * Messages of the AI agent's proposal review in the chat panel (S34.2). Spread into zh-CN.ts / en.ts.
  */
 export const aiAgentZhCN = {
-  'rail.agent': 'AI 助手',
-  'agent.title': 'AI 助手（代理模式）',
-  'agent.close': '关闭',
-  'agent.intro':
-    '描述你想做的修改。助手会先查看项目里的文件，再把每处修改作为对比提出，由你决定接受还是拒绝。没有你的同意，它不会改动任何文件。',
-  'agent.prompt.label': '你想让 AI 做什么？',
-  'agent.prompt.placeholder': '例如：加一个“关于我”页面，并在首页加上链接',
-  'agent.send': '发送',
-  'agent.stop': '停止',
-  'agent.running': '正在工作…',
-  'agent.unavailable': 'AI 还不能用：请先在 设置 → AI 里填写 API 密钥。',
-  'agent.startFailed': '没能开始（{code}）。',
-  'agent.you': '你',
-  'agent.assistant': 'AI',
-  'agent.stepLabel': '步骤',
-  'agent.done': '这一轮完成了。',
-  'agent.usage': '用量：输入 {input} · 输出 {output} 个 token',
   'agent.proposal.title': 'AI 提出的修改',
   'agent.proposal.reason': '原因：{reason}',
   'agent.change.edit': '修改 {path}',
@@ -57,23 +40,6 @@ export const aiAgentZhCN = {
 };
 
 export const aiAgentEn: Record<keyof typeof aiAgentZhCN, string> = {
-  'rail.agent': 'AI agent',
-  'agent.title': 'AI agent',
-  'agent.close': 'Close',
-  'agent.intro':
-    'Describe the change you want. The assistant looks at the files of this project, then proposes each change as a diff that you accept or reject. Nothing in your files changes without your approval.',
-  'agent.prompt.label': 'What should the AI do?',
-  'agent.prompt.placeholder': 'For example: add an “About me” page and a link to it on the home page',
-  'agent.send': 'Send',
-  'agent.stop': 'Stop',
-  'agent.running': 'Working…',
-  'agent.unavailable': 'AI is not available yet: enter an API key in Settings → AI first.',
-  'agent.startFailed': 'Could not start ({code}).',
-  'agent.you': 'You',
-  'agent.assistant': 'AI',
-  'agent.stepLabel': 'Step',
-  'agent.done': 'This turn is finished.',
-  'agent.usage': 'Usage: {input} input · {output} output tokens',
   'agent.proposal.title': 'Changes proposed by the AI',
   'agent.proposal.reason': 'Why: {reason}',
   'agent.change.edit': 'Change {path}',

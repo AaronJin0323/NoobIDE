@@ -2,6 +2,7 @@ import { welcomeHistoryZhCN } from './welcome-history';
 import { commandsZhCN } from './commands'; // S24
 import { previewToolbarZhCN } from './preview-toolbar'; // S14/S15.4
 import { aiAgentZhCN } from './ai-agent'; // S34.2
+import { aiChatZhCN } from './ai-chat'; // S33
 /**
  * zh-CN is the default locale and the source of truth for message keys (AGENTS.md: i18n invariant).
  * Every key must also exist in en.ts — the type system and i18n.test.ts enforce it.
@@ -277,6 +278,7 @@ export const zhCN = {
   ...commandsZhCN, // S24
   ...previewToolbarZhCN, // S14/S15.4 preview manager and toolbar
   ...aiAgentZhCN, // S34.2 AI agent panel and proposal review
+  ...aiChatZhCN, // S33 AI chat and explain
   // --- S18.3 formatting ---
   'format.button': '整理格式',
   'format.title': '整理代码格式：缩进和换行（{shortcut}）',

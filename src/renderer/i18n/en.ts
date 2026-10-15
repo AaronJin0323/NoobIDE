@@ -3,6 +3,7 @@ import { welcomeHistoryEn } from './welcome-history';
 import { commandsEn } from './commands'; // S24
 import { previewToolbarEn } from './preview-toolbar'; // S14/S15.4
 import { aiAgentEn } from './ai-agent'; // S34.2
+import { aiChatEn } from './ai-chat'; // S33
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -294,6 +295,7 @@ export const en: Record<MessageKey, string> = {
   ...commandsEn, // S24
   ...previewToolbarEn, // S14/S15.4 preview manager and toolbar
   ...aiAgentEn, // S34.2 AI agent panel and proposal review
+  ...aiChatEn, // S33 AI chat and explain
   // --- S18.3 formatting ---
   'format.button': 'Format',
   'format.title': 'Format the code: indentation and line breaks ({shortcut})',

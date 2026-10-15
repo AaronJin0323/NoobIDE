@@ -1,47 +1,4 @@
-/* AI agent panel and proposal review (S34.2). Colours only from the theme tokens. */
-.agent-backdrop {
-  z-index: 60;
-}
-.agent-backdrop[hidden] {
-  display: none;
-}
-.dialog.agent-dialog {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: min(1100px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
-  overflow: auto;
-}
-.agent-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.agent-head .dialog-title {
-  margin: 0;
-}
-.agent-log {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.agent-item p {
-  margin: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.agent-step {
-  color: var(--muted);
-  font-size: 12px;
-}
-.agent-step::before {
-  content: '› ';
-}
+/* AI agent proposal review in the chat panel (S34.2). Colours only from the theme tokens. */
 .agent-proposal {
   display: flex;
   flex-direction: column;
@@ -92,21 +49,19 @@
   overflow: hidden;
 }
 .agent-change-actions,
-.agent-proposal-actions,
-.agent-compose-actions {
+.agent-proposal-actions {
   display: flex;
   gap: 8px;
 }
-.agent-compose {
+.agent-card {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.agent-compose textarea {
-  font: inherit;
-  resize: vertical;
-}
-.agent-running {
+.agent-undo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin: 0;
-  color: var(--muted);
 }

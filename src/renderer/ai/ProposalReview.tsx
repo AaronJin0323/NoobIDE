@@ -6,7 +6,10 @@ import { fill } from '../recovery/format';
 import { diffLines } from '../recovery/line-diff';
 import { WarningIcon } from '../workbench/icons';
 import type { ApplyFailure } from './agent-apply';
-import type { ChangeView } from './agent-session';
+import type { ChangeView } from './agent-decisions';
+
+/** What a change shows: its decision state, or `expired` when the turn ended before a decision. */
+export type ReviewView = ChangeView | { readonly state: 'expired'; readonly failure?: undefined };
 
 // Monaco loads with the first diff, not with the workbench.
 const ProposalDiff = lazy(() => import('./ProposalDiff').then((m) => ({ default: m.ProposalDiff })));
@@ -16,7 +19,7 @@ export interface ProposalReviewProps {
   readonly changes: readonly AiFileChange[];
   /** The agent's plain-language reason, shown above the diffs. */
   readonly reason: string;
-  readonly views: readonly ChangeView[];
+  readonly views: readonly ReviewView[];
   /** True while any change is being applied: every decision button waits. */
   readonly busy: boolean;
   onAccept(index: number): void;
@@ -25,7 +28,7 @@ export interface ProposalReviewProps {
   onRejectAll(): void;
 }
 
-const STATE_KEY: Record<ChangeView['state'], MessageKey> = {
+const STATE_KEY: Record<ReviewView['state'], MessageKey> = {
   pending: 'agent.state.pending',
   applying: 'agent.state.applying',
   applied: 'agent.state.applied',

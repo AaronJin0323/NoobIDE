@@ -1,6 +1,6 @@
 import { useI18n } from '../i18n/I18nProvider';
 import { FileIcon, HistoryIcon, ProblemsIcon } from './icons';
-import { AgentIcon } from '../ai/agent-icon'; // S34.2
+import { AiIcon } from '../ai/ai-icons';
 
 interface RailProps {
   filesVisible: boolean;
@@ -9,22 +9,15 @@ interface RailProps {
   onToggleProblems: () => void;
   /** S21.3: opens the local-history window; absent while no project is open. */
   onShowHistory?: (() => void) | undefined;
-  /** S34.2: opens the AI agent; absent while AI is unavailable or no project is open. */
-  onShowAgent?: (() => void) | undefined;
+  /** S33.1: the AI chat panel; absent while AI is not offered (no AI bridge, or AI switched off). */
+  ai?: { readonly open: boolean; readonly onToggle: () => void } | undefined;
 }
 
 /**
  * Labelled side rail (S30.3). Only tools that work today are listed; History, lessons and the rest join as their
  * features land, so the rail never offers a control that does nothing.
  */
-export function Rail({
-  filesVisible,
-  problemsOpen,
-  onToggleFiles,
-  onToggleProblems,
-  onShowHistory,
-  onShowAgent,
-}: RailProps) {
+export function Rail({ filesVisible, problemsOpen, onToggleFiles, onToggleProblems, onShowHistory, ai }: RailProps) {
   const { t } = useI18n();
   return (
     <aside className="rail" aria-label={t('region.rail')} data-testid="rail">
@@ -62,16 +55,17 @@ export function Rail({
           {t('rail.history')}
         </button>
       )}
-      {onShowAgent && (
+      {ai && (
         <button
           type="button"
           className="rail-button"
-          aria-haspopup="dialog"
-          data-testid="rail-agent"
-          onClick={onShowAgent}
+          aria-pressed={ai.open}
+          aria-controls="region-ai"
+          data-testid="rail-ai"
+          onClick={ai.onToggle}
         >
-          <AgentIcon />
-          {t('rail.agent')}
+          <AiIcon />
+          {t('rail.ai')}
         </button>
       )}
     </aside>
