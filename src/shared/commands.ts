@@ -45,6 +45,12 @@ export const COMMAND_IDS = [
   // S23 onboarding help
   'help-walkthrough',
   'help-glossary',
+  // S15.4 preview toolbar
+  'preview-refresh',
+  'preview-stop',
+  'preview-open-external',
+  'preview-devtools',
+  'preview-clear-data',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -132,6 +138,18 @@ export const COMMANDS: readonly CommandDefinition[] = [
   // S23: the onboarding walkthrough and the glossary (Help menu).
   { id: 'help-walkthrough', label: 'command.walkthrough', when: noModal },
   { id: 'help-glossary', label: 'command.glossary', when: noModal },
+  // S15.4: the preview toolbar's actions. They apply with a project open; the preview pane's handlers do nothing
+  // when the preview is not in a state that allows the action (e.g. Refresh while stopped).
+  {
+    id: 'preview-refresh',
+    label: 'command.preview.refresh',
+    keys: { all: { key: 'r', primary: true } },
+    when: (c) => c.hasProject && !c.modalOpen,
+  },
+  { id: 'preview-stop', label: 'command.preview.stop', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'preview-open-external', label: 'command.preview.openExternal', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'preview-devtools', label: 'command.preview.devTools', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'preview-clear-data', label: 'command.preview.clearData', when: (c) => c.hasProject && !c.modalOpen },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));

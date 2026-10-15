@@ -1505,8 +1505,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/preview/state-machine.ts (pure; stopped/starting/running/refreshing/unresponsive/failed + monotonic page-load generation) + state-machine.test.ts (34 tests); PreviewManager publishes every status through it; UI pill shows each state as distinct text in zh-CN and en (preview-model.test.ts); e2e preview.spec + preview-isolation.spec 16/16 macOS arm64 @ 9ad62e4"
     },
     {
       "id": "S14.2",
@@ -1521,8 +1521,8 @@
       "depends_on": [
         "S14.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Auto refresh after confirmed save + typing pause: src/preview/refresh-scheduler.ts + test (6); manual mode stored as preview.autoRefresh via S13.2 module (src/preview/project-options.ts, tests/integration/preview-options.test.ts 6); one-time 'reload clears page state' note remembered in app data (tests/integration/preview-store.test.ts); e2e tests/e2e/preview-manager.spec.ts: save while typing does not reload until the pause, manual mode marks pill 'saved changes not shown' and does not reload, Refresh clears it, note shows once. Full e2e 205/205 macOS arm64 @ e9c6466"
     },
     {
       "id": "S14.3",
@@ -1535,8 +1535,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "index.html default, picker of the project's .html pages (src/preview/entry-pages.ts + tests/integration/entry-pages.test.ts: Chinese/space names, ignored folders, links not followed, limits), choice stored via S13.2 module (index.html = no entry); e2e preview-manager.spec: picker lists pages, selecting writes {version,entry} and the preview opens it, selecting index.html removes entry. Full e2e 205/205 macOS arm64 @ e9c6466"
     },
     {
       "id": "S14.4",
@@ -1551,8 +1551,8 @@
       "depends_on": [
         "S14.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Opened folders: auto start refused with not-trusted until 'Start preview' pressed once (src/main/preview-ipc.test.ts consent tests); trust = sha256 of real root in <userData>/preview.json (tests/integration/preview-store.test.ts, no path text, corrupt backup); templates trusted at creation (create-project-ipc created hook; walkthrough.spec restart auto-previews). e2e preview-manager.spec: consent shown, nothing runs, trust persisted in app data, project folder unchanged, reopen previews by itself. Full e2e 205/205 macOS arm64 @ e9c6466"
     },
     {
       "id": "S14.5",
@@ -1565,8 +1565,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Partition per project (persist:noobide-preview-<sha256(root)>); Advanced > 'Clear preview data' clears that partition's storage+cache and reloads; panel + 'Open in browser' notice explain the external browser's separate storage. e2e preview-manager.spec: A and B partitions differ, A's localStorage cleared, B's kept. Full e2e 205/205 macOS arm64 @ e9c6466"
     },
     {
       "id": "S14.6",
@@ -1579,8 +1579,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/preview/server-registry.ts (one lease-counted server per project, owner {projectId, windowId}) + test (9) + tests/integration/preview-lifecycle.test.ts (5, real servers: switch/close close the port, other window cannot acquire or release); IPC not-owner for stop/reload/bounds/clear/external/devtools (src/main/preview-ipc.test.ts); e2e preview-manager.spec S14.6 test (switch and close shut servers, not-owner for another project). Independent subagent review: approve with nits; all fixed (lease race, not-owner status, release on attach failure, cookie Max-Age, releaseWindow wired). Full e2e 205/205 macOS arm64 @ e9c6466"
     },
     {
       "id": "S15.1",
@@ -1637,8 +1637,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Toolbar: Refresh, Stop, Open in browser, Advanced > DevTools/Clear data; commands preview-refresh (Cmd/Ctrl+R), preview-stop, preview-open-external, preview-devtools, preview-clear-data in src/shared/commands.ts, native View menu (src/renderer/workbench/preview-toolbar.test.ts); external browser via one-time grant + HttpOnly SameSite=Strict cookie (tests/integration/preview-external.test.ts 8); e2e preview-manager.spec: refresh button + shortcut bump generation, native menu items, open-in-browser grant works once and cookie serves the page, DevTools open. Full e2e 205/205 macOS arm64 @ e9c6466"
     },
     {
       "id": "S15.5",

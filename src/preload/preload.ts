@@ -50,9 +50,18 @@ const api: NoobideApi = {
   // S04.3 preview: the listener receives only the event payload, never the IpcRendererEvent (it exposes `sender`).
   preview: {
     start: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.start, request),
-    stop: () => ipcRenderer.invoke(PREVIEW_CHANNELS.stop),
-    reload: () => ipcRenderer.invoke(PREVIEW_CHANNELS.reload),
+    stop: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.stop, request),
+    reload: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.reload, request),
     setBounds: (bounds) => ipcRenderer.invoke(PREVIEW_CHANNELS.setBounds, bounds),
+    // S14.2–S14.5, S15.4: refresh mode, typing pause, notes, entry picker, storage, toolbar
+    typing: () => ipcRenderer.invoke(PREVIEW_CHANNELS.typing),
+    setRefreshMode: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.setRefreshMode, request),
+    notes: () => ipcRenderer.invoke(PREVIEW_CHANNELS.notes),
+    noteSeen: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.noteSeen, request),
+    options: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.options, request),
+    clearData: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.clearData, request),
+    openExternal: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.openExternal, request),
+    devTools: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.devTools, request),
     onEvent: (listener) => {
       const wrapped = (_event: unknown, payload: PreviewEvent) => listener(payload);
       ipcRenderer.on(PREVIEW_EVENT_CHANNEL, wrapped);

@@ -31,6 +31,8 @@ export interface CreateProjectPort {
   documentsDir(): string | null;
   /** Native folder dialog for "Change…"; `null` when cancelled. */
   chooseFolder(event: IpcMainInvokeEvent, defaultPath: string | undefined): Promise<string | null>;
+  /** S14.4: a project was created from a built-in template (its real root): its preview is trusted. */
+  created?(root: string): Promise<void> | void;
 }
 
 /** Default location folder inside Documents, named in the interface language (wireframe welcome 1b). */
@@ -159,6 +161,7 @@ export function registerCreateProjectHandlers(
     if (!created.ok) return toIpcResult(created);
     const opened = await projects.open(created.value.root);
     if (!opened.ok) return toIpcResult(opened);
+    await port?.created?.(opened.value.rootPath); // S14.4
     projectOpened?.(opened.value.projectId, opened.value.rootPath, event.sender);
     return { ok: true, value: { project: opened.value, entry: template.entry } };
   });
