@@ -25,6 +25,7 @@ import { PreviewProxy } from './preview-proxy';
 import { PreviewServer, TOKEN_HEADER } from './static-server';
 import { NotOwnerError, ServerRegistry, type ServerOwner } from './server-registry';
 import { DEFAULT_TYPING_PAUSE_MS, RefreshScheduler } from './refresh-scheduler';
+import { ResourceFailureTracker, type RequestOutcome } from './resource-failures';
 import { INITIAL_MACHINE, transition, type PreviewMachine, type PreviewMachineEvent } from './state-machine';
 // S15.5/S15.6: DPI-safe bounds and the F6 focus handoff out of the page.
 import { COMMAND_EVENTS } from '../shared/ipc/commands-contract';
@@ -581,31 +582,27 @@ export class PreviewManager {
       }
       callback({ requestHeaders: { ...details.requestHeaders, [TOKEN_HEADER]: server.token } });
     });
-    ses.webRequest.onCompleted((details) => {
-      if (details.statusCode < 400) return;
+    // S16.4: an error response whose body Chromium cancels ends as ERR_ABORTED, not onCompleted (resource-failures.ts).
+    const failures = new ResourceFailureTracker();
+    const pushFailure = (
+      details: { url: string; method: string; resourceType: string; referrer: string },
+      outcome: RequestOutcome,
+    ) => {
+      if (outcome.kind === 'ignore') return; // e.g. aborted by navigating away or reloading: not a failure
       this.pushLog({
         source: 'network',
         level: 'error',
-        message: `${details.statusCode} ${details.method} ${details.resourceType}`,
+        message: `${outcome.kind === 'status' ? outcome.status : outcome.error} ${details.method} ${details.resourceType}`,
         url: details.url,
-        status: details.statusCode,
+        ...(outcome.kind === 'status' ? { status: outcome.status } : {}),
         resourceType: details.resourceType,
         ...(details.referrer ? { initiator: details.referrer } : {}),
         at: Date.now(),
       });
-    });
-    ses.webRequest.onErrorOccurred((details) => {
-      if (details.error === 'net::ERR_ABORTED') return; // Navigation away or reload, not a failure.
-      this.pushLog({
-        source: 'network',
-        level: 'error',
-        message: `${details.error} ${details.method} ${details.resourceType}`,
-        url: details.url,
-        resourceType: details.resourceType,
-        ...(details.referrer ? { initiator: details.referrer } : {}),
-        at: Date.now(),
-      });
-    });
+    };
+    ses.webRequest.onResponseStarted((details) => failures.responseStarted(details.id, details.statusCode));
+    ses.webRequest.onCompleted((details) => pushFailure(details, failures.completed(details.id, details.statusCode)));
+    ses.webRequest.onErrorOccurred((details) => pushFailure(details, failures.errored(details.id, details.error)));
   }
 
   /** Starts the session's network proxy and routes every request of the session through it (decision 0015). */
