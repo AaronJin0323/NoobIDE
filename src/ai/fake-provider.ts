@@ -40,11 +40,12 @@ import {
  * }
  * ```
  *
- * `NOOBIDE_AI_FAKE=1` (instead of a file path) uses BUILTIN_FAKE_SCRIPT below; a script file can add
+ * `NOOBIDE_AI_FAKE` is a file path, the script itself as inline JSON, or `1` for BUILTIN_FAKE_SCRIPT below; a script file can add
  * `"includeBuiltin": true` to append the built-in turns after its own.
  *
  * A turn is chosen as the first unused one whose `match` occurs in the last user text (or last tool result) and
- * whose `purpose` fits; `repeat: true` turns are never used up. Without a match the `defaultTurn` (or a short
+ * whose `purpose` fits; `repeat: true` turns are never used up. Inline requests send
+ * `<prefix>…</prefix><suffix>…</suffix>`, so `"match": "slow</prefix>"` picks a prefix ending in `slow`. Without a match the `defaultTurn` (or a short
  * fixed answer) runs. `delay` steps honour cancellation.
  */
 export type FakeStep =

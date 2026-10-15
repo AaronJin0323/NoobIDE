@@ -31,7 +31,7 @@ export interface AiMainOptions {
   readonly safeStorage: KeyEncryptor;
   readonly logger: RecoveryLogger;
   readonly log: AiLog;
-  /** process.env.NOOBIDE_AI_FAKE: '1' for the built-in fake scenarios, or the path of a fake script file. */
+  /** process.env.NOOBIDE_AI_FAKE: '1' (built-in scenarios), a script as inline JSON, or a script file's path. */
   readonly fakeScript?: string | undefined;
   /** S34: the agent loop. */
   readonly agentRunner?: AgentRunner;
@@ -51,7 +51,16 @@ export function setupAi(options: AiMainOptions): AiMain {
       fake = createFakeProviders(
         options.fakeScript === '1'
           ? BUILTIN_FAKE_SCRIPT
-          : withBuiltin(parseFakeScript(JSON.parse(readFileSync(options.fakeScript, 'utf8')) as unknown)),
+          : withBuiltin(
+              parseFakeScript(
+                JSON.parse(
+                  // Inline JSON (e2e specs pass the script itself) or the path of a script file.
+                  options.fakeScript.trimStart().startsWith('{')
+                    ? options.fakeScript
+                    : readFileSync(options.fakeScript, 'utf8'),
+                ) as unknown,
+              ),
+            ),
       );
     } catch (e) {
       options.log('error', 'ai-fake-script-invalid', { reason: e instanceof Error ? e.name : 'unknown' });

@@ -91,6 +91,7 @@ test('enter a key: stored, never shown again; Test explains failure and success 
   await expect(page.getByTestId('ai-test')).toBeDisabled();
   const input = page.getByTestId('ai-key-input');
   await expect(input).toHaveAttribute('type', 'password');
+  expect(await axeScan(page)).toEqual([]);
 
   // A key the provider rejects: stored, then Test explains why it fails.
   await input.fill(BAD_KEY);
@@ -119,7 +120,9 @@ test('enter a key: stored, never shown again; Test explains failure and success 
 
   // Models come from the provider's list; the choice is kept in app data.
   const inline = page.getByTestId('ai-model-inline');
-  await expect(inline.locator('option')).toHaveCount(3);
+  // "Default", the current choice (claude-haiku-5-5, not in the fake's list) and the provider's two models.
+  await expect(inline.locator('option')).toHaveCount(4);
+  await expect(inline).toHaveValue('claude-haiku-5-5');
   await inline.selectOption('fake-small');
   await expect
     .poll(async () => JSON.parse(await readFile(path.join(userData, 'ai-config.json'), 'utf8').catch(() => '{}')))
@@ -129,7 +132,6 @@ test('enter a key: stored, never shown again; Test explains failure and success 
       provider: 'anthropic',
       models: { anthropic: { inline: 'fake-small' } },
     });
-  expect(await axeScan(page)).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('ai-settings')).toHaveCount(0);
   await expect(page.getByTestId('rail-ai')).toBeVisible();
