@@ -170,11 +170,31 @@ describe('copies of a project whose folder was moved (decision 0033)', () => {
     expect(await journalFiles()).toHaveLength(2);
   });
 
+  it('a moved folder that kept its name and has every file is used without asking', async () => {
+    const sameName = path.join(tmp, '移动 之后', '我的 网站');
+    await rename(oldRoot, sameName);
+    folderAnswer = sameName;
+    const { call, journal } = nextRun();
+    const result = await call(CHANNELS.recoveryRelocate, { key: projectKey(oldRoot) });
+    expect(result).toMatchObject({ ok: true, value: { status: 'opened', project: { rootPath: sameName } } });
+    expect((await journal.listPending()).map((p) => p.key)).toEqual([projectKey(sameName)]);
+  });
+
+  it('a renamed folder (or another project with the same files) is used only after a confirmation', async () => {
+    await rename(oldRoot, newRoot);
+    const { call } = nextRun();
+    const key = projectKey(oldRoot);
+    const asked = await call(CHANNELS.recoveryRelocate, { key });
+    expect(asked).toMatchObject({ ok: true, value: { status: 'confirm', folderName: '我的 网站 2', missing: [] } });
+    expect(opened).not.toHaveBeenCalled();
+  });
+
   it('choosing the new location re-targets every copy and opens the project for the normal review', async () => {
     await rename(oldRoot, newRoot);
     const { call, journal } = nextRun();
     const key = projectKey(oldRoot);
-    const result = (await call(CHANNELS.recoveryRelocate, { key })) as {
+    const asked = (await call(CHANNELS.recoveryRelocate, { key })) as { value: { choiceId: string } };
+    const result = (await call(CHANNELS.recoveryRelocateConfirm, { key, choiceId: asked.value.choiceId })) as {
       ok: boolean;
       value: { status: string; project: { projectId: string; rootPath: string } };
     };

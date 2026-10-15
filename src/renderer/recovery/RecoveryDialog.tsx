@@ -625,7 +625,11 @@ function OrphanSection(props: OrphanSectionProps) {
       </p>
       {orphan.confirm ? (
         <div className="inline-alert" role="alert" data-testid="recovery-relocate-question">
-          <p>{fill(t('recovery.relocateMissing'), { folder: orphan.confirm.folderName })}</p>
+          <p>
+            {fill(t(orphan.confirm.missing.length > 0 ? 'recovery.relocateMissing' : 'recovery.relocateOther'), {
+              folder: orphan.confirm.folderName,
+            })}
+          </p>
           <ul className="recovery-file-names">
             {orphan.confirm.missing.map((relPath) => (
               <li key={relPath}>{relPath}</li>

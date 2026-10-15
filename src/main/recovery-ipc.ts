@@ -206,7 +206,11 @@ export function registerRecoveryHandlers(
       folder,
       pending.files.map((f) => f.relPath),
     );
-    if (missing.length === 0) return relocate(key, folder, event.sender);
+    // Decision 0033: only a folder with the old name and every recovered file is used without asking; beginner
+    // projects share names like index.html, so another project's folder would otherwise pass silently.
+    if (missing.length === 0 && path.basename(folder) === path.basename(pending.rootPath)) {
+      return relocate(key, folder, event.sender);
+    }
     const choiceId = randomUUID();
     choices.clear();
     choices.set(choiceId, { key, folder });

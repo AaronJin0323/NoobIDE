@@ -231,6 +231,7 @@ export const zhCN = {
   'recovery.oldLocation': '原来的位置：{path}',
   'recovery.relocate': '选择文件夹的新位置…',
   'recovery.relocateMissing': '“{folder}”里没有下面这些文件。仍然使用这个文件夹吗？',
+  'recovery.relocateOther': '这个文件夹的名字和原来的项目不一样。确定要把恢复副本放到“{folder}”里吗？',
   'recovery.relocateConfirm': '仍然使用这个文件夹',
   'recovery.relocateFailed': '无法使用这个文件夹，恢复副本仍然保留着。',
   'recovery.relocateExpired': '请重新选择文件夹。',

@@ -510,6 +510,9 @@ export function Workbench() {
         if (!saver || !disk || !saver.state.conflict || saver.state.deleted) return;
         // Overwrite exactly the disk version the user compared; if it changed again, the conflict comes back.
         knownDisk.current.set(relPath, disk.version);
+        // A BOM added or removed outside NoobIDE stays as the disk has it (only the text is "mine").
+        diskBom.current.set(relPath, disk.bom);
+        tabJournals.current.get(relPath)?.setBom(disk.bom);
         dispatch({ type: 'conflictCleared', relPath });
         await saver.keepMine();
       },

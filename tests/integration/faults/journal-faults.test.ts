@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecoveryJournal, type JournalTarget } from '../../../src/recovery/journal';
+import { fileKey } from '../../../src/recovery/keys';
 import { faults, isTempFile, under } from './fault-fs';
 
 vi.mock('node:fs/promises', async (importOriginal) => (await import('./fault-fs')).faultyFs(await importOriginal()));
@@ -129,6 +130,25 @@ describe('S26.1 recovery journal faults', () => {
     if (!damaged) throw new Error('record missing');
     const full = path.join(dir, damaged);
     await writeFile(full, (await readFile(full, 'utf8')).slice(0, 40)); // torn by a power cut
+    expect(await offered()).toEqual([TEXT(2)]);
+    expect((await files()).some((f) => f.startsWith('quarantine'))).toBe(true);
+  });
+
+  it('a tampered record whose relPath leaves the project is quarantined, never offered (decision 0033)', async () => {
+    const journal = open();
+    await journal.record(target, snap(1));
+    await journal.record({ ...target, relPath: 'index.html' }, snap(2, OTHER));
+    const [tampered] = (await files()).filter((f) => f.includes(BUF));
+    if (!tampered) throw new Error('record missing');
+    const full = path.join(dir, tampered);
+    const record = JSON.parse(await readFile(full, 'utf8')) as { relPath: string; bufferId: string };
+    // A consistent forgery: the file name matches the escaping relPath, so only the record check can refuse it.
+    const escaping = '../../别处/secret.txt';
+    await rm(full);
+    await writeFile(
+      path.join(path.dirname(full), `${fileKey(escaping)}-${record.bufferId}.json`),
+      JSON.stringify({ ...record, relPath: escaping }),
+    );
     expect(await offered()).toEqual([TEXT(2)]);
     expect((await files()).some((f) => f.startsWith('quarantine'))).toBe(true);
   });

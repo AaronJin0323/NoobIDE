@@ -1,5 +1,6 @@
 import { mkdir, readFile, readdir, rename, rm, rmdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { isPortableRelPath } from '../shared/ipc/contract';
 import { err, ok, type Result } from '../shared/result';
 import { SerialQueue, TEMP_SUFFIX, errorCode, silentLogger, writeFileAtomic, type RecoveryLogger } from './atomic-file';
 import { BUFFER_ID, PROJECT_KEY, fileKey, projectKey, sha256Hex } from './keys';
@@ -522,7 +523,7 @@ function isEntryRecord(value: unknown): value is EntryRecord {
     typeof r.rootPath === 'string' &&
     r.rootPath.length > 0 &&
     typeof r.relPath === 'string' &&
-    r.relPath.length > 0 &&
+    isPortableRelPath(r.relPath) &&
     typeof r.bufferId === 'string' &&
     BUFFER_ID.test(r.bufferId) &&
     typeof r.revision === 'number' &&

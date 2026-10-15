@@ -243,6 +243,8 @@ export const en: Record<MessageKey, string> = {
   'recovery.oldLocation': 'Old location: {path}',
   'recovery.relocate': 'Choose the folder’s new location…',
   'recovery.relocateMissing': 'These files are not in “{folder}”. Use this folder anyway?',
+  'recovery.relocateOther':
+    'This folder has a different name than the original project. Put the recovered copies into “{folder}”?',
   'recovery.relocateConfirm': 'Use this folder anyway',
   'recovery.relocateFailed': 'This folder could not be used. The recovery copies are still kept.',
   'recovery.relocateExpired': 'Please choose the folder again.',
