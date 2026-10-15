@@ -3444,8 +3444,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/editor/indent-detect.ts; tests/fixtures/indentation (19 fixtures + expected.json) in indent-detect.test.ts (51 tests incl. paste safety, convertIndentation, 5 000-line timing ~0.3 ms); verify green; full e2e Windows x64 284 passed (4 pre-existing skips)"
     },
     {
       "id": "S43.2",
@@ -3463,8 +3463,8 @@
       "depends_on": [
         "S43.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "smart-monaco.ts + IndentStatus.tsx + indent-state.ts; tests/e2e/smart-editing.spec.ts: tab file Enter/auto-close -> tab, 4-space Enter + Format keep 4, tab paste into 2-space re-indented and one Ctrl+Z restores it, whole-line paste leaves the user's line alone, keyboard menu override survives tab switch, convert 2->tabs and 4->2 undoable, detect again; indent-state.test.ts; verify green; full e2e Windows x64 284 passed (4 pre-existing skips)"
     },
     {
       "id": "S43.3",
@@ -3480,8 +3480,8 @@
         "S43.2",
         "S43.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "resolveIndentation/projectConvention unit tests; smart-editing.spec.ts: new empty file in a 4-space project -> source project, 4 spaces typed; empty project -> template default 2; verify green; full e2e Windows x64 284 passed (4 pre-existing skips)"
     },
     {
       "id": "S43.4",
@@ -3495,8 +3495,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "project-index.ts + project-symbols.ts; project-index.test.ts (12 tests: files/ids/classes, live models win, watcher file + folder events, rescan, hidden files, size/count bounds, convention), project-symbols.test.ts (33); nothing logged; verify green; full e2e Windows x64 284 passed (4 pre-existing skips)"
     },
     {
       "id": "S43.5",
@@ -3515,8 +3515,8 @@
       "depends_on": [
         "S43.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "completion-context.ts, path-suggest.ts, smart-monaco.ts provider; unit tests (119 + 18); 11 new cases in tests/fixtures/lang-capabilities/cases.json pass in the PACKAGED app offline (tests/e2e/language.spec.ts); smart-editing.spec.ts on a Chinese+space path: querySelector/classList/getElementById, CSS . and #, img src/link href/import paths, click snippet; docs/capabilities.md lists only those cases; verify green; full e2e Windows x64 284 passed (4 pre-existing skips)"
     },
     {
       "id": "S43.6",
@@ -3531,8 +3531,8 @@
       "depends_on": [
         "S43.5"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/perf/completion-latency.md: unit p95 0.91 ms (2 100 classes, 200 indexed files) / 0.44 ms (paths) in completion-latency.test.ts; in-app # -> project id listed median 6-7 ms, provider p95 0.20 ms (smart-editing.spec.ts asserts <=500 ms / <=10 ms)"
     },
     {
       "id": "S43.7",
@@ -3548,8 +3548,8 @@
       "depends_on": [
         "S43.5"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "ai/inline-badge-monaco.ts driven by handleItemDidShow/handleEndOfLifetime; tests/e2e/ai-inline.spec.ts: badge visible with text AI and aria-label 'AI 建议…', gone after Tab and Esc; smart-editing.spec.ts: suggestion list shows no badge and no ghost text; verify green; full e2e Windows x64 284 passed (4 pre-existing skips)"
     },
     {
       "id": "S43.8",
@@ -3564,8 +3564,8 @@
       "depends_on": [
         "S43.7"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "steps in harness/MANUAL-CHECKS.md#S43.8"
     }
   ]
 }

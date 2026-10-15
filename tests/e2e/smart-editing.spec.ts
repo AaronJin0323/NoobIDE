@@ -95,6 +95,12 @@ const TWO_JS = [
 
 const onDisk = (rel: string) => readFile(path.join(root, ...rel.split('/')), 'utf8');
 const indentStatus = () => page.getByTestId('indent-status');
+const lastPasteOutcome = () =>
+  page.evaluate(() =>
+    (window as unknown as { __noobideSmartEditTestHooks: { pasteOutcomes(): string[] } }).__noobideSmartEditTestHooks
+      .pasteOutcomes()
+      .at(-1),
+  );
 const rows = () => page.locator('.suggest-widget .monaco-list-row .label-name');
 
 /** Opens another project while one is open (the welcome screen's button is gone by then). */
@@ -223,12 +229,48 @@ test('pasting tab-indented code into a 2-space file re-indents it; Ctrl+Z restor
   await page.keyboard.press(DOC_END);
   await page.keyboard.press('Enter');
   await page.keyboard.press('ControlOrMeta+V');
+  await expect.poll(lastPasteOutcome).toBe('reindented');
   await save();
   await expect.poll(() => onDisk('two.js')).toBe(`${TWO_JS}\nif (a) {\n  if (b) {\n    go();\n  }\n}`);
   await page.keyboard.press('ControlOrMeta+Z');
   await save();
   await expect.poll(() => onDisk('two.js')).toBe(`${TWO_JS}\nif (a) {\n\tif (b) {\n\t\tgo();\n\t}\n}`);
   await clearAfter(TWO_JS, 'two.js');
+});
+
+test('a whole-line paste (copied with nothing selected) never re-indents the line under the cursor (S43.2)', async () => {
+  await openFile(page, 'two.js');
+  await focusEditor(page);
+  // Line 4 is "    console.log(sum);"; copy it with nothing selected, paste with the cursor in the middle of it.
+  await page.keyboard.press('ControlOrMeta+Home');
+  for (let i = 0; i < 3; i += 1) await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('End');
+  for (let i = 0; i < 6; i += 1) await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ControlOrMeta+C');
+  await page.keyboard.press('ControlOrMeta+V');
+  await save();
+  await expect
+    .poll(() => onDisk('two.js'))
+    .toBe(TWO_JS.replace('    console.log(sum);\n', '    console.log(sum);\n    console.log(sum);\n'));
+  await clearAfter(TWO_JS, 'two.js');
+});
+
+test('converting a 4-space file to Spaces 2 changes every level (S43.2)', async () => {
+  await openFile(page, 'shop/four.js');
+  await indentStatus().click();
+  const menu = page.getByRole('menu', { name: '缩进方式' });
+  await menu.getByRole('menuitem', { name: '使用空格，宽度 2' }).click();
+  await indentStatus().click();
+  await menu.getByRole('menuitem', { name: '把整个文件改成当前缩进' }).click();
+  await save();
+  await expect.poll(() => onDisk('shop/four.js')).toBe(FOUR_JS.replace(/^( {4})+/gm, (m) => '  '.repeat(m.length / 4)));
+  await focusEditor(page);
+  await page.keyboard.press('ControlOrMeta+Z');
+  await save();
+  await expect.poll(() => onDisk('shop/four.js')).toBe(FOUR_JS);
+  await indentStatus().click();
+  await menu.getByRole('menuitem', { name: '重新自动识别' }).click();
+  await expect(indentStatus()).toHaveAttribute('data-tab-size', '4');
 });
 
 test('the status bar menu overrides, converts and detects again, from the keyboard (S43.2)', async () => {
@@ -308,10 +350,10 @@ test('CSS selectors suggest ids and classes from the HTML (S43.5)', async () => 
 test('src, href and import suggest project files relative to the current file (S43.5)', async () => {
   await openFile(page, '子 文件夹/页面 二.html');
   await typeOnNewLine('<img src="../');
-  let labels = await suggestions('images/');
+  await suggestions('images/');
   await page.keyboard.press('Escape');
   await page.keyboard.type('images/');
-  labels = await suggestions('猫 照片.png');
+  let labels = await suggestions('猫 照片.png');
   expect(labels).not.toContain('页面 二.html');
   await page.keyboard.press('Escape');
   await typeOnNewLine('<link rel="stylesheet" href="../');

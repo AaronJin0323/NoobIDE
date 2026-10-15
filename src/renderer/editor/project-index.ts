@@ -44,6 +44,11 @@ export function symbolsOf(language: IndexedLanguage, text: string): FileSymbols 
 export interface IndexHost {
   /** Reads a project file; null when it cannot be read (gone, too large, another encoding). */
   read(relPath: string): Promise<{ readonly text: string } | null>;
+  /**
+   * The files below a folder (`''`: the whole project), as portable relPaths; null when `relPath` is not a folder.
+   * Optional: without it, folder events only update the folder's own path.
+   */
+  list?(relPath: string): Promise<readonly string[] | null>;
 }
 
 interface Entry {
@@ -91,25 +96,48 @@ export class ProjectIndex {
     this.emit();
   }
 
-  /** Files changed on disk (watcher events). */
+  /**
+   * Files changed on disk (watcher events). The watcher reports a folder that was created, deleted or renamed once,
+   * as the folder (src/workspace/watcher.ts), so a path also stands for everything below it; `rescan` re-lists all.
+   */
   async changed(events: readonly WatchEvent[]): Promise<void> {
     const generation = this.generation;
     for (const event of events) {
-      if (event.type === 'rescan') continue;
+      if (generation !== this.generation) return;
+      if (event.type === 'rescan') {
+        const all = await this.host.list?.('');
+        if (!all || generation !== this.generation) continue;
+        await this.open(all.map((relPath) => ({ relPath, uri: '' })));
+        return;
+      }
       if (event.type === 'renamed') {
-        this.paths.delete(event.from);
-        this.entries.delete(event.from);
-        this.addPath(event.to);
-        if (indexedLanguage(event.to)) await this.load(event.to, generation);
+        const moved = this.remove(event.from);
+        for (const relPath of moved.length ? moved : [event.from]) {
+          const to = event.to + relPath.slice(event.from.length);
+          this.addPath(to);
+          if (indexedLanguage(to)) await this.load(to, generation);
+        }
       } else if (event.type === 'deleted') {
-        this.paths.delete(event.relPath);
-        this.entries.delete(event.relPath);
+        this.remove(event.relPath);
       } else {
-        this.addPath(event.relPath);
-        if (indexedLanguage(event.relPath)) await this.load(event.relPath, generation);
+        // A created folder brings its files; a created or changed file is itself.
+        const inside = event.type === 'created' ? await this.host.list?.(event.relPath) : null;
+        for (const relPath of inside ?? [event.relPath]) {
+          this.addPath(relPath);
+          if (indexedLanguage(relPath)) await this.load(relPath, generation);
+        }
       }
     }
     this.emit();
+  }
+
+  /** Forgets `relPath` and everything below it; returns the forgotten listed paths. */
+  private remove(relPath: string): string[] {
+    const below = `${relPath}/`;
+    const gone = [...this.paths].filter((p) => p === relPath || p.startsWith(below));
+    for (const p of gone) this.paths.delete(p);
+    for (const p of [...this.entries.keys()]) if (p === relPath || p.startsWith(below)) this.entries.delete(p);
+    return gone;
   }
 
   /** A file was saved: its disk text is newer than what we hold. */

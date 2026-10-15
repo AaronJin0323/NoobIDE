@@ -130,3 +130,50 @@ describe('ProjectIndex (S43.4)', () => {
     expect(calls).toBe(before);
   });
 });
+
+describe('ProjectIndex folder events (S43.4 review)', () => {
+  function withList(disk: Record<string, string>) {
+    const index = new ProjectIndex({
+      read: async (relPath) => (relPath in disk ? { text: disk[relPath] ?? '' } : null),
+      list: async (relPath) => {
+        const below = relPath ? `${relPath}/` : '';
+        const files = Object.keys(disk).filter((p) => p.startsWith(below));
+        return relPath && files.length === 0 && relPath in disk ? null : files;
+      },
+    });
+    return index;
+  }
+
+  it('a folder created with its files indexes all of them', async () => {
+    const disk: Record<string, string> = { 'index.html': '<p id="a"></p>' };
+    const index = withList(disk);
+    await index.open([{ relPath: 'index.html', uri: '' }]);
+    disk['shop/item.html'] = '<p id="item"></p>';
+    disk['shop/img/猫.png'] = '';
+    await index.changed([{ type: 'created', relPath: 'shop' }]);
+    expect(index.files().sort()).toEqual(['index.html', 'shop/img/猫.png', 'shop/item.html']);
+    expect([...index.symbols().ids.keys()].sort()).toEqual(['a', 'item']);
+  });
+
+  it('a deleted or renamed folder takes its files and names with it', async () => {
+    const disk: Record<string, string> = { 'img/a.png': '', 'pages/p.html': '<p id="p"></p>' };
+    const index = withList(disk);
+    await index.open(Object.keys(disk).map((relPath) => ({ relPath, uri: '' })));
+    disk['images/a.png'] = '';
+    delete disk['img/a.png'];
+    await index.changed([{ type: 'renamed', from: 'img', to: 'images', caseOnly: false }]);
+    expect(index.files().sort()).toEqual(['images/a.png', 'pages/p.html']);
+    await index.changed([{ type: 'deleted', relPath: 'pages' }]);
+    expect(index.files()).toEqual(['images/a.png']);
+    expect(index.symbols().ids.size).toBe(0);
+  });
+
+  it('rescan lists the whole project again', async () => {
+    const disk: Record<string, string> = { 'a.html': '<p id="a"></p>' };
+    const index = withList(disk);
+    await index.open([{ relPath: 'a.html', uri: '' }]);
+    disk['b.html'] = '<p id="b"></p>';
+    await index.changed([{ type: 'rescan' }]);
+    expect([...index.symbols().ids.keys()].sort()).toEqual(['a', 'b']);
+  });
+});

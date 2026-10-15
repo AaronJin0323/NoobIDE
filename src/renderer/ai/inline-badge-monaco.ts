@@ -9,6 +9,8 @@ import { monaco } from '../editor/monaco-setup';
 import { DEFAULT_LOCALE, isLocale, translate } from '../i18n/index';
 
 const WIDGET_ID = 'noobide.aiGhostBadge';
+/** Monaco's ghost text (same selectors as tests/e2e/ai-inline.spec.ts). */
+const GHOST_TEXT = '.ghost-text-decoration, .ghost-text';
 
 function locale() {
   const lang = document.documentElement.lang;
@@ -21,6 +23,9 @@ class Badge implements monaco.editor.IContentWidget {
   private readonly node: HTMLElement;
   private position: monaco.IPosition | null = null;
   private visible = false;
+  private frame = 0;
+  /** The suggestion list the badge belongs to; only its end hides the badge. */
+  owner: object | null = null;
   private readonly subscriptions: monaco.IDisposable[];
 
   constructor(private readonly editor: monaco.editor.ICodeEditor) {
@@ -29,9 +34,22 @@ class Badge implements monaco.editor.IContentWidget {
     this.node.dataset.testid = 'ai-ghost-badge';
     this.node.setAttribute('role', 'note');
     const hide = () => this.hide();
+    // Typing what the suggestion says keeps it on screen (Monaco does not report it as shown again): the badge stays
+    // while grey text is still there, moved to the cursor, and goes with it.
+    const recheck = () => {
+      if (!this.visible) return;
+      if (this.frame) cancelAnimationFrame(this.frame);
+      this.frame = requestAnimationFrame(() => {
+        this.frame = 0;
+        const position = editor.getPosition();
+        if (!this.visible || !position) return;
+        if (editor.getDomNode()?.querySelector(GHOST_TEXT)) this.move(position);
+        else this.hide();
+      });
+    };
     this.subscriptions = [
-      editor.onDidChangeModelContent(hide),
-      editor.onDidChangeCursorPosition(hide),
+      editor.onDidChangeModelContent(recheck),
+      editor.onDidChangeCursorPosition(recheck),
       editor.onDidChangeModel(hide),
       editor.onDidBlurEditorText(hide),
       editor.onKeyDown((event) => {
@@ -54,6 +72,11 @@ class Badge implements monaco.editor.IContentWidget {
     return { position: this.position, preference: [ABOVE, BELOW] };
   }
 
+  private move(position: monaco.IPosition): void {
+    this.position = position;
+    this.editor.layoutContentWidget(this);
+  }
+
   show(position: monaco.IPosition): void {
     const lang = locale();
     this.node.textContent = translate(lang, 'smartEdit.aiBadge');
@@ -67,6 +90,7 @@ class Badge implements monaco.editor.IContentWidget {
   }
 
   hide(): void {
+    this.owner = null;
     if (!this.visible) return;
     this.visible = false;
     this.position = null;
@@ -74,6 +98,7 @@ class Badge implements monaco.editor.IContentWidget {
   }
 
   dispose(): void {
+    if (this.frame) cancelAnimationFrame(this.frame);
     this.hide();
     for (const subscription of this.subscriptions) subscription.dispose();
   }
@@ -93,12 +118,17 @@ export function attachAiBadge(editor: monaco.editor.ICodeEditor): monaco.IDispos
   };
 }
 
-export function showAiBadge(editor: monaco.editor.ICodeEditor, position: monaco.IPosition): void {
+export function showAiBadge(editor: monaco.editor.ICodeEditor, position: monaco.IPosition, owner: object): void {
   // Only while the suggestion still belongs to where the cursor is.
   const now = editor.getPosition();
-  if (now && now.lineNumber === position.lineNumber && now.column === position.column) badges.get(editor)?.show(now);
+  const badge = badges.get(editor);
+  if (!badge || !now || now.lineNumber !== position.lineNumber || now.column !== position.column) return;
+  badge.show(now);
+  badge.owner = owner;
 }
 
-export function hideAiBadge(editor: monaco.editor.ICodeEditor): void {
-  badges.get(editor)?.hide();
+/** The suggestion list `owner` ended; a badge shown for a newer list stays. */
+export function hideAiBadge(editor: monaco.editor.ICodeEditor, owner: object): void {
+  const badge = badges.get(editor);
+  if (badge?.owner === owner) badge.hide();
 }

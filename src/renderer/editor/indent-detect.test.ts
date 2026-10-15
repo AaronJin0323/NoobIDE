@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_INDENT,
+  convertIndentation,
   detectIndentation,
   projectConvention,
   reindentPasted,
@@ -257,5 +258,64 @@ describe('detectIndentation performance', () => {
     }
     times.sort((a, b) => a - b);
     expect(times[3]).toBeLessThan(20);
+  });
+});
+
+describe('reindentPasted safety (S43.2 review)', () => {
+  const spaces2 = { insertSpaces: true, tabSize: 2 };
+  const spaces4 = { insertSpaces: true, tabSize: 4 };
+
+  it.each([
+    ['<pre> content', '<pre>\n\tdef f():\n\t\treturn 1\n</pre>'],
+    ['<textarea> content', '<textarea>\n\tline\n</textarea>'],
+    ['a template literal', 'const html = `\n\t<p>hi</p>\n`;'],
+    ['a block comment', 'f();\n/*\n\tnote\n*/'],
+    ['JSDoc lines', '/**\n * Adds.\n */\nfunction add() {\n\treturn 1;\n}'],
+    ['an HTML comment', '<!--\n\tnote\n-->\n<p>\n\tx\n</p>'],
+  ])('leaves %s alone (whitespace can matter there)', (_name, pasted) => {
+    expect(reindentPasted(pasted, spaces2)).toBeNull();
+  });
+
+  it('does not guess levels of 3-space code', () => {
+    expect(reindentPasted('a {\n   b;\n      c;\n   }\n}', spaces4)).toBeNull();
+  });
+
+  it('converts the first line too when the paste started at column 1', () => {
+    const pasted = '    if (x) {\n        y();\n    }';
+    expect(reindentPasted(pasted, spaces2)).toBe('    if (x) {\n    y();\n  }');
+    expect(reindentPasted(pasted, spaces2, { includeFirstLine: true })).toBe('  if (x) {\n    y();\n  }');
+  });
+});
+
+describe('convertIndentation (S43.2 convert the file)', () => {
+  const apply = (text: string, edits: ReturnType<typeof convertIndentation>) => {
+    const lines = text.split('\n');
+    for (const e of edits) lines[e.line - 1] = e.text + (lines[e.line - 1] ?? '').slice(e.oldLength);
+    return lines.join('\n');
+  };
+  const four = 'a {\n    b {\n        c;\n    }\n\n      d; // aligned\n}';
+
+  it('4 spaces → 2 spaces, level by level, alignment kept', () => {
+    const edits = convertIndentation(four, { insertSpaces: true, tabSize: 4 }, { insertSpaces: true, tabSize: 2 });
+    expect(apply(four, edits)).toBe('a {\n  b {\n    c;\n  }\n\n    d; // aligned\n}');
+  });
+
+  it('spaces → tabs and tabs → spaces', () => {
+    const toTabs = convertIndentation(four, { insertSpaces: true, tabSize: 4 }, { insertSpaces: false, tabSize: 4 });
+    expect(apply(four, toTabs)).toBe('a {\n\tb {\n\t\tc;\n\t}\n\n\t  d; // aligned\n}');
+    const tabbed = 'x {\n\ty;\n\t\tz;\n}';
+    const back = convertIndentation(tabbed, { insertSpaces: false, tabSize: 4 }, { insertSpaces: true, tabSize: 2 });
+    expect(apply(tabbed, back)).toBe('x {\n  y;\n    z;\n}');
+  });
+
+  it('returns only changed lines; blank and unindented lines are untouched', () => {
+    const edits = convertIndentation(four, { insertSpaces: true, tabSize: 4 }, { insertSpaces: true, tabSize: 4 });
+    expect(edits).toEqual([]);
+    const lines = convertIndentation(
+      'a\n\n   \nb',
+      { insertSpaces: true, tabSize: 4 },
+      { insertSpaces: false, tabSize: 4 },
+    );
+    expect(lines).toEqual([]);
   });
 });

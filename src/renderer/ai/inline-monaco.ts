@@ -123,11 +123,11 @@ const provider: monaco.languages.InlineCompletionsProvider = {
     const at = shownAt.get(completions);
     if (!at) return;
     counters.badges += 1;
-    showAiBadge(at.editor, at.position);
+    showAiBadge(at.editor, at.position, completions);
   },
   handleEndOfLifetime(completions) {
     const at = shownAt.get(completions);
-    if (at) hideAiBadge(at.editor);
+    if (at) hideAiBadge(at.editor, completions);
   },
   disposeInlineCompletions() {
     // Nothing is held per list.

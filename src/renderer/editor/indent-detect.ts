@@ -432,23 +432,41 @@ const leadingWhitespace = (line: string): number => {
 const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 
 /**
- * Rewrites only the LEADING whitespace of `pasted` lines into `target` style, preserving relative nesting. The first
- * line's leading whitespace is left as-is (it follows the cursor position). Returns null when nothing would change.
- * Line endings (\r\n or \n) are preserved exactly; non-whitespace characters are never changed.
+ * Text whose whitespace can carry meaning: `<pre>` / `<textarea>` content, template literals (string values), block
+ * and HTML comments (JSDoc's one-space alignment). A paste containing any of them is never re-indented.
  */
-export function reindentPasted(pasted: string, target: IndentStyle): string | null {
+const WHITESPACE_SENSITIVE = /`|<pre[\s>]|<textarea[\s>]|\/\*|<!--|^[ \t]*\*/im;
+
+export interface ReindentOptions {
+  /**
+   * The paste started at column 1, so its first line's indentation belongs to the structure and is converted too.
+   * Otherwise the first line follows the cursor and is left as it is.
+   */
+  readonly includeFirstLine?: boolean;
+}
+
+/**
+ * Rewrites only the LEADING whitespace of `pasted` lines into `target` style, preserving relative nesting. Returns
+ * null when nothing would change or when a change would not be safe: whitespace-sensitive text (above), or a space
+ * indentation whose unit cannot be told (e.g. 3-space code). Line endings (\r\n or \n) are preserved exactly;
+ * non-whitespace characters are never changed.
+ */
+export function reindentPasted(pasted: string, target: IndentStyle, options: ReindentOptions = {}): string | null {
   // Lines at even indexes, their line breaks at odd indexes.
   const parts = pasted.split(/(\r?\n)/);
   if (parts.length < 3) return null;
+  if (WHITESPACE_SENSITIVE.test(pasted)) return null;
+  const first = options.includeFirstLine ? 0 : 2;
 
   // The pasted text's own style, from its non-blank lines after the first.
   let tabLines = 0;
   let spaceLines = 0;
   const deltas = new Int32Array(MAX_DELTA + 1);
   let unitGcd = 0;
+  const spaceIndents: number[] = [];
   let prev = -1;
   let hasDelta = false;
-  for (let p = 2; p < parts.length; p += 2) {
+  for (let p = first; p < parts.length; p += 2) {
     const line = parts[p] ?? '';
     const ws = leadingWhitespace(line);
     if (ws === line.length) continue;
@@ -469,6 +487,7 @@ export function reindentPasted(pasted: string, target: IndentStyle): string | nu
       continue;
     }
     unitGcd = gcd(spaces, unitGcd);
+    spaceIndents.push(spaces);
     if (prev >= 0 && spaces > prev && spaces - prev <= MAX_DELTA) {
       deltas[spaces - prev] = (deltas[spaces - prev] ?? 0) + 1;
       hasDelta = true;
@@ -481,14 +500,17 @@ export function reindentPasted(pasted: string, target: IndentStyle): string | nu
   let unit = 1;
   if (!sourceTabs) {
     unit = hasDelta ? pickWidth(deltas, 0, 0) : unitGcd;
-    if (unit <= 0) return null;
+    // Nearly every space indentation must be whole levels of the unit (a few alignment lines are fine); otherwise
+    // the levels would be a guess, e.g. 3-space code read as 2.
+    const whole = spaceIndents.filter((spaces) => spaces % unit === 0).length;
+    if (unit < 2 || whole < spaceIndents.length * 0.8) return null;
   }
   if (sourceTabs && !target.insertSpaces) return null;
   if (!sourceTabs && target.insertSpaces && unit === target.tabSize) return null;
 
   const targetUnit = target.insertSpaces ? ' '.repeat(Math.max(1, target.tabSize)) : '\t';
   const out = parts.slice();
-  for (let p = 2; p < parts.length; p += 2) {
+  for (let p = first; p < parts.length; p += 2) {
     const line = parts[p] ?? '';
     const ws = leadingWhitespace(line);
     if (ws === 0 || ws === line.length) continue;
@@ -510,4 +532,34 @@ export function reindentPasted(pasted: string, target: IndentStyle): string | nu
   }
   const result = out.join('');
   return result === pasted ? null : result;
+}
+
+/** One line's new leading whitespace (1-based line, length of the whitespace it replaces). */
+export interface IndentEdit {
+  readonly line: number;
+  readonly oldLength: number;
+  readonly text: string;
+}
+
+/**
+ * "Convert the whole file" (S43.2): rewrites every line's leading whitespace from the file's style `from` into `to`,
+ * level by level (4 spaces → 2 spaces, tabs → spaces, spaces → tabs). Alignment that is not a whole level stays as
+ * spaces. Returns only the lines that change, so the edit touches nothing else; blank lines are left alone.
+ */
+export function convertIndentation(text: string, from: IndentStyle, to: IndentStyle): IndentEdit[] {
+  const fromUnit = Math.max(1, from.tabSize);
+  const toUnit = to.insertSpaces ? ' '.repeat(Math.max(1, to.tabSize)) : '\t';
+  const edits: IndentEdit[] = [];
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    const ws = leadingWhitespace(line);
+    if (ws === 0 || ws === line.length) continue;
+    let cols = 0;
+    for (let j = 0; j < ws; j++) cols += line.charCodeAt(j) === TAB ? fromUnit : 1;
+    const levels = Math.floor(cols / fromUnit);
+    const next = toUnit.repeat(levels) + ' '.repeat(cols % fromUnit);
+    if (next !== line.slice(0, ws)) edits.push({ line: i + 1, oldLength: ws, text: next });
+  }
+  return edits;
 }

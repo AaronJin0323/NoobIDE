@@ -11,16 +11,24 @@
  */
 import { monaco } from './monaco-setup';
 import { DEFAULT_LOCALE, isLocale, translate, type MessageKey } from '../i18n/index';
-import { detectIndentation, reindentPasted, resolveIndentation, type IndentGuess } from './indent-detect';
+import {
+  convertIndentation,
+  detectIndentation,
+  reindentPasted,
+  resolveIndentation,
+  type IndentGuess,
+} from './indent-detect';
 import { indentOverride, publishIndent, registerIndentCommands } from './indent-state';
-import { completionContextAt, type CompletionContext } from './completion-context';
+import { completionContextAt, htmlRegionAt, type CompletionContext } from './completion-context';
 import { suggestPaths } from './path-suggest';
-import { indexedLanguage, symbolsOf, type ProjectIndex, type SymbolTable } from './project-index';
+import { MAX_INDEXED_CHARS, indexedLanguage, symbolsOf, type ProjectIndex, type SymbolTable } from './project-index';
 import type { FileSymbols } from './project-symbols';
 
 const LANGUAGES = ['html', 'css', 'javascript'] as const;
 /** Text before the cursor the context engine looks at. */
 const CONTEXT_WINDOW = 2_000;
+/** Text before the cursor scanned to tell whether the cursor of an HTML page is inside `<script>` or `<style>`. */
+const REGION_WINDOW = 64 * 1024;
 /** Re-detection of a file whose indentation had too little evidence waits for a pause in typing. */
 const REDETECT_DELAY_MS = 800;
 
@@ -39,7 +47,9 @@ const projectListeners = new Set<() => void>();
 
 /** The open project's index and root folder (absolute OS path), or null when no project is open. */
 export function setSmartProject(next: { index: ProjectIndex; rootPath: string } | null): void {
-  project = next ? { index: next.index, root: normalPath(monaco.Uri.file(next.rootPath).path) } : null;
+  // Kept with a trailing slash (a drive root such as D:\ already has one).
+  const root = next ? normalPath(monaco.Uri.file(next.rootPath).path) : '';
+  project = next ? { index: next.index, root: root.endsWith('/') ? root : `${root}/` } : null;
   for (const listener of projectListeners) listener();
 }
 
@@ -47,7 +57,8 @@ const liveSymbolCache = new WeakMap<monaco.editor.ITextModel, { version: number;
 
 function liveSymbols(model: monaco.editor.ITextModel, relPath: string): FileSymbols | null {
   const language = indexedLanguage(relPath);
-  if (!language) return null;
+  // Scripts define no ids or classes; a very large file keeps its indexed (disk) names instead of a scan per key.
+  if ((language !== 'html' && language !== 'css') || model.getValueLength() > MAX_INDEXED_CHARS) return null;
   const cached = liveSymbolCache.get(model);
   if (cached && cached.version === model.getVersionId()) return cached.symbols;
   const symbols = symbolsOf(language, model.getValue());
@@ -72,8 +83,8 @@ function scopeOf(model: monaco.editor.ITextModel): Scope {
   const path = normalPath(model.uri.path);
   const fileModels = () => monaco.editor.getModels().filter((m) => m.uri.scheme === model.uri.scheme);
   const current = project;
-  if (current && model.uri.scheme === 'file' && path.startsWith(`${current.root}/`)) {
-    const prefix = `${current.root}/`;
+  if (current && model.uri.scheme === 'file' && path.startsWith(current.root)) {
+    const prefix = current.root;
     return {
       relPath: path.slice(prefix.length),
       files: () => current.index.files(),
@@ -123,8 +134,16 @@ function scopeOf(model: monaco.editor.ITextModel): Scope {
 /** Sorts NoobIDE's items before the generic DOM / CSS names when the context asks for project names. */
 const FIRST = '!0';
 const MAX_SNIPPET_CHOICES = 8;
+/** A CSS identifier that needs no escaping (Chinese names included); also safe inside a snippet choice list. */
+const CSS_IDENT = /^-?[A-Za-z_\u0080-￿][\w\u0080-￿-]*$/;
 
 const timings: number[] = [];
+/** What happened to the last pastes (e2e diagnostics: outcome codes only, never text). */
+const pasteOutcomes: string[] = [];
+function pasteOutcome(outcome: string): void {
+  if (pasteOutcomes.length >= 50) pasteOutcomes.shift();
+  pasteOutcomes.push(outcome);
+}
 
 function nameItems(
   names: ReadonlyMap<string, readonly string[]>,
@@ -136,6 +155,8 @@ function nameItems(
 ): monaco.languages.CompletionItem[] {
   const items: monaco.languages.CompletionItem[] = [];
   for (const [name, files] of names) {
+    // Only names that work unescaped in a selector (`#1` or `.md:flex` would be a broken selector).
+    if (!CSS_IDENT.test(name)) continue;
     const text = insert(name);
     // Names defined in the current file come first (e.g. href="#…" links inside the page).
     const own = files.includes(ownFile) ? '0' : '1';
@@ -198,7 +219,7 @@ function contextItems(
 
 /** Snippet choice list `${n|a,b|}` of real names, or a plain placeholder when there are none. */
 function choice(n: number, names: readonly string[]): string {
-  const safe = names.filter((name) => /^[\w#.-]+$/.test(name)).slice(0, MAX_SNIPPET_CHOICES);
+  const safe = names.filter((name) => CSS_IDENT.test(name.replace(/^[#.]/, ''))).slice(0, MAX_SNIPPET_CHOICES);
   return safe.length ? `\${${n}|${safe.join(',')}|}` : `\${${n}}`;
 }
 
@@ -240,11 +261,26 @@ function atStatementStart(before: string, word: string): boolean {
   return /\n[ \t]*$/.test(rest) && !/[.=(,[+\-*/&|?:!<>]$/.test(trimmed);
 }
 
-function jsRegion(languageId: string, before: string): boolean {
-  if (languageId === 'javascript') return true;
-  if (languageId !== 'html') return false;
-  const open = before.lastIndexOf('<script');
-  return open >= 0 && before.lastIndexOf('</script') < open && before.indexOf('>', open) >= 0;
+/**
+ * The language at the cursor and the text before it that the context engine reads. In an HTML page the region is
+ * decided over a long window (a `<script>` may start far above the cursor), and inside `<script>` / `<style>` only the
+ * block's own text is passed on, as JavaScript / CSS.
+ */
+function textBefore(model: monaco.editor.ITextModel, position: monaco.Position): { language: string; before: string } {
+  const offset = model.getOffsetAt(position);
+  const read = (chars: number) =>
+    model.getValueInRange(
+      monaco.Range.fromPositions(model.getPositionAt(Math.max(0, offset - chars)), position),
+      monaco.editor.EndOfLinePreference.LF,
+    );
+  const languageId = model.getLanguageId();
+  if (languageId !== 'html') return { language: languageId, before: read(CONTEXT_WINDOW) };
+  const long = read(REGION_WINDOW);
+  const region = htmlRegionAt(long, long.length);
+  if (region === 'markup') return { language: 'html', before: long.slice(-CONTEXT_WINDOW) };
+  const open = long.lastIndexOf(region === 'script' ? '<script' : '<style');
+  const body = long.slice(long.indexOf('>', open) + 1);
+  return { language: region === 'script' ? 'javascript' : 'css', before: body.slice(-CONTEXT_WINDOW) };
 }
 
 const provider: monaco.languages.CompletionItemProvider = {
@@ -252,14 +288,8 @@ const provider: monaco.languages.CompletionItemProvider = {
   provideCompletionItems(model, position) {
     const started = performance.now();
     try {
-      const offset = model.getOffsetAt(position);
-      const from = model.getPositionAt(Math.max(0, offset - CONTEXT_WINDOW));
-      const before = model.getValueInRange(
-        monaco.Range.fromPositions(from, position),
-        monaco.editor.EndOfLinePreference.LF,
-      );
-      const languageId = model.getLanguageId();
-      const context = completionContextAt(languageId, before);
+      const { language, before } = textBefore(model, position);
+      const context = completionContextAt(language, before);
       if (context) {
         const range = new monaco.Range(
           position.lineNumber,
@@ -270,7 +300,7 @@ const provider: monaco.languages.CompletionItemProvider = {
         return { suggestions: contextItems(context, scopeOf(model), range) };
       }
       const word = /[A-Za-z_$][\w$.]*$/.exec(before)?.[0] ?? '';
-      if (!word || word.includes('.') || !jsRegion(languageId, before) || !atStatementStart(before, word)) {
+      if (!word || word.includes('.') || language !== 'javascript' || !atStatementStart(before, word)) {
         return { suggestions: [] };
       }
       const range = new monaco.Range(
@@ -349,11 +379,21 @@ export function attachSmartEditing(editor: monaco.editor.ICodeEditor): monaco.ID
     convert: (uri) => {
       const model = shown();
       if (!model || model.uri.toString() !== uri) return;
-      const id = model.getOptions().insertSpaces
-        ? 'editor.action.indentationToSpaces'
-        : 'editor.action.indentationToTabs';
+      // From the style the file is written in (its own guess; the current style when it has no evidence) to the
+      // style now chosen — level by level, so 4 → 2 spaces converts too (Monaco's actions only swap tabs/spaces).
+      const { insertSpaces, tabSize } = model.getOptions();
+      const guess = guessOf(model);
+      const from = guess.confidence === 'none' ? { insertSpaces, tabSize } : guess;
+      const edits = convertIndentation(model.getValue(), from, { insertSpaces, tabSize });
+      if (edits.length === 0) return;
+      model.pushStackElement();
+      editor.executeEdits(
+        'noobide-indent',
+        edits.map((e) => ({ range: new monaco.Range(e.line, 1, e.line, e.oldLength + 1), text: e.text })),
+      );
+      model.pushStackElement();
+      guesses.delete(model);
       editor.focus();
-      void editor.getAction(id)?.run();
     },
   });
   let unsubscribeIndex: (() => void) | null = null;
@@ -364,7 +404,16 @@ export function attachSmartEditing(editor: monaco.editor.ICodeEditor): monaco.ID
   };
   projectListeners.add(watchIndex);
   watchIndex();
+  // The clipboard text of the latest paste, read while the DOM paste event is dispatched (the only moment it is
+  // readable); Monaco's onDidPaste comes after it. Window-level, because Monaco's input element is not always below
+  // the editor's own DOM node when the event is dispatched.
+  let lastClipboardText: string | undefined;
+  const onDomPaste = (event: ClipboardEvent) => {
+    lastClipboardText = event.clipboardData?.getData('text/plain');
+  };
+  window.addEventListener('paste', onDomPaste, true);
   const subscriptions = [
+    { dispose: () => window.removeEventListener('paste', onDomPaste, true) },
     editor.onDidChangeModel(() => {
       clearTimeout(redetect);
       apply();
@@ -389,15 +438,28 @@ export function attachSmartEditing(editor: monaco.editor.ICodeEditor): monaco.ID
     }),
     editor.onDidPaste((event) => {
       const model = shown();
-      if (!model || event.range.isEmpty()) return;
-      const { insertSpaces, tabSize } = model.getOptions();
+      if (!model || event.range.isEmpty()) return pasteOutcome('empty');
+      // One cursor only: with several, Monaco reports one range that can cover the user's own lines.
+      if ((editor.getSelections()?.length ?? 0) !== 1) return pasteOutcome('multi-cursor');
       const pasted = model.getValueInRange(event.range);
-      const fixed = reindentPasted(pasted, { insertSpaces, tabSize });
-      if (fixed === null || fixed === pasted) return;
+      // The reported range must be exactly the pasted text. A whole-line paste (copied with nothing selected) goes
+      // above the cursor line and is reported as another range; a paste without clipboard data is left alone too.
+      const clip = lastClipboardText;
+      const lf = (text: string) => text.replace(/\r\n/g, '\n');
+      if (clip === undefined) return pasteOutcome('no-clipboard');
+      if (lf(clip) !== lf(pasted)) return pasteOutcome('range-mismatch');
+      const { insertSpaces, tabSize } = model.getOptions();
+      const fixed = reindentPasted(
+        pasted,
+        { insertSpaces, tabSize },
+        { includeFirstLine: event.range.startColumn === 1 },
+      );
+      if (fixed === null || fixed === pasted) return pasteOutcome('unchanged');
       // Its own undo step after the paste (Ctrl+Z first brings the pasted text back as it was).
       model.pushStackElement();
       editor.executeEdits('noobide-indent', [{ range: event.range, text: fixed }]);
       model.pushStackElement();
+      pasteOutcome('reindented');
     }),
   ];
   return {
@@ -415,6 +477,7 @@ export function attachSmartEditing(editor: monaco.editor.ICodeEditor): monaco.ID
 /** Read-only facts for the e2e suite: indentation options of the shown model and completion timings (numbers only). */
 const smartTestHooks = {
   completionTimings: () => [...timings],
+  pasteOutcomes: () => [...pasteOutcomes],
   modelIndent: (uri: string) => {
     const model = monaco.editor.getModels().find((m) => m.uri.toString() === monaco.Uri.parse(uri).toString());
     if (!model) return null;

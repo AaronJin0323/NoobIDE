@@ -37,8 +37,19 @@ Subagents: indentation engine + fixtures, completion-context/symbols/paths engin
   provider's `handleItemDidShow` / `handleEndOfLifetime` (`ai/inline-badge-monaco.ts`); hidden on Esc, typing,
   cursor move, blur. AI default unchanged (on once AI is set up, decision 0025).
 
-**Evidence:** verify green; e2e on Windows x64: `smart-editing.spec.ts` 11/11, and with ai-inline, language
-(packaged offline), tabs, problems, problem-card, offline, editing, a11y, smoke, external-change: 91/91.
+- Review (independent subagent) found 10 real defects, all fixed (new unit/e2e tests for paste, convert and folder
+  events; the other fixes are covered only by the existing suites): a whole-line paste rewrote the user's
+  own line (Monaco reports the paste range from the old cursor) → re-indent only when the range equals the clipboard
+  text (captured from the window paste event; `onDidPaste` carries no readable data) and with one cursor; pastes with
+  `<pre>`/`<textarea>`/template literals/comments and unclear space units are left alone; first line included at
+  column 1; "convert" now changes widths (`convertIndentation`); folder create/delete/rename and `rescan` update the
+  index; only valid CSS identifiers are suggested; long inline `<script>` keeps suggestions (64 KB region scan); the
+  AI badge belongs to its suggestion list and stays while ghost text is still on screen; live models are scanned only
+  for HTML/CSS ≤ 256 KB; drive-root projects work.
+
+**Evidence:** verify green (2 412 tests); e2e on Windows x64: `smart-editing.spec.ts` 13/13, and with ai-inline,
+language (packaged offline), tabs, problems, problem-card, offline, editing, a11y, smoke, external-change: 93/93. Full e2e suite (`npm run test:e2e`): 284 passed, 4 skipped (pre-existing), after adding the new
+indentation button to `shell.spec` S30.3's control inventory (its only failure).
 
 **Decisions / problems**
 

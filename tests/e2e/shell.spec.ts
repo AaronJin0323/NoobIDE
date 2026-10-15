@@ -130,6 +130,7 @@ test('placeholder states are honest and every control works (S30.3)', async () =
     'zoom-out',
     'zoom-reset',
     'zoom-in',
+    'indent-status', // S43.2: the file's indentation; opens the indentation menu (tests/e2e/smart-editing.spec.ts)
     '收起问题面板',
     'problems-toggle',
   ]);

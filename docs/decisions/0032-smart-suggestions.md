@@ -62,12 +62,18 @@ shown and again after the project convention changes; Monaco's built-in `detectI
 two never disagree. Enter, auto-closing pairs and tags, Tab / Shift+Tab and formatting all read the model's options.
 Paste: after a paste, the leading whitespace of the pasted lines is rewritten into the file's style when the pasted text
 uses the other style (`reindentPasted`, pure, whitespace-only — it never changes anything but leading whitespace);
-this is a separate undo step after the paste, as format-on-paste is in other editors.
+this is a separate undo step after the paste, as format-on-paste is in other editors. It runs only when it is safe
+(review of 2026-10-16): one cursor; the range Monaco reports is exactly the clipboard text (read from the DOM paste
+event), so a whole-line paste that lands above the cursor never touches the user's own line; the text has no
+whitespace-sensitive part (`<pre>`, `<textarea>`, template literals, block / HTML comments); and its space unit is
+clear (≥ 80 % of its space-indented lines are whole levels, so 3-space code is left alone). The first line is converted
+too when the paste starts at column 1.
 
 **Status bar and override.** An item next to the cursor position names the style ("空格：2" / "Spaces: 2", "Tab 宽度：4" /
 "Tab size: 4") and its source as text, not colour. It is a button: it opens a keyboard-navigable menu with Spaces 2,
-Spaces 4, Tabs 2, Tabs 4, "Detect again" and "Convert the file's indentation", which runs Monaco's
-indentation-to-spaces/tabs action as one undoable edit. An override lasts for the file until the app closes (kept in the
+Spaces 4, Tabs 2, Tabs 4, "Detect again" and "Convert the file's indentation", which rewrites every line's leading whitespace level by level
+from the style the file is written in to the chosen one (`convertIndentation`; Monaco's own actions only swap tabs and
+spaces, so 4 → 2 spaces would do nothing) as one undoable edit. An override lasts for the file until the app closes (kept in the
 renderer, keyed by file URI). Persisting a project-wide choice in `.noobide/project.json` is a candidate for later; it is
 not built now because it needs a project.json schema change.
 
@@ -76,7 +82,9 @@ not built now because it needs a project.json schema change.
 A **project index** (`src/renderer/editor/project-index.ts`, Monaco-free, host injected like `ProjectScripts`) reads the
 project's `.html` / `.htm` / `.css` files (≤ 200 files, ≤ 256 KB each) and keeps, per file, the ids and classes it
 defines (`id="…"`, `class="…"` in HTML; `#id` / `.class` selectors in CSS, including CSS in `<style>` blocks) and its
-indentation guess. Open editor models win over the disk copy. It updates on watcher events and model changes. Texts stay
+indentation guess. Open editor models win over the disk copy. It updates on watcher events and model changes; a folder event stands for everything below it
+(a created folder is listed through `workspace.listDir`, a deleted or renamed one takes its files along) and `rescan`
+re-lists the project. Texts stay
 in memory only; nothing is logged.
 
 **Pure context engine** `src/renderer/editor/completion-context.ts`: given the language, the text before the cursor
@@ -98,6 +106,10 @@ scope** (variables, functions, other scripts) stay the TypeScript service's job 
 **Beginner patterns.** A handful of snippets in JS (and HTML `<script>`): "listen for a click", "change the text",
 "show / hide an element", "toggle a class", each using a real project id/class as the first placeholder choice when one
 exists. Their labels and descriptions are localised (zh-CN default, en).
+
+Only names that are valid unescaped CSS identifiers are offered (Chinese names included), so an id like `1` or a class
+like `md:flex` never produces a broken selector. In an HTML page the `<script>` / `<style>` region is decided over the
+64 KB before the cursor, so a long inline script keeps its suggestions.
 
 **Labels.** Every NoobIDE item names where it came from in the suggestion's description: "index.html" for an id or
 class, "项目文件 / project file" for a path, "NoobIDE 片段 / NoobIDE snippet" for a snippet. They are sorted before the
