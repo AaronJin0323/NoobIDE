@@ -145,6 +145,13 @@ export type AiRequest =
       readonly before: string;
       readonly after: string;
       readonly locale: 'zh-CN' | 'en';
+      /**
+       * S42 (decision 0031): 'generate' = an inline `/ai` prompt. `selection` is empty, the instruction is the prompt,
+       * and the answer is new code that replaces the prompt line. Absent = rewrite the selection (S35).
+       */
+      readonly mode?: 'generate';
+      /** S42: the file's current problems nearest the edited place (data, framed like context). */
+      readonly problems?: readonly AiEditProblem[];
     }
   | {
       readonly kind: 'agent';
@@ -154,6 +161,16 @@ export type AiRequest =
       readonly context: readonly AiContextItem[];
       readonly locale: 'zh-CN' | 'en';
     };
+
+/** S42: one problem of the edited file sent with an `/ai` prompt (message bounded; never file contents). */
+export interface AiEditProblem {
+  /** 1-based line in the file, when known. */
+  readonly line?: number;
+  readonly severity: 'error' | 'warning' | 'info';
+  readonly source: 'static' | 'runtime' | 'resource' | 'console';
+  readonly code: string;
+  readonly message: string;
+}
 
 /** One file change the agent proposes; applied only after the user accepts it. */
 export type AiFileChange =

@@ -47,22 +47,26 @@ export function fixLinesOf(lineCount: number, line: number, around = FIX_LINES_A
 const splitKeep = (text: string): string[] => text.split(/(?<=\n)/);
 
 /**
- * Context around the range: at most EDIT_CONTEXT_LINES lines and EDIT_CONTEXT_CHARS characters on each side, the
- * lines nearest to the range kept first.
+ * Context around the range: at most EDIT_CONTEXT_LINES lines and EDIT_CONTEXT_CHARS characters on each side (S42:
+ * other limits for an `/ai` prompt), the lines nearest to the range kept first.
  */
-export function editContext(fullText: string, range: LineRange): { readonly before: string; readonly after: string } {
+export function editContext(
+  fullText: string,
+  range: LineRange,
+  limits: { readonly lines: number; readonly chars: number } = { lines: EDIT_CONTEXT_LINES, chars: EDIT_CONTEXT_CHARS },
+): { readonly before: string; readonly after: string } {
   const lines = splitKeep(fullText);
-  const beforeLines = lines.slice(Math.max(0, range.startLine - 1 - EDIT_CONTEXT_LINES), range.startLine - 1);
-  const afterLines = lines.slice(range.endLine, range.endLine + EDIT_CONTEXT_LINES);
+  const beforeLines = lines.slice(Math.max(0, range.startLine - 1 - limits.lines), range.startLine - 1);
+  const afterLines = lines.slice(range.endLine, range.endLine + limits.lines);
   let before = '';
   for (let i = beforeLines.length - 1; i >= 0; i -= 1) {
     const line = beforeLines[i] ?? '';
-    if (before.length + line.length > EDIT_CONTEXT_CHARS) break;
+    if (before.length + line.length > limits.chars) break;
     before = line + before;
   }
   let after = '';
   for (const line of afterLines) {
-    if (after.length + line.length > EDIT_CONTEXT_CHARS) break;
+    if (after.length + line.length > limits.chars) break;
     after += line;
   }
   return { before: before.replace(/\r?\n$/, ''), after: after.replace(/\r?\n$/, '') };

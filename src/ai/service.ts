@@ -636,7 +636,7 @@ export class AiService {
           throw new ProviderError('context-too-large', 'selection is too large');
         }
         return {
-          system: editSystemPrompt(request.locale),
+          system: editSystemPrompt(request.locale, request.mode),
           messages: [{ role: 'user', text: editUserMessage(request) }],
         };
       }
