@@ -1,6 +1,6 @@
 import { createServer, connect as netConnect, isIP, type Server, type Socket } from 'node:net';
 import type { AddressInfo } from 'node:net';
-import { isPublicAddress, normalizeIp } from './address-policy';
+import { embeddedIpv4, inNetwork, isPublicAddress, normalizeIp } from './address-policy';
 
 /**
  * The preview session's only way onto the network (S05.5, docs/decisions/0015): a SOCKS5 proxy on 127.0.0.1 that
@@ -30,6 +30,8 @@ export interface PreviewProxyOptions {
   resolve(host: string): Promise<readonly string[]>;
   /** Addresses of this machine's interfaces (refused even when public). */
   localAddresses?(): readonly string[];
+  /** Networks this machine is attached to, as CIDR (refused even when public: IPv6 LANs use global addresses). */
+  localNetworks?(): readonly string[];
   onBlocked?(target: { readonly host: string; readonly port: number }): void;
   /** Test hook: how to open the upstream connection to a checked address. */
   readonly connect?: ((ip: string, port: number) => Socket) | undefined;
@@ -73,6 +75,8 @@ export class PreviewProxy {
       server.once('error', reject);
       server.listen({ host: '127.0.0.1', port: 0, exclusive: true }, () => {
         server.off('error', reject);
+        // Accept failures (EMFILE…) are emitted on the server; without a listener they would crash main.
+        server.on('error', () => undefined);
         resolve();
       });
     });
@@ -113,8 +117,12 @@ export class PreviewProxy {
 
   private isAllowedAddress(ip: string): boolean {
     if (!isPublicAddress(ip)) return false;
-    const own = (this.options.localAddresses?.() ?? []).map((a) => normalizeIp(a));
-    return !own.includes(ip);
+    // Judge IPv4-mapped / NAT64 / 6to4 forms by the IPv4 address they reach as well.
+    const forms = [ip, embeddedIpv4(ip)].filter((f): f is string => f !== null);
+    const own = new Set((this.options.localAddresses?.() ?? []).map((a) => normalizeIp(a)));
+    if (forms.some((f) => own.has(normalizeIp(f)))) return false;
+    const networks = this.options.localNetworks?.() ?? [];
+    return !forms.some((f) => networks.some((net) => inNetwork(f, net)));
   }
 
   private accept(socket: Socket): void {

@@ -263,6 +263,32 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   console.log(`worker console flood: ${workerStall.count} calls in 3 s; longest main stall ${workerStall.max} ms`);
   expect(workerStall.count).toBeGreaterThan(10_000);
   expect(workerStall.max).toBeLessThan(200);
+  expect((await previewInfo(app)).pageGuarded).toBe(true);
+
+  // Known residual (decision 0016): a page that saved a native console method before exceeding the limit bypasses
+  // it; only main's flood guard is left. Measured and logged here, bounded loosely against regressions.
+  const bypassStall = await app.evaluate(
+    async ({ webContents }, id) => {
+      let last = performance.now();
+      let max = 0;
+      const timer = setInterval(() => {
+        const now = performance.now();
+        max = Math.max(max, now - last - 10);
+        last = now;
+      }, 10);
+      await webContents
+        .fromId(id)
+        ?.executeJavaScript(
+          `(() => { const log = console.log; const end = Date.now() + 2000; let i = 0; while (Date.now() < end) { log('缓存的引用 ' + i); i += 1; } return i; })()`,
+        );
+      await new Promise((r) => setTimeout(r, 3_000));
+      clearInterval(timer);
+      return Math.round(max);
+    },
+    (await previewInfo(app)).previewWebContentsId ?? -1,
+  );
+  console.log(`cached console.log reference (limiter bypassed) for 2 s: longest main stall ${bypassStall} ms`);
+  expect(bypassStall).toBeLessThan(15_000);
   await page.getByTestId('preview-stop').click();
   await waitForPreviewState(page, 'stopped');
 });

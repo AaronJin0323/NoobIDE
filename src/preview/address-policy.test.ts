@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPublicAddress, normalizeIp } from './address-policy';
+import { embeddedIpv4, inNetwork, isPublicAddress, normalizeIp } from './address-policy';
 
 describe('preview address policy (S05.5, decision 0015)', () => {
   it.each([
@@ -76,5 +76,23 @@ describe('preview address policy (S05.5, decision 0015)', () => {
     expect(normalizeIp('127.0.0.1')).toBe('127.0.0.1');
     expect(normalizeIp('FE80::1%en0')).toBe('fe80:0:0:0:0:0:0:1');
     expect(normalizeIp('example.com')).toBeNull();
+  });
+
+  it('finds the IPv4 address inside mapped, NAT64 and 6to4 forms', () => {
+    expect(embeddedIpv4('::ffff:81.2.69.160')).toBe('81.2.69.160');
+    expect(embeddedIpv4('::ffff:5102:45a0')).toBe('81.2.69.160');
+    expect(embeddedIpv4('64:ff9b::5102:45a0')).toBe('81.2.69.160');
+    expect(embeddedIpv4('2002:5102:45a0::1')).toBe('81.2.69.160');
+    expect(embeddedIpv4('2606:4700::1')).toBeNull();
+    expect(embeddedIpv4('81.2.69.160')).toBeNull();
+  });
+
+  it('matches addresses against interface networks', () => {
+    expect(inNetwork('192.168.1.20', '192.168.1.5/24')).toBe(true);
+    expect(inNetwork('192.168.2.20', '192.168.1.5/24')).toBe(false);
+    expect(inNetwork('2a02:1810:1234:5600::20', '2a02:1810:1234:5600:abcd::1/64')).toBe(true);
+    expect(inNetwork('2a02:1810:1234:5601::20', '2a02:1810:1234:5600::/64')).toBe(false);
+    expect(inNetwork('192.168.1.20', '2a02::/16')).toBe(false);
+    expect(inNetwork('192.168.1.20', 'garbage')).toBe(false);
   });
 });

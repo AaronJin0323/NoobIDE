@@ -33,8 +33,10 @@ problem cards depend on them), the user's DevTools must keep working.
   unchanged (S05.4 e2e still passes; the flood e2e checks `index.html:18`). Methods assigned by the page (logging
   libraries) are kept and limited the same way. Silent methods (`time`, `groupEnd`, …) are untouched.
 - Suppressed messages are summarised once per window with one `console.warn` whose source is
-  `noobide-preview://page-guard.js` and whose text starts with `NoobIDE: <n> console messages were not shown`. Main
-  (`preview-manager.ts`) recognises it by source and text, does not show it as a message and adds `n` to the
+  `noobide-preview://page-guard.js` and whose text starts with `NoobIDE: <n> console messages were not shown` and
+  ends with a random per-preview nonce (`[<hex>]`, kept in the guard's closure; the accessors' source text does not
+  contain it, so a page cannot forge summaries). Main (`preview-manager.ts`) recognises it by source, text and
+  nonce, ignores implausible counts (> 10⁹), does not show it as a message and adds `n` to the
   workbench's "N messages dropped" count (`LogBuffer.addDropped`), which is localised there.
 - Installation (`installPageGuard` in preview-manager.ts): the fresh view first loads `about:blank` (on a view that
   never navigated, protocol commands never answer — the 0010 spike's hang), then `webContents.debugger.attach`,
@@ -65,8 +67,14 @@ problem cards depend on them), the user's DevTools must keep working.
   16–23 ms (was 8–9 s), a 3 s flood from a dedicated worker 16 ms, 20/20 keystrokes land with ≤ 1 ms latency, workbench timer lag ≤ 4 ms, and the console shows
   ≤ 200 lines plus "N messages dropped". S05.3's "IDE input stays responsive" is therefore met.
 - Limits (documented, adversarial only): a page that stores a reference to a native console method while under the
-  limit (`const log = console.log`) can call it without limit; shared workers are not auto-attached from the page
-  (service workers are refused, 0015). Main's flood guard still bounds what reaches the workbench,
-  but a deliberately bypassing page can stall main as before 0016; Stop always works.
-- An object logged with `console.log` is counted once per method read, not per argument.
+  limit (`const log = console.log`, or a logging library that binds console methods at load time) can call it
+  without limit; shared workers are not auto-attached from the page (service workers are refused, 0015). Main's
+  flood guard still bounds what reaches the workbench, but such a page stalls main as before 0016 — measured in the
+  flood e2e: a 2 s loop through a cached `console.log` stalls main for ~2.1 s (logged, not asserted below 200 ms);
+  Stop always works. A main-side remedy would have to stop such a page (preview lifecycle, S14) — not done here.
+- The limiter counts property reads, not calls: `typeof console.log` or spreading `console` counts too. Above the
+  limit the read returns the no-op, so a library that binds `console.x` at that moment keeps a no-op, and
+  `console.log === saved` is false above the limit.
+- If installing the guard fails or times out (5 s), the preview still starts; `debugInfo().pageGuarded` is false
+  (the flood e2e asserts it is true).
 - Windows x64: run the same e2e on the dev machine (harness/MANUAL-CHECKS.md#S05.5-windows).

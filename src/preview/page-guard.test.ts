@@ -1,6 +1,8 @@
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { CONSOLE_LIMIT, LIMITER_SOURCE_URL, PAGE_GUARD_SOURCE, parseLimiterSummary } from './page-guard';
+import { CONSOLE_LIMIT, LIMITER_SOURCE_URL, pageGuardSource, parseLimiterSummary } from './page-guard';
+
+const NONCE = '0123456789abcdef';
 
 /** Runs the page guard in a fresh realm with a fake console and clock, like a new preview document. */
 function realm() {
@@ -35,7 +37,7 @@ function realm() {
   };
   context.globalThis = context;
   runInNewContext(
-    `Date.now = () => globalThis.__now(); ${PAGE_GUARD_SOURCE}`,
+    `Date.now = () => globalThis.__now(); ${pageGuardSource(NONCE)}`,
     Object.assign(context, { __now: () => now }),
   );
   return {
@@ -69,7 +71,7 @@ describe('page guard: console rate limit (S05.7, decision 0016)', () => {
     r.console.log('next window');
     const warn = r.printed.find((p) => p.method === 'warn');
     expect(warn?.args[0]).toMatch(/^NoobIDE: 250 console messages were not shown/);
-    expect(parseLimiterSummary(String(warn?.args[0]), LIMITER_SOURCE_URL)).toBe(250);
+    expect(parseLimiterSummary(String(warn?.args[0]), LIMITER_SOURCE_URL, NONCE)).toBe(250);
     expect(r.printed.at(-1)).toEqual({ method: 'log', args: ['next window'] });
   });
 
@@ -104,11 +106,22 @@ describe('page guard: console rate limit (S05.7, decision 0016)', () => {
     expect(r.printed).toEqual([{ method: 'info', args: ['alert:', '你好'] }]);
   });
 
-  it('recognises only summaries from the guard itself', () => {
-    expect(parseLimiterSummary('NoobIDE: 12 console messages were not shown (x)', LIMITER_SOURCE_URL)).toBe(12);
-    expect(
-      parseLimiterSummary('NoobIDE: 12 console messages were not shown (x)', 'http://127.0.0.1:1/a.js'),
-    ).toBeNull();
-    expect(parseLimiterSummary('hello', LIMITER_SOURCE_URL)).toBeNull();
+  it('recognises only genuine summaries of this preview (source, nonce, plausible count)', () => {
+    const msg = (n: string, nonce = NONCE) => `NoobIDE: ${n} console messages were not shown (x). [${nonce}]`;
+    expect(parseLimiterSummary(msg('12'), LIMITER_SOURCE_URL, NONCE)).toBe(12);
+    expect(parseLimiterSummary(msg('12'), 'http://127.0.0.1:1/a.js', NONCE)).toBeNull();
+    // A page that fakes the source URL does not know the nonce.
+    expect(parseLimiterSummary(msg('12', 'ffffffffffffffff'), LIMITER_SOURCE_URL, NONCE)).toBeNull();
+    expect(parseLimiterSummary(msg('12').replace(/ \[.*\]$/, ''), LIMITER_SOURCE_URL, NONCE)).toBeNull();
+    expect(parseLimiterSummary(msg('999999999999999'), LIMITER_SOURCE_URL, NONCE)).toBeNull();
+    expect(parseLimiterSummary(msg('0'), LIMITER_SOURCE_URL, NONCE)).toBeNull();
+    expect(parseLimiterSummary('hello', LIMITER_SOURCE_URL, NONCE)).toBeNull();
+  });
+
+  it('does not reveal the nonce through the accessors it installs', () => {
+    const r = realm();
+    const get = Object.getOwnPropertyDescriptor(r.console, 'log')?.get;
+    expect(String(get)).not.toContain(NONCE);
+    expect(() => pageGuardSource('not hex!')).toThrow();
   });
 });

@@ -30,7 +30,13 @@ const SUMMARY_PREFIX = 'NoobIDE: ';
 /** Console methods that never print anything; they are left alone. */
 const SILENT_METHODS = ['time', 'profile', 'profileEnd', 'timeStamp', 'groupEnd', 'context', 'createTask'];
 
-export const PAGE_GUARD_SOURCE = `(() => {
+/**
+ * The guard's source for one preview. `nonce` (hex) is part of every summary message, so a page cannot forge
+ * summaries: it sits in a closure the page cannot read (the accessors' own source text does not contain it).
+ */
+export function pageGuardSource(nonce: string): string {
+  if (!/^[0-9a-f]{8,64}$/.test(nonce)) throw new Error('invalid page guard nonce');
+  return `(() => {
   'use strict';
   const LIMIT = ${CONSOLE_LIMIT};
   const WINDOW_MS = ${CONSOLE_WINDOW_MS};
@@ -55,7 +61,7 @@ export const PAGE_GUARD_SOURCE = `(() => {
     if (suppressed === 0) return;
     const n = suppressed;
     suppressed = 0;
-    apply(nativeWarn, c, ['${SUMMARY_PREFIX}' + n + ' console messages were not shown (more than ' + LIMIT + ' per second).']);
+    apply(nativeWarn, c, ['${SUMMARY_PREFIX}' + n + ' console messages were not shown (more than ' + LIMIT + ' per second). [${nonce}]']);
   };
   const admit = () => {
     const t = now();
@@ -97,10 +103,19 @@ export const PAGE_GUARD_SOURCE = `(() => {
 })();
 //# sourceURL=${LIMITER_SOURCE_URL}
 `;
+}
 
-/** The number of messages a limiter summary reports, or null when the console message is not a summary. */
-export function parseLimiterSummary(message: string, sourceId: string): number | null {
+/** Upper bound for one summary (one window of a few seconds at most); larger claims are not believed. */
+const MAX_SUMMARY = 1_000_000_000;
+
+/**
+ * The number of messages a limiter summary reports, or null when the console message is not a genuine summary of
+ * this preview's guard (wrong source, wrong nonce, implausible count).
+ */
+export function parseLimiterSummary(message: string, sourceId: string, nonce: string): number | null {
   if (sourceId !== LIMITER_SOURCE_URL || !message.startsWith(SUMMARY_PREFIX)) return null;
-  const match = /^NoobIDE: (\d{1,15}) console messages were not shown/.exec(message);
-  return match ? Number(match[1]) : null;
+  const match = /^NoobIDE: (\d{1,10}) console messages were not shown .*\[([0-9a-f]+)\]$/.exec(message);
+  if (!match || match[2] !== nonce) return null;
+  const n = Number(match[1]);
+  return n > 0 && n <= MAX_SUMMARY ? n : null;
 }

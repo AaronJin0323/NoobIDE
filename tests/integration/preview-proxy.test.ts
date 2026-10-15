@@ -47,12 +47,15 @@ async function startProxy(overrides: Partial<PreviewProxyOptions> = {}): Promise
         'lan.test': ['192.168.1.20'],
         'mixed.test': ['93.184.216.34', '10.0.0.5'],
         'v6local.test': ['::1'],
+        'v6lan.test': ['2a02:1810:1234:5600::20'],
       };
       const found = table[host];
       if (!found) throw new Error('ENOTFOUND');
       return found;
     },
     localAddresses: () => ['127.0.0.1', '::1', '203.0.113.250', '81.2.69.160'],
+    // A public IPv4 LAN and an IPv6 LAN with global addresses.
+    localNetworks: () => ['81.2.69.0/24', '2a02:1810:1234:5600::/64'],
     onBlocked: ({ host, port }) => blocked.push(`${host}:${port}`),
     // A checked public address is redirected to the local echo server, recording which address was used.
     connect: (ip, port) => {
@@ -145,6 +148,20 @@ describe('preview network proxy (S05.5)', () => {
     ['IPv6 loopback', { ipv6: [...Array<number>(15).fill(0), 1] }],
     ['IPv4-mapped loopback', { ipv6: [...Array<number>(10).fill(0), 0xff, 0xff, 127, 0, 0, 1] }],
     ["this machine's public interface address", { ipv4: [81, 2, 69, 160] }],
+    [
+      "this machine's public address, IPv4-mapped",
+      { ipv6: [...Array<number>(10).fill(0), 0xff, 0xff, 81, 2, 69, 160] },
+    ],
+    [
+      "this machine's public address via NAT64",
+      { ipv6: [0, 0x64, 0xff, 0x9b, ...Array<number>(8).fill(0), 81, 2, 69, 160] },
+    ],
+    ['another device on a public IPv4 LAN', { ipv4: [81, 2, 69, 7] }],
+    [
+      'a device on the IPv6 LAN (global address)',
+      { ipv6: [0x2a, 0x02, 0x18, 0x10, 0x12, 0x34, 0x56, 0x00, 0, 0, 0, 0, 0, 0, 0, 0x20] },
+    ],
+    ['a name resolving to the IPv6 LAN', { domain: 'v6lan.test' }],
   ] as [string, Target][])('refuses %s', async (_name, target) => {
     const p = await startProxy();
     const { code } = await socks(p.port, target, 8080);

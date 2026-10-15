@@ -40,7 +40,10 @@ resources (a CDN), so the public internet must stay reachable; only this machine
 - `src/preview/preview-proxy.ts`: a SOCKS5 server on `127.0.0.1:<random>` per live preview (closed with it).
   For every CONNECT it decides on the address, never the name:
   - the project's static server is allowed only as the literal `127.0.0.1:<server port>`;
-  - an IP literal must be public (below) and not one of this machine's interface addresses (`os.networkInterfaces`);
+  - an IP literal must be public (below), not one of this machine's interface addresses and not inside a network
+    this machine is attached to (`os.networkInterfaces` addresses and CIDRs — on IPv6 networks, and on LANs with
+    public IPv4 addresses, the other devices have "public" addresses). IPv4-mapped, NAT64 and 6to4 forms are also
+    checked by their embedded IPv4 address;
   - a name (`localhost` and `*.localhost` are refused without lookup) is resolved; **every** returned address must be
     allowed, and the proxy connects to the first one itself. No second resolution exists, so rebinding cannot
     redirect the connection.
@@ -85,6 +88,8 @@ resources (a CDN), so the public internet must stay reachable; only this machine
 - Other local programs can connect to the proxy, but it only offers what they already have (public internet) with
   fewer rights; Chromium cannot authenticate to SOCKS5 proxies, so no secret is used.
 - Residual: a page can still make Chromium perform DNS _lookups_ for arbitrary names (prefetch); it cannot connect.
+- Residual: the router's public (WAN) address is not known to the IDE; a router that hairpins connections to it
+  would expose services that are port-forwarded to the internet anyway.
 - Verified on macOS arm64 by `tests/integration/preview-proxy.test.ts` (rebinding name, LAN name, mixed answers,
   literals, own interface address, non-SOCKS client, UDP ASSOCIATE, resolution limits), `src/preview/*.test.ts` and
   e2e `tests/e2e/preview-isolation.spec.ts` (a `rebind.test` name mapped to 127.0.0.1 with `--host-resolver-rules`,

@@ -40,7 +40,8 @@ export class LogBuffer {
 
   /** Messages the page's console rate limit suppressed (docs/decisions/0016): counted, never seen by main. */
   addDropped(count: number): void {
-    if (Number.isSafeInteger(count) && count > 0) this.dropped += count;
+    if (Number.isSafeInteger(count) && count > 0)
+      this.dropped = Math.min(Number.MAX_SAFE_INTEGER, this.dropped + count);
   }
 
   /** The producer skipped messages without counting them (see the console flood guard). */

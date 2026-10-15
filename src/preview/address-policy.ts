@@ -131,3 +131,51 @@ export function normalizeIp(ip: string): string | null {
   }
   return null;
 }
+
+/**
+ * The IPv4 address an IPv6 form stands for (IPv4-mapped `::ffff:a.b.c.d`, NAT64 `64:ff9b::a.b.c.d`, 6to4
+ * `2002:AABB:CCDD::`), or null. Used so that "this machine" and "this network" checks see through these forms.
+ */
+export function embeddedIpv4(ip: string): string | null {
+  const bare = ip.replace(/^\[|\]$/g, '').replace(/%.*$/, '');
+  if (isIP(bare) !== 6) return null;
+  const g = parseV6(bare);
+  if (!g) return null;
+  const text = (hi: number, lo: number) => [hi >>> 8, hi & 0xff, lo >>> 8, lo & 0xff].join('.');
+  const [a = 0, b = 0, c = 0, d = 0, e = 0, f = 0, h = 0, i = 0] = g;
+  if (a === 0 && b === 0 && c === 0 && d === 0 && e === 0 && f === 0xffff) return text(h, i);
+  if (a === 0x64 && b === 0xff9b) return text(h, i);
+  if (a === 0x2002) return text(b, c);
+  return null;
+}
+
+/** Whether `ip` lies inside `cidr` (e.g. `192.168.1.0/24`, `2001:db8:1::/64`). Different families never match. */
+export function inNetwork(ip: string, cidr: string): boolean {
+  const slash = cidr.lastIndexOf('/');
+  if (slash < 0) return false;
+  const bits = Number(cidr.slice(slash + 1));
+  const a = addressBits(ip);
+  const n = addressBits(cidr.slice(0, slash));
+  if (!a || !n || a.length !== n.length || !Number.isInteger(bits) || bits < 0 || bits > a.length) return false;
+  for (let i = 0; i < bits; i += 1) if (a[i] !== n[i]) return false;
+  return true;
+}
+
+function addressBits(ip: string): number[] | null {
+  const bare = ip.replace(/^\[|\]$/g, '').replace(/%.*$/, '');
+  const family = isIP(bare);
+  const out: number[] = [];
+  if (family === 4) {
+    const v = parseV4(bare);
+    if (v === null) return null;
+    for (let i = 31; i >= 0; i -= 1) out.push((v >>> i) & 1);
+    return out;
+  }
+  if (family === 6) {
+    const g = parseV6(bare);
+    if (!g) return null;
+    for (const group of g) for (let i = 15; i >= 0; i -= 1) out.push((group >>> i) & 1);
+    return out;
+  }
+  return null;
+}
