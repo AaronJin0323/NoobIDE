@@ -37,6 +37,8 @@ interface Entry<S> {
   readonly owner: ServerOwner;
   readonly root: string;
   readonly server: Promise<S>;
+  /** Outstanding acquires by the owner (overlapping starts share one server; the last owner release closes it). */
+  leases: number;
 }
 
 export class ServerRegistry<S extends ManagedServer> {
@@ -68,7 +70,10 @@ export class ServerRegistry<S extends ManagedServer> {
     const existing = this.entries.get(owner.projectId);
     if (existing) {
       if (existing.owner.windowId !== owner.windowId) return Promise.reject(new NotOwnerError());
-      if (existing.root === root) return existing.server;
+      if (existing.root === root) {
+        existing.leases += 1;
+        return existing.server;
+      }
       // Same id with another root cannot happen (ids are per open project); be safe: replace it.
       void this.release(owner.projectId);
     }
@@ -82,18 +87,24 @@ export class ServerRegistry<S extends ManagedServer> {
         throw error;
       },
     );
-    this.entries.set(owner.projectId, { owner: { ...owner }, root, server });
+    this.entries.set(owner.projectId, { owner: { ...owner }, root, server, leases: 1 });
     return server;
   }
 
   /**
-   * Shuts the project's server down. With `requester`, only its owner may (false otherwise and nothing happens).
-   * True when a server was released.
+   * With `requester` (an owner giving back one acquire): only the owner may, and the server shuts down when its last
+   * acquire is given back — so a superseded start never closes the server a newer start of the same owner uses.
+   * Without `requester` (Stop, project switch/close, window closed): the server shuts down at once.
+   * True when a server was shut down.
    */
   async release(projectId: string, requester?: ServerOwner): Promise<boolean> {
     const entry = this.entries.get(projectId);
     if (!entry) return false;
-    if (requester && (requester.projectId !== projectId || requester.windowId !== entry.owner.windowId)) return false;
+    if (requester) {
+      if (requester.projectId !== projectId || requester.windowId !== entry.owner.windowId) return false;
+      entry.leases -= 1;
+      if (entry.leases > 0) return false;
+    }
     this.entries.delete(projectId);
     try {
       await (await entry.server).close();

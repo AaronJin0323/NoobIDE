@@ -132,7 +132,10 @@ export class PreviewManager {
       server = await this.servers.acquire(owner, root);
     } catch (e) {
       if (this.startingOwner === owner) this.startingOwner = null;
-      if (e instanceof NotOwnerError) return err('not-owner', e.message);
+      if (e instanceof NotOwnerError) {
+        if (generation === this.generation) this.apply(window, null, { type: 'stop' });
+        return err('not-owner', e.message);
+      }
       if (generation === this.generation) this.apply(window, projectId, { type: 'server-failed' });
       return err('server-failed', e instanceof Error ? e.message : 'server failed', e);
     }
@@ -145,18 +148,42 @@ export class PreviewManager {
     }
 
     const partition = partitionForProject(server.root);
-    const ses = electronSession.fromPartition(partition);
-    this.configureSession(ses, server);
     const webPreferences = createPreviewWebPreferences(partition);
     const insecure = insecurePreviewPreferences(webPreferences);
     if (insecure.length > 0) {
-      await this.servers.release(projectId, owner);
+      await this.servers.release(projectId);
       throw new Error(`insecure preview webPreferences: ${insecure.join(', ')}`);
     }
+    try {
+      return this.attachView(projectId, window, owner, server, partition, webPreferences, entryPath);
+    } catch (e) {
+      // S14.6: nothing may keep listening without a view (e.g. the window went away mid-start).
+      if (this.live?.projectId === projectId) await this.stop({ announce: false });
+      else await this.servers.release(projectId);
+      if (this.startingOwner === owner) this.startingOwner = null;
+      this.startingWindow = null;
+      if (!window.isDestroyed()) this.apply(window, projectId, { type: 'server-failed' });
+      return err('server-failed', e instanceof Error ? e.message : 'preview view failed', e);
+    }
+  }
 
+  private attachView(
+    projectId: string,
+    window: BrowserWindow,
+    owner: ServerOwner,
+    server: PreviewServer,
+    partition: string,
+    webPreferences: Electron.WebPreferences,
+    entryPath: string,
+  ): Result<PreviewStatus, PreviewStartError> {
+    const ses = electronSession.fromPartition(partition);
+    this.configureSession(ses, server);
     const view = new WebContentsView({ webPreferences });
     view.setBackgroundColor('#ffffff');
-    const onWindowClosed = () => void this.stop({ announce: false });
+    const onWindowClosed = () => {
+      void this.stop({ announce: false });
+      void this.servers.releaseWindow(owner.windowId); // S14.6: defence in depth
+    };
     window.once('closed', onWindowClosed);
     const live: LivePreview = {
       projectId,

@@ -76,6 +76,7 @@ describe('external-browser grant (S15.4)', () => {
     expect(set).toContain(`${grantCookieName(server.port)}=`);
     expect(set).toMatch(/HttpOnly/);
     expect(set).toMatch(/SameSite=Strict/);
+    expect(set).toMatch(/Max-Age=28800/);
     const cookie = cookieFrom(redeemed);
     expect((await browserGet('/index.html', { Cookie: cookie })).status).toBe(200);
     expect((await browserGet('/index.html', { Cookie: cookie, 'Sec-Fetch-Site': 'same-origin' })).status).toBe(200);

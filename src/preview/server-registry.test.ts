@@ -100,6 +100,20 @@ describe('server registry (S14.6)', () => {
     expect(await reg.release('project-a')).toBe(false);
   });
 
+  it('overlapping starts by the owner share one server: a superseded start does not close it (lease count)', async () => {
+    const { reg, start } = registry();
+    const first = reg.acquire(A, '/a'); // start 1 (superseded)
+    const second = reg.acquire(A, '/a'); // start 2 (current)
+    const server = await second;
+    expect(await first).toBe(server);
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(await reg.release('project-a', A)).toBe(false); // start 1 gives its lease back
+    expect(server.closed).toBe(false);
+    expect(reg.projects).toEqual(['project-a']);
+    expect(await reg.release('project-a')).toBe(true); // Stop
+    expect(server.closed).toBe(true);
+  });
+
   it('a release during start closes the server once it is up', async () => {
     const { reg } = registry();
     const pending = reg.acquire(A, '/a');

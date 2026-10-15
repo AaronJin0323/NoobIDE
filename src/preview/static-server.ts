@@ -30,6 +30,8 @@ export const LOOPBACK_HOST = '127.0.0.1';
 /** S15.4: path prefix of one-time external-browser grants. A dot segment: no project file can ever be shadowed. */
 export const GRANT_PREFIX = '/.noobide-grant/';
 export const GRANT_TTL_MS = 60_000;
+/** The external-browser cookie expires after this long even if the server keeps running (it is port-agnostic). */
+export const GRANT_COOKIE_MAX_AGE_S = 8 * 60 * 60;
 const GRANT_PATTERN = /^\/\.noobide-grant\/([0-9a-f]{64})$/;
 
 export interface PreviewServerOptions {
@@ -176,7 +178,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, ctx: HandleCont
     }
     send(res, 302, {
       Location: target,
-      'Set-Cookie': `${grantCookieName(ctx.port)}=${ctx.grants.cookieSecret}; Path=/; HttpOnly; SameSite=Strict`,
+      'Set-Cookie': `${grantCookieName(ctx.port)}=${ctx.grants.cookieSecret}; Path=/; Max-Age=${GRANT_COOKIE_MAX_AGE_S}; HttpOnly; SameSite=Strict`,
     });
     return;
   }

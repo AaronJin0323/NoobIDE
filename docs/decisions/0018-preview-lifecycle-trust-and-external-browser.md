@@ -72,9 +72,18 @@ S16.3), and how an external browser can reach a server that requires a header on
 
 ## Consequences (incl. how it is verified on macOS arm64 and Windows x64)
 
-- Cookies are not port-specific in browsers: another local web service the user visits in the same browser receives
-  the cookie. It is useless after the server stops, and a local program could read the project files directly anyway;
-  accepted and documented here.
+- Cookies are not port-specific in browsers: another local web service on 127.0.0.1 that the user visits in the same
+  browser receives the cookie, and a process that can bind a loopback port but cannot read the user's files (another
+  OS account, a sandboxed app) could replay it outside a browser until the server stops. Web pages cannot use it
+  (`Sec-Fetch-Site`, SameSite=Strict). Mitigations: the cookie has `Max-Age` 8 h and dies with the server's secrets
+  on Stop/switch/close/quit. A per-server host name (`p<port>.localhost`) would scope it fully; not done in v1
+  because Host checking and `*.localhost` resolution in every browser would need validating first.
+- The registry counts acquires per owner (leases): overlapping starts of one project share one server, a superseded
+  start only gives back its lease, and Stop / project switch / close / window close shut the server down at once.
+  A failure while attaching the view releases the server and reports `server-failed`.
+- Other preview IPC (`options`, `setRefreshMode`, `typing`, `clearData` with no live preview) is checked for the
+  workbench sender and an open projectId (an unguessable id held by the window that opened it) but not for a specific
+  window — intentional in v1, which opens one project per window.
 - Opening in the external browser grants that browser profile access to the project until the server stops (Stop,
   project switch or close, app quit).
 - Trust is per folder path: a moved or copied project asks again. Clearing app data forgets all trust.
