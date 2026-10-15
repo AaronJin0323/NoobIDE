@@ -34,12 +34,17 @@ function electron(): ElectronApplication {
   return app;
 }
 
+/**
+ * Sets the window's content size. Exact only when the forced scale factor matches the display's: with
+ * --force-device-scale-factor=2 on a Windows display scaled to 150 % the window comes out one pixel larger
+ * (1281×801 for 1280×800), so the wait accepts that pixel; layout sizes are checked against the page itself.
+ */
 async function setContentSize(width: number, height: number) {
   await electron().evaluate(
     ({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height),
     { width, height },
   );
-  await page.waitForFunction((w) => window.innerWidth === w, width);
+  await page.waitForFunction((w) => Math.abs(window.innerWidth - w) <= 1, width);
 }
 
 const box = async (testId: string) => {

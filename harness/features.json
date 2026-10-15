@@ -1842,8 +1842,8 @@
       "depends_on": [
         "S15.6"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/preview-layout.spec.ts 8/8 green on Windows x64 (2560x1440 @150%), 3 runs; scale factor 2 previously timed out at innerWidth 1281; exact divider-size checks unchanged"
     },
     {
       "id": "S16.1",
