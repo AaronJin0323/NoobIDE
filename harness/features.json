@@ -960,8 +960,8 @@
         "S06.2",
         "S06.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "in_progress",
+      "evidence": "draft docs/reviews/G1.md @ 3314de9: conditional pass macOS arm64, Windows pending (CI 38675714521 e2e red, no Windows installer); measured hours from git (9.6 h wall-clock, M1 ~3-4 h); revised estimate M6-M8. Waits for S06.2/S06.3 (needs_manual_check)"
     },
     {
       "id": "S07.1",
@@ -1825,8 +1825,8 @@
         "S17.2",
         "S17.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "docs/reviews/G3.md @ 3314de9: conditional pass macOS arm64 (12 M3 specs 81 passed/1 skipped on M3 Pro; CI 38675714521 macos-14 verify+e2e 214+make+inspect-arch green; DMG hdiutil VALID, arm64, launches natively after xattr), Windows not passed (CI e2e 9 failed incl. S05.7 worker flood 356 ms and S16.2; no Windows installer built); invalid ad-hoc signature found; tester steps harness/MANUAL-CHECKS.md#S17.4"
     },
     {
       "id": "S18.1",
