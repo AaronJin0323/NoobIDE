@@ -1505,8 +1505,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/preview/state-machine.ts (pure; stopped/starting/running/refreshing/unresponsive/failed + monotonic page-load generation) + state-machine.test.ts (34 tests); PreviewManager publishes every status through it; UI pill shows each state as distinct text in zh-CN and en (preview-model.test.ts); e2e preview.spec + preview-isolation.spec 16/16 macOS arm64 @ 9ad62e4"
     },
     {
       "id": "S14.2",
@@ -1551,7 +1551,7 @@
       "depends_on": [
         "S14.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
@@ -1579,7 +1579,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
