@@ -3,6 +3,7 @@ import { networkInterfaces } from 'node:os';
 import {
   session as electronSession,
   WebContentsView,
+  webContents,
   type BrowserWindow,
   type Session,
   type WebContents,
@@ -25,6 +26,7 @@ import { PreviewProxy } from './preview-proxy';
 import { PreviewServer, TOKEN_HEADER } from './static-server';
 import { NotOwnerError, ServerRegistry, type ServerOwner } from './server-registry';
 import { DEFAULT_TYPING_PAUSE_MS, RefreshScheduler } from './refresh-scheduler';
+import { PermissionNotices } from './permission-policy';
 import { INITIAL_MACHINE, transition, type PreviewMachine, type PreviewMachineEvent } from './state-machine';
 // S15.5/S15.6: DPI-safe bounds and the F6 focus handoff out of the page.
 import { COMMAND_EVENTS } from '../shared/ipc/commands-contract';
@@ -147,6 +149,8 @@ export class PreviewManager {
 
   /** S14.2: automatic refresh after a confirmed save and a typing pause. */
   private readonly refresher: RefreshScheduler;
+  /** S25.4: one console notice per denied permission kind and page load. */
+  private readonly permissionNotices = new PermissionNotices();
 
   constructor(private readonly deps: PreviewManagerDeps) {
     this.refresher = new RefreshScheduler({
@@ -555,10 +559,39 @@ export class PreviewManager {
   private configureSession(ses: Session, server: PreviewServer): void {
     if (!this.configuredSessions.has(ses)) {
       this.configuredSessions.add(ses);
-      // No camera, microphone, location, notifications, clipboard reads, MIDI, USB…: the page is untrusted.
-      ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+      // S25.4: no camera, microphone, location, notifications, clipboard, MIDI, screen capture, USB/HID/serial/
+      // Bluetooth devices, fullscreen…: the page is untrusted. Every request is answered here, in main, before
+      // Chromium would ask the OS, so no system prompt appears. The first request of each kind per page load is
+      // explained in the console (permission-policy.ts), never in a dialog.
+      ses.setPermissionRequestHandler((wc, permission, callback, details) => {
+        callback(false);
+        const mediaTypes = 'mediaTypes' in details ? details.mediaTypes : undefined;
+        this.permissionDenied(wc, permission, { mediaTypes });
+      });
       ses.setPermissionCheckHandler(() => false);
       ses.setDevicePermissionHandler(() => false);
+      // Device choosers (navigator.hid / serial / usb .requestDevice): cancel, never pick a device.
+      ses.on('select-hid-device', (event, details, callback) => {
+        event.preventDefault();
+        callback('');
+        this.permissionDenied(details.frame ? webContentsOfFrame(details.frame) : null, 'hid');
+      });
+      ses.on('select-serial-port', (event, _ports, wc, callback) => {
+        event.preventDefault();
+        callback('');
+        this.permissionDenied(wc, 'serial');
+      });
+      ses.on('select-usb-device', (event, details, callback) => {
+        event.preventDefault();
+        callback();
+        this.permissionDenied(details.frame ? webContentsOfFrame(details.frame) : null, 'usb');
+      });
+      ses.setBluetoothPairingHandler((_details, callback) => callback({ confirmed: false }));
+      // getDisplayMedia: no screen or window is ever shared.
+      ses.setDisplayMediaRequestHandler((request, callback) => {
+        callback({});
+        this.permissionDenied(webContentsOfFrame(request.frame), 'display-capture');
+      });
       // A page must not drop files into the user's Downloads folder.
       ses.on('will-download', (event) => event.preventDefault());
     }
@@ -611,6 +644,18 @@ export class PreviewManager {
         at: Date.now(),
       });
     });
+  }
+
+  /** S25.4: a request of the current preview page was denied; explain it once per kind and page load. */
+  private permissionDenied(
+    contents: WebContents | null | undefined,
+    permission: string,
+    details?: { readonly mediaTypes?: readonly string[] | undefined },
+  ): void {
+    const live = this.live;
+    if (!live || !contents || live.view.webContents.isDestroyed() || contents.id !== live.view.webContents.id) return;
+    const notice = this.permissionNotices.denied(permission, details);
+    if (notice) this.pushLog(notice);
   }
 
   /** Starts the session's network proxy and routes every request of the session through it (decision 0015). */
@@ -758,7 +803,9 @@ export class PreviewManager {
     });
     // S16.3: the new document committed; from now on the page's records belong to its generation.
     contents.on('did-navigate', () => {
-      if (isCurrent()) this.deps.capture?.navigationCommitted(live.loadGeneration ?? this.machine.generation);
+      if (!isCurrent()) return;
+      this.permissionNotices.pageLoaded(); // S25.4: a new page explains its own requests again
+      this.deps.capture?.navigationCommitted(live.loadGeneration ?? this.machine.generation);
     });
     contents.on('did-stop-loading', () => {
       if (!isCurrent()) return;
@@ -986,6 +1033,16 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
       timer = setTimeout(() => resolve(fallback), ms);
     }),
   ]).finally(() => clearTimeout(timer));
+}
+
+/** The WebContents a frame belongs to (null when the frame is gone). */
+function webContentsOfFrame(frame: Electron.WebFrameMain | null | undefined): WebContents | null {
+  if (!frame) return null;
+  try {
+    return webContents.fromFrame(frame) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function urlOriginOf(url: string): string | null {
