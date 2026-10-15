@@ -182,24 +182,31 @@ export function RecoveryDialog({ bridge, health, onProjectOpened, onRestore, onC
   }, [bridge, orphan]);
 
   /** Removes a handled copy; a project without copies leaves the list. */
-  const settleOrphan = useCallback(
-    (key: string, bufferId: string) => {
-      setConfirmDiscard(null);
-      if (!orphan || orphan.project.key !== key) return;
-      if (orphan.files.some((f) => f.bufferId !== bufferId)) {
-        setOrphan((o) => {
-          if (!o || o.project.key !== key) return o;
-          const files = o.files.filter((f) => f.bufferId !== bufferId);
-          return { ...o, files, selected: files[0]?.bufferId ?? '' };
-        });
-        return;
-      }
-      setOrphan(null);
-      setError(null);
-      setPending((p) => (p ? { ...p, projects: p.projects.filter((x) => x.key !== key) } : p));
-    },
-    [orphan],
-  );
+  // Functional updates only: two settles in a row must both see the other's result.
+  const settleOrphan = useCallback((key: string, bufferId: string) => {
+    setConfirmDiscard(null);
+    setOrphan((o) => {
+      if (!o || o.project.key !== key) return o;
+      const files = o.files.filter((f) => f.bufferId !== bufferId);
+      return files.length > 0 ? { ...o, files, selected: files[0]?.bufferId ?? '' } : null;
+    });
+    setPending((p) =>
+      p
+        ? {
+            ...p,
+            projects: p.projects
+              .map((x) => (x.key === key ? { ...x, files: x.files.filter((f) => f.bufferId !== bufferId) } : x))
+              .filter((x) => x.files.length > 0),
+          }
+        : p,
+    );
+  }, []);
+
+  // Back on the list (every copy of the missing folder handled): the "folder not found" message no longer applies.
+  const orphanOpen = orphan !== null;
+  useEffect(() => {
+    if (!orphanOpen) setError((e) => (e === 'recovery.folderMissing' ? null : e));
+  }, [orphanOpen]);
 
   const copyOrphan = useCallback(async (entry: PendingEntry) => {
     setError(null);
@@ -232,8 +239,13 @@ export function RecoveryDialog({ bridge, health, onProjectOpened, onRestore, onC
     async (key: string, file: PendingRecoveryFile) => {
       if (!bridge) return;
       setNotice(null);
-      await bridge.recovery.discardPending({ key, bufferId: file.bufferId });
-      settleOrphan(key, file.bufferId);
+      setBusy(true);
+      try {
+        await bridge.recovery.discardPending({ key, bufferId: file.bufferId });
+        settleOrphan(key, file.bufferId);
+      } finally {
+        setBusy(false);
+      }
     },
     [bridge, settleOrphan],
   );
@@ -598,6 +610,12 @@ function OrphanSection(props: OrphanSectionProps) {
   const file = orphan.files.find((f) => f.bufferId === orphan.selected) ?? null;
   const entry = file ? orphan.entries[file.bufferId] : undefined;
   const readable = entry !== undefined && entry !== 'failed' ? entry : null;
+  // Keyboard users land on the question when main asks to confirm a folder without the recovered files.
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const asking = orphan.confirm !== null;
+  useEffect(() => {
+    if (asking) confirmRef.current?.focus();
+  }, [asking]);
   return (
     <div className="recovery-review" data-testid="recovery-orphan">
       <p className="alert-detail">
@@ -615,6 +633,7 @@ function OrphanSection(props: OrphanSectionProps) {
             <button
               type="button"
               className="quiet-button"
+              ref={confirmRef}
               data-testid="recovery-relocate-confirm"
               disabled={busy}
               onClick={() => props.onRelocate(orphan.confirm?.choiceId)}
