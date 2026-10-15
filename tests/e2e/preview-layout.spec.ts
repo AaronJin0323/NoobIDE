@@ -80,6 +80,16 @@ async function drag(testId: string, dx: number) {
   const b = await box(testId);
   const x = b.x + b.width / 2;
   const y = b.y + b.height / 2;
+  // The press must land on the divider: wait until nothing (a late layout change, a transient overlay) is on top of
+  // that point. A drag that started elsewhere was seen once in a full run (the width stayed at its default).
+  await expect
+    .poll(() =>
+      page.evaluate(
+        ({ px, py }) => document.elementFromPoint(px, py)?.closest('[role="separator"]')?.getAttribute('data-testid'),
+        { px: x, py: y },
+      ),
+    )
+    .toBe(testId);
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.move(x + dx / 2, y, { steps: 4 });
