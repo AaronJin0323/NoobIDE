@@ -151,6 +151,25 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 - **Result:** steps 1–2 by an agent on MacBook Pro M3 Pro, macOS 27.2 arm64, 2026-10-15: all preview tests pass, every attack result `failed`; typing while
   hung 67–88 ms; console flood main stall 8.3–9.3 s (see docs/perf/baseline.md). Step 3 (two displays) still open.
 
+### S05.5-windows — Preview network policy, dialogs and console limit on Windows x64 (confirmation)
+
+- **Platform:** Windows 11 x64 (dev machine `D:\NoobIDE`)
+- **Build:** the commit that closed S05.5 / S05.7 (decisions 0015, 0016)
+- **Why:** proven on macOS arm64 only. Windows differences to watch: `os.networkInterfaces()` names and IPv6 zone
+  ids, Windows Firewall prompting when the e2e "other service" listens on `0.0.0.0`, the machine name resolving
+  through LLMNR/NetBIOS, and modal-dialog behaviour (Windows disables the owner window for app-modal dialogs).
+- **Steps:**
+  1. `npm run test:e2e -- preview-isolation`. If Windows Firewall asks about Node.js, choose "Cancel" (the test only
+     needs loopback and the LAN address from the same machine).
+  2. Note `attack results: …` (every value `failed`) and `console flood: … longest main-thread stall … ms` (< 200).
+  3. Manually: open a project with `index.html` containing
+     `<button onclick="alert('hi'); confirm('ok?')">x</button>` and
+     `<script>addEventListener('beforeunload', e => { e.preventDefault(); e.returnValue = '' })</script>`.
+     Start preview, click the button (no dialog appears, the console shows `alert: hi`, the IDE stays usable), then
+     edit and save the file (the preview refreshes), then close the IDE window (it closes without a prompt).
+- **Expected:** all tests pass; steps 2–3 as described.
+- **Result:** _(owner fills in)_
+
 ### S07.3 / S08 — file watcher and file operations on Apple Silicon (confirmation)
 
 S07.3 and S08.1–S08.5 are proven by automated tests on Windows x64. The same tests are platform-neutral and should

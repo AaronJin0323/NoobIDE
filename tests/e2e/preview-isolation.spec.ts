@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import os from 'node:os';
 import { rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -55,7 +56,9 @@ async function typeAndMeasure(text: string): Promise<number> {
 }
 
 test.beforeAll(async () => {
-  app = await launchApp();
+  // rebind.test stands for a public DNS name that resolves to loopback (localtest.me, *.nip.io, DNS rebinding):
+  // Chromium's resolver — the one the preview's network proxy asks — maps it to 127.0.0.1 for this run.
+  app = await launchApp({}, { args: ['--host-resolver-rules=MAP rebind.test 127.0.0.1'] });
   page = await app.firstWindow();
   page.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -128,7 +131,7 @@ test('unresponsive state: Stop recovers, and Chromium’s unresponsive event is 
   await waitForPreviewState(page, 'running');
 });
 
-test('a console flood keeps the log bounded and every keystroke lands (S05.3, main stall measured)', async () => {
+test('a console flood keeps the log bounded, every keystroke lands and main never stalls (S05.3, S05.7)', async () => {
   const root = await project('预览 日志洪水');
   await openProject(app, page, root);
   await openInEditor('index.html');
@@ -152,6 +155,17 @@ test('a console flood keeps the log bounded and every keystroke lands (S05.3, ma
   // Near the left edge: .view-lines can be wider than the visible editor and reach under the preview.
   const point = { x: Math.round(box.x + 40), y: Math.round(box.y + 10) };
 
+  // S05.7: the main (browser UI) thread's longest stall over the whole flood, from a 10 ms timer in main.
+  await app.evaluate(() => {
+    const lag = { max: 0, timer: undefined as ReturnType<typeof setInterval> | undefined };
+    (globalThis as unknown as { __mainLag: typeof lag }).__mainLag = lag;
+    let last = performance.now();
+    lag.timer = setInterval(() => {
+      const now = performance.now();
+      lag.max = Math.max(lag.max, now - last - 10);
+      last = now;
+    }, 10);
+  });
   await page.getByTestId('preview-start').click();
   const sent = await app.evaluate(async ({ BrowserWindow }, at) => {
     const wc = BrowserWindow.getAllWindows()[0]?.webContents;
@@ -181,23 +195,38 @@ test('a console flood keeps the log bounded and every keystroke lands (S05.3, ma
     .poll(() => evalInPreview<string>(app, 'document.body.dataset.count ?? ""'), { timeout: 30_000 })
     .not.toBe('');
   const logged = Number(await evalInPreview<string>(app, 'document.body.dataset.count'));
+  const mainStall = await app.evaluate(() => {
+    const lag = (globalThis as unknown as { __mainLag: { max: number; timer: ReturnType<typeof setInterval> } })
+      .__mainLag;
+    clearInterval(lag.timer);
+    return Math.round(lag.max);
+  });
   const probe = await page.evaluate(
     () => (window as unknown as { __probe: { inputs: number[]; maxTimerLag: number } }).__probe,
   );
   const latencies = sent.sends.map((t, i) => (probe.inputs[i] ?? Number.POSITIVE_INFINITY) - t);
   console.log(
     `console flood: ${logged} messages in 6 s; keystroke latency ms ${JSON.stringify(latencies)}; ` +
-      `workbench max timer lag ${Math.round(probe.maxTimerLag)} ms; main max timer lag ${sent.mainLag} ms`,
+      `workbench max timer lag ${Math.round(probe.maxTimerLag)} ms; main max timer lag ${sent.mainLag} ms; ` +
+      `longest main-thread stall during the flood ${mainStall} ms`,
   );
   // All 20 keystrokes typed during the flood reached the editor, each quickly.
   expect(probe.inputs.length).toBe(20);
   await expect(editorText()).toContainText('q'.repeat(20));
   expect(Math.max(...latencies)).toBeLessThan(500);
   expect(probe.maxTimerLag).toBeLessThan(500);
-  // KNOWN GAP (S05.3 stays blocked, follow-up S05.7): Electron builds a main-process event for every console
-  // message, so ~100k messages/s still stall the main/UI thread for seconds even with the flood guard (8 s → 3–5 s
-  // measured). Keystrokes are delayed, not lost. This bound only guards against regressions.
-  expect(sent.mainLag).toBeLessThan(10_000);
+  // S05.7: the in-page rate limit (decision 0016) keeps the messages that reach main far below what stalls it.
+  expect(mainStall).toBeLessThan(200);
+  expect(sent.mainLag).toBeLessThan(200);
+  // Messages below the limit keep the page's own file and line (the limiter hands out the native method).
+  const records = (await previewInfo(app)) as unknown as { recentRecords: RawRecord[] };
+  const flood = records.recentRecords.filter((r) => r.source === 'console' && r.message.startsWith('洪水消息'));
+  expect(flood.length).toBeGreaterThan(0);
+  for (const r of flood) {
+    // The entry page is served at the server root.
+    expect(['/', '/index.html']).toContain(new URL(r.url ?? 'x:').pathname);
+    expect(r.line).toBe(18);
+  }
 
   const dropped = page.getByTestId('preview-console-dropped');
   await expect(dropped).toBeVisible();
@@ -207,6 +236,59 @@ test('a console flood keeps the log bounded and every keystroke lands (S05.3, ma
   expect(shown).toBeGreaterThan(0);
   expect(shown).toBeLessThanOrEqual(200);
   expect(shown + droppedCount).toBeLessThanOrEqual(logged);
+
+  // A dedicated worker's console reaches main as well; the guard is installed in workers before their script runs.
+  const workerStall = await app.evaluate(
+    async ({ webContents }, id) => {
+      let last = performance.now();
+      let max = 0;
+      const timer = setInterval(() => {
+        const now = performance.now();
+        max = Math.max(max, now - last - 10);
+        last = now;
+      }, 10);
+      const count = await webContents.fromId(id)?.executeJavaScript(
+        `new Promise((resolve) => {
+        const code = 'const end = Date.now() + 3000; let i = 0; while (Date.now() < end) { console.log("工作线程 " + i); i += 1; } postMessage(i);';
+        const worker = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+        worker.onmessage = (e) => resolve(e.data);
+      })`,
+      );
+      await new Promise((r) => setTimeout(r, 300));
+      clearInterval(timer);
+      return { count: Number(count), max: Math.round(max) };
+    },
+    (await previewInfo(app)).previewWebContentsId ?? -1,
+  );
+  console.log(`worker console flood: ${workerStall.count} calls in 3 s; longest main stall ${workerStall.max} ms`);
+  expect(workerStall.count).toBeGreaterThan(10_000);
+  expect(workerStall.max).toBeLessThan(200);
+  expect((await previewInfo(app)).pageGuarded).toBe(true);
+
+  // Known residual (decision 0016): a page that saved a native console method before exceeding the limit bypasses
+  // it; only main's flood guard is left. Measured and logged here, bounded loosely against regressions.
+  const bypassStall = await app.evaluate(
+    async ({ webContents }, id) => {
+      let last = performance.now();
+      let max = 0;
+      const timer = setInterval(() => {
+        const now = performance.now();
+        max = Math.max(max, now - last - 10);
+        last = now;
+      }, 10);
+      await webContents
+        .fromId(id)
+        ?.executeJavaScript(
+          `(() => { const log = console.log; const end = Date.now() + 2000; let i = 0; while (Date.now() < end) { log('缓存的引用 ' + i); i += 1; } return i; })()`,
+        );
+      await new Promise((r) => setTimeout(r, 3_000));
+      clearInterval(timer);
+      return Math.round(max);
+    },
+    (await previewInfo(app)).previewWebContentsId ?? -1,
+  );
+  console.log(`cached console.log reference (limiter bypassed) for 2 s: longest main stall ${bypassStall} ms`);
+  expect(bypassStall).toBeLessThan(15_000);
   await page.getByTestId('preview-stop').click();
   await waitForPreviewState(page, 'stopped');
 });
@@ -312,11 +394,21 @@ test('a malicious page cannot read local files, other loopback services or the I
     res.writeHead(200, { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'text/plain' });
     res.end('OTHER LOCAL SERVICE');
   });
-  await new Promise<void>((resolve) => other.listen(0, '127.0.0.1', resolve));
+  // All interfaces: reachable through loopback, this machine's LAN address and its name, like a typical dev server.
+  await new Promise<void>((resolve) => other.listen(0, '0.0.0.0', resolve));
   const otherPort = (other.address() as AddressInfo).port;
+  const lan = Object.values(os.networkInterfaces())
+    .flat()
+    .find((i) => i && i.family === 'IPv4' && !i.internal);
   await writeFile(
     path.join(root, 'config.json'),
-    JSON.stringify({ secretFileUrl: pathToFileURL(secret).href, otherPortUrl: `http://127.0.0.1:${otherPort}/` }),
+    JSON.stringify({
+      secretFileUrl: pathToFileURL(secret).href,
+      otherPortUrl: `http://127.0.0.1:${otherPort}/`,
+      otherPort,
+      lanUrl: lan ? `http://${lan.address}:${otherPort}/` : null,
+      machineName: os.hostname(),
+    }),
   );
 
   try {
@@ -324,7 +416,7 @@ test('a malicious page cannot read local files, other loopback services or the I
     await page.getByTestId('preview-start').click();
     await waitForPreviewState(page, 'running');
     await expect
-      .poll(() => evalInPreview<string>(app, 'document.body.dataset.results ?? ""'), { timeout: 15_000 })
+      .poll(() => evalInPreview<string>(app, 'document.body.dataset.results ?? ""'), { timeout: 45_000 })
       .not.toBe('');
     const results = JSON.parse(await evalInPreview<string>(app, 'document.body.dataset.results')) as Record<
       string,
@@ -346,6 +438,17 @@ test('a malicious page cannot read local files, other loopback services or the I
         'localhost-alias',
         'ipv6-loopback',
         'websocket-other-port',
+        'dns-name-to-loopback',
+        'dns-name-to-loopback-no-cors',
+        'dns-name-to-server',
+        'websocket-dns-name',
+        'public-dns-name-to-loopback',
+        'machine-name',
+        'lan-ip',
+        'zero-address',
+        'image-dns-name',
+        'service-worker',
+        'external-browser-grant',
         'ide-bridge',
       ].sort(),
     );
@@ -354,12 +457,90 @@ test('a malicious page cannot read local files, other loopback services or the I
     expect(otherHits).toBe(0);
     // file: never even reaches the network layer (Chromium refuses it in the renderer); the loopback attempts are
     // stopped by the preview session's request policy before any byte is sent.
-    const blocked = (await previewInfo(app)).blockedRequests;
+    const info = await previewInfo(app);
+    const blocked = info.blockedRequests;
     expect(blocked.some((b) => b.host === `127.0.0.1:${otherPort}`)).toBe(true);
     expect(blocked.some((b) => b.host.startsWith('localhost:'))).toBe(true);
+    // Names are judged by the address they resolve to, by the proxy that then connects to exactly that address.
+    expect(blocked).toContainEqual({ scheme: 'proxy', host: `rebind.test:${otherPort}` });
+    expect(
+      blocked.some((b) => b.scheme === 'proxy' && b.host === `rebind.test:${new URL(info.origin ?? '').port}`),
+    ).toBe(true);
+    if (lan) expect(blocked).toContainEqual({ scheme: 'proxy', host: `${lan.address}:${otherPort}` });
+    expect(blocked).toContainEqual({ scheme: 'service-worker', host: '' });
+    // WebRTC may not send UDP outside the proxy.
+    const rtc = await app.evaluate(
+      ({ webContents }, id) => webContents.fromId(id)?.getWebRTCIPHandlingPolicy(),
+      info.previewWebContentsId ?? -1,
+    );
+    expect(rtc).toBe('disable_non_proxied_udp');
+    // No service worker exists after a refresh either.
+    await page.getByTestId('preview-reload').click();
+    await waitForPreviewState(page, 'running');
+    expect(await evalInPreview<number>(app, 'navigator.serviceWorker.getRegistrations().then((r) => r.length)')).toBe(
+      0,
+    );
   } finally {
     await new Promise<void>((resolve) => other.close(() => resolve()));
   }
+});
+
+test('alert, confirm, prompt, print and beforeunload cannot block the IDE, refresh or Stop (S05.5)', async () => {
+  // Still the malicious project from the previous test.
+  await waitForPreviewState(page, 'running');
+  await openInEditor('index.html');
+  const started = Date.now();
+  // userGesture: the page has user activation, the strongest case (beforeunload dialogs need it).
+  const answers = await evalInPreview<unknown[]>(
+    app,
+    `(() => {
+      alert('来自页面的提示');
+      const confirmed = confirm('确定吗?');
+      let prompted;
+      try { prompted = prompt('名字?'); } catch { prompted = 'threw'; }
+      print();
+      return [confirmed, prompted];
+    })()`,
+  );
+  expect(Date.now() - started).toBeLessThan(3_000);
+  expect(answers[0]).toBe(false);
+  expect([null, 'threw']).toContain(answers[1]);
+  // The alert text is shown in the IDE's console instead of a modal dialog, and the IDE still takes input.
+  await expect(page.getByTestId('preview-console')).toContainText('来自页面的提示');
+
+  // A page that refuses to unload: refresh still loads a new document, and Stop still ends it.
+  const arm = `window.__doc = Math.random();
+    addEventListener('beforeunload', (e) => { e.preventDefault(); e.returnValue = '真的要离开吗?'; });
+    window.__doc`;
+  const before = await evalInPreview<number>(app, arm);
+  await page.getByTestId('preview-reload').click();
+  await expect
+    .poll(() => evalInPreview<number | null>(app, 'window.__doc ?? null'), { timeout: 10_000 })
+    .not.toBe(before);
+  await waitForPreviewState(page, 'running');
+  await evalInPreview<number>(app, arm);
+  // The IDE takes input (typing autosaves, and the save refreshes the page despite its beforeunload handler).
+  expect(await typeAndMeasure('对话框之后')).toBeLessThan(3_000);
+  const projectId = (await previewInfo(app)).status.projectId;
+  const stoppedAt = Date.now();
+  await page.getByTestId('preview-stop').click();
+  await waitForPreviewState(page, 'stopped');
+  expect(Date.now() - stoppedAt).toBeLessThan(5_000);
+
+  // Starts are serialised (each reconfigures the project's session); Start, Start, Stop in a row must end stopped.
+  await page.evaluate(async (id) => {
+    const preview = (
+      window as unknown as {
+        noobide: { preview: { start(r: { projectId: string }): Promise<unknown>; stop(): Promise<unknown> } };
+      }
+    ).noobide.preview;
+    await Promise.all([preview.start({ projectId: id }), preview.start({ projectId: id }), preview.stop()]);
+  }, projectId ?? '');
+  await page.waitForTimeout(1_000);
+  const after = await previewInfo(app);
+  expect(after.status.state).toBe('stopped');
+  expect(after.previewWebContentsId).toBeNull();
+  await waitForPreviewState(page, 'stopped');
 });
 
 test('no workbench console errors during the isolation run', async () => {

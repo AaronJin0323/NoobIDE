@@ -43,10 +43,7 @@ process.once('exit', () => {
  */
 export async function launchApp(
   env: Record<string, string> = {},
-  options: {
-    userDataDir?: string;
-    /** Extra Chromium switches, e.g. --force-device-scale-factor (S15.6). */ args?: string[];
-  } = {},
+  options: { userDataDir?: string; /** Extra Chromium/Electron switches. */ args?: string[] } = {},
 ): Promise<ElectronApplication> {
   let userDataDir = options.userDataDir;
   if (!userDataDir) {

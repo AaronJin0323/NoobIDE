@@ -162,7 +162,9 @@ export interface PreviewApi {
   clearData?(request: { readonly projectId: string }): Promise<IpcResult<null, 'unknown-project' | 'not-owner'>>;
   // --- S15.4 ---
   /** Opens the current page in the default browser through a one-time grant (the URL never reaches the renderer). */
-  openExternal?(request: { readonly projectId: string }): Promise<IpcResult<null, 'not-running' | 'not-owner'>>;
+  openExternal?(request: {
+    readonly projectId: string;
+  }): Promise<IpcResult<null, 'not-running' | 'not-owner' | 'open-failed'>>;
   /** Opens Chromium's developer tools for the preview page (advanced). */
   devTools?(request: { readonly projectId: string }): Promise<IpcResult<null, 'not-running' | 'not-owner'>>;
 }

@@ -38,6 +38,12 @@ export class LogBuffer {
     this.entries.push(entry.message.length > max ? { ...entry, message: `${entry.message.slice(0, max)}…` } : entry);
   }
 
+  /** Messages the page's console rate limit suppressed (docs/decisions/0016): counted, never seen by main. */
+  addDropped(count: number): void {
+    if (Number.isSafeInteger(count) && count > 0)
+      this.dropped = Math.min(Number.MAX_SAFE_INTEGER, this.dropped + count);
+  }
+
   /** The producer skipped messages without counting them (see the console flood guard). */
   markThrottled(): void {
     this.throttled = true;
@@ -62,4 +68,37 @@ export class LogBuffer {
     this.dropped = 0;
     this.throttled = false;
   }
+}
+
+export const MAX_LOG_URL_LENGTH = 500;
+
+/**
+ * The form of a page-supplied URL kept in records (S05.5, AGENTS.md "Logs never contain source code"): credentials
+ * removed; `data:` and `javascript:` URLs (which carry content, possibly code) reduced to their scheme and media
+ * type; anything longer than MAX_LOG_URL_LENGTH truncated with "…". Ordinary http(s) URLs of project files are
+ * unchanged, so file and line attribution keeps working.
+ */
+export function sanitizeLogUrl(url: string): string {
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(url)?.[1]?.toLowerCase();
+  if (scheme === 'data') {
+    const type = /^data:([\w.+-]{1,60}\/[\w.+-]{1,60})?/i.exec(url)?.[1] ?? '';
+    return `data:${type},… (${url.length})`;
+  }
+  if (scheme === 'javascript') return `javascript:… (${url.length})`;
+  let out = url;
+  if (scheme === 'http' || scheme === 'https' || scheme === 'ws' || scheme === 'wss') {
+    try {
+      const u = new URL(url);
+      if (u.username !== '' || u.password !== '') {
+        u.username = '';
+        u.password = '';
+        out = u.href;
+      }
+    } catch {
+      // not parseable: only truncated below
+    }
+  }
+  // eslint-disable-next-line no-control-regex
+  out = out.replace(/[\u0000-\u001f\u007f]/g, '');
+  return out.length > MAX_LOG_URL_LENGTH ? `${out.slice(0, MAX_LOG_URL_LENGTH)}…` : out;
 }

@@ -15,6 +15,7 @@ export interface PreviewInfo {
   viewVisible: boolean | null;
   webPreferences: Record<string, unknown> | null;
   blockedRequests: { scheme: string; host: string }[];
+  pageGuarded?: boolean | null;
 }
 
 export async function answerFolderDialog(app: ElectronApplication, folder: string | null): Promise<void> {

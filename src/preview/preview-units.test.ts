@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PreviewLogEntry } from '../shared/ipc/preview-contract';
-import { LogBuffer } from './log-buffer';
+import { LogBuffer, MAX_LOG_URL_LENGTH, sanitizeLogUrl } from './log-buffer';
 import {
   REQUIRED_PREVIEW_PREFERENCES,
   createPreviewWebPreferences,
@@ -130,11 +130,51 @@ describe('log buffer (S05.3)', () => {
     expect(buffer.take()).toBeNull();
   });
 
+  it('adds the count suppressed by the in-page rate limit to dropped (S05.7)', () => {
+    const buffer = new LogBuffer({ maxBatch: 2, maxMessageLength: 5 });
+    buffer.push(entry(1));
+    buffer.addDropped(1234);
+    buffer.addDropped(-5);
+    buffer.addDropped(Number.NaN);
+    expect(buffer.take()).toEqual({ entries: [entry(1)], dropped: 1234, throttled: false });
+  });
+
   it('clear forgets pending records', () => {
     const buffer = new LogBuffer({ maxBatch: 1, maxMessageLength: 5 });
     buffer.push(entry(1));
     buffer.push(entry(2));
     buffer.clear();
     expect(buffer.take()).toBeNull();
+  });
+});
+
+describe('log URL sanitising (S05.5: logs never contain source code)', () => {
+  it('keeps ordinary project and web URLs unchanged', () => {
+    for (const url of [
+      `${ORIGIN}/js/main.js`,
+      `${ORIGIN}/%E4%B8%AD%E6%96%87/a.js?v=2#x`,
+      'https://cdn.example.com/lib.js',
+      'blob:http://127.0.0.1:51234/1f2e',
+      '',
+    ]) {
+      expect(sanitizeLogUrl(url)).toBe(url);
+    }
+  });
+
+  it('reduces data: and javascript: URLs, which carry content, to their type and length', () => {
+    const code = 'data:text/html,<script>const secret = "source code";</script>';
+    expect(sanitizeLogUrl(code)).toBe(`data:text/html,… (${code.length})`);
+    expect(sanitizeLogUrl('DATA:;base64,QUJD')).toBe('data:,… (17)');
+    expect(sanitizeLogUrl('javascript:alert(document.cookie)')).toBe('javascript:… (33)');
+  });
+
+  it('removes credentials and control characters and truncates long URLs', () => {
+    expect(sanitizeLogUrl('https://user:pa55@example.com/x')).toBe('https://example.com/x');
+    expect(sanitizeLogUrl('http://a.test/\nfake')).toBe('http://a.test/fake');
+    const long = `${ORIGIN}/a?q=${'x'.repeat(5_000)}`;
+    const out = sanitizeLogUrl(long);
+    expect(out).toHaveLength(MAX_LOG_URL_LENGTH + 1);
+    expect(out.endsWith('…')).toBe(true);
+    expect(out.startsWith(`${ORIGIN}/a?q=`)).toBe(true);
   });
 });
