@@ -58,6 +58,8 @@ export const COMMAND_IDS = [
   'ai-explain-code',
   // S32.1 AI ghost-text suggestions
   'toggle-inline-ai',
+  // S35.1 AI inline edit (Ctrl/Cmd+I)
+  'ai-inline-edit',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -170,6 +172,13 @@ export const COMMANDS: readonly CommandDefinition[] = [
   { id: 'ai-explain-code', label: 'command.ai.explainCode', when: (c) => c.hasActiveTab && !c.modalOpen },
   // S32.1: switches AI ghost-text suggestions on or off (AiConfig.inlineCompletions); only offered with an AI bridge.
   { id: 'toggle-inline-ai', label: 'command.toggleInlineAi', when: noModal },
+  // S35.1: AI inline edit of the selected lines (or the whole file) — renderer-only like the other AI commands.
+  {
+    id: 'ai-inline-edit',
+    label: 'command.ai.inlineEdit',
+    keys: { all: { key: 'i', primary: true } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+  },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));
@@ -214,6 +223,7 @@ export const APP_MENU_COMMANDS: readonly (CommandId | '-')[] = [
   '-',
   'ai-toggle-chat', // S33
   'ai-explain-code',
+  'ai-inline-edit', // S35.1
   '-',
   'theme-system',
   'theme-light',

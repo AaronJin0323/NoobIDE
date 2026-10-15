@@ -25,6 +25,55 @@ export interface EditorAccess {
   reveal(target: RevealTarget): void;
   /** S33.2: the non-empty selection in the file on screen (its first selection), or null. */
   selection?(): EditorSelection | null;
+  /**
+   * S35: opens an inline edit zone in the file on screen — over `lines` (whole lines, 1-based inclusive), else over
+   * the selected lines, else over the whole file. Null when no file is shown. One zone at a time: opening another
+   * closes the previous one.
+   */
+  openEditZone?(lines?: { readonly startLine: number; readonly endLine: number }): EditZone | null;
+}
+
+/**
+ * S35: an inline edit zone in the code editor (Monaco-free view of src/renderer/ai/edit-zone-monaco.ts): space
+ * above the edited lines with a DOM container for the instruction box and the proposed diff, and the edited range
+ * tracked by a decoration as the user keeps typing elsewhere.
+ */
+export interface EditZone {
+  /** The workbench's model URI string of the file. */
+  readonly uri: string;
+  readonly languageId: string;
+  /** The edited lines when the zone opened (1-based, inclusive). */
+  readonly startLine: number;
+  readonly endLine: number;
+  /** True when nothing was selected: the whole file is the range (including its final line break). */
+  readonly wholeFile: boolean;
+  /** Text of the range when the zone opened, and of the whole file (for context). */
+  readonly original: string;
+  readonly fullText: string;
+  readonly eol: '\n' | '\r\n';
+  /** Where the zone's content is rendered (its own React root: keys typed there never reach the editor). */
+  readonly container: HTMLElement;
+  /** Current text of the tracked range; null when the file's model is gone or the zone is closed. */
+  currentText(): string | null;
+  /** Current text of the whole file (null when its model is gone or the zone is closed). */
+  modelText(): string | null;
+  /** Highlights the tracked range as "to be replaced" while a proposal is reviewed. */
+  markProposal(on: boolean): void;
+  /**
+   * Replaces the tracked range with `text` as ONE undo step, only while it still reads `expected` (line endings
+   * aside). `version` identifies the model state right after the edit.
+   */
+  apply(
+    text: string,
+    expected: string,
+  ):
+    | { readonly ok: true; readonly text: string; readonly version: number }
+    | { readonly ok: false; readonly reason: 'changed' | 'no-model' };
+  /** Puts keyboard focus back into the editor. */
+  focusEditor(): void;
+  /** Called once when the zone closes for any reason (dispose, the editor showed another file, editor gone). */
+  onClose(listener: () => void): void;
+  dispose(): void;
 }
 
 /** S33.2: a selection in the editor, for AI context ("Explain this code"). */
@@ -52,10 +101,23 @@ export interface EditorContextAction {
 
 let contextActions: readonly EditorContextAction[] = [];
 const contextListeners = new Set<(actions: readonly EditorContextAction[]) => void>();
+// S35: several features add actions (S33 explain, S35 inline edit); each owns a group, shown in group order.
+const contextGroups = new Map<string, readonly EditorContextAction[]>();
+
+function publishContextActions(): void {
+  contextActions = [...contextGroups.values()].flat();
+  for (const listener of [...contextListeners]) listener(contextActions);
+}
 
 export function setEditorContextActions(actions: readonly EditorContextAction[]): void {
-  contextActions = actions;
-  for (const listener of [...contextListeners]) listener(actions);
+  setEditorContextActionGroup('default', actions);
+}
+
+/** S35: sets the actions of one group, leaving the other groups' actions in place. */
+export function setEditorContextActionGroup(group: string, actions: readonly EditorContextAction[]): void {
+  if (actions.length === 0) contextGroups.delete(group);
+  else contextGroups.set(group, actions);
+  publishContextActions();
 }
 
 /** For the editor: called now with the current actions and again on every change. Returns the unsubscribe function. */
