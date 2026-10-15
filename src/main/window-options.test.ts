@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createWorkbenchWebPreferences,
   createWorkbenchWindowOptions,
+  defaultWindowSize,
   insecurePreferences,
   REQUIRED_WORKBENCH_PREFERENCES,
 } from './window-options';
@@ -53,6 +54,18 @@ describe('workbench webPreferences factory (S02.2)', () => {
       expect(insecurePreferences(weakened)).toEqual([key]);
     }
     expect(insecurePreferences({})).toHaveLength(Object.keys(REQUIRED_WORKBENCH_PREFERENCES).length);
+  });
+
+  it('starts at 1440×900 when the work area allows it, else fits the work area, never below the minimum', () => {
+    expect(defaultWindowSize({ width: 1920, height: 1040 })).toEqual({ width: 1440, height: 900 });
+    // A 1920×1080 screen at 150 %: the work area is about 1280×688 DIP.
+    expect(defaultWindowSize({ width: 1280, height: 688 })).toEqual({ width: 1280, height: 688 });
+    expect(defaultWindowSize({ width: 1024, height: 728.5 })).toEqual({ width: 1024, height: 728 });
+    expect(defaultWindowSize({ width: 500, height: 300 })).toEqual({ width: 640, height: 480 });
+    expect(defaultWindowSize(undefined)).toEqual({ width: 1280, height: 800 });
+    expect(defaultWindowSize({ width: 0, height: 0 })).toEqual({ width: 1280, height: 800 });
+    const options = createWorkbenchWindowOptions('/p.cjs', { width: 2560, height: 1400 });
+    expect([options.width, options.height, options.minWidth, options.minHeight]).toEqual([1440, 900, 640, 480]);
   });
 
   it('window is titled NoobIDE and starts hidden until ready-to-show', () => {

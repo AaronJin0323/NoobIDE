@@ -12,6 +12,7 @@ import {
   powerMonitor,
   protocol,
   safeStorage,
+  screen,
   session,
   shell,
 } from 'electron';
@@ -174,7 +175,14 @@ function start(): void {
   });
 
   function createWorkbenchWindow(): BrowserWindow {
-    const options = createWorkbenchWindowOptions(path.join(__dirname, 'preload.cjs'));
+    // A larger first window when the screen allows it (kept within the work area of the screen under the pointer).
+    let workArea: Electron.Size | undefined;
+    try {
+      workArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workAreaSize;
+    } catch {
+      workArea = undefined; // no display information: the fallback size
+    }
+    const options = createWorkbenchWindowOptions(path.join(__dirname, 'preload.cjs'), workArea);
     const insecure = insecurePreferences(options.webPreferences ?? {});
     if (insecure.length > 0) throw new Error(`insecure workbench webPreferences: ${insecure.join(', ')}`);
 

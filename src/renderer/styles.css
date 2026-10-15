@@ -40,17 +40,28 @@ button {
 }
 
 /* ── Frame ─────────────────────────────────────────────── */
+/* A column: top bar, the editor/preview row, then the walkthrough band and the problems panel. The middle row keeps a
+   minimum height (the preview stage must stay usable, PLAN §3); when the window is short, the walkthrough and the
+   problems panel give way first and scroll inside themselves. */
 .workbench {
-  display: grid;
-  grid-template-rows: 52px minmax(0, 1fr) auto;
+  /* 430 px (a preview stage of about 270 px under its toolbar), never more than the window can hold next to the top
+     bar and the status strip. */
+  --middle-min: min(430px, calc(100vh - 52px - 32px - 2 * var(--gap)));
+  display: flex;
+  flex-direction: column;
   height: 100%;
   background: var(--bg);
+}
+.workbench > .topbar {
+  flex: none;
+  height: 52px;
 }
 .workbench-middle {
   position: relative;
   display: flex;
+  flex: 1 1 0;
   gap: var(--gap);
-  min-height: 0;
+  min-height: var(--middle-min);
   padding-right: var(--gap);
 }
 .region {
@@ -641,8 +652,11 @@ button {
   font-weight: 600;
 }
 .preview-stage {
-  flex: 1;
-  min-height: 0;
+  /* The page always gets room: the toolbar rows above scroll and the console below shrinks first. */
+  flex: 1 1 0;
+  /* At least 240 px, and everything the pane has beyond 150 px for its header, toolbar rows and one console line
+     (those rows scroll when they need more); only a tiny window goes below 240 px. */
+  min-height: min(max(240px, 100% - 150px), max(0px, 100vh - 52px - 32px - 140px));
   display: flex;
   margin: 10px;
   border-radius: var(--radius-control);
@@ -652,8 +666,14 @@ button {
 
 /* ── Problems + status strip ───────────────────────────── */
 .problems {
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+}
+/* Open, the panel may give way down to a few rows (it scrolls inside); the status strip below it always shows. */
+.problems:has(> .problems-panel:not([hidden])) {
+  min-height: calc(100px + var(--gap) + 32px);
 }
 .problems-panel {
   height: 160px;
@@ -1200,7 +1220,9 @@ button {
   gap: 4px;
 }
 .preview-console {
-  flex: none;
+  /* Gives way first when the pane is short (the stage keeps its minimum). */
+  flex: 0 1 auto;
+  min-height: 26px; /* one line of the console stays visible */
   max-height: 120px;
   margin: 0 10px 10px;
   overflow: auto;
@@ -1245,7 +1267,8 @@ button {
 .problems-panel:not([hidden]) {
   display: flex;
   flex-direction: column;
-  height: 260px;
+  flex: 0 1 260px;
+  min-height: 100px;
 }
 .problems-panel .panel-header {
   gap: 8px;
@@ -1389,16 +1412,25 @@ button {
   color: var(--muted);
 }
 /* The page showing and the way back to the entry page (a broken link must never trap the preview). */
-.preview-location {
-  flex: none;
+/* The rows between the preview header and the stage: they scroll when the window is short (the stage keeps its
+   minimum height). */
+.preview-chrome {
+  flex: 0 1 auto;
+  min-height: 0;
   display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.preview-chrome > * {
+  flex: none;
+}
+.preview-location {
+  display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 8px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--line);
-  font-size: 12px;
-  color: var(--muted);
+  min-width: 0;
+  max-width: 100%;
 }
 .preview-page-path {
   min-width: 0;
@@ -1551,10 +1583,9 @@ button {
 
 /* ── Preview viewport width (S15.3) ────────────────────── */
 .viewport-switch {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin: 6px 10px 0;
   flex-wrap: wrap;
 }
 .viewport-choice {

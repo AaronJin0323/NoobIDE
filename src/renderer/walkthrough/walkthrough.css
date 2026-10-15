@@ -1,10 +1,14 @@
 /* S23 walkthrough strip, final task card and glossary. Colours come only from the theme tokens. */
 .walkthrough {
+  /* Gives way when the window is short (the editor and the preview keep their minimum, styles.css .workbench): the
+     step text scrolls inside the band while the progress check and the buttons on the side stay in view. */
+  flex: 0 1 auto;
+  min-height: 88px;
   display: flex;
-  flex-wrap: wrap;
   gap: 8px 24px;
   margin: var(--gap) var(--gap) 0 72px;
   padding: 12px 16px;
+  overflow: hidden;
   border: 1px solid var(--accent);
   border-radius: var(--radius-panel);
   background: var(--panel);
@@ -12,9 +16,13 @@
 .walkthrough-main {
   flex: 1 1 420px;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 .walkthrough-side {
   flex: 0 1 360px;
+  min-height: 0;
+  overflow-y: auto; /* a short band: wrapped buttons scroll (and focus brings them into view) instead of being cut */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -73,6 +81,8 @@
   outline-offset: 2px;
 }
 .workbench.narrow .walkthrough {
+  flex-wrap: wrap;
+  overflow-y: auto;
   margin-left: var(--gap);
 }
 
