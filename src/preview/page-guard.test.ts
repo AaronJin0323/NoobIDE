@@ -341,6 +341,25 @@ describe('page guard: rate limit and summaries', () => {
     expect(fresh.logs()).toHaveLength(0);
   });
 
+  it('counts deeply nested frames (no depth limit), lazily, and assumes the most documents when counting fails', () => {
+    const top = realm();
+    // A chain of 100 nested frames whose last one holds 900 more: 1001 documents, more than CONSOLE_BURST.
+    const frame = (kids: unknown[]) => Object.assign(Object.fromEntries(kids.map((k, i) => [i, k])), { __kids: kids });
+    let deepest = frame(Array.from({ length: 900 }, () => frame([])));
+    for (let d = 0; d < 100; d += 1) deepest = frame([deepest]);
+    (top.global.__kids as unknown[]).push(deepest);
+    Object.defineProperty(top.global, 0, { get: () => deepest });
+    const fresh = realm({ top: opaque(top.global), clock: top.clock });
+    fresh.advance(60_000);
+    for (let i = 0; i < 100; i += 1) fresh.console.log(i);
+    expect(fresh.logs()).toHaveLength(0);
+    // A frame tree that cannot be counted at all counts as the most documents too.
+    const broken = realm({ top: opaque({ __kids: { length: 'many' } }), clock: top.clock });
+    broken.advance(60_000);
+    for (let i = 0; i < 100; i += 1) broken.console.log(i);
+    expect(broken.logs()).toHaveLength(0);
+  });
+
   it('a summary waits for a token and retries with one timer (no timer per console call)', () => {
     const r = realm();
     for (let i = 0; i < CONSOLE_BURST + 50; i += 1) r.console.log(i);

@@ -1054,6 +1054,19 @@ const guardedScopeSets = new WeakMap<WebContents, Set<string>>();
 /** When each preview's recent workers and worklets were started (for the start rate, scopeStartTurn). */
 const scopeStartTimes = new WeakMap<WebContents, number[]>();
 
+/** Workers/worklets of each preview waiting for their start turn (at most MAX_WAITING_SCOPES; others never start). */
+const scopeWaitingCounts = new WeakMap<WebContents, { count: number }>();
+const MAX_WAITING_SCOPES = 32;
+
+function scopeWaiting(contents: WebContents): { count: number } {
+  let waiting = scopeWaitingCounts.get(contents);
+  if (!waiting) {
+    waiting = { count: 0 };
+    scopeWaitingCounts.set(contents, waiting);
+  }
+  return waiting;
+}
+
 function scopeStarts(contents: WebContents): number[] {
   let starts = scopeStartTimes.get(contents);
   if (!starts) {
@@ -1064,13 +1077,23 @@ function scopeStarts(contents: WebContents): number[] {
 }
 
 /** Waits until fewer than MAX_GUARDED_SCOPES workers/worklets were started in the last FLOOD_WINDOW_MS, then counts one. */
-async function scopeStartTurn(starts: number[]): Promise<void> {
+async function scopeStartTurn(starts: number[], waiting: { count: number }): Promise<boolean> {
+  if (waiting.count >= MAX_WAITING_SCOPES) return false; // more are waiting already: this one never starts
+  waiting.count += 1;
+  try {
+    return await nextScopeStart(starts);
+  } finally {
+    waiting.count -= 1;
+  }
+}
+
+async function nextScopeStart(starts: number[]): Promise<boolean> {
   for (;;) {
     const now = Date.now();
     while (starts.length > 0 && now - (starts[0] ?? 0) >= FLOOD_WINDOW_MS) starts.shift();
     if (starts.length < MAX_GUARDED_SCOPES) {
       starts.push(now);
-      return;
+      return true;
     }
     await new Promise((resolve) => setTimeout(resolve, FLOOD_WINDOW_MS - (now - (starts[0] ?? now)) + 1));
   }
@@ -1174,6 +1197,7 @@ async function installPageGuard(
             dbg,
             guardedScopes(contents),
             scopeStarts(contents),
+            scopeWaiting(contents),
             params.sessionId,
             params.targetInfo.type,
             guardSources.get(contents) ?? '',
@@ -1221,6 +1245,7 @@ async function guardChildTarget(
   dbg: Electron.Debugger,
   scopes: Set<string>,
   starts: number[],
+  queue: { count: number },
   sessionId: string,
   type: string,
   source: string,
@@ -1240,7 +1265,7 @@ async function guardChildTarget(
     } else if (type === 'worker' || type === 'worklet') {
       // Each one starts with its own small budget: at most MAX_GUARDED_SCOPES start per FLOOD_WINDOW_MS (the others
       // wait, paused, for their turn) and run at once (further ones never start).
-      await scopeStartTurn(starts);
+      if (!(await scopeStartTurn(starts, queue))) return;
       if (scopes.size >= MAX_GUARDED_SCOPES) return;
       scopes.add(sessionId);
       // Their global scope exists and waits; the guard runs before their own script.

@@ -159,12 +159,15 @@ the loop still ran to its end (5,965 ms), longest main stall 3,514 ms. The bypas
   - A frame that **cannot reach it** (opaque or other origin: a sandboxed or `data:` frame, an external site) gets
     `1/N` of the burst and rate, N = documents of the frame tree, counted from `top` through the `length` getter
     (captured from the frame's own realm before page scripts) and indexed child windows, which are readable across
-    origins and cannot be faked; recounted every 100 ms. Such a frame **starts empty** and can hold no more than its
+    origins and cannot be faked; counted on the frame's first message (not at install: reading a sibling's `length`
+    can create the sibling's realm, whose guard would count in turn — the third review measured hundreds of stack
+    overflows that way), iteratively with no depth limit (a chain 70 deep under-counted before), and recounted every
+    100 ms; any failure counts as the maximum of 1,000 documents. Such a frame **starts empty** and can hold no more than its
     share (with more than 100 documents it never logs), so these frames together add at most another 100 at once
     and 200 per second, and a frame created and removed in a loop gets nothing.
   - **Dedicated workers and worklets** have no frame tree: each gets `WORKER_CONSOLE_BURST` = 20 /
     `WORKER_CONSOLE_LIMIT` = 50 per second, and main starts at most `MAX_GUARDED_SCOPES` = 8 of them per second
-    (the next ones wait, paused, for their turn) and runs at most 8 at once (further ones stay paused and never
+    (the next ones wait, paused, for their turn; at most 32 wait, further ones never start) and runs at most 8 at once (further ones stay paused and never
     start).
   - Summaries take a token too (a spent budget delays them; one retry timer at a time).
   - Bound on what main must take in one go, whatever the page does: about 100 + 100 + 8 × 20 = 360 messages
@@ -236,7 +239,8 @@ the rejection residual).
 stub frames; in DevTools a message's location link opens the stub (blank lines and the call at the right line)
 instead of the file; `console.time`/`groupEnd` count against the budget; 101+ lines printed at once lose the rest to
 "N messages dropped" (was 201+), and same-origin iframes share those 100 with their page; a cross-origin or
-sandboxed iframe's first messages right after it loads are dropped (it starts empty); a worker shows 20 lines at
+sandboxed iframe's first messages right after it loads are dropped (it starts empty), and in a page with more
+than 100 documents such frames never log — not even a summary (their share stays below one message); a worker shows 20 lines at
 once and 50 per second; more than 8 workers starting within a second start later, and a 9th simultaneously running
 worker never starts; the top document has the global `noobidePreviewConsoleBudget`; CSS paint worklets and AudioWorklets are
 unavailable in the preview; error events above the limit arrive `defaultPrevented`. DevTools coexistence is otherwise unchanged (the user's DevTools sees the same limited

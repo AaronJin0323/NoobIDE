@@ -161,37 +161,47 @@ export function pageGuardSource(nonce: string): string {
     }
   }
   const shared = inFrameTree && !isTop && ledger === null;
+  // Iterative (no recursion, no depth limit; Chromium allows at most 1000 frames per page) on a null-prototype stack
+  // (no Array.prototype setter can intercept it). Any failure or reaching MAX_DOCUMENTS counts as MAX_DOCUMENTS: the
+  // smallest share. Counting happens on the first message, not at install: reading a sibling's \`length\` can create
+  // that sibling's realm, whose guard must not start counting in turn.
+  let counting = false;
   const countDocuments = () => {
-    let n = 0;
-    const visit = (w, depth) => {
-      n += 1;
-      if (n >= MAX_DOCUMENTS || depth > 64) return;
-      let length = 0;
-      try {
-        length = R(lengthOf, w, []);
-      } catch {
-        return;
-      }
-      if (typeof length !== 'number') return;
-      for (let i = 0; i < length && n < MAX_DOCUMENTS; i += 1) {
-        let child = null;
-        try {
-          child = w[i];
-        } catch {
-          child = null;
+    if (!topWindow || counting) return MAX_DOCUMENTS;
+    counting = true;
+    try {
+      const stack = { __proto__: null, 0: topWindow };
+      let size = 1;
+      let n = 0;
+      while (size > 0) {
+        size -= 1;
+        const w = stack[size];
+        n += 1;
+        if (n >= MAX_DOCUMENTS) return MAX_DOCUMENTS;
+        const length = R(lengthOf, w, []);
+        if (typeof length !== 'number' || !(length >= 0)) return MAX_DOCUMENTS;
+        for (let i = 0; i < length; i += 1) {
+          const child = w[i];
+          if (child) {
+            stack[size] = child;
+            size += 1;
+            if (size + n >= MAX_DOCUMENTS) return MAX_DOCUMENTS;
+          }
         }
-        if (child) visit(child, depth + 1);
       }
-    };
-    if (topWindow) visit(topWindow, 0);
-    return n > 0 ? n : 1;
+      return n > 0 ? n : 1;
+    } catch {
+      return MAX_DOCUMENTS;
+    } finally {
+      counting = false;
+    }
   };
-  let documents = shared ? countDocuments() : 1;
-  let counted = now();
+  let documents = shared ? MAX_DOCUMENTS : 1;
+  let counted = 0; // a frame that shares counts on its first message
   const burst = () => (inFrameTree ? BURST / documents : WORKER_BURST);
   const rate = () => (inFrameTree ? LIMIT / documents : WORKER_LIMIT);
   let tokens = shared ? 0 : burst();
-  let refilled = counted;
+  let refilled = now();
   let lastReport = refilled;
   let suppressed = 0;
   let timer = 0;
