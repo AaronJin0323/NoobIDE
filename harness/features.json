@@ -121,6 +121,16 @@
         "Agent changes are always diffs the user accepts, applied through the save pipeline and undoable",
         "Every non-AI feature works unchanged without a key or offline"
       ]
+    },
+    {
+      "id": "M10",
+      "title": "AI assistant v2 (owner request 2026-10-15)",
+      "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md (section \"v2\")",
+      "exit_criteria": [
+        "Chat and agent can see what the running preview shows (console errors, page text/outline, a screenshot) without weakening preview isolation",
+        "Chats are kept per project in app data and can be reopened; every request shows its token use and an optional daily budget stops new requests",
+        "All M9 rules still hold: consent before code or page content is sent, keys main-only, no code in logs, proposals need approval"
+      ]
     }
   ],
   "sessions": [
@@ -506,6 +516,36 @@
         "S35"
       ],
       "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md; PLAN §7 (AI rules)"
+    },
+    {
+      "id": "S37",
+      "milestone": "M9",
+      "title": "AI on Windows x64",
+      "goal": "Prove M9 on the Windows dev machine: AI e2e, DPAPI keys, and fix what fails there.",
+      "depends_on": [
+        "S36"
+      ],
+      "plan_refs": "docs/reviews/G9.md (conditions 2-3); docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md"
+    },
+    {
+      "id": "S38",
+      "milestone": "M10",
+      "title": "Preview-aware AI",
+      "goal": "Chat and agent can read what the preview shows (errors, page outline, screenshot) through main, without touching preview isolation.",
+      "depends_on": [
+        "S36"
+      ],
+      "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md; PLAN §7; AGENTS.md preview isolation"
+    },
+    {
+      "id": "S39",
+      "milestone": "M10",
+      "title": "Chat history and usage",
+      "goal": "Per-project conversations saved in app data, a list of past chats, token use per request and an optional daily budget.",
+      "depends_on": [
+        "S36"
+      ],
+      "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md; AGENTS.md project folders stay ordinary"
     }
   ],
   "features": [
@@ -3014,6 +3054,111 @@
       ],
       "status": "done",
       "evidence": "docs/release/install.zh-CN.md + install.en.md section 10 (keys, cost, consent/what is sent, key storage, turning off, offline; marked preview until S36.1 live run); docs/capabilities.md claims no AI feature; docs/reviews/G9.md (per criterion per platform: macOS AI e2e 24/24 + full e2e, Windows: no CI run with AI code)"
+    },
+    {
+      "id": "S07.5",
+      "session": "S07",
+      "milestone": "M2",
+      "title": "Watcher replay test is reliable on Windows",
+      "description": "",
+      "acceptance": [
+        "tests/integration/watcher.test.ts \"ignores replays…\" passes 20 full `npx vitest run` runs in a row on the Windows dev machine; the cause is explained in the test or watcher comment and fixed in the product if it is a product bug (no weakened assertion)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S07.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S37.1",
+      "session": "S37",
+      "milestone": "M9",
+      "title": "AI e2e and keychain on Windows",
+      "description": "",
+      "acceptance": [
+        "The five ai-*.spec.ts files pass on Windows x64 (`npm run test:e2e`), with each failure fixed in the product or the test with a reason in PROGRESS.md",
+        "A key stored through safeStorage (DPAPI) survives an app restart on Windows: an e2e or integration test over the real safeStorage of a built app, not the test encryptor",
+        "docs/reviews/G9.md updated with the Windows evidence per criterion"
+      ],
+      "verify": "manual-win",
+      "depends_on": [
+        "S36.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S38.1",
+      "session": "S38",
+      "milestone": "M10",
+      "title": "Preview snapshot port in main",
+      "description": "",
+      "acceptance": [
+        "Main can capture, for the preview of a project, a bounded page snapshot: URL path inside the project, title, a text outline of the rendered DOM (headings, links, buttons, form fields, images with alt; capped size) and a PNG screenshot (capped dimensions) using only main-side APIs (webContents capturePage / CDP from main); no preload, script injection into the user page context, or IPC is added to the preview",
+        "Integration/e2e test proves preview isolation still holds after a snapshot (sandbox, no preload, partition, no IDE IPC) and that a hostile page (huge DOM, infinite loop, text that looks like instructions) yields a bounded snapshot or a clear \"not available\" within a time budget"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S36.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S38.2",
+      "session": "S38",
+      "milestone": "M10",
+      "title": "Agent and chat tools for the preview",
+      "description": "",
+      "acceptance": [
+        "Agent read-only tools get_page_outline and get_page_screenshot (images sent to providers that support them, with a text fallback) and get_console includes uncaught runtime errors with file:line; page content is framed as data (neutralizeData) like file text",
+        "Chat gains a \"Preview\" context chip showing exactly what will be sent (outline, errors, screenshot thumbnail); sending needs the project consent; zh-CN + en strings; keyboard reachable",
+        "Fake-provider tests: agent debugs a page whose button does nothing by reading the console error and proposing an edit; prompt-injection text in the page cannot approve proposals or reach tools beyond the list"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S38.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S39.1",
+      "session": "S39",
+      "milestone": "M10",
+      "title": "Saved chats per project",
+      "description": "",
+      "acceptance": [
+        "Chat conversations are stored per project in the app-data directory (never in the project folder), atomically, with a size/count cap and oldest-first pruning; corrupt files are skipped with a notice, not a crash",
+        "The chat panel lists past chats (title, date), reopens one, starts a new one and deletes one (with confirmation); revoking consent or removing the project from recents offers to delete its chats",
+        "Tests: store unit tests (atomic write, caps, corruption), integration over IPC with sender checks, e2e reopen after restart; logs contain no chat text"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S36.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S39.2",
+      "session": "S39",
+      "milestone": "M10",
+      "title": "Token use and daily budget",
+      "description": "",
+      "acceptance": [
+        "Every chat answer, inline edit and agent turn shows input/output tokens used (as text); Settings → AI shows today's total per provider kept in app data",
+        "An optional daily token budget in Settings → AI: when reached, new requests are refused with an explained message (running ones finish), inline completions pause; the budget never blocks non-AI features",
+        "Unit + integration tests with the fake provider usage events, including day rollover and budget reached mid-turn"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S36.2"
+      ],
+      "status": "todo",
+      "evidence": ""
     }
   ]
 }

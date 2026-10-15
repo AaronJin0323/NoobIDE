@@ -71,3 +71,11 @@ errors explained, AI off → no AI UI. A live smoke test (`npm run test:ai-live`
 - Beginners over-relying on AI → explain-first answers in the user's locale (owner chose full power; revisit after
   H.6 study).
 - Key exposure → main-only, safeStorage, redacted logs, a test that greps logs and renderer state for the key.
+
+## v2 (owner request 2026-10-15, after M9)
+
+The owner chose three follow-ups: **S37** proves M9 on Windows x64 (G9 conditions 2–3), **S38** makes chat and agent
+preview-aware (page outline, screenshot, runtime errors), captured from main only so preview isolation is unchanged,
+and **S39** keeps chats per project in app data and shows token use with an optional daily budget. Milestone M10
+in `harness/features.json`; S07.5 fixes a Windows-only watcher test flake found at the start of that session.
+More providers (OpenAI-compatible / CN endpoints) were considered and not chosen for now.
