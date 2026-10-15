@@ -375,8 +375,9 @@ async function firstUserMessage(
     if (item.relPath) attributes.push(`path=${JSON.stringify(item.relPath)}`);
     if (item.startLine) attributes.push(`lines="${item.startLine}-${item.endLine ?? item.startLine}"`);
     if (item.label) attributes.push(`label=${JSON.stringify(item.label.slice(0, 200))}`);
-    // Page text (S38.2) can be anything a webpage shows: it cannot close the chat's framing tags either.
-    const body = item.kind === 'preview' ? neutralizeData(text) : text;
+    // Page text (S38.2, and an annotation's element text, S41.6) can be anything a webpage shows: it cannot close
+    // the chat's framing tags either.
+    const body = item.kind === 'preview' || item.kind === 'annotation' ? neutralizeData(text) : text;
     blocks.push({ type: 'text', text: frameData(nonce, attributes.join(' '), body) });
   }
   for (const image of images) blocks.push({ type: 'image', mediaType: image.mediaType, data: image.data });

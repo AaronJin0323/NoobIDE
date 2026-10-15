@@ -165,6 +165,7 @@ export function parseFakeScript(raw: unknown): FakeScript {
  * Built-in scenarios (`NOOBIDE_AI_FAKE=1`), shared by the AI e2e suites (S31–S35):
  * - a prompt containing `[[slow]]` streams a first part, then waits until cancelled (Stop);
  * - `[[offline]]` / `[[rate-limited]]` / `[[unauthorized]]` / `[[refused]]` end with that error (refusal: stop reason);
+ * - an `edit` request in generate mode (S42 inline `/ai` prompt) answers `<p>Written by the fake AI.</p>`;
  * - any other `edit` request (S35 inline edit, Fix with AI) answers `<p>Edited by the fake AI.</p>`;
  * - anything else gets a short Markdown answer with an ```html block, in Chinese when the system prompt asks for
  *   Simplified Chinese and in English otherwise, then 'done' with usage.
@@ -184,6 +185,13 @@ export const BUILTIN_FAKE_SCRIPT: FakeScript = parseFakeScript({
     { match: '[[rate-limited]]', repeat: true, steps: [{ type: 'error', code: 'rate-limited' }] },
     { match: '[[unauthorized]]', repeat: true, steps: [{ type: 'error', code: 'unauthorized' }] },
     { match: '[[refused]]', repeat: true, steps: [{ type: 'text', text: '…' }], stop: 'refusal' },
+    // S42: an inline /ai prompt (generate mode) answers new code that replaces the prompt line.
+    {
+      purpose: 'edit',
+      systemMatch: 'The user typed a request on its own line of their file',
+      repeat: true,
+      steps: [{ type: 'text', text: '<p>Written by the fake AI.</p>' }],
+    },
     // S35: an inline edit / AI fix answer is code that replaces the selected lines (never Markdown).
     { purpose: 'edit', repeat: true, steps: [{ type: 'text', text: '<p>Edited by the fake AI.</p>' }] },
     {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type Rea
 import { createRoot, type Root } from 'react-dom/client';
 import type { AiEvent } from '../../shared/ipc/ai-contract';
 import type { ProblemRecord } from '../../shared/problem';
-import { activeEditor, type EditZone } from '../editor/editor-handle';
+import { activeEditor, setAiPromptHooks, type EditZone } from '../editor/editor-handle';
 import { I18nValueProvider, useI18n } from '../i18n/I18nProvider';
 import { fill } from '../recovery/format';
 import { rendererPlatform } from '../workbench/file-op-messages';
@@ -13,6 +13,7 @@ import { useAiStatus } from './ai-status';
 import { availabilityOf, aiSurfacesShown } from './chat-model';
 import { providerName } from './chat-text';
 import { InlineEditPanel, type InlineEditPanelActions } from './InlineEditPanel';
+import { buildGenerateRequest, fitIndent, parsePromptLine, promptLinesOf, promptProblems } from './ai-prompt-model';
 import {
   buildEditRequest,
   fixInstruction,
@@ -50,6 +51,8 @@ export interface AiFixCommit {
 export interface InlineEditOptions {
   readonly loadsStarted?: () => number;
   readonly onFixCommitted?: (commit: AiFixCommit) => void;
+  /** S42.3: the project's current problems (static + runtime), for the context of an `/ai` prompt. */
+  readonly problems?: () => readonly ProblemRecord[];
 }
 
 interface Session {
@@ -61,6 +64,8 @@ interface Session {
   /** The range text the current request was made for (re-read on every send). */
   original: string;
   readonly problem?: { readonly record: ProblemRecord; readonly title: string };
+  /** S42.3: an inline `/ai` prompt: the request on the zone's line and that line's indentation. */
+  readonly prompt?: { readonly text: string; readonly indent: string };
 }
 
 interface Running {
@@ -150,7 +155,8 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
       dispatch({
         type: 'answer',
         original: s.original,
-        text: running.text,
+        // S42.3: generated code is indented like the `/ai` line it replaces.
+        text: s.prompt ? fitIndent(running.text, s.prompt.indent) : running.text,
         eol: s.zone.eol,
         ...(event.usage ? { usage: event.usage } : {}), // S39.2
       });
@@ -182,16 +188,32 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
       s.original = original;
       s.zone.markProposal(false);
       const range = { startLine: s.zone.startLine, endLine: s.zone.endLine };
-      const request = buildEditRequest({
-        projectId: s.projectId,
-        relPath: s.relPath,
-        languageId: s.zone.languageId,
-        instruction,
-        fullText,
-        range,
-        original,
-        locale: localeRef.current,
-      });
+      const request = s.prompt
+        ? buildGenerateRequest({
+            projectId: s.projectId,
+            relPath: s.relPath,
+            languageId: s.zone.languageId,
+            prompt: instruction,
+            fullText,
+            line: range.startLine,
+            problems: promptProblems(
+              optionsRef.current.problems?.() ?? [],
+              s.relPath,
+              range.startLine,
+              new Set(promptLinesOf(fullText)),
+            ),
+            locale: localeRef.current,
+          })
+        : buildEditRequest({
+            projectId: s.projectId,
+            relPath: s.relPath,
+            languageId: s.zone.languageId,
+            instruction,
+            fullText,
+            range,
+            original,
+            locale: localeRef.current,
+          });
       counters.current.request += 1;
       const running: Running = { token: counters.current.request, sessionId: s.id, id: null, text: '', early: [] };
       runningRef.current = running;
@@ -253,9 +275,12 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
     } else dispatch({ type: 'save-failed', code: saved.code });
   }, [finish, t]);
 
-  /** Opens a session on a zone; `problem` makes it "Fix with AI" (sent right away when it may be). */
+  /**
+   * Opens a session on a zone; `problem` makes it "Fix with AI", `prompt` an inline `/ai` prompt (S42.3); both are
+   * sent right away when they may be.
+   */
   const openSession = useCallback(
-    (zone: EditZone, relPath: string, problem?: Session['problem']) => {
+    (zone: EditZone, relPath: string, problem?: Session['problem'], prompt?: Session['prompt']) => {
       if (!projectId) {
         zone.dispose();
         return;
@@ -271,9 +296,10 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
         projectId,
         original: zone.original,
         ...(problem ? { problem } : {}),
+        ...(prompt ? { prompt } : {}),
       };
       const now = statusRef.current;
-      const instruction = problem ? fixInstruction(problem.record) : '';
+      const instruction = problem ? fixInstruction(problem.record) : (prompt?.text ?? '');
       const phase: InlineEditPhase = hostRef.current.readOnly(relPath)
         ? 'read-only'
         : now.kind === 'no-key' || now.kind === 'no-secure-storage'
@@ -285,7 +311,7 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
       setSession(s);
       dispatch({ type: 'reset', state: initialEditState(phase, instruction) });
       zone.onClose(() => finish(s, null, false));
-      if (problem && phase === 'instruction') void send(instruction);
+      if ((problem || prompt) && phase === 'instruction') void send(instruction);
     },
     [projectId, finish, send],
   );
@@ -319,6 +345,51 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
     [openSession],
   );
 
+  /**
+   * S42.3: an inline `/ai` prompt on `line` of the file on screen (Enter, Ctrl/Cmd+Enter or the context menu): the
+   * zone opens over that line with the request, and it is sent at once (after consent in a new project).
+   */
+  const runPrompt = useCallback(
+    (uri: string, line: number): boolean => {
+      const current = sessionRef.current;
+      if (current && ACTIVE.has(stateRef.current.phase)) {
+        // One AI edit at a time: the key goes back to the open one.
+        current.zone.container.querySelector<HTMLElement>('textarea, button')?.focus();
+        return true;
+      }
+      const access = activeEditor();
+      const relPath = hostRef.current.relPathOf(uri);
+      if (!projectId || !access?.openEditZone || access.shownUri() !== uri || !relPath) return false;
+      const zone = access.openEditZone({ startLine: line, endLine: line });
+      if (!zone) return false;
+      const parsed = parsePromptLine(zone.original);
+      if (!parsed?.prompt) {
+        zone.dispose();
+        return false;
+      }
+      openSession(zone, relPath, undefined, { text: parsed.prompt, indent: parsed.indent });
+      return true;
+    },
+    [openSession, projectId],
+  );
+
+  // S42.3: the editor's `/ai` support follows AI being shown and the locale.
+  useEffect(() => {
+    const shortcut = shortcutLabel(rendererPlatform(), 'Enter');
+    setAiPromptHooks({
+      enabled: shown && projectId !== null,
+      texts: {
+        hintRun: fill(t('aiPrompt.hint.run'), { shortcut }),
+        hintShortcut: fill(t('aiPrompt.hint.shortcut'), { shortcut }),
+        hintBare: t('aiPrompt.hint.bare'),
+        marker: fill(t('aiPrompt.marker'), { shortcut }),
+        menu: t('aiPrompt.menu'),
+      },
+      run: runPrompt,
+    });
+    return () => setAiPromptHooks(null);
+  }, [shown, projectId, t, runPrompt]);
+
   // AI switched off, or another project: the session ends without changing anything.
   useEffect(() => {
     const s = sessionRef.current;
@@ -351,6 +422,7 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
     dispatch({ type: 'consented' });
     const s = sessionRef.current;
     if (s?.problem) void send(stateRef.current.instruction || fixInstruction(s.problem.record));
+    else if (s?.prompt) void send(stateRef.current.instruction || s.prompt.text);
   }, [send]);
 
   // The zone's content lives in its own React root (inside the editor); it is rendered from here.
@@ -380,6 +452,7 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
           }}
           original={session.original}
           fixTitle={session.problem?.title}
+          promptRequest={session.prompt?.text}
           consent={consent}
           platform={rendererPlatform()}
           actions={actions}
@@ -408,5 +481,5 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
     </p>
   );
 
-  return { shown, start, fixProblem, element, phase: session ? state.phase : null };
+  return { shown, start, fixProblem, runPrompt, element, phase: session ? state.phase : null };
 }

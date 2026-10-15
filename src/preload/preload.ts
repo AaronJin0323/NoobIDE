@@ -10,6 +10,7 @@ import { PROBLEMS_CHANNELS, PROBLEMS_EVENT_CHANNEL } from '../shared/ipc/problem
 import type { ProblemRecord } from '../shared/problem';
 import { AI_CHANNELS, AI_EVENT_CHANNEL, type AiEvent } from '../shared/ipc/ai-contract'; // S31
 import { AI_HISTORY_CHANNELS } from '../shared/ipc/ai-history-contract'; // S39
+import { ANNOTATION_CHANNELS } from '../shared/ipc/annotations-contract'; // S41
 
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
@@ -205,6 +206,20 @@ const api: NoobideApi = {
     usage: () => ipcRenderer.invoke(AI_HISTORY_CHANNELS.usage),
     setDailyBudget: (request) => ipcRenderer.invoke(AI_HISTORY_CHANNELS.setDailyBudget, request),
   },
+  // S41: preview annotations (decision 0030).
+  annotations: {
+    list: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.list, request),
+    pick: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.pick, request),
+    cancelPick: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.cancelPick, request),
+    candidates: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.candidates, request),
+    regionShot: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.regionShot, request),
+    resolve: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.resolve, request),
+    save: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.save, request),
+    update: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.update, request),
+    remove: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.remove, request),
+    highlight: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.highlight, request),
+    context: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.context, request),
+  },
 };
 
 contextBridge.exposeInMainWorld(
@@ -228,5 +243,6 @@ contextBridge.exposeInMainWorld(
     problems: Object.freeze(api.problems), // S16.2
     ai: Object.freeze(api.ai), // S31
     aiHistory: Object.freeze(api.aiHistory), // S39
+    annotations: Object.freeze(api.annotations), // S41
   }),
 );

@@ -936,6 +936,7 @@ export function Workbench() {
   const inlineEdit = useInlineEdit(doc.project?.projectId ?? null, inlineEditHost, {
     loadsStarted: () => previewLoads.started,
     onFixCommitted: (commit) => aiFix.committed(commit.record, commit),
+    problems: () => walkthroughProblems, // S42.3: context of an inline `/ai` prompt
   });
   const startInlineEdit = inlineEdit.start;
   useEffect(() => {
@@ -1252,6 +1253,7 @@ export function Workbench() {
           }
           projectId={project?.projectId ?? null}
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
+          onAskAi={ai.shown ? (annotations) => void ai.askAboutAnnotations(annotations) : undefined} // S41.6
           autoStartProjectId={autoPreview}
           onRenamePage={renamePage}
         />

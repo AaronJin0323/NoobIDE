@@ -3,6 +3,7 @@
  * SyntaxErrors, a failed fetch is also an unhandled rejection), catch-all patterns last.
  */
 import type { ProblemExplanation, ProblemRecord } from '../../shared/problem';
+import { aiPromptPendingRule } from './ai-prompt';
 import { corsRule, fetchFailureRule, jsonParseRule, unhandledRejectionRule } from './async-network';
 import { htmlUnclosedTagRule, notAFunctionRule, selectorGuidedRule } from './code-structure';
 import { crossOriginRule } from './cross-origin';
@@ -16,6 +17,8 @@ import type { Rule, RuleContext } from './types';
 import { undefinedNameRule } from './undefined-name';
 
 export const DEFAULT_RULES: readonly Rule[] = [
+  // S42.3: NoobIDE's own marker on an `/ai` line; before the syntax rule, which the same line also triggers.
+  aiPromptPendingRule,
   crossOriginRule,
   moduleImportRule,
   corsRule,

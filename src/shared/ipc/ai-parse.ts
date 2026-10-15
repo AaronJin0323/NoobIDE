@@ -9,6 +9,7 @@ import {
   type AiChatMessage,
   type AiConfig,
   type AiContextItem,
+  type AiEditProblem,
   type AiProposalDecision,
   type AiProviderId,
   type AiRequest,
@@ -27,6 +28,10 @@ export const AI_LIMITS = {
   /** Inline prefix / suffix (already bounded by the renderer). */
   inlineChars: 40_000,
   editChars: 400_000,
+  /** S42: problems sent with an `/ai` prompt, and each one's message / code. */
+  editProblems: 20,
+  editProblemChars: 2_000,
+  editProblemCodeChars: 200,
   languageIdChars: 64,
   modelIdChars: 128,
   proposalResults: 200,
@@ -65,6 +70,30 @@ function exactKeys(value: Record<string, unknown>, required: readonly string[], 
 
 const str = (v: unknown, max: number): v is string => typeof v === 'string' && v.length <= max;
 const line = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 10_000_000;
+const SEVERITIES = ['error', 'warning', 'info'] as const;
+const SOURCES = ['static', 'runtime', 'resource', 'console'] as const;
+
+/** S42: the problems of an `/ai` prompt request (bounded list, exact keys, known values). */
+function parseEditProblems(raw: unknown): AiEditProblem[] | null {
+  if (!Array.isArray(raw) || raw.length > AI_LIMITS.editProblems) return null;
+  const out: AiEditProblem[] = [];
+  for (const item of raw as unknown[]) {
+    if (!isRecord(item) || !exactKeys(item, ['severity', 'source', 'code', 'message'], ['line'])) return null;
+    const { severity, source, code, message } = item;
+    if (!SEVERITIES.includes(severity as 'error') || !SOURCES.includes(source as 'static')) return null;
+    if (!str(code, AI_LIMITS.editProblemCodeChars) || !str(message, AI_LIMITS.editProblemChars)) return null;
+    if (item.line !== undefined && !line(item.line)) return null;
+    out.push({
+      ...(item.line !== undefined ? { line: item.line } : {}),
+      severity: severity as AiEditProblem['severity'],
+      source: source as AiEditProblem['source'],
+      code,
+      message,
+    });
+  }
+  return out;
+}
+
 const isLocale = (v: unknown): v is 'zh-CN' | 'en' => LOCALES.includes(v as 'zh-CN');
 export const isAiProvider = (v: unknown): v is AiProviderId => AI_PROVIDERS.includes(v as AiProviderId);
 
@@ -144,7 +173,7 @@ function parseHistory(raw: unknown): AiChatMessage[] | null {
   return out;
 }
 
-const CONTEXT_KINDS = ['file', 'selection', 'problem', 'console', 'preview'] as const;
+const CONTEXT_KINDS = ['file', 'selection', 'problem', 'console', 'preview', 'annotation'] as const;
 
 function parseContext(raw: unknown): AiContextItem[] | null {
   if (!Array.isArray(raw) || raw.length > AI_LIMITS.contextItems) return null;
@@ -158,6 +187,8 @@ function parseContext(raw: unknown): AiContextItem[] | null {
     if (!CONTEXT_KINDS.includes(item.kind as 'file')) return null;
     // S38.2: a preview item carries the text the user saw and names the snapshot whose screenshot goes with it.
     if (item.kind === 'preview' && (typeof item.text !== 'string' || item.relPath !== undefined)) return null;
+    // S41.6: an annotation item carries the text the user saw (main built it); it is never re-read from disk.
+    if (item.kind === 'annotation' && typeof item.text !== 'string') return null;
     if (
       item.snapshotId !== undefined &&
       (item.kind !== 'preview' || !str(item.snapshotId, 64) || !REQUEST_ID.test(item.snapshotId))
@@ -232,8 +263,11 @@ export function parseAiRequest(payload: unknown): AiRequest | null {
         'after',
         'locale',
       ];
-      if (!exactKeys(payload, keys)) return null;
+      if (!exactKeys(payload, keys, ['mode', 'problems'])) return null;
       const { projectId, relPath, languageId, instruction, selection, before, after, locale } = payload;
+      if (payload.mode !== undefined && payload.mode !== 'generate') return null;
+      const problems = payload.problems === undefined ? undefined : parseEditProblems(payload.problems);
+      if (problems === null) return null;
       if (!isProjectId(projectId) || !isPortableRelPath(relPath) || !isLocale(locale)) return null;
       if (!str(languageId, AI_LIMITS.languageIdChars) || !LANGUAGE_ID.test(languageId)) return null;
       if (!str(instruction, AI_LIMITS.promptChars) || instruction.trim() === '') return null;
@@ -244,7 +278,19 @@ export function parseAiRequest(payload: unknown): AiRequest | null {
       ) {
         return null;
       }
-      return { kind: 'edit', projectId, relPath, languageId, instruction, selection, before, after, locale };
+      return {
+        kind: 'edit',
+        projectId,
+        relPath,
+        languageId,
+        instruction,
+        selection,
+        before,
+        after,
+        locale,
+        ...(payload.mode === 'generate' ? { mode: 'generate' as const } : {}),
+        ...(problems ? { problems } : {}),
+      };
     }
     case 'agent': {
       if (!exactKeys(payload, ['kind', 'projectId', 'history', 'prompt', 'context', 'locale'])) return null;

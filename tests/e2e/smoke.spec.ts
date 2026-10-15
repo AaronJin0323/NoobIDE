@@ -110,6 +110,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       problems: Object.keys(((w.noobide as { problems?: object } | undefined)?.problems ?? {}) as object),
       ai: Object.keys(((w.noobide as { ai?: object } | undefined)?.ai ?? {}) as object),
       aiHistory: Object.keys(((w.noobide as { aiHistory?: object } | undefined)?.aiHistory ?? {}) as object),
+      annotations: Object.keys(((w.noobide as { annotations?: object } | undefined)?.annotations ?? {}) as object),
     };
   });
   expect(probe).toEqual({
@@ -139,6 +140,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'problems', // S16.2: runtime problems of the preview (read-only list + clear resolved)
       'ai', // S31: AI assistant (decision 0025); the key is write-only, never returned
       'aiHistory', // S39: saved chats (app data, by project id) and token usage
+      'annotations', // S41: preview annotations (decision 0030); targets stay in main, saved by pick id
     ],
     apiVersion: 1,
     workspace: [
@@ -218,6 +220,20 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'deleteRecentChats',
       'usage',
       'setDailyBudget',
+    ],
+    // S41: preview annotations (contract src/shared/ipc/annotations-contract.ts).
+    annotations: [
+      'list',
+      'pick',
+      'cancelPick',
+      'candidates',
+      'regionShot',
+      'resolve',
+      'save',
+      'update',
+      'remove',
+      'highlight',
+      'context',
     ],
   });
 

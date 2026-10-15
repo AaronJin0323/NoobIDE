@@ -338,6 +338,11 @@ export const RULE_FIXTURES: readonly RuleFixture[] = [
     declaredNames: [{ name: 'greet' }],
   }),
 
+  // S42.3 — pending /ai prompt (NoobIDE's own marker)
+  fx('ai-prompt-pending', 'ai-prompt-pending', {
+    ...staticMarker('ai-prompt-pending', 'Unfinished /ai prompt', 'index.html', 7, 3),
+  }),
+
   // Rule 14 — unclosed HTML tag
   fx('html-unclosed-div', 'html-unclosed-tag', {
     ...staticMarker('html-unclosed-tag', 'Unclosed element `div`.', 'index.html', 18, 5),

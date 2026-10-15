@@ -3,6 +3,7 @@
  * context chips, mode) and each turn's streamed answer. Pure: the controller (chat-controller.ts) performs the IPC and
  * feeds results in as actions, so every rule here is unit-tested without Electron or React.
  */
+import type { AnnotatedRange } from './annotation-placement';
 import type {
   AiChatMessage,
   AiContextItem,
@@ -31,6 +32,8 @@ export interface ChatChip {
     readonly thumbnail: string | null;
     readonly imagesAccepted: { readonly chat: boolean; readonly agent: boolean };
   };
+  /** S41.6 Annotation chips: the annotated ranges (HTML element, CSS rules), to mark proposals inside them. */
+  readonly annotation?: { readonly ranges: readonly AnnotatedRange[] };
 }
 
 export interface ChatDraft {
@@ -64,6 +67,8 @@ export interface ChatTurn {
   readonly prompt: string;
   /** Exactly what was sent with the prompt. */
   readonly context: readonly AiContextItem[];
+  /** S41.6: the annotated ranges of the Annotation chips sent with it (not saved with the chat). */
+  readonly annotationRanges?: readonly AnnotatedRange[];
   readonly requestId: string | null;
   readonly status: TurnStatus;
   /** Stop was pressed; waiting for main to end the stream. */
@@ -147,6 +152,8 @@ export type ChatAction =
       readonly chips: readonly ChatChip[];
       readonly mode: ChatMode;
       readonly prompt: string;
+      /** S41.6: annotations open an agent turn (the assistant proposes the edit). Default 'chat'. */
+      readonly kind?: TurnKind;
     }
   | {
       readonly type: 'turnStarted';
@@ -316,7 +323,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         focusSeq: state.focusSeq + 1,
         drafts: {
           ...state.drafts,
-          [action.projectKey]: { prompt: action.prompt, chips: action.chips, mode: action.mode, kind: 'chat' },
+          [action.projectKey]: {
+            prompt: action.prompt,
+            chips: action.chips,
+            mode: action.mode,
+            kind: action.kind ?? 'chat',
+          },
         },
       };
     }

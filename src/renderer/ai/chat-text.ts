@@ -75,5 +75,7 @@ export function contextLabel(t: Translate, item: AiContextItem): string {
       return item.label
         ? fill(t('ai.chat.context.preview'), { path: item.label })
         : t('ai.chat.context.previewStartPage');
+    case 'annotation': // S41.6: "标注 1：把这个按钮变大一点", built by main
+      return item.label ?? t('ai.chat.context.annotation');
   }
 }

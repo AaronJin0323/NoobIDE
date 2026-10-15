@@ -160,3 +160,44 @@ export function takePendingReveal(uri: string): RevealTarget | null {
 export function cancelPendingReveal(): void {
   pendingReveal = null;
 }
+
+/**
+ * S42.3 (decision 0031): what the editor's inline `/ai` prompt support needs from the workbench — whether AI is shown,
+ * the translated texts, and how to run a prompt line. Set by useInlineEdit; null when there is no workbench.
+ */
+export interface AiPromptHooks {
+  /** AI surfaces are shown (a key is stored and AI is on). Off: no hints, markers or Enter handling at all. */
+  readonly enabled: boolean;
+  /** Already translated, `{shortcut}` filled. */
+  readonly texts: {
+    readonly hintRun: string;
+    readonly hintShortcut: string;
+    readonly hintBare: string;
+    readonly marker: string;
+    readonly menu: string;
+  };
+  /**
+   * Runs the prompt on `line` (1-based) of the file on screen (the workbench's model URI). False when it could not:
+   * the key that asked then does what it usually does (Enter inserts a line break).
+   */
+  run(uri: string, line: number): boolean;
+}
+
+let aiPromptHooks: AiPromptHooks | null = null;
+const aiPromptListeners = new Set<(hooks: AiPromptHooks | null) => void>();
+
+export function setAiPromptHooks(hooks: AiPromptHooks | null): void {
+  aiPromptHooks = hooks;
+  for (const listener of [...aiPromptListeners]) listener(hooks);
+}
+
+export function getAiPromptHooks(): AiPromptHooks | null {
+  return aiPromptHooks;
+}
+
+/** Called now with the current hooks and again on every change. Returns the unsubscribe function. */
+export function subscribeAiPromptHooks(listener: (hooks: AiPromptHooks | null) => void): () => void {
+  aiPromptListeners.add(listener);
+  listener(aiPromptHooks);
+  return () => aiPromptListeners.delete(listener);
+}

@@ -28,7 +28,16 @@ import {
   pageGuardSource,
   parseLimiterSummary,
 } from './page-guard';
-import { takeSnapshot, type PageSnapshot } from './page-snapshot';
+import { captureScreenshot, pagePathOf, takeSnapshot, type PageSnapshot } from './page-snapshot';
+import { ElementPicker } from './element-pick';
+import { clampRegion, parseTarget } from './element-target';
+import type {
+  AnnotationCandidates,
+  AnnotationPickError,
+  AnnotationRegionShot,
+  AnnotationResolveHow,
+  AnnotationTarget,
+} from '../shared/ipc/annotations-contract';
 import { createPreviewWebPreferences, insecurePreviewPreferences, partitionForProject } from './preview-options';
 import { decidePreviewRequest, isAllowedNavigation } from './request-policy';
 import { PreviewProxy } from './preview-proxy';
@@ -121,6 +130,8 @@ interface LivePreview {
   floodStopped: boolean;
   /** The flood guard's last decisions, newest last (counts and timings only, never content; for the e2e suite). */
   readonly floodTrace: FloodTraceEntry[];
+  /** S41.3: element picking, finding and highlighting for annotations (decision 0030). */
+  readonly picker: ElementPicker;
 }
 
 /** One flood guard decision: a stop sent, or its answer. `ms` is main's time since the counting window began. */
@@ -163,6 +174,11 @@ function floodLimitFor(contents: WebContents): number {
 const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 };
 /** S38.1: a watchdog ping unanswered this long means the page is busy; no snapshot is attempted. */
 const SNAPSHOT_BUSY_MS = 500;
+
+/** S41.3: a page path with the directory index spelled out ('' and 'dir/' are 'index.html', 'dir/index.html'). */
+function samePage(pagePath: string): string {
+  return pagePath === '' || pagePath.endsWith('/') ? `${pagePath}index.html` : pagePath;
+}
 
 export class PreviewManager {
   private live: LivePreview | null = null;
@@ -383,6 +399,7 @@ export class PreviewManager {
       loadGeneration: null,
       floodStopped: false,
       floodTrace: [],
+      picker: new ElementPicker(view.webContents),
     };
     this.live = live;
     this.startingWindow = null;
@@ -423,6 +440,7 @@ export class PreviewManager {
       return this.status;
     }
     this.live = null;
+    live.picker.dispose();
     this.deps.capture?.sessionEnded();
     for (const timer of live.timers) clearInterval(timer);
     live.window.removeListener('closed', live.onWindowClosed);
@@ -712,6 +730,133 @@ export class PreviewManager {
     return result;
   }
 
+  // --- S41.3: annotations (decision 0030) ---
+
+  /** The running preview of `projectId` that can be asked about its page, or the reason it cannot. */
+  private annotatable(projectId: string): Result<LivePreview, AnnotationPickError> {
+    const live = this.live;
+    if (!live || live.projectId !== projectId || live.view.webContents.isDestroyed()) {
+      return err('not-running', 'no preview of this project');
+    }
+    const state = this.status.state;
+    if (state !== 'running' && state !== 'refreshing') return err('not-available', `preview is ${state}`);
+    if (live.ping && Date.now() - live.ping.startedAt >= SNAPSHOT_BUSY_MS) return err('not-available', 'page is busy');
+    return ok(live);
+  }
+
+  private targetOf(
+    live: LivePreview,
+    raw: Result<unknown, AnnotationPickError>,
+    generation: number | null,
+    kind: 'element' | 'region',
+  ): Result<AnnotationTarget, AnnotationPickError> {
+    if (!raw.ok) return raw;
+    if (this.live !== live) return err('not-running', 'the preview stopped');
+    if (live.loadGeneration !== generation) return err('not-available', 'the page changed');
+    const contents = live.view.webContents;
+    const pagePath = contents.isDestroyed() ? null : pagePathOf(contents.getURL(), live.server.origin);
+    if (pagePath === null) return err('not-available', 'not a page of the project');
+    const target = parseTarget(raw.value, { origin: live.server.origin, pagePath, kind });
+    return target ? ok(target) : err('not-available', 'unexpected description');
+  }
+
+  private picked<T>(
+    result: { ok: true; value: T } | { ok: false; reason: 'cancelled' | 'not-available' | 'busy' },
+  ): Result<T, AnnotationPickError> {
+    return result.ok ? ok(result.value) : err(result.reason, `pick ${result.reason}`);
+  }
+
+  /** Inspect mode on the page until the user clicks an element (or cancels); its description. */
+  async annotationPick(projectId: string): Promise<Result<AnnotationTarget, AnnotationPickError>> {
+    const live = this.annotatable(projectId);
+    if (!live.ok) return live;
+    const generation = live.value.loadGeneration;
+    const raw = this.picked(await live.value.picker.pick());
+    return this.targetOf(live.value, raw, generation, 'element');
+  }
+
+  /** Pick mode is on in the page (for the e2e suite). */
+  annotationPicking(): boolean {
+    return this.live?.picker.isInspecting ?? false;
+  }
+
+  /** Ends pick mode (the toolbar's Cancel). */
+  annotationCancelPick(projectId: string): void {
+    if (this.live?.projectId === projectId) this.live.picker.cancel();
+  }
+
+  async annotationCandidates(projectId: string): Promise<Result<AnnotationCandidates, AnnotationPickError>> {
+    const live = this.annotatable(projectId);
+    if (!live.ok) return live;
+    const generation = live.value.loadGeneration;
+    const result = this.picked(await live.value.picker.candidates());
+    if (result.ok && (this.live !== live.value || live.value.loadGeneration !== generation)) {
+      return err('not-available', 'the page changed');
+    }
+    return result;
+  }
+
+  /** Finds an element by its child-index path (keyboard list) or by a drawn region (fractions of the viewport). */
+  async annotationResolve(
+    projectId: string,
+    how: AnnotationResolveHow,
+  ): Promise<Result<AnnotationTarget, AnnotationPickError>> {
+    const live = this.annotatable(projectId);
+    if (!live.ok) return live;
+    const generation = live.value.loadGeneration;
+    if (how.kind === 'path') {
+      const raw = this.picked(await live.value.picker.describePath(how.path));
+      return this.targetOf(live.value, raw, generation, 'element');
+    }
+    const region = clampRegion(how);
+    if (!region) return err('not-available', 'empty region');
+    const raw = this.picked(await live.value.picker.describeRegion(region));
+    const target = this.targetOf(live.value, raw, generation, 'region');
+    if (!target.ok) return target;
+    // The region is kept in CSS pixels of the viewport the page reported.
+    const { width, height } = target.value.viewport;
+    const px = {
+      x: Math.round(region.x * width),
+      y: Math.round(region.y * height),
+      width: Math.round(region.width * width),
+      height: Math.round(region.height * height),
+    };
+    return ok({ ...target.value, region: px });
+  }
+
+  /** Shows the element at `path` on the page for a few seconds (`null` hides it). */
+  async annotationHighlight(
+    projectId: string,
+    target: { readonly path: readonly number[]; readonly pagePath: string } | null,
+  ): Promise<Result<null, AnnotationPickError>> {
+    if (target === null) {
+      if (this.live?.projectId === projectId) await this.live.picker.highlight(null);
+      return ok(null);
+    }
+    const live = this.annotatable(projectId);
+    if (!live.ok) return live;
+    // The path only means something on the page it was taken on.
+    const shown = pagePathOf(live.value.view.webContents.getURL(), live.value.server.origin);
+    if (shown === null || samePage(shown) !== samePage(target.pagePath)) {
+      return err('not-available', 'the annotation belongs to another page');
+    }
+    return this.picked(await live.value.picker.highlight(target.path));
+  }
+
+  /** A picture of the page to draw a region on (not taken while the view is hidden). */
+  async annotationRegionShot(projectId: string): Promise<Result<AnnotationRegionShot, AnnotationPickError>> {
+    const live = this.annotatable(projectId);
+    if (!live.ok) return live;
+    if (!live.value.view.getVisible()) return err('not-available', 'the preview is hidden');
+    const shot = await captureScreenshot(live.value.view.webContents);
+    if (!shot.ok) return err('not-available', `screenshot ${shot.reason}`);
+    return ok({
+      dataUrl: `data:image/png;base64,${shot.value.png.toString('base64')}`,
+      width: shot.value.width,
+      height: shot.value.height,
+    });
+  }
+
   /** Read-only snapshot for the e2e suite. No page content, no file paths. */
   debugInfo() {
     const live = this.live;
@@ -899,6 +1044,12 @@ export class PreviewManager {
     // S15.5/S15.6: F6 / Shift+F6 in the page give the focus back to the workbench (DOM focus there is still on the
     // preview stage, so its region order continues from the preview). Also stops the menu accelerator (macOS).
     contents.on('before-input-event', (event, input) => {
+      // S41.3: Esc ends pick mode; the page never sees that key press.
+      if (live.picker.isPicking && input.type === 'keyDown' && input.key === 'Escape') {
+        event.preventDefault();
+        live.picker.cancel();
+        return;
+      }
       const step = focusHandoffStep(input);
       if (step === null || live.window.isDestroyed()) return;
       event.preventDefault();
@@ -1039,6 +1190,7 @@ export class PreviewManager {
     contents.on('did-start-navigation', (event) => {
       if (!isCurrent() || !event.isMainFrame || event.isSameDocument) return;
       live.ping = null; // A ping sent to the previous document may never be answered.
+      live.picker.dispose(); // S41.3: a pick or highlight belongs to the page that was shown
       this.update(live, { type: 'navigate' });
       // S16.3: a new page load is on its way. Its generation is the state machine's (a Start or refresh already
       // counted it; a navigation the page makes by itself was counted just now), so problem records, the status and

@@ -20,6 +20,8 @@ import type { InlineTarget } from '../ai/inline-context';
 import { createEditZone } from '../ai/edit-zone-monaco';
 // S43: detected indentation and context-aware suggestions (decision 0032).
 import { attachSmartEditing } from './smart-monaco';
+// S42.3: inline `/ai` prompt lines (hint, warning, Enter / Ctrl+Enter / context menu).
+import { attachAiPrompts } from '../ai/ai-prompt-monaco';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -174,6 +176,10 @@ export function CodeEditor({
       { dispose: () => caret.dispose() },
       attachInlineAi(editor, () => (uriOf() ? inlineTarget.current : null)),
       attachSmartEditing(editor),
+      attachAiPrompts(editor, () => {
+        const uri = uriOf();
+        return uri && inlineTarget.current && !inlineTarget.current.readOnly ? uri : null;
+      }),
     ];
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => callbacks.current.onSave?.());
     editorRef.current = editor;

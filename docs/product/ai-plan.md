@@ -79,3 +79,12 @@ preview-aware (page outline, screenshot, runtime errors), captured from main onl
 and **S39** keeps chats per project in app data and shows token use with an optional daily budget. Milestone M10
 in `harness/features.json`; S07.5 fixes a Windows-only watcher test flake found at the start of that session.
 More providers (OpenAI-compatible / CN endpoints) were considered and not chosen for now.
+
+## v3: preview annotations (owner request 2026-10-16, after M10/M11)
+
+**S41** (milestone M12, decision 0030) lets a beginner point at part of the running page — pick an element with the
+mouse, choose one from a keyboard list, or draw a region on a frozen screenshot — and attach a note ("make this button
+bigger"). Main maps the element to its HTML lines and the CSS rules that style it, keeps annotations per project in
+app data, and the chat's agent mode receives them as an "Annotation" chip the user sees before sending. Order: design
+(S41.1) → source locator (S41.2) → picking in main (S41.3) → store and IPC (S41.4) → preview strip (S41.5) → AI
+context (S41.6) → end-to-end proof (S41.7).

@@ -586,6 +586,56 @@ describe('AI IPC and service (S31.3)', () => {
     expect(req?.messages.at(-1)).toMatchObject({ role: 'user' });
   });
 
+  it('S42.2: runs an /ai prompt (generate mode) with the file problems as data; refuses bad problems; logs no text', async () => {
+    await setup({
+      turns: [
+        {
+          purpose: 'edit',
+          systemMatch: 'The user typed a request on its own line of their file',
+          steps: [{ type: 'text', text: '<p>Written by the fake AI.</p>' }],
+        },
+      ],
+    });
+    await storeKey();
+    await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: true });
+    const request = {
+      kind: 'edit',
+      projectId: PROJECT,
+      relPath: '中文 文件夹/index.html',
+      languageId: 'html',
+      instruction: '做一个点击后数字加一的按钮 PROMPT-MARKER',
+      selection: '',
+      before: '<body>\n  <p id="count">0</p>',
+      after: '</body>',
+      locale: 'zh-CN',
+      mode: 'generate',
+      problems: [
+        { line: 7, severity: 'error', source: 'runtime', code: 'ReferenceError', message: 'add is not defined MSG' },
+      ],
+    };
+    const started = await call(AI_CHANNELS.request, win, request);
+    const events = await finished(win, started.value.requestId);
+    expect(events[0]).toMatchObject({ type: 'text', text: '<p>Written by the fake AI.</p>' });
+    const req = hub.requests.at(-1);
+    expect(req?.purpose).toBe('edit');
+    expect(req?.system).toContain('The user typed a request on its own line of their file');
+    expect(req?.system).toContain('comments in Simplified Chinese');
+    const message = req?.messages.at(-1);
+    const text = message?.role === 'user' ? message.text : '';
+    expect(text).toContain('<problems>\n- line 7, error, runtime ReferenceError: add is not defined MSG\n</problems>');
+    expect(text).toContain('<before>\n<body>\n  <p id="count">0</p>\n</before>');
+    expect(text.endsWith('Request: 做一个点击后数字加一的按钮 PROMPT-MARKER')).toBe(true);
+
+    expect(await call(AI_CHANNELS.request, win, { ...request, mode: 'insert' })).toMatchObject({ ok: false });
+    expect(
+      await call(AI_CHANNELS.request, win, { ...request, problems: [{ ...request.problems[0], severity: 'fatal' }] }),
+    ).toMatchObject({ ok: false });
+    const log = await logText();
+    expect(log).not.toContain('PROMPT-MARKER');
+    expect(log).not.toContain('add is not defined');
+    expect(log).not.toContain('count');
+  });
+
   it('runs agent requests in the S34 runner over the active provider; decisions and Stop reach it', async () => {
     await setup({});
     await storeKey();

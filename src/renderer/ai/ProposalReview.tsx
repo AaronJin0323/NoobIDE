@@ -1,3 +1,4 @@
+import type { Placement } from './annotation-placement';
 import { Suspense, lazy, useId } from 'react';
 import type { AiFileChange } from '../../shared/ipc/ai-contract';
 import { useI18n } from '../i18n/I18nProvider';
@@ -22,6 +23,8 @@ export interface ProposalReviewProps {
   readonly views: readonly ReviewView[];
   /** True while any change is being applied: every decision button waits. */
   readonly busy: boolean;
+  /** S41.6: where each change lies relative to the annotations sent with the turn (absent: no annotations). */
+  readonly placement?: (change: AiFileChange) => Placement | null;
   onAccept(index: number): void;
   onReject(index: number): void;
   onAcceptAll(): void;
@@ -81,6 +84,20 @@ export function ProposalReview(props: ProposalReviewProps) {
                 <span className="agent-change-title" id={`${baseId}-${index}`}>
                   {changeTitle(t, change)}
                 </span>
+                {props.placement?.(change) && (
+                  <span
+                    className="agent-change-annotated"
+                    data-testid="agent-change-annotated"
+                    data-placement={props.placement(change)}
+                  >
+                    {props.placement(change) === 'outside' && <WarningIcon />}
+                    {t(
+                      props.placement(change) === 'inside'
+                        ? 'agent.change.inAnnotated'
+                        : 'agent.change.outsideAnnotated',
+                    )}
+                  </span>
+                )}
                 <span className="agent-change-state" role="status" data-testid="agent-change-state">
                   {view.state === 'failed' && <WarningIcon />}
                   {view.state === 'failed'

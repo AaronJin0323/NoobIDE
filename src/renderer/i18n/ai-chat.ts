@@ -46,6 +46,14 @@ export const aiChatZhCN = {
   'ai.chat.context.previewImageNotSent': '现在的 AI 模型看不了图片，所以只发送文字，不发送截图。',
   'ai.chat.context.previewNoImage': '没能截图（预览被隐藏了或者网页没有及时画出来），只发送文字。',
   'ai.chat.context.previewNotRunning': '预览没有在运行。请先点“预览”启动它。',
+  // ── S41.6 预览标注 ──
+  'ai.chat.context.annotation': '标注',
+  'ai.chat.context.annotationTextLabel': '会发送的文字（你的要求、指向的元素、它在代码里的位置和代码片段）',
+  'ai.chat.context.annotationFailed': '没能读取这个标注，请刷新标注列表后再试。',
+  'ai.prompt.annotation': '请按这个标注修改代码：{note}',
+  'ai.prompt.annotations': '请按这些标注修改代码。',
+  'agent.change.inAnnotated': '改的是标注的位置',
+  'agent.change.outsideAnnotated': '改的不是标注的位置，请仔细看看',
   'ai.chat.context.previewUnavailable': '网页现在没有回应（可能卡在循环里或者还在加载），请稍后再试。',
   'ai.chat.sentWith': '一起发送了：{items}',
   'ai.chat.sentNothing': '没有附带项目里的代码。',
@@ -157,6 +165,15 @@ export const aiChatEn: Record<keyof typeof aiChatZhCN, string> = {
   'ai.chat.context.previewNoImage':
     'No screenshot could be taken (the preview is hidden or the page did not draw in time); only the text is sent.',
   'ai.chat.context.previewNotRunning': 'The preview is not running. Start it with the Preview button first.',
+  // ── S41.6 preview annotations ──
+  'ai.chat.context.annotation': 'Annotation',
+  'ai.chat.context.annotationTextLabel':
+    'Text that will be sent (your request, the element, where it is in the code, with excerpts)',
+  'ai.chat.context.annotationFailed': 'This annotation could not be read. Refresh the annotations and try again.',
+  'ai.prompt.annotation': 'Please change the code as this annotation asks: {note}',
+  'ai.prompt.annotations': 'Please change the code as these annotations ask.',
+  'agent.change.inAnnotated': 'Changes the annotated part',
+  'agent.change.outsideAnnotated': 'Changes something outside the annotated part — check it carefully',
   'ai.chat.context.previewUnavailable':
     'The page is not answering right now (it may be stuck in a loop or still loading). Try again in a moment.',
   'ai.chat.sentWith': 'Sent with: {items}',

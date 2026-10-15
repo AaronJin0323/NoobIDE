@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 17 — 2026-10-16 — Smarter indentation and context-aware suggestions (S43, M14)
+## Session 20 (side session) — 2026-10-16 — Smarter indentation and context-aware suggestions (S43, M14)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/admiring-shannon-3c0373`
 (node_modules junctioned to the main checkout), started from another session on the owner's request ("a better
@@ -69,6 +69,157 @@ indentation button to `shell.spec` S30.3's control inventory (its only failure).
 could receive the project's ids/classes as context.
 
 **Next up:** the owner's S43.8 Mac check; otherwise continue M7 release items.
+
+## Session 19 (side session) — 2026-10-16 — Inline `/ai` prompts in the editor (S42, milestone M10)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, in worktree branch `claude/sharp-pare-8696ff`
+(node_modules junctioned to the main checkout), started from the release-readiness session. Parallel side sessions:
+preview annotations for the AI (S41, ADR 0030) and smart suggestions (S43, ADR 0032); numbering agreed in the shared
+notes folder. Subagent: an independent reviewer of the S42 diff.
+
+**Done**
+
+- S42.1 — [ADR 0031](../docs/decisions/0031-inline-ai-prompt.md): detection, collision rules, trigger, preview, and
+  how Accept/Reject relate to undo, autosave, local history and the save pipeline. Owner request 2026-10-16.
+- S42.2 — rules and main: `src/renderer/ai/ai-prompt-model.ts` (a line `^[ \t]*/ai<space|tab|U+3000><request>` in
+  HTML/CSS/JS; arming; when plain Enter runs; the file's problems nearest the line, errors first, ≤ 8, messages
+  ≤ 500 chars; a generate request with ≤ 200 lines / 12 000 chars each side; indenting the answer like the line).
+  The `edit` request gains optional `mode: 'generate'` and bounded `problems` (`ai-contract.ts`, `ai-parse.ts`);
+  `prompts.ts` has a fixed generate system prompt per locale and a neutralised `<problems>` frame; the fake provider
+  has a built-in generate turn.
+- S42.3 — editor: `src/renderer/ai/ai-prompt-monaco.ts` arms lines the user typed/pasted/undid (never a load or
+  reload from disk), shows an end-of-line hint in words and a translated warning marker (`noobide-ai-prompt` /
+  `ai-prompt-pending`, explained by a new diagnostics rule in Problems), binds Enter (armed line, cursor at end, no
+  suggestion/inline suggestion/selection/IME) and Ctrl/⌘+Enter (any prompt line) and adds "Run this /ai request" to
+  the context menu. `useInlineEdit.runPrompt` opens the S35 inline edit zone over the line and sends at once (consent
+  first in a new project); the diff, Accept (one undo step + save through the file's pipeline), Reject, Stop and Esc
+  are the S35 ones. AI ghost-text completions stay quiet on `/ai` lines (`inline-monaco.ts`).
+
+**Evidence:** `ai-prompt-model.test.ts` (12), `src/ai/generate-prompt.test.ts` (5), `tests/integration/ai-service.test.ts`
+S42.2 (IPC → service → provider; bad payloads refused; no prompt/problem text in the log), diagnostics rule fixture,
+`tests/e2e/ai-prompt.spec.ts` (5: Chinese prompt → hint + Problems warning → Enter → consent → diff whose answer only
+the request with the unclosed-`<div>` problem gets → Accept saves indented code → one Ctrl+Z restores the line;
+Ctrl+Enter + Reject/Esc; Enter on an unarmed line from disk, Shift+Enter and an IME-confirming Enter do not run it;
+English prompt from the context menu in the en UI). Mutation check: making every `/ai` line armed fails the
+"not taken over" e2e. Independent review (subagent) found 2 medium + 4 low issues, all fixed: lines are armed only
+by the user's typing/paste/IME/undo-redo (an external reload, history restore or rule fix used to arm them — new e2e
+step with an on-disk change), Enter/Ctrl+Enter need `editorTextFocus` (the find widget keeps its Enter), multi-change
+undo line maths (`linesAfterChanges`, unit-tested), collapsed decorations ignored, a prompt that cannot run gives the
+key back (Enter inserts its line break), and the warning text leads with Ctrl/⌘+Enter. ai-prompt e2e 15/15 with
+`--repeat-each 3`; ai-edit, ai-inline, editing, external-change, problems, problem-card, smoke e2e green.
+`npm run verify` green.
+
+**Decisions:** ADR 0031. Autosave/save/recovery are unchanged: a pending `/ai` line is user text and is saved like any
+other, but always visibly flagged (hint + warning in Problems). Diff review (the S35 zone), not ghost text.
+
+**Problems / risks:** IME is proven with a CDP composition (keyCode 229) on Windows, not a real Pinyin IME, and not
+on macOS; that e2e step would also pass without NoobIDE's own `composing` guard (Monaco ignores keyCode 229 itself).
+Arming reads Monaco's `onDidType`, which the editor widget has but the public typings omit (cast in
+`ai-prompt-monaco.ts`); a Monaco upgrade must keep it (the zh-CN e2e fails if it goes). An `/ai` line that a beginner really wants as page text shows a warning (ignorable; Enter only runs it when
+they edited that line).
+
+**Owner action needed:** none required. Optional: try `/ai 做一个点击后数字加一的按钮` with a real key and a real
+Chinese IME on Windows and on the Mac.
+
+**Next up**
+
+1. Continue M7 release work (owner tasks H.1/H.2/H.5) — see Session 16's Next up.
+
+**Ideas / backlog candidates:** multi-line `/ai` prompts (continuation lines); `/ai` inside comments (`// /ai …`) for
+JS/CSS files so the prompt line is valid code while pending.
+
+## Session 18 — 2026-10-16 — CI red on main: ai-history test used the unresolved temp path
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/fix-ci-ai-history`.
+
+**Done**
+
+- CI `Verify` failed on both jobs for every push to main since S39 (runs 38673893839 … 38762366576). The only
+  persistent failure: `tests/integration/ai-history.test.ts` "revoking consent … counted and deleted by id" got
+  `count: 0`. Cause (test-only): its `recentRootOf` fake returned the raw temp path, while the chat store keys by
+  the project's **real** root (ProjectService realpath; main's `recent.touch` records the same real root, so the
+  product is consistent). On CI the temp dir is a symlink (macOS `/var` → `/private/var`) or an 8.3 short name
+  (Windows `RUNNER~1`), so the hashes differed; the dev machine's temp path is already real, which hid it.
+- Fix: the fake returns `projects.rootOf(projectId)`. Reproduced locally with TMP set to a junction: old test fails
+  with the CI assertion, fixed test passes. `npm run verify` green.
+
+**Problems / notes**
+
+- Run 38723694371 also had a one-off `watcher.test.ts` "mass delete … never blocks" timing failure on Windows; it did
+  not recur in later runs. Watch for it.
+
+**Next up**
+
+- Confirm the next CI run on main is green (then G1/G3 reviews can cite a green CI run again).
+
+## Session 17 — 2026-10-16 — Preview annotations for the AI assistant (S41, milestone M12)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, in worktree branch `claude/frosty-blackburn-4c3d2c`
+(node_modules junctioned to the main checkout), started from another session after a release-readiness check. Owner
+request 2026-10-16: annotate parts of the running page and let the AI work on the matching source. Subagents: the
+preview strip UI (S41.5) and an independent reviewer of the whole diff.
+
+**Done**
+
+- S41.1 — decision 0030 (`docs/decisions/0030-preview-annotations.md`), M12/S41 in `harness/features.json`, v3
+  section in `docs/product/ai-plan.md`.
+- S41.2 — `src/preview/source-locate.ts`: a small position-tracking HTML tree (void, raw text, comments, implied end
+  tags, CRLF) follows the element's flattened ancestry (html/head/body/tbody skipped on both sides) → **exact**; else a
+  unique id or tag+classes+text → **approximate**; else **none** (script-created elements never get a guessed exact).
+  CSS rules by normalised selector + occurrence, also inside `@media` and the page's n-th `<style>`.
+  `src/preview/annotation-source.ts` reads files only through the static server's `resolveInRoot` (root, realpath,
+  no dotfiles).
+- S41.3 — `src/preview/element-pick.ts` + `element-target.ts`: picking uses the DevTools protocol's own inspect mode
+  (`Overlay.setInspectMode`) on the page guard's session — Chromium draws the highlight, the page does not get the
+  click — and the node is described in an isolated world (bounded script; main re-validates with `parseTarget`).
+  Keyboard list of notable elements by child-index path, region → smallest containing element, `Overlay.highlightNode`
+  for Show. DOM/Overlay domains are on only while used. Esc in the page ends pick mode (main's `before-input-event`).
+- S41.4 — `src/main/annotation-store.ts` (app data `annotations/<projectKey>.json`, atomic, ≤ 200, corrupt moved
+  aside, newer files read-only), `annotations-contract.ts`/`annotations-parse.ts`, `src/main/annotations-ipc.ts`
+  (trusted sender, owner checks, targets kept in main by `pickId`, source re-located on every list), preload bridge
+  `window.noobide.annotations`.
+- S41.5 — `src/renderer/annotations/*` (subagent): the strip under the preview toolbar — Annotate (point at the page /
+  choose from a list / draw a region on a frozen screenshot, mouse or arrow keys + Enter), note, numbered list with
+  target, source location and a state word + icon, Show / Edit / Delete / Ask AI; zh-CN + en.
+- S41.6 — context item kind `annotation` (main builds the text: note, element, HTML lines + CSS rules with numbered
+  excerpts; `src/ai/annotation-context.ts`), framed as data (`<annotation>` + neutralizeData in chat, nonce frame +
+  neutralizeData in the agent), agent prompt says to edit the named lines/rule. Ask AI opens an **agent** draft with
+  the chip(s); proposal cards say "in the annotated part" / "outside — check it" (`annotation-placement.ts`).
+- S41.7 — `tests/e2e/preview-annotations.spec.ts` (10 e2e) and smoke lists the new bridge.
+
+**Evidence:** unit/integration: source-locate (14), annotation-source (3), element-pick (10), annotation-store +
+parsers (6), annotations-ipc integration (8), ai-annotations integration (3: an agent that only follows the chip
+edits inside the annotated `.cta` rule; injection text stays framed and cannot approve), chat-annotations (5),
+renderer annotations (33). E2E on Windows x64: preview-annotations 10/10 (four runs, last one after the review fixes), plus smoke, a11y,
+preview, preview-isolation, preview-snapshot, preview-layout, ai-preview, ai-agent, ai-chat, ai-history: 70/70.
+`npm run verify` green.
+
+**Independent review** (subagent, whole diff): no isolation, IPC or path issue; 7 findings fixed in the last code
+commit — false "exact" matches (file classes must be on the page element; no id/class/text → approximate; selector
+compare keeps descendant spaces and case; non-applying `@media` rules are counted so occurrences agree with the
+file), Show refused on another page, a failed `DOM.enable` no longer leaves the domain counter up (picking stayed
+broken), parsed files cached per list, stale strip results dropped, an invalid ancestry step drops the ancestry.
+
+**Decisions:** decision 0030. Annotations persist per project in app data (like saved chats); element picking is the
+primary path, a region resolves to the smallest element that contains it; Ask AI defaults to agent mode so the
+assistant proposes a reviewable diff.
+
+**Problems / risks:** elements inside iframes / shadow DOM / canvas cannot be located in source (the annotation says
+so). Python edits on Windows wrote CRLF once (git normalised; prettier fixed the working copy) — use `newline=''`.
+macOS arm64 not run locally (CI matrix covers the e2e).
+
+**Owner action needed:** none for S41. Try it: open a project, start the preview, press 标注 under the preview
+toolbar.
+
+**Next up**
+
+1. M7 release pipeline (owner tasks H.2, manual hardware checks, S29.x acceptance runs) as before.
+2. Ideas below if the owner wants more from annotations.
+
+**Ideas / backlog candidates:** numbered pins drawn by the protocol overlay for all annotations of a page; resolve an
+annotation automatically when the agent's accepted change lands in its range; annotate inside same-origin iframes.
+
+---
 
 ## Session 16 — 2026-10-16 — Full Windows e2e suite green twice; preview guard on loaded machines (S05.8)
 

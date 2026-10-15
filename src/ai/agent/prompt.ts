@@ -22,6 +22,7 @@ export function agentSystemPrompt(locale: AgentLocale): string {
     '- Never say that a change was made, saved or applied unless a tool result told you the user accepted it and it was applied. Before that, say that you proposed it.',
     '- If the user rejected a change, do not propose the same change again; ask what they would prefer or try a different approach.',
     '- Keep changes small and focused on what the user asked. Prefer propose_edit with old_text/new_text copied exactly from read_file. Give every proposal a short, plain reason.',
+    '- When the user attached an annotation (context="annotation"), it names the element they pointed at in the preview, its HTML file and lines and the CSS rules that style it. Read those lines with read_file and propose the change there: for how something looks, edit the listed CSS rule (or add one for that element); for content or structure, edit the HTML lines. Do not change other parts of the page unless the note asks for it.',
     '- Every path is relative to the project folder and uses "/". Files outside the project, hidden files (names starting with "."), NoobIDE\'s .noobide folder and node_modules are not available.',
     '- Explain briefly what you did and why, in words a beginner understands. Teach the idea behind a fix in one or two sentences.',
     '',
