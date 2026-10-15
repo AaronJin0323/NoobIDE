@@ -21,6 +21,7 @@ import { ProjectWatchHub } from './project-watch';
 import { ProjectService } from '../workspace/project-service';
 import { PreviewManager } from '../preview/preview-manager';
 import { defaultEntryPath } from '../preview/entry-pages';
+import { DISABLED_CHROMIUM_FEATURES } from '../preview/preview-options';
 import { PreviewStore } from './preview-store'; // S14.4 trust, S14.2 one-time notes (app data)
 import { readPreviewOptions, refreshModeOf, writeRefreshMode } from '../preview/project-options'; // S14.2/S14.3
 import { err, ok } from '../shared/result';
@@ -67,6 +68,8 @@ if (squirrel.kind !== 'none') {
 
 function start(): void {
   registerAppSchemePrivileges(protocol);
+  // Decision 0016: every frame of the preview must get the console limit before its scripts run.
+  app.commandLine.appendSwitch('disable-features', DISABLED_CHROMIUM_FEATURES);
 
   const devServerUrl =
     typeof MAIN_WINDOW_VITE_DEV_SERVER_URL === 'string' ? MAIN_WINDOW_VITE_DEV_SERVER_URL : undefined;

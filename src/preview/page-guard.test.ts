@@ -1,29 +1,43 @@
-import { runInNewContext } from 'node:vm';
+import { createContext, runInContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { CONSOLE_LIMIT, LIMITER_SOURCE_URL, pageGuardSource, parseLimiterSummary } from './page-guard';
+import { CONSOLE_BURST, CONSOLE_LIMIT, LIMITER_SOURCE_URL, pageGuardSource, parseLimiterSummary } from './page-guard';
 
 const NONCE = '0123456789abcdef';
+const PAGE_URL = 'http://127.0.0.1:5173/js/app.js';
+const METHODS = ['log', 'error', 'warn', 'info', 'debug', 'trace', 'time', 'groupEnd', 'countReset', 'createTask'];
 
-/** Runs the page guard in a fresh realm with a fake console and clock, like a new preview document. */
-function realm() {
-  const printed: { method: string; args: unknown[] }[] = [];
-  const nativeLog = function log(...args: unknown[]) {
-    printed.push({ method: 'log', args });
+interface Printed {
+  method: string;
+  args: unknown[];
+  /** The stack frame that called the native method (Chromium's message location). */
+  caller: string;
+}
+
+/**
+ * A fresh realm with fake native console methods, a fake clock and a minimal event target, then the page guard —
+ * like a new preview document. `prelude` runs before the guard (what the browser provides); `strings: false` is a
+ * Content Security Policy without 'unsafe-eval'.
+ */
+function realm(options: { prelude?: string; strings?: boolean } = {}) {
+  const printed: Printed[] = [];
+  const natives: Record<string, (...args: unknown[]) => unknown> = {};
+  for (const method of METHODS) {
+    natives[method] = {
+      [method](...args: unknown[]) {
+        const frames = (new Error().stack ?? '').split('\n').slice(2);
+        printed.push({ method, args, caller: (frames[0] ?? '').trim() });
+        return method === 'createTask' ? { run: (fn: () => unknown) => fn() } : undefined;
+      },
+    }[method] as (...args: unknown[]) => unknown;
+  }
+  const nativeContext = function context() {
+    return { log: natives.log, warn: natives.warn };
   };
-  const nativeError = function error(...args: unknown[]) {
-    printed.push({ method: 'error', args });
-  };
-  const nativeWarn = function warn(...args: unknown[]) {
-    printed.push({ method: 'warn', args });
-  };
-  const nativeInfo = function info(...args: unknown[]) {
-    printed.push({ method: 'info', args });
-  };
-  const nativeTime = function time() {};
   let now = 1_000_000;
   const timers: (() => void)[] = [];
-  const context: Record<string, unknown> = {
-    console: { log: nativeLog, error: nativeError, warn: nativeWarn, info: nativeInfo, time: nativeTime },
+  const console: Record<string, unknown> = { ...natives, context: nativeContext };
+  const sandbox: Record<string, unknown> = {
+    console,
     setTimeout: (fn: () => void) => {
       timers.push(fn);
       return timers.length;
@@ -34,17 +48,44 @@ function realm() {
     print: () => {
       throw new Error('print must never open');
     },
+    __now: () => now,
   };
-  context.globalThis = context;
-  runInNewContext(
-    `Date.now = () => globalThis.__now(); ${pageGuardSource(NONCE)}`,
-    Object.assign(context, { __now: () => now }),
-  );
-  return {
+  const context = createContext(sandbox, { codeGeneration: { strings: options.strings ?? true, wasm: false } });
+  runInContext(
+    `Date.now = () => globalThis.__now();
+    class Event {
+      constructor(type, target) { this.type = type; this._target = target; this.defaultPrevented = false; }
+      get target() { return this._target; }
+      preventDefault() { this.defaultPrevented = true; }
+    }
+    globalThis.Event = Event;
+    const listeners = [];
+    globalThis.addEventListener = (type, fn, capture) => { listeners.push({ type, fn, capture }); };
+    globalThis.__dispatch = (type, target = globalThis) => {
+      const e = new Event(type, target);
+      for (const l of listeners) if (l.type === type) l.fn(e);
+      return e.defaultPrevented;
+    };
+    globalThis.__listeners = listeners;
+    class Navigator { vibrate(pattern) { globalThis.__vibrated = (globalThis.__vibrated || 0) + 1; return true; } }
+    globalThis.Navigator = Navigator;
+    globalThis.navigator = new Navigator();
+    globalThis.CSS = { paintWorklet: { addModule() {} }, supports() { return true; } };
+    ${options.prelude ?? ''}`,
     context,
-    console: context.console as Record<'log' | 'error' | 'warn' | 'info' | 'time', (...a: unknown[]) => void>,
+  );
+  runInContext(pageGuardSource(NONCE), context, { filename: LIMITER_SOURCE_URL });
+  /** Runs page code as the script at PAGE_URL (or `url`). */
+  const page = <T = unknown>(code: string, url = PAGE_URL): T => runInContext(code, context, { filename: url }) as T;
+  return {
+    page,
+    console: console as Record<'log' | 'error' | 'warn' | 'info' | 'context', (...a: unknown[]) => unknown> &
+      Record<string, ((...a: unknown[]) => unknown) | undefined>,
+    natives,
+    nativeContext,
     printed,
-    natives: { nativeLog, nativeError, nativeTime },
+    logs: () => printed.filter((p) => p.method !== 'warn' || !String(p.args[0]).startsWith('NoobIDE:')),
+    summaries: () => printed.filter((p) => p.method === 'warn' && String(p.args[0]).startsWith('NoobIDE:')),
     advance: (ms: number) => {
       now += ms;
     },
@@ -52,58 +93,230 @@ function realm() {
   };
 }
 
-describe('page guard: console rate limit (S05.7, decision 0016)', () => {
-  it('hands out the native method under the limit, so Chromium keeps the caller’s file and line', () => {
+/** Every native method that can print (createTask only returns a task object and stays). */
+const ALL_NATIVES = (r: ReturnType<typeof realm>) => [
+  ...Object.entries(r.natives)
+    .filter(([name]) => name !== 'createTask')
+    .map(([, fn]) => fn),
+  r.nativeContext,
+];
+
+describe('page guard: no native console method is ever reachable (S05.7, decision 0016)', () => {
+  it('replaces every printing console method; createTask stays', () => {
     const r = realm();
-    expect(r.console.log).toBe(r.natives.nativeLog);
-    expect(r.console.error).toBe(r.natives.nativeError);
-    r.console.log('hello', 1);
-    expect(r.printed).toEqual([{ method: 'log', args: ['hello', 1] }]);
+    for (const method of METHODS.filter((m) => m !== 'createTask')) {
+      expect(r.console[method]).not.toBe(r.natives[method]);
+      expect(typeof r.console[method]).toBe('function');
+      expect(r.console[method]?.name).toBe(method);
+      const d = Object.getOwnPropertyDescriptor(r.console, method);
+      expect(d?.writable).toBe(true);
+      expect(d?.configurable).toBe(true);
+    }
+    expect(r.console.createTask).toBe(r.natives.createTask);
   });
 
-  it('suppresses messages above the limit and reports the count once per window', () => {
+  it('a reference saved before the limit is limited too (page)', () => {
     const r = realm();
-    for (let i = 0; i < CONSOLE_LIMIT + 250; i += 1) r.console.log(i);
-    expect(r.printed.filter((p) => p.method === 'log')).toHaveLength(CONSOLE_LIMIT);
-    // Still inside the window: nothing reported yet; the next window starts with a summary.
-    expect(r.printed.some((p) => p.method === 'warn')).toBe(false);
+    const calls = r.page<number>(`
+      const log = console.log;
+      let n = 0;
+      for (let i = 0; i < 10000; i += 1) { log('saved ' + i); n += 1; }
+      n`);
+    expect(calls).toBe(10_000);
+    expect(r.logs()).toHaveLength(CONSOLE_BURST);
+  });
+
+  it('descriptors, call/apply/bind, Reflect.apply and prototype lookups only find the limited function', () => {
+    const r = realm();
+    const found = r.page<unknown[]>(`
+      const fromDescriptor = Object.getOwnPropertyDescriptor(console, 'log').value;
+      const proto = Object.getPrototypeOf(console);
+      const all = Object.getOwnPropertyDescriptors(console);
+      [fromDescriptor, proto && proto.log, ...Object.values(all).map((d) => d.value || d.get), console.log.bind(console)]`);
+    for (const native of ALL_NATIVES(r)) expect(found).not.toContain(native);
+    r.page(`
+      const log = Object.getOwnPropertyDescriptor(console, 'log').value;
+      const bound = Function.prototype.bind.call(console.log, console, 'bound');
+      for (let i = 0; i < 3000; i += 1) {
+        log.call(console, 'call');
+        Function.prototype.apply.call(console.error, console, ['apply']);
+        Reflect.apply(console.warn, console, ['reflect']);
+        bound();
+        console['info']('computed');
+      }`);
+    expect(r.logs()).toHaveLength(CONSOLE_BURST);
+  });
+
+  it('console.context() hands out limited methods only', () => {
+    const r = realm();
+    const ctx = r.page<Record<string, unknown>>(
+      `const ctx = console.context('x'); for (let i = 0; i < 1000; i += 1) ctx.log(i); ctx`,
+    );
+    expect(Object.values(ctx)).not.toContain(r.natives.log);
+    expect(Object.values(ctx)).not.toContain(r.natives.warn);
+    expect(r.logs()).toHaveLength(CONSOLE_BURST);
+  });
+
+  it('a console method the page assigns can only reach the limited one (logging libraries)', () => {
+    const r = realm();
+    r.page(`
+      const original = console.log;
+      const lines = [];
+      console.log = (...a) => { lines.push(a); original('[lib]', ...a); };
+      for (let i = 0; i < 1000; i += 1) console.log(i);`);
+    expect(r.logs()).toHaveLength(CONSOLE_BURST);
+  });
+
+  it('a stack-trace hook of the page never sees the guard’s functions or a native method', () => {
+    const r = realm();
+    const seen = r.page<unknown[]>(`
+      const seen = [];
+      Error.prepareStackTrace = (e, sites) => { for (const s of sites) seen.push(s.getFunction(), s.getThis()); return 'x'; };
+      console.log({ toString() { return String(new Error().stack); } });
+      console.log('second');
+      seen`);
+    for (const native of ALL_NATIVES(r)) expect(seen).not.toContain(native);
+    expect(r.logs()).toHaveLength(2);
+    // The page's hook is back in place afterwards.
+    expect(r.page<string>(`String(new Error().stack)`)).toBe('x');
+  });
+
+  it('a page that blocks stack traces still gets limited output (without a location)', () => {
+    const r = realm();
+    r.page(`
+      Object.defineProperty(Error, 'prepareStackTrace', { value: () => 'locked', configurable: false });
+      for (let i = 0; i < 500; i += 1) console.log(i);`);
+    expect(r.logs()).toHaveLength(CONSOLE_BURST);
+    expect(r.logs()[0]?.caller).toContain(LIMITER_SOURCE_URL);
+  });
+
+  it('a rewritten eval (Trusted Types default policy) never receives a native method', () => {
+    const r = realm({
+      prelude: `const realEval = globalThis.eval;
+        globalThis.__leaked = [];
+        globalThis.eval = (src) => realEval('(function (R, f, t, a) { globalThis.__leaked.push(f); return R(f, t, a); })');`,
+    });
+    r.page(`console.log('one'); console.error('two');`);
+    expect(r.page<unknown[]>(`globalThis.__leaked`)).toEqual([]);
+    expect(r.logs().map((p) => p.args[0])).toEqual(['one', 'two']);
+  });
+});
+
+describe('page guard: rate limit and summaries', () => {
+  it('allows a burst of CONSOLE_BURST, then CONSOLE_LIMIT per second', () => {
+    const r = realm();
+    for (let i = 0; i < CONSOLE_BURST + 50; i += 1) r.console.log(i);
+    expect(r.logs()).toHaveLength(CONSOLE_BURST);
+    // A steady CONSOLE_LIMIT per second all gets through.
+    const step = 1_000 / CONSOLE_LIMIT;
+    for (let i = 0; i < 3 * CONSOLE_LIMIT; i += 1) {
+      r.advance(step);
+      r.console.log('steady', i);
+    }
+    expect(r.logs().filter((p) => p.args[0] === 'steady')).toHaveLength(3 * CONSOLE_LIMIT);
+    // A long pause refills to the burst size only.
+    r.advance(60_000);
+    const before = r.logs().length;
+    for (let i = 0; i < 1_000; i += 1) r.console.log(i);
+    expect(r.logs().length - before).toBe(CONSOLE_BURST);
+  });
+
+  it('reports suppressed messages once per second, inline in a loop and by timer', () => {
+    const r = realm();
+    for (let i = 0; i < CONSOLE_BURST + 250; i += 1) r.console.log(i);
+    expect(r.summaries()).toHaveLength(0);
     r.advance(1_000);
     r.console.log('next window');
-    const warn = r.printed.find((p) => p.method === 'warn');
-    expect(warn?.args[0]).toMatch(/^NoobIDE: 250 console messages were not shown/);
-    expect(parseLimiterSummary(String(warn?.args[0]), LIMITER_SOURCE_URL, NONCE)).toBe(250);
-    expect(r.printed.at(-1)).toEqual({ method: 'log', args: ['next window'] });
-  });
-
-  it('reports suppressed messages after the page stops logging (timer)', () => {
-    const r = realm();
-    for (let i = 0; i < CONSOLE_LIMIT + 3; i += 1) r.console.error(i);
+    expect(r.summaries()).toHaveLength(1);
+    const text = String(r.summaries()[0]?.args[0]);
+    expect(text).toMatch(/^NoobIDE: 250 console messages were not shown/);
+    expect(parseLimiterSummary(text, LIMITER_SOURCE_URL, NONCE)).toBe(250);
+    expect(r.summaries()[0]?.caller).toContain(LIMITER_SOURCE_URL);
+    for (let i = 0; i < 1_000; i += 1) r.console.error(i);
     r.runTimers();
-    expect(r.printed.filter((p) => p.method === 'warn').map((p) => p.args[0])).toEqual([
-      expect.stringMatching(/^NoobIDE: 3 console/),
-    ]);
+    expect(r.summaries()).toHaveLength(2);
   });
 
-  it('limits console methods the page assigns itself (logging libraries)', () => {
+  it('cancels uncaught errors and unhandled rejections above the limit, only for the global object', () => {
     const r = realm();
-    const mine: unknown[] = [];
-    r.console.log = (...a: unknown[]) => mine.push(a);
-    for (let i = 0; i < CONSOLE_LIMIT + 10; i += 1) r.console.log(i);
-    expect(mine).toHaveLength(CONSOLE_LIMIT);
+    const cancelled = r.page<boolean[]>(`
+      const out = [];
+      for (let i = 0; i < 300; i += 1) out.push(__dispatch(i % 2 ? 'error' : 'unhandledrejection'));
+      out`);
+    expect(cancelled.filter((c) => !c)).toHaveLength(CONSOLE_BURST);
+    expect(cancelled.slice(CONSOLE_BURST).every((c) => c)).toBe(true);
+    // An element's load error (only passes the global object while capturing) is not counted or cancelled.
+    expect(r.page<boolean>(`__dispatch('error', {})`)).toBe(false);
+    expect(r.page<{ capture: boolean }[]>(`__listeners`).every((l) => l.capture)).toBe(true);
   });
 
-  it('leaves silent methods alone and keeps console methods configurable', () => {
+  it('limits navigator.vibrate (Chromium logs every blocked call)', () => {
     const r = realm();
-    expect(Object.getOwnPropertyDescriptor(r.console, 'time')?.value).toBe(r.natives.nativeTime);
-    expect(typeof Object.getOwnPropertyDescriptor(r.console, 'log')?.get).toBe('function');
-    expect(Object.getOwnPropertyDescriptor(r.console, 'log')?.configurable).toBe(true);
+    r.page(`for (let i = 0; i < 1000; i += 1) navigator.vibrate(5)`);
+    expect(r.page<number>(`globalThis.__vibrated`)).toBe(CONSOLE_BURST);
+  });
+});
+
+describe('page guard: caller location (S05.4)', () => {
+  it('the native method is called from a stub at the caller’s URL, line and column', () => {
+    const r = realm();
+    r.page(`// line 1
+// line 2
+  console.error('three');
+[1].forEach((x) => console.log('four', x));
+const b = console.warn.bind(console, 'five'); b();`);
+    const at = (text: string) => r.logs().find((p) => p.args.includes(text))?.caller ?? '';
+    // V8's position of a method call is the method name's (`error`), for Chromium as for the stub.
+    expect(at('three')).toContain(`${PAGE_URL}:3:11`);
+    expect(at('four')).toContain(`${PAGE_URL}:4:28`);
+    expect(at('five')).toContain(`${PAGE_URL}:5:47`);
   });
 
+  it('a function passed to a builtin is attributed to the caller of the builtin', () => {
+    const r = realm();
+    r.page(`\n\n['x'].forEach(console.log);`);
+    expect(r.logs()[0]?.caller).toContain(`${PAGE_URL}:3:7`);
+  });
+
+  it('line 1 and Chinese file names keep their line; unusual URLs are not put into the stub', () => {
+    const r = realm();
+    const url = 'http://127.0.0.1:5173/%E4%B8%AD%E6%96%87/%E9%A1%B5.js';
+    r.page(`console.log('first line')`, url);
+    expect(r.logs()[0]?.caller).toContain(`${url}:1:`);
+    r.page(`\nconsole.log('odd')`, 'http://x/a b c.js');
+    const odd = r.logs()[1]?.caller ?? '';
+    expect(odd).not.toContain('a b');
+    expect(odd).toMatch(/<anonymous>:2:9\)$/);
+  });
+
+  it('reuses one stub per call site', () => {
+    const r = realm();
+    r.page(`for (let i = 0; i < 5; i += 1) console.log(i);`);
+    expect(new Set(r.logs().map((p) => p.caller)).size).toBe(1);
+  });
+
+  it('without eval (Content Security Policy) the guard calls the native method itself', () => {
+    const r = realm({ strings: false });
+    r.page(`\nconsole.log('csp');`);
+    expect(r.logs()[0]?.args).toEqual(['csp']);
+    expect(r.logs()[0]?.caller).toContain(LIMITER_SOURCE_URL);
+    for (let i = 0; i < 1000; i += 1) r.console.log(i);
+    expect(r.logs()).toHaveLength(CONSOLE_BURST);
+  });
+});
+
+describe('page guard: dialogs, worklets, nonce', () => {
   it('reports alert() in the console instead of a dialog, and print() does nothing', () => {
     const r = realm();
-    (r.context.alert as (m: string) => void)('你好');
-    (r.context.print as () => void)();
-    expect(r.printed).toEqual([{ method: 'info', args: ['alert:', '你好'] }]);
+    r.page(`alert('你好'); print();`);
+    expect(r.logs().map((p) => [p.method, p.args])).toEqual([['info', ['alert:', '你好']]]);
+    expect(r.logs()[0]?.caller).toContain(`${PAGE_URL}:1:`);
+  });
+
+  it('removes the CSS worklet entry points (their scopes cannot be guarded)', () => {
+    const r = realm();
+    expect(r.page(`CSS.paintWorklet`)).toBeUndefined();
+    expect(r.page(`typeof CSS.supports`)).toBe('function');
   });
 
   it('recognises only genuine summaries of this preview (source, nonce, plausible count)', () => {
@@ -118,10 +331,13 @@ describe('page guard: console rate limit (S05.7, decision 0016)', () => {
     expect(parseLimiterSummary('hello', LIMITER_SOURCE_URL, NONCE)).toBeNull();
   });
 
-  it('does not reveal the nonce through the accessors it installs', () => {
+  it('does not reveal the nonce through any function the page can reach', () => {
     const r = realm();
-    const get = Object.getOwnPropertyDescriptor(r.console, 'log')?.get;
-    expect(String(get)).not.toContain(NONCE);
+    const texts = r.page<string[]>(`[
+      ...Object.values(console).map(String),
+      String(console.context('x').log), String(alert), String(print), String(navigator.vibrate),
+    ]`);
+    for (const text of texts) expect(text).not.toContain(NONCE);
     expect(() => pageGuardSource('not hex!')).toThrow();
   });
 });

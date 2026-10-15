@@ -1,6 +1,6 @@
 # 0016 — Console rate limit inside the page, installed over the DevTools protocol
 
-- **Status:** accepted
+- **Status:** accepted; amended twice (bounding a bypass; no unthrottled console method, 2026-10-15)
 - **Date:** 2026-10-15
 - **Feature:** S05.7 (unblocks S05.3); amends 0010
 
@@ -117,3 +117,94 @@ script was stopped, that the page still answers, and that the notice is shown. L
 on a target that is idle at that moment ends its next script run instead (only after a page bypassed the limit);
 shared workers are still not attached (0015 refuses service workers); a page that keeps re-flooding from timers is
 stopped each time, costing main at most ~`FLOOD_LIMIT` messages per round. Windows x64: the same e2e (CI S06).
+
+## Second amendment (2026-10-15): no page can hold an unthrottled console method
+
+**Context.** The first amendment bounded a page that bypassed the limiter by stopping its script from main. That
+stop is after the fact: main must first take in `FLOOD_LIMIT` messages and the backlog behind them, so its stall is
+proportional to main's per-message cost. On the Windows CI runner (~0.6 ms per message) it failed: run 38695944850,
+cached `console.log` loop in the page — stop sent 71 ms into the window, answered at 918 ms (13,948 messages queued),
+the loop still ran to its end (5,965 ms), longest main stall 3,514 ms. The bypass itself — the getter handing out the
+**native** method while under the limit, so `const log = console.log` kept an unlimited one — had to go.
+
+**Options.**
+
+- (a) **Never expose a native method (chosen).** The page only ever sees the guard's limiter functions; the caller's
+  location is recovered in the limiter.
+- (b) Suppress Chromium's console events (Runtime/Log domain settings) and report every record through a bounded
+  channel the guard controls (`Runtime.addBinding`). Not possible: no protocol setting stops the renderer from sending
+  console messages to the browser process (the cost is there whether or not anybody listens, see above); a binding
+  is a page-visible global that must be hidden in every realm; DevTools would show every message at the guard's
+  location.
+- (c) Keep the getter and rely on main's stop — measured insufficient on a slow main.
+
+**Decision.**
+
+- `page-guard.ts` replaces every function-valued console method (all but `createTask`, which prints nothing; also
+  `time`, `groupEnd`, `countReset`…, which do print warnings) with a limiter function held in a data property
+  (writable, configurable, like the native one). The native methods exist only in the guard's closure. Descriptor
+  values, `call`/`apply`/`bind`, `Reflect.apply`, prototype lookups and saved references all yield the limiter;
+  `console.context()` returns a plain object of limiters. A console method the page assigns can only call limiters.
+- **Rate:** a token bucket per document/worker/worklet — `CONSOLE_BURST` = 100 messages at once,
+  `CONSOLE_LIMIT` = 200 per second on average (was: 200 per 1 s window, i.e. bursts of 200). The burst is what main
+  must take in one go; at 0.6 ms per message 100 cost 60 ms. Summaries are reported at most once per second (inline
+  in a busy loop, by timer otherwise), unchanged in form and nonce.
+- **Attribution (S05.4):** for an admitted call the limiter reads its caller's location from V8's structured stack
+  trace (`Error.captureStackTrace` with the guard's own `prepareStackTrace` set for that moment and the page's
+  restored after; builtin frames such as `Array.prototype.forEach` are skipped, as Chromium does) and calls the native
+  method from a **call stub**: `function (R, f, t, a) {'use strict'; … R(f, t, a);}` compiled with indirect `eval`
+  with the call on the caller's line and column and `//# sourceURL=<caller URL>`. Chromium then records the
+  caller's file and line, exactly as before (S05.4 e2e: errors.js:1/:3, the flood fixture's index.html:18, and the new
+  `js/console.js` lines 3–7 for a saved reference, `forEach(console.info)`, `call`, `bind` and `alert`). The stub has
+  no free variables; URLs that are not printable ASCII are not put into it (no line terminator can reach the source);
+  its compiled source text is compared before use (a Trusted Types default policy that rewrites eval input never
+  gets a native method); stubs are cached per call site (≤ 512 per document, lines ≤ 20,000, columns ≤ 400).
+  Without `eval` (a page CSP without `'unsafe-eval'`) the guard calls the native method itself — still limited —
+  and main records those messages without file and line (measured: no refusal message reaches main).
+- **Other message sources the guard closes:** uncaught errors, `reportError()` and unhandled rejections (capturing
+  listeners on the global object registered before any page script; above the limit the event is cancelled so
+  Chromium does not report it; a worker's error weighs 2 because Chromium reports it twice); `navigator.vibrate()`
+  (a console error per blocked call); `CSS.paintWorklet` / `layoutWorklet` / `animationWorklet` are removed (paint
+  worklet scopes run where the protocol cannot inject: measured 1.8 M unlimited messages and a 9–16 s main stall).
+- **Reach:** documents and same-process frames (also an iframe's initial `about:blank`, `srcdoc`, `data:`,
+  `javascript:` URLs) via `Page.addScriptToEvaluateOnNewDocument`; out-of-process iframes, dedicated workers (nested
+  too) and **worklets** (AudioWorklet — measured unlimited before) via auto-attach, paused until the guard ran. A
+  worker or worklet the guard could not be installed in is **not resumed** (fails closed). Chromium's
+  `IsolateSandboxedIframes` is switched off for the app (`DISABLED_CHROMIUM_FEATURES`): a sandboxed `srcdoc` iframe
+  in its own process started its scripts before the protocol could install anything (it does not wait for the
+  debugger; measured 1 M messages, 4–5 s stall); in the page's process it gets the guard like any frame. The preview
+  as a whole is still its own sandboxed process apart from the IDE. Shared workers' console is not sent to main
+  (measured 0 messages); service workers are refused (0015) and only resumed.
+- Main's flood guard and `Runtime.terminateExecution` stay as **defence in depth** for output the limiter cannot see;
+  its stall bound depends on main's speed, the limiter's does not.
+
+**Trade-offs.** `console.log.toString()` is not `[native code]`; stack traces inside a console call show guard and
+stub frames; in DevTools a message's location link opens the stub (blank lines and the call at the right line)
+instead of the file; `console.time`/`groupEnd` count against the budget; 101+ lines printed at once lose the rest to
+"N messages dropped" (was 201+); CSS paint worklets are unavailable in the preview; error events above the limit
+arrive `defaultPrevented`. DevTools coexistence is otherwise unchanged (the user's DevTools sees the same limited
+stream; the S05.4 coexistence e2e passes).
+
+**Measurements** (MacBook Pro M3 Pro, macOS 27.2 arm64; e2e flood test `preview-isolation.spec.ts`; each bypass
+loop runs 1.5 s, all ran to their end — nothing had to be stopped — and 400–403 messages reached main):
+
+| case                                                | normal                                    | 12 cores busy  | main +0.6 ms/message |
+| --------------------------------------------------- | ----------------------------------------- | -------------- | -------------------- |
+| limited flood fixture (6 s) / worker flood (3 s)    | 3–4 / 3 ms                                | 13 / 13 ms     | —                    |
+| saved `console.log` in the page                     | 2 ms                                      | 16 ms          | 27–35 ms             |
+| descriptor value, call, apply, bind, Reflect.apply  | 2–3 ms                                    | 15 ms          | —                    |
+| `console.context()` / prototype                     | 2–3 ms                                    | 3 ms           | —                    |
+| new iframe's console (initial about:blank)          | 3 ms                                      | 3 ms           | —                    |
+| sandboxed `srcdoc` iframe                           | 3–4 ms                                    | 14 ms          | 48–61 ms             |
+| dedicated worker / nested worker                    | 3–4 ms                                    | 15 ms          | 57–58 / 32–36 ms     |
+| AudioWorklet                                        | 3–4 ms                                    | 19 ms          | —                    |
+| `reportError` + rejections                          | 2–3 ms                                    | 17 ms          | —                    |
+| backstop (isolated-world flood, not page-reachable) | stopped after 198–242 ms, stall 88–121 ms | 252 ms, 139 ms | —                    |
+
+Asserted: result `finished`, ≤ `CONSOLE_BURST + 1.5 × CONSOLE_LIMIT + 10` messages, stall < 200 ms (also with
+the 0.6 ms/message slow main); the backstop is asserted to stop the isolated-world flood and show the notice, its
+stall only logged. Before this amendment the same probe measured, without a guard in reach: AudioWorklet 1.0 M
+messages / 5.6 s stall, paint worklet 1.8 M / 9–16 s, sandboxed srcdoc iframe 1.0 M / 4–5 s; with the old getter a
+saved reference was unlimited (Windows CI above). Remaining residuals (backstop only): Chromium-generated warnings
+other than the ones above (e.g. a future per-call intervention), and a page whose CSP forbids `eval` loses file and
+line for its console messages. Windows x64: the same e2e on CI (S06).

@@ -19,7 +19,7 @@ import {
 } from '../shared/ipc/preview-contract';
 import { err, ok, type Result } from '../shared/result';
 import { DEFAULT_LOG_BUFFER, LogBuffer, sanitizeLogUrl } from './log-buffer';
-import { CONSOLE_LIMIT, pageGuardSource, parseLimiterSummary } from './page-guard';
+import { CONSOLE_LIMIT, LIMITER_SOURCE_URL, pageGuardSource, parseLimiterSummary } from './page-guard';
 import { createPreviewWebPreferences, insecurePreviewPreferences, partitionForProject } from './preview-options';
 import { decidePreviewRequest, isAllowedNavigation } from './request-policy';
 import { PreviewProxy } from './preview-proxy';
@@ -128,8 +128,9 @@ const RECENT_RECORDS = 100;
 /**
  * Console flood guard: more than FLOOD_LIMIT messages within FLOOD_WINDOW_MS stop the page's running scripts and
  * skip capture for the rest of the window. The in-page rate limit (page-guard.ts) normally keeps a page far below
- * this; the guard is the backstop for a page that bypasses it (decision 0016 + amendment), so it allows the
- * limiter's budget with room for two windows back to back.
+ * this; the guard is the backstop for output the limiter does not see (decision 0016 + amendments), so it allows
+ * the limiter's budget with room for two windows back to back. Being after the fact, its stall bound depends on
+ * main's per-message cost; the limiter's does not.
  */
 const FLOOD_WINDOW_MS = 1_000;
 const FLOOD_LIMIT = 4 * CONSOLE_LIMIT;
@@ -151,7 +152,8 @@ function floodLimitFor(contents: WebContents): number {
   } catch {
     // frame gone: keep 1
   }
-  const workers = [...childSessions(contents).values()].filter((type) => type === 'worker').length;
+  // Dedicated workers and worklets (out-of-process iframes are frames, counted above).
+  const workers = [...childSessions(contents).values()].filter((type) => type !== 'iframe').length;
   return Math.max(FLOOD_LIMIT, (documents + workers) * FLOOD_PER_TARGET);
 }
 const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 };
@@ -788,11 +790,12 @@ export class PreviewManager {
 
     // Console flood guard (S05.3, decision 0016 + amendment). Chromium sends every console message of the page to
     // main and Electron turns each into an event there, listener or not; the in-page limiter normally keeps a page
-    // far below FLOOD_LIMIT. A page that bypasses it (a native console method saved before the limit, then called in
-    // a loop) would keep main — and all keyboard and mouse input of the IDE — busy for seconds. Above FLOOD_LIMIT
-    // messages per FLOOD_WINDOW_MS the scripts that are running in the page and its workers are terminated over the
-    // DevTools protocol (Runtime.terminateExecution, like DevTools' "stop" for a runaway script): the flood stops at
-    // its source within milliseconds instead of queueing in main. Further messages of the window are only counted.
+    // far below FLOOD_LIMIT, and since its second amendment no page can call a native console method around it.
+    // Output it cannot see (a Chromium warning it does not know about, a frame or worker the guard could not reach)
+    // would keep main — and all keyboard and mouse input of the IDE — busy; this is the defence in depth. Above
+    // FLOOD_LIMIT messages per FLOOD_WINDOW_MS the scripts that are running in the page and its workers are terminated
+    // over the DevTools protocol (Runtime.terminateExecution, like DevTools' "stop" for a runaway script): the flood
+    // stops at its source instead of queueing in main. Further messages of the window are only counted.
     let windowStart = 0;
     let inWindow = 0;
     // A stop request is in flight; messages over the limit since the last stop finished (the backlog main still
@@ -861,12 +864,15 @@ export class PreviewManager {
         this.logs.addDropped(suppressed);
         return;
       }
+      // A message the guard had to send itself (the page's Content Security Policy forbids the call stubs that keep
+      // the caller's location, page-guard.ts) has no file and line of the page.
+      const url = sourceId === LIMITER_SOURCE_URL ? '' : sourceId;
       this.pushLog({
         source: /^Uncaught\b/.test(message) ? 'exception' : 'console',
         level,
         message,
-        ...(sourceId ? { url: sourceId } : {}),
-        ...(lineNumber > 0 ? { line: lineNumber } : {}),
+        ...(url ? { url } : {}),
+        ...(url && lineNumber > 0 ? { line: lineNumber } : {}),
         at: now,
       });
     };
@@ -1051,8 +1057,8 @@ function childSessions(contents: WebContents): Map<string, string> {
  * Decision 0016 amendment: ends the JavaScript that is running right now in the page (its main thread, which also
  * runs its same-process iframes), its dedicated workers and out-of-process iframes — the console flood's source.
  * `Runtime.terminateExecution` interrupts a busy loop like DevTools' stop button; the page stays loaded, timers and
- * events keep working. A target that is idle at that moment has its next script run ended instead (accepted: only a
- * page that bypassed the console limit gets here). Bounded: one request at a time, each waited for at most 250 ms.
+ * events keep working. A target that is idle at that moment has its next script run ended instead (accepted: only
+ * output the console limit did not see gets here). Bounded: one request at a time, each waited for at most 250 ms.
  */
 async function stopRunawayScripts(contents: WebContents): Promise<boolean> {
   if (terminating.has(contents) || contents.isDestroyed()) return false;
@@ -1123,7 +1129,13 @@ async function installPageGuard(
             .catch(() => undefined);
         } else if (method === 'Target.attachedToTarget' && params.sessionId && params.targetInfo) {
           childSessions(contents).set(params.sessionId, params.targetInfo.type);
-          void guardChildTarget(dbg, params.sessionId, params.targetInfo.type, guardSources.get(contents) ?? '');
+          void guardChildTarget(
+            dbg,
+            params.sessionId,
+            params.targetInfo.type,
+            guardSources.get(contents) ?? '',
+            params.waitingForDebugger !== false,
+          );
         } else if (method === 'Target.detachedFromTarget' && params.sessionId) {
           childSessions(contents).delete(params.sessionId);
         }
@@ -1149,25 +1161,51 @@ async function installPageGuard(
 interface GuardEventParams {
   readonly type?: string;
   readonly sessionId?: string;
+  readonly waitingForDebugger?: boolean;
   readonly targetInfo?: { readonly type: string };
 }
 
-/** Puts the guard into an auto-attached child target, then always lets it run (it waits for us). */
-async function guardChildTarget(dbg: Electron.Debugger, sessionId: string, type: string, source: string) {
+/**
+ * Puts the guard into an auto-attached child target that waits for us, then lets it run. Out-of-process iframes
+ * get it for every document; dedicated workers and worklets (an AudioWorklet's console reaches main like the
+ * page's) get it once, before their own script. Fails closed (decision 0016, second amendment): a target the guard
+ * could not be installed in is not resumed, so no script without the console limit runs (a worker that never
+ * starts instead of one that can stall the IDE).
+ */
+async function guardChildTarget(
+  dbg: Electron.Debugger,
+  sessionId: string,
+  type: string,
+  source: string,
+  waiting: boolean,
+) {
+  let guarded = false;
   try {
-    if (type === 'worker') {
-      await dbg.sendCommand('Runtime.evaluate', { expression: source }, sessionId);
-      await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH, sessionId).catch(() => undefined); // nested workers
-    } else if (type === 'iframe') {
+    if (type === 'iframe') {
       await dbg.sendCommand('Page.enable', {}, sessionId);
-      await dbg.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source }, sessionId);
-      await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH, sessionId).catch(() => undefined);
+      // A frame that did not wait (should not happen, see DISABLED_CHROMIUM_FEATURES) gets it at once as well.
+      await dbg.sendCommand(
+        'Page.addScriptToEvaluateOnNewDocument',
+        waiting ? { source } : { source, runImmediately: true },
+        sessionId,
+      );
+    } else if (type === 'worker' || type === 'worklet') {
+      // Their global scope exists and waits; the guard runs before their own script.
+      const result = (await dbg.sendCommand('Runtime.evaluate', { expression: source }, sessionId)) as {
+        exceptionDetails?: unknown;
+      };
+      if (result.exceptionDetails) throw new Error('page guard failed in a child target');
+    }
+    // Other targets are only resumed: a service worker (refused before its script loads, decision 0015; a guard
+    // evaluation there would never answer) and shared workers (Chromium does not send their console to main).
+    guarded = true;
+    if (type === 'iframe' || type === 'worker') {
+      await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH, sessionId).catch(() => undefined); // nested targets
     }
   } catch {
-    // The target went away or refused; it must still not stay paused.
-  } finally {
-    await dbg.sendCommand('Runtime.runIfWaitingForDebugger', {}, sessionId).catch(() => undefined);
+    // The target went away or refused the guard: it stays paused (fails closed).
   }
+  if (guarded) await dbg.sendCommand('Runtime.runIfWaitingForDebugger', {}, sessionId).catch(() => undefined);
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
