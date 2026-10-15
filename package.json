@@ -24,7 +24,8 @@
     "test:e2e": "node scripts/e2e.mjs",
     "selftest:packaged": "node scripts/selftest.mjs --packaged",
     "selftest:dev": "node scripts/selftest.mjs --dev",
-    "test:faults": "node scripts/faults.mjs"
+    "test:faults": "node scripts/faults.mjs",
+    "test:ai-live": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.134.0",
