@@ -3,7 +3,7 @@ import { createProblemRecord } from '../../shared/problem';
 import { INITIAL_SAVE, type SaveSnapshot } from '../workbench/save-machine';
 import { createSavedFileEvents } from '../workbench/saved-file-events';
 import { createFixHost, type FixEditor, type FixSaver } from './fix-host';
-import { startFix, type ReplaceTextAction } from './fix-model';
+import { holdsIdentifier, startFix, type ReplaceTextAction } from './fix-model';
 
 const TEXT = "const userName = '林小雨';\nconsole.log(userNmae);\nconsole.log(userNmae + '!');\n";
 const action: ReplaceTextAction = {
@@ -30,8 +30,9 @@ function fakeEditor(initial: string) {
   const editor: FixEditor = {
     waitForModel: async () => model,
     replaceSpan(_uri, span, from, to) {
-      const at = offset(span.line, span.column);
-      if (model.text.slice(at, at + from.length) !== from) return { ok: false, reason: 'changed' };
+      if (!holdsIdentifier(model.text.split('\n')[span.line - 1] ?? '', span.column, from)) {
+        return { ok: false, reason: 'changed' };
+      }
       replace(span.line, span.column, span.endColumn, to);
       return { ok: true, text: model.text, version: model.version };
     },
@@ -40,8 +41,9 @@ function fakeEditor(initial: string) {
         model.text = model.undo.pop() ?? model.text;
         model.version += 1;
       } else {
-        const at = offset(span.line, span.column);
-        if (model.text.slice(at, at + to.length) !== to) return { ok: false, reason: 'changed' };
+        if (!holdsIdentifier(model.text.split('\n')[span.line - 1] ?? '', span.column, to)) {
+          return { ok: false, reason: 'changed' };
+        }
         replace(span.line, span.column, span.column + to.length, from);
       }
       return { ok: true, text: model.text, version: model.version };
@@ -55,7 +57,7 @@ function fakeEditor(initial: string) {
 function fakeSaver(initial: string, fail: { code: string } | null = null) {
   const disk = { text: initial };
   let state: SaveSnapshot = INITIAL_SAVE;
-  const saver: FixSaver & { latest: string } = {
+  const saver: FixSaver & { latest: string; edit(text: string): void } = {
     latest: initial,
     get text() {
       return this.latest;
@@ -63,7 +65,7 @@ function fakeSaver(initial: string, fail: { code: string } | null = null) {
     get state() {
       return state;
     },
-    edit(text) {
+    edit(text: string) {
       this.latest = text;
       state = { ...state, revision: state.revision + 1 };
     },
@@ -83,14 +85,21 @@ function fakeSaver(initial: string, fail: { code: string } | null = null) {
 function setup(opts: { fail?: { code: string }; readOnly?: boolean; text?: string } = {}) {
   const { model, editor } = fakeEditor(opts.text ?? TEXT);
   const { saver, disk } = fakeSaver(opts.text ?? TEXT, opts.fail ?? null);
+  /** What the workbench's recordEdit received: the journal and the save pipeline are fed from it. */
+  const recorded: { relPath: string; text: string }[] = [];
+  const tab = { saver: saver as FixSaver | undefined };
   const host = createFixHost({
     showFile: async () => ({ uri: 'file:///p/script.js', readOnly: opts.readOnly ?? false }),
-    saverOf: () => saver,
+    saverOf: () => tab.saver,
+    recordEdit: (relPath, text) => {
+      recorded.push({ relPath, text });
+      saver.edit(text);
+    },
     uriOf: () => 'file:///p/script.js',
     savedFiles: createSavedFileEvents(),
     editor: async () => editor,
   });
-  return { host, model, saver, disk };
+  return { host, model, saver, disk, recorded, tab, editor };
 }
 
 const record = createProblemRecord(
@@ -160,5 +169,32 @@ describe('one-click fix through the editor and the save pipeline (S22.5)', () =>
     expect(await host.undo(fix)).toEqual({ kind: 'undone' });
     expect(model.text).toBe(`${TEXT}// more\n`);
     expect(await host.undo(fix)).toEqual({ kind: 'changed' }); // the span reads userNmae again
+  });
+
+  it('records the edit for the recovery journal even when the editor does not show the file (background tab)', async () => {
+    const { host, recorded, disk } = setup({ fail: { code: 'permission-denied' } });
+    expect((await host.apply(action)).kind).toBe('save-failed');
+    // The save failed: the fix exists only in memory, and the journal has it (recordEdit feeds tabJournals.edited).
+    expect(recorded).toEqual([{ relPath: 'script.js', text: expect.stringContaining('console.log(userName);') }]);
+    expect(disk.text).toBe(TEXT);
+  });
+
+  it('does not touch a buffer that is no longer the tab of that file (closed, project reopened)', async () => {
+    const { host, model, tab, editor } = setup();
+    const wait = editor.waitForModel;
+    editor.waitForModel = async (uri) => {
+      const result = await wait(uri);
+      tab.saver = undefined; // the tab closed while the model was awaited
+      return result;
+    };
+    expect(await host.apply(action)).toEqual({ kind: 'not-applied', reason: 'not-open' });
+    expect(model.text).toBe(TEXT);
+  });
+
+  it('changes nothing when the span is now part of a longer name', async () => {
+    const longer = setup({ text: 'const userNameList = [];\nconsole.log(userNmaeList);\n' });
+    const inside = { ...action, span: { ...action.span, line: 2, column: 13, endColumn: 21 } };
+    expect(await longer.host.apply(inside)).toEqual({ kind: 'not-applied', reason: 'changed' });
+    expect(longer.model.undo).toEqual([]);
   });
 });

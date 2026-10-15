@@ -9,6 +9,7 @@ import {
   type NotAppliedReason,
   type ReplaceTextAction,
 } from './fix-model';
+import { NO_LOADS, type PreviewLoads } from './usePreviewLoads';
 
 export type ApplyOutcome =
   | { readonly kind: 'applied'; readonly version: number }
@@ -48,26 +49,36 @@ export interface ProblemFix {
  * change of the runtime problems (a preview refresh marks them stale) and every save of the fixed file — so undoing in
  * the editor (Ctrl/Cmd+Z, then autosave) brings back "still reported" instead of a stale "resolved".
  */
-export function useProblemFix(host: FixHost | null, runtimeRecords: readonly ProblemRecord[]): ProblemFix {
+export function useProblemFix(
+  host: FixHost | null,
+  runtimeRecords: readonly ProblemRecord[],
+  loads: PreviewLoads = NO_LOADS,
+): ProblemFix {
   const [fix, setFix] = useState<FixState | null>(null);
   const [staticReports, setStaticReports] = useState<boolean | null>(null);
   const [serial, setSerial] = useState(0);
   const current = useRef(fix);
   current.current = fix;
   const checks = useRef(0);
+  const loadsRef = useRef(loads);
+  loadsRef.current = loads;
 
   const update = useCallback((target: FixState, patch: Partial<FixState>) => {
     setFix((now) => (now === target || (now && now.action === target.action) ? { ...now, ...patch } : now));
   }, []);
 
+  /** `saved`: the file was just saved — a page problem then needs a preview load that starts after this. */
   const recheckNow = useCallback(
-    (target: FixState) => {
+    (target: FixState, saved: boolean) => {
       if (!host) return;
       const seq = ++checks.current;
       setStaticReports(null);
-      update(target, { phase: 'checking' });
+      update(target, { phase: 'checking', ...(saved ? { loadsAtSave: loadsRef.current.started } : {}) });
       void host.stillReported(target).then((reports) => {
-        if (seq === checks.current && current.current?.action === target.action) setStaticReports(reports);
+        if (seq !== checks.current || current.current?.action !== target.action) return;
+        // No answer is not a clean answer: the card says it could not check, and never calls it resolved.
+        if (reports === null) update(target, { phase: 'unchecked' });
+        else setStaticReports(reports);
       });
     },
     [host, update],
@@ -76,9 +87,9 @@ export function useProblemFix(host: FixHost | null, runtimeRecords: readonly Pro
   // Verdict: after a re-check answered, and whenever the runtime problems change.
   useEffect(() => {
     if (!fix || staticReports === null) return;
-    const next = nextPhase(fix, staticReports, runtimeRecords);
+    const next = nextPhase(fix, staticReports, runtimeRecords, loads.completed);
     if (next !== fix.phase) update(fix, { phase: next });
-  }, [fix, staticReports, runtimeRecords, update]);
+  }, [fix, staticReports, runtimeRecords, loads.completed, update]);
 
   // A save of the fixed file (autosave after an undo in the editor, a retried save, the user's own edit) re-checks.
   useEffect(() => {
@@ -86,7 +97,7 @@ export function useProblemFix(host: FixHost | null, runtimeRecords: readonly Pro
     return host.onSaved((relPath) => {
       const now = current.current;
       if (!now || relPath !== now.action.span.file) return;
-      if (isJudged(now.phase) || now.phase === 'save-failed') recheckNow(now);
+      if (isJudged(now.phase) || now.phase === 'save-failed' || now.phase === 'unchecked') recheckNow(now, true);
     });
   }, [host, recheckNow]);
 
@@ -105,7 +116,7 @@ export function useProblemFix(host: FixHost | null, runtimeRecords: readonly Pro
         else {
           const applied = { ...started, version: outcome.version };
           update(started, { version: outcome.version });
-          recheckNow(applied);
+          recheckNow(applied, true);
         }
       });
     },
@@ -128,14 +139,14 @@ export function useProblemFix(host: FixHost | null, runtimeRecords: readonly Pro
     const now = current.current;
     if (!host || !now || now.phase !== 'save-failed') return;
     void host.retrySave(now.action.span.file).then((result) => {
-      if (result.ok) recheckNow(now);
+      if (result.ok) recheckNow(now, true);
       else update(now, { saveError: result.code });
     });
   }, [host, update, recheckNow]);
 
   const recheck = useCallback(() => {
     const now = current.current;
-    if (now && canRecheck(now)) recheckNow(now);
+    if (now && canRecheck(now)) recheckNow(now, false);
   }, [recheckNow]);
 
   const clear = useCallback(() => {

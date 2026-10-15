@@ -43,6 +43,7 @@ const PHASES: FixPhase[] = [
   'not-applied',
   'save-failed',
   'checking',
+  'unchecked',
   'awaiting-refresh',
   'still-reported',
   'resolved',
