@@ -127,7 +127,8 @@ export function Workbench() {
   const savers = useRef(new Map<string, DocumentSaver>());
   /** Bumped whenever the project changes: file reads that started for an older project are dropped. */
   const projectSeq = useRef(0);
-  const loading = useRef(new Set<string>());
+  /** Files being read for a tab: true when the tab is to be shown once loaded (not a background session restore). */
+  const loading = useRef(new Map<string, boolean>());
   /** Confirmed writes, for the preview refresh (S10.5): emitted strictly after the write and the status update. */
   const savedFiles = useRef(createSavedFileEvents());
   // S12: each tab's unsaved buffer is journaled to app data until saved (independent of undo, autosave, history).
@@ -314,24 +315,29 @@ export function Workbench() {
   }, [bridge, saveAll]);
 
   const openFile = useCallback(
-    async (relPath: string, options: { readonly quiet?: boolean } = {}) => {
+    async (relPath: string, options: { readonly quiet?: boolean; readonly background?: boolean } = {}) => {
       const project = docRef.current.project;
       if (!bridge || !project) return;
       if (savers.current.has(relPath)) {
-        dispatch({ type: 'activate', relPath });
+        if (!options.background) dispatch({ type: 'activate', relPath });
         return;
       }
-      if (loading.current.has(relPath)) return;
+      if (loading.current.has(relPath)) {
+        // The session restore is reading it in the background; the user asked for it, so it shows once loaded.
+        if (!options.background) loading.current.set(relPath, true);
+        return;
+      }
       const seq = projectSeq.current;
-      loading.current.add(relPath);
+      loading.current.set(relPath, !options.background);
       const result = await bridge.workspace.readFile({ projectId: project.projectId, relPath });
       // A read that finishes after the project changed belongs to nothing any more.
       if (seq !== projectSeq.current) return;
+      const show = loading.current.get(relPath) ?? true;
       loading.current.delete(relPath);
       if (savers.current.has(relPath)) return;
       if (result.ok) {
         savers.current.set(relPath, createSaver(project, relPath, result.value));
-        dispatch({ type: 'docLoaded', relPath, content: result.value });
+        dispatch({ type: 'docLoaded', relPath, content: result.value, ...(show ? {} : { background: true }) });
       } else if (!options.quiet) {
         // S13.4: a file from the last session that is gone now is simply not reopened (quiet).
         dispatch({ type: 'docFailed', relPath, code: result.code });
@@ -929,10 +935,11 @@ export function Workbench() {
         if (cancelled || !result.ok || !result.value) return;
         for (const relPath of result.value.tabs) {
           if (cancelled) return;
-          await openFile(relPath, { quiet: true });
+          // In the background: a file the user opened meanwhile stays visible (and keeps their typing).
+          await openFile(relPath, { quiet: true, background: true });
         }
         const active = result.value.active;
-        if (!cancelled && active && savers.current.has(active)) dispatch({ type: 'activate', relPath: active });
+        if (!cancelled && active && savers.current.has(active)) dispatch({ type: 'restoreActive', relPath: active });
       })
       .finally(() => {
         if (!cancelled) restoringTabs.current = false;
