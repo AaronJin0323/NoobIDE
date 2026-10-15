@@ -1699,8 +1699,8 @@
       "depends_on": [
         "S16.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/diagnostics/runtime-capture.ts (RuntimeCapture) wired in main by src/main/problems-bridge.ts (PreviewManager capture hook) and read via window.noobide.problems (problems-contract.ts, sender-checked). Unit: runtime-capture.test.ts (all record kinds, inline <script> -> index.html, bare import claims no file), problems-bridge.test.ts (8). e2e tests/e2e/runtime-problems.spec.ts on fixture '预览 运行时' under a Chinese+space path: SyntaxError 脚本/语法 错误.js:2, TypeError 脚本/同步 异常.js:3, unhandledrejection 脚本/未处理 拒绝.js:3, inline ReferenceError index.html:21, console error/warning 脚本/控制台.js:2/3 (console.log ignored), missing export 脚本/模块 入口.js:2, missing module 404 with initiator 脚本/模块 缺失.js; Problems panel badges fed by the bridge. verify green, full e2e 187 passed @ 5a2a22b (+merge main)"
     },
     {
       "id": "S16.3",
@@ -1715,8 +1715,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "RuntimeCapture: new session per Start, new generation per committed main-frame navigation (did-navigate); old-page events during a pending load stay in the old generation, only the mainFrame request goes to the pending one; records whose latest occurrence is not in the current session+generation are stale; clearResolved removes them. Unit runtime-capture.test.ts (4 S16.3 tests incl. late events); e2e runtime-problems.spec.ts: fix a file on disk + Refresh -> generation 2, the fixed TypeError stale (count 1, gen 1), the repeated SyntaxError not stale (count 2, first gen 1, last gen 2), clearResolved removes exactly the stale ones. Decision 0017. verify + full e2e green @ 5a2a22b"
     },
     {
       "id": "S16.4",
@@ -1731,8 +1731,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Network records carry the request referrer as initiator (preview-manager webRequest) -> resource.initiatorFile (directory URL -> its index.html), requestedPath, status / netError, resourceType. e2e runtime-problems.spec.ts: 图片/不存在 的图.png 404 initiator index.html; 图片/背景 缺失.png initiator 样式/主 样式.css; 数据/缺失 的数据.json fetch initiator index.html; 脚本/不存在 的模块.js initiator 脚本/模块 缺失.js; https://noobide-e2e.invalid image -> net::ERR_* with no status/path. Unit runtime-capture.test.ts (2). @ 5a2a22b"
     },
     {
       "id": "S16.5",
@@ -1747,8 +1747,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "blocked",
-      "evidence": "Store logic done @ 825eb96: src/diagnostics/store.ts + store.test.ts (8 tests: dedupe with counts keeping first original + latest verbatim, token-bucket rate limit with per-source dropped counts, per-source LRU ring buffer with eviction counts, 20k console flood cannot evict runtime errors, 100k events < 2s). Cannot be set done: depends on S16.2 (runtime capture adapter, todo). Unblocks when S16.2 feeds captured events into ProblemStore; then add an integration test with a real flooding page and mark done."
+      "status": "done",
+      "evidence": "ProblemStore now rate-limits per source (console flood cannot starve runtime errors; store.test.ts new test) + per-source LRU ring buffer + dedupe with counts keeping first original and latest repeat. e2e runtime-problems.spec.ts with real flooding page '预览 错误洪水' (3000 distinct console errors + 3000 repeats + an uncaught error): 309 console records kept, 2692 dropped and counted, the repeat is one record with count>1 and verbatim original/last, the ReferenceError after the flood kept (runtime dropped 0), workbench list bounded. Unit runtime-capture.test.ts flood (20k, eviction counted). @ 5a2a22b"
     },
     {
       "id": "S16.6",
@@ -1763,8 +1763,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "blocked",
-      "evidence": "Pure logic done @ 06f686b: src/diagnostics/normalize.ts (isOpaqueCrossOriginError, normalizePageError → code cross-origin-script-error with no file/line) + rules/cross-origin.ts (explains the browser hides cross-origin error details so no file/line can be shown, lists external <script> URLs, checks: bundle the library locally / crossorigin attribute); normalize.test.ts (7 tests, zh-CN+en, honesty). Cannot be done: depends on S16.2 (runtime capture adapter, todo) and the criterion needs a real opaque error from a cross-origin script in the sandboxed preview. Unblocks when S16.2 calls normalizePageError; then add an e2e/integration test loading a script from a second loopback origin that throws."
+      "status": "done",
+      "evidence": "Real cross-origin error in the sandboxed preview: e2e runtime-problems.spec.ts serves https://cdn.noobide-e2e.example/外部 库.js via protocol.handle on the preview partition (no network); the page's own window.onerror sees only 'Script error.', NoobIDE's record keeps 'Uncaught Error: 外部库出错', no file/line, data.scriptUrl; the panel titles it '另一个网站的脚本报告了错误：…' with Show original and no Go to code. rules/cross-origin.ts: certain 'external' variant (zh-CN + en messages, honesty checks) beside the opaque 'Script error.' variant; fixtures.ts + runtime-capture.test.ts. @ 5a2a22b"
     },
     {
       "id": "S17.1",
