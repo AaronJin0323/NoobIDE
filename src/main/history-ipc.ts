@@ -5,16 +5,20 @@ import { parseNoPayload, parseProjectRequest, type IpcResult } from '../shared/i
 import {
   HISTORY_CHANNELS,
   parseClearRequest,
+  parseGroupBeforeRequest,
+  parseGroupRecordRequest,
+  parseGroupUndoneRequest,
   parseHistoryFileRequest,
   parseOverviewRequest,
   parseRestoreDeletedRequest,
   parseVersionRequest,
   type HistoryError,
   type HistoryFile,
+  type HistoryGroup,
   type HistoryOverview,
   type HistoryVersion,
 } from '../shared/ipc/history-contract';
-import { historyKey, type SnapshotStore } from '../recovery/history';
+import { historyKey, type HistoryGroupRecord, type SnapshotStore } from '../recovery/history';
 import type { HistoryTriggers } from '../recovery/history-triggers';
 import { errorCode } from '../recovery/atomic-file';
 import { absoluteFromRel, isInside, resolveExisting } from '../workspace/paths';
@@ -32,8 +36,21 @@ import type { HandleFn } from './ipc';
  * Restoring a *deleted* file creates it again without ever replacing anything (link() refuses an existing name).
  */
 export interface HistoryPort {
-  readonly store: Pick<SnapshotStore, 'files' | 'list' | 'read' | 'usage' | 'projects' | 'clear' | 'cleanup' | 'dir'>;
-  readonly triggers: Pick<HistoryTriggers, 'beforeRestore'>;
+  readonly store: Pick<
+    SnapshotStore,
+    | 'files'
+    | 'list'
+    | 'read'
+    | 'usage'
+    | 'projects'
+    | 'clear'
+    | 'cleanup'
+    | 'dir'
+    | 'recordGroupStep'
+    | 'groups'
+    | 'markGroupUndone'
+  >;
+  readonly triggers: Pick<HistoryTriggers, 'beforeRestore' | 'snapshotForGroup'>;
   /** Shows the history folder in the file manager (shell.showItemInFolder / openPath). */
   revealFolder(folder: string): void;
 }
@@ -254,6 +271,79 @@ export function registerHistoryHandlers(
     return { ok: true, value: { relPath } };
   });
 
+  // ── S34.2: change groups (one AI agent turn) ──
+  handle(HISTORY_CHANNELS.groupBefore, parseGroupBeforeRequest, async ({ projectId, groupId, relPath }) => {
+    const root = projects.rootOf(projectId);
+    if (root === undefined) return UNKNOWN_PROJECT;
+    if (!port) return UNAVAILABLE;
+    const { key, absPath } = await keyOf(root, relPath);
+    if (absPath === null || !(await isFile(absPath))) return { ok: true, value: { id: null } };
+    const kept = await port.triggers.snapshotForGroup(root, key, absPath, 'before-ai', groupId);
+    return { ok: true, value: { id: kept?.id ?? null } };
+  });
+
+  handle(
+    HISTORY_CHANNELS.groupRecord,
+    parseGroupRecordRequest,
+    async ({ projectId, group, step }): Promise<IpcResult<null, HistoryError>> => {
+      const root = projects.rootOf(projectId);
+      if (root === undefined) return UNKNOWN_PROJECT;
+      if (!port) return UNAVAILABLE;
+      let relPath = historyKey(step.relPath);
+      let to: string | undefined;
+      let afterHash: string | null = null;
+      if (step.kind === 'edit' || step.kind === 'create') {
+        // What the change left on disk is kept as a version and its hash recorded: undo refuses a file changed since.
+        const target = await keyOf(root, step.relPath);
+        relPath = target.key;
+        if (target.absPath !== null && (await isFile(target.absPath))) {
+          const kept = await port.triggers.snapshotForGroup(root, target.key, target.absPath, 'after-ai', group.id);
+          afterHash = kept?.hash ?? null;
+        }
+      } else if (step.kind === 'rename' && step.to !== undefined) {
+        to = (await keyOf(root, step.to)).key;
+      }
+      // A "before" id must name a version of this very file (the renderer cannot point a group at another file).
+      let before: string | null = null;
+      if (step.before !== null) {
+        const versions = await port.store.list(root, relPath);
+        if (versions.ok && versions.value.some((v) => v.id === step.before)) before = step.before;
+      }
+      const recorded = await port.store.recordGroupStep(
+        root,
+        { id: group.id, kind: 'ai-agent', label: group.label },
+        { kind: step.kind, relPath, ...(to !== undefined ? { to } : {}), before, afterHash },
+      );
+      return recorded.ok ? { ok: true, value: null } : { ok: false, code: 'unavailable', message: recorded.message };
+    },
+  );
+
+  handle(
+    HISTORY_CHANNELS.groups,
+    parseProjectRequest,
+    async ({ projectId }): Promise<IpcResult<readonly HistoryGroup[], HistoryError>> => {
+      const root = projects.rootOf(projectId);
+      if (root === undefined) return UNKNOWN_PROJECT;
+      if (!port) return UNAVAILABLE;
+      const groups = await port.store.groups(root);
+      if (!groups.ok) return { ok: false, code: 'unavailable', message: groups.message };
+      return { ok: true, value: groups.value.map(toHistoryGroup) };
+    },
+  );
+
+  handle(
+    HISTORY_CHANNELS.groupUndone,
+    parseGroupUndoneRequest,
+    async ({ projectId, groupId }): Promise<IpcResult<null, HistoryError>> => {
+      const root = projects.rootOf(projectId);
+      if (root === undefined) return UNKNOWN_PROJECT;
+      if (!port) return UNAVAILABLE;
+      const marked = await port.store.markGroupUndone(root, groupId);
+      if (marked.ok) return { ok: true, value: null };
+      return { ok: false, code: marked.code === 'not-found' ? 'not-found' : 'unavailable', message: marked.message };
+    },
+  );
+
   handle(
     HISTORY_CHANNELS.overview,
     parseOverviewRequest,
@@ -329,4 +419,29 @@ export function registerHistoryHandlers(
     }
     return { ok: true, value: null };
   });
+}
+
+/** A stored group as the renderer sees it: its steps and the distinct files it touched. */
+export function toHistoryGroup(group: HistoryGroupRecord): HistoryGroup {
+  const files: string[] = [];
+  for (const step of group.steps) {
+    // A renamed file counts once, under its new name.
+    const p = step.kind === 'rename' && step.to !== undefined ? step.to : step.relPath;
+    if (!files.includes(p)) files.push(p);
+  }
+  return {
+    id: group.id,
+    kind: group.kind,
+    label: group.label,
+    createdAt: group.createdAt,
+    undoneAt: group.undoneAt ?? null,
+    steps: group.steps.map((s) => ({
+      kind: s.kind,
+      relPath: s.relPath,
+      ...(s.to !== undefined ? { to: s.to } : {}),
+      before: s.before,
+      afterHash: s.afterHash,
+    })),
+    files,
+  };
 }

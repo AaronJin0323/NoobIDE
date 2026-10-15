@@ -187,10 +187,11 @@ describe('app data across NoobIDE versions (S28.4)', () => {
 
   it('vN+1 → vN (downgrade): newer files are used as far as understood and stay byte for byte for the re-upgrade', async () => {
     await useVersionN();
-    // Turn every file into what a newer NoobIDE (schema 2, with a field this version does not know) would write.
+    // Turn every file into what a newer NoobIDE (its schema + 1, with a field this version does not know) would write.
     const bump = async (file: string, field = 'version') => {
       const value = JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>;
-      await writeFile(file, JSON.stringify({ ...value, [field]: 2, addedInV2: { anything: true } }));
+      const next = (typeof value[field] === 'number' ? (value[field] as number) : 0) + 1;
+      await writeFile(file, JSON.stringify({ ...value, [field]: next, addedInNext: { anything: true } }));
     };
     for (const entry of ['settings', 'recentProjects', 'session', 'walkthrough', 'preview'] as const) {
       await bump(appDataPath(userData, entry));

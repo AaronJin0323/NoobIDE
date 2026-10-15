@@ -7,7 +7,7 @@ import type { AgentApplyHost } from './agent-apply';
 import type { AgentDecisionStore, DecisionContext, ProposalRef } from './agent-decisions';
 import type { ChatTurn } from './chat-model';
 import type { AiChatExtensions, ProposalPart } from './chat-extensions';
-import { ProposalReview, failureText, type ReviewView } from './ProposalReview';
+import { ProposalReview, undoFailureText, type ReviewView } from './ProposalReview';
 import './agent.css';
 
 interface AgentProposalCardProps {
@@ -32,8 +32,8 @@ export function AgentProposalCard({ part, turn, store, api, host }: AgentProposa
   turnRef.current = turn;
   const requestId = turn.requestId ?? '';
   const proposal: ProposalRef = useMemo(
-    () => ({ requestId, proposalId: part.proposalId, changes: part.changes }),
-    [requestId, part.proposalId, part.changes],
+    () => ({ requestId, label: turn.prompt, proposalId: part.proposalId, changes: part.changes }),
+    [requestId, turn.prompt, part.proposalId, part.changes],
   );
   const ctx: DecisionContext = { api, host, live: () => isLive(turnRef.current) && turnRef.current.requestId !== null };
   const state = store.state(proposal);
@@ -82,7 +82,9 @@ export function AgentProposalCard({ part, turn, store, api, host }: AgentProposa
             : fill(t('agent.undo.partial'), {
                 n: undoResult.undone,
                 m: undoResult.failures.length,
-                reasons: undoResult.failures.map((f) => failureText(t, f.failure)).join(' '),
+                reasons: undoResult.failures
+                  .map((f) => (f.step ? `${f.step.relPath}: ` : '') + undoFailureText(t, f.failure))
+                  .join(' '),
               })}
         </p>
       )}

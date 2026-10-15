@@ -140,6 +140,10 @@ const api: NoobideApi = {
     clear: (request) => ipcRenderer.invoke(CHANNELS.historyClear, request),
     cleanup: () => ipcRenderer.invoke(CHANNELS.historyCleanup),
     reveal: () => ipcRenderer.invoke(CHANNELS.historyReveal),
+    groupBefore: (request) => ipcRenderer.invoke(CHANNELS.historyGroupBefore, request), // S34.2
+    groupRecord: (request) => ipcRenderer.invoke(CHANNELS.historyGroupRecord, request),
+    groups: (request) => ipcRenderer.invoke(CHANNELS.historyGroups, request),
+    groupUndone: (request) => ipcRenderer.invoke(CHANNELS.historyGroupUndone, request),
   },
   // --- end S21.3/S21.4 ---
   // --- S24.2 native menus ---

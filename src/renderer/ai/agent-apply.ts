@@ -1,14 +1,22 @@
 import type { AiFileChange } from '../../shared/ipc/ai-contract';
 import type { NoobideApi } from '../../shared/ipc/contract';
-import type { HistoryApi } from '../../shared/ipc/history-contract';
+import type {
+  HistoryApi,
+  HistoryGroup,
+  HistoryGroupRef,
+  HistoryGroupStep,
+  HistoryGroupStepKind,
+} from '../../shared/ipc/history-contract';
+import type { RestoreOutcome } from '../history/history-model';
 import type { FileOpsHooks } from '../workbench/FilesPanel';
 
 /**
  * Applies the agent's accepted file changes through the workbench's existing paths, and undoes one agent turn as a
- * group (S34.2, decision 0025). User data is sacred:
+ * group from local history (S34.2, decision 0025). User data is sacred:
  *
- * - An open file changes only through its tab: the new text becomes the editor content as one undoable edit
- *   (journaled like typing) and is saved by the tab's own save pipeline (atomic write, local-history snapshot).
+ * - An open file changes only through its tab: its unsaved edits are saved first, then the new text becomes the
+ *   editor content as one undoable edit (journaled like typing) and is saved by the tab's own save pipeline (atomic
+ *   write, local-history snapshot).
  * - A closed file is written with `workspace.writeFile` and the hash of the version the agent read, so a file that
  *   changed on disk in the meantime is never overwritten.
  * - Before every change the current text must still be the text the agent based it on (an open tab's unsaved edits
@@ -16,9 +24,13 @@ import type { FileOpsHooks } from '../workbench/FilesPanel';
  * - New files never replace anything; renames and deletions use the same hooks as the Files panel (unsaved edits are
  *   saved first, open tabs follow); deletions go to the OS trash with a local-history snapshot first.
  *
- * Undoing a turn reverses its applied changes newest first, each only if the file is still exactly what the agent
- * left: edited files get their earlier text back (saved again, so local history keeps every version), created files
- * go to the trash, renames are reversed, and deleted files come back from local history.
+ * Every applied change is recorded in local history (app data) as a step of the turn's group: `groupBefore` keeps the
+ * file's content right before the change, `groupRecord` what the change left. So a turn can still be undone after a
+ * reload or a crash, from the chat or from the History window. Undoing reverses the steps newest first, each only if
+ * the file is still exactly what the agent left: edited files get their earlier version back through the History
+ * window's restore path (the current content is kept as a version first, so the undo itself can be undone), created
+ * files go to the trash, renames are reversed, and deleted files come back from local history. A step that cannot be
+ * undone is skipped and reported.
  */
 export interface AgentApplyHost {
   readonly projectId: string;
@@ -26,26 +38,39 @@ export interface AgentApplyHost {
     NoobideApi['workspace'],
     'readFile' | 'writeFile' | 'createEntry' | 'renameEntry' | 'trashEntry'
   >;
-  readonly history: Pick<HistoryApi, 'versions' | 'restoreDeleted'>;
+  readonly history: Pick<
+    HistoryApi,
+    'read' | 'restoreDeleted' | 'groupBefore' | 'groupRecord' | 'groups' | 'groupUndone'
+  >;
   readonly fileOps: FileOpsHooks;
   /**
    * The open tab's live text (unsaved edits included), or undefined when the file is not open. `blocked`: the tab is
-   * in a conflict with the disk or its file was deleted — the user resolves that first.
+   * in a conflict with the disk or its file was deleted — the user resolves that first. `dirty`: it has unsaved edits.
    */
   openTab(
     relPath: string,
-  ): { readonly text: string; readonly readOnly: boolean; readonly blocked?: boolean } | undefined;
+  ):
+    | { readonly text: string; readonly readOnly: boolean; readonly blocked?: boolean; readonly dirty?: boolean }
+    | undefined;
+  /** Saves the open tab's unsaved edits through its saver. False when that failed (the tab explains why). */
+  saveOpen(relPath: string): Promise<boolean>;
   /**
    * Makes `text` the open tab's content (one undo step) and saves it through the tab's saver, if the tab still holds
    * `before` at that moment (checked again after every wait). Null = saved.
    */
   replaceOpenText(relPath: string, before: string, text: string): Promise<ApplyFailure | null>;
+  /**
+   * The History window's restore path for an existing file: opens it, keeps what is on disk as a version
+   * (`before-restore`), then makes `text` the tab's content (one undo step) and saves it — only while the file's
+   * text is still `expect` (`changed` otherwise, and nothing is touched).
+   */
+  restoreText(relPath: string, text: string, expect: string): Promise<RestoreOutcome>;
   /** Shows a file in a tab (a created or restored file). */
   openFile(relPath: string): void;
 }
 
 export type ApplyFailureCode =
-  /** The file is no longer the text the agent saw (edited, or changed on disk). */
+  /** The file is no longer the text the agent saw or left (edited, or changed on disk). */
   | 'changed-since'
   | 'read-only'
   | 'exists'
@@ -53,7 +78,7 @@ export type ApplyFailureCode =
   /** The tab's save failed: the new text stays in the editor as unsaved edits, the banner explains. */
   | 'save-failed'
   | 'write-failed'
-  /** The open file's edits could not be saved first, so the rename / deletion did not start. */
+  /** The open file's edits could not be saved first, so the change did not start. */
   | 'save-first-failed'
   | 'no-history';
 
@@ -63,16 +88,7 @@ export interface ApplyFailure {
   readonly detail?: string;
 }
 
-export type UndoStep =
-  | { readonly kind: 'edit'; readonly relPath: string; readonly before: string; readonly after: string }
-  | { readonly kind: 'create'; readonly relPath: string; readonly after: string }
-  | { readonly kind: 'rename'; readonly from: string; readonly to: string }
-  | { readonly kind: 'delete'; readonly relPath: string };
-
-export type ApplyResult =
-  | { readonly ok: true; readonly undo: UndoStep }
-  /** `undo`: the change partly landed (text in the editor, not saved) and can still be undone with the turn. */
-  | { readonly ok: false; readonly failure: ApplyFailure; readonly undo?: UndoStep };
+export type ApplyResult = { readonly ok: true } | { readonly ok: false; readonly failure: ApplyFailure };
 
 /** Same text apart from line endings (the editor may hold CRLF text as LF). */
 export const sameText = (a: string, b: string) => a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n');
@@ -80,40 +96,90 @@ const failed = (code: ApplyFailureCode, detail?: string): ApplyResult => ({
   ok: false,
   failure: detail === undefined ? { code } : { code, detail },
 });
+const APPLIED: ApplyResult = { ok: true };
 
-export async function applyChange(host: AgentApplyHost, change: AiFileChange): Promise<ApplyResult> {
+/**
+ * Applies one accepted change; when it landed, it is recorded as a step of the turn's history group. A change whose
+ * record fails stays applied (local history is a safety net; the save itself succeeded).
+ */
+export async function applyChange(
+  host: AgentApplyHost,
+  change: AiFileChange,
+  group: HistoryGroupRef,
+): Promise<ApplyResult> {
   try {
     switch (change.kind) {
       case 'edit':
-        return await applyEdit(host, change.relPath, change.before, change.after);
-      case 'create':
-        return await applyCreate(host, change.relPath, change.after);
-      case 'rename':
-        return await applyRename(host, change.relPath, change.to);
+        return await applyEdit(host, change.relPath, change.before, change.after, group);
+      case 'create': {
+        const result = await applyCreate(host, change.relPath, change.after);
+        if (result.ok) await record(host, group, { kind: 'create', relPath: change.relPath, before: null });
+        return result;
+      }
+      case 'rename': {
+        const result = await applyRename(host, change.relPath, change.to);
+        if (result.ok) {
+          await record(host, group, { kind: 'rename', relPath: change.relPath, to: change.to, before: null });
+        }
+        return result;
+      }
       case 'delete':
-        return await applyDelete(host, change.relPath);
+        return await applyDelete(host, change.relPath, group);
     }
   } catch {
     return failed('write-failed');
   }
 }
 
-async function applyEdit(host: AgentApplyHost, relPath: string, before: string, after: string): Promise<ApplyResult> {
+/** Keeps the file's current content as the group's "before" version; null when there is none or that failed. */
+async function keepBefore(host: AgentApplyHost, group: HistoryGroupRef, relPath: string): Promise<string | null> {
+  try {
+    const kept = await host.history.groupBefore({ projectId: host.projectId, groupId: group.id, relPath });
+    return kept.ok ? kept.value.id : null;
+  } catch {
+    return null;
+  }
+}
+
+async function record(
+  host: AgentApplyHost,
+  group: HistoryGroupRef,
+  step: { kind: HistoryGroupStepKind; relPath: string; to?: string; before: string | null },
+): Promise<void> {
+  try {
+    await host.history.groupRecord({ projectId: host.projectId, group, step });
+  } catch {
+    // The change is applied; only its history record is missing (undo then reports it).
+  }
+}
+
+async function applyEdit(
+  host: AgentApplyHost,
+  relPath: string,
+  before: string,
+  after: string,
+  group: HistoryGroupRef,
+): Promise<ApplyResult> {
   const open = host.openTab(relPath);
   if (open) {
     if (open.readOnly) return failed('read-only');
     if (open.blocked || !sameText(open.text, before)) return failed('changed-since');
+    // Unsaved edits the agent based its change on are saved first, so the "before" version kept in history is the
+    // text the change replaces (and those edits are a version of their own).
+    if (open.dirty && !(await host.saveOpen(relPath))) return failed('save-first-failed');
+    const kept = await keepBefore(host, group, relPath);
+    // A failed save leaves the new text in the editor as unsaved edits (Ctrl+Z there brings the old text back);
+    // nothing reached the disk, so nothing is recorded.
     const problem = await host.replaceOpenText(relPath, before, after);
-    if (!problem) return { ok: true, undo: { kind: 'edit', relPath, before, after } };
-    // A failed save leaves the new text in the editor as unsaved edits: it stays undoable with the turn.
-    return problem.code === 'save-failed'
-      ? { ok: false, failure: problem, undo: { kind: 'edit', relPath, before, after } }
-      : { ok: false, failure: problem };
+    if (problem) return { ok: false, failure: problem };
+    await record(host, group, { kind: 'edit', relPath, before: kept });
+    return APPLIED;
   }
   const current = await host.workspace.readFile({ projectId: host.projectId, relPath });
   if (!current.ok) return failed(current.code === 'not-found' ? 'not-found' : 'write-failed', current.code);
   if (current.value.readOnly) return failed('read-only');
   if (!sameText(current.value.text, before)) return failed('changed-since');
+  const kept = await keepBefore(host, group, relPath);
   const written = await host.workspace.writeFile({
     projectId: host.projectId,
     relPath,
@@ -122,7 +188,8 @@ async function applyEdit(host: AgentApplyHost, relPath: string, before: string, 
     expectedHash: current.value.version.hash, // main refuses if the file changed after this read
   });
   if (!written.ok) return failed(written.code === 'changed-on-disk' ? 'changed-since' : 'write-failed', written.code);
-  return { ok: true, undo: { kind: 'edit', relPath, before, after } };
+  await record(host, group, { kind: 'edit', relPath, before: kept });
+  return APPLIED;
 }
 
 async function applyCreate(host: AgentApplyHost, relPath: string, after: string): Promise<ApplyResult> {
@@ -143,7 +210,7 @@ async function applyCreate(host: AgentApplyHost, relPath: string, after: string)
   });
   if (!written.ok) return failed(written.code === 'changed-on-disk' ? 'exists' : 'write-failed', written.code);
   host.openFile(relPath);
-  return { ok: true, undo: { kind: 'create', relPath, after } };
+  return APPLIED;
 }
 
 async function applyRename(host: AgentApplyHost, from: string, to: string): Promise<ApplyResult> {
@@ -162,11 +229,13 @@ async function applyRename(host: AgentApplyHost, from: string, to: string): Prom
     return failed('write-failed');
   }
   host.fileOps.afterChange({ type: 'renamed', from, to });
-  return { ok: true, undo: { kind: 'rename', from, to } };
+  return APPLIED;
 }
 
-async function applyDelete(host: AgentApplyHost, relPath: string): Promise<ApplyResult> {
+/** Trashes a file (the Files panel's path). With a group, its content is kept as the group's "before" version. */
+async function applyDelete(host: AgentApplyHost, relPath: string, group?: HistoryGroupRef): Promise<ApplyResult> {
   if (!(await host.fileOps.beforeChange(relPath))) return failed('save-first-failed');
+  const kept = group ? await keepBefore(host, group, relPath) : null;
   try {
     const result = await host.workspace.trashEntry({ projectId: host.projectId, relPath });
     if (!result.ok) {
@@ -178,48 +247,83 @@ async function applyDelete(host: AgentApplyHost, relPath: string): Promise<Apply
     return failed('write-failed');
   }
   host.fileOps.afterChange({ type: 'deleted', relPath });
-  return { ok: true, undo: { kind: 'delete', relPath } };
+  if (group) await record(host, group, { kind: 'delete', relPath, before: kept });
+  return APPLIED;
 }
 
-/** The current text of a file (the open tab's, else the disk's), or null when it cannot be read. */
-async function currentText(host: AgentApplyHost, relPath: string): Promise<string | null> {
+/**
+ * The file's text when it is still exactly what the agent's step left — on disk with `afterHash`, and an open tab
+ * showing that same text (no edits since) — else why not.
+ */
+async function asLeft(
+  host: AgentApplyHost,
+  relPath: string,
+  afterHash: string | null,
+): Promise<{ readonly text: string } | ApplyFailure> {
+  if (afterHash === null) return { code: 'no-history' };
+  const disk = await host.workspace.readFile({ projectId: host.projectId, relPath });
+  if (!disk.ok) return disk.code === 'not-found' ? { code: 'not-found' } : { code: 'write-failed', detail: disk.code };
+  if (disk.value.version.hash !== afterHash) return { code: 'changed-since' };
   const open = host.openTab(relPath);
-  if (open) return open.text;
-  const read = await host.workspace.readFile({ projectId: host.projectId, relPath });
-  return read.ok ? read.value.text : null;
+  if (open && (open.blocked || !sameText(open.text, disk.value.text))) return { code: 'changed-since' };
+  return { text: disk.value.text };
 }
 
-/** Reverses one applied step. Null when it was undone. */
-export async function undoStep(host: AgentApplyHost, step: UndoStep): Promise<ApplyFailure | null> {
+const isFailure = (value: { readonly text: string } | ApplyFailure): value is ApplyFailure => 'code' in value;
+
+function restoreFailure(outcome: RestoreOutcome): ApplyFailure | null {
+  switch (outcome) {
+    case 'restored':
+      return null;
+    case 'changed':
+      return { code: 'changed-since' };
+    case 'read-only':
+      return { code: 'read-only' };
+    case 'save-failed':
+      return { code: 'save-failed' };
+    default:
+      return { code: 'write-failed' };
+  }
+}
+
+/** Reverses one recorded step. Null when it was undone. */
+export async function undoStep(host: AgentApplyHost, step: HistoryGroupStep): Promise<ApplyFailure | null> {
   try {
     switch (step.kind) {
       case 'edit': {
-        const result = await applyEdit(host, step.relPath, step.after, step.before);
-        return result.ok ? null : result.failure;
+        if (step.before === null) return { code: 'no-history' };
+        const left = await asLeft(host, step.relPath, step.afterHash);
+        if (isFailure(left)) return left;
+        const version = await host.history.read({ projectId: host.projectId, relPath: step.relPath, id: step.before });
+        if (!version.ok) return { code: 'no-history', detail: version.code };
+        return restoreFailure(await host.restoreText(step.relPath, version.value.text, left.text));
       }
       case 'create': {
-        const text = await currentText(host, step.relPath);
-        if (text === null) return { code: 'not-found' };
-        if (!sameText(text, step.after)) return { code: 'changed-since' };
+        const left = await asLeft(host, step.relPath, step.afterHash);
+        if (isFailure(left)) return left;
+        // To the trash (with a local-history copy first), never deleted for good.
         const result = await applyDelete(host, step.relPath);
         return result.ok ? null : result.failure;
       }
       case 'rename': {
-        const result = await applyRename(host, step.to, step.from);
+        if (step.to === undefined) return { code: 'no-history' };
+        // renameEntry never replaces: if something has the old name again, nothing happens and it is reported.
+        const result = await applyRename(host, step.to, step.relPath);
         return result.ok ? null : result.failure;
       }
       case 'delete': {
-        const versions = await host.history.versions({ projectId: host.projectId, relPath: step.relPath });
-        const kept = versions.ok ? versions.value.find((v) => v.reason === 'before-delete') : undefined;
-        if (!kept) return { code: 'no-history', ...(versions.ok ? {} : { detail: versions.code }) };
+        if (step.before === null) return { code: 'no-history' };
         const restored = await host.history.restoreDeleted({
           projectId: host.projectId,
           relPath: step.relPath,
-          id: kept.id,
+          id: step.before,
         });
-        if (!restored.ok)
-          return { code: restored.code === 'exists' ? 'exists' : 'write-failed', detail: restored.code };
-        host.openFile(step.relPath);
+        if (!restored.ok) {
+          const code: ApplyFailureCode =
+            restored.code === 'exists' ? 'exists' : restored.code === 'not-found' ? 'no-history' : 'write-failed';
+          return { code, detail: restored.code };
+        }
+        host.openFile(restored.value.relPath);
         return null;
       }
     }
@@ -230,19 +334,43 @@ export async function undoStep(host: AgentApplyHost, step: UndoStep): Promise<Ap
 
 export interface UndoTurnResult {
   readonly undone: number;
-  readonly failures: readonly { readonly step: UndoStep; readonly failure: ApplyFailure }[];
+  /** `step` is null when the turn itself was not found in local history. */
+  readonly failures: readonly { readonly step: HistoryGroupStep | null; readonly failure: ApplyFailure }[];
 }
 
-/** Undoes a turn's applied steps, newest first; a step that cannot be undone is skipped and reported. */
-export async function undoTurn(host: AgentApplyHost, steps: readonly UndoStep[]): Promise<UndoTurnResult> {
+/**
+ * Undoes a turn's recorded steps, newest first; a step that cannot be undone is skipped and reported. When anything
+ * was undone, local history marks the group as undone.
+ */
+export async function undoGroup(host: AgentApplyHost, group: HistoryGroup): Promise<UndoTurnResult> {
   let undone = 0;
-  const failures: { step: UndoStep; failure: ApplyFailure }[] = [];
-  for (const step of [...steps].reverse()) {
+  const failures: { step: HistoryGroupStep; failure: ApplyFailure }[] = [];
+  for (const step of [...group.steps].reverse()) {
     const failure = await undoStep(host, step);
     if (failure) failures.push({ step, failure });
     else undone += 1;
   }
+  if (undone > 0) {
+    await host.history.groupUndone({ projectId: host.projectId, groupId: group.id }).catch(() => undefined);
+  }
   return { undone, failures };
+}
+
+/** Finds a turn's group in local history and undoes it; a turn that is not there is reported as `no-history`. */
+export async function undoGroupById(host: AgentApplyHost, groupId: string): Promise<UndoTurnResult> {
+  let detail: string | undefined;
+  try {
+    const groups = await host.history.groups({ projectId: host.projectId });
+    const group = groups.ok ? groups.value.find((g) => g.id === groupId) : undefined;
+    if (group) return await undoGroup(host, group);
+    detail = groups.ok ? undefined : groups.code;
+  } catch {
+    detail = undefined;
+  }
+  return {
+    undone: 0,
+    failures: [{ step: null, failure: detail === undefined ? { code: 'no-history' } : { code: 'no-history', detail } }],
+  };
 }
 
 /** The outcome text the agent receives for a failed apply (English, machine-oriented; no file contents). */

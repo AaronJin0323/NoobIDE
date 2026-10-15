@@ -12,13 +12,15 @@ unintended change after it was saved. It is independent of the editor's undo, of
 
 Versions are taken:
 
-| When                                       | Shown as (zh-CN / en)        |
-| ------------------------------------------ | ---------------------------- |
-| Before a save replaces the file            | 保存前 / Before saving       |
-| After a save (one per save burst, ≤ 1 min) | 保存后 / After saving        |
-| Before formatting (S18)                    | 格式化前 / Before formatting |
-| Before a file or folder goes to the trash  | 删除前 / Before deleting     |
-| Before a restore replaces the content      | 恢复前 / Before restoring    |
+| When                                       | Shown as (zh-CN / en)                       |
+| ------------------------------------------ | ------------------------------------------- |
+| Before a save replaces the file            | 保存前 / Before saving                      |
+| After a save (one per save burst, ≤ 1 min) | 保存后 / After saving                       |
+| Before formatting (S18)                    | 格式化前 / Before formatting                |
+| Before a file or folder goes to the trash  | 删除前 / Before deleting                    |
+| Before a restore replaces the content      | 恢复前 / Before restoring                   |
+| Right before an accepted AI change (S34.2) | AI 助手修改前 / Before AI assistant changes |
+| What an accepted AI change left (S34.2)    | AI 助手修改后 / After AI assistant changes  |
 
 Identical content is stored once. Dotfiles (such as `.env`) and `node_modules` are never copied into history.
 
@@ -42,6 +44,26 @@ warning icon — then the chosen file's versions (newest first, with time, reaso
   (also its folder, if that was deleted) and opens it. If something with that name exists again, nothing is
   overwritten and the window says so.
 - Versions that are not UTF-8 text (e.g. images kept before a delete) are listed but cannot be shown or restored here.
+
+## Undoing an AI assistant turn (S34.2)
+
+Changes the AI assistant made and you accepted are recorded per turn, in the same history folder (not in the
+project). The window's **AI 助手的修改 / AI assistant changes** section lists the turns, newest first:
+"AI 助手的修改 · 3 个文件" / "AI assistant changes · 3 files", the time, your request and the files.
+
+**撤销这一轮 / Undo this turn** puts every file the turn changed back the way it was before the turn, newest change
+first — also after NoobIDE was closed or crashed:
+
+- an edited file gets its earlier version back through the same path as **Restore this version** (the current
+  content is kept as a version first, so the undo can itself be undone);
+- a file the turn created goes to the system trash (with a copy in history);
+- a renamed file gets its old name back (never over a file that has that name now);
+- a deleted file is created again from history (never over a file that has that name now).
+
+A file changed since the turn (edited, saved, or changed outside NoobIDE) is left alone; the window names it and
+says why. The turn is then shown as **已撤销 / Undone**. The chat card's "undo this turn's changes" is the same
+operation. NoobIDE keeps the newest 100 turns per project; a turn whose versions were removed by the limits below
+reports which files could not be undone.
 
 ## Storage, limits and cleanup policy
 
@@ -87,6 +109,10 @@ and cleanup waits until it can be read again.
 - `tests/integration/history-ipc.test.ts` — listing, reading, before-restore, restoring deleted files without
   overwriting, the save-burst seal, orphans after a folder rename (Chinese characters and spaces), clear, cleanup,
   reveal, payload validation.
+- `tests/integration/history-groups.test.ts` — AI turn groups recorded around real saves, read back after a restart,
+  undone marks, limits, schema upgrade (v1 → v2) and a newer index left untouched; `src/renderer/ai/agent-apply.test.ts`
+  — undo of every kind of change, files changed since skipped and reported; `tests/e2e/ai-agent.spec.ts` — accept a
+  turn, restart the app, undo it from the History window.
 - `tests/e2e/history.spec.ts` — the whole window on Windows x64: diff, restore through the editor (undoable),
   unsaved edits kept, restore of a deleted file, storage text, reveal, cleanup, orphan clear, clear with
   confirmation, focus trap, en locale.

@@ -1,7 +1,9 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { isListedEntry } from '../workspace/listing-filter';
+import { MAX_TEXT_FILE_BYTES } from '../shared/ipc/contract';
 import { errorCode, silentLogger, type RecoveryLogger } from './atomic-file';
+import { sha256Hex } from './keys';
 import type { SnapshotReason, SnapshotStore } from './history';
 
 /**
@@ -105,6 +107,38 @@ export class HistoryTriggers implements SaveHistoryHook {
     };
     await walk(absPath, relPath);
     for (const file of files) await this.snapshotFile(rootPath, file.rel, file.abs, 'before-delete');
+  }
+
+  /**
+   * S34.2: keeps a file's current content as a version of an AI change group (`before-ai` right before the change,
+   * `after-ai` right after it). Returns the content's hash and the version id (null when the content could not be
+   * kept, e.g. too large or history unavailable), or null when the file does not exist or cannot be read.
+   */
+  async snapshotForGroup(
+    rootPath: string,
+    relPath: string,
+    absPath: string,
+    reason: 'before-ai' | 'after-ai',
+    group: string,
+  ): Promise<{ readonly hash: string; readonly id: string | null } | null> {
+    let data: Uint8Array;
+    try {
+      const info = await stat(absPath);
+      // The agent changes text files only; anything larger was not its change.
+      if (!info.isFile() || info.size > MAX_TEXT_FILE_BYTES) return null;
+      data = await readFile(absPath);
+    } catch (e) {
+      if (errorCode(e) !== 'ENOENT') this.log('history.trigger-failed', { reason, code: errorCode(e) });
+      return null;
+    }
+    const hash = sha256Hex(data);
+    try {
+      const stored = await this.store.snapshot(rootPath, relPath, data, reason, { group });
+      return { hash, id: stored.ok ? stored.value.snapshot.id : null };
+    } catch (e) {
+      this.log('history.trigger-failed', { reason, code: errorCode(e) });
+      return { hash, id: null };
+    }
   }
 
   private async readSnapshotable(absPath: string, reason: SnapshotReason): Promise<Uint8Array | null> {

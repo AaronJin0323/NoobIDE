@@ -73,6 +73,11 @@ export const CHANNELS = {
   historyClear: 'history:clear',
   historyCleanup: 'history:cleanup',
   historyReveal: 'history:reveal',
+  // S34.2: change groups (AI agent turns)
+  historyGroupBefore: 'history:group-before',
+  historyGroupRecord: 'history:group-record',
+  historyGroups: 'history:groups',
+  historyGroupUndone: 'history:group-undone',
   // --- end S21.3/S21.4 ---
 } as const;
 

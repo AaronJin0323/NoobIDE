@@ -28,7 +28,9 @@ import { recentProjectsSource } from '../welcome/welcome-model';
 import type { CreatedProject } from '../../shared/ipc/create-contract';
 // S21.3/S21.4: local history window
 import { HistoryDialog } from '../history/HistoryDialog';
-import type { RestoreOutcome as HistoryRestoreOutcome } from '../history/history-model';
+import type { GroupUndoOutcome, RestoreOutcome as HistoryRestoreOutcome } from '../history/history-model';
+import type { HistoryGroup } from '../../shared/ipc/history-contract';
+import { undoFailureText } from '../ai/ProposalReview';
 
 /** S21.3: polls until `get` returns a value (state that arrives with a later render), or undefined after `ms`. */
 async function eventually<T>(get: () => T | undefined, ms = 3000): Promise<T | undefined> {
@@ -574,52 +576,6 @@ export function Workbench() {
     [bridge, fileOps, t],
   );
 
-  // --- S34.2: how the agent's accepted changes reach the files: open tabs through their editor model and saver
-  // (one undo step, journaled, atomic save + history), everything else through the workspace APIs and file-op hooks.
-  const agentProject = doc.project;
-  const agentHost = useMemo<AgentApplyHost | null>(() => {
-    if (!bridge || !agentProject) return null;
-    return {
-      projectId: agentProject.projectId,
-      workspace: bridge.workspace,
-      history: bridge.history,
-      fileOps,
-      openTab: (relPath) => {
-        const saver = saverOf(relPath);
-        const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
-        if (!saver || !tab) return undefined;
-        const blocked =
-          saver.state.conflict || saver.state.deleted || lockedRef.current.some((p) => isSameOrBelow(relPath, p));
-        return { text: saver.text, readOnly: Boolean(tab.content.readOnly), blocked: Boolean(blocked) };
-      },
-      replaceOpenText: async (relPath, before, text) => {
-        const saver = saverOf(relPath);
-        const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
-        if (!saver || !tab) return { code: 'changed-since' };
-        dispatch({ type: 'activate', relPath }); // the user sees the change land in the editor
-        const models = await editorModels();
-        await models.waitForModel(tab.uri);
-        // Re-checked after the waits: a disk reload (S11), a conflict or typing may have changed the tab meanwhile.
-        if (
-          saver !== saverOf(relPath) ||
-          reloading.current.has(relPath) ||
-          saver.state.conflict ||
-          saver.state.deleted ||
-          !sameText(saver.text, before)
-        ) {
-          return { code: 'changed-since' };
-        }
-        const applied = await models.replaceModelText(tab.uri, text);
-        if (applied === null || saver !== saverOf(relPath)) return { code: 'write-failed', detail: 'editor' };
-        // The editor reports the edit only for the model it shows; a background tab's edit is recorded here.
-        if (saver.text !== applied) recordEdit(relPath, applied);
-        return (await saver.save()) ? null : { code: 'save-failed' };
-      },
-      openFile: (relPath) => void openFile(relPath),
-    };
-  }, [bridge, agentProject, fileOps, openFile, recordEdit]);
-  // --- end S34.2 ---
-
   // --- S12: restore after an abnormal termination (RecoveryDialog) ---
   const adoptProject = useCallback(
     async (project: OpenedProject) => {
@@ -702,7 +658,8 @@ export function Workbench() {
   );
 
   const restoreVersion = useCallback(
-    async (relPath: string, text: string): Promise<HistoryRestoreOutcome> => {
+    /** `expect` (S34.2 undo of an agent turn): restore only while the file's text is still exactly this. */
+    async (relPath: string, text: string, expect?: string): Promise<HistoryRestoreOutcome> => {
       const project = docRef.current.project;
       if (!bridge || !project) return 'failed';
       // Every step below waits; the project must still be the same one afterwards.
@@ -715,12 +672,15 @@ export function Workbench() {
       const saver = saverOf(relPath);
       if (!saver || !tab || !same()) return 'failed';
       if (tab.content.readOnly) return 'read-only';
+      // An undo of an agent turn never replaces anything typed (or changed on disk) since the turn.
+      if (expect !== undefined && (saver.state.conflict || !sameText(saver.text, expect))) return 'changed';
       // 1. Edits not on disk yet are saved first (they become a version through the save itself).
       if (!(await saver.save())) return 'save-failed';
       if (!same()) return 'failed';
       // 2. What is on disk now is kept as a version (reason "before restore").
       const kept = await bridge.history.beforeRestore({ projectId: project.projectId, relPath });
       if (!kept.ok || !same() || saver !== saverOf(relPath)) return 'failed';
+      if (expect !== undefined && !sameText(saver.text, expect)) return 'changed';
       // 3. The version becomes the editor content as one undoable edit, then goes through the save pipeline.
       const applied = await import('../editor/editor-models').then((m) => m.replaceModelText(tab.uri, text));
       if (applied === null || saver !== saverOf(relPath)) return 'failed';
@@ -736,6 +696,59 @@ export function Workbench() {
   const historyProjectId = doc.project?.projectId;
   useEffect(() => setHistoryFor(null), [historyProjectId]);
   // --- end S21.3 ---
+
+  // --- S34.2: how the agent's accepted changes reach the files: open tabs through their editor model and saver
+  // (one undo step, journaled, atomic save + history), everything else through the workspace APIs and file-op hooks.
+  const agentProject = doc.project;
+  const agentHost = useMemo<AgentApplyHost | null>(() => {
+    if (!bridge || !agentProject) return null;
+    return {
+      projectId: agentProject.projectId,
+      workspace: bridge.workspace,
+      history: bridge.history,
+      fileOps,
+      openTab: (relPath) => {
+        const saver = saverOf(relPath);
+        const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
+        if (!saver || !tab) return undefined;
+        const blocked =
+          saver.state.conflict || saver.state.deleted || lockedRef.current.some((p) => isSameOrBelow(relPath, p));
+        return {
+          text: saver.text,
+          readOnly: Boolean(tab.content.readOnly),
+          blocked: Boolean(blocked),
+          dirty: isUnsaved(saver.state),
+        };
+      },
+      saveOpen: async (relPath) => (await saverOf(relPath)?.save()) ?? false,
+      restoreText: (relPath, text, expect) => restoreVersion(relPath, text, expect),
+      replaceOpenText: async (relPath, before, text) => {
+        const saver = saverOf(relPath);
+        const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
+        if (!saver || !tab) return { code: 'changed-since' };
+        dispatch({ type: 'activate', relPath }); // the user sees the change land in the editor
+        const models = await editorModels();
+        await models.waitForModel(tab.uri);
+        // Re-checked after the waits: a disk reload (S11), a conflict or typing may have changed the tab meanwhile.
+        if (
+          saver !== saverOf(relPath) ||
+          reloading.current.has(relPath) ||
+          saver.state.conflict ||
+          saver.state.deleted ||
+          !sameText(saver.text, before)
+        ) {
+          return { code: 'changed-since' };
+        }
+        const applied = await models.replaceModelText(tab.uri, text);
+        if (applied === null || saver !== saverOf(relPath)) return { code: 'write-failed', detail: 'editor' };
+        // The editor reports the edit only for the model it shows; a background tab's edit is recorded here.
+        if (saver.text !== applied) recordEdit(relPath, applied);
+        return (await saver.save()) ? null : { code: 'save-failed' };
+      },
+      openFile: (relPath) => void openFile(relPath),
+    };
+  }, [bridge, agentProject, fileOps, openFile, recordEdit, restoreVersion]);
+  // --- end S34.2 ---
 
   /** The journal was cleared: unsaved edits still open in the editor are journaled again right away. */
   const rejournal = useCallback(() => {
@@ -826,6 +839,21 @@ export function Workbench() {
   const agentHostRef = useRef(agentHost);
   agentHostRef.current = agentHost;
   const [agentDecisions] = useState(() => new AgentDecisionStore());
+  // The History window's "Undo this turn": the same undo as the chat card's, from the turn's local-history group.
+  const undoAgentGroup = useCallback(
+    async (group: HistoryGroup): Promise<GroupUndoOutcome | null> => {
+      const result = await agentDecisions.undo(agentHostRef.current, group.id);
+      if (!result) return null;
+      return {
+        undone: result.undone,
+        failed: result.failures.map((f) => ({
+          relPath: f.step ? (f.step.kind === 'rename' && f.step.to ? f.step.to : f.step.relPath) : null,
+          reason: undoFailureText(t, f.failure),
+        })),
+      };
+    },
+    [agentDecisions, t],
+  );
   const agentExtensions = useMemo(
     () => agentChatExtensions({ store: agentDecisions, api: aiBridge, host: () => agentHostRef.current }),
     [agentDecisions],
@@ -1173,6 +1201,7 @@ export function Workbench() {
           currentText={historyCurrentText}
           onRestore={restoreVersion}
           onRestoredDeleted={(relPath) => void openFile(relPath)}
+          onUndoGroup={undoAgentGroup}
           onClose={() => setHistoryFor(null)}
         />
       )}
