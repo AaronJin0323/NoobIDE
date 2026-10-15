@@ -174,6 +174,22 @@ export const PlusIcon = () => (
   </Icon>
 );
 
+/** "More" (three dots): opens a small panel of further actions. */
+export const MoreIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+    <circle cx="3.5" cy="8" r="1.4" fill="currentColor" />
+    <circle cx="8" cy="8" r="1.4" fill="currentColor" />
+    <circle cx="12.5" cy="8" r="1.4" fill="currentColor" />
+  </svg>
+);
+
+/** Points left (e.g. "more tabs this way"). */
+export const ChevronLeftIcon = () => (
+  <Icon size={12} strokeWidth={1.8}>
+    <path d="M10 3.5L5.5 8l4.5 4.5" />
+  </Icon>
+);
+
 // ── S08: file tree ──────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Points right when closed; CSS rotates it when the folder is open (shape, not colour, shows the state). */

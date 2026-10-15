@@ -2,6 +2,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
+import { editorOption } from './project';
 
 /**
  * S13.1 end to end: settings live in the app-data directory (here a fresh --user-data-dir whose path has Chinese
@@ -31,7 +32,7 @@ test('the interface language and code zoom persist across a restart (S13.1)', as
   await expect(page.getByTestId('project-name')).toHaveText('未打开项目');
   await page.getByTestId('switch-language').click();
   await expect(page.getByTestId('project-name')).toHaveText('No project open');
-  await page.getByTestId('zoom-in').click();
+  await (await editorOption(page, 'zoom-in')).click();
   await expect(page.getByTestId('zoom-reset')).toHaveText('17');
   await expect
     .poll(async () => JSON.parse(await readFile(path.join(userData, 'settings.json'), 'utf8').catch(() => '{}')))

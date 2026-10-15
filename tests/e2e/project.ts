@@ -139,6 +139,17 @@ export async function documentText(editor: Locator): Promise<string> {
 /** How far Monaco scrolls for one wheel tick (its SCROLL_WHEEL_SENSITIVITY). */
 const WHEEL_TICK_PX = 50;
 
+/**
+ * A control of the editor header's "Editor options" panel (Format, zoom), with the panel opened first: those controls
+ * stay in the DOM while it is closed, but can only be clicked while it is open.
+ */
+export async function editorOption(page: Page, testId: string): Promise<Locator> {
+  const panel = page.getByTestId('editor-more-panel');
+  if (!(await panel.isVisible())) await page.getByTestId('editor-more').click();
+  await panel.waitFor({ state: 'visible' });
+  return panel.getByTestId(testId);
+}
+
 export function collectConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on('console', (msg) => {

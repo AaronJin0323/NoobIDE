@@ -2,7 +2,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
-import { collectConsoleErrors, makeProject, openFile, openProject } from './project';
+import { collectConsoleErrors, editorOption, makeProject, openFile, openProject } from './project';
 import { DOC_START, FIND_REPLACE } from './keys';
 
 /**
@@ -107,9 +107,10 @@ test('zoom changes only the code font: buttons and Ctrl/Cmd with = - 0', async (
   const zoomFactor = () =>
     app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getZoomFactor());
   const fontSize = () => lines().evaluate((el) => getComputedStyle(el).fontSize);
-  await page.getByTestId('zoom-in').click();
+  await (await editorOption(page, 'zoom-in')).click();
   await expect(page.getByTestId('zoom-reset')).toHaveText('17');
   await expect.poll(fontSize).toBe('17px');
+  await page.keyboard.press('Escape'); // closes the Editor options panel
   await lines().click();
   await page.keyboard.press('ControlOrMeta+Equal');
   await expect(page.getByTestId('zoom-reset')).toHaveText('18');
