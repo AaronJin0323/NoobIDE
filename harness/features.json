@@ -2312,8 +2312,8 @@
       "depends_on": [
         "S26.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "npm run test:faults (scripts/faults.mjs) + CI step 'Fault suite (S26.2)' and artifact fault-suite-<target> on both jobs; tests/integration/ci-workflow.test.ts + fault-suite-report.test.ts; skips + manual-only cases in docs/release/fault-matrix.md; CI run evidence steps in harness/MANUAL-CHECKS.md#S26.2 @ 49f97cf"
     },
     {
       "id": "S27.1",
