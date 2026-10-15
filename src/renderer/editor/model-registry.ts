@@ -82,3 +82,11 @@ export class ModelRegistry<M extends DisposableModel, V = unknown> {
     return released;
   }
 }
+
+/**
+ * Whether a content change of `model` is the user's edit of the file whose registry entry is `current`: a model that
+ * was released (its entry is gone or names another model) is being cleared for disposal, not edited.
+ */
+export function forwardsEdits<M>(current: M | undefined, model: M): boolean {
+  return current !== undefined && current === model;
+}

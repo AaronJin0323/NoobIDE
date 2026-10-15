@@ -3913,6 +3913,22 @@
       "depends_on": [],
       "status": "done",
       "evidence": "see PROGRESS Session 21; full e2e Windows x64 307 passed / 1 flaky (ai-prompt Escape race, fixed: focus wait; ai-prompt+ai-edit 26/26) + verify green on claude/product-assessment"
+    },
+    {
+      "id": "S44.8",
+      "session": "S44",
+      "milestone": "M15",
+      "title": "A late model release never empties a restored file",
+      "description": "",
+      "acceptance": [
+        "Closing/switching/adopting a project awaits the release of its file models before the next project opens; the newest open/close request wins",
+        "The editor forwards a content change only for the registry's current model of the URI, so the clear of a released model never reaches the saver or the journal (unit test)",
+        "recovery.spec: the journal is empty after a normal quit; 5 restore-and-quit runs leave no crash copy and no changed file"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "src/renderer/editor/model-registry.test.ts forwardsEdits (2 new tests) + recovery.spec.ts (restore-and-quit x5, journal empty after quit) 16/16 x2; full e2e 311 passed before the review tweaks; verify green"
     }
   ]
 }

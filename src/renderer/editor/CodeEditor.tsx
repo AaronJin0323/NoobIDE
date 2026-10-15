@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { monaco } from './monaco-setup';
 import { models } from './editor-models';
+import { forwardsEdits } from './model-registry';
 import { MONACO_THEME_NAME } from '../theme/monaco-theme';
 import { useColorScheme } from '../theme/ThemeProvider';
 // S17.2 / S18.3: Monaco-free handle for the workbench (format, go to code).
@@ -152,7 +153,9 @@ export function CodeEditor({
       editor.onDidChangeModelContent(() => {
         const uri = uriOf();
         const model = editor.getModel();
-        if (uri && model) callbacks.current.onChange?.(uri, model.getValue());
+        // A released model is cleared before disposal (editor-models discard): that is not the user's edit, and it
+        // must never reach the saver or the journal. Only the registry's current model for the URI reports edits.
+        if (uri && model && forwardsEdits(models.get(uri), model)) callbacks.current.onChange?.(uri, model.getValue());
       }),
       editor.onDidBlurEditorText(() => {
         const uri = uriOf();

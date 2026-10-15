@@ -97,6 +97,12 @@ save-pipeline / recovery-journal changes (CLAUDE.md high-stakes rule).
   save refresh returns to the entry); glass dialogs were see-through (opacity animation made the backdrop a backdrop
   root); 404 hints now name the similar file (projectFiles was never supplied); tab strip room + overflow cues; file
   names no longer cut in the tree; reopened-project notice is informational. Default window 1440×900 when it fits.
+- S44.8 — **data (found from a macOS CI failure):** a crash copy of exactly 397 B (= empty text) for an unedited
+  file. `closeProjectFiles` forgot the savers at once but released models through a lazy import that swept every
+  `file:` model; landing after a restored tab acquired its model, the release's `setValue('')` reached the saver and
+  journal as an edit (autosave could have written an empty file). Fix: callers await the release (newest request
+  wins) and CodeEditor forwards changes only for the registry's current model (`forwardsEdits`, unit-tested — the
+  deterministic proof; the 5x restore-and-quit e2e is a probe). Independently reviewed.
 - S44.7 — release: `THIRD_PARTY_NOTICES.txt` (every production dependency's license text) ships and opens from About;
   release.yml fails a tag that is not v + package.json version.
 - Security assessment found no provable defect (live static-server probe: traversal, 8.3 names, Host, token, dotfiles).

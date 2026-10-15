@@ -70,7 +70,8 @@ import { aiConsentRenderer } from '../ai/AiConsentPrompt'; // S31.4
 import { openAiSettings } from '../ai/ai-status'; // S31.4
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
-const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
+const releaseFileModels = () =>
+  import('../editor/editor-models').then((m) => m.releaseFileModels()).catch(() => undefined);
 // S11: external changes
 import { DiskSync, pathsToCheck } from './disk-sync';
 import type { DiskActions } from './DiskStateBanner';
@@ -309,11 +310,18 @@ export function Workbench() {
     return result.ok;
   }, []);
 
-  const closeProjectFiles = () => {
+  /**
+   * Forgets the project's tabs and releases their models. Callers await it before the next project's tabs exist:
+   * the release sweeps every `file:` model, and one that ran late (the editor chunk still loading) emptied the model
+   * of a freshly restored tab — an edit to '' that reached the saver and the journal (CI, macOS).
+   */
+  const closeProjectFiles = async (): Promise<boolean> => {
     for (const relPath of [...savers.current.keys()]) forgetTab(relPath);
     loading.current.clear();
-    projectSeq.current += 1;
-    releaseFileModels();
+    const seq = (projectSeq.current += 1);
+    await releaseFileModels();
+    // Another open or close started while the models were released: the newest request wins.
+    return seq === projectSeq.current;
   };
   // --- S13 command menu ---
   // S13.3: closing a project saves every file first (a failed save keeps it open), then main stops its watcher,
@@ -325,7 +333,7 @@ export function Workbench() {
     const result = await lifecycle.closeProject({ projectId: project.projectId });
     if (!result.ok && result.code !== 'unknown-project') return;
     if (docRef.current.project?.projectId !== project.projectId) return;
-    closeProjectFiles();
+    if (!(await closeProjectFiles())) return;
     setCopyNotice(null);
     dispatch({ type: 'projectClosed' });
   }, [bridge, saveAll]);
@@ -338,7 +346,7 @@ export function Workbench() {
     else if (result.value) {
       // Edits typed while the dialog was open are saved too; a failure keeps the current project.
       if (!(await saveAll())) return;
-      closeProjectFiles();
+      if (!(await closeProjectFiles())) return;
       setCopyNotice(null);
       dispatch({ type: 'projectOpened', project: result.value });
     }
@@ -381,6 +389,7 @@ export function Workbench() {
     const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
     forgetTab(relPath);
     dispatch({ type: 'closed', relPath });
+    // Not awaited: a reopen needs a file read first, and an edit-forwarding guard (CodeEditor) ignores the clear.
     if (tab) void releaseModel(tab.uri);
   };
 
@@ -613,7 +622,7 @@ export function Workbench() {
   const adoptProject = useCallback(
     async (project: OpenedProject) => {
       if (!(await saveAll())) return false;
-      closeProjectFiles();
+      if (!(await closeProjectFiles())) return false;
       setCopyNotice(null);
       dispatch({ type: 'projectOpened', project });
       return true;

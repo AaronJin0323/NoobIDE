@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ModelRegistry, type ModelHost, type ModelSpec } from './model-registry';
+import { ModelRegistry, forwardsEdits, type ModelHost, type ModelSpec } from './model-registry';
 
 class FakeModel {
   disposed = false;
@@ -120,5 +120,40 @@ describe('editor model registry (S09.1)', () => {
     expect(registry.retainOnly([style.uri])).toEqual([index.uri]);
     expect(a.disposed).toBe(true);
     expect(b.disposed).toBe(false);
+  });
+});
+
+describe('forwardsEdits (a released model is cleared, not edited)', () => {
+  it('the clear during release never reaches the saver, even when the release sweep runs late', () => {
+    const forwarded: string[] = [];
+    let registry: ModelRegistry<FakeModel> | null = null;
+    // The editor's change listener: forwards the text only for the registry's current model of the URI.
+    const changed = (uri: string, model: FakeModel) => {
+      if (forwardsEdits(registry?.get(uri) ?? undefined, model)) forwarded.push(model.text);
+    };
+    registry = new ModelRegistry<FakeModel>({
+      find: () => null,
+      create: (spec) => new FakeModel(spec.uri, spec.text),
+      // Like editor-models: the text is cleared before disposal, which fires a content change.
+      discard: (model) => {
+        model.text = '';
+        changed(model.uri, model);
+        model.dispose();
+      },
+    });
+    const uri = 'file:///项目/页面 二.html';
+    const model = registry.acquire({ uri, language: 'html', text: '<p>二</p>\n' });
+    model.text = '<p>二 改</p>\n';
+    changed(uri, model); // a real edit is forwarded
+    registry.retainOnly([]); // the late "release every file model" sweep
+    expect(forwarded).toEqual(['<p>二 改</p>\n']);
+    expect(model.disposed).toBe(true);
+  });
+
+  it('a model that is not the registry entry of its URI does not forward', () => {
+    const a = new FakeModel('file:///a', 'x');
+    expect(forwardsEdits(a, a)).toBe(true);
+    expect(forwardsEdits(undefined, a)).toBe(false);
+    expect(forwardsEdits(new FakeModel('file:///a', 'x'), a)).toBe(false);
   });
 });

@@ -299,6 +299,33 @@ test('"decide later" keeps the copy; the clear-data control removes it (S12.3)',
   await start();
   await expect(page.getByTestId('recovery-dialog')).toHaveCount(0);
   await stop();
+  // A copy written by that run is hidden from its own dialog: only the journal itself shows it.
+  expect(await journalRecords()).toHaveLength(0);
+});
+
+test('a project restored at startup and quit at once leaves no crash copy and no changed file', async () => {
+  // The last session reopens the project and its tabs in the background. A late "release every file model" sweep
+  // used to clear a freshly restored tab's model, which reached the saver and the journal as an edit to '' (CI,
+  // macOS). Quitting right away gives the sweep its worst timing.
+  const files = async () =>
+    Promise.all((await projectTree(root)).map(async (rel) => [rel, await readFile(path.join(root, rel), 'utf8')]));
+  // A known tab to restore: the run that ends here leaves 页面 二.html as the last session's active tab.
+  await start();
+  await openProjectAndFile('子 文件夹/页面 二.html');
+  await expect(selectedTab()).toHaveText('页面 二.html');
+  await stop();
+  expect(await journalRecords()).toHaveLength(0);
+  const before = await files();
+  for (let i = 0; i < 5; i += 1) {
+    await start();
+    await expect(page.getByTestId('project-name')).toHaveText('中文 路径 项目');
+    // Quit only once the restored tabs are back and the shown one has its text: models exist for a late sweep to hit.
+    await expect(page.getByTestId('tab-bar').locator('.tab-name', { hasText: '页面 二.html' })).toHaveCount(1);
+    await expect(editorText()).not.toHaveText('');
+    await stop();
+    expect(await journalRecords(), `run ${i + 1}`).toHaveLength(0);
+    expect(await files(), `run ${i + 1}`).toEqual(before);
+  }
 });
 
 /**
@@ -321,6 +348,7 @@ async function moveProject(to: string) {
 }
 
 test('copies of a moved project folder can be read, saved elsewhere and discarded (decision 0033)', async () => {
+  expect(await journalRecords()).toHaveLength(0);
   await start();
   await openProjectAndFile('index.html');
   await readOnly('index.html');
