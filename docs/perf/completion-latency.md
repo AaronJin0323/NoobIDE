@@ -11,7 +11,7 @@ Measured on the Windows x64 dev machine (Windows 11, 32 logical cores), 2026-10-
 `src/renderer/editor/completion-latency.test.ts`: 100 HTML pages (10 ids and 11 classes each) + 100 CSS files
 (10 classes each) + 300 images = 500 files, 200 of them indexed, 2 100 classes. Per request: find the context in a
 2 000-character window, merge the project's names (open files' unsaved edits included), build one item per class; and
-for a path request, list `../images/` relative to a page. 60 runs each. Reproduce with
+for a path request, list `../images/` relative to a page. 60 measured runs each, after 10 warm-up runs. Reproduce with
 `NOOBIDE_PERF_PRINT=1 npx vitest run src/renderer/editor/completion-latency.test.ts`.
 
 | Request                         | p95     | Budget |

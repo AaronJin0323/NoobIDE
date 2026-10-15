@@ -32,12 +32,14 @@ describe('completion latency budget (S43.6)', () => {
     const before = `const cards = [];\n${'let x = 1;\n'.repeat(150)}document.querySelector('.c-4`;
     const selector: number[] = [];
     const paths: number[] = [];
-    for (let run = 0; run < 60; run += 1) {
+    // The first runs include JIT compilation, which a user pays once per session, not per request.
+    const WARM_UP = 10;
+    for (let run = 0; run < 60 + WARM_UP; run += 1) {
       let started = performance.now();
       const context = completionContextAt('javascript', before.slice(-2_000));
       const table = index.symbols();
       const items = [...table.classes].map(([name, files]) => ({ label: name, description: files.join(', ') }));
-      selector.push(performance.now() - started);
+      if (run >= WARM_UP) selector.push(performance.now() - started);
       expect(context?.kind).toBe('class');
       expect(items.length).toBe(table.classes.size);
 
@@ -50,7 +52,7 @@ describe('completion latency budget (S43.6)', () => {
         accept: 'media',
         js: false,
       });
-      paths.push(performance.now() - started);
+      if (run >= WARM_UP) paths.push(performance.now() - started);
       expect(pathContext?.kind).toBe('path');
       expect(suggestions.length).toBeGreaterThan(0);
     }

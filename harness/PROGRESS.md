@@ -57,6 +57,9 @@ indentation button to `shell.spec` S30.3's control inventory (its only failure).
   (40 ms per key works; not checked whether the build before S43 behaves the same). The spec types at 30 ms per key.
 - A file with < 6 indented lines is a _weak_ guess, so a clearly 4-space project wins over it. Intended (new files
   follow the project); the status bar shows "沿用项目习惯" and one click changes it.
+- One `npm run verify` run, right after the full e2e suite, had a unit-test failure whose output was lost; five
+  runs after it were clean. Suspected: the new timing tests on a busy machine, so the p95 test now warms up first. If a
+  timing test in `src/renderer/editor/*perf*`/`completion-latency` fails again, look there first.
 - Overrides are not persisted across restarts; persisting a project-wide choice needs a `.noobide/project.json`
   schema change (idea below).
 
