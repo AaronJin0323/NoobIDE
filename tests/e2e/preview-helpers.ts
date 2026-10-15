@@ -17,6 +17,8 @@ export interface PreviewInfo {
   webPreferences: Record<string, unknown> | null;
   blockedRequests: { scheme: string; host: string }[];
   pageGuarded?: boolean | null;
+  /** The console flood guard's last stop decisions (counts and timings). */
+  floodTrace?: { kind: string; ms: number; inWindow: number; limit: number; stopped?: boolean }[];
 }
 
 export async function answerFolderDialog(app: ElectronApplication, folder: string | null): Promise<void> {

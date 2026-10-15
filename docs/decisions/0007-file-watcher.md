@@ -68,3 +68,21 @@ listeners refresh it; for a path nobody listed it is a harmless reload. The raw 
 watched folder itself (named by the folder's own basename) is not reported. Windows behaves the same way when its
 events fall into one batch; nothing else changes. Covered by `tests/integration/watcher.test.ts` (create→delete,
 create→delete→create, and a deterministic same-batch case with an injected watch).
+
+## Amendment (2026-10-15): the halves of a rename may arrive in different batches
+
+macOS arm64 CI: the integration test "reports a folder rename once" timed out waiting for `renamed`. libuv creates
+its FSEvents stream with `kFSEventStreamCreateFlagNoDefer` and a 50 ms latency: the first event after a quiet period
+(the old name) is delivered at once, and the events that follow within the latency (the new name) only when it has
+passed. On a busy runner that gap can exceed the debounce, so the old name was classified alone as `deleted` and the
+new name in the next batch as `created`: open tabs of files inside a renamed folder would then look deleted. A
+deletion that finds no partner in its batch is now held for `renameWaitMs` (400 ms): it stays in the snapshot and
+is classified again with the next batch, where a creation of the same kind pairs with it as usual; when the wait is
+over without a partner it is reported as `deleted`. A held path that is back on disk by then is reported as
+`deleted` followed by `created`, as before the hold (the IDE's own delete followed by a restore from history: the tree
+already dropped the row and must add it again). Only unpaired deletions wait; created, changed and renamed events keep
+the debounce delay, and a mass change still becomes one `rescan`. Deletions therefore reach listeners up to
+~0.5 s later. Covered deterministically with an injected watch (folder rename and file move split across batches,
+an unpaired deletion, a delete + restore) in `tests/integration/watcher.test.ts`. The real-file-system tests now
+have a 15 s timeout, above the sum of their two 5 s waits, so a wrong or missing event fails with the list of events
+that did arrive instead of a bare timeout.

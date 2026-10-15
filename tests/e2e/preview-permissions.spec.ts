@@ -40,11 +40,25 @@ const mediaAccess = () =>
         },
   );
 
-test.beforeAll(async () => {
-  app = await launchApp();
+async function launch(args: string[] = []) {
+  app = await launchApp({}, { args });
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
   await page.locator('.monaco-editor .view-lines').waitFor();
+}
+
+async function startPreview(root: string) {
+  await openProject(app, page, root);
+  await page.getByTestId('preview-start').click();
+  await waitForPreviewState(page, 'running');
+}
+
+/** The kinds of capture device the preview can see (labels and ids stay hidden without permission). */
+const captureKinds = () =>
+  evalInPreview<string[]>(app, `navigator.mediaDevices.enumerateDevices().then((d) => d.map((x) => x.kind))`);
+
+test.beforeAll(async () => {
+  await launch();
 });
 
 test.afterAll(async () => {
@@ -55,9 +69,19 @@ test.afterAll(async () => {
 test('every permission request of the page is refused at once, without an OS prompt (S25.4)', async () => {
   const { tmp, root } = await copyFixture('预览 权限');
   temps.push(tmp);
-  await openProject(app, page, root);
-  await page.getByTestId('preview-start').click();
-  await waitForPreviewState(page, 'running');
+  await startPreview(root);
+  // Chromium answers getUserMedia with NotFoundError before any permission is asked when the machine has no camera
+  // or microphone (the Windows CI runner), so the preview's refusal would never be exercised. On such a machine the
+  // app runs with Chromium's fake capture devices: the request then reaches the permission layer as on a machine
+  // with a camera. A machine with real devices keeps them, so the OS media permission state is checked for real.
+  const devices = await captureKinds();
+  if (!devices.includes('videoinput') || !devices.includes('audioinput')) {
+    console.log(`capture devices seen by the preview: ${JSON.stringify(devices)}; relaunching with fake devices`);
+    await app.close();
+    await launch(['--use-fake-device-for-media-stream']);
+    await startPreview(root);
+    expect(await captureKinds()).toEqual(expect.arrayContaining(['videoinput', 'audioinput']));
+  }
   const accessBefore = await mediaAccess();
   const windowsBefore = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
 

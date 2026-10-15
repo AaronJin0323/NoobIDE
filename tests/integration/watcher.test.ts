@@ -63,7 +63,24 @@ afterEach(async () => {
   await rm(tmp, { recursive: true, force: true });
 });
 
-describe('file watcher (S07.3)', () => {
+/** A watcher whose OS events the test delivers itself (`raw`), to reproduce a delivery order deterministically. */
+async function startScripted(options: { debounceMs: number; renameWaitMs?: number }) {
+  watcher.close();
+  let raw: (filename: string | null) => void = () => undefined;
+  const watch: WatchFn = (_root, onChange) => {
+    raw = onChange;
+    return { on: () => undefined, close: () => undefined };
+  };
+  events = [];
+  watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { ...options, watch });
+  await watcher.start();
+  return (relPath: string) => raw(relPath.split('/').join(path.sep));
+}
+
+// Every test waits for the OS to deliver its events: up to 5 s per expectEvents call (FSEvents on a busy CI runner can
+// be slow), and a test may make two such waits. The test timeout is above their sum so that a missing or wrong event
+// fails expectEvents' own assertion, which lists what did arrive, instead of a bare timeout. Nothing here measures speed.
+describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
   it('reports a created file', async () => {
     await writeFile(p('新 文件.css'), 'h1 {}\n');
     await expectEvents([{ type: 'created', relPath: '新 文件.css' }]);
@@ -158,6 +175,66 @@ describe('file watcher (S07.3)', () => {
     await expectEvents([{ type: 'renamed', from: '子 文件夹', to: 'pages', caseOnly: false }]);
     await rm(p('pages', '页面 二.html'));
     await expectEvents([{ type: 'deleted', relPath: 'pages/页面 二.html' }]);
+  });
+
+  it('pairs the halves of a folder rename that arrive in different batches (FSEvents NoDefer on a busy machine)', async () => {
+    const raw = await startScripted({ debounceMs: 20, renameWaitMs: 300 });
+    await rename(p('子 文件夹'), p('pages'));
+    raw('子 文件夹'); // delivered at once…
+    await new Promise((r) => setTimeout(r, 120)); // …the new name only after more than one debounce
+    await watcher.idle();
+    expect(events).toEqual([]); // the deletion waits for its partner
+    raw('pages');
+    await expect.poll(() => events).toEqual([{ type: 'renamed', from: '子 文件夹', to: 'pages', caseOnly: false }]);
+    // The files inside are tracked under the new name.
+    events = [];
+    await rm(p('pages', '页面 二.html'));
+    raw('pages/页面 二.html');
+    await expect.poll(() => events).toEqual([{ type: 'deleted', relPath: 'pages/页面 二.html' }]);
+    await new Promise((r) => setTimeout(r, 400));
+    await watcher.idle();
+    expect(events).toHaveLength(1);
+  });
+
+  it('pairs a file move whose halves arrive in different batches', async () => {
+    const raw = await startScripted({ debounceMs: 20, renameWaitMs: 300 });
+    await rename(p('index.html'), p('子 文件夹', 'index.html'));
+    raw('index.html');
+    await new Promise((r) => setTimeout(r, 120));
+    raw('子 文件夹/index.html');
+    await expect
+      .poll(() => events)
+      .toEqual([{ type: 'renamed', from: 'index.html', to: '子 文件夹/index.html', caseOnly: false }]);
+  });
+
+  it('reports a deletion without a partner once its wait is over; a file back within the wait as deleted, then created', async () => {
+    const raw = await startScripted({ debounceMs: 20, renameWaitMs: 150 });
+    await rm(p('index.html'));
+    raw('index.html');
+    await new Promise((r) => setTimeout(r, 80));
+    await watcher.idle();
+    expect(events).toEqual([]);
+    await expect.poll(() => events).toEqual([{ type: 'deleted', relPath: 'index.html' }]);
+    await new Promise((r) => setTimeout(r, 300));
+    await watcher.idle();
+    expect(events).toHaveLength(1);
+    // Deleted and restored within the wait (the IDE's own delete, then a restore from history): listeners may already
+    // have dropped the entry, so it is reported as it happened — deleted, then created — not as a change.
+    events = [];
+    await rm(p('子 文件夹', '页面 二.html'));
+    raw('子 文件夹/页面 二.html');
+    await new Promise((r) => setTimeout(r, 60));
+    await writeFile(p('子 文件夹', '页面 二.html'), '<p>新</p>\n');
+    raw('子 文件夹/页面 二.html');
+    await expect
+      .poll(() => events)
+      .toEqual([
+        { type: 'deleted', relPath: '子 文件夹/页面 二.html' },
+        { type: 'created', relPath: '子 文件夹/页面 二.html' },
+      ]);
+    await new Promise((r) => setTimeout(r, 300));
+    await watcher.idle();
+    expect(events).toHaveLength(2);
   });
 
   it('reports a new folder with files as the folder only, then later changes inside it', async () => {
