@@ -59,6 +59,8 @@ describe('walkthrough state (S23.1)', () => {
     expect(loadWalkthroughState({ ...ACTIVE, step: 'deploy' })).toEqual({ ...ACTIVE, step: 'create' });
     expect(loadWalkthroughState({ ...ACTIVE, completed: 'all' })).toEqual({ ...ACTIVE, completed: [] });
     expect(loadWalkthroughState('garbage')).toEqual(DEFAULT_WALKTHROUGH);
-    expect(loadWalkthroughState({ ...ACTIVE, version: 99 })).toEqual(DEFAULT_WALKTHROUGH);
+    // S28.4: a file from a newer NoobIDE keeps the fields this version understands; a broken version does not.
+    expect(loadWalkthroughState({ ...ACTIVE, version: 99, extra: 'x' })).toEqual(ACTIVE);
+    expect(loadWalkthroughState({ ...ACTIVE, version: 'two' })).toEqual(DEFAULT_WALKTHROUGH);
   });
 });

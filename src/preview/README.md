@@ -18,3 +18,13 @@ Modules (S14, S15.4 — see docs/decisions/0018):
 - `entry-pages.ts`, `project-options.ts` — entry page picker and refresh mode (stored via the S13.2 project.json
   module).
 - `static-server.ts` — also issues one-time external-browser grants (HttpOnly SameSite=Strict cookie).
+
+Other modules (S04, S05, S15, S16 — decisions 0009, 0010, 0019):
+
+- `static-server.ts`, `request-path.ts`, `mime.ts` — the loopback server, its path guard and content types (S04.1,
+  S04.2).
+- `preview-manager.ts`, `preview-options.ts` — the sandboxed `WebContentsView` per project (no preload, partition
+  `persist:noobide-preview-<sha256(root)>`), watchdog, Stop, DevTools, clear data (S04.3, S05, S14.5).
+- `request-policy.ts` — what the page may request and where it may navigate (S05.5).
+- `view-sync.ts` — bounds, DPI rounding, overlays and focus between the workbench and the view (S15.1, S15.5).
+- `log-buffer.ts`, `to-problem.ts` — bounded console/log buffer and raw records → problem inputs (S05.3, S16).

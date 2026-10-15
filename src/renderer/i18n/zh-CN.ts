@@ -22,7 +22,6 @@ export const zhCN = {
   'rail.files': '文件',
   'rail.problems': '问题',
   'files.empty': '还没有打开文件夹。',
-  'files.emptyHint': '打开文件夹和新建项目会在后续版本加入。',
   'editor.loading': '正在加载编辑器…',
   'editor.welcomeTab': '示例.html',
   'editor.sampleBadge': '示例 · 未保存到磁盘',
@@ -242,7 +241,9 @@ export const zhCN = {
   // --- end S11 ---
   // --- S13 app data ---
   'settings.corrupt': '设置文件已损坏，无法读取。',
-  'settings.newer': '设置文件来自更新版本的 NoobIDE，这个版本读不懂它。',
+  'settings.newer': '设置文件来自更新版本的 NoobIDE。',
+  'settings.readOnly':
+    '这个版本能看懂的设置照常使用；原文件保持不变，留给新版本。本次运行中的设置改动在退出后不会保存。',
   'settings.reset': '原来的文件已备份，现在使用默认设置。',
   'settings.backup': '备份位置：',
   'appMenu.label': '更多操作',

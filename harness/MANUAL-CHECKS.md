@@ -460,3 +460,69 @@ Needs owner task H.5 (repository on GitHub with Actions enabled). Agents cannot 
 - **Expected:** every step passes.
 - **Result:** _(owner fills in: pass/fail per step, macOS version, monitors, date)_
 - **Close with:** `node harness/session.mjs set S15.6 done --evidence "manual: macOS <version> arm64, <date>, steps 1-6 pass + e2e preview-layout.spec"`
+
+### S28.4 — Windows manual upgrade (vN → vN+1) and uninstall
+
+Decision: `docs/decisions/0023-upgrade-and-uninstall.md` — uninstall removes the app and its shortcuts, keeps the app
+data in `%APPDATA%\NoobIDE`, and never touches project folders. The macOS half of the data-keeping part is proven by
+`tests/e2e/upgrade.spec.ts` (packaged vN → vN+1 → vN); this check covers the Squirrel installer on Windows.
+
+- **Platform:** Windows 11 x64, ideally a clean VM or machine without Node.js, signed in as a normal (non-admin) user
+- **Build:** the commit that set S28.4 to needs_manual_check (or later)
+- **Steps:**
+  1. In `D:\NoobIDE`: `npm install`, `npm run verify`, `npm run test:e2e -- -g "packaged|About"`. Expected: green
+     (the macOS-only upgrade and codesign specs are skipped on Windows).
+  2. **Build vN:** `npm run make`. Copy the folder `out\make\squirrel.windows\x64\` (NoobIDE-Setup.exe, `*.nupkg`,
+     `RELEASES`) to `D:\upgrade\vN\`.
+  3. **Build vN+1 without editing package.json** (PowerShell, `<next>` = package.json version with patch + 1):
+     `$env:NOOBIDE_BUILD_VERSION="<next>"; $env:NOOBIDE_OUT_DIR="D:\NoobIDE\out\next"; npm run make`, then
+     `Remove-Item Env:NOOBIDE_BUILD_VERSION, Env:NOOBIDE_OUT_DIR`. Copy `out\next\make\squirrel.windows\x64\` to
+     `D:\upgrade\vN1\`. Run `npm run make` once more so `out\` and `.vite\` hold package.json's version again.
+  4. **Install vN:** run `D:\upgrade\vN\NoobIDE-Setup.exe`. Expected: no admin prompt; desktop and Start-menu
+     shortcuts "NoobIDE"; the app opens; About shows "版本 <vN>".
+  5. **Use vN:** switch the interface to English; create a project from the welcome screen at a path with Chinese
+     characters and spaces (e.g. `D:\网页 练习\我的 主页`); edit `index.html` and save (Ctrl+S) twice; open the file
+     history and note the number of versions; type one more line **without saving**, then end NoobIDE in Task
+     Manager (End task) so a crash-recovery copy is left. Look at `%APPDATA%\NoobIDE`: `settings.json`,
+     `recent-projects.json`, `session.json`, `history\`, `recovery\` exist.
+  6. **Upgrade:** with NoobIDE closed, run `D:\upgrade\vN1\NoobIDE-Setup.exe`. Expected: no admin prompt; the app opens
+     as vN+1 (About: "Version <next>"), still in English; it offers to recover the unsaved line; the history shows the
+     versions noted in step 5; after closing the project the welcome screen lists it under recent projects. The
+     existing shortcuts start vN+1. `%LOCALAPPDATA%\NoobIDE` has `app-<next>`. The project folder holds only your
+     files (`.noobide\project.json` only if you chose an entry page).
+  7. **Uninstall:** Settings → Apps → Installed apps → NoobIDE → Uninstall. Expected: no NoobIDE window appears; the
+     desktop and Start-menu shortcuts are gone; NoobIDE is no longer in Installed apps; `%LOCALAPPDATA%\NoobIDE` is
+     gone (an empty folder or Squirrel's own temp leftovers are acceptable — note them); **`%APPDATA%\NoobIDE` still
+     exists** with settings, recent projects, history and recovery; `D:\网页 练习\我的 主页` is unchanged.
+  8. **Reinstall** `D:\upgrade\vN1\NoobIDE-Setup.exe`. Expected: English, the recent project and its history are still
+     there. Clean up: uninstall again and delete `%APPDATA%\NoobIDE` and the test project by hand.
+- **Expected:** as described for each step; nothing is lost and nothing in the project folder is deleted.
+- **Result:** _(owner fills in: pass/fail per step, Windows version, vN / vN+1 versions, date, leftovers in step 7)_
+- **Close with:** `node harness/session.mjs set S28.4 done --evidence "manual: Windows <version> x64, <date>, steps 1-8 pass + tests/e2e/upgrade.spec.ts + tests/integration/app-data-upgrade.test.ts"`
+
+### S17.4 — Invite-only build: tester installs on macOS arm64 and Windows x64 (Gate G3)
+
+- **Platform:** a second Apple Silicon Mac (not the build machine) and a Windows 11 x64 machine without Node.js
+- **Build:** the `noobide-macos-arm64` / `noobide-windows-x64` artifacts of a green CI run on main (or `npm run make`
+  on each platform), after the ad-hoc signature fix described in `docs/reviews/G3.md` condition 2
+- **Agent pre-check (MacBook Pro M3 Pro, macOS 27.2, 2026-10-15, `3314de9`):** DMG `hdiutil verify` VALID; a
+  quarantined copy (as after a Safari download) mounted and installed to a scratch folder is refused by Gatekeeper
+  (`spctl`: "invalid Info.plist (plist or signature have been modified)"); after
+  `xattr -dr com.apple.quarantine` it launches natively (4 processes, none Rosetta-translated). No Windows installer
+  exists yet (CI never reached "Make installers" on Windows).
+- **Steps (macOS):**
+  1. Send yourself the DMG through a real download (browser, AirDrop or a file share) so it carries the quarantine
+     mark. Double-click it, drag NoobIDE to Applications, eject.
+  2. Open NoobIDE from Applications. Write down the exact Gatekeeper message. If System Settings → Privacy &
+     Security shows "Open Anyway", use it; otherwise run `xattr -dr com.apple.quarantine /Applications/NoobIDE.app`
+     in Terminal and open it again.
+  3. Create a project from the default template, change the heading, save, see it in the preview; add a misspelled
+     variable to `script.js`, save, see the problem card with file and line. Quit.
+- **Steps (Windows):**
+  1. Download `NoobIDE-Setup.exe` from the CI artifact on a machine without Node.js. Run it; on SmartScreen use
+     More info → Run anyway; write down the exact messages.
+  2. Same as macOS step 3. Then uninstall from Settings → Apps.
+- **Expected:** both install and run the macOS step 3 / Windows step 2 journey; the Gatekeeper / SmartScreen texts are
+  recorded so the tester instructions in `docs/reviews/G3.md` can be corrected.
+- **Result:** _(owner fills in: machines, OS versions, date, messages seen, pass/fail per step)_
+- **Close with:** `node harness/session.mjs set S17.4 done --evidence "docs/reviews/G3.md + manual: <Mac> macOS <ver> and Windows <ver> installs from CI run <url>, <date>"`

@@ -2,6 +2,10 @@
 //
 // Packaging must run on the target OS (PLAN §5): `npm run make` on Windows produces the x64 Squirrel installer,
 // on an Apple Silicon Mac the arm64 DMG. Cross-packaging does not count as delivery validation.
+import { execFile } from 'node:child_process';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { promisify } from 'node:util';
+import path from 'node:path';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
@@ -13,8 +17,54 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 /** Owner to confirm the holder name before the first public release (ADR 0012). */
 const APP_COPYRIGHT = 'Copyright © 2026 NoobIDE contributors';
 
+/**
+ * S28.4 (ADR 0023): the upgrade check packages "the next version" of the same code — NOOBIDE_BUILD_VERSION replaces
+ * package.json's version in the packaged app (its package.json, Info.plist / file version, About) and
+ * NOOBIDE_OUT_DIR puts it next to the normal build — so vN → vN+1 can be tested without editing package.json.
+ * Never set for a release build.
+ */
+const execFileAsync = promisify(execFile);
+
+const buildVersion = process.env.NOOBIDE_BUILD_VERSION;
+if (buildVersion !== undefined && !/^\d+\.\d+\.\d+$/.test(buildVersion)) {
+  throw new Error(`NOOBIDE_BUILD_VERSION must look like 1.2.3, got "${buildVersion}"`);
+}
+
+/**
+ * S28.4 / G3 (ADR 0023): the packager edits Info.plist (name, version, icon, ASAR integrity) after Electron's own
+ * ad-hoc signature, which leaves the .app with an invalid signature ("invalid Info.plist") that Gatekeeper refuses
+ * once the download quarantine is set. Until Developer ID signing exists (S28.2, owner task H.2) every macOS package
+ * is re-signed ad hoc as a whole, the last step after fuses and Info.plist changes. `codesign` ships with macOS.
+ */
+async function adHocSignMac(outputPaths: readonly string[]): Promise<void> {
+  for (const dir of outputPaths) {
+    const apps = (await readdir(dir)).filter((name) => name.endsWith('.app'));
+    for (const name of apps) {
+      await execFileAsync('codesign', ['--force', '--deep', '--sign', '-', path.join(dir, name)]);
+    }
+  }
+}
+
 const config: ForgeConfig = {
+  ...(process.env.NOOBIDE_OUT_DIR ? { outDir: process.env.NOOBIDE_OUT_DIR } : {}),
+  hooks: {
+    ...(buildVersion
+      ? {
+          // Runs on the copied, pruned app before app.asar is made (after the Vite plugin rewrote package.json):
+          // app.getVersion() reads this package.json.
+          packageAfterPrune: async (_config: unknown, buildPath: string) => {
+            const file = path.join(buildPath, 'package.json');
+            const pkg = JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>;
+            await writeFile(file, `${JSON.stringify({ ...pkg, version: buildVersion }, null, 2)}\n`);
+          },
+        }
+      : {}),
+    postPackage: async (_config, result) => {
+      if (result.platform === 'darwin' || result.platform === 'mas') await adHocSignMac(result.outputPaths);
+    },
+  },
   packagerConfig: {
+    ...(buildVersion ? { appVersion: buildVersion, buildVersion } : {}),
     name: 'NoobIDE',
     executableName: 'noobide',
     appBundleId: 'app.noobide.desktop',

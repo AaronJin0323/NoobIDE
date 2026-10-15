@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
@@ -89,6 +90,22 @@ test('the packaged macOS app is native, has the icon and the package.json versio
   const header = readFileSync(exe!).subarray(0, 8);
   expect(header.readUInt32LE(0)).toBe(0xfeedfacf);
   if (process.arch === 'arm64') expect(header.readUInt32LE(4)).toBe(0x0100000c);
+});
+
+test('the packaged macOS app has a valid (ad hoc) code signature after all packaging changes', async () => {
+  test.skip(process.platform !== 'darwin', 'macOS code signature check');
+  // G3 / ADR 0023: forge.config.ts re-signs ad hoc after the packager edited Info.plist; without it codesign says
+  // "invalid Info.plist" and Gatekeeper refuses the quarantined download instead of asking. (Developer ID: S28.2.)
+  const exe = packagedExecutable();
+  expect(exe, 'packaged app in out/').toBeDefined();
+  const bundle = path.resolve(path.dirname(exe!), '..', '..');
+  const verify = spawnSync('codesign', ['--verify', '--deep', '--strict', '--verbose=2', bundle], { encoding: 'utf8' });
+  expect(verify.stderr).toContain('valid on disk');
+  expect(verify.stderr).toContain('satisfies its Designated Requirement');
+  expect(verify.status).toBe(0);
+  // The ASAR integrity hash (checked by the EnableEmbeddedAsarIntegrityValidation fuse) survived the re-signing.
+  const plist = readFileSync(path.join(bundle, 'Contents', 'Info.plist'), 'utf8');
+  expect(plist).toContain('<key>ElectronAsarIntegrity</key>');
 });
 
 test('the packaged Windows executable carries the version resource', async () => {

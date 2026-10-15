@@ -3,7 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, session, shell } from 'electron';
 import { platformId } from '../platform/index';
-import { currentSquirrelAction } from '../platform/squirrel';
+import { currentSquirrelAction, runSquirrelAction } from '../platform/squirrel';
 import { APP_ENTRY_URL, APP_ORIGIN } from './app-asset';
 import { handleAppProtocol, registerAppSchemePrivileges } from './app-protocol';
 import { buildCsp } from './csp';
@@ -38,6 +38,7 @@ import { configureProtectedFolders } from '../platform/protected-folders';
 import type { RecoveryLogger } from '../recovery/atomic-file';
 import { effectiveProjectConfig, previewEntryPath } from '../workspace/project-config';
 import { RecentProjects } from './recent-projects';
+import { appDataPath } from './app-data-layout'; // S28.4: one list of app-data names
 // S23 onboarding walkthrough progress (app data)
 import { WalkthroughStore } from './walkthrough-store';
 import { registerWalkthroughIpcHandlers } from './walkthrough-ipc';
@@ -50,14 +51,15 @@ import { AppMenuController } from './app-menu';
 import { registerCommandIpcHandlers } from './commands-ipc';
 import { installWindowLifecycle } from './window-lifecycle';
 
-// Windows installer events: create/remove shortcuts and quit without opening a window.
+// Windows installer events: create/remove shortcuts and quit without opening a window (S02.7, S28.4: also quits
+// when Update.exe is missing or hangs). App data and projects are never touched by these events.
 const squirrel = currentSquirrelAction();
 if (squirrel.kind !== 'none') {
-  if (squirrel.kind === 'run-update-exe') {
-    spawn(squirrel.updateExe, squirrel.args, { detached: true }).on('close', () => app.quit());
-  } else {
-    app.quit();
-  }
+  runSquirrelAction(squirrel, {
+    spawn: (command, args) => spawn(command, [...args], { detached: true }),
+    quit: () => app.quit(),
+    setTimeout: (callback, ms) => setTimeout(callback, ms),
+  });
 } else {
   start();
 }
@@ -177,7 +179,7 @@ function start(): void {
     // --- S12: unsaved-buffer journal in the app-data directory (PLAN §6), never inside a project ---
     const appData = app.getPath('userData');
     // --- S13.6: rotating, content-free log in app data; recovery and history events go there too ---
-    const appLog = new AppLog({ dir: path.join(appData, 'logs') });
+    const appLog = new AppLog({ dir: appDataPath(appData, 'logs') });
     appLog.started({
       app: app.getVersion(),
       electron: process.versions.electron ?? '',
@@ -197,13 +199,13 @@ function start(): void {
     );
     app.on('will-quit', () => appLog.write('info', 'app-quit'));
     // --- end S13.6 ---
-    const journal = new RecoveryJournal({ dir: path.join(appData, 'recovery'), log: logger });
+    const journal = new RecoveryJournal({ dir: appDataPath(appData, 'recovery'), log: logger });
     // --- end S12 ---
     // --- S13.3: project lifecycle. Every opened project (folder dialog, recent list, wizard, crash recovery,
     // session restore) is watched and remembered; a preview of another project stops with its server. Closing a
     // project stops its watcher, preview and server. ---
-    const recent = new RecentProjects({ file: path.join(appData, 'recent-projects.json'), log: logger });
-    const sessionStore = new SessionStore({ file: path.join(appData, 'session.json'), log: logger }); // S13.4
+    const recent = new RecentProjects({ file: appDataPath(appData, 'recentProjects'), log: logger });
+    const sessionStore = new SessionStore({ file: appDataPath(appData, 'session'), log: logger }); // S13.4
     const projectOpened = (projectId: string, root: string, sender: WebContents) => {
       watchHub.watch(projectId, root, sender);
       void recent.touch(root);
@@ -221,12 +223,12 @@ function start(): void {
     });
     // --- end S13.3 ---
     // --- S21: local history (snapshots around saves) in app data ---
-    const history = new SnapshotStore({ dir: path.join(appData, 'history'), log: logger });
+    const history = new SnapshotStore({ dir: appDataPath(appData, 'history'), log: logger });
     const historyTriggers = new HistoryTriggers(history, logger);
     // --- end S21 ---
     projects = new ProjectService({ history: historyTriggers });
     // S14.4/S14.2: preview trust and one-time notes in app data (never inside a project).
-    const previewStore = new PreviewStore({ file: path.join(appData, 'preview.json'), log: logger });
+    const previewStore = new PreviewStore({ file: appDataPath(appData, 'preview'), log: logger });
     const openProjects = projects;
     registerIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
@@ -317,7 +319,7 @@ function start(): void {
     });
     registerProblemsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, bridge: problems }); // S16.2
     // --- S13 app data (all in app.getPath('userData'), never inside a project) ---
-    const settings = new SettingsStore({ file: path.join(appData, 'settings.json'), log: logger });
+    const settings = new SettingsStore({ file: appDataPath(appData, 'settings'), log: logger });
     // --- S24.2: native menus, translated with the interface language and enabled from the command context ---
     const appMenu = new AppMenuController({
       platform: platformId(),
@@ -370,7 +372,7 @@ function start(): void {
     // S23: onboarding walkthrough progress
     registerWalkthroughIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
-      store: new WalkthroughStore({ file: path.join(appData, 'walkthrough.json'), log: logger }),
+      store: new WalkthroughStore({ file: appDataPath(appData, 'walkthrough'), log: logger }),
     });
     createWorkbenchWindow();
 

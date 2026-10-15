@@ -106,7 +106,8 @@ export interface JournalOptions {
   readonly now?: () => number;
 }
 
-type SkipReason = 'unreadable' | 'too-large' | 'unparseable' | 'invalid' | 'checksum' | 'misplaced';
+/** `newer`: written by a newer NoobIDE (S28.4 downgrade) — left exactly where it is, never quarantined or removed. */
+type SkipReason = 'unreadable' | 'too-large' | 'unparseable' | 'invalid' | 'checksum' | 'misplaced' | 'newer';
 
 export class RecoveryJournal {
   readonly dir: string;
@@ -188,7 +189,9 @@ export class RecoveryJournal {
       if (onDisk.ok && onDisk.value.record.revision > revision) return ok({ removed: false });
       // S26.1: a record that cannot be read right now (locked by a scanner, over a lowered limit) may hold newer
       // edits typed during the save: keep it. At worst an already saved copy is offered once more.
-      if (!onDisk.ok && (onDisk.code === 'unreadable' || onDisk.code === 'too-large')) return ok({ removed: false });
+      if (!onDisk.ok && (onDisk.code === 'unreadable' || onDisk.code === 'too-large' || onDisk.code === 'newer')) {
+        return ok({ removed: false });
+      }
       return ok({ removed: await this.remove(rel) });
     });
   }
@@ -204,7 +207,8 @@ export class RecoveryJournal {
 
   /**
    * Records left by earlier runs (buffers of this process are excluded), grouped by project, newest first.
-   * Corrupt records are skipped, logged and quarantined; leftover temporary files are removed. Never throws.
+   * Corrupt records are skipped, logged and quarantined; records written by a newer NoobIDE are skipped and left in
+   * place (S28.4); leftover temporary files are removed. Never throws.
    */
   listPending(): Promise<PendingProject[]> {
     return this.queue.run(async () => {
@@ -318,6 +322,7 @@ export class RecoveryJournal {
     } catch {
       return err('unparseable', 'not JSON');
     }
+    if (isNewerRecord(parsed)) return err('newer', 'written by a newer NoobIDE');
     if (!isEntryRecord(parsed)) return err('invalid', 'schema');
     if (sha256Hex(parsed.text) !== parsed.sha256) return err('checksum', 'text does not match its checksum');
     const expected = path.join(projectKey(parsed.rootPath), `${fileKey(parsed.relPath)}-${parsed.bufferId}.json`);
@@ -402,6 +407,13 @@ function sumOf(sizes: Map<string, number>): number {
   let total = 0;
   for (const n of sizes.values()) total += n;
   return total;
+}
+
+/** A record of this journal's format with a higher version than this NoobIDE writes (S28.4). */
+function isNewerRecord(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const r = value as Record<string, unknown>;
+  return r.format === FORMAT && typeof r.v === 'number' && Number.isInteger(r.v) && r.v > VERSION;
 }
 
 function isEntryRecord(value: unknown): value is EntryRecord {

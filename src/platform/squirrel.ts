@@ -22,8 +22,47 @@ export function squirrelAction(platform: NodeJS.Platform, argv: readonly string[
       return { kind: 'run-update-exe', updateExe, args: [`--removeShortcut=${target}`] };
     case '--squirrel-obsolete':
       return { kind: 'quit' };
+    // `--squirrel-firstrun` (the launch right after installing) and every other argument start the app normally.
     default:
       return { kind: 'none' };
+  }
+}
+
+/** What {@link runSquirrelAction} needs from Node and Electron (injected for tests). */
+export interface SquirrelRunner {
+  spawn(command: string, args: readonly string[]): { on(event: 'close' | 'error', listener: () => void): unknown };
+  quit(): void;
+  setTimeout(callback: () => void, ms: number): unknown;
+}
+
+/** Squirrel gives each hook about 15 s; we quit well before that even when Update.exe hangs. */
+export const SQUIRREL_HOOK_TIMEOUT_MS = 10_000;
+
+/**
+ * S28.4: performs a Squirrel action and quits exactly once — when Update.exe finishes, when it cannot be started
+ * (e.g. a portable copy without Update.exe next to it) or after {@link SQUIRREL_HOOK_TIMEOUT_MS}. It never opens a
+ * window and never touches app data or projects: uninstalling removes the app and its shortcuts only
+ * (docs/decisions/0023-upgrade-and-uninstall.md).
+ */
+export function runSquirrelAction(action: SquirrelAction, runner: SquirrelRunner): void {
+  if (action.kind === 'none') return;
+  let done = false;
+  const quit = () => {
+    if (done) return;
+    done = true;
+    runner.quit();
+  };
+  if (action.kind === 'quit') {
+    quit();
+    return;
+  }
+  runner.setTimeout(quit, SQUIRREL_HOOK_TIMEOUT_MS);
+  try {
+    const child = runner.spawn(action.updateExe, action.args);
+    child.on('close', quit);
+    child.on('error', quit);
+  } catch {
+    quit();
   }
 }
 
