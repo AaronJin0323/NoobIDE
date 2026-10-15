@@ -2,7 +2,7 @@ import { chmod, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
-import { collectConsoleErrors, makeProject, openFile, openProject } from './project';
+import { collectConsoleErrors, documentText, makeProject, openFile, openProject } from './project';
 
 /**
  * The problem card (S22.4, PLAN §9) and the one-click fix for a misspelled name (S22.5), on a project whose path has
@@ -29,7 +29,8 @@ const section = (id: string) => page.locator(`[data-section="${id}"]`);
 const rowAt = (id: string, where: string) => section(id).getByTestId('problem-row').filter({ hasText: where }).first();
 const fixCard = () => page.getByTestId('problem-fix-card');
 const fixStatus = () => page.getByTestId('problem-fix-status');
-const lines = () => page.locator('.monaco-editor .view-lines');
+/** The whole open document, however little of it fits in the window. */
+const editorText = () => documentText(page.locator('.monaco-editor'));
 const editorHasFocus = () => page.evaluate(() => Boolean(document.activeElement?.closest('.monaco-editor')));
 
 async function expand(row: ReturnType<typeof rowAt>) {
@@ -160,7 +161,7 @@ test('the fix is a normal editor edit: Ctrl/Cmd+Z in the editor takes it back (S
   await expect.poll(editorHasFocus).toBe(true);
   await expect(page.getByTestId('cursor-position')).toHaveText('行 3, 列 13');
   await page.keyboard.press('ControlOrMeta+z');
-  await expect(lines()).toContainText('console.log(userNmae);');
+  await expect.poll(editorText).toContain('console.log(userNmae);');
   // Autosave writes the undone text; the card no longer claims the problem is resolved.
   await expect.poll(() => disk('script.js'), { timeout: 10_000 }).toBe(SCRIPT);
   await expect(fixCard()).toHaveAttribute('data-phase', 'still-reported', { timeout: 20_000 });
@@ -179,7 +180,7 @@ test('a failed save keeps the edit, shows the save failure and never shows resol
   await expect(fixStatus()).toContainText('保存失败');
   await expect(fixStatus()).toContainText('修改还在编辑器里');
   await expect(page.getByTestId('save-status')).toHaveText('保存失败 — 你的修改还在');
-  await expect(lines()).toContainText('console.log(userName);');
+  await expect.poll(editorText).toContain('console.log(userName);');
   expect(await disk('script.js')).toBe(SCRIPT);
   // Even once the code check no longer reports it, a fix that is not on disk is not called resolved.
   await expect(rowAt('static', 'script.js:3')).toHaveCount(0, { timeout: 20_000 });
@@ -264,7 +265,7 @@ test('a fix applied to a background tab whose save fails is journaled and surviv
   // Put the mistake back from outside NoobIDE: the open tab reloads it (S11).
   await writeFile(file, SCRIPT);
   await openFile(page, 'script.js');
-  await expect(lines()).toContainText('console.log(userNmae);', { timeout: 10_000 });
+  await expect.poll(editorText, { timeout: 10_000 }).toContain('console.log(userNmae);');
   await expect(rowAt('static', 'script.js:3')).toBeVisible({ timeout: 20_000 });
   await openFile(page, 'index.html'); // script.js is now a background tab
   await expect(page.locator('[data-testid="tab"][data-path="index.html"] [role="tab"]')).toHaveAttribute(

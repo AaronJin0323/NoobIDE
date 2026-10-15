@@ -37,6 +37,10 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
 - Fixtures live in `tests/fixtures/<scenario>/` and are real mini websites (multi-file, modules, JSON, images,
   broken scripts, hostile pages). Files that must keep CRLF are named `crlf-*` (see `.gitattributes`).
 - E2E tests must not depend on network access.
+- E2E tests must not depend on the window size: Monaco renders only the visible lines, and the Windows CI runner's
+  1024×768 display gives a much shorter editor than a Mac. Read editor text with `documentText()` and focus the
+  editor with `focusEditor()` (tests/e2e/project.ts), not by asserting on or clicking `.view-lines`. Reproduce a
+  short window locally with `NOOBIDE_E2E_WINDOW=1024x660 npm run test:e2e`.
 - Platform-specific tests use `describe.runIf(...)` with the helpers from `src/platform`, and the reason is written
   in the test name.
 - A flaky test is a bug: fix it or quarantine it with a linked feature, never delete it silently.
