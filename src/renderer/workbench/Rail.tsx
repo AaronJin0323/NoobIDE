@@ -60,7 +60,8 @@ export function Rail({ filesVisible, problemsOpen, onToggleFiles, onToggleProble
           type="button"
           className="rail-button"
           aria-pressed={ai.open}
-          aria-controls="region-ai"
+          // Only while the panel exists (axe: aria-controls must name an element on the page).
+          aria-controls={ai.open ? 'region-ai' : undefined}
           data-testid="rail-ai"
           onClick={ai.onToggle}
         >

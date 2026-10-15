@@ -62,6 +62,12 @@ export class AiStatusCache {
     return promise;
   }
 
+  /** S31: settings or consent changed (`noobide:ai-status-changed`): ask main again for the current project now. */
+  refresh(): void {
+    this.invalidate();
+    void this.get(this.projectId);
+  }
+
   /** Forget the cached status: the next `get` asks main again. */
   invalidate(): void {
     this.generation += 1;
@@ -102,4 +108,6 @@ export const aiStatusCache = new AiStatusCache(aiBridge);
 
 if (typeof window !== 'undefined') {
   window.addEventListener('focus', () => aiStatusCache.invalidate());
+  // S31: Settings → AI and the consent prompt announce changes; the status line and suggestions follow at once.
+  window.addEventListener('noobide:ai-status-changed', () => aiStatusCache.refresh());
 }

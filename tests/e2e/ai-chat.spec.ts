@@ -17,7 +17,7 @@ import { collectConsoleErrors, focusEditor, makeProject, openFile, openProject }
  * Until S31 (window.noobide.ai, the AI IPC and the fake provider) is on main, the suite is marked fixme: flip
  * S31_MERGED, run `npm run test:e2e -- -g "AI chat"`, and adapt the scripts above to the fake's if they differ.
  */
-const S31_MERGED = false;
+const S31_MERGED = true;
 
 test.describe.configure({ mode: 'serial' });
 

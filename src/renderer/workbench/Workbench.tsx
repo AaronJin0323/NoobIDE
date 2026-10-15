@@ -60,6 +60,9 @@ import { WalkthroughPanel } from '../walkthrough/WalkthroughPanel';
 import { GlossaryDialog } from '../walkthrough/GlossaryDialog';
 // S33: AI chat panel, "Explain this code" and "Ask AI" on problems
 import { useAiChat } from '../ai/useAiChat';
+import { AiSettingsDialog, useAiSettingsRequests } from '../ai/AiSettingsDialog'; // S31.4
+import { aiConsentRenderer } from '../ai/AiConsentPrompt'; // S31.4
+import { openAiSettings } from '../ai/ai-status'; // S31.4
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
@@ -117,6 +120,7 @@ export function Workbench() {
   // S21.3: the local-history window, opened for a file (the active tab) or for the whole project.
   const [historyFor, setHistoryFor] = useState<{ relPath: string | null } | null>(null);
   const aboutOpen = useAboutRequests(); // S28.1: opened by openAbout() (menus: S24)
+  const aiSettingsOpen = useAiSettingsRequests(); // S31.4: opened by openAiSettings() (menus, the AI chat)
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
 
@@ -820,7 +824,12 @@ export function Workbench() {
     () => agentChatExtensions({ store: agentDecisions, api: aiBridge, host: () => agentHostRef.current }),
     [agentDecisions],
   );
-  const ai = useAiChat(doc.project?.projectId ?? null, aiHost, { extensions: agentExtensions });
+  // S31.4: the reusable consent prompt fills the chat's consent slot.
+  const aiConsent = useMemo(() => (bridge?.ai ? aiConsentRenderer(bridge.ai) : undefined), [bridge]);
+  const ai = useAiChat(doc.project?.projectId ?? null, aiHost, {
+    extensions: agentExtensions,
+    ...(aiConsent ? { consent: aiConsent } : {}),
+  });
   // --- end S33 ---
 
   // Closing the window or quitting: main asks first; we answer after every file is saved (S10.6).
@@ -851,7 +860,7 @@ export function Workbench() {
   const commandContext: CommandContext = {
     hasProject: doc.project !== null,
     hasActiveTab: doc.active !== null,
-    modalOpen: wizardOpen || historyFor !== null || aboutOpen.open || glossaryFor !== null,
+    modalOpen: wizardOpen || historyFor !== null || aboutOpen.open || aiSettingsOpen.open || glossaryFor !== null,
     theme: theme.choice, // S24.4
   };
   const commandHandlers: CommandHandlers = {
@@ -880,6 +889,7 @@ export function Workbench() {
     'focus-next-region': () => void focusRegion(1),
     'focus-previous-region': () => void focusRegion(-1),
     about: () => openAbout(), // S28.1
+    'ai-settings': bridge?.ai ? () => openAiSettings() : undefined, // S31.4
     // S23: onboarding help
     'help-walkthrough': () => walkthroughRef.current.open(),
     'help-glossary': () => setGlossaryFor({ term: null }),
@@ -1088,6 +1098,7 @@ export function Workbench() {
             wizardOpen ||
             historyFor !== null ||
             aboutOpen.open ||
+            aiSettingsOpen.open ||
             glossaryFor !== null
           }
           projectId={project?.projectId ?? null}
@@ -1169,6 +1180,9 @@ export function Workbench() {
         />
       )}
       {aboutOpen.open && <AboutDialog onClose={aboutOpen.close} />}
+      {aiSettingsOpen.open && bridge?.ai && (
+        <AiSettingsDialog api={bridge.ai} projectId={project?.projectId ?? null} onClose={aiSettingsOpen.close} />
+      )}
     </div>
   );
 }

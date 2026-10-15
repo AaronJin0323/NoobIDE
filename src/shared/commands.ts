@@ -51,6 +51,8 @@ export const COMMAND_IDS = [
   'preview-open-external',
   'preview-devtools',
   'preview-clear-data',
+  // S31.4 Settings → AI
+  'ai-settings',
   // S33 AI chat and explain (handlers exist only while AI is offered: no bridge or AI off → no command)
   'ai-toggle-chat',
   'ai-explain-code',
@@ -155,6 +157,8 @@ export const COMMANDS: readonly CommandDefinition[] = [
   { id: 'preview-open-external', label: 'command.preview.openExternal', when: (c) => c.hasProject && !c.modalOpen },
   { id: 'preview-devtools', label: 'command.preview.devTools', when: (c) => c.hasProject && !c.modalOpen },
   { id: 'preview-clear-data', label: 'command.preview.clearData', when: (c) => c.hasProject && !c.modalOpen },
+  // S31.4: Settings → AI (provider, key, models, on/off). Also in the Help menu.
+  { id: 'ai-settings', label: 'command.aiSettings', when: noModal },
   // S33: the AI chat panel and "Explain this code" on the selection. Not in the native menus: the renderer offers them
   // only while AI is available (decision 0025: AI off removes every AI surface).
   {
@@ -220,6 +224,8 @@ export const APP_MENU_COMMANDS: readonly (CommandId | '-')[] = [
   'help-walkthrough',
   'help-glossary',
   'open-logs',
+  '-',
+  'ai-settings', // S31.4
 ];
 
 /** Whether the command is a choice (radio item), and if so whether it is the current one; null otherwise. */

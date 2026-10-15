@@ -35,7 +35,16 @@ test.afterAll(async () => {
 test('the command menu derives its items and shortcut hints from the registry', async () => {
   await page.getByTestId('app-menu').click();
   const items = page.getByRole('menu').getByRole('menuitem');
-  await expect(items).toHaveText([/^关闭项目$/, /^本地历史…$/, /^入门导览$/, /^术语表$/, /^打开日志文件夹$/]);
+  await expect(items).toHaveText([
+    /^关闭项目$/,
+    /^本地历史…$/,
+    /^显示或隐藏 AI 助手/, // S33 (with its shortcut hint)
+    /^开启或关闭 AI 代码建议$/, // S32
+    /^入门导览$/,
+    /^术语表$/,
+    /^打开日志文件夹$/,
+    /^AI 设置…$/, // S31.4
+  ]);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(page.getByTestId('zoom-in')).toHaveAttribute(

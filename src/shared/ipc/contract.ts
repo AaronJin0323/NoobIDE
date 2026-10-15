@@ -28,6 +28,7 @@ import type { HistoryApi } from './history-contract'; // S21.3/S21.4
 import type { CommandsApi } from './commands-contract'; // S24.2
 import type { WalkthroughApi } from './walkthrough-contract'; // S23
 import type { ProblemsApi } from './problems-contract'; // S16.2
+import type { AiApi } from './ai-contract'; // S31 AI assistant (decision 0025)
 
 export const IPC_API_VERSION = 1;
 
@@ -413,6 +414,8 @@ export interface NoobideApi {
   readonly walkthrough?: WalkthroughApi;
   /** S16.2: runtime, console and resource problems of the preview (problems-contract.ts). */
   readonly problems?: ProblemsApi;
+  /** S31 AI assistant (decision 0025): keys, config, consent and requests. The key is never returned. */
+  readonly ai?: AiApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */

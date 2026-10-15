@@ -8,6 +8,7 @@ import { isCommandId } from '../shared/commands';
 import { WALKTHROUGH_CHANNELS } from '../shared/ipc/walkthrough-contract';
 import { PROBLEMS_CHANNELS, PROBLEMS_EVENT_CHANNEL } from '../shared/ipc/problems-contract'; // S16.2
 import type { ProblemRecord } from '../shared/problem';
+import { AI_CHANNELS, AI_EVENT_CHANNEL, type AiEvent } from '../shared/ipc/ai-contract'; // S31
 
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
@@ -168,6 +169,24 @@ const api: NoobideApi = {
       return () => void ipcRenderer.removeListener(PROBLEMS_EVENT_CHANNEL, wrapped);
     },
   },
+  // S31 AI assistant: the listener receives only the event payload, never the IpcRendererEvent.
+  ai: {
+    status: (request) => ipcRenderer.invoke(AI_CHANNELS.status, request),
+    setKey: (request) => ipcRenderer.invoke(AI_CHANNELS.setKey, request),
+    clearKey: (request) => ipcRenderer.invoke(AI_CHANNELS.clearKey, request),
+    testKey: (request) => ipcRenderer.invoke(AI_CHANNELS.testKey, request),
+    listModels: (request) => ipcRenderer.invoke(AI_CHANNELS.listModels, request),
+    setConfig: (request) => ipcRenderer.invoke(AI_CHANNELS.setConfig, request),
+    setConsent: (request) => ipcRenderer.invoke(AI_CHANNELS.setConsent, request),
+    request: (request) => ipcRenderer.invoke(AI_CHANNELS.request, request),
+    cancel: (request) => ipcRenderer.invoke(AI_CHANNELS.cancel, request),
+    resolveProposal: (decision) => ipcRenderer.invoke(AI_CHANNELS.resolveProposal, decision),
+    onEvent: (listener) => {
+      const wrapped = (_event: unknown, payload: AiEvent) => listener(payload);
+      ipcRenderer.on(AI_EVENT_CHANNEL, wrapped);
+      return () => void ipcRenderer.removeListener(AI_EVENT_CHANNEL, wrapped);
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld(
@@ -189,5 +208,6 @@ contextBridge.exposeInMainWorld(
     commands: Object.freeze(api.commands), // S24.2
     walkthrough: Object.freeze(api.walkthrough), // S23
     problems: Object.freeze(api.problems), // S16.2
+    ai: Object.freeze(api.ai), // S31
   }),
 );
