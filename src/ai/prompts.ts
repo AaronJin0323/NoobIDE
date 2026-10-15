@@ -74,6 +74,18 @@ function attr(value: string): string {
   return value.replace(/[&"<>]/g, (c) => ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' })[c] ?? c);
 }
 
+/** The tags that frame project data in the messages below. */
+const DATA_TAGS = /<\s*\/\s*(context|file|selection|problem|console|prefix|suffix|before|after)\b/gi;
+
+/**
+ * Project data can never close the frame it sits in (S36.1 security review): a file containing `</file></context>`
+ * followed by text must not make that text look like the user's request. Closing tags of the framing tags inside the
+ * data are written as `<\/name` (inert for the model, and never part of real beginner HTML/CSS/JS).
+ */
+export function neutralizeData(text: string): string {
+  return text.replace(DATA_TAGS, '<\\/$1');
+}
+
 /** One context item as the model sees it; `text` is the resolved content (buffer text or the file from disk). */
 export function contextBlock(item: AiContextItem, text: string): string {
   const attrs = [
@@ -83,7 +95,7 @@ export function contextBlock(item: AiContextItem, text: string): string {
   ]
     .filter(Boolean)
     .join(' ');
-  return `<${item.kind}${attrs ? ` ${attrs}` : ''}>\n${text}\n</${item.kind}>`;
+  return `<${item.kind}${attrs ? ` ${attrs}` : ''}>\n${neutralizeData(text)}\n</${item.kind}>`;
 }
 
 export function chatUserMessage(prompt: string, blocks: readonly string[]): string {
@@ -95,7 +107,7 @@ export function historyMessages(history: readonly AiChatMessage[]): ProviderMess
 }
 
 export function inlineUserMessage(relPath: string, languageId: string, prefix: string, suffix: string): string {
-  return `File: ${relPath} (${languageId})\n<prefix>\n${prefix}</prefix>\n<suffix>\n${suffix}</suffix>`;
+  return `File: ${relPath} (${languageId})\n<prefix>\n${neutralizeData(prefix)}</prefix>\n<suffix>\n${neutralizeData(suffix)}</suffix>`;
 }
 
 export function editUserMessage(input: {
@@ -108,9 +120,9 @@ export function editUserMessage(input: {
 }): string {
   return [
     `File: ${input.relPath} (${input.languageId})`,
-    `<before>\n${input.before}\n</before>`,
-    `<selection>\n${input.selection}\n</selection>`,
-    `<after>\n${input.after}\n</after>`,
+    `<before>\n${neutralizeData(input.before)}\n</before>`,
+    `<selection>\n${neutralizeData(input.selection)}\n</selection>`,
+    `<after>\n${neutralizeData(input.after)}\n</after>`,
     `Instruction: ${input.instruction}`,
   ].join('\n');
 }

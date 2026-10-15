@@ -31,7 +31,21 @@ export const AI_LIMITS = {
   modelIdChars: 128,
   proposalResults: 200,
   errorChars: 2_000,
+  /** Prompt + history + context of one chat/agent request together (S36.1: bounds a request at ~8 MB). */
+  requestChars: 4_000_000,
 } as const;
+
+/** Total characters a chat/agent request carries. */
+function requestChars(
+  prompt: string,
+  history: readonly AiChatMessage[],
+  context: readonly { readonly text?: string; readonly label?: string }[],
+): number {
+  let total = prompt.length;
+  for (const m of history) total += m.text.length;
+  for (const c of context) total += (c.text?.length ?? 0) + (c.label?.length ?? 0);
+  return total;
+}
 
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const PROPOSAL_ID = /^[\w-]{1,128}$/;
@@ -164,8 +178,9 @@ export function parseAiRequest(payload: unknown): AiRequest | null {
       const history = parseHistory(payload.history);
       const context = parseContext(payload.context);
       if (!history || !context) return null;
-      // Without a project there are no files to re-read.
-      if (projectId === null && context.some((c) => c.text === undefined)) return null;
+      // Without a project there is nothing to consent to, so nothing from a project may be attached (S36.1).
+      if (projectId === null && context.length > 0) return null;
+      if (requestChars(prompt, history, context) > AI_LIMITS.requestChars) return null;
       return {
         kind: 'chat',
         projectId,
@@ -217,6 +232,7 @@ export function parseAiRequest(payload: unknown): AiRequest | null {
       const history = parseHistory(payload.history);
       const context = parseContext(payload.context);
       if (!history || !context) return null;
+      if (requestChars(prompt, history, context) > AI_LIMITS.requestChars) return null;
       return { kind: 'agent', projectId, history, prompt, context, locale };
     }
     default:

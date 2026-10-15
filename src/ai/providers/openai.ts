@@ -5,6 +5,7 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat/completions/completions';
 import type { AiModelInfo } from '../../shared/ipc/ai-contract';
+import { guardedFetch, PROVIDER_ORIGINS, SILENT_LOGGER } from './egress';
 import {
   ProviderError,
   toolInputProblem,
@@ -39,6 +40,26 @@ export interface OpenAiClientLike {
 
 export interface OpenAiProviderOptions {
   readonly client?: OpenAiClientLike;
+  /** For tests: the transport under the egress guard (default: global fetch). */
+  readonly fetch?: typeof fetch;
+}
+
+/**
+ * The real SDK client, with every option the SDK would otherwise take from the environment set explicitly (endpoint,
+ * organization, project, logging) and requests confined to api.openai.com (egress.ts, S36.1).
+ */
+export function createOpenAiClient(apiKey: string, transport?: typeof fetch): OpenAI {
+  return new OpenAI({
+    apiKey,
+    adminAPIKey: null,
+    organization: null,
+    project: null,
+    baseURL: `${PROVIDER_ORIGINS.openai}/v1`,
+    timeout: 10 * 60 * 1000,
+    logLevel: 'off',
+    logger: SILENT_LOGGER,
+    fetch: guardedFetch(PROVIDER_ORIGINS.openai, 'OPENAI_CUSTOM_HEADERS', transport),
+  });
 }
 
 /** Model ids that are not chat models (audio, images, embeddings, moderation…). */
@@ -48,7 +69,7 @@ const CHAT = /^(gpt-|o\d|chatgpt-|codex)/;
 
 export function createOpenAiProvider(apiKey: string, options: OpenAiProviderOptions = {}): AiProvider {
   const client: OpenAiClientLike =
-    options.client ?? (new OpenAI({ apiKey, timeout: 10 * 60 * 1000 }) as unknown as OpenAiClientLike);
+    options.client ?? (createOpenAiClient(apiKey, options.fetch) as unknown as OpenAiClientLike);
 
   return {
     id: 'openai',

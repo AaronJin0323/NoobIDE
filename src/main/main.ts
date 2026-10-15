@@ -378,7 +378,7 @@ function start(): void {
     });
     // --- end S13 ---
     // --- S31: AI assistant (decision 0025). Keys in safeStorage, config/consent in app data, provider calls in main
-    // only; NOOBIDE_AI_FAKE=<script.json> swaps in the scripted fake provider for tests. ---
+    // only; NOOBIDE_AI_FAKE=<script.json> swaps in the scripted fake provider for tests (unpackaged builds only). ---
     const ai = setupAi({
       ipcMain,
       allowedOrigin: devOrigin ?? APP_ORIGIN,
@@ -388,6 +388,8 @@ function start(): void {
       safeStorage: secureStorageFor(safeStorage, platformId()),
       logger,
       log: (level, event, fields) => appLog.write(level, event, fields),
+      // Test-only switches, ignored in a packaged app (aiTestEnv, S36.1).
+      isPackaged: app.isPackaged,
       fakeScript: process.env.NOOBIDE_AI_FAKE,
       fakeAgentScript: process.env.NOOBIDE_AI_FAKE_AGENT,
       problems: problems.capture, // S34: the agent's get_problems tool

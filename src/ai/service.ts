@@ -99,12 +99,21 @@ export const AI_BUDGETS: Readonly<Record<AiPurpose, AiBudget>> = {
   agent: { maxOutputTokens: 32_000, timeoutMs: 15 * 60_000, effort: 'high' },
 };
 
+/**
+ * Agent turns: the loop's own wall-time budget (AI_BUDGETS.agent.timeoutMs) counts working time only, not the wait for
+ * the user's decision on a proposal. This backstop ends a turn whose proposal was never decided (S36.1).
+ */
+export const AGENT_BACKSTOP_MS = 2 * 60 * 60_000;
+
 /** Total characters of project context one request may send (~100k tokens). */
 export const MAX_CONTEXT_CHARS = 400_000;
 
 interface Running {
   readonly owner: number;
   readonly kind: AiPurpose;
+  /** What the request uses, so revoking consent, switching AI off or removing the key stops it (S36.1). */
+  readonly projectId: string | null;
+  readonly provider: AiProviderId;
   readonly controller: AbortController;
   /** The agent run (S34), once started: proposal decisions go to it. */
   agent: AgentRun | null;
@@ -153,6 +162,8 @@ export class AiService {
   }
 
   async clearKey(provider: AiProviderId): Promise<Result<null, AiKeyError>> {
+    // Requests already using the key stop with it (S36.1).
+    for (const run of this.running.values()) if (run.provider === provider) this.abort(run);
     return this.deps.keys.clear(provider);
   }
 
@@ -183,13 +194,20 @@ export class AiService {
     }
   }
 
-  setConfig(config: AiConfig): Promise<AiConfig> {
+  async setConfig(config: AiConfig): Promise<AiConfig> {
     this.log('info', 'ai-config', {
       enabled: config.enabled,
       provider: config.provider ?? 'none',
       inline: config.inlineCompletions,
     });
-    return this.deps.config.set(config);
+    const next = await this.deps.config.set(config);
+    // Switching AI (or inline completions, or the provider) off stops what is running, not just what comes next.
+    for (const run of this.running.values()) {
+      if (!next.enabled || next.provider !== run.provider || (run.kind === 'inline' && !next.inlineCompletions)) {
+        this.abort(run);
+      }
+    }
+    return next;
   }
 
   async setConsent(projectId: string, allowed: boolean): Promise<Result<null, 'unknown-project'>> {
@@ -197,6 +215,12 @@ export class AiService {
     if (root === undefined) return err('unknown-project', 'project is not open');
     await this.deps.consent.set(root, allowed);
     this.log('info', 'ai-consent', { allowed });
+    if (!allowed) {
+      // Revoking stops every running request of that project (an agent turn would otherwise keep reading files).
+      for (const run of this.running.values()) {
+        if (run.projectId !== null && this.deps.rootOf(run.projectId) === root) this.abort(run);
+      }
+    }
     return ok(null);
   }
 
@@ -216,7 +240,8 @@ export class AiService {
     if (request.projectId !== null) {
       const root = this.deps.rootOf(request.projectId);
       if (root === undefined) return err('unknown-project', 'project is not open');
-      const carriesCode = request.kind !== 'chat' || request.context.length > 0;
+      // A chat follow-up carries code too: earlier turns often quote the project's files (S36.1).
+      const carriesCode = request.kind !== 'chat' || request.context.length > 0 || request.history.length > 0;
       if (carriesCode && !(await this.deps.consent.isAllowed(root))) {
         return err('no-consent', 'this project is not allowed to send code yet');
       }
@@ -232,6 +257,8 @@ export class AiService {
     const run: Running = {
       owner,
       kind: request.kind,
+      projectId: request.projectId,
+      provider: providerId,
       controller: new AbortController(),
       agent: null,
       cancelled: false,
@@ -296,10 +323,13 @@ export class AiService {
   ): Promise<void> {
     const started = this.now();
     const budget = this.deps.budgets?.[request.kind] ?? AI_BUDGETS[request.kind];
-    const timer = setTimeout(() => {
-      run.timedOut = true;
-      run.controller.abort();
-    }, budget.timeoutMs);
+    const timer = setTimeout(
+      () => {
+        run.timedOut = true;
+        run.controller.abort();
+      },
+      request.kind === 'agent' ? AGENT_BACKSTOP_MS : budget.timeoutMs,
+    );
     let model = '';
     let usage: ProviderUsage | undefined;
     let code: AiErrorCode | 'ok' = 'ok';
@@ -317,7 +347,13 @@ export class AiService {
         if (!runner) throw new ProviderError('provider-error', 'agent not available');
         const port = this.deps.agentModel?.(providerId, provider, model) ?? toModelPort(provider, model);
         const agentRun = runner(
-          { requestId, request, model: port },
+          {
+            requestId,
+            request,
+            model: port,
+            // The loop enforces the turn's working time (excluding waits for the user) and output per step.
+            budgets: { maxWallTimeMs: budget.timeoutMs, maxOutputTokensPerStep: budget.maxOutputTokens },
+          },
           (event) => {
             // The runner emits exactly one terminal event itself; the service only records it for the log.
             if (event.type === 'done' && event.usage) usage = event.usage;
