@@ -45,6 +45,9 @@ green incl. make + inspect-arch (artifact noobide-macos-arm64)**; Windows verify
 - Memory: real usage is ~205–270 MB private footprint (working-set sums double-count shared framework pages); idle
   GPU 175 → 45 MB by resting Monaco's caret after 10 s (`caret-rest.ts`). `scripts/measure-memory.mjs`, decision
   0024, docs/perf/memory.md. S27.3 evidence could point at the new numbers (not changed).
+- Owner-reported 404 (after the wave): a project whose page was saved as `html/home` (no `.html`) previewed as a bare 404. 3fa343d: no index.html → preview opens the first page (`defaultEntryPath`), picker shows it. New **S14.7**
+  (done, 2335e7a): no page at all → the stage explains it (zh-CN + en) and offers "rename to … .html" for files that
+  start like HTML (`src/preview/misnamed-pages.ts`); renames only on click, via the Files panel path.
 - Lead: consent text named the wrong button (启动预览 → 开始预览); removed stale `files.emptyHint`.
 
 **Evidence:** `npm run verify` green (1679 tests). Full `npm run test:e2e` on macOS: 217 passed / 2 skipped after the
