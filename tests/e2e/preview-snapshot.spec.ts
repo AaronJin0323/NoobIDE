@@ -240,7 +240,14 @@ test('200 000 elements before the first item: the visit limit ends the walk with
 
 test('a busy page gives "not available" within the budget; an unresponsive one at once (S38.1)', async () => {
   await showPage('忙碌.html');
-  await page.waitForTimeout(800); // its 8-second loop has started
+  // Its 8-second loop has started (it logs just before; a fixed wait raced a slow load on the Windows runner).
+  await expect
+    .poll(async () => {
+      const info = (await previewInfo(app)) as unknown as { recentRecords: { message: string }[] };
+      return info.recentRecords.some((r) => r.message === '忙碌开始');
+    })
+    .toBe(true);
+  await page.waitForTimeout(100);
   const started = Date.now();
   const busy = await snapshot();
   const elapsed = Date.now() - started;

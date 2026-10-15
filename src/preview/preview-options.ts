@@ -48,8 +48,10 @@ export const DISABLED_CHROMIUM_FEATURES = 'IsolateSandboxedIframes';
  * (Windows: Idle priority class; macOS: background QoS). A new preview view gets its page guard (decision 0016) while
  * it is not yet in the window, so its renderer started backgrounded; with the CPU busy it got almost no CPU and the
  * guard's DevTools commands went unanswered for 45 s (macOS CI runner, 3 cores), leaving the page unguarded. With the
- * switch every renderer keeps the priority it was launched with. Page visibility (document.hidden) and timer
- * throttling of a hidden preview are unchanged; only the process priority is.
+ * switch every renderer keeps the priority it was launched with. Page visibility (document.hidden), rAF and timer
+ * throttling of a hidden preview are unchanged. Also not lowered for a hidden or minimised IDE: Chromium's renderer
+ * "backgrounded" mode (V8 memory-saving GC, background memory purge, Windows memory priority) — a small cost for one
+ * workbench and one preview. A hidden preview in an endless loop competes at normal priority, as a visible one does.
  */
 export const CHROMIUM_SWITCHES = ['disable-renderer-backgrounding'] as const;
 

@@ -9,6 +9,7 @@
     <script>
       // S38.1 hostile page: loads normally, then its main thread is busy for 8 seconds.
       setTimeout(() => {
+        console.log('忙碌开始'); // the e2e waits for this instead of guessing when the loop starts
         const end = Date.now() + 8000;
         while (Date.now() < end) {}
       }, 300);

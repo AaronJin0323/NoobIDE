@@ -1471,7 +1471,10 @@ export interface GuardTrace {
   firstDocumentMs: number | null;
   firstDocumentAttempts: number;
   commandsMs: number | null;
-  /** When Page.enable, Page.addScriptToEvaluateOnNewDocument and Target.setAutoAttach answered (ms after the first). */
+  /**
+   * When Page.enable, Page.addScriptToEvaluateOnNewDocument and Target.setAutoAttach answered (ms after the first
+   * was sent). Answers after a commands-timeout are still added, so they can be later than commandsMs.
+   */
   commandAnswersMs: number[];
   outcome: 'pending' | 'installed' | 'no-first-document' | 'commands-failed' | 'commands-timeout' | 'not-wanted';
 }
