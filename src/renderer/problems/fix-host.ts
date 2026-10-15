@@ -17,7 +17,6 @@ import type { ApplyOutcome, FixHost, UndoOutcome } from './useProblemFix';
 export interface FixSaver {
   readonly text: string;
   readonly state: SaveSnapshot;
-  edit(text: string): void;
   save(): Promise<boolean>;
 }
 
@@ -32,6 +31,11 @@ export interface FixHostDeps {
   /** Opens the file in a tab (or shows its tab) and resolves with it once it is in the workbench state. */
   showFile(relPath: string): Promise<{ readonly uri: string; readonly readOnly: boolean } | null>;
   saverOf(relPath: string): FixSaver | undefined;
+  /**
+   * Records an edit of an open file like a typed one: save pipeline, recovery journal, disk-notice dismissal. Needed
+   * because the editor reports changes only for the model it shows — a fix in a background tab is not seen by it.
+   */
+  recordEdit(relPath: string, text: string): void;
   uriOf(relPath: string): string | undefined;
   savedFiles: Pick<SavedFileEvents, 'subscribe'>;
   editor?: () => Promise<FixEditor>;
@@ -52,9 +56,13 @@ const saveErrorOf = (saver: FixSaver): string =>
 
 export function createFixHost(deps: FixHostDeps): FixHost {
   const editor = deps.editor ?? defaultEditor;
-  /** Hands the model's new text to the save pipeline and saves; the editor's change listener may already have. */
-  const save = async (saver: FixSaver, text: string): Promise<boolean> => {
-    if (saver.text !== text) saver.edit(text);
+  /**
+   * Records the model's new text (unless the editor's change listener already did, for the file it shows) and saves
+   * it through the file's own pipeline. False when the tab's saver is no longer `saver` (closed, project reopened).
+   */
+  const save = async (relPath: string, saver: FixSaver, text: string): Promise<boolean> => {
+    if (deps.saverOf(relPath) !== saver) return false;
+    if (saver.text !== text) deps.recordEdit(relPath, text);
     return saver.save();
   };
   return {
@@ -66,9 +74,12 @@ export function createFixHost(deps: FixHostDeps): FixHost {
       if (tab.readOnly) return { kind: 'not-applied', reason: 'read-only' };
       const ed = await editor();
       if (!(await ed.waitForModel(tab.uri))) return { kind: 'not-applied', reason: 'not-open' };
+      // Every await above may have let the tab close or the project change: the edit goes only into the same buffer.
+      if (deps.saverOf(file) !== saver || deps.uriOf(file) !== tab.uri)
+        return { kind: 'not-applied', reason: 'not-open' };
       const result = ed.replaceSpan(tab.uri, action.span, action.from, action.to);
       if (!result.ok) return { kind: 'not-applied', reason: result.reason === 'changed' ? 'changed' : 'not-open' };
-      if (await save(saver, result.text)) return { kind: 'applied', version: result.version };
+      if (await save(file, saver, result.text)) return { kind: 'applied', version: result.version };
       return { kind: 'save-failed', version: result.version, code: saveErrorOf(saver) };
     },
     async undo(fix: FixState): Promise<UndoOutcome> {
@@ -76,9 +87,13 @@ export function createFixHost(deps: FixHostDeps): FixHost {
       const uri = deps.uriOf(span.file);
       const saver = deps.saverOf(span.file);
       if (!uri || !saver || fix.version === undefined) return { kind: 'changed' };
-      const result = (await editor()).undoSpan(uri, span, from, to, fix.version);
+      const ed = await editor();
+      if (deps.saverOf(span.file) !== saver || deps.uriOf(span.file) !== uri) return { kind: 'changed' };
+      const result = ed.undoSpan(uri, span, from, to, fix.version);
       if (!result.ok) return { kind: 'changed' };
-      return (await save(saver, result.text)) ? { kind: 'undone' } : { kind: 'save-failed', code: saveErrorOf(saver) };
+      return (await save(span.file, saver, result.text))
+        ? { kind: 'undone' }
+        : { kind: 'save-failed', code: saveErrorOf(saver) };
     },
     async retrySave(relPath) {
       const saver = deps.saverOf(relPath);
