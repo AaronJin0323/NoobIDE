@@ -8,6 +8,7 @@ import type {
   BetaTool,
 } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import type { AiModelInfo } from '../../shared/ipc/ai-contract';
+import { guardedFetch, PROVIDER_ORIGINS, SILENT_LOGGER } from './egress';
 import {
   ProviderError,
   toolInputProblem,
@@ -58,12 +59,30 @@ export interface AnthropicClientLike {
 export interface AnthropicProviderOptions {
   /** For tests: an SDK-shaped fake. Production builds the real client from the key. */
   readonly client?: AnthropicClientLike;
+  /** For tests: the transport under the egress guard (default: global fetch). */
+  readonly fetch?: typeof fetch;
+}
+
+/**
+ * The real SDK client, with every option the SDK would otherwise take from the environment set explicitly (endpoint,
+ * auth token, logging) and requests confined to api.anthropic.com (egress.ts, S36.1).
+ */
+export function createAnthropicClient(apiKey: string, transport?: typeof fetch): Anthropic {
+  return new Anthropic({
+    apiKey,
+    authToken: null,
+    baseURL: PROVIDER_ORIGINS.anthropic,
+    timeout: 10 * 60 * 1000,
+    logLevel: 'off',
+    logger: SILENT_LOGGER,
+    fetch: guardedFetch(PROVIDER_ORIGINS.anthropic, 'ANTHROPIC_CUSTOM_HEADERS', transport),
+  });
 }
 
 export function createAnthropicProvider(apiKey: string, options: AnthropicProviderOptions = {}): AiProvider {
   // maxRetries: the SDK retries 408/409/429/5xx and connection errors twice by default; keep that.
   const client: AnthropicClientLike =
-    options.client ?? (new Anthropic({ apiKey, timeout: 10 * 60 * 1000 }) as unknown as AnthropicClientLike);
+    options.client ?? (createAnthropicClient(apiKey, options.fetch) as unknown as AnthropicClientLike);
 
   return {
     id: 'anthropic',

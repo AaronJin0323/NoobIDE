@@ -38,10 +38,41 @@ export interface AiMainOptions {
   readonly safeStorage: KeyEncryptor;
   readonly logger: RecoveryLogger;
   readonly log: AiLog;
+  /**
+   * `app.isPackaged`. A packaged app never runs the fake provider or the test encryptor, whatever `fakeScript` says
+   * (S36.1 security review): see {@link aiTestEnv}.
+   */
+  readonly isPackaged: boolean;
   /** process.env.NOOBIDE_AI_FAKE: '1' (built-in scenarios), a script as inline JSON, or a script file's path. */
   readonly fakeScript?: string | undefined;
   /** NOOBIDE_AI_FAKE_AGENT: the agent script the fake plays (src/ai/agent/fake-scripts.ts). */
   readonly fakeAgentScript?: string | undefined;
+}
+
+export interface AiTestEnv {
+  readonly fakeScript: string | undefined;
+  readonly fakeAgentScript: string | undefined;
+  /** The variables were set but ignored because the app is packaged. */
+  readonly ignored: boolean;
+}
+
+/**
+ * The test-only AI switches from the environment (S36.1 security review, decision 0025). `NOOBIDE_AI_FAKE` /
+ * `NOOBIDE_AI_FAKE_AGENT` replace the real providers with scripted ones and the OS keychain with a reversible test
+ * encryptor, so they are honoured only in an unpackaged build (`npm start`, unit/integration tests and the Playwright
+ * e2e suite, which launches .vite/build with the Electron binary). A packaged app ignores them: a user-level
+ * environment variable must never make NoobIDE store a real key reversibly or answer with canned output.
+ */
+export function aiTestEnv(input: {
+  readonly isPackaged: boolean;
+  readonly env: Readonly<Record<string, string | undefined>>;
+}): AiTestEnv {
+  const fakeScript = input.env.NOOBIDE_AI_FAKE || undefined;
+  const fakeAgentScript = input.env.NOOBIDE_AI_FAKE_AGENT || undefined;
+  if (input.isPackaged) {
+    return { fakeScript: undefined, fakeAgentScript: undefined, ignored: Boolean(fakeScript ?? fakeAgentScript) };
+  }
+  return { fakeScript, fakeAgentScript, ignored: false };
 }
 
 export interface AiMain {
@@ -53,18 +84,25 @@ export interface AiMain {
 /** Synchronous, so the handlers exist before the first window loads. */
 export function setupAi(options: AiMainOptions): AiMain {
   let fake: FakeProviderHub | null = null;
-  if (options.fakeScript) {
+  const {
+    fakeScript,
+    fakeAgentScript: fakeAgentScriptName,
+    ignored,
+  } = aiTestEnv({
+    isPackaged: options.isPackaged,
+    env: { NOOBIDE_AI_FAKE: options.fakeScript, NOOBIDE_AI_FAKE_AGENT: options.fakeAgentScript },
+  });
+  if (ignored) options.log('warn', 'ai-fake-ignored', { packaged: true });
+  if (fakeScript) {
     try {
       fake = createFakeProviders(
-        options.fakeScript === '1'
+        fakeScript === '1'
           ? BUILTIN_FAKE_SCRIPT
           : withBuiltin(
               parseFakeScript(
                 JSON.parse(
                   // Inline JSON (e2e specs pass the script itself) or the path of a script file.
-                  options.fakeScript.trimStart().startsWith('{')
-                    ? options.fakeScript
-                    : readFileSync(options.fakeScript, 'utf8'),
+                  fakeScript.trimStart().startsWith('{') ? fakeScript : readFileSync(fakeScript, 'utf8'),
                 ) as unknown,
               ),
             ),
@@ -97,7 +135,7 @@ export function setupAi(options: AiMainOptions): AiMain {
         }),
     }),
     // Fake mode: agent requests play a scripted agent (one ScriptedModel per request).
-    ...(fake ? { agentModel: () => new ScriptedModel(fakeAgentScript(options.fakeAgentScript)) } : {}),
+    ...(fake ? { agentModel: () => new ScriptedModel(fakeAgentScript(fakeAgentScriptName)) } : {}),
     log: options.log,
   });
   registerAiIpcHandlers(options.ipcMain, { allowedOrigin: options.allowedOrigin, service });
