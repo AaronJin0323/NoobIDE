@@ -135,7 +135,7 @@
     {
       "id": "M11",
       "title": "Liquid Glass design language (owner request 2026-10-15)",
-      "plan_refs": "docs/product/liquid-glass-study.md; docs/decisions/0027-liquid-glass-design-language.md; PLAN §3, §9",
+      "plan_refs": "docs/product/liquid-glass-study.md; docs/decisions/0029-liquid-glass-design-language.md; PLAN §3, §9",
       "exit_criteria": [
         "The workbench, its dialogs and the AI surfaces follow one documented design language derived from Apple's Liquid Glass guidance: glass only on the floating control layer, solid content, concentric shapes, spring motion",
         "Every translucent layer has a solid twin used for reduced transparency, increased contrast and forced colours; reduced motion replaces movement with a dissolve; contrast is checked in both themes",
@@ -567,7 +567,7 @@
         "S30",
         "S24"
       ],
-      "plan_refs": "docs/product/liquid-glass-study.md; docs/decisions/0027-liquid-glass-design-language.md; docs/reviews/interface-assessment-2026-10-14.md"
+      "plan_refs": "docs/product/liquid-glass-study.md; docs/decisions/0029-liquid-glass-design-language.md; docs/reviews/interface-assessment-2026-10-14.md"
     }
   ],
   "features": [
@@ -3190,12 +3190,12 @@
       "description": "",
       "acceptance": [
         "docs/product/liquid-glass-study.md summarises, in our own words with linked Apple sources, what each principle (materials, layering, concentricity, scroll edges, toolbars, sidebars, sheets/popovers/alerts, menus and commands, control styles, text input, animation, accessibility, colour and type) means for NoobIDE on Windows x64 and macOS arm64, including what is adopted, adapted and rejected",
-        "The study contains a concrete phased plan mapped to S40 features and lists later candidates; docs/decisions/0027 records the design direction, alternatives and how it is verified"
+        "The study contains a concrete phased plan mapped to S40 features and lists later candidates; docs/decisions/0029 records the design direction, alternatives and how it is verified"
       ],
       "verify": "agent-check",
       "depends_on": [],
       "status": "done",
-      "evidence": "docs/product/liquid-glass-study.md (13 principle areas paraphrased with linked developer.apple.com HIG/SwiftUI/WWDC25 sources, adopt/adapt/reject per area, architecture+perf, phased plan S40.1–S40.8, later candidates) + docs/decisions/0027-liquid-glass-design-language.md; checked against both criteria by the lead"
+      "evidence": "docs/product/liquid-glass-study.md (13 principle areas paraphrased with linked developer.apple.com HIG/SwiftUI/WWDC25 sources, adopt/adapt/reject per area, architecture+perf, phased plan S40.1–S40.8, later candidates) + docs/decisions/0029-liquid-glass-design-language.md; checked against both criteria by the lead"
     },
     {
       "id": "S40.2",

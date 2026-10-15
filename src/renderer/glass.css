@@ -1,5 +1,5 @@
 /*
- * S40 Liquid Glass layer (docs/decisions/0027-liquid-glass-design-language.md, study in
+ * S40 Liquid Glass layer (docs/decisions/0029-liquid-glass-design-language.md, study in
  * docs/product/liquid-glass-study.md). Loaded after styles.css and refines it; colours still come only from the
  * token custom properties ThemeProvider writes (tokens.ts THEMES + GLASS).
  *

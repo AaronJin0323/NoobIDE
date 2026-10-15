@@ -1,6 +1,6 @@
 # Liquid Glass design study
 
-S40.1 · Owner request 2026-10-15 · Decision: [0027](../decisions/0027-liquid-glass-design-language.md) · Builds on
+S40.1 · Owner request 2026-10-15 · Decision: [0029](../decisions/0029-liquid-glass-design-language.md) · Builds on
 the [interface assessment](../reviews/interface-assessment-2026-10-14.md) and the S30 token system.
 
 ## Purpose and boundary
@@ -54,7 +54,7 @@ material means more contrast; thinner means more context shows through. Sources:
 Sources: [HIG materials](https://developer.apple.com/design/human-interface-guidelines/materials),
 [HIG layout](https://developer.apple.com/design/human-interface-guidelines/layout), WWDC 219.
 
-**NoobIDE:** adopted as rule 1 of decision 0027. Code, the page result, the file tree's rows, problem cards and chat
+**NoobIDE:** adopted as rule 1 of decision 0029. Code, the page result, the file tree's rows, problem cards and chat
 messages stay on `--panel` / `--raised`. Panels lose their hard borders and get a hairline plus a soft shadow instead,
 which also answers the assessment's "boxing every group" finding.
 
@@ -245,7 +245,7 @@ font fallbacks); sheet titles go to 17 px with slight negative tracking. No new 
 
 | Phase | Feature | Verify                  | Content                                                                                                                                                                                                               |
 | ----- | ------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | S40.1   | agent-check             | This study, decision 0027 and the plan.                                                                                                                                                                               |
+| 0     | S40.1   | agent-check             | This study, decision 0029 and the plan.                                                                                                                                                                               |
 | 1     | S40.2   | auto                    | `GLASS` tokens + solid twins in `tokens.ts`, `composite()` and the `GLASS_BACKDROPS` contrast test; `glass.css` materials, ambient background, solid switching for reduced transparency, contrast and forced colours. |
 | 2     | S40.3   | auto                    | Button styles mapped from SwiftUI, toolbar groups in `TopBar.tsx`, floating rail capsule, segmented control, filled text fields with focus glow and worded errors, concentric radius tokens.                          |
 | 2     | S40.4   | auto                    | `--ease-snappy` / `--ease-smooth` springs, duration tokens ≤ 340 ms, `glass-pop` / `glass-rise` / `glass-fade`, reduce-motion dissolve and no press scaling.                                                          |

@@ -1,4 +1,4 @@
-# 0027 — Liquid Glass design language
+# 0029 — Liquid Glass design language
 
 - **Status:** accepted
 - **Date:** 2026-10-15

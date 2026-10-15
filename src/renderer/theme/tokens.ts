@@ -104,7 +104,7 @@ export const THEMES: Record<ColorScheme, ThemeTokens> = {
 };
 
 /**
- * S40.2 Liquid Glass materials (docs/decisions/0027-liquid-glass-design-language.md). Translucent `#RRGGBBAA`
+ * S40.2 Liquid Glass materials (docs/decisions/0029-liquid-glass-design-language.md). Translucent `#RRGGBBAA`
  * colours for the floating control layer only — content (code, preview, file names) always sits on the solid
  * tokens above. Every translucent fill has a solid twin used when the system asks for reduced transparency or
  * higher contrast, and tokens.test.ts checks text on the fill composited over every surface it can float over.

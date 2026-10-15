@@ -16,7 +16,7 @@ accessibility). New milestone M11, session S40 (8 features).
 **Done**
 
 - S40.1 — `docs/product/liquid-glass-study.md` (13 principle areas in our own words with Apple links, adopt/adapt/
-  reject for Electron on Windows + macOS, plan, later candidates) and decision 0027. Research notes also in the shared
+  reject for Electron on Windows + macOS, plan, later candidates) and decision 0029. Research notes also in the shared
   notes folder (`s40-apple-research.md`).
 - S40.2 — glass materials in `tokens.ts` (`GLASS`, `composite()`, contrast test of text on each fill over every surface
   it can float over, plus solid twins). `src/renderer/glass.css` (loaded after styles.css): chrome is translucent with
@@ -44,7 +44,7 @@ commands, ai-settings, ai-chat, file-tree, glass, glass-visual) green after the 
 Reviewer findings fixed: menu/palette focus visible in forced colours, scroll-edge fade hiding keyboard focus,
 theme-switch attribute could stick, clicking the sheet lost keyboard focus, English plural.
 
-**Decisions:** 0027 — glass only on the floating control layer; blur only on transient overlays; a solid twin for
+**Decisions:** 0029 — glass only on the floating control layer; blur only on transient overlays; a solid twin for
 every translucent token; concentric shapes + spring motion tokens; the palette derived from the command registry.
 `shell.spec` control list gains `open-palette` (a new working control, not a weakened check).
 
