@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
@@ -88,12 +88,42 @@ async function drag(testId: string, dx: number) {
 }
 
 async function startPreview() {
-  // S14.4: a trusted project starts by itself (after a restart); otherwise the user presses Start once.
+  // S14.4: opening a project always tries an automatic start; main runs it for a trusted project (after a restart),
+  // otherwise the stage asks for consent. Wait for that decision instead of guessing with a fixed delay: under load
+  // the automatic start could begin after the guess, and the Start button then vanished under the click.
   const state = page.getByTestId('preview-state');
-  await expect.poll(() => state.getAttribute('data-state'), { timeout: 20_000 }).toMatch(/stopped|starting|running/);
-  await page.waitForTimeout(300);
-  if ((await state.getAttribute('data-state')) === 'stopped') await page.getByTestId('preview-start').first().click();
+  const consent = page.getByTestId('preview-consent');
+  await expect
+    .poll(async () => ((await consent.count()) > 0 ? 'consent' : await state.getAttribute('data-state')), {
+      timeout: 20_000,
+    })
+    .toMatch(/^(consent|starting|running)$/);
+  if ((await consent.count()) > 0) await page.getByTestId('preview-consent-start').click();
   await waitForPreviewState(page, 'running');
+}
+
+/**
+ * The layout the app wrote to app data (S13.4 session.json, 300 ms after the last change), as the dividers show it.
+ * Waiting for the file replaces a fixed delay before quitting, which lost the write when the machine was busy.
+ */
+async function expectLayoutSaved(expected: { filesWidth: string | null; share: string | null; filesOpen: boolean }) {
+  await expect
+    .poll(async () => {
+      try {
+        const { layout } = JSON.parse(await readFile(path.join(userData, 'session.json'), 'utf8')) as {
+          layout: { filesWidth: number; editorShare: number; filesOpen: boolean } | null;
+        };
+        if (!layout) return null;
+        return {
+          filesWidth: String(layout.filesWidth),
+          share: String(Math.round(layout.editorShare * 100)),
+          filesOpen: layout.filesOpen,
+        };
+      } catch {
+        return null; // not written yet (or replaced at this instant: the write is atomic)
+      }
+    })
+    .toEqual(expected);
 }
 
 test.beforeAll(async () => {
@@ -142,7 +172,7 @@ test('S15.1: dividers drag with the mouse, the view follows, sizes and the colla
   await expect(page.getByTestId('splitter-files')).toHaveCount(0);
   await expectViewOverStage();
 
-  await page.waitForTimeout(800); // the layout is written 300 ms after the last change
+  await expectLayoutSaved({ filesWidth, share, filesOpen: false });
   await stop();
 
   await start();
@@ -338,8 +368,12 @@ test('S15.6: keyboard focus goes into the page with Enter and comes back with F6
   await page.getByTestId('preview-start').click();
   await waitForPreviewState(page, 'running');
   await workbenchKeepsFocus();
+  const generation = Number(await page.getByTestId('preview-state').getAttribute('data-generation'));
   await page.getByTestId('preview-reload').click();
-  await page.waitForTimeout(300);
+  // The reload is a new generation (refreshing → running); waiting for it replaces a fixed 300 ms delay.
+  await expect
+    .poll(async () => Number(await page.getByTestId('preview-state').getAttribute('data-generation')))
+    .toBeGreaterThan(generation);
   await waitForPreviewState(page, 'running');
   await workbenchKeepsFocus();
   // Showing the view again after an overlay closes does not take the focus either.
@@ -472,7 +506,7 @@ for (const factor of [1.5, 2]) {
     const filesWidth = await page.getByTestId('splitter-files').getAttribute('aria-valuenow');
     const share = await page.getByTestId('splitter-editor').getAttribute('aria-valuenow');
     const filesPx = (await box('region-files')).width;
-    await page.waitForTimeout(800);
+    await expectLayoutSaved({ filesWidth, share, filesOpen: true });
     await stop();
 
     await start([`--force-device-scale-factor=${factor}`]);
