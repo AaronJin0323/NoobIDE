@@ -243,6 +243,7 @@ export class PreviewManager {
       const view = { generation, proxy, partition, webPreferences, entryPath };
       return await this.attachView(projectId, window, owner, server, view);
     } catch (e) {
+      const current = generation === this.generation; // a Stop/Start meanwhile owns the status
       // S14.6: nothing may keep listening without a view (e.g. the window went away mid-start).
       if (this.live?.projectId === projectId) await this.stop({ announce: false });
       else {
@@ -251,7 +252,9 @@ export class PreviewManager {
       }
       if (this.startingOwner === owner) this.startingOwner = null;
       this.startingWindow = null;
-      if (!window.isDestroyed()) this.apply(window, projectId, { type: 'server-failed' });
+      if (!window.isDestroyed() && current) {
+        this.apply(window, projectId, { type: 'server-failed' });
+      }
       return err('server-failed', e instanceof Error ? e.message : 'preview view failed', e);
     }
   }
@@ -271,12 +274,18 @@ export class PreviewManager {
   ): Promise<Result<PreviewStatus, PreviewStartError>> {
     const { proxy, partition, webPreferences, entryPath } = options;
     const view = new WebContentsView({ webPreferences });
-    view.setBackgroundColor('#ffffff');
-    // No UDP outside the proxy: WebRTC cannot reach local or LAN addresses directly.
-    view.webContents.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
-    // S05.7: the console rate limit must be in place before the first page script runs.
     const guardNonce = randomBytes(8).toString('hex');
-    const pageGuarded = await installPageGuard(view.webContents, { source: pageGuardSource(guardNonce) });
+    let pageGuarded: boolean;
+    try {
+      view.setBackgroundColor('#ffffff');
+      // No UDP outside the proxy: WebRTC cannot reach local or LAN addresses directly.
+      view.webContents.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
+      // S05.7: the console rate limit must be in place before the first page script runs.
+      pageGuarded = await installPageGuard(view.webContents, { source: pageGuardSource(guardNonce) });
+    } catch (e) {
+      if (!view.webContents.isDestroyed()) view.webContents.close(); // no orphaned renderer
+      throw e;
+    }
     if (options.generation !== this.generation || window.isDestroyed()) {
       view.webContents.close();
       await proxy.close();
