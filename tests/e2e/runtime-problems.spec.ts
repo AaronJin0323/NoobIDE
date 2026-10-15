@@ -229,10 +229,11 @@ test('a flood of console errors is rate limited and capped; repeats collapse wit
     `error flood: ${consoleRecords.length} console records kept, dropped ${JSON.stringify(stats.dropped)}, ` +
       `evicted ${JSON.stringify(stats.evicted)}`,
   );
-  // 3000 different messages: only a burst plus a steady rate become records; the rest are counted as dropped.
-  expect(consoleRecords.length).toBeLessThan(1000);
+  // 3000 different messages: only a burst plus a steady rate become records, the rest are counted as dropped; over
+  // the ~23 s the flood now takes, the per-source ring buffer (capacity 1000) also evicts the oldest, counted too.
+  expect(consoleRecords.length).toBeLessThanOrEqual(1000);
   expect(stats.dropped.console).toBeGreaterThan(0);
-  expect(consoleRecords.length + stats.dropped.console).toBeLessThanOrEqual(3001);
+  expect(consoleRecords.length + stats.dropped.console + stats.evicted.console).toBeLessThanOrEqual(3001);
   // The repeated message is one record with a count, its first original and its latest repeat verbatim.
   const repeated = consoleRecords.filter((r) => r.originalMessage === '同一个错误');
   expect(repeated).toHaveLength(1);
