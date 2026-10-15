@@ -912,7 +912,7 @@
         "S05.1"
       ],
       "status": "done",
-      "evidence": "Criterion proven with the S05.7 in-page limiter: e2e flood: 20/20 keystrokes <=1 ms latency, longest main stall 11-23 ms (<200), workbench lag <=9 ms, <=200 lines + 'N messages dropped' (limiter summaries counted as dropped); macOS arm64 M3 Pro @ 5ba4155"
+      "evidence": "Criterion proven with the S05.7 limiter (decision 0016 second amendment): e2e flood fixture 20/20 keystrokes <=1 ms latency, longest main stall 2-17 ms (normal / 12 cores busy), workbench lag <=8 ms, <=200 lines + 'N messages dropped'; no page reference bypasses the limit (bypass/churn cases <200 ms also with +0.6 ms/message main cost); macOS arm64 M3 Pro @ 88e8dc5"
     },
     {
       "id": "S05.4",
@@ -974,7 +974,7 @@
         "S05.3"
       ],
       "status": "done",
-      "evidence": "In-page getter-based console limit (1000/s per document) installed over CDP into documents, OOPIFs and dedicated workers (src/preview/page-guard.ts, installPageGuard); decision 0016 (DevTools coexistence, page observability, residual: cached native reference ~2 s stall). e2e flood fixture 预览 日志洪水: longest main-thread stall 11-23 ms (was 8-9 s), worker flood 16-22 ms; flood records keep index.html line 18; S05.4 records unchanged (errors.js:1/:3); M3 Pro macOS 27.2 @ 5ba4155"
+      "evidence": "Decision 0016 second amendment: no native console method reachable by a page, iframe, worker or worklet (page-guard.ts limiter functions; call stubs at the caller's sourceURL/line keep file:line — S05.4 e2e errors.js:1/:3, js/console.js:3-7 for saved ref/forEach/call/bind/alert, flood index.html:18). One budget per page (top document's ledger, empty-start 1/N shares for cross-origin frames, workers 20/50 with <=8 starts/s and <=8 running), errors/reportError/rejections/vibrate limited, paint+audio worklets removed, IsolateSandboxedIframes off, child targets fail closed; terminate backstop kept. e2e preview-isolation.spec.ts on M3 Pro macOS 27.2: bypass and churn cases (saved ref, descriptor/call/apply/bind, context/prototype, iframe, sandboxed iframe, worker, nested worker, 200 iframes, iframe/worker churn, 20 workers, reportError) all finish with <=~400 messages to main (workers <=760), longest main stall 1-50 ms normal, 10-39 ms with 12 cores busy, 2-92 ms with +0.6 ms/message simulated slow main (all <200 asserted). Three adversarial review rounds, findings fixed. verify green; full test:e2e 240 passed, language/upgrade timeouts passed when rerun alone @ 88e8dc5"
     },
     {
       "id": "S06.1",
