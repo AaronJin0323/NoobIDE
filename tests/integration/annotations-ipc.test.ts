@@ -208,7 +208,7 @@ describe('annotations IPC (S41.4)', () => {
     );
     expect(updated.note).toBe('b');
     value(await call(ANNOTATION_CHANNELS.highlight, workbench, { projectId: PROJECT, id: saved.id }));
-    expect(preview.annotationHighlight).toHaveBeenCalledWith(PROJECT, TARGET.path);
+    expect(preview.annotationHighlight).toHaveBeenCalledWith(PROJECT, { path: TARGET.path, pagePath: '' });
     value(await call(ANNOTATION_CHANNELS.remove, workbench, { projectId: PROJECT, id: saved.id }));
     expect(await call(ANNOTATION_CHANNELS.remove, workbench, { projectId: PROJECT, id: saved.id })).toMatchObject({
       code: 'not-found',

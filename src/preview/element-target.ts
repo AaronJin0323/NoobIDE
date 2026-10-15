@@ -131,19 +131,23 @@ export function describeFunction(): string {
   const rules = [];
   const styleEls = Array.prototype.slice.call(document.querySelectorAll('style'));
   let looked = 0;
-  const visitRules = (list, sheetRef, counts) => {
+  // Every rule is counted (its occurrence must agree with the file, where @media blocks are searched too); only
+  // rules of blocks that apply now are matched.
+  const visitRules = (list, sheetRef, counts, active) => {
     for (const rule of list) {
       if (rules.length >= L.rules || (looked += 1) > ${TARGET_SCRIPT_LIMITS.rules} || performance.now() - started > L.budgetMs) return;
       if (rule.selectorText !== undefined && rule.style) {
         const sel = String(rule.selectorText);
         counts[sel] = (counts[sel] || 0) + 1;
         let hit = false;
-        try { hit = el.matches(sel); } catch { hit = false; }
+        if (active) {
+          try { hit = el.matches(sel); } catch { hit = false; }
+        }
         if (hit && sel.length <= L.ruleSelectorChars) rules.push({ ...sheetRef, selector: sel, occurrence: counts[sel] });
-        if (rule.cssRules && rule.cssRules.length) visitRules(rule.cssRules, sheetRef, counts);
+        if (rule.cssRules && rule.cssRules.length) visitRules(rule.cssRules, sheetRef, counts, active);
       } else if (rule.cssRules) {
-        if (rule.media && rule.media.mediaText && !matchMedia(rule.media.mediaText).matches) continue;
-        visitRules(rule.cssRules, sheetRef, counts);
+        const applies = !(rule.media && rule.media.mediaText && !matchMedia(rule.media.mediaText).matches);
+        visitRules(rule.cssRules, sheetRef, counts, active && applies);
       }
     }
   };
@@ -156,7 +160,7 @@ export function describeFunction(): string {
       ? { styleIndex: styleEls.indexOf(owner) }
       : sheet.href ? { href: String(sheet.href) } : null;
     if (!ref || ref.styleIndex === -1) continue;
-    visitRules(list, ref, {});
+    visitRules(list, ref, {}, true);
   }
   const classes = Array.prototype.slice.call(el.classList, 0, L.classes).map((c) => String(c).slice(0, L.classChars));
   const id = el.getAttribute('id');
@@ -288,19 +292,15 @@ export function parseTarget(
   if (!isRecord(value) || typeof value.tag !== 'string' || !TAG.test(value.tag)) return null;
   const path = parsePath(value.path);
   if (!path) return null;
-  const ancestry = Array.isArray(value.ancestry)
-    ? value.ancestry
-        .slice(0, ANNOTATION_LIMITS.pathDepth)
-        .filter(
-          (s): s is { tag: string; nth: number } =>
-            isRecord(s) &&
-            typeof s.tag === 'string' &&
-            TAG.test(s.tag) &&
-            Number.isInteger(s.nth) &&
-            (s.nth as number) >= 1,
-        ) // prettier-ignore
-        .map((s) => ({ tag: s.tag, nth: s.nth }))
-    : [];
+  // One step that does not fit (a custom tag like <my_widget>, SVG's foreignObject) makes the whole ancestry unusable:
+  // a shorter chain could lead to another element. Without it the source is matched approximately (id, classes).
+  const steps = Array.isArray(value.ancestry) ? value.ancestry : [];
+  const validStep = (s: unknown): s is { tag: string; nth: number } =>
+    isRecord(s) && typeof s.tag === 'string' && TAG.test(s.tag) && Number.isInteger(s.nth) && (s.nth as number) >= 1;
+  const ancestry =
+    steps.length <= ANNOTATION_LIMITS.pathDepth && steps.every(validStep)
+      ? steps.map((s) => ({ tag: s.tag, nth: s.nth }))
+      : [];
   const classes = Array.isArray(value.classes)
     ? value.classes
         .filter((c): c is string => typeof c === 'string' && c.length > 0)

@@ -142,12 +142,20 @@ test('picking with the mouse: the page does not get the click, isolation is unch
     classes: ['cta'],
     text: '发送',
     selector: 'button#send',
-    rules: [{ sheet: { kind: 'file', path: '样式 表.css' }, selector: '.cta', occurrence: 1 }],
+    // The .cta rule inside a narrow-screen @media block does not apply (not listed) but is counted, so the second
+    // listed rule is the file's third .cta (review fix: occurrences agree with the file).
+    rules: [
+      { sheet: { kind: 'file', path: '样式 表.css' }, selector: '.cta', occurrence: 1 },
+      { sheet: { kind: 'file', path: '样式 表.css' }, selector: '.cta', occurrence: 3 },
+    ],
   });
   expect(picked.value.source).toEqual({
     state: 'found',
     html: { relPath: 'index.html', startLine: 17, endLine: 17, match: 'exact' },
-    css: [{ relPath: '样式 表.css', startLine: 3, endLine: 6, match: 'exact', selector: '.cta' }],
+    css: [
+      { relPath: '样式 表.css', startLine: 3, endLine: 6, match: 'exact', selector: '.cta' },
+      { relPath: '样式 表.css', startLine: 20, endLine: 22, match: 'exact', selector: '.cta' },
+    ],
   });
   // The click went to the inspector, not to the page; the page saw no DOM change; nothing new in the page.
   expect(await pageCounters()).toEqual({ clicks: 0, mutations: baseline });

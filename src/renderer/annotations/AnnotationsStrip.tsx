@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useId, useReducer, useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import type {
   Annotation,
+  AnnotationCandidates,
   AnnotationPick,
+  AnnotationRegionShot,
   AnnotationSourceState,
   AnnotationsApi,
 } from '../../shared/ipc/annotations-contract';
@@ -515,7 +517,7 @@ export function AnnotationsStripView({
                         type="button"
                         className="quiet-button"
                         data-testid="annotation-show"
-                        disabled={!running}
+                        disabled={!running || annotationsOnPage([item], pagePath).length === 0}
                         onClick={() => ops.show(item.id)}
                       >
                         {t('annotations.show')}
@@ -637,7 +639,18 @@ export function AnnotationsStrip({
   }, [covers, onCoverChange]);
   useEffect(() => () => onCoverChange(false), [onCoverChange]);
 
+  // Each pick, list, picture or resolve request gets a number; an answer to an older one (cancelled, or replaced by a
+  // newer request) is dropped, so it can never jump the strip into naming while another mode runs.
+  const seq = useRef(0);
+  const fresh = <T,>(handle: (value: T) => void) => {
+    const mine = (seq.current += 1);
+    return (value: T) => {
+      if (seq.current === mine) handle(value);
+    };
+  };
+
   const cancel = useCallback(() => {
+    seq.current += 1;
     if (current.current.mode.kind === 'picking') void api.cancelPick({ projectId: project.current });
     dispatch({ type: 'cancel' });
   }, [api]);
@@ -672,20 +685,22 @@ export function AnnotationsStrip({
   const ops: AnnotationsStripOps = {
     pick: () => {
       dispatch({ type: 'picking' });
-      request(() => api.pick({ projectId }), picked);
+      request(() => api.pick({ projectId }), fresh(picked));
     },
     candidates: () => {
       dispatch({ type: 'loading' });
       request(
         () => api.candidates({ projectId }),
-        (value) => dispatch({ type: 'candidates', items: value.items, truncated: value.truncated }),
+        fresh((value: AnnotationCandidates) =>
+          dispatch({ type: 'candidates', items: value.items, truncated: value.truncated }),
+        ),
       );
     },
     region: () => {
       dispatch({ type: 'loading' });
       request(
         () => api.regionShot({ projectId }),
-        (shot) => dispatch({ type: 'shot', shot }),
+        fresh((shot: AnnotationRegionShot) => dispatch({ type: 'shot', shot })),
       );
     },
     cancel,
@@ -694,14 +709,14 @@ export function AnnotationsStrip({
       const item = mode.kind === 'choosing' ? mode.items[index] : undefined;
       if (!item) return;
       dispatch({ type: 'loading' });
-      request(() => api.resolve({ projectId, how: { kind: 'path', path: item.path } }), picked);
+      request(() => api.resolve({ projectId, how: { kind: 'path', path: item.path } }), fresh(picked));
     },
     confirmRegion: () => {
       const mode = current.current.mode;
       if (mode.kind !== 'drawing' || !regionUsable(mode.rect)) return;
       const region = regionFractions(mode.rect, mode.shot);
       dispatch({ type: 'loading' });
-      request(() => api.resolve({ projectId, how: { kind: 'region', ...region } }), picked);
+      request(() => api.resolve({ projectId, how: { kind: 'region', ...region } }), fresh(picked));
     },
     save: () => {
       const now = current.current;

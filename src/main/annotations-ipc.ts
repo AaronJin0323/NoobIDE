@@ -43,7 +43,10 @@ export interface AnnotationPreview {
     projectId: string,
     how: AnnotationResolveHow,
   ): Promise<Result<AnnotationTarget, AnnotationPickError>>;
-  annotationHighlight(projectId: string, path: readonly number[] | null): Promise<Result<null, AnnotationPickError>>;
+  annotationHighlight(
+    projectId: string,
+    target: { readonly path: readonly number[]; readonly pagePath: string } | null,
+  ): Promise<Result<null, AnnotationPickError>>;
   annotationRegionShot(projectId: string): Promise<Result<AnnotationRegionShot, AnnotationPickError>>;
 }
 
@@ -200,7 +203,10 @@ export function registerAnnotationsIpcHandlers(ipc: Pick<IpcMain, 'handle'>, dep
     }
     const stored = await store.get(root, id);
     if (!stored) return { ok: false, code: 'not-found', message: 'no such annotation' };
-    const shown = await preview.annotationHighlight(projectId, stored.target.path);
+    const shown = await preview.annotationHighlight(projectId, {
+      path: stored.target.path,
+      pagePath: stored.target.pagePath,
+    });
     return shown.ok ? { ok: true, value: null } : fail(shown);
   });
 

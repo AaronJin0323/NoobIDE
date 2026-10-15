@@ -119,6 +119,26 @@ describe('ElementPicker (S41.3)', () => {
     expect(methods(fake.commands).slice(-3)).toEqual(['Overlay.hideHighlight', 'Overlay.disable', 'DOM.disable']);
   });
 
+  it('a failed DOM.enable counts nothing: the next pick enables the domains again (review fix)', async () => {
+    let failEnable = true;
+    const fake = fakeContents({
+      'DOM.enable': () => {
+        if (failEnable) throw new Error('busy page');
+        return {};
+      },
+    });
+    const picker = new ElementPicker(fake.contents);
+    expect(await picker.highlight([1])).toEqual({ ok: false, reason: 'not-available' });
+    failEnable = false;
+    const result = picker.pick();
+    await fake.flush();
+    await fake.flush();
+    expect(methods(fake.commands).filter((m) => m === 'DOM.enable')).toHaveLength(2);
+    expect(picker.isInspecting).toBe(true);
+    picker.cancel();
+    expect(await result).toEqual({ ok: false, reason: 'cancelled' });
+  });
+
   it('a path to nothing is not available', async () => {
     const fake = fakeContents({ 'Runtime.evaluate': () => ({ result: { subtype: 'null', value: null } }) });
     const picker = new ElementPicker(fake.contents);
@@ -168,7 +188,8 @@ describe('element-target scripts and parsers (S41.3)', () => {
       id: 'send',
       text: '发送',
       path: [1, 0, 2],
-      ancestry: [{ tag: 'main', nth: 1 }],
+      // One unusable step (an invalid tag, nth 0) drops the whole ancestry: a shorter chain could mislead.
+      ancestry: [],
       rect: { x: 1, y: 2, width: 30, height: 0 },
       rules: [
         { sheet: { kind: 'file', path: '样式 表.css' }, selector: '.cta', occurrence: 2 },
@@ -176,6 +197,21 @@ describe('element-target scripts and parsers (S41.3)', () => {
       ],
     });
     expect(target?.classes).toHaveLength(2);
+    const valid = parseTarget(
+      {
+        tag: 'p',
+        path: [0],
+        ancestry: [
+          { tag: 'main', nth: 1 },
+          { tag: 'p', nth: 2 },
+        ],
+      },
+      { origin: 'http://x', pagePath: '', kind: 'element' },
+    );
+    expect(valid?.ancestry).toEqual([
+      { tag: 'main', nth: 1 },
+      { tag: 'p', nth: 2 },
+    ]);
     expect(target?.classes[1]).toHaveLength(80);
     expect(
       parseTarget({ tag: 'button', path: null }, { origin: 'http://x', pagePath: '', kind: 'element' }),

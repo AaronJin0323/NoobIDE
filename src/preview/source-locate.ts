@@ -133,6 +133,19 @@ function tagEnd(text: string, from: number): number {
   return text.length;
 }
 
+/** Parsed trees of the texts seen most recently (a list re-locates many annotations against the same few files). */
+const PARSED = new Map<string, HtmlNode>();
+const PARSED_KEEP = 4;
+
+function parsedTree(text: string): HtmlNode {
+  const hit = PARSED.get(text);
+  if (hit) return hit;
+  const tree = parseHtmlTree(text);
+  PARSED.set(text, tree);
+  if (PARSED.size > PARSED_KEEP) PARSED.delete(PARSED.keys().next().value as string);
+  return tree;
+}
+
 /** A synthetic root (`#document`) whose children are the file's top-level elements. */
 export function parseHtmlTree(text: string): HtmlNode {
   const root: HtmlNode = { tag: '#document', attrs: new Map(), start: 0, end: text.length, children: [], text: '' };
@@ -322,7 +335,7 @@ function follow(root: HtmlNode, ancestry: readonly AncestryStep[]): HtmlNode | n
 /** Where the element described by `query` is in `html`, or null. */
 export function locateElement(html: string, query: ElementQuery): ElementLocation | null {
   if (html.length > MAX_LOCATE_CHARS || !query.tag) return null;
-  const root = parseHtmlTree(html);
+  const root = parsedTree(html);
   const starts = lineStarts(html);
   const located = (node: HtmlNode, match: MatchQuality): ElementLocation => ({
     ...rangeOf(html, node.start, node.end, starts),
@@ -335,9 +348,14 @@ export function locateElement(html: string, query: ElementQuery): ElementLocatio
     byAncestry &&
     byAncestry.tag === tag &&
     (byAncestry.attrs.get('id') ?? '') === (query.id ?? '') &&
+    // The file's classes are all on the page's element (a script may add classes, not take the file's away).
+    classesOf(byAncestry).every((c) => query.classes.includes(c)) &&
     textAgrees(byAncestry.text, query.text)
   ) {
-    return located(byAncestry, 'exact');
+    // With no id, no classes and no text to compare (an empty <div>, an <img>), the position alone may point at an
+    // element a script inserted before it: say so instead of claiming an exact match.
+    const evidence = Boolean(query.id) || query.classes.length > 0 || collapse(query.text) !== '';
+    return located(byAncestry, evidence ? 'exact' : 'approximate');
   }
 
   const all = [...walk(root)].filter((n) => n.tag === tag);
@@ -357,7 +375,7 @@ export function locateElement(html: string, query: ElementQuery): ElementLocatio
 /** The content range (inside the tags) of the `index`-th (0-based) `<style>` element of `html`, or null. */
 export function styleBlock(html: string, index: number): { start: number; end: number } | null {
   if (html.length > MAX_LOCATE_CHARS || index < 0) return null;
-  const root = parseHtmlTree(html);
+  const root = parsedTree(html);
   let seen = 0;
   for (const node of walk(root)) {
     if (node.tag !== 'style') continue;
@@ -371,14 +389,29 @@ export function styleBlock(html: string, index: number): { start: number; end: n
   return null;
 }
 
-/** Selector text compared without whitespace, quotes or case (`.a>.b` = `.a > .b`, `[type=text]` = `[type="text"]`). */
+/**
+ * Selector text as compared with the browser's `selectorText`: quotes dropped, whitespace collapsed, and removed only
+ * around combinators, commas, brackets and parentheses (`.a>.b` = `.a > .b`, `[type=text]` = `[type="text"]`). A
+ * descendant space stays significant (`.card .title` ≠ `.card.title`), and so does case (`.Btn` ≠ `.btn`).
+ */
 export function normalizeSelector(selector: string): string {
-  return selector.replace(/[\s"']+/g, '').toLowerCase();
+  return selector
+    .replace(/["']/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([>+~,()[\]=])\s*/g, '$1')
+    .trim();
 }
 
-/** Comments replaced by spaces (offsets unchanged). */
+const BLANKED = new Map<string, string>();
+
+/** Comments replaced by spaces (offsets unchanged); the last few results are kept. */
 function blankComments(css: string): string {
-  return css.replace(/\/\*[\s\S]*?(\*\/|$)/g, (c) => ' '.repeat(c.length));
+  const hit = BLANKED.get(css);
+  if (hit !== undefined) return hit;
+  const blanked = css.replace(/\/\*[\s\S]*?(\*\/|$)/g, (c) => ' '.repeat(c.length));
+  BLANKED.set(css, blanked);
+  if (BLANKED.size > PARSED_KEEP) BLANKED.delete(BLANKED.keys().next().value as string);
+  return blanked;
 }
 
 /**

@@ -102,12 +102,16 @@ export class ElementPicker {
     return withTimeout(dbg.sendCommand(method, params), this.limits.commandTimeoutMs);
   }
 
-  /** DOM + Overlay on while at least one user needs them. */
+  /** DOM + Overlay on while at least one user needs them. On failure nothing is counted (and it throws). */
   private async acquire(): Promise<void> {
     this.domUsers += 1;
-    if (this.domUsers === 1) {
+    if (this.domUsers > 1) return;
+    try {
       await this.send('DOM.enable');
       await this.send('Overlay.enable');
+    } catch (e) {
+      this.domUsers = Math.max(0, this.domUsers - 1);
+      throw e;
     }
   }
   private async release(): Promise<void> {
@@ -188,8 +192,10 @@ export class ElementPicker {
     };
     const timer = setTimeout(() => finish({ ok: false, reason: 'cancelled' }), this.limits.pickTimeoutMs);
     dbg.on('message', onMessage);
+    let acquired = false;
     try {
       await this.acquire();
+      acquired = true;
       await this.send('Overlay.setInspectMode', { mode: 'searchForNode', highlightConfig: HIGHLIGHT });
       if (this.picking === entry) this.inspecting = true;
     } catch {
@@ -215,7 +221,7 @@ export class ElementPicker {
       // A node of another frame (an iframe) or a page that went away.
       return { ok: false, reason: 'not-available' };
     } finally {
-      await this.release();
+      if (acquired) await this.release();
     }
   }
 
@@ -280,7 +286,7 @@ export class ElementPicker {
     try {
       const objectId = await this.elementObject(elementAtPathExpression(path));
       if (!objectId) return { ok: false, reason: 'not-available' };
-      await this.acquire();
+      await this.acquire(); // throws (counting nothing) when the domains cannot be enabled
       try {
         await this.send('Overlay.highlightNode', { objectId, highlightConfig: HIGHLIGHT });
       } catch {

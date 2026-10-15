@@ -117,6 +117,23 @@ describe('locateElement (S41.2)', () => {
     expect(locateElement(PAGE, query({ ancestry: steps(['button', 1]), tag: 'button', text: 'x' }))).toBeNull();
   });
 
+  it('an element a script inserted before a same-tag element is not reported as that element (review fix)', () => {
+    const html = '<main>\n  <div class="hero"></div>\n</main>';
+    // The page: <div class="banner"> (script) then the file's .hero; the banner's ancestry points at the .hero.
+    const banner = locateElement(
+      html,
+      query({ ancestry: steps(['main', 1], ['div', 1]), tag: 'div', classes: ['banner'] }),
+    );
+    expect(banner).toBeNull();
+    // An empty element with nothing to compare is only "approximate" by its position.
+    const img = locateElement('<p>a</p>\n<img src="x.png">', query({ ancestry: steps(['img', 1]), tag: 'img' }));
+    expect(img).toMatchObject({ match: 'approximate', startLine: 2 });
+    // A class a script added on the page does not spoil the exact match.
+    expect(
+      locateElement(html, query({ ancestry: steps(['main', 1], ['div', 1]), tag: 'div', classes: ['hero', 'open'] })),
+    ).toMatchObject({ match: 'exact', startLine: 2 });
+  });
+
   it('an ambiguous id or an element without anything to compare gives none', () => {
     const html = '<p id="a">1</p><p id="a">2</p><span></span><span></span>';
     expect(locateElement(html, query({ ancestry: [], tag: 'p', id: 'a', text: '3' }))).toBeNull();
@@ -164,6 +181,14 @@ describe('locateCssRule (S41.2)', () => {
     expect(range).toMatchObject({ startLine: 9, endLine: 9 });
     expect(CSS.slice(range?.startOffset, range?.endOffset)).toBe('a[href="x"]>.cta , h1 { content: "}"; }');
   });
+  it('a descendant space and case stay significant (review fix)', () => {
+    const css = '.card .title { color: red; }\n.card.title { color: blue; }\n.Btn { x: 1 }\n.btn { x: 2 }';
+    expect(locateCssRule(css, '.card.title')).toMatchObject({ startLine: 2 });
+    expect(locateCssRule(css, '.card .title')).toMatchObject({ startLine: 1 });
+    expect(locateCssRule(css, '.btn')).toMatchObject({ startLine: 4 });
+    expect(normalizeSelector(':nth-child(2n + 1)')).toBe(normalizeSelector(':nth-child(2n+1)'));
+  });
+
   it('searches only inside a <style> block of a page', () => {
     const html = '<style>\n.a { color: red; }\n</style>\n<p class="a">x</p>\n<style>.a { color: blue; }</style>';
     const second = styleBlock(html, 1);

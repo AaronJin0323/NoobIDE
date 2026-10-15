@@ -175,6 +175,11 @@ const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 
 /** S38.1: a watchdog ping unanswered this long means the page is busy; no snapshot is attempted. */
 const SNAPSHOT_BUSY_MS = 500;
 
+/** S41.3: a page path with the directory index spelled out ('' and 'dir/' are 'index.html', 'dir/index.html'). */
+function samePage(pagePath: string): string {
+  return pagePath === '' || pagePath.endsWith('/') ? `${pagePath}index.html` : pagePath;
+}
+
 export class PreviewManager {
   private live: LivePreview | null = null;
   private status: PreviewStatus = { state: 'stopped', projectId: null, generation: 0 };
@@ -822,15 +827,20 @@ export class PreviewManager {
   /** Shows the element at `path` on the page for a few seconds (`null` hides it). */
   async annotationHighlight(
     projectId: string,
-    path: readonly number[] | null,
+    target: { readonly path: readonly number[]; readonly pagePath: string } | null,
   ): Promise<Result<null, AnnotationPickError>> {
-    if (path === null) {
+    if (target === null) {
       if (this.live?.projectId === projectId) await this.live.picker.highlight(null);
       return ok(null);
     }
     const live = this.annotatable(projectId);
     if (!live.ok) return live;
-    return this.picked(await live.value.picker.highlight(path));
+    // The path only means something on the page it was taken on.
+    const shown = pagePathOf(live.value.view.webContents.getURL(), live.value.server.origin);
+    if (shown === null || samePage(shown) !== samePage(target.pagePath)) {
+      return err('not-available', 'the annotation belongs to another page');
+    }
+    return this.picked(await live.value.picker.highlight(target.path));
   }
 
   /** A picture of the page to draw a region on (not taken while the view is hidden). */
