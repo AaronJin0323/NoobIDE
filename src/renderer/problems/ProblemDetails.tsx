@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ProblemRecord } from '../../shared/problem';
 import { explain, undefinedName, type RuleContext } from '../../diagnostics/rules';
 import { ProblemCard, type ProblemCardProps } from './ProblemCard';
+import { useProjectFiles } from '../editor/useProjectIndex';
+import type { ProjectIndex } from '../editor/project-index';
 
 const EMPTY: RuleContext = {};
 
@@ -31,13 +33,22 @@ export function useRuleContext(record: ProblemRecord, uri: string | undefined): 
   return state?.key === key ? state.ctx : EMPTY;
 }
 
-/** The selected problem's card, explained with the facts of its location. */
+/**
+ * The selected problem's card, explained with the facts of its location. A file that did not load (404) is also
+ * compared with the project's files (projectIndex), so the card can name the file the path probably meant.
+ */
 export function ProblemDetails({
   uriOf,
+  projectIndex,
   ...props
-}: Omit<ProblemCardProps, 'explanation'> & { uriOf: (relPath: string) => string | undefined }) {
+}: Omit<ProblemCardProps, 'explanation'> & {
+  uriOf: (relPath: string) => string | undefined;
+  projectIndex?: ProjectIndex | null | undefined;
+}) {
   const { record } = props;
-  const ctx = useRuleContext(record, record.file ? uriOf(record.file) : undefined);
+  const located = useRuleContext(record, record.file ? uriOf(record.file) : undefined);
+  const files = useProjectFiles(record.source === 'resource' ? projectIndex : null);
+  const ctx = useMemo(() => (files ? { ...located, projectFiles: files } : located), [located, files]);
   const explanation = useMemo(() => explain(record, ctx), [record, ctx]);
   return <ProblemCard {...props} explanation={explanation} />;
 }
