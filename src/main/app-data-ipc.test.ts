@@ -288,3 +288,47 @@ describe('session restore (S13.4)', () => {
     expect(deps.session.saveLayout).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('portability check (S13.5)', () => {
+  const REPORT = { issues: [{ kind: 'mixed-eol', relPath: 'a.js' }], truncated: false } as const;
+
+  it('scans the root main knows for the projectId; the renderer never sends a path', async () => {
+    const scan = vi.fn(async () => REPORT);
+    deps.scanPortability = scan;
+    deps.projects.rootOf.mockImplementation((id: string) => (id === ID ? '/项目 根' : undefined));
+    expect(await call(APP_DATA_CHANNELS.portabilityCheck, workbench, { projectId: ID })).toEqual({
+      ok: true,
+      value: REPORT,
+    });
+    expect(scan).toHaveBeenCalledWith('/项目 根');
+  });
+
+  it('refuses unknown projects, bad payloads and other senders before scanning', async () => {
+    const scan = vi.fn(async () => REPORT);
+    deps.scanPortability = scan;
+    expect(await call(APP_DATA_CHANNELS.portabilityCheck, workbench, { projectId: ID })).toMatchObject({
+      code: 'unknown-project',
+    });
+    for (const bad of [undefined, {}, { projectId: 'nope' }, { projectId: ID, root: '/etc' }]) {
+      expect(await call(APP_DATA_CHANNELS.portabilityCheck, workbench, bad)).toMatchObject({ code: 'invalid-request' });
+    }
+    deps.projects.rootOf.mockImplementation(() => '/p');
+    for (const event of strangers) {
+      expect(await call(APP_DATA_CHANNELS.portabilityCheck, event, { projectId: ID })).toMatchObject({
+        code: 'forbidden-sender',
+      });
+    }
+    expect(scan).not.toHaveBeenCalled();
+  });
+
+  it('a failing scan is an error result, not a thrown exception', async () => {
+    deps.scanPortability = vi.fn(async () => {
+      throw new Error('EACCES');
+    });
+    deps.projects.rootOf.mockImplementation(() => '/p');
+    expect(await call(APP_DATA_CHANNELS.portabilityCheck, workbench, { projectId: ID })).toMatchObject({
+      ok: false,
+      code: 'scan-failed',
+    });
+  });
+});

@@ -250,6 +250,18 @@ export const zhCN = {
   'layout.resizeFiles': '调整文件面板的宽度',
   'layout.resizeEditor': '调整代码和预览的宽度比例',
   'session.restored': '已重新打开上次的项目，位置：',
+  'transfer.title': '这个项目换到另一个系统（Windows / macOS）时可能会出问题。NoobIDE 没有改动任何文件：',
+  'transfer.caseConflict':
+    '“{folder}”里的 {names} 只差大小写：在 Windows 和 macOS 上它们会变成同一个文件。请给其中一个换个名称。',
+  'transfer.unicodeConflict':
+    '“{folder}”里的 {names} 看起来一样，但用了不同的 Unicode 写法：macOS 会把它们当成同一个文件。请给其中一个换个名称。',
+  'transfer.decomposedName':
+    '“{path}”的名称用了分解形式的 Unicode 字符（常见于从 Mac 拷来的文件）：在 Windows 上输入的链接可能找不到它。重新输入一遍名称即可修复。',
+  'transfer.unportableName': '“{path}”的名称不能在 Windows 或 macOS 上使用。{reason}',
+  'transfer.mixedEol': '“{path}”混用了 CRLF 和 LF 两种换行符：编辑并保存后会统一成一种。',
+  'transfer.rootFolder': '项目文件夹',
+  'transfer.more': '还有 {n} 个问题没有列出。',
+  'transfer.truncated': '项目很大，只检查了一部分文件。',
   'files.setEntry': '设为入口页面',
   'entry.set': '已设为入口页面：',
   'entry.setDetail': '下次启动预览时会先打开它。设置保存在项目的 .noobide/project.json 里，删掉这个文件也不影响网页。',

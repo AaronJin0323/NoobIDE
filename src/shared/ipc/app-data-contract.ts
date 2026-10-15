@@ -8,6 +8,7 @@ import type { AppSettings, SettingsNotice, SettingsPatch } from '../settings';
 import { isEntryPath, type ProjectConfig } from '../project-config';
 import { parseProjectTabs, parseSessionLayout, type ProjectTabs, type SessionLayout } from '../session';
 import { isPortableRelPath, isProjectId, type IpcResult, type OpenedProject } from './contract';
+import type { PortabilityReport } from '../portability';
 
 export const APP_DATA_CHANNELS = {
   // S13.1
@@ -28,6 +29,8 @@ export const APP_DATA_CHANNELS = {
   sessionTabs: 'session:tabs',
   sessionSaveTabs: 'session:save-tabs',
   sessionSaveLayout: 'session:save-layout',
+  // S13.5
+  portabilityCheck: 'project:portability',
 } as const;
 
 // ── S13.1 settings ──
@@ -148,6 +151,19 @@ export function parseSaveTabsRequest(payload: unknown): SaveTabsRequest | null {
   const parsed = parseProjectTabs({ tabs, active });
   return parsed ? { projectId, ...parsed } : null;
 }
+
+// ── S13.5 cross-platform project transfer ──
+export interface PortabilityApi {
+  /**
+   * Reads the open project (never writes or renames anything) and lists what would break on the other system:
+   * unportable names, case conflicts, Unicode-form twins and files with mixed line endings (src/shared/portability).
+   */
+  check(request: {
+    readonly projectId: string;
+  }): Promise<IpcResult<PortabilityReport, 'unknown-project' | 'scan-failed'>>;
+}
+
+export type { PortabilityReport };
 
 export { parseSessionLayout };
 export type { ProjectTabs, SessionLayout };
