@@ -1,4 +1,5 @@
 /// <reference types="@electron-forge/plugin-vite/forge-vite-env" />
+import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, safeStorage, session, shell } from 'electron';
@@ -30,7 +31,7 @@ import { consoleLogger } from '../recovery/atomic-file';
 import { RecoveryJournal } from '../recovery/journal';
 import { SnapshotStore } from '../recovery/history';
 import { HistoryTriggers } from '../recovery/history-triggers';
-import { selfTestOffline, selfTestRequested, watchSelfTest, withSelfTestQuery } from './self-test';
+import { selfTestOffline, selfTestRequested, selfTestUserDataDir, watchSelfTest, withSelfTestQuery } from './self-test';
 // S13 app data: settings, recent projects, session, logs
 import { registerAppDataIpcHandlers } from './app-data-ipc';
 import { SettingsStore } from './settings-store';
@@ -77,6 +78,21 @@ function start(): void {
     typeof MAIN_WINDOW_VITE_DEV_SERVER_URL === 'string' ? MAIN_WINDOW_VITE_DEV_SERVER_URL : undefined;
   const devOrigin = devServerUrl ? new URL(devServerUrl).origin : undefined;
   const selfTest = selfTestRequested();
+  // The self-test probe never touches the user's app data: a fresh temporary folder unless --user-data-dir names one.
+  const selfTestData = selfTestUserDataDir(process.env, app.commandLine.hasSwitch('user-data-dir'), () =>
+    mkdtempSync(path.join(app.getPath('temp'), 'noobide-selftest-')),
+  );
+  if (selfTestData) app.setPath('userData', selfTestData);
+  const exitSelfTest = (code: number) => {
+    if (selfTestData) {
+      try {
+        rmSync(selfTestData, { recursive: true, force: true });
+      } catch {
+        // Chromium may still hold a file (Windows); the OS temp cleanup gets it later.
+      }
+    }
+    app.exit(code);
+  };
 
   // --- S12: one running app per app-data directory, so two processes never share one recovery journal (a second
   // instance would see the first one's live buffers as crash leftovers). The self-test probe is exempt. ---
@@ -148,15 +164,10 @@ function start(): void {
     win.on('closed', () => menu?.windowClosed(contentsId));
     if (selfTest) {
       // S18.1: the result line also says whether the network was off and what the network guard refused.
-      watchSelfTest(
-        win.webContents,
-        (code) => app.exit(code),
-        undefined,
-        () => ({
-          offline: selfTestOffline(),
-          blockedRequests: blockedRequests.length,
-        }),
-      );
+      watchSelfTest(win.webContents, exitSelfTest, undefined, () => ({
+        offline: selfTestOffline(),
+        blockedRequests: blockedRequests.length,
+      }));
     }
 
     const entry = devServerUrl ?? APP_ENTRY_URL;
