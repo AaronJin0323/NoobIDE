@@ -103,7 +103,9 @@ test.describe('AI chat (S33)', () => {
     await code.getByTestId('md-copy').click();
     await expect(code.getByTestId('md-copy')).toHaveText('已复制');
     const copied = await app.evaluate(({ clipboard }) => clipboard.readText());
-    expect(copied).toBe(await code.locator('pre code').textContent());
+    // The Windows clipboard holds text with CRLF line ends (Chromium converts on write, as every Windows app expects),
+    // so compare the code line by line rather than byte for byte (S37.1).
+    expect(copied.replace(/\r\n/g, '\n')).toBe(await code.locator('pre code').textContent());
   });
 
   test('Stop ends a running answer and says so (S33.1)', async () => {

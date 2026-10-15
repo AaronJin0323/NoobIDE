@@ -155,14 +155,9 @@ test.describe('AI agent (S34)', () => {
     // Restart: the chat and its in-memory state are gone; local history (app data) is not.
     await app.close();
     await launch('all-kinds');
-    if (
-      (await page
-        .getByTestId('project-name')
-        .textContent()
-        .catch(() => null)) !== path.basename(root)
-    ) {
-      await openProject(app, page, root);
-    }
+    // The restart reopens the last project (S13.4). The top bar shows "未打开项目" until the restore finishes, so the
+    // test waits for the project rather than reading the name once (on Windows that read raced the restore and then
+    // tried to open a folder through a button the restored window no longer shows — S37.1).
     await expect(page.getByTestId('project-name')).toHaveText(path.basename(root));
 
     await page.getByTestId('rail-history').click();

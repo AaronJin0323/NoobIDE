@@ -21,11 +21,15 @@ import { MONACO_THEME_NAME, buildMonacoTheme } from '../theme/monaco-theme';
 import { configureLanguages } from './language-config';
 import { installFormatHook, onBeforeFormat, type FormattingRegistry } from './format-hook';
 import { WorkerSupervisor, type WorkerKind } from './worker-supervisor';
+import { ignoreMonacoCancellations } from './monaco-cancellation';
 // S19.2: NoobIDE's own unclosed-element check for HTML files (Monaco's HTML service reports no problems).
 import './html-check-monaco';
 
 /** Labels of the workers Monaco has started — read by the worker probe (self-test / e2e). */
 export const startedWorkers: string[] = [];
+
+// S37.1: Monaco's own cancellations ("Canceled") are not errors; see monaco-cancellation.ts.
+ignoreMonacoCancellations(window);
 
 export function workerKind(label: string): WorkerKind {
   if (label === 'css' || label === 'scss' || label === 'less') return 'css';
