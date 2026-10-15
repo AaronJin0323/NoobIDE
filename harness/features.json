@@ -1131,7 +1131,7 @@
         "S14.4"
       ],
       "status": "done",
-      "evidence": "Cause: a new preview view's first navigation (about:blank) can stay pending 30-45 s under load without a DevTools client (also stock Electron 44), and the guard commands wait for the view's renderer; one 5 s bound made previews start unguarded (Session 12's stall). Fix (main): showFirstDocument re-requests about:blank every 1 s (<=30 s), commands <=45 s, both cancelled by Stop/newer Start; debugInfo.guardTrace. tests/e2e/preview-restore.spec.ts (5 restarts, no Playwright, 1.5 busy threads/core): fails on f51e123 (restart 1 unguarded), passes; full e2e twice @ 51a7d73 green, restarts running+guarded from process launch in 6.1/8.4/9.1/15.6/8.2 s and 4.1/3.4/4.5/7.4/7.2 s (one 15.6 s incl. app startup under load; repro from restored start 7-8 s); independent review findings fixed"
+      "evidence": "Root cause (Session 21): the guard is installed before the view is in the window, so Chromium backgrounded its renderer (Windows: Idle priority class) and a busy CPU starved it (45 s commands-timeout on the 3-core macOS runner). Fix: CHROMIUM_SWITCHES disable-renderer-backgrounding (preview-options.ts, main.ts) + GuardTrace.commandAnswersMs; preview-units.test.ts pins it; preview-restore.spec asserts it. Dev machine 3-core affinity 5/5 (first document 1 attempt ~100 ms, commands <=4 ms, running 1.3-2.4 s); CI diag runs 38795794452/38805786307: 30/30 restarts guarded on macOS arm64 and Windows x64 (commands <=14 ms). Earlier (Session 16): showFirstDocument retries, 45 s bound, Stop/newer Start cancel; independent reviews"
     },
     {
       "id": "S06.1",
