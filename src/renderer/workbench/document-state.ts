@@ -30,6 +30,11 @@ export interface DocumentState {
   readonly active: string | null;
   /** A file that could not be opened; shown until another file opens or a tab is chosen. */
   readonly docError: { readonly relPath: string; readonly code: OpenErrorCode } | null;
+  /**
+   * S13.4: the user opened or chose a tab since the project opened. The session restore then opens its tabs behind
+   * the user's choice and no longer changes the visible tab (their typing must land in the file they chose).
+   */
+  readonly userChose?: boolean;
 }
 
 export type DocumentAction =
@@ -37,9 +42,12 @@ export type DocumentAction =
   | { type: 'projectOpenFailed'; code?: string }
   /** S13.3: the project was closed; the welcome screen shows again. */
   | { type: 'projectClosed' }
-  | { type: 'docLoaded'; relPath: string; content: FileContent }
+  /** `background`: a tab of the session restore (S13.4); it becomes visible only while no tab is. */
+  | { type: 'docLoaded'; relPath: string; content: FileContent; background?: boolean }
   | { type: 'docFailed'; relPath: string; code: OpenErrorCode }
   | { type: 'activate'; relPath: string }
+  /** S13.4: the restored session's visible tab, unless the user chose a tab meanwhile. */
+  | { type: 'restoreActive'; relPath: string }
   | { type: 'closed'; relPath: string }
   | { type: 'saveState'; relPath: string; save: SaveSnapshot }
   // --- S11: external changes ---
@@ -73,13 +81,18 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
             ...state.tabs,
             { relPath: action.relPath, uri: action.content.uri, content: action.content, save: INITIAL_SAVE },
           ];
-      return { ...state, tabs, active: action.relPath, docError: null };
+      if (action.background) return { ...state, tabs, active: state.active ?? action.relPath };
+      return { ...state, tabs, active: action.relPath, docError: null, userChose: true };
     }
     case 'docFailed':
       return { ...state, docError: { relPath: action.relPath, code: action.code } };
     case 'activate':
       return state.tabs.some((tab) => tab.relPath === action.relPath)
-        ? { ...state, active: action.relPath, docError: null }
+        ? { ...state, active: action.relPath, docError: null, userChose: true }
+        : state;
+    case 'restoreActive':
+      return !state.userChose && state.tabs.some((tab) => tab.relPath === action.relPath)
+        ? { ...state, active: action.relPath }
         : state;
     case 'closed': {
       const index = state.tabs.findIndex((tab) => tab.relPath === action.relPath);

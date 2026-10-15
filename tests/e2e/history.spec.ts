@@ -133,6 +133,8 @@ test('restore keeps the current content as a version first and goes through the 
   await versions().nth(1).click();
   await expect(page.getByTestId('history-diff').locator('[data-kind="added"]')).toContainText('林小雨');
 
+  // Escape is ignored while the restore is still refreshing the lists (Close is disabled until then).
+  await expect(page.getByTestId('history-close')).toBeEnabled();
   await page.keyboard.press('Escape');
   await expect(dialog()).toHaveCount(0);
   await expect.poll(() => documentText(page.locator('.monaco-editor'))).toContain('你好，我是小雨');
@@ -181,7 +183,11 @@ test('a deleted file is listed as deleted and can be restored with a version of 
   await expect(notice()).toHaveText('文件已经恢复，并在编辑器里打开了。');
   expect(await readFile(path.join(rootA, 'style.css'), 'utf8')).toBe(css);
   await expect(row.getByTestId('history-deleted')).toHaveCount(0);
+  // The notice shows before the restore has refreshed the version list and the storage usage; until it has, the
+  // window stays open on Escape (Close is disabled). On a slow machine Escape came too early and the window stayed.
+  await expect(page.getByTestId('history-close')).toBeEnabled();
   await page.keyboard.press('Escape');
+  await expect(dialog()).toHaveCount(0);
   await expect(treeRow(page, 'style.css')).toBeVisible({ timeout: 5000 });
   await expect(tabOf(page, 'style.css')).toBeVisible();
 });
