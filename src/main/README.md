@@ -5,7 +5,8 @@ diagnostics/, recovery/. Every IPC handler validates its payload and sender (see
 
 - `main.ts` — startup and wiring; `window-options.ts`, `harden.ts`, `csp.ts`, `app-protocol.ts` / `app-asset.ts`
   (workbench served from `noobide://app`, decision 0005); `close-guard.ts` (S10.6),
-  `window-lifecycle.ts` and `app-menu.ts` (S24.2); `self-test.ts` (packaged Monaco worker self-test).
+  `window-lifecycle.ts` and `app-menu.ts` (S24.2); `self-test.ts` (packaged Monaco worker self-test);
+  `wake-recovery.ts` (S25.1/S25.2 sleep/wake recovery: watcher rescan, server and page probes, decision 0028).
 - IPC: `ipc.ts` (files, projects; registers `recovery-ipc.ts` and `history-ipc.ts`), `app-data-ipc.ts` (settings,
   recent projects, session, logs), `preview-ipc.ts`, `create-project-ipc.ts`, `walkthrough-ipc.ts`,
   `commands-ipc.ts`; `problems-bridge.ts` connects the preview to the runtime capture adapter (S16.2).

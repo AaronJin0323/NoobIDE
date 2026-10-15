@@ -48,6 +48,14 @@ export class ProjectWatchHub {
     return this.current !== null;
   }
 
+  /** S25.1/S25.2: after sleep, the open project's watch is re-attached and the tree rescanned (watcher.resync). */
+  async resync(): Promise<boolean> {
+    const current = this.current;
+    if (!current) return false;
+    await current.watcher.resync();
+    return true;
+  }
+
   stop(): void {
     const current = this.current;
     if (!current) return;

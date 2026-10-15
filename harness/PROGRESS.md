@@ -3,6 +3,66 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 14 (side session) — 2026-10-15 — Liquid Glass design language (S40, milestone M11)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, in worktree branch `s40-liquid-glass` (started from
+main `f51e123` while another session ran the full Windows e2e suite on main). Subagents: Apple docs research, design
+study + decision record, e2e spec, independent diff review; all output checked by the lead.
+
+**Owner request:** make the UI the neatest, friendliest, best-looking beginner IDE, inspired by Apple's Liquid Glass
+(SwiftUI view styles, animations, text input, controls, menus and commands; HIG materials/layout/toolbars/sheets/
+accessibility). New milestone M11, session S40 (8 features).
+
+**Done**
+
+- S40.1 — `docs/product/liquid-glass-study.md` (13 principle areas in our own words with Apple links, adopt/adapt/
+  reject for Electron on Windows + macOS, plan, later candidates) and decision 0029. Research notes also in the shared
+  notes folder (`s40-apple-research.md`).
+- S40.2 — glass materials in `tokens.ts` (`GLASS`, `composite()`, contrast test of text on each fill over every surface
+  it can float over, plus solid twins). `src/renderer/glass.css` (loaded after styles.css): chrome is translucent with
+  **no** backdrop blur; only menus, the palette and sheets blur, and never over the editor or the native preview.
+  Reduced transparency (media query, or `html[data-transparency=reduce]`), increased contrast and forced colours → solid.
+- S40.3 — SwiftUI-style control styles (glassProminent / glass / plain, pressed squeeze), top-bar capsule groups, rail as
+  a floating capsule, concentric radii, one filled text-field style; empty-state action is the place's primary button.
+- S40.4 — spring easings (`linear()`), ≤ 340 ms; reduce motion → dissolve only. Theme switches are instant
+  (`data-theme-switching` for two frames) — also fixed axe catching colours mid-transition.
+- S40.5 — command palette: Ctrl+Shift+P / ⌘⇧P, top-bar "搜索命令" button, View menu. Lists only commands that can run,
+  searches Chinese and English ("save" → 保存 with an "英文：Save" hint), IME-safe, modal (preview view hidden), focus
+  returns. `commands/palette-model.ts` (+tests), `CommandPalette.tsx`, `i18n/palette.ts`.
+- S40.6 — CSS-only scroll edge effect on file tree / problems / AI chat; AI chat bubbles, composer, chips and consent in
+  the same language.
+- S40.7 — `tests/e2e/glass.spec.ts` (9 tests: palette keyboard flow, runnable-only list, native menu, materials in both
+  themes, reduced transparency, reduced motion, increased contrast, forced colours, axe on the palette) and
+  `glass-visual.spec.ts` (screenshots light/dark → `test-results/glass/`). `axeScan` now waits for finite animations.
+- S40.8 — needs_manual_check: Windows Transparency effects off / contrast themes and macOS Reduce Transparency /
+  Increase Contrast / Reduce Motion (MANUAL-CHECKS.md#S40.8).
+
+**Evidence:** `npm run verify` green in the worktree. e2e on Windows x64: affected specs (a11y, theme, shell, menus,
+commands, ai-settings, ai-chat, file-tree, glass, glass-visual) green after the review fixes; full suite 263 passed /
+2 failed — both reproduced on an untouched `f51e123` build (`smoke.spec` preload API list lacks `previewSnapshot`/
+`aiHistory` from S38/S39; `preview-layout.spec` scale-factor resize timeout). Left to the e2e-fixing session.
+Reviewer findings fixed: menu/palette focus visible in forced colours, scroll-edge fade hiding keyboard focus,
+theme-switch attribute could stick, clicking the sheet lost keyboard focus, English plural.
+
+**Decisions:** 0029 — glass only on the floating control layer; blur only on transient overlays; a solid twin for
+every translucent token; concentric shapes + spring motion tokens; the palette derived from the command registry.
+`shell.spec` control list gains `open-palette` (a new working control, not a weakened check).
+
+**Problems / risks:** whether Chromium maps Windows "Transparency effects: Off" to `prefers-reduced-transparency` is
+unproven (S40.8); bridging `nativeTheme.prefersReducedTransparency` is the fallback. `tests/integration/watcher.test.ts`
+fails 2 tests under heavy load (also on main) and passes when the machine is quieter. Main moves in parallel: expect
+a conflict at the top of this file and in `harness/features.json` on merge (both are additive).
+
+**Owner action needed:** review the screenshots in `test-results/glass/` (run `npx playwright test -c
+tests/e2e/playwright.config.ts "e2e[\/]glass-visual\.spec"` after `npm run package`), run S40.8, merge the branch.
+
+**Next up**
+
+1. Merge `s40-liquid-glass` into main after the e2e-fixing session lands; rerun `npm run verify` and the glass specs.
+2. S40.8 on both platforms; if the Windows mapping is missing, add a feature to bridge nativeTheme to `data-transparency`.
+3. Candidates from the study's "Later": native window material (Mica / vibrancy), icons in menus, context menus
+   without shortcuts per HIG, AI chat as an inspector column.
+
 ## Session 13 — 2026-10-15 — AI v2: Windows proof (S37), preview-aware AI (S38), chat history + usage (S39)
 
 **Agent:** Claude (Opus 5.5) as lead on the Windows x64 dev machine, four parallel subagents in git worktrees

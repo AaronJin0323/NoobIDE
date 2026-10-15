@@ -60,6 +60,8 @@ export const COMMAND_IDS = [
   'toggle-inline-ai',
   // S35.1 AI inline edit (Ctrl/Cmd+I)
   'ai-inline-edit',
+  // S40.5 command palette (search every command that applies now)
+  'command-palette',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -178,6 +180,13 @@ export const COMMANDS: readonly CommandDefinition[] = [
     label: 'command.ai.inlineEdit',
     keys: { all: { key: 'i', primary: true } },
     when: (c) => c.hasActiveTab && !c.modalOpen,
+  },
+  // S40.5: the command palette — ⌘⇧P / Ctrl+Shift+P, as in other editors beginners meet in tutorials.
+  {
+    id: 'command-palette',
+    label: 'command.palette',
+    keys: { all: { key: 'p', primary: true, shift: true } },
+    when: noModal,
   },
 ];
 

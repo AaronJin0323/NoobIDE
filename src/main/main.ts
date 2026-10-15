@@ -2,7 +2,18 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, safeStorage, session, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  powerMonitor,
+  protocol,
+  safeStorage,
+  session,
+  shell,
+} from 'electron';
 import { platformId } from '../platform/index';
 import { currentSquirrelAction, runSquirrelAction } from '../platform/squirrel';
 import { APP_ENTRY_URL, APP_ORIGIN } from './app-asset';
@@ -56,6 +67,8 @@ import { registerCommandIpcHandlers } from './commands-ipc';
 import { installWindowLifecycle } from './window-lifecycle';
 import { setupAi } from './ai-main'; // S31 AI assistant (decision 0025)
 import { secureStorageFor } from '../platform/secure-storage';
+import { WakeRecovery } from './wake-recovery'; // S25.1/S25.2
+import { wakeSignals } from '../platform/power-events';
 
 // Windows installer events: create/remove shortcuts and quit without opening a window (S02.7, S28.4: also quits
 // when Update.exe is missing or hangs). App data and projects are never touched by these events.
@@ -256,6 +269,23 @@ function start(): void {
       watching: () => watchHub.active,
     });
     // --- end S13.3 ---
+    // --- S25.1/S25.2: sleep/wake recovery (decision 0028): watcher rescan, server health check, hung page restart ---
+    const wake = new WakeRecovery({
+      power: powerMonitor,
+      signals: wakeSignals(),
+      watchers: watchHub,
+      preview,
+      log: (event, fields) => appLog.write('info', event, fields),
+    });
+    wake.install();
+    app.on('will-quit', () => wake.dispose());
+    Object.assign((globalThis as { __noobideTestHooks?: object }).__noobideTestHooks ?? {}, {
+      wake: {
+        last: () => wake.last,
+        killServerSocket: () => preview.debugKillServerSocket(),
+      },
+    });
+    // --- end S25.1/S25.2 ---
     // --- S21: local history (snapshots around saves) in app data ---
     const history = new SnapshotStore({ dir: appDataPath(appData, 'history'), log: logger });
     const historyTriggers = new HistoryTriggers(history, logger);

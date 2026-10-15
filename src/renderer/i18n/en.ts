@@ -8,6 +8,7 @@ import { aiChatEn } from './ai-chat'; // S33
 import { aiInlineEn } from './ai-inline'; // S32.1
 import { aiEditEn } from './ai-edit'; // S35
 import { aiHistoryEn } from './ai-history'; // S39
+import { paletteEn } from './palette'; // S40
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -304,6 +305,7 @@ export const en: Record<MessageKey, string> = {
   ...aiInlineEn, // S32.1 AI ghost-text suggestions
   ...aiEditEn, // S35 AI inline edit and Fix with AI
   ...aiHistoryEn, // S39 saved AI chats and token usage
+  ...paletteEn, // S40 command palette
   // --- S18.3 formatting ---
   'format.button': 'Format',
   'format.title': 'Format the code: indentation and line breaks ({shortcut})',
@@ -388,6 +390,11 @@ export const en: Record<MessageKey, string> = {
     'The page asked for {permission} access. The preview denies it by default, so features that need it (such as getUserMedia or geolocation) fail. To try them, use “Open in browser”.',
   'preview.notice.consoleFloodStopped':
     'The page wrote far too many console messages too quickly (getting around the output limit). To keep the editor responsive, NoobIDE stopped the script that was running. Check for a loop that keeps calling console.log.',
+  // S25.1/S25.2: told once the preview was restarted after sleep
+  'preview.notice.restartedAfterSleepServer':
+    'The computer was asleep and the preview’s local server had stopped. NoobIDE restarted the preview; your files and unsaved edits are untouched.',
+  'preview.notice.restartedAfterSleepPage':
+    'The computer was asleep and the page stopped responding afterwards. NoobIDE restarted the preview; your files and unsaved edits are untouched.',
   'preview.permission.camera': 'camera',
   'preview.permission.microphone': 'microphone',
   'preview.permission.camera-microphone': 'camera and microphone',

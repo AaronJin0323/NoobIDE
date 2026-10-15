@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  S28.2 (docs/decisions/0027-code-signing.md): hardened-runtime entitlements for every signed Mach-O in NoobIDE.app.
+  Only JIT for V8. No camera, microphone, location or other device entitlements: every permission request from the
+  workbench and the preview is denied (src/main/harden.ts, src/preview/preview-manager.ts).
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+  </dict>
+</plist>

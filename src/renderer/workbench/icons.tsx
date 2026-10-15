@@ -228,3 +228,11 @@ export const HistoryIcon = ({ size = 18 }: { size?: number }) => (
     <path d="M8 5v3l2 1.5" />
   </Icon>
 );
+
+/** S40.5: the command search in the top bar and the palette's search field. */
+export const SearchIcon = ({ size }: { size?: number }) => (
+  <Icon size={size ?? 15}>
+    <circle cx="7" cy="7" r="4.5" />
+    <path d="M10.5 10.5L14 14" />
+  </Icon>
+);

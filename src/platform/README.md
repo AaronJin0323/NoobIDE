@@ -12,5 +12,6 @@ window conventions, reveal-in-OS labels, OS-specific error explanations and inst
   `EPERM` / `EACCES` (S25.3).
 - `squirrel.ts` — Windows Squirrel install / update / uninstall events (S02.7, decision 0012).
 - `os-info.ts` — OS facts for the log header (S13.6); main only.
+- `power-events.ts` — which powerMonitor events and drift check mean "the computer woke" (S25.1/S25.2, decision 0028).
 
 App-data locations are not decided here: main uses Electron's `app.getPath('userData')` (see `src/main/README.md`).

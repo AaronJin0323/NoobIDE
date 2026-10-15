@@ -118,6 +118,7 @@ test('placeholder states are honest and every control works (S30.3)', async () =
     await buttons.evaluateAll((els) => els.map((b) => b.getAttribute('data-testid') ?? b.getAttribute('aria-label'))),
   ).toEqual([
     'app-menu', // S13: command menu (open logs folder)
+    'open-palette', // S40.5: command search (opens the command palette)
     'switch-language',
     'rail-files',
     'rail-problems',

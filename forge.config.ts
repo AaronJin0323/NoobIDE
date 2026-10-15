@@ -6,13 +6,14 @@ import { execFile } from 'node:child_process';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import path from 'node:path';
-import type { ForgeConfig } from '@electron-forge/shared-types';
-import { MakerSquirrel } from '@electron-forge/maker-squirrel';
+import type { ForgeConfig, ForgeMakeResult } from '@electron-forge/shared-types';
+import { MakerSquirrel, type MakerSquirrelConfig } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import { macSigning, quietExec, signNotarizeStapleDmg, windowsSigning } from './signing.config';
 
 /** Owner to confirm the holder name before the first public release (ADR 0012). */
 const APP_COPYRIGHT = 'Copyright © 2026 NoobIDE contributors';
@@ -24,6 +25,23 @@ const APP_COPYRIGHT = 'Copyright © 2026 NoobIDE contributors';
  * Never set for a release build.
  */
 const execFileAsync = promisify(execFile);
+
+/**
+ * S28.2 / S28.3 (ADR 0027, docs/release/signing.md): Developer ID signing + notarisation and Windows Authenticode
+ * signing, configured only from environment variables that the release workflow sets. Without them both are
+ * undefined and the build is unsigned exactly as before; a partial configuration throws here, before packaging.
+ */
+// Each OS reads only its own route, so the other OS's secrets in the same CI step never trip the partial check.
+const mac = process.platform === 'darwin' ? macSigning(process.env) : undefined;
+const win = process.platform === 'win32' ? windowsSigning(process.env) : undefined;
+for (const s of [mac, win]) if (s) console.log(s.summary);
+// Our option subset is checked against @electron/windows-sign at the boundary (its hash enum is not importable).
+type WindowsSignOptions = Exclude<NonNullable<NonNullable<ForgeConfig['packagerConfig']>['windowsSign']>, true>;
+const windowsSign = win ? (win.windowsSign as unknown as WindowsSignOptions) : undefined;
+// electron-winstaller bundles an older @electron/windows-sign (1.x) with its own types; the same options apply.
+const squirrelWindowsSign = win
+  ? (win.windowsSign as unknown as NonNullable<MakerSquirrelConfig['windowsSign']>)
+  : undefined;
 
 const buildVersion = process.env.NOOBIDE_BUILD_VERSION;
 if (buildVersion !== undefined && !/^\d+\.\d+\.\d+$/.test(buildVersion)) {
@@ -60,8 +78,21 @@ const config: ForgeConfig = {
         }
       : {}),
     postPackage: async (_config, result) => {
-      if (result.platform === 'darwin' || result.platform === 'mas') await adHocSignMac(result.outputPaths);
+      // With Developer ID signing the packager has already signed (last, after fuses and Info.plist) and notarised
+      // the app; an ad-hoc re-sign would replace that signature.
+      if (!mac && (result.platform === 'darwin' || result.platform === 'mas')) await adHocSignMac(result.outputPaths);
     },
+    ...(mac
+      ? {
+          postMake: async (_config: unknown, results: ForgeMakeResult[]) => {
+            const exec = quietExec((file, args) => execFileAsync(file, [...args], { maxBuffer: 16 * 1024 * 1024 }));
+            for (const dmg of results.flatMap((r) => r.artifacts).filter((a) => a.endsWith('.dmg'))) {
+              await signNotarizeStapleDmg(dmg, mac, exec);
+            }
+            return results;
+          },
+        }
+      : {}),
   },
   packagerConfig: {
     ...(buildVersion ? { appVersion: buildVersion, buildVersion } : {}),
@@ -85,8 +116,9 @@ const config: ForgeConfig = {
       InternalName: 'noobide',
       OriginalFilename: 'noobide.exe',
     },
-    // Signing and notarisation are configured in S28.2/S28.3 with credentials that live only in the release
-    // environment.
+    // S28.2/S28.3: credentials live only in the release environment (signing.config.ts).
+    ...(mac ? { osxSign: mac.osxSign, osxNotarize: mac.osxNotarize } : {}),
+    ...(windowsSign ? { windowsSign } : {}),
   },
   rebuildConfig: {},
   makers: [
@@ -99,6 +131,8 @@ const config: ForgeConfig = {
         setupExe: 'NoobIDE-Setup.exe',
         setupIcon: 'resources/icons/icon.ico',
         copyright: APP_COPYRIGHT,
+        // Signs Setup.exe and the Squirrel stubs with the same route as the app (S28.3).
+        ...(squirrelWindowsSign ? { windowsSign: squirrelWindowsSign } : {}),
       },
       ['win32'],
     ),

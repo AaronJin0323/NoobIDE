@@ -4,7 +4,8 @@ import { revealLabelKey, type PlatformId } from '../../platform/labels';
 import { withShortcut } from '../commands/useCommands'; // S24.1
 import type { OpenedProject } from '../../shared/ipc/contract';
 import type { SaveStatus } from './save-machine';
-import { CodeIcon, DotIcon, RevealIcon, SaveStateIcon } from './icons';
+import { CodeIcon, DotIcon, RevealIcon, SaveStateIcon, SearchIcon } from './icons';
+import { commandShortcutLabel } from '../../shared/commands';
 import type { NarrowView } from './layout';
 import { AppMenu, type AppMenuItem } from './AppMenu'; // S13
 
@@ -18,6 +19,8 @@ interface TopBarProps {
   narrow?: { view: NarrowView; onShow: (view: NarrowView) => void } | undefined;
   /** S13: commands of the menu next to the project (close project, open logs folder). */
   menuItems?: readonly AppMenuItem[] | undefined;
+  /** S40.5: opens the command palette. */
+  onOpenPalette?: (() => void) | undefined;
 }
 
 const SAVE_LABEL: Record<SaveStatus, MessageKey> = {
@@ -30,7 +33,7 @@ const SAVE_LABEL: Record<SaveStatus, MessageKey> = {
   deleted: 'save.deleted', // S11.3
 };
 
-export function TopBar({ platform, project, save, onReveal, narrow, menuItems }: TopBarProps) {
+export function TopBar({ platform, project, save, onReveal, narrow, menuItems, onOpenPalette }: TopBarProps) {
   const { t, locale, setLocale } = useI18n();
   return (
     <header className="region topbar" role="banner" aria-label={t('region.topbar')} data-testid="region-topbar">
@@ -46,19 +49,24 @@ export function TopBar({ platform, project, save, onReveal, narrow, menuItems }:
           {project ? project.rootPath : t('topbar.sampleNotice')}
         </span>
       </div>
-      {project && (
-        <button
-          type="button"
-          className="icon-button reveal-button"
-          aria-label={t(revealLabelKey(platform))}
-          title={t(revealLabelKey(platform))}
-          data-testid="reveal-project"
-          onClick={onReveal}
-        >
-          <RevealIcon />
-        </button>
+      {/* S40.3: project actions share one glass group */}
+      {(project || (menuItems && menuItems.length > 0)) && (
+        <div className="toolbar-group">
+          {project && (
+            <button
+              type="button"
+              className="icon-button reveal-button"
+              aria-label={t(revealLabelKey(platform))}
+              title={t(revealLabelKey(platform))}
+              data-testid="reveal-project"
+              onClick={onReveal}
+            >
+              <RevealIcon />
+            </button>
+          )}
+          {menuItems && <AppMenu items={menuItems} />}
+        </div>
       )}
-      {menuItems && <AppMenu items={menuItems} />}
       {narrow && (
         <div className="segmented" role="group" aria-label={t('narrow.switch')} data-testid="narrow-switch">
           {(['code', 'preview'] as const).map((view) => (
@@ -86,15 +94,32 @@ export function TopBar({ platform, project, save, onReveal, narrow, menuItems }:
         {save ? <SaveStateIcon state={save} /> : <DotIcon />}
         {save ? t(SAVE_LABEL[save]) : t('topbar.saveStatus.noFile')}
       </span>
-      <button
-        type="button"
-        className="quiet-button"
-        title={t('topbar.language')}
-        data-testid="switch-language"
-        onClick={() => setLocale(otherLocale(locale))}
-      >
-        {t('topbar.switchLanguage')}
-      </button>
+      <div className="toolbar-group">
+        {onOpenPalette && (
+          <button
+            type="button"
+            className="palette-button"
+            aria-haspopup="dialog"
+            aria-label={withShortcut(t('palette.open'), 'command-palette', platform)}
+            title={withShortcut(t('palette.open'), 'command-palette', platform)}
+            data-testid="open-palette"
+            onClick={onOpenPalette}
+          >
+            <SearchIcon />
+            <span className="palette-button-label">{t('palette.open')}</span>
+            <kbd className="kbd">{commandShortcutLabel('command-palette', platform)}</kbd>
+          </button>
+        )}
+        <button
+          type="button"
+          className="quiet-button"
+          title={t('topbar.language')}
+          data-testid="switch-language"
+          onClick={() => setLocale(otherLocale(locale))}
+        >
+          {t('topbar.switchLanguage')}
+        </button>
+      </div>
     </header>
   );
 }

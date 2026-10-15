@@ -103,18 +103,103 @@ export const THEMES: Record<ColorScheme, ThemeTokens> = {
   },
 };
 
+/**
+ * S40.2 Liquid Glass materials (docs/decisions/0029-liquid-glass-design-language.md). Translucent `#RRGGBBAA`
+ * colours for the floating control layer only — content (code, preview, file names) always sits on the solid
+ * tokens above. Every translucent fill has a solid twin used when the system asks for reduced transparency or
+ * higher contrast, and tokens.test.ts checks text on the fill composited over every surface it can float over.
+ */
+export interface GlassTokens {
+  /** Persistent chrome (rail, top-bar groups, status strip) over the window background. No backdrop blur. */
+  glassChrome: string;
+  /** Transient layers (menus, command palette, sheets) over content, with a backdrop blur. */
+  glassOverlay: string;
+  /** Hover / pressed fill of a control drawn on glass. */
+  glassHover: string;
+  /** Rim: the thin edge that separates glass from what is behind it. */
+  glassStroke: string;
+  /** Specular highlight along the top edge. */
+  glassHighlight: string;
+  glassShadow: string;
+  /** Soft colour fields in the window background that the chrome refracts. */
+  ambientA: string;
+  ambientB: string;
+  /** Solid fallbacks (reduced transparency, increased contrast, forced colours). */
+  glassChromeSolid: string;
+  glassOverlaySolid: string;
+  /** Dims the workbench behind a sheet. */
+  scrim: string;
+}
+
+export const GLASS: Record<ColorScheme, GlassTokens> = {
+  dark: {
+    glassChrome: '#1E2230A6',
+    glassOverlay: '#181B25D1',
+    glassHover: '#FFFFFF14',
+    glassStroke: '#FFFFFF1F',
+    glassHighlight: '#FFFFFF24',
+    glassShadow: '#00000073',
+    ambientA: '#6E5BFF2E',
+    ambientB: '#3DDC9714',
+    glassChromeSolid: '#1B1F29',
+    glassOverlaySolid: '#1B1F29',
+    scrim: '#05060A99',
+  },
+  light: {
+    glassChrome: '#FFFFFF94',
+    glassOverlay: '#FFFFFFC7',
+    glassHover: '#151A2B0F',
+    glassStroke: '#FFFFFFB3',
+    glassHighlight: '#FFFFFFE6',
+    glassShadow: '#1E223C29',
+    ambientA: '#6E5BFF24',
+    ambientB: '#38BDF81F',
+    glassChromeSolid: '#FFFFFF',
+    glassOverlaySolid: '#FFFFFF',
+    scrim: '#1E223C47',
+  },
+};
+
 /** `syntaxTag` → `--syntax-tag`. */
-export function cssVariableName(token: keyof ThemeTokens): string {
+export function cssVariableName(token: keyof ThemeTokens | keyof GlassTokens): string {
   return `--${token.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 }
 
-/** The custom properties the stylesheet reads, for one scheme. */
+/** The custom properties the stylesheet reads, for one scheme: solid tokens and glass materials. */
 export function cssVariables(scheme: ColorScheme): Record<string, string> {
   const tokens = THEMES[scheme];
-  return Object.fromEntries(
-    (Object.keys(tokens) as (keyof ThemeTokens)[]).map((key) => [cssVariableName(key), tokens[key]]),
-  );
+  const glass = GLASS[scheme];
+  return Object.fromEntries([
+    ...(Object.keys(tokens) as (keyof ThemeTokens)[]).map((key) => [cssVariableName(key), tokens[key]]),
+    ...(Object.keys(glass) as (keyof GlassTokens)[]).map((key) => [cssVariableName(key), glass[key]]),
+  ]);
 }
+
+/** A `#RRGGBBAA` colour painted over a solid `#RRGGBB` one: the solid colour the eye sees. */
+export function composite(over: string, under: string): string {
+  const top = /^#([0-9a-f]{6})([0-9a-f]{2})$/i.exec(over);
+  const bottom = /^#([0-9a-f]{6})$/i.exec(under);
+  if (!top?.[1] || !top[2] || !bottom?.[1]) throw new Error(`cannot composite ${over} over ${under}`);
+  const alpha = Number.parseInt(top[2], 16) / 255;
+  const channel = (hex: string, i: number) => Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  const mixed = [0, 1, 2].map((i) =>
+    Math.round(channel(top[1] as string, i) * alpha + channel(bottom[1] as string, i) * (1 - alpha)),
+  );
+  return `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+}
+
+/**
+ * What each glass fill can float over (S40.2). Chrome sits on the window background (tinted by the ambient fields);
+ * overlays can open above any surface of the workbench. The native preview view is never under glass: it is
+ * hidden while an overlay covers it (PreviewPane `covered`).
+ */
+export const GLASS_BACKDROPS = {
+  glassChrome: ['bg'],
+  glassOverlay: ['bg', 'panel', 'raised', 'hover', 'line', 'selection', 'accentSoft', 'lineHighlight'],
+} as const satisfies Record<'glassChrome' | 'glassOverlay', readonly (keyof ThemeTokens)[]>;
+
+/** Text styles drawn on glass. */
+export const GLASS_TEXT: readonly (keyof ThemeTokens)[] = ['text', 'muted', 'accentText'];
 
 /** WCAG 2.x relative luminance of a `#RRGGBB` colour. */
 export function relativeLuminance(hex: string): number {
