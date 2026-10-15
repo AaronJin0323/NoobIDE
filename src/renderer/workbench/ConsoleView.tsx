@@ -122,6 +122,7 @@ function LogLine({ entry, older }: { entry: ConsoleEntry; older: boolean }) {
 /** IDE notices about the page (S25.4 permissions, decision 0016 flood stop), in the user's language. */
 function noticeText(notice: PreviewNotice, t: (key: MessageKey) => string): string {
   if (notice.kind === 'console-flood-stopped') return t('preview.notice.consoleFloodStopped');
+  if (notice.permission === 'other') return t('preview.notice.permissionDeniedOther');
   return t('preview.notice.permissionDenied').replace('{permission}', t(`preview.permission.${notice.permission}`));
 }
 

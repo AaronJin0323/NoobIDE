@@ -264,6 +264,8 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   expect(workerStall.count).toBeGreaterThan(10_000);
   expect(workerStall.max).toBeLessThan(200);
   expect((await previewInfo(app)).pageGuarded).toBe(true);
+  // Limited floods (page, then worker) never trip main's guard: nothing was stopped, no notice.
+  await expect(page.locator('.preview-console-line[data-notice="console-flood-stopped"]')).toHaveCount(0);
 
   // Decision 0016 amendment: a page that saved a native console method before exceeding the limit bypasses it.
   // Main's flood guard then stops the running script (Runtime.terminateExecution), in the page and in workers, so

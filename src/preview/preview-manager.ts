@@ -120,6 +120,27 @@ const RECENT_RECORDS = 100;
  */
 const FLOOD_WINDOW_MS = 1_000;
 const FLOOD_LIMIT = 4 * CONSOLE_LIMIT;
+/**
+ * What one guarded document or worker can deliver within one FLOOD_WINDOW_MS of main: its windows are not aligned
+ * with main's, so up to two of them (plus their summaries).
+ */
+const FLOOD_PER_TARGET = 2 * CONSOLE_LIMIT + 10;
+
+/**
+ * The flood limit for this page: every document (frames, same-process or not) and every dedicated worker has its
+ * own in-page limiter, so a page that never bypassed it must not trip the guard however many it has. Computed once
+ * per window, not per message.
+ */
+function floodLimitFor(contents: WebContents): number {
+  let documents = 1;
+  try {
+    documents = Math.max(1, contents.mainFrame.framesInSubtree.length);
+  } catch {
+    // frame gone: keep 1
+  }
+  const workers = [...childSessions(contents).values()].filter((type) => type === 'worker').length;
+  return Math.max(FLOOD_LIMIT, (documents + workers) * FLOOD_PER_TARGET);
+}
 const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 };
 
 export class PreviewManager {
@@ -745,6 +766,7 @@ export class PreviewManager {
     contents.on('will-prevent-unload', (event) => event.preventDefault());
     // The page guard (docs/decisions/0016) stays installed for the view's lifetime; reinstall if it was detached.
     contents.debugger.on('detach', () => {
+      childSessions(contents).clear(); // their protocol sessions ended with the debugger
       if (!isCurrent() || contents.isDestroyed()) return;
       void installPageGuard(contents, { source: pageGuardSource(live.guardNonce), navigateFirst: false }).then((ok) => {
         live.pageGuarded = ok;
@@ -765,35 +787,50 @@ export class PreviewManager {
     // CONSOLE_LIMIT of them: a page that went quiet is not stopped again (its next script would be ended instead).
     let stopping = false;
     let sinceStop = Number.POSITIVE_INFINITY;
+    let limit = FLOOD_LIMIT;
     const onConsole = (event: Electron.Event<Electron.WebContentsConsoleMessageEventParams>) => {
       const now = Date.now();
       if (now - windowStart > FLOOD_WINDOW_MS) {
         windowStart = now;
         inWindow = 0;
         sinceStop = Number.POSITIVE_INFINITY;
+        limit = floodLimitFor(contents);
       }
       inWindow += 1;
-      if (inWindow > FLOOD_LIMIT) {
-        if (inWindow === FLOOD_LIMIT + 1) this.logs.markThrottled();
+      if (inWindow > limit) {
+        if (inWindow === limit + 1) this.logs.markThrottled();
         if (!isCurrent() || contents.isDestroyed()) return;
         sinceStop += 1;
-        if (!stopping && sinceStop > CONSOLE_LIMIT) {
-          stopping = true;
-          void stopRunawayScripts(contents).finally(() => {
-            stopping = false;
-            sinceStop = 0;
-          });
-        }
-        if (!live.floodStopped) {
-          live.floodStopped = true;
+        if (stopping || sinceStop <= CONSOLE_LIMIT) return;
+        stopping = true;
+        void stopRunawayScripts(contents).then((stopped) => {
+          stopping = false;
+          sinceStop = 0;
+          if (!isCurrent() || contents.isDestroyed()) return;
+          if (!stopped) {
+            // No protocol session (the guard could not be installed): fall back to 0010's guard and stop listening
+            // for the rest of the window, so at least our own handling costs nothing.
+            contents.off('console-message', onConsole);
+            live.timers.push(
+              setTimeout(() => {
+                if (this.live !== live || contents.isDestroyed()) return;
+                windowStart = Date.now();
+                inWindow = 0;
+                contents.on('console-message', onConsole);
+              }, FLOOD_WINDOW_MS),
+            );
+            return;
+          }
+          if (live.floodStopped) return;
+          live.floodStopped = true; // explained once per page load, and only when a script was really stopped
           this.pushLog({
             source: 'page-load',
             level: 'warning',
             message: 'console flood: the running script was stopped',
             notice: { kind: 'console-flood-stopped' },
-            at: now,
+            at: Date.now(),
           });
-        }
+        });
         return;
       }
       const { message, level, lineNumber, sourceId } = event;
@@ -998,18 +1035,39 @@ function childSessions(contents: WebContents): Map<string, string> {
  * events keep working. A target that is idle at that moment has its next script run ended instead (accepted: only a
  * page that bypassed the console limit gets here). Bounded: one request at a time, each waited for at most 250 ms.
  */
-async function stopRunawayScripts(contents: WebContents): Promise<void> {
-  if (terminating.has(contents) || contents.isDestroyed()) return;
+async function stopRunawayScripts(contents: WebContents): Promise<boolean> {
+  if (terminating.has(contents) || contents.isDestroyed()) return false;
   const dbg = contents.debugger;
-  if (!dbg.isAttached()) return;
+  if (!dbg.isAttached()) return false;
   terminating.add(contents);
   try {
     const sessions: (string | undefined)[] = [undefined, ...childSessions(contents).keys()];
+    const answers = await withTimeout(
+      Promise.all(
+        sessions.map((s) =>
+          dbg.sendCommand('Runtime.terminateExecution', {}, s).then(
+            () => true,
+            () => false,
+          ),
+        ),
+      ),
+      TERMINATE_TIMEOUT_MS,
+      null,
+    );
+    // A target that was idle keeps the termination pending until its next script run (the answer comes only then):
+    // use it up with a harmless evaluation, so no later event handler, timer or the next document's page guard is
+    // ended instead.
     await withTimeout(
-      Promise.all(sessions.map((s) => dbg.sendCommand('Runtime.terminateExecution', {}, s).catch(() => undefined))),
+      Promise.all(
+        sessions.map((s) =>
+          dbg.sendCommand('Runtime.evaluate', { expression: '0', silent: true }, s).catch(() => undefined),
+        ),
+      ),
       TERMINATE_TIMEOUT_MS,
       [],
     );
+    // Stopped when at least one target answered (a busy one answers as soon as its script is ended).
+    return answers === null || answers.some((a) => a);
   } finally {
     terminating.delete(contents);
   }

@@ -365,6 +365,8 @@ export const zhCN = {
   'preview.permission.devices': '外接设备（USB、HID、串口、蓝牙）',
   'preview.permission.fullscreen': '全屏',
   'preview.permission.other': '其他',
+  'preview.notice.permissionDeniedOther':
+    '网页请求了一项浏览器权限（例如锁定鼠标或打开外部程序），预览中默认拒绝。需要试用时，可以“在浏览器中打开”。',
   // --- end S25.4 ---
   // --- S28.1 About ---
   'about.title': '关于 NoobIDE',

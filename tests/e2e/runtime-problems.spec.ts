@@ -204,10 +204,12 @@ test('a refresh starts a new generation; problems that did not happen again are 
 });
 
 test('a flood of console errors is rate limited and capped; repeats collapse with counts; errors survive (S16.5)', async () => {
+  // 3000 messages paced within the in-page console limit (200 per second): about 23 s.
+  test.setTimeout(120_000);
   await startPreview(await project('预览 错误洪水'));
   await expect
-    .poll(() => evalInPreview<string>(app, 'document.body.dataset.sent ?? ""'), { timeout: 30_000 })
-    .toBe('840');
+    .poll(() => evalInPreview<string>(app, 'document.body.dataset.sent ?? ""'), { timeout: 60_000 })
+    .toBe('3000');
   await expect.poll(async () => byMessage(await listed(), '洪水之后的错误'), { timeout: 10_000 }).toBeTruthy();
   const { records, stats } = await snapshot();
   const consoleRecords = records.filter((r) => r.source === 'console');
@@ -215,11 +217,10 @@ test('a flood of console errors is rate limited and capped; repeats collapse wit
     `error flood: ${consoleRecords.length} console records kept, dropped ${JSON.stringify(stats.dropped)}, ` +
       `evicted ${JSON.stringify(stats.evicted)}`,
   );
-  // 840 different messages within the in-page limit (~6.6 s): only the store's burst plus its steady rate become
-  // records; the rest are counted as dropped.
-  expect(consoleRecords.length).toBeLessThan(600);
+  // 3000 different messages: only a burst plus a steady rate become records; the rest are counted as dropped.
+  expect(consoleRecords.length).toBeLessThan(1000);
   expect(stats.dropped.console).toBeGreaterThan(0);
-  expect(consoleRecords.length + stats.dropped.console).toBeLessThanOrEqual(841);
+  expect(consoleRecords.length + stats.dropped.console).toBeLessThanOrEqual(3001);
   // The repeated message is one record with a count, its first original and its latest repeat verbatim.
   const repeated = consoleRecords.filter((r) => r.originalMessage === '同一个错误');
   expect(repeated).toHaveLength(1);

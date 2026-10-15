@@ -386,6 +386,8 @@ export const en: Record<MessageKey, string> = {
   'preview.permission.devices': 'device (USB, HID, serial, Bluetooth)',
   'preview.permission.fullscreen': 'fullscreen',
   'preview.permission.other': 'other',
+  'preview.notice.permissionDeniedOther':
+    'The page asked for a browser permission (such as locking the mouse pointer or opening another app). The preview denies it by default. To try it, use “Open in browser”.',
   // --- end S25.4 ---
   // --- S28.1 About ---
   'about.title': 'About NoobIDE',
