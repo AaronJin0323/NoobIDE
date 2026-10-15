@@ -16,6 +16,7 @@ import type { RecoveryApi } from './recovery-contract';
 // S13 app data (settings, recent projects, session, logs): types and parsers in app-data-contract.ts.
 import type {
   LogsApi,
+  PortabilityApi,
   ProjectConfigApi,
   ProjectLifecycleApi,
   RecentProjectsApi,
@@ -398,6 +399,8 @@ export interface NoobideApi {
   readonly lifecycle?: ProjectLifecycleApi;
   /** S13.4: session restore (last project, its tabs, layout sizes). */
   readonly session?: SessionApi;
+  /** S13.5: cross-platform transfer check of the open project (report only). */
+  readonly portability?: PortabilityApi;
   // --- end S13 ---
   /** S20.2: create-project wizard (create-contract.ts). */
   readonly createProject: CreateProjectApi;

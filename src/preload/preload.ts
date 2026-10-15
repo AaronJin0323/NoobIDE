@@ -104,6 +104,9 @@ const api: NoobideApi = {
     saveTabs: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionSaveTabs, request),
     saveLayout: (layout) => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionSaveLayout, layout),
   },
+  portability: {
+    check: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.portabilityCheck, request),
+  },
   // --- end S13 ---
   // --- S20.2 create-project wizard ---
   createProject: {

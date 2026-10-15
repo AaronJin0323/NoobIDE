@@ -74,6 +74,7 @@ import { isEntryPath } from '../../shared/project-config';
 import type { TreeEntry } from '../../shared/ipc/contract';
 import { EntryNotice, type EntryNoticeState } from './EntryNotice';
 import { SessionNotice } from './SessionNotice';
+import { TransferNotice } from './TransferNotice'; // S13.5
 import { useI18n } from '../i18n/I18nProvider';
 import { Splitter } from './Splitter';
 import { persistedLayout } from './layout';
@@ -1009,6 +1010,8 @@ export function Workbench() {
       {restoredFrom && project?.rootPath === restoredFrom && (
         <SessionNotice rootPath={restoredFrom} onDismiss={() => setRestoredFrom(null)} />
       )}
+      {/* S13.5: what would break on the other system (report only, nothing is renamed) */}
+      <TransferNotice api={bridge?.portability} projectId={project?.projectId ?? null} />
       {/* S12: crash-recovery prompt and journal health */}
       <RecoveryDialog
         bridge={bridge}

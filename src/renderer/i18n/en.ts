@@ -265,6 +265,19 @@ export const en: Record<MessageKey, string> = {
   'layout.resizeFiles': 'Resize the files panel',
   'layout.resizeEditor': 'Resize code and preview',
   'session.restored': 'Reopened your last project. Location:',
+  'transfer.title':
+    'This project may run into problems on the other system (Windows / macOS). NoobIDE has not changed any file:',
+  'transfer.caseConflict':
+    'In "{folder}", {names} differ only in letter case: on Windows and macOS they become one file. Rename one of them.',
+  'transfer.unicodeConflict':
+    'In "{folder}", {names} look the same but are written with different Unicode forms: macOS treats them as one file. Rename one of them.',
+  'transfer.decomposedName':
+    'The name "{path}" uses decomposed Unicode characters (common for files copied from a Mac): a link typed on Windows may not find it. Typing the name again fixes it.',
+  'transfer.unportableName': 'The name "{path}" cannot be used on Windows or macOS. {reason}',
+  'transfer.mixedEol': '"{path}" mixes CRLF and LF line breaks: after you edit and save it, they become one kind.',
+  'transfer.rootFolder': 'the project folder',
+  'transfer.more': '{n} more not listed.',
+  'transfer.truncated': 'The project is large; only part of it was checked.',
   'files.setEntry': 'Set as entry page',
   'entry.set': 'Entry page set:',
   'entry.setDetail':
