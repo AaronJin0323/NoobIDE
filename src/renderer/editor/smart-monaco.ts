@@ -23,6 +23,12 @@ import { completionContextAt, htmlRegionAt, type CompletionContext } from './com
 import { suggestPaths } from './path-suggest';
 import { MAX_INDEXED_CHARS, indexedLanguage, symbolsOf, type ProjectIndex, type SymbolTable } from './project-index';
 import type { FileSymbols } from './project-symbols';
+import { getAiPromptHooks } from './editor-handle';
+import { parsePromptLine } from '../ai/ai-prompt-model';
+
+/** The line is a live inline `/ai` prompt (prompts enabled and the line reads as one). */
+const onPromptLine = (lineText: string): boolean =>
+  Boolean(getAiPromptHooks()?.enabled) && parsePromptLine(lineText) !== null;
 
 const LANGUAGES = ['html', 'css', 'javascript'] as const;
 /** Text before the cursor the context engine looks at. */
@@ -288,6 +294,8 @@ const provider: monaco.languages.CompletionItemProvider = {
   provideCompletionItems(model, position) {
     const started = performance.now();
     try {
+      // An inline `/ai` request (decision 0031) is prose, not code: no suggestions there (Enter must run it).
+      if (onPromptLine(model.getLineContent(position.lineNumber))) return { suggestions: [] };
       const { language, before } = textBefore(model, position);
       const context = completionContextAt(language, before);
       if (context) {

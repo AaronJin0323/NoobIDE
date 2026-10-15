@@ -7,6 +7,7 @@ import {
   isPromptLanguage,
   linesAfterChanges,
   parsePromptLine,
+  promptMarkersWanted,
 } from './ai-prompt-model';
 import './ai-prompt.css';
 
@@ -110,8 +111,16 @@ const promptsShown = (model: monaco.editor.ITextModel): boolean =>
 function refreshMarkers(model: monaco.editor.ITextModel): void {
   if (model.isDisposed()) return;
   const hooks = getAiPromptHooks();
-  // Project files only (the welcome sample and probes are in-memory models).
-  if (!hooks || !promptsShown(model) || model.uri.scheme !== 'file') {
+  // Project files only (the welcome sample and probes are in-memory models), and only where the prompt can run.
+  if (
+    !hooks ||
+    !promptMarkersWanted({
+      enabled: hooks.enabled,
+      languageId: model.getLanguageId(),
+      scheme: model.uri.scheme,
+      editable: !hooks.readOnlyUris().some((uri) => monaco.Uri.parse(uri).toString() === model.uri.toString()),
+    })
+  ) {
     monaco.editor.setModelMarkers(model, AI_PROMPT_MARKER_OWNER, []);
     return;
   }
@@ -151,6 +160,11 @@ function watchModel(model: monaco.editor.ITextModel): void {
   refreshMarkers(model);
 }
 
+/** Every model's markers follow again (e.g. a tab became read-only or editable). */
+export function refreshAiPromptMarkers(): void {
+  for (const model of monaco.editor.getModels()) refreshMarkers(model);
+}
+
 let installed = false;
 function installModelWatch(): void {
   if (installed) return;
@@ -158,9 +172,7 @@ function installModelWatch(): void {
   for (const model of monaco.editor.getModels()) watchModel(model);
   monaco.editor.onDidCreateModel(watchModel);
   // AI switched on/off, or the locale changed: every model's markers follow.
-  subscribeAiPromptHooks(() => {
-    for (const model of monaco.editor.getModels()) refreshMarkers(model);
-  });
+  subscribeAiPromptHooks(refreshAiPromptMarkers);
 }
 
 /**
@@ -182,16 +194,39 @@ export function attachAiPrompts(
     return model && target() !== null && promptsShown(model) ? model : null;
   };
 
+  /**
+   * While the cursor is on a prompt line, automatic suggestions (as-you-type and trigger characters such as `.` or
+   * space, from the language services and S43) stay off: the request is prose, and an open suggestion list would take
+   * the Enter that runs it. Ctrl+Space still asks for them explicitly. Leaving the line restores the options.
+   */
+  let savedSuggest: monaco.editor.IEditorOptions | null = null;
+  const quietSuggestions = (on: boolean) => {
+    if (on && !savedSuggest) {
+      savedSuggest = {
+        quickSuggestions: editor.getOption(monaco.editor.EditorOption.quickSuggestions),
+        suggestOnTriggerCharacters: editor.getOption(monaco.editor.EditorOption.suggestOnTriggerCharacters),
+      };
+      editor.updateOptions({ quickSuggestions: false, suggestOnTriggerCharacters: false });
+      // A list opened while `/ai` itself was typed closes now.
+      editor.trigger('noobide.aiPrompt', 'hideSuggestWidget', null);
+    } else if (!on && savedSuggest) {
+      editor.updateOptions(savedSuggest);
+      savedSuggest = null;
+    }
+  };
+
   const updateKeys = () => {
     const model = active();
     const position = editor.getPosition();
     if (!model || !position) {
       enterKey.set(false);
       lineKey.set(false);
+      quietSuggestions(false);
       return;
     }
     const lineText = model.getLineContent(position.lineNumber);
     const parsed = parsePromptLine(lineText);
+    quietSuggestions(Boolean(parsed));
     const selections = editor.getSelections() ?? [];
     lineKey.set(Boolean(parsed?.prompt));
     enterKey.set(
@@ -336,6 +371,7 @@ export function attachAiPrompts(
       unsubscribe();
       menu?.dispose();
       for (const subscription of subscriptions) subscription.dispose();
+      quietSuggestions(false);
       hints.clear();
     },
   };

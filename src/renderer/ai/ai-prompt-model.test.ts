@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { ProblemRecord } from '../../shared/problem';
+import { createProblemRecord, type ProblemRecord } from '../../shared/problem';
+import { translate } from '../i18n/index';
 import {
   AI_PROMPT_PENDING_CODE,
   atLineEnd,
   buildGenerateRequest,
   enterRuns,
+  fixWithAiRoute,
   fitIndent,
   GENERATE_CONTEXT_CHARS,
   isPromptLanguage,
@@ -12,7 +14,9 @@ import {
   linesTouched,
   parsePromptLine,
   promptLinesOf,
+  promptMarkersWanted,
   promptProblems,
+  promptsEnabled,
   PROMPT_PROBLEM_CHARS,
 } from './ai-prompt-model';
 
@@ -192,5 +196,55 @@ describe('fitIndent', () => {
     expect(fitIndent('  <p>x</p>\n  <p>y</p>', '  ')).toBe('  <p>x</p>\n  <p>y</p>');
     expect(fitIndent('a\nb', '')).toBe('a\nb');
     expect(fitIndent('', '\t')).toBe('');
+  });
+});
+
+/** Integration fixes between S35 / S42 / S43 (decision 0031). */
+describe('promptsEnabled', () => {
+  it('is on only when AI can answer: AI on and a key stored', () => {
+    expect(promptsEnabled({ kind: 'ready', provider: 'anthropic', consent: false })).toBe(true);
+    expect(promptsEnabled({ kind: 'ready', provider: 'openai', consent: true })).toBe(true);
+    for (const kind of ['no-key', 'no-secure-storage', 'disabled', 'loading', 'unavailable'] as const) {
+      expect(promptsEnabled({ kind })).toBe(false);
+    }
+  });
+});
+
+describe('promptMarkersWanted', () => {
+  const base = { enabled: true, languageId: 'css', scheme: 'file', editable: true };
+  it('warns on an editable project file of a prompt language while prompts are enabled', () => {
+    expect(promptMarkersWanted(base)).toBe(true);
+  });
+  it('no warning on a read-only tab, an in-memory model, another language or with prompts off', () => {
+    expect(promptMarkersWanted({ ...base, editable: false })).toBe(false);
+    expect(promptMarkersWanted({ ...base, scheme: 'inmemory' })).toBe(false);
+    expect(promptMarkersWanted({ ...base, languageId: 'markdown' })).toBe(false);
+    expect(promptMarkersWanted({ ...base, enabled: false })).toBe(false);
+  });
+  it('the warning tells, in both locales, that the pending line is saved into the file as text', () => {
+    expect(translate('en', 'aiPrompt.marker')).toMatch(/saved into the file as plain text/);
+    expect(translate('zh-CN', 'aiPrompt.marker')).toMatch(/保存在文件里/);
+  });
+});
+
+describe('fixWithAiRoute', () => {
+  const record = (code: string, source: 'static' | 'runtime' = 'static') =>
+    createProblemRecord({
+      source,
+      severity: 'warning',
+      projectId: 'p',
+      file: 'style.css',
+      line: 3,
+      code,
+      message: 'm',
+      at: 0,
+    });
+  it('runs the prompt on the pending /ai warning', () => {
+    expect(fixWithAiRoute(record(AI_PROMPT_PENDING_CODE))).toBe('run-prompt');
+  });
+  it('opens the fix review for every other problem', () => {
+    expect(fixWithAiRoute(record('unknownProperties'))).toBe('fix');
+    expect(fixWithAiRoute(record('SyntaxError', 'runtime'))).toBe('fix');
+    expect(fixWithAiRoute(record(AI_PROMPT_PENDING_CODE, 'runtime'))).toBe('fix');
   });
 });

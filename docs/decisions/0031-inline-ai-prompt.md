@@ -93,3 +93,19 @@ save.
 - Tests: pure detection/arming/context rules (unit), parser + prompt framing + fake provider (unit), and a Playwright
   e2e against the scripted provider that proves an English and a Chinese prompt, problem context reaching the model,
   Accept, Reject, one-step undo, Enter not hijacked on an unarmed line or during IME composition.
+
+## Amendment (2026-10-16, integration review of S41/S42/S43)
+
+- **Only when AI can answer.** "AI surfaces shown" above means `availability.kind === 'ready'` (`promptsEnabled`):
+  with no key, no secure storage or AI off, an `/ai` line is ordinary text (no hint, no warning, Enter is a line
+  break). The other AI entry points keep showing their "set up AI" state as before.
+- **Read-only tabs** get no pending-prompt warning (nothing could run the prompt there).
+- **"Fix with AI" on the pending-prompt warning** runs that prompt (generate mode, `fixWithAiRoute`) instead of asking
+  the AI to "fix" the user's request.
+- **No automatic suggestions on a prompt line.** While the cursor is on an `/ai` line, `quickSuggestions` and
+  `suggestOnTriggerCharacters` are off (restored when it leaves) and the S43 provider returns nothing there, so `.`,
+  `#` or a space in the request open no list that would take the Enter that runs it. Ctrl+Space still works.
+- **Saving a pending prompt is unchanged and intended:** autosave writes the `/ai` line like any other typing (user
+  text is never held back); the user knows through the end-of-line hint and the warning, whose text says it is saved
+  into the file as plain text until run or deleted. In a script this line is a syntax error on the page until then,
+  which the warning is there to explain.

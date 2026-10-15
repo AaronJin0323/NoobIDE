@@ -181,6 +181,11 @@ export interface AiPromptHooks {
    * the key that asked then does what it usually does (Enter inserts a line break).
    */
   run(uri: string, line: number): boolean;
+  /**
+   * Workbench model URIs of the open tabs that cannot be edited (read-only, another encoding). Their files get no
+   * pending-prompt warning: nothing could run the prompt there.
+   */
+  readOnlyUris(): readonly string[];
 }
 
 let aiPromptHooks: AiPromptHooks | null = null;

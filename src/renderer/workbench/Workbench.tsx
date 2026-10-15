@@ -906,6 +906,7 @@ export function Workbench() {
     () => ({
       relPathOf: (uri) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath,
       readOnly: (relPath) => Boolean(docRef.current.tabs.find((tab) => tab.relPath === relPath)?.content.readOnly),
+      readOnlyUris: () => docRef.current.tabs.filter((tab) => tab.content.readOnly).map((tab) => tab.uri),
       commit: async (relPath, text) => {
         const saver = saverOf(relPath);
         if (!saver) return { ok: false, code: 'not-found' };
