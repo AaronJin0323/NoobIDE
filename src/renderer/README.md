@@ -11,6 +11,6 @@ Folders: `workbench/` (shell, file tree, tabs, editor and preview panes, problem
 model registry, language configuration), `problems/` (problem views and cards, static problems, one-click fix),
 `history/` (local history window), `recovery/` (journal scheduler, restore dialog), `welcome/` (welcome screen and
 create-project wizard), `walkthrough/` (onboarding and glossary), `commands/` (command hooks and F6 region focus; the registry itself is `src/shared/commands.ts`), `i18n/`
-(zh-CN / en dictionaries), `theme/`, `ai/` (S33 AI chat panel: controller over the typed AI bridge, safe Markdown
-subset renderer, "Explain this code" / "Ask AI"; the extension point for agent steps and proposal cards is
-`ai/chat-extensions.ts`).
+(zh-CN / en dictionaries), `theme/`, `ai/` (AI features over `window.noobide.ai`, decision 0025: S33 chat panel —
+controller over the typed AI bridge, safe Markdown subset renderer, "Explain this code" / "Ask AI", extension point for
+agent steps and proposal cards in `ai/chat-extensions.ts`; S32 ghost-text suggestions in `inline-*.ts`).

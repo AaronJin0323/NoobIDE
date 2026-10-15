@@ -390,6 +390,10 @@ button {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+/* S32.1: AI suggestions on/off, as text next to the cursor position */
+.editor-status-ai {
+  margin-left: 16px;
+}
 .alert-actions {
   display: flex;
   flex-wrap: wrap;
