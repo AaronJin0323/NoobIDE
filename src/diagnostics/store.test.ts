@@ -74,6 +74,14 @@ describe('ProblemStore volume limits (S16.5)', () => {
     expect(store.stats().dropped.console).toBe(18);
   });
 
+  it('rate limits per source: a console flood does not starve the runtime error that follows', () => {
+    const store = new ProblemStore({ now: () => 0, burst: 5, ratePerSecond: 0 });
+    for (let i = 0; i < 1000; i++) store.add(err({ source: 'console', code: 'console-error', message: `spam ${i}` }));
+    expect(store.stats().dropped.console).toBe(995);
+    expect(store.add(err())).toBe('added');
+    expect(store.stats().dropped.runtime).toBe(0);
+  });
+
   it('still counts repeats of an existing problem while new ones are being dropped', () => {
     const store = new ProblemStore({ now: () => 0, burst: 1, ratePerSecond: 0 });
     store.add(err());

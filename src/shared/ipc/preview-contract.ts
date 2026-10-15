@@ -45,6 +45,11 @@ export interface PreviewLogEntry {
   readonly status?: number;
   /** Electron webRequest resource type for network records ('script', 'image', 'xhr', …). */
   readonly resourceType?: string;
+  /**
+   * S16.4: network records — the URL of the document, stylesheet or module that asked for the resource (the
+   * request's referrer, which Chromium sets to the requesting stylesheet / importing module, else the page).
+   */
+  readonly initiator?: string;
   readonly at: number;
 }
 

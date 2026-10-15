@@ -329,3 +329,65 @@ injected errno codes; this confirms the real OS behaves the same.
      session to do it); fill the Windows column of the status table.
 - **Expected:** every miss in `win32-x64.md` has an entry in `targets.md`; with no misses, the status table says so.
 - **Result:** _(owner fills in: date, misses found, where recorded)_
+
+### S06.1 / S06.2 — CI matrix run on GitHub Actions (Windows x64 + macOS arm64)
+
+Needs owner task H.5 (repository on GitHub with Actions enabled). Agents cannot push or run Actions. Workflow:
+`.github/workflows/ci.yml`; decisions: `docs/decisions/0021-ci-matrix-and-arch-inspection.md`.
+
+- **Platform:** GitHub-hosted runners `windows-latest` (x64) and `macos-14` (Apple Silicon arm64)
+- **Build:** the commit that added `.github/workflows/ci.yml` (or later)
+- **Steps:**
+  1. Repository → Settings → Actions → General: Actions allowed; "Workflow permissions" may stay at "Read
+     repository contents" (the workflow asks only for `contents: read`). If the org restricts actions, allow
+     `actions/checkout`, `actions/setup-node` and `actions/upload-artifact` (pinned by SHA).
+  2. Push the branch to `main` (or open a pull request). Repository → Actions → "CI" shows one run with two jobs,
+     `windows-x64` and `macos-arm64`. Alternatively start it with "Run workflow" (manual dispatch).
+  3. In each job, open the step logs and check:
+     - "Check runner architecture" prints `win32 x64` / `darwin arm64`.
+     - "Verify …" ends with `verify passed.`; "End-to-end tests" ends with all tests passed (no failures).
+     - "Make installers" lists `out/make/squirrel.windows/x64/NoobIDE-Setup.exe` (Windows) and
+       `out/make/dmg/arm64/NoobIDE-<version>-arm64.dmg` (macOS), plus a zip each.
+     - "Inspect binary architectures" ends with `0 errors` and `inspect-arch passed.` (S06.2). On Windows every
+       listed file is `pe x64`; on macOS every file is `macho arm64` (13 on the Electron 44 build).
+  4. Run summary → Artifacts: download `noobide-windows-x64` and `noobide-macos-arm64`. Expected: the Windows zip
+     contains `squirrel.windows/x64/NoobIDE-Setup.exe`, `RELEASES` and a `.nupkg`; the macOS zip contains the
+     `.dmg`. (These installers are unsigned until S28.2/S28.3.)
+  5. If a job fails: the `e2e-results-<target>` artifact holds the Playwright output; record the failing step.
+- **Expected:** both jobs green; both artifacts present; `inspect-arch passed.` on both.
+- **Result:** _(owner fills in: run URL, date, pass/fail per job, notes)_
+- **Close with:**
+  `node harness/session.mjs set S06.1 done --evidence "manual: Actions run <url> green on windows-latest + macos-14, artifacts downloaded"`
+  and `node harness/session.mjs set S06.2 done --evidence "manual: inspect-arch passed in CI run <url> (win x64 + mac arm64)"`
+
+### S06.3 — Physical Apple Silicon validation (DMG install, Activity Monitor, Chinese path, infinite loop)
+
+- **Platform:** a physical Apple Silicon Mac (not a VM, not the CI runner)
+- **Build:** `npm run make` on that Mac at the commit that added S06 CI (or the `noobide-macos-arm64` CI artifact)
+- **Agent pre-check (MacBook Pro M3 Pro, macOS 27.2 arm64, 2026-10-15, worktree build of the S06 commit):**
+  `npm run test:e2e` 181 passed / 2 skipped (incl. "a nested file with a Chinese name opens and saves (S03.4)",
+  "opens a folder with Chinese characters and spaces (S03.3)" and "an endless loop runs in another process and does
+  not block typing (S05.1)", all against the packaged arm64 app); `npm run make` →
+  `out/make/dmg/arm64/NoobIDE-0.0.0-arm64.dmg`; `hdiutil verify` VALID; mounted read-only and copied `NoobIDE.app`
+  to a scratch folder (drag-install equivalent, /Applications untouched); `inspect-arch` on the installed copy: 13
+  Mach-O, all arm64, `lipo -archs` = `arm64`; launched it: 4 processes (main, 2 helpers, renderer), none with the
+  Rosetta `P_TRANSLATED` flag (`ps -o flags`), all exited on quit. Not done by the agent: the real drag to
+  /Applications, Activity Monitor itself, and the Chinese-path / loop checks by hand in the installed app.
+- **Steps:**
+  1. `npm run make` (or download and unzip the CI artifact). Double-click `NoobIDE-<version>-arm64.dmg`; the window
+     shows NoobIDE.app and an Applications shortcut. Drag NoobIDE into Applications, eject the DMG.
+  2. Start NoobIDE from Launchpad / Applications. Unsigned until S28.3: if macOS blocks it, System Settings → Privacy
+     & Security → "Open Anyway" (note this in the result).
+  3. Activity Monitor → CPU tab → View → Columns → enable "Kind". Expected: `NoobIDE` and every `NoobIDE Helper …`
+     process show **Apple** (not Intel).
+  4. Create a folder `~/Desktop/我的 网页 测试` (Chinese characters and spaces). In NoobIDE open it (or create a new
+     project there from a template), create `页面 一.html`, type some text, press ⌘S. Expected: saved without error;
+     close and reopen the file — the text is there; Finder shows the Chinese file name correctly.
+  5. In a project's `index.html` add `<script>while (true) {}</script>`, save, start the preview. Expected: the
+     preview shows it is not responding and can be stopped, and typing in the editor stays smooth meanwhile (no
+     beach ball); Stop recovers; remove the loop, save, Start shows the page again.
+  6. Quit NoobIDE (⌘Q). Optional: drag it to the Trash to uninstall.
+- **Expected:** steps 1–6 pass; Activity Monitor shows Apple for all NoobIDE processes.
+- **Result:** _(owner fills in: Mac model, macOS version, date, pass/fail per step, Gatekeeper notes)_
+- **Close with:**
+  `node harness/session.mjs set S06.3 done --evidence "manual: <Mac model>, macOS <ver>, <date>, DMG install + Activity Monitor Apple + Chinese path save + infinite loop pass"`

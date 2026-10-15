@@ -1,9 +1,8 @@
 /**
  * Where the Problems panel gets runtime, console and resource problems from (S17.1).
  *
- * - Preferred: the main process's problem store (S16, implemented in parallel), exposed by preload as
- *   `window.noobide.problems` — `list()`, `onChanged(listener)`, `clearResolved()`. It is feature-detected here, so
- *   the panel works before and after it lands.
+ * - Preferred: the main process's problem store (S16.2, src/main/problems-bridge.ts), exposed by preload as
+ *   `window.noobide.problems` — `list()`, `onChanged(listener)`, `clearResolved()`. It is feature-detected here.
  * - Until then: the same records are built in the workbench from the preview's own event stream (S05.4 raw records →
  *   src/preview/to-problem.ts → the bounded ProblemStore of src/diagnostics/store.ts). Attribution: every preview
  *   start or refresh begins a new generation; a problem that has not occurred since is marked `stale`.

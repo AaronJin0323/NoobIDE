@@ -15,6 +15,7 @@ import {
 } from './file-tree-model';
 import { ChevronRightIcon, LinkIcon, TreeFileIcon, TreeFolderIcon, WarningIcon } from './icons';
 import { NameEditor } from './NameEditor';
+import { createListingTracker, listFolder } from './folder-listing';
 import { protectedFolderMessage } from './file-op-messages';
 import { FileRoleTag } from './FileRole';
 import { fileRoleFor, fileRoleLabelKey } from './file-role';
@@ -74,19 +75,19 @@ export function FileTree(props: FileTreeProps) {
 
   const projectRef = useRef(projectId);
   projectRef.current = projectId;
+  // Only the newest listing of each folder may update the tree: replies can arrive out of order.
+  const listings = useRef(createListingTracker());
   useEffect(() => {
+    listings.current.reset();
     dispatch({ type: 'reset' });
   }, [projectId]);
 
-  // Lazy loading: every expanded folder (and the root) whose children were never requested.
+  // Lazy loading: every expanded folder (and the root) whose children were never requested or are out of date.
   useEffect(() => {
     for (const relPath of foldersToLoad(state)) {
       dispatch({ type: 'loading', relPath });
-      void api.listDir({ projectId, relPath }).then((result) => {
-        if (projectRef.current !== projectId) return; // another project was opened meanwhile
-        if (result.ok) {
-          dispatch({ type: 'loaded', relPath, entries: result.value.entries, truncated: result.value.truncated });
-        } else dispatch({ type: 'failed', relPath, code: result.code });
+      void listFolder(listings.current, api.listDir, projectId, relPath, (action) => {
+        if (projectRef.current === projectId) dispatch(action); // else another project was opened meanwhile
       });
     }
   }, [api, projectId, state]);
