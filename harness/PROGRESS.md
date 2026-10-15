@@ -3,6 +3,67 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 15 — 2026-10-16 — Full Windows e2e suite green twice; preview guard on loaded machines (S05.8)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine (Windows 11, 2560×1440 at 150 %, 32 logical cores), in
+worktree branch `claude/hopeful-hawking-f23203` (node_modules junctioned to the main checkout), started from another
+session. Subagents: history-triggers stabilisation, Chromium source research, ai-history test, an independent
+reviewer for S05.8. Main's S25/S28/S40 work was merged in (`51a7d73`) before the final runs.
+
+**Done**
+
+- S39.3 — `smoke.spec` S02.2 lists `ai.previewSnapshot` and the `aiHistory` bridge (S38.2/S39 surfaces it missed).
+- S15.7 — `preview-layout.spec` scale factor 2: on a 150 % display `setContentSize(1280, 800)` gives 1281×801; the
+  wait accepts 1 px, divider sizes are still compared exactly.
+- S21.5 — **product:** a save hands local history the bytes it already read and hash-checked; the old second read
+  raced the 1 s capture timeout, so a loaded machine could silently drop the before-save version. Test: no wall-clock
+  bounds (fake timers, never-resolving store). 20/20 with the CPU saturated (10 of 18 failed before).
+- S05.8 — **product:** the Session 12 "Starting" stall. Without a DevTools client a new preview view's first
+  about:blank load can stay pending 30–45 s under CPU load (also in stock Electron 44), and the guard's commands only
+  answer once the view's renderer runs; one 5 s bound over both made every preview on a busy machine run **without
+  the console guard** after 5 s of Starting. Playwright's connection to every view hid it from the whole suite.
+  `installPageGuard` now re-requests the first document every 1 s (≤ 30 s), gives the commands ≤ 45 s, and both
+  waits end at once on Stop / a newer Start; `debugInfo().guardTrace` (timings + outcome only). New
+  `tests/e2e/preview-restore.spec.ts` + `inspector-launch.ts`: 5 restarts driven only through main's Node inspector,
+  under 1.5 busy threads per core; fails on the old code, passes on the fix. Chromium source (read by a subagent,
+  Electron 44 = Chromium 152) rules out the original `waitForDebuggerOnStart` hypothesis: the page's own session
+  never throttles a main-frame navigation.
+- S39.4 — `ai-history.test.ts` budget test raced the usage store (150 ms model delay vs a queued write); explicit
+  gate; teardown drains the last request (Session 13's ENOTEMPTY). Dates checked: `dayKey()` is local-calendar.
+- docs/reviews/G9.md — criterion 4 Windows row and a "Windows x64 full e2e suite (Session 15)" section.
+
+**Evidence:** `npm run verify` green @ `51a7d73`. Full `npm run test:e2e` then `--no-build`, back to back on
+`51a7d73`: **271 passed, 4 skipped (macOS-only), 0 failed — twice** (12.0 / 11.1 min). Earlier runs this session:
+`f51e123` 247 passed / 2 failed; `683570f` 245/2 and 256/1 (restore spec under load; walkthrough once). S05.8 old vs
+new with the same spec: old fails at restart 1 (unguarded), new passed 2/2 alone and in both final runs; reviewer
+findings (retry spin, cancellable install, launcher cleanup, timeouts) fixed.
+
+**Decisions:** none needing a record; decision 0016 is unchanged (the page itself stays best effort, now after up to
+30 + 45 s instead of 5 s; workers and frames stay fail-closed).
+
+**Problems / risks:**
+
+- Seen once, not reproduced: `preview-layout.spec` S15.1 divider drag stopped 30 px short (run 1; 8+ isolated runs
+  and four later full runs green — a real-cursor theory was tested and not confirmed, nothing changed);
+  `walkthrough.spec` "progress survives a restart" panel missing after restart (one run; three later runs green).
+  If either recurs, keep the error-context and the app log from the run.
+- `preview-restore.spec` takes ~4–5 min (it loads the CPU on purpose). One restart in the final runs took 15.6 s
+  from process launch (S05.8's criterion says 15 s; the rest 3.4–9.1 s).
+- Under extreme load (2 busy threads per core) a preview can stay Starting up to ~45 s before it is guarded.
+- Other tests the S21.5 subagent saw fail only while the CPU was saturated: history-groups, history-store "coalesces
+  a save burst", watcher (2), faults/history-faults — not investigated.
+- Branch not merged into main; local main is ahead of origin (S25, S28, S40 unpushed).
+
+**Owner action needed:** merge `claude/hopeful-hawking-f23203` into main and push; check the next CI run on both jobs
+(G9 condition 2); Mac: run `preview-restore.spec` on Apple Silicon (Session 12 saw the stall there).
+
+**Next up**
+
+1. CI on `windows-latest` and macOS with this branch (G9 condition 2).
+2. Load-sensitive integration tests listed above (one feature each, same approach as S21.5).
+
+**Ideas / backlog candidates:** none.
+
 ## Session 14 (side session) — 2026-10-15 — Liquid Glass design language (S40, milestone M11)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, in worktree branch `s40-liquid-glass` (started from
