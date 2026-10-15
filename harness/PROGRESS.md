@@ -49,7 +49,10 @@ Subagents: indentation engine + fixtures, completion-context/symbols/paths engin
 
 **Evidence:** verify green (2 412 tests); e2e on Windows x64: `smart-editing.spec.ts` 13/13, and with ai-inline,
 language (packaged offline), tabs, problems, problem-card, offline, editing, a11y, smoke, external-change: 93/93. Full e2e suite (`npm run test:e2e`): 284 passed, 4 skipped (pre-existing), after adding the new
-indentation button to `shell.spec` S30.3's control inventory (its only failure).
+indentation button to `shell.spec` S30.3's control inventory (its only failure). After merging main (S41 preview annotations, S42
+inline `/ai` prompts): verify green; full e2e 287 passed, 4 skipped, 2 failed once under full-suite load and passed
+on rerun (`preview-restore` S05.8 restart under CPU load, `walkthrough` "progress survives a restart"; both restart
+the app and passed in the pre-merge run).
 
 **Decisions / problems**
 
