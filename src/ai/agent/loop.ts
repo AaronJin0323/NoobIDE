@@ -6,7 +6,7 @@ import type {
   AiProposalDecision,
   AiRequest,
 } from '../../shared/ipc/ai-contract';
-import { errorMessage, stepSummary, type AgentLocale, type StepKey } from './messages';
+import { cutOffNote, errorMessage, stepSummary, type AgentLocale, type StepKey } from './messages';
 import {
   ModelPortError,
   type AgentContentBlock,
@@ -103,8 +103,9 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
     if (!terminal) options.emit(event);
   };
   const finish = (event: AiEvent) => {
-    emit(event);
-    terminal = true;
+    if (terminal) return;
+    terminal = true; // before emitting: a throwing listener cannot cause a second terminal event
+    options.emit(event);
   };
   const fail = (code: AiErrorCode) => finish({ requestId, type: 'error', code, message: errorMessage(locale, code) });
   const usage = { inputTokens: 0, outputTokens: 0 };
@@ -182,6 +183,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
       const calls = content.filter((b): b is Extract<AgentContentBlock, { type: 'tool_use' }> => b.type === 'tool_use');
       if (calls.length === 0) {
         if (stopReason === 'pause_turn') continue;
+        // An answer cut off at the output limit is said to be cut off, not presented as complete.
+        if (stopReason === 'max_tokens') emit({ requestId, type: 'text', text: `\n\n${cutOffNote(locale)}` });
         return finish({ requestId, type: 'done', usage: { ...usage } });
       }
 
@@ -215,7 +218,9 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
           const checked = await checkProposal(c.name, c.input as Record<string, unknown>, ports);
           if (!checked.ok) {
             results.set(c.id, { isError: true, content: checked.error });
-            emit({ requestId, type: 'step', tool: c.name, summary: stepSummary(locale, 'refused', checked.error) });
+            const input = c.input as Record<string, unknown>;
+            const target = typeof input.path === 'string' ? input.path.slice(0, 80) : c.name;
+            emit({ requestId, type: 'step', tool: c.name, summary: stepSummary(locale, 'refused', target) });
             continue;
           }
           const paths = touchedPaths(checked.change);
@@ -319,7 +324,7 @@ function outcomeText(result: DecisionResults[number] | undefined, change: AiFile
     : '';
   return {
     isError: true,
-    content: `The user accepted this change (${what}), but applying it failed, so the file is unchanged.${detail}`,
+    content: `The user accepted this change (${what}), but applying it did not complete; the details say what happened.${detail}`,
   };
 }
 

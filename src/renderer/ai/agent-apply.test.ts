@@ -107,7 +107,7 @@ function fakeHost(
       const tab = open[relPath];
       return tab ? { text: tab.text, readOnly: tab.readOnly ?? false, blocked: tab.blocked ?? false } : undefined;
     },
-    async replaceOpenText(relPath, text) {
+    async replaceOpenText(relPath, _before, text) {
       log.push(`tab ${relPath}`);
       const tab = open[relPath];
       if (!tab) return { code: 'changed-since' };

@@ -147,6 +147,11 @@ export class AgentDecisionStore {
       this.applied.set(proposal.requestId, steps);
       this.setView(proposal, index, { state: 'applied' });
     } else {
+      if (result.undo) {
+        const steps = this.applied.get(proposal.requestId) ?? [];
+        steps.push(result.undo);
+        this.applied.set(proposal.requestId, steps);
+      }
       this.setView(proposal, index, { state: 'failed', failure: result.failure });
     }
   }

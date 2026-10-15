@@ -26,12 +26,18 @@ describe('checkAgentPath (S34.1)', () => {
     expect(checkAgentPath(input).ok).toBe(false);
   });
 
-  it.each(['.env', '.noobide/project.json', '.git/config', 'node_modules/a.js', 'css/.hidden', 'a.html.noobide-tmp'])(
-    'refuses hidden or ignored %j',
-    (input) => {
-      expect(checkAgentPath(input).ok).toBe(false);
-    },
-  );
+  it.each([
+    '.env',
+    '.noobide/project.json',
+    '.git/config',
+    'node_modules/a.js',
+    'NODE_MODULES/a.js',
+    'css/.hidden',
+    'a.html.noobide-tmp',
+    'A.HTML.NOOBIDE-TMP',
+  ])('refuses hidden or ignored %j', (input) => {
+    expect(checkAgentPath(input).ok).toBe(false);
+  });
 
   it('requires portable names for new paths', () => {
     expect(checkAgentPath('pages/about.html', { newPath: true }).ok).toBe(true);

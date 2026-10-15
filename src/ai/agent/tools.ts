@@ -202,6 +202,15 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
 
 // ── path policy ──
 
+/**
+ * Hidden or ignored for the agent: dotfiles, `.noobide`, `node_modules`, temp files. Compared case-insensitively as
+ * well (only for this check; paths are never rewritten), because `NODE_MODULES` is the same folder on Windows and
+ * macOS volumes. The ports apply it to the REAL path too, so a link or a Windows 8.3 short name cannot reach them.
+ */
+export function isHiddenForAgent(relPath: string): boolean {
+  return isIgnoredRelPath(relPath) || isIgnoredRelPath(relPath.toLowerCase());
+}
+
 export type PathCheck =
   { readonly ok: true; readonly relPath: string } | { readonly ok: false; readonly reason: string };
 
@@ -227,7 +236,7 @@ export function checkAgentPath(
   if (normal === null)
     return refused('only paths inside the project folder are allowed ("..", drive letters and URLs are not)');
   if (normal === '') return options.allowRoot ? { ok: true, relPath: '' } : refused('a file path is required');
-  if (isIgnoredRelPath(normal)) {
+  if (isHiddenForAgent(normal)) {
     return refused(
       'hidden and ignored files (names starting with ".", .noobide, node_modules) are not available to the assistant',
     );
@@ -296,7 +305,7 @@ function readError(code: ReadFileError, relPath: string): string {
     case 'not-found':
       return `"${relPath}" does not exist`;
     case 'outside-project':
-      return `"${relPath}" is outside the project (a link that leads out of the project folder is not followed)`;
+      return `"${relPath}" is not available: it leads outside the project or to a hidden file (links are not followed there)`;
     case 'not-a-file':
       return `"${relPath}" is a folder, not a file`;
     case 'too-large':
@@ -383,7 +392,7 @@ async function listFiles(ctx: ToolContext, path: string, recursive: boolean): Pr
         truncated = true;
         return null;
       }
-      if (isIgnoredRelPath(entry.relPath)) continue;
+      if (isHiddenForAgent(entry.relPath)) continue;
       switch (entry.kind) {
         case 'directory':
           lines.push(`${entry.relPath}/`);
@@ -456,7 +465,7 @@ async function searchText(ctx: ToolContext, query: string, path: string, caseSen
       continue;
     }
     for (const entry of listing.value.entries) {
-      if (isIgnoredRelPath(entry.relPath)) continue;
+      if (isHiddenForAgent(entry.relPath)) continue;
       if (entry.kind === 'directory') {
         queue.push(entry.relPath);
         continue;

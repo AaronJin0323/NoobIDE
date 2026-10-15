@@ -67,3 +67,8 @@ const ERRORS: Record<AgentLocale, Partial<Record<AiErrorCode, string>> & { fallb
 export function errorMessage(locale: AgentLocale, code: AiErrorCode): string {
   return ERRORS[locale][code] ?? ERRORS[locale].fallback;
 }
+
+/** Appended when the model's answer hit the output limit. */
+export function cutOffNote(locale: AgentLocale): string {
+  return locale === 'en' ? '(The answer was cut off because it got too long.)' : '（回答太长，被截断了。）';
+}

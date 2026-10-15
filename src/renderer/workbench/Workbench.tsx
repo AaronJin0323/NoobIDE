@@ -86,7 +86,7 @@ import { persistedLayout } from './layout';
 import { EDITOR_SHARE, FILES_WIDTH, MAX_SESSION_TABS } from '../../shared/session';
 import { AboutDialog, useAboutRequests } from './AboutDialog'; // S28.1
 // S34.2: AI agent (proposals reviewed as diffs, applied through the save pipeline)
-import type { AgentApplyHost } from '../ai/agent-apply';
+import { sameText, type AgentApplyHost } from '../ai/agent-apply';
 import { AgentDecisionStore } from '../ai/agent-decisions';
 import { agentChatExtensions } from '../ai/AgentProposalCard';
 import { aiBridge } from '../ai/ai-bridge';
@@ -581,12 +581,24 @@ export function Workbench() {
           saver.state.conflict || saver.state.deleted || lockedRef.current.some((p) => isSameOrBelow(relPath, p));
         return { text: saver.text, readOnly: Boolean(tab.content.readOnly), blocked: Boolean(blocked) };
       },
-      replaceOpenText: async (relPath, text) => {
+      replaceOpenText: async (relPath, before, text) => {
         const saver = saverOf(relPath);
         const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
         if (!saver || !tab) return { code: 'changed-since' };
         dispatch({ type: 'activate', relPath }); // the user sees the change land in the editor
-        const applied = await editorModels().then((m) => m.replaceModelText(tab.uri, text));
+        const models = await editorModels();
+        await models.waitForModel(tab.uri);
+        // Re-checked after the waits: a disk reload (S11), a conflict or typing may have changed the tab meanwhile.
+        if (
+          saver !== saverOf(relPath) ||
+          reloading.current.has(relPath) ||
+          saver.state.conflict ||
+          saver.state.deleted ||
+          !sameText(saver.text, before)
+        ) {
+          return { code: 'changed-since' };
+        }
+        const applied = await models.replaceModelText(tab.uri, text);
         if (applied === null || saver !== saverOf(relPath)) return { code: 'write-failed', detail: 'editor' };
         // The editor reports the edit only for the model it shows; a background tab's edit is recorded here.
         if (saver.text !== applied) recordEdit(relPath, applied);

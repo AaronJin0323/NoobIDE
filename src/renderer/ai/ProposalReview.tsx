@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useId } from 'react';
 import type { AiFileChange } from '../../shared/ipc/ai-contract';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
@@ -50,6 +50,7 @@ export function failureText(t: (key: MessageKey) => string, failure: ApplyFailur
 export function ProposalReview(props: ProposalReviewProps) {
   const { proposalId, changes, reason, views, busy } = props;
   const { t } = useI18n();
+  const baseId = useId();
   const pending = views.filter((v) => v.state === 'pending').length;
   return (
     <section
@@ -72,7 +73,9 @@ export function ProposalReview(props: ProposalReviewProps) {
               data-path={change.relPath}
             >
               <div className="agent-change-head">
-                <span className="agent-change-title">{changeTitle(t, change)}</span>
+                <span className="agent-change-title" id={`${baseId}-${index}`}>
+                  {changeTitle(t, change)}
+                </span>
                 <span className="agent-change-state" role="status" data-testid="agent-change-state">
                   {view.state === 'failed' && <WarningIcon />}
                   {view.state === 'failed'
@@ -87,6 +90,7 @@ export function ProposalReview(props: ProposalReviewProps) {
                     type="button"
                     className="primary-button"
                     data-testid="agent-accept"
+                    aria-describedby={`${baseId}-${index}`}
                     disabled={busy}
                     onClick={() => props.onAccept(index)}
                   >
@@ -96,6 +100,7 @@ export function ProposalReview(props: ProposalReviewProps) {
                     type="button"
                     className="quiet-button"
                     data-testid="agent-reject"
+                    aria-describedby={`${baseId}-${index}`}
                     disabled={busy}
                     onClick={() => props.onReject(index)}
                   >

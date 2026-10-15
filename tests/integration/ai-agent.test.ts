@@ -356,7 +356,7 @@ describe('agent loop: read tools, proposals and decisions (S34.1)', () => {
     await h.run.finished;
     const [result] = lastToolResults(h.model.requests[1] as never);
     expect(result?.isError).toBe(true);
-    expect(result?.content).toContain('applying it failed');
+    expect(result?.content).toContain('applying it did not complete');
     expect(result?.content).toMatch(/<data-[0-9a-f]{12} kind="apply-error">\nThe file is open in another program\./);
   });
 
@@ -548,6 +548,36 @@ describe('prompt injection and path confinement (S34.1)', () => {
     expect(results.slice(5).every((r) => r.isError)).toBe(true);
     expect(h.events.some((e) => e.type === 'proposal')).toBe(false);
     expect(allSentText(h.model)).not.toContain('OUTSIDE-SECRET');
+  });
+});
+
+describe('hidden files behind links (S34.1 review)', () => {
+  it('an ordinary-looking link to .env or .git is refused by the real-path policy', async (ctx) => {
+    if (!symlinks) ctx.skip();
+    await mkdir(path.join(root, '.git'), { recursive: true });
+    await writeFile(path.join(root, '.git', 'config'), 'REPO-CONFIG-SECRET');
+    await symlink(path.join(root, '.env'), path.join(root, 'innocent.txt'));
+    await symlink(path.join(root, '.git'), path.join(root, 'cfg'), 'junction');
+    const h = start([
+      {
+        toolCalls: [
+          { name: 'read_file', input: { path: 'innocent.txt' } },
+          { name: 'read_file', input: { path: 'cfg/config' } },
+          { name: 'list_files', input: { path: 'cfg' } },
+          { name: 'search_text', input: { query: 'SECRET' } },
+          { name: 'propose_edit', input: { path: 'innocent.txt', content: 'x', reason: 'r' } },
+          { name: 'propose_create', input: { path: 'cfg/hooks.txt', content: 'x', reason: 'r' } },
+        ],
+      },
+      { text: ['ok'] },
+    ]);
+    await h.run.finished;
+    const results = lastToolResults(h.model.requests[1] as never);
+    expect(results.map((r) => r.isError)).toEqual([true, true, true, false, true, true]);
+    expect(h.events.some((e) => e.type === 'proposal')).toBe(false);
+    const sent = allSentText(h.model);
+    expect(sent).not.toContain('hunter2');
+    expect(sent).not.toContain('REPO-CONFIG-SECRET');
   });
 });
 

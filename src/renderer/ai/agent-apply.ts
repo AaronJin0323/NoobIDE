@@ -35,8 +35,11 @@ export interface AgentApplyHost {
   openTab(
     relPath: string,
   ): { readonly text: string; readonly readOnly: boolean; readonly blocked?: boolean } | undefined;
-  /** Makes `text` the open tab's content (one undo step) and saves it through the tab's saver. Null = saved. */
-  replaceOpenText(relPath: string, text: string): Promise<ApplyFailure | null>;
+  /**
+   * Makes `text` the open tab's content (one undo step) and saves it through the tab's saver, if the tab still holds
+   * `before` at that moment (checked again after every wait). Null = saved.
+   */
+  replaceOpenText(relPath: string, before: string, text: string): Promise<ApplyFailure | null>;
   /** Shows a file in a tab (a created or restored file). */
   openFile(relPath: string): void;
 }
@@ -67,9 +70,12 @@ export type UndoStep =
   | { readonly kind: 'delete'; readonly relPath: string };
 
 export type ApplyResult =
-  { readonly ok: true; readonly undo: UndoStep } | { readonly ok: false; readonly failure: ApplyFailure };
+  | { readonly ok: true; readonly undo: UndoStep }
+  /** `undo`: the change partly landed (text in the editor, not saved) and can still be undone with the turn. */
+  | { readonly ok: false; readonly failure: ApplyFailure; readonly undo?: UndoStep };
 
-const sameText = (a: string, b: string) => a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n');
+/** Same text apart from line endings (the editor may hold CRLF text as LF). */
+export const sameText = (a: string, b: string) => a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n');
 const failed = (code: ApplyFailureCode, detail?: string): ApplyResult => ({
   ok: false,
   failure: detail === undefined ? { code } : { code, detail },
@@ -97,8 +103,12 @@ async function applyEdit(host: AgentApplyHost, relPath: string, before: string, 
   if (open) {
     if (open.readOnly) return failed('read-only');
     if (open.blocked || !sameText(open.text, before)) return failed('changed-since');
-    const problem = await host.replaceOpenText(relPath, after);
-    return problem ? { ok: false, failure: problem } : { ok: true, undo: { kind: 'edit', relPath, before, after } };
+    const problem = await host.replaceOpenText(relPath, before, after);
+    if (!problem) return { ok: true, undo: { kind: 'edit', relPath, before, after } };
+    // A failed save leaves the new text in the editor as unsaved edits: it stays undoable with the turn.
+    return problem.code === 'save-failed'
+      ? { ok: false, failure: problem, undo: { kind: 'edit', relPath, before, after } }
+      : { ok: false, failure: problem };
   }
   const current = await host.workspace.readFile({ projectId: host.projectId, relPath });
   if (!current.ok) return failed(current.code === 'not-found' ? 'not-found' : 'write-failed', current.code);

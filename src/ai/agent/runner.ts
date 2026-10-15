@@ -56,8 +56,16 @@ interface Waiting {
 }
 
 export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
-  return (input, emit, signal) => {
+  return (input, emitEvent, signal) => {
     let waiting: Waiting | null = null;
+    let ended = false;
+    const locale = input.request.kind === 'agent' && input.request.locale === 'en' ? 'en' : 'zh-CN';
+    // At most one terminal event reaches the service, whatever happens below.
+    const emit = (event: AiEvent) => {
+      if (ended) return;
+      if (event.type === 'done' || event.type === 'error') ended = true;
+      emitEvent(event);
+    };
     let finishedFlag = false;
     const onAbort = () => {
       waiting?.resolve(null);
@@ -74,10 +82,14 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
     const run = async (): Promise<void> => {
       const request = input.request;
       if (request.kind !== 'agent') {
-        emit({ requestId: input.requestId, type: 'error', code: 'provider-error', message: 'not an agent request' });
+        emit({
+          requestId: input.requestId,
+          type: 'error',
+          code: 'provider-error',
+          message: errorMessage(locale, 'provider-error'),
+        });
         return;
       }
-      const locale = request.locale === 'en' ? 'en' : 'zh-CN';
       const ports = deps.projectPorts(request.projectId);
       if (!ports) {
         emit({
@@ -106,7 +118,12 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
     const finished = run()
       .catch(() => {
         // runAgentLoop never throws; a failure before it started is reported here.
-        emit({ requestId: input.requestId, type: 'error', code: 'provider-error', message: 'agent failed' });
+        emit({
+          requestId: input.requestId,
+          type: 'error',
+          code: 'provider-error',
+          message: errorMessage(locale, 'provider-error'),
+        });
       })
       .finally(() => {
         finishedFlag = true;
