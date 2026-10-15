@@ -3439,7 +3439,7 @@
       "session": "S42",
       "milestone": "M10",
       "description": "",
-      "status": "in_progress",
+      "status": "done",
       "id": "S42.2",
       "title": "/ai detection, arming and generate request (rules + main)",
       "verify": "auto",
@@ -3452,13 +3452,13 @@
         "Main: the edit request parser accepts the optional `mode: \"generate\"` and bounded `problems` (exact keys, refuses bad values); the generate system prompt is fixed per locale; problems are framed as data and cannot close their frame; the fake provider has a generate scenario",
         "Unit tests for all of the above"
       ],
-      "evidence": ""
+      "evidence": "src/renderer/ai/ai-prompt-model.test.ts (12: detection incl. full-width space/Chinese/look-alikes, arming, Enter rules, problems selection+bounds, generate request context bounds, indent), src/ai/generate-prompt.test.ts (5: parser mode/problems bounds, fixed generate system prompt per locale, problems frame neutralised, fake generate scenario), tests/integration/ai-service.test.ts S42.2 (IPC→service→provider, bad payloads refused, log has no prompt/problem text) + verify green @ 6012868"
     },
     {
       "session": "S42",
       "milestone": "M10",
       "description": "",
-      "status": "todo",
+      "status": "in_progress",
       "id": "S42.3",
       "title": "/ai prompt in the editor: hint, warning, trigger, review, accept/reject/undo",
       "verify": "auto",

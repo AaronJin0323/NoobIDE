@@ -34,14 +34,17 @@ export interface InlineEditPanelProps {
   readonly original: string;
   /** S35.2: the problem being fixed (its title), when this is "Fix with AI". */
   readonly fixTitle?: string | undefined;
+  /** S42.3: the request of an inline `/ai` prompt, when this zone runs one (its line is what gets replaced). */
+  readonly promptRequest?: string | undefined;
   /** The consent prompt (phase 'consent'). */
   readonly consent?: ReactNode;
   readonly platform: PlatformId;
   readonly actions: InlineEditPanelActions;
 }
 
-export function targetText(t: Translate, target: InlineEditTarget): string {
+export function targetText(t: Translate, target: InlineEditTarget, prompt = false): string {
   const params = { file: target.relPath, start: target.startLine, end: target.endLine };
+  if (prompt) return fill(t('aiPrompt.target'), params);
   if (target.wholeFile) return fill(t('ai.edit.target.file'), params);
   return fill(t(target.startLine === target.endLine ? 'ai.edit.target.line' : 'ai.edit.target.lines'), params);
 }
@@ -85,6 +88,7 @@ export function InlineEditPanel({
   target,
   original,
   fixTitle,
+  promptRequest,
   consent,
   platform,
   actions,
@@ -124,8 +128,13 @@ export function InlineEditPanel({
       onKeyDown={onKeyDown}
     >
       <p className="inline-edit-target" data-testid="inline-edit-target">
-        {targetText(t, target)}
+        {targetText(t, target, promptRequest !== undefined)}
       </p>
+      {promptRequest !== undefined && (
+        <p className="inline-edit-hint" data-testid="inline-edit-prompt">
+          {fill(t('aiPrompt.request'), { prompt: promptRequest })}
+        </p>
+      )}
       {fixTitle !== undefined && (
         <p className="inline-edit-hint" data-testid="inline-edit-fix">
           {fill(t('ai.fix.instructionLabel'), { title: fixTitle })}

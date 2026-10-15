@@ -8,6 +8,7 @@ import {
   fitIndent,
   GENERATE_CONTEXT_CHARS,
   isPromptLanguage,
+  linesAfterChanges,
   linesTouched,
   parsePromptLine,
   promptLinesOf,
@@ -73,6 +74,18 @@ describe('when plain Enter runs a prompt', () => {
     expect(run('/ai', 4)).toBe(false);
     expect(run('/ai center', 11, true, false)).toBe(false);
     expect(run('<p>hi</p>', 10)).toBe(false);
+  });
+
+  it('undo/redo with several changes arms the lines in the text after the edit', () => {
+    const change = (start: number, end: number, offset: number, text: string) => ({
+      range: { startLineNumber: start, endLineNumber: end },
+      rangeOffset: offset,
+      text,
+    });
+    // Reported last-first: line 2 gains two lines, so the change at old line 5 lands on line 7.
+    expect(linesAfterChanges([change(5, 5, 50, '/ai x'), change(2, 2, 10, 'a\nb\nc')])).toEqual([2, 3, 4, 7]);
+    // Line 2–4 collapse into one: the change at old line 6 lands on line 4.
+    expect(linesAfterChanges([change(2, 4, 10, 'z'), change(6, 6, 80, 'y')])).toEqual([2, 4]);
   });
 
   it('a change arms the lines it typed or pasted', () => {

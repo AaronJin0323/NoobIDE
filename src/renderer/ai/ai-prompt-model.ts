@@ -11,13 +11,14 @@
  */
 import type { AiEditProblem } from '../../shared/ipc/ai-contract';
 import type { ProblemRecord, ProblemSeverity } from '../../shared/problem';
+import { AI_PROMPT_PENDING_CODE } from '../../diagnostics/rules/ai-prompt';
 import { editContext, type EditRequest } from './inline-edit-model';
 
 export const AI_PROMPT_LANGUAGES: ReadonlySet<string> = new Set(['html', 'css', 'javascript']);
 
 /** Marker owner and problem code of a pending prompt line (the warning in the editor and in Problems). */
 export const AI_PROMPT_MARKER_OWNER = 'noobide-ai-prompt';
-export const AI_PROMPT_PENDING_CODE = 'ai-prompt-pending';
+export { AI_PROMPT_PENDING_CODE };
 
 /** Code sent on each side of the prompt line: a whole beginner file, usually. */
 export const GENERATE_CONTEXT_LINES = 200;
@@ -69,6 +70,28 @@ export interface ChangeLike {
 export function linesTouched(change: ChangeLike): number[] {
   const breaks = change.text.split(/\r\n|\r|\n/).length - 1;
   return Array.from({ length: breaks + 1 }, (_, i) => change.startLine + i);
+}
+
+/** A change as Monaco reports it: its range in the text before the edit, its offset, and the inserted text. */
+export interface ContentChangeLike {
+  readonly range: { readonly startLineNumber: number; readonly endLineNumber: number };
+  readonly rangeOffset: number;
+  readonly text: string;
+}
+
+/**
+ * The lines (1-based, in the text AFTER the edit) that the changes of one edit wrote (undo/redo). Each range is in
+ * the text before the edit, so lines added or removed by earlier changes shift the later ones.
+ */
+export function linesAfterChanges(changes: readonly ContentChangeLike[]): number[] {
+  const out: number[] = [];
+  let delta = 0;
+  for (const change of [...changes].sort((a, b) => a.rangeOffset - b.rangeOffset)) {
+    const touched = linesTouched({ startLine: change.range.startLineNumber + delta, text: change.text });
+    out.push(...touched);
+    delta += touched.length - 1 - (change.range.endLineNumber - change.range.startLineNumber);
+  }
+  return out;
 }
 
 /** When plain Enter runs a prompt: an armed line with a request, the cursor at its end, nothing else going on. */

@@ -199,6 +199,16 @@ export const en: Record<DiagnosticsMessageKey, string> = {
     'Check the spelling of the closing tag; a misspelled closing tag does not close the element.',
   'htmlUnclosed.check.indent': 'Keep the indentation tidy; it makes an unclosed tag easier to spot.',
 
+  // S42.3 — an /ai prompt line that has not been run yet
+  'aiPrompt.title': 'This /ai line is your request to the AI, not code yet.',
+  'aiPrompt.explanation':
+    'Until you run it or delete it, this line is saved into the file as plain text, so it shows up on your page or breaks your CSS or JavaScript.',
+  'aiPrompt.check.runAtLine':
+    'Put the cursor at the end of line {line} and press Ctrl+Enter (⌘Enter on a Mac) to let the AI write the code. Right after typing the /ai line, Enter works too.',
+  'aiPrompt.check.run':
+    'Put the cursor at the end of the /ai line and press Ctrl+Enter (⌘Enter on a Mac) to let the AI write the code. Right after typing the /ai line, Enter works too.',
+  'aiPrompt.check.delete': 'If you no longer need it, delete the line.',
+
   // Rule 15 — selector does not match (guided checks)
   'selector.title': 'The selector {selector} may not match any element on the page.',
   'selector.titleGeneric': 'A style is not being applied.',

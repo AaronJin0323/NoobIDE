@@ -934,6 +934,7 @@ export function Workbench() {
   const inlineEdit = useInlineEdit(doc.project?.projectId ?? null, inlineEditHost, {
     loadsStarted: () => previewLoads.started,
     onFixCommitted: (commit) => aiFix.committed(commit.record, commit),
+    problems: () => walkthroughProblems, // S42.3: context of an inline `/ai` prompt
   });
   const startInlineEdit = inlineEdit.start;
   useEffect(() => {

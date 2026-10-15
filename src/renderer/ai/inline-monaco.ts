@@ -21,6 +21,7 @@ import {
 import { fitToLine, postProcessSuggestion } from './inline-postprocess';
 import { InlineRequester } from './inline-requester';
 import { aiBridge, aiStatusCache } from './inline-status';
+import { parsePromptLine } from './ai-prompt-model';
 
 interface Attached {
   readonly editor: monaco.editor.ICodeEditor;
@@ -66,6 +67,8 @@ const provider: monaco.languages.InlineCompletionsProvider = {
     const selections = entry.editor.getSelections() ?? [];
     const line = model.getLineContent(position.lineNumber);
     const target = entry.target();
+    // S42.3: an `/ai` line is a request to the AI, not code to complete (and Enter must stay free to run it).
+    if (parsePromptLine(line)) return { items: [] };
     const editorBlock = editorBlockReason({
       target,
       languageId: model.getLanguageId(),

@@ -3,6 +3,64 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 17 (side session) — 2026-10-16 — Inline `/ai` prompts in the editor (S42, milestone M10)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, in worktree branch `claude/sharp-pare-8696ff`
+(node_modules junctioned to the main checkout), started from the release-readiness session. Parallel side sessions:
+preview annotations for the AI (S41, ADR 0030) and smart suggestions (S43, ADR 0032); numbering agreed in the shared
+notes folder. Subagent: an independent reviewer of the S42 diff.
+
+**Done**
+
+- S42.1 — [ADR 0031](../docs/decisions/0031-inline-ai-prompt.md): detection, collision rules, trigger, preview, and
+  how Accept/Reject relate to undo, autosave, local history and the save pipeline. Owner request 2026-10-16.
+- S42.2 — rules and main: `src/renderer/ai/ai-prompt-model.ts` (a line `^[ \t]*/ai<space|tab|U+3000><request>` in
+  HTML/CSS/JS; arming; when plain Enter runs; the file's problems nearest the line, errors first, ≤ 8, messages
+  ≤ 500 chars; a generate request with ≤ 200 lines / 12 000 chars each side; indenting the answer like the line).
+  The `edit` request gains optional `mode: 'generate'` and bounded `problems` (`ai-contract.ts`, `ai-parse.ts`);
+  `prompts.ts` has a fixed generate system prompt per locale and a neutralised `<problems>` frame; the fake provider
+  has a built-in generate turn.
+- S42.3 — editor: `src/renderer/ai/ai-prompt-monaco.ts` arms lines the user typed/pasted/undid (never a load or
+  reload from disk), shows an end-of-line hint in words and a translated warning marker (`noobide-ai-prompt` /
+  `ai-prompt-pending`, explained by a new diagnostics rule in Problems), binds Enter (armed line, cursor at end, no
+  suggestion/inline suggestion/selection/IME) and Ctrl/⌘+Enter (any prompt line) and adds "Run this /ai request" to
+  the context menu. `useInlineEdit.runPrompt` opens the S35 inline edit zone over the line and sends at once (consent
+  first in a new project); the diff, Accept (one undo step + save through the file's pipeline), Reject, Stop and Esc
+  are the S35 ones. AI ghost-text completions stay quiet on `/ai` lines (`inline-monaco.ts`).
+
+**Evidence:** `ai-prompt-model.test.ts` (12), `src/ai/generate-prompt.test.ts` (5), `tests/integration/ai-service.test.ts`
+S42.2 (IPC → service → provider; bad payloads refused; no prompt/problem text in the log), diagnostics rule fixture,
+`tests/e2e/ai-prompt.spec.ts` (5: Chinese prompt → hint + Problems warning → Enter → consent → diff whose answer only
+the request with the unclosed-`<div>` problem gets → Accept saves indented code → one Ctrl+Z restores the line;
+Ctrl+Enter + Reject/Esc; Enter on an unarmed line from disk, Shift+Enter and an IME-confirming Enter do not run it;
+English prompt from the context menu in the en UI). Mutation check: making every `/ai` line armed fails the
+"not taken over" e2e. Independent review (subagent) found 2 medium + 4 low issues, all fixed: lines are armed only
+by the user's typing/paste/IME/undo-redo (an external reload, history restore or rule fix used to arm them — new e2e
+step with an on-disk change), Enter/Ctrl+Enter need `editorTextFocus` (the find widget keeps its Enter), multi-change
+undo line maths (`linesAfterChanges`, unit-tested), collapsed decorations ignored, a prompt that cannot run gives the
+key back (Enter inserts its line break), and the warning text leads with Ctrl/⌘+Enter. ai-prompt e2e 15/15 with
+`--repeat-each 3`; ai-edit, ai-inline, editing, external-change, problems, problem-card, smoke e2e green.
+`npm run verify` green.
+
+**Decisions:** ADR 0031. Autosave/save/recovery are unchanged: a pending `/ai` line is user text and is saved like any
+other, but always visibly flagged (hint + warning in Problems). Diff review (the S35 zone), not ghost text.
+
+**Problems / risks:** IME is proven with a CDP composition (keyCode 229) on Windows, not a real Pinyin IME, and not
+on macOS; that e2e step would also pass without NoobIDE's own `composing` guard (Monaco ignores keyCode 229 itself).
+Arming reads Monaco's `onDidType`, which the editor widget has but the public typings omit (cast in
+`ai-prompt-monaco.ts`); a Monaco upgrade must keep it (the zh-CN e2e fails if it goes). An `/ai` line that a beginner really wants as page text shows a warning (ignorable; Enter only runs it when
+they edited that line).
+
+**Owner action needed:** none required. Optional: try `/ai 做一个点击后数字加一的按钮` with a real key and a real
+Chinese IME on Windows and on the Mac.
+
+**Next up**
+
+1. Continue M7 release work (owner tasks H.1/H.2/H.5) — see Session 16's Next up.
+
+**Ideas / backlog candidates:** multi-line `/ai` prompts (continuation lines); `/ai` inside comments (`// /ai …`) for
+JS/CSS files so the prompt line is valid code while pending.
+
 ## Session 16 — 2026-10-16 — Full Windows e2e suite green twice; preview guard on loaded machines (S05.8)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine (Windows 11, 2560×1440 at 150 %, 32 logical cores), in

@@ -171,6 +171,16 @@ export const zhCN = {
   'htmlUnclosed.check.typo': '检查结束标签的拼写，拼错的结束标签不能闭合元素。',
   'htmlUnclosed.check.indent': '保持缩进整齐，更容易看出哪个标签没有闭合。',
 
+  // S42.3 — an /ai prompt line that has not been run yet
+  'aiPrompt.title': '这一行 /ai 是你给 AI 的要求，还不是代码。',
+  'aiPrompt.explanation':
+    '在运行或删除它之前，这一行会作为普通文字保存在文件里，会显示在网页上，或者让 CSS、JavaScript 出错。',
+  'aiPrompt.check.runAtLine':
+    '把光标放到第 {line} 行末尾，按 Ctrl+Enter（Mac 上是 ⌘Enter），让 AI 写出代码。刚输入的 /ai 行直接按 Enter 也可以。',
+  'aiPrompt.check.run':
+    '把光标放到 /ai 这一行末尾，按 Ctrl+Enter（Mac 上是 ⌘Enter），让 AI 写出代码。刚输入的 /ai 行直接按 Enter 也可以。',
+  'aiPrompt.check.delete': '如果不需要了，删掉这一行即可。',
+
   // Rule 15 — selector does not match (guided checks)
   'selector.title': '选择器 {selector} 可能没有匹配到页面上的任何元素。',
   'selector.titleGeneric': '样式没有生效。',
