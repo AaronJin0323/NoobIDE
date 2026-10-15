@@ -89,3 +89,29 @@ Both are pure JavaScript, so no Electron ABI or per-platform build proof is need
 - Cost is the user's (their key). The UI shows token usage per request; there is no NoobIDE account or billing.
 - Beginners' learning: answers follow the UI locale and explain; agent and edit results are always shown as diffs with
   plain-language reasons.
+
+## Amendment — S36.1 security review (2026-10-15)
+
+An independent review of all AI code against this decision found no high-severity issue; the fixes below are now
+part of the decision.
+
+- **Test switches.** `NOOBIDE_AI_FAKE` / `NOOBIDE_AI_FAKE_AGENT` (scripted provider and the reversible test key
+  encryptor) are honoured only when `app.isPackaged` is false (`npm start`, unit/integration tests, the Playwright e2e
+  suite, which launches `.vite/build` with the Electron binary). A packaged app ignores them and logs
+  `ai-fake-ignored`; there is no test-only override for packaged builds (`aiTestEnv` in `src/main/ai-main.ts`).
+- **Egress.** The SDKs read `*_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `OPENAI_ORG_ID`/`OPENAI_PROJECT_ID`,
+  `*_CUSTOM_HEADERS` and `*_LOG` from the environment. The providers set endpoint, credentials and logging explicitly
+  (logging off) and send through `guardedFetch` (`src/ai/providers/egress.ts`): only `https://api.anthropic.com` /
+  `https://api.openai.com` are reachable, environment-injected headers are dropped.
+- **Consent while running.** Revoking a project's consent, switching AI (or inline completions, or the provider) off,
+  and removing a key cancel the requests already running, including agent turns. A chat follow-up (non-empty
+  history) in a project needs consent like a request with context; a chat without a project carries no context.
+- **Data framing.** Project text in chat context, inline prefix/suffix and edit blocks cannot close its frame
+  (`neutralizeData` in `src/ai/prompts.ts`); the agent keeps its per-run nonce frames.
+- **Window lifecycle.** A reload (main-frame, cross-document navigation) or renderer crash cancels the page's
+  requests, not only closing the window.
+- **Bounds.** One chat/agent request carries at most 4,000,000 characters in total (parser); an agent turn's working
+  time is the loop's wall-time budget (waiting for the user's decision does not count), with a 2-hour backstop.
+- **Live smoke test.** `npm run test:ai-live` (`tests/live/`, `vitest.live.config.ts`) runs the real service and agent
+  runner against the real providers only when `NOOBIDE_AI_LIVE_ANTHROPIC_KEY` / `NOOBIDE_AI_LIVE_OPENAI_KEY` are set;
+  it is not part of `npm test`, `verify` or CI.

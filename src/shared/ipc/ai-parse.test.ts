@@ -55,7 +55,15 @@ describe('AI payload parsers (S31.3)', () => {
     expect(parseAiRequest(edit)).toEqual(edit);
     const agent = { kind: 'agent', projectId: ID, history: [], prompt: 'add a page', context: [], locale: 'en' };
     expect(parseAiRequest(agent)).toEqual(agent);
-    expect(parseAiRequest({ ...chat, projectId: null, context: [{ kind: 'selection', text: 'x' }] })).not.toBeNull();
+    expect(parseAiRequest({ ...chat, projectId: null, context: [] })).not.toBeNull();
+    // S36.1: without a project there is nothing to consent to, so no project context may be attached.
+    expect(parseAiRequest({ ...chat, projectId: null, context: [{ kind: 'selection', text: 'x' }] })).toBeNull();
+    // S36.1: one request is bounded as a whole, not only per item.
+    const big = 'x'.repeat(300_000);
+    const many = Array.from({ length: 14 }, () => ({ kind: 'selection', relPath: 'a.js', text: big }));
+    expect(parseAiRequest({ ...chat, context: many })).toBeNull();
+    expect(parseAiRequest({ ...agent, context: many })).toBeNull();
+    expect(parseAiRequest({ ...chat, context: many.slice(0, 13) })).not.toBeNull();
   });
 
   it.each([

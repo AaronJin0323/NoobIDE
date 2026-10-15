@@ -62,7 +62,10 @@ export function registerAiIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: AiIpcD
     });
   }
 
-  /** Cancels a window's requests when it goes away (closed, crashed). */
+  /**
+   * Cancels a window's requests when its page goes away: closed, reloaded (a new document keeps the same webContents id,
+   * so its new page must not inherit — or be able to resolve — the old page's runs), or the renderer crashed (S36.1).
+   */
   function watch(event: IpcMainInvokeEvent): void {
     const contents = event.sender;
     if (watched.has(contents.id)) return;
@@ -72,6 +75,10 @@ export function registerAiIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: AiIpcD
       watched.delete(id);
       service.cancelAllFor(id);
     });
+    contents.on('did-start-navigation', (details) => {
+      if (details.isMainFrame && !details.isSameDocument) service.cancelAllFor(id);
+    });
+    contents.on('render-process-gone', () => service.cancelAllFor(id));
   }
 
   handle(AI_CHANNELS.status, parseStatusRequest, async ({ projectId }) => ({

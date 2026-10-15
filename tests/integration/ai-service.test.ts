@@ -34,6 +34,8 @@ interface FakeSender {
   sent: AiEvent[];
   destroyed: boolean;
   onDestroyed?: () => void;
+  /** Listeners registered with `on` (did-start-navigation, render-process-gone). */
+  listeners: Map<string, ((details?: unknown) => void)[]>;
 }
 
 let dir: string;
@@ -47,7 +49,7 @@ let projectFiles: Record<string, string>;
 let agentRunner: AgentRunner | undefined;
 
 function makeSender(id: number): FakeSender {
-  return { id, sent: [], destroyed: false };
+  return { id, sent: [], destroyed: false, listeners: new Map() };
 }
 
 function eventFor(sender: FakeSender, url = `${ORIGIN}/index.html`, topLevel = true): IpcMainInvokeEvent {
@@ -59,6 +61,9 @@ function eventFor(sender: FakeSender, url = `${ORIGIN}/index.html`, topLevel = t
       send: (_channel: string, event: AiEvent) => sender.sent.push(event),
       once: (_name: string, listener: () => void) => {
         sender.onDestroyed = listener;
+      },
+      on: (name: string, listener: (details?: unknown) => void) => {
+        sender.listeners.set(name, [...(sender.listeners.get(name) ?? []), listener]);
       },
     },
   } as unknown as IpcMainInvokeEvent;
@@ -351,6 +356,66 @@ describe('AI IPC and service (S31.3)', () => {
     });
   });
 
+  it('revoking consent, switching AI off or removing the key stops running requests; follow-ups need consent (S36.1)', async () => {
+    await setup({
+      turns: [
+        {
+          match: 'slow',
+          repeat: true,
+          steps: [
+            { type: 'text', text: 'part' },
+            { type: 'delay', ms: 5_000 },
+            { type: 'text', text: 'never' },
+          ],
+        },
+      ],
+      defaultTurn: { steps: [{ type: 'text', text: 'answer' }] },
+    });
+    await storeKey();
+    const config = (await call(AI_CHANNELS.status, win, {})).value.config;
+    const slow = chat('slow', { context: [{ kind: 'file', relPath: 'index.html' }] });
+    const startRunning = async (): Promise<string> => {
+      const started = await call(AI_CHANNELS.request, win, slow);
+      expect(started.ok).toBe(true);
+      const id = started.value.requestId as string;
+      for (let i = 0; i < 200 && !win.sent.some((e) => e.requestId === id && e.type === 'text'); i += 1) {
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      return id;
+    };
+    const expectCancelled = async (id: string) => {
+      expect((await finished(win, id)).at(-1)).toMatchObject({ type: 'error', code: 'cancelled' });
+      expect(service.active).not.toContain(id);
+    };
+
+    await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: true });
+    let id = await startRunning();
+    await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: false });
+    await expectCancelled(id);
+
+    await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: true });
+    id = await startRunning();
+    await call(AI_CHANNELS.setConfig, win, { config: { ...config, enabled: false } });
+    await expectCancelled(id);
+
+    await call(AI_CHANNELS.setConfig, win, { config: { ...config, enabled: true } });
+    id = await startRunning();
+    expect(await call(AI_CHANNELS.clearKey, win, { provider: 'anthropic' })).toEqual({ ok: true, value: null });
+    await expectCancelled(id);
+
+    // A follow-up in a project without consent carries the earlier turns (which quote code): refused.
+    await storeKey();
+    await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: false });
+    const followUp = chat('and this?', {
+      history: [
+        { role: 'user', text: 'what is <h1>PROJECT-CODE-MARKER</h1>?' },
+        { role: 'assistant', text: 'a heading' },
+      ],
+    });
+    expect(await call(AI_CHANNELS.request, win, followUp)).toMatchObject({ ok: false, code: 'no-consent' });
+    expect((await call(AI_CHANNELS.request, win, chat('general question'))).ok).toBe(true);
+  });
+
   it('streams, cancels (only from the starting window) and closes requests with the window', async () => {
     await setup({
       turns: [
@@ -387,6 +452,39 @@ describe('AI IPC and service (S31.3)', () => {
     expect(service.active).not.toContain(second.value.requestId);
   });
 
+  it("a reload or a renderer crash stops the old page's requests; in-page navigation does not (S36.1)", async () => {
+    await setup({
+      turns: [
+        {
+          match: 'slow',
+          repeat: true,
+          steps: [
+            { type: 'text', text: 'part' },
+            { type: 'delay', ms: 5_000 },
+          ],
+        },
+      ],
+    });
+    await storeKey();
+    const emit = (name: string, details?: unknown) => {
+      for (const listener of win.listeners.get(name) ?? []) listener(details);
+    };
+    const waitGone = async (id: string) => {
+      for (let i = 0; i < 100 && service.active.includes(id); i += 1) await new Promise((r) => setTimeout(r, 5));
+    };
+    const first = (await call(AI_CHANNELS.request, win, chat('slow', { projectId: null }))).value.requestId as string;
+    emit('did-start-navigation', { isMainFrame: true, isSameDocument: true });
+    emit('did-start-navigation', { isMainFrame: false, isSameDocument: false });
+    expect(service.active).toContain(first);
+    emit('did-start-navigation', { isMainFrame: true, isSameDocument: false });
+    await waitGone(first);
+    expect(service.active).not.toContain(first);
+    const second = (await call(AI_CHANNELS.request, win, chat('slow', { projectId: null }))).value.requestId as string;
+    emit('render-process-gone', {});
+    await waitGone(second);
+    expect(service.active).not.toContain(second);
+  });
+
   it('maps provider failures and refusals to error codes', async () => {
     await setup({
       turns: [
@@ -410,8 +508,8 @@ describe('AI IPC and service (S31.3)', () => {
       const events = await finished(win, started.value.requestId);
       expect(events.at(-1)).toMatchObject({ type: 'error', code });
     }
+    await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: true });
     const huge = chat('x', {
-      projectId: null,
       context: [
         { kind: 'selection', text: 'y'.repeat(399_000) },
         { kind: 'selection', text: 'y'.repeat(10_000) },
