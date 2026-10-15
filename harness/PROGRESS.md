@@ -3,6 +3,75 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 17 — 2026-10-16 — Preview annotations for the AI assistant (S41, milestone M12)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, in worktree branch `claude/frosty-blackburn-4c3d2c`
+(node_modules junctioned to the main checkout), started from another session after a release-readiness check. Owner
+request 2026-10-16: annotate parts of the running page and let the AI work on the matching source. Subagents: the
+preview strip UI (S41.5) and an independent reviewer of the whole diff.
+
+**Done**
+
+- S41.1 — decision 0030 (`docs/decisions/0030-preview-annotations.md`), M12/S41 in `harness/features.json`, v3
+  section in `docs/product/ai-plan.md`.
+- S41.2 — `src/preview/source-locate.ts`: a small position-tracking HTML tree (void, raw text, comments, implied end
+  tags, CRLF) follows the element's flattened ancestry (html/head/body/tbody skipped on both sides) → **exact**; else a
+  unique id or tag+classes+text → **approximate**; else **none** (script-created elements never get a guessed exact).
+  CSS rules by normalised selector + occurrence, also inside `@media` and the page's n-th `<style>`.
+  `src/preview/annotation-source.ts` reads files only through the static server's `resolveInRoot` (root, realpath,
+  no dotfiles).
+- S41.3 — `src/preview/element-pick.ts` + `element-target.ts`: picking uses the DevTools protocol's own inspect mode
+  (`Overlay.setInspectMode`) on the page guard's session — Chromium draws the highlight, the page does not get the
+  click — and the node is described in an isolated world (bounded script; main re-validates with `parseTarget`).
+  Keyboard list of notable elements by child-index path, region → smallest containing element, `Overlay.highlightNode`
+  for Show. DOM/Overlay domains are on only while used. Esc in the page ends pick mode (main's `before-input-event`).
+- S41.4 — `src/main/annotation-store.ts` (app data `annotations/<projectKey>.json`, atomic, ≤ 200, corrupt moved
+  aside, newer files read-only), `annotations-contract.ts`/`annotations-parse.ts`, `src/main/annotations-ipc.ts`
+  (trusted sender, owner checks, targets kept in main by `pickId`, source re-located on every list), preload bridge
+  `window.noobide.annotations`.
+- S41.5 — `src/renderer/annotations/*` (subagent): the strip under the preview toolbar — Annotate (point at the page /
+  choose from a list / draw a region on a frozen screenshot, mouse or arrow keys + Enter), note, numbered list with
+  target, source location and a state word + icon, Show / Edit / Delete / Ask AI; zh-CN + en.
+- S41.6 — context item kind `annotation` (main builds the text: note, element, HTML lines + CSS rules with numbered
+  excerpts; `src/ai/annotation-context.ts`), framed as data (`<annotation>` + neutralizeData in chat, nonce frame +
+  neutralizeData in the agent), agent prompt says to edit the named lines/rule. Ask AI opens an **agent** draft with
+  the chip(s); proposal cards say "in the annotated part" / "outside — check it" (`annotation-placement.ts`).
+- S41.7 — `tests/e2e/preview-annotations.spec.ts` (10 e2e) and smoke lists the new bridge.
+
+**Evidence:** unit/integration: source-locate (14), annotation-source (3), element-pick (10), annotation-store +
+parsers (6), annotations-ipc integration (8), ai-annotations integration (3: an agent that only follows the chip
+edits inside the annotated `.cta` rule; injection text stays framed and cannot approve), chat-annotations (5),
+renderer annotations (33). E2E on Windows x64: preview-annotations 10/10 (four runs, last one after the review fixes), plus smoke, a11y,
+preview, preview-isolation, preview-snapshot, preview-layout, ai-preview, ai-agent, ai-chat, ai-history: 70/70.
+`npm run verify` green.
+
+**Independent review** (subagent, whole diff): no isolation, IPC or path issue; 7 findings fixed in the last code
+commit — false "exact" matches (file classes must be on the page element; no id/class/text → approximate; selector
+compare keeps descendant spaces and case; non-applying `@media` rules are counted so occurrences agree with the
+file), Show refused on another page, a failed `DOM.enable` no longer leaves the domain counter up (picking stayed
+broken), parsed files cached per list, stale strip results dropped, an invalid ancestry step drops the ancestry.
+
+**Decisions:** decision 0030. Annotations persist per project in app data (like saved chats); element picking is the
+primary path, a region resolves to the smallest element that contains it; Ask AI defaults to agent mode so the
+assistant proposes a reviewable diff.
+
+**Problems / risks:** elements inside iframes / shadow DOM / canvas cannot be located in source (the annotation says
+so). Python edits on Windows wrote CRLF once (git normalised; prettier fixed the working copy) — use `newline=''`.
+macOS arm64 not run locally (CI matrix covers the e2e).
+
+**Owner action needed:** none for S41. Try it: open a project, start the preview, press 标注 under the preview
+toolbar.
+
+**Next up**
+
+1. M7 release pipeline (owner tasks H.2, manual hardware checks, S29.x acceptance runs) as before.
+2. Ideas below if the owner wants more from annotations.
+
+**Ideas / backlog candidates:** numbered pins drawn by the protocol overlay for all annotations of a page; resolve an
+annotation automatically when the agent's accepted change lands in its range; annotate inside same-origin iframes.
+
+---
+
 ## Session 16 — 2026-10-16 — Full Windows e2e suite green twice; preview guard on loaded machines (S05.8)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine (Windows 11, 2560×1440 at 150 %, 32 logical cores), in

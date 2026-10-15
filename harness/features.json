@@ -3521,8 +3521,8 @@
       "depends_on": [
         "S41.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/annotations/annotations-model.test.ts + annotations-strip.test.ts (33: reducer, zh-CN/en formatting, region math + keyboard, state words not colour, page text escaped, Ask AI only with prop) + tests/e2e/preview-annotations.spec.ts part 2 (mouse pick, keyboard list, keyboard region on frozen picture with native view hidden) + a11y.spec green @ d1c5494"
     },
     {
       "id": "S41.6",
@@ -3540,8 +3540,8 @@
       "depends_on": [
         "S41.4"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/ai-annotations.test.ts (3: an agent that only follows the chip edits inside the annotated .cta rule and is placed inside; injection text neutralised in chat + agent frames, cannot approve; parser needs text) + src/renderer/ai/chat-annotations.test.ts (5) + annotations-ipc context test (zh-CN/en) @ d1c5494"
     },
     {
       "id": "S41.7",
@@ -3559,8 +3559,8 @@
         "S41.5",
         "S41.6"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/preview-annotations.spec.ts 10/10 on Windows x64 (repeated 3x; pick -> listed with index.html line 17 + 样式 表.css 3-6/20-22, Ask AI -> follow-annotation agent -> proposal marked inside -> accepted via save pipeline, keyboard list, region, restart) + smoke lists annotations bridge + 70/70 related e2e (smoke, a11y, preview*, ai-*) + npm run verify green @ d1c5494; independent subagent review: 7 findings fixed in d1c5494"
     }
   ]
 }
