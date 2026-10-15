@@ -3,6 +3,71 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 11 — 2026-10-15 — First CI runs on Windows; wave 5 (Windows fixes, S25.4, S26.2, S28.4, S28.6, gates, memory)
+
+**Agent:** Claude (Opus 5.5) as lead on the Apple Silicon Mac, seven parallel subagents in git worktrees. Owner
+stopped the fan-out after this wave. GitHub Actions is live (`.github/workflows/ci.yml`); main was pushed twice
+during the session to run it (last pushed commit 3314de9). **Main is 47+ commits ahead of origin and NOT pushed.**
+
+**CI history:** run 38673893839 — Windows verify failed (5 tests with macOS-only assumptions: TCC simulation on
+`C:\` paths, NTFS readdir order of NFC/NFD twins, watcher stall measuring the test's own deletes) — fixed. Run
+38674795825 — Windows verify (watcher settle, slow history disk) + macOS e2e (real race: one-click fix never saw the
+refresh its own save triggered; load count now taken at save request) — fixed. Run 38675714521 — **macOS job fully
+green incl. make + inspect-arch (artifact noobide-macos-arm64)**; Windows verify green, first-ever Windows e2e:
+161 passed / 9 failed / 44 not run. The fixes for those 9 are merged but **not yet pushed or re-run**.
+
+**Done (112 done + 15 needs_manual_check of 145; was 110 + 12)**
+
+- Windows CI fixes: e2e read the whole Monaco document (`documentText`, short Windows runner screen hid lines);
+  real Windows bug — app-data `writeFileAtomic` (journal, history, settings, session, walkthrough) dropped writes on
+  transient EPERM/EACCES/EBUSY; now retries with the platform backoff like project saves (lead reviewed).
+- S25.4 done: every preview permission denied (request/check/device handlers, pickers cancelled), one localised
+  console notice per kind. Real crash fixed: Web Bluetooth in a preview page killed the IDE on macOS (TCC) —
+  `disableBlinkFeatures: 'WebBluetooth'` is now a required preview preference. Decision 0009 amended.
+- Console flood fully bounded: main ends page/worker scripts via `Runtime.terminateExecution` over the limit; in-page
+  limit 1000→200/s. Cached `console.log` loop stall 1.5–2.1 s → 21–77 ms; worker flood 4–38 ms (was 356 ms on Windows
+  CI). Reviewed. Decision 0016 amended. **S05.7 evidence text in features.json still says 1000/s.**
+- One preview generation counter (`PreviewStatus.generation`) feeds capture, stale-marking and fix load counting.
+- Real bug: 404s whose body Chromium aborts (`ERR_ABORTED`) were never recorded ("11 of 13" on Windows CI) —
+  `src/preview/resource-failures.ts`. Two agents fixed it independently; the tracker version was kept (0017 amended).
+- S26.2 needs_manual_check: `npm run test:faults` as its own CI step on both jobs with per-OS report artifacts and a
+  skip policy (Windows may skip exactly 7, macOS 0). Flaky e2e/unit tests fixed with condition waits; store perf test
+  measures CPU time.
+- S28.4 needs_manual_check: Squirrel lifecycle (`src/platform/squirrel.ts`), schema-versioned app data
+  (`schemaVersionOf`, `app-data-layout.ts`; newer files read-only, never rewritten), packaged vN→vN+1→vN upgrade e2e on
+  this Mac. Uninstall keeps app data (decision 0023). Behaviour changes vs earlier criteria wording: newer settings are
+  read-only (was backed up + reset, S13.1); future-format journal records are skipped in place (was quarantined,
+  S12.3). Fixed invalid ad-hoc signature of the packaged mac app (postPackage re-sign; verified in distribution e2e).
+- S28.6 done: docs/release/install.{zh-CN,en}.md, release-notes template, docs/release/acceptance.md (S29 checklist).
+- S17.4 needs_manual_check (docs/reviews/G3.md, conditional pass on Mac), S06.4 in_progress (docs/reviews/G1.md draft:
+  ~9.6 h active commit time; estimate M6–M8 ≈ 6–9 agent sessions + 3–4 owner days; beta ≈ 6–10 weeks, gated by H.2,
+  H.6, H.7).
+- Memory: real usage is ~205–270 MB private footprint (working-set sums double-count shared framework pages); idle
+  GPU 175 → 45 MB by resting Monaco's caret after 10 s (`caret-rest.ts`). `scripts/measure-memory.mjs`, decision
+  0024, docs/perf/memory.md. S27.3 evidence could point at the new numbers (not changed).
+- Lead: consent text named the wrong button (启动预览 → 开始预览); removed stale `files.emptyHint`.
+
+**Evidence:** `npm run verify` green (1679 tests). Full `npm run test:e2e` on macOS: 217 passed / 2 skipped after the
+preview merge; final run after the memory merge 209 passed / 1 failed / 7 not run (S15.1 divider drag — see below).
+
+**Problems / risks:** S15.1 "dividers drag with the mouse" failed in two full runs (drag did nothing), 0 of 48 isolated
+runs — open intermittent, cause unknown (a hit-test guard was added; not enough). preview-isolation beforeunload test
+flaked once. A first-launch hang was seen once under extreme load. Windows e2e fixes unverified until the next CI
+run; S05.7's 200 ms budget on Windows CI to be re-measured. Parallel `electron-forge package` runs collide in the
+shared temp dir (use a private TMPDIR). The upgrade e2e drives the shipped binary via `--remote-debugging-port`
+(standard Electron; consider an Electron fuse for release builds).
+
+**Owner action needed:** push main and check CI (S06.1/S06.2 need a green Windows job with make + inspect-arch;
+S26.2 needs both fault-suite artifacts). H.5 looks effectively done (Actions running) — owner closes it. H.1, H.2
+open. Manual checks: S28.4 (Windows install/upgrade/uninstall), S17.4, S15.5/S15.6, S24.2, S09.4/S09.5 and the earlier
+list in MANUAL-CHECKS.md.
+
+**Next up**
+
+1. Push, read the Windows e2e results, fix what remains; then S06.1/S06.2/S26.2 can close.
+2. Find the S15.1 drag intermittent; update S05.7 evidence text.
+3. After signing (H.2): S28.2/S28.3/S28.5; then S29 acceptance runs with docs/release/acceptance.md.
+
 ## Session 10 — 2026-10-15 — Wave 4 on the Mac: wave-2 work rebuilt (preview, diagnostics, problem card, CI)
 
 **Agent:** Claude (Opus 5.5) as lead on the Apple Silicon Mac, seven parallel subagents in git worktrees (P1–P7).
