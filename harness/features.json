@@ -3458,7 +3458,7 @@
       "session": "S42",
       "milestone": "M10",
       "description": "",
-      "status": "in_progress",
+      "status": "done",
       "id": "S42.3",
       "title": "/ai prompt in the editor: hint, warning, trigger, review, accept/reject/undo",
       "verify": "auto",
@@ -3471,7 +3471,7 @@
         "The answer is shown as a diff (the /ai line removed, the code added) with Accept / Reject / Stop reachable by keyboard; Accept replaces the line as one undo step and saves through the save pipeline (local history); Reject/Esc leave the text unchanged; Ctrl/Cmd+Z restores the /ai line",
         "Playwright e2e with a scripted fake provider: an English and a Chinese prompt, the file's problem reaching the model, Accept, Reject, one-step undo, unarmed Enter not hijacked"
       ],
-      "evidence": ""
+      "evidence": "tests/e2e/ai-prompt.spec.ts (5, 15/15 with --repeat-each 3 on Windows x64: zh prompt+hint+Problems warning+Enter+consent+diff only answered with the file's unclosed-div problem in context+Accept saves indented code+one Ctrl+Z restores; Ctrl+Enter+Reject/Esc; unarmed-from-disk/external-reload/Shift+Enter/IME Enter not hijacked; en prompt from context menu), ai-prompt-model.test.ts (13), diagnostics fixture ai-prompt-pending, independent review findings fixed, ai-edit/ai-inline/editing/external-change/problems/smoke e2e green + verify green @ 172ca02"
     }
   ]
 }
