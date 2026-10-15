@@ -165,6 +165,33 @@
   flex: 1;
   min-width: 0;
 }
+/* S34.2: AI agent turns, each undoable as a group. */
+.history-groups {
+  margin: 0 0 10px;
+}
+.history-group-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.history-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+.history-group-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.history-group-files {
+  overflow-wrap: anywhere;
+}
 @media (max-width: 760px) {
   .history-columns {
     grid-template-columns: 1fr;

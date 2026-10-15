@@ -42,6 +42,11 @@ export function failureText(t: (key: MessageKey) => string, failure: ApplyFailur
   return fill(t(`agent.failure.${code}` as MessageKey), { detail: failure?.detail ?? '?' });
 }
 
+/** Why one step of an undone turn was skipped (S34.2): "changed since" means since the turn, not since the read. */
+export function undoFailureText(t: (key: MessageKey) => string, failure: ApplyFailure): string {
+  return failure.code === 'changed-since' ? t('agent.undo.changed') : failureText(t, failure);
+}
+
 /**
  * Review of one agent proposal (S34.2): the reason, then every change with its diff (Monaco diff editor for edits
  * and new files), its decision state as text, and Accept / Reject per change plus for all. Nothing is applied here:

@@ -3,6 +3,7 @@ import type { OpenedProject } from '../../shared/ipc/contract';
 import type {
   HistoryApi,
   HistoryFile,
+  HistoryGroup,
   HistoryOverview,
   HistoryVersion,
   HistoryVersionText,
@@ -15,11 +16,13 @@ import { useModalKeys } from '../workbench/focus-trap';
 import { WarningIcon } from '../workbench/icons';
 import {
   compareVersion,
+  groupUndoText,
   historyErrorKey,
   reasonKey,
   restoreOutcomeKey,
   sortHistoryFiles,
   storageText,
+  type GroupUndoOutcome,
   type RestoreOutcome,
 } from './history-model';
 import './history.css';
@@ -38,6 +41,11 @@ interface HistoryDialogProps {
   onRestore(relPath: string, text: string): Promise<RestoreOutcome>;
   /** A deleted file was created again: open it. */
   onRestoredDeleted(relPath: string): void;
+  /**
+   * S34.2: undoes one AI agent turn (every file back to its version before the turn, each through the restore path;
+   * files changed since are skipped and named). Null when another change is running. Absent: no undo offered.
+   */
+  onUndoGroup?(group: HistoryGroup): Promise<GroupUndoOutcome | null>;
   onClose(): void;
 }
 
@@ -52,7 +60,7 @@ type Confirm = 'project' | 'all' | { readonly orphan: string } | null;
  * gone (ADR 0006). Modal: focus stays inside, Escape closes.
  */
 export function HistoryDialog(props: HistoryDialogProps) {
-  const { api, project, initialRelPath, currentText, onRestore, onRestoredDeleted, onClose } = props;
+  const { api, project, initialRelPath, currentText, onRestore, onRestoredDeleted, onUndoGroup, onClose } = props;
   const { t, locale } = useI18n();
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -69,6 +77,8 @@ export function HistoryDialog(props: HistoryDialogProps) {
     current: string | null;
   } | null>(null);
   const [overview, setOverview] = useState<HistoryOverview | null>(null);
+  const [groups, setGroups] = useState<readonly HistoryGroup[]>([]);
+  const [undoing, setUndoing] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
@@ -87,6 +97,11 @@ export function HistoryDialog(props: HistoryDialogProps) {
     setFiles(sorted);
     return sorted;
   }, [api, project.projectId, t]);
+
+  const loadGroups = useCallback(async () => {
+    const result = await api.groups({ projectId: project.projectId });
+    setGroups(result.ok ? result.value : []);
+  }, [api, project.projectId]);
 
   const loadOverview = useCallback(async () => {
     const result = await api.overview({ projectId: project.projectId });
@@ -121,6 +136,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
       }
     });
     void loadOverview();
+    void loadGroups();
     // Loaded once when the dialog opens; later loads are explicit (after a restore or a clear).
   }, []);
 
@@ -207,6 +223,31 @@ export function HistoryDialog(props: HistoryDialogProps) {
     }
   };
 
+  const undoGroup = async (group: HistoryGroup) => {
+    if (!onUndoGroup) return;
+    setBusy(true);
+    setUndoing(group.id);
+    setNotice(null);
+    try {
+      const outcome = await onUndoGroup(group);
+      if (outcome === null) {
+        setNotice({ kind: 'error', text: t('history.group.undoBusy') });
+        return;
+      }
+      const text = groupUndoText(t, outcome);
+      setNotice({ kind: text.ok ? 'ok' : 'error', text: text.text });
+      await loadGroups();
+      const list = await loadFiles();
+      if (selectedFile && list.some((f) => f.relPath === selectedFile)) await loadVersions(selectedFile);
+      await loadOverview();
+    } catch {
+      setNotice({ kind: 'error', text: t('history.error.generic') });
+    } finally {
+      setUndoing(null);
+      setBusy(false);
+    }
+  };
+
   const clear = async (scope: 'project' | 'all') => {
     setConfirm(null);
     setBusy(true);
@@ -219,6 +260,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
       setVersions(null);
       setContent(null);
       await loadFiles();
+      await loadGroups();
       await loadOverview();
     } finally {
       setBusy(false);
@@ -286,6 +328,56 @@ export function HistoryDialog(props: HistoryDialogProps) {
             {notice.kind === 'error' && <WarningIcon />}
             {notice.text}
           </p>
+        )}
+
+        {groups.length > 0 && (
+          <section className="history-groups" aria-label={t('history.groups')} data-testid="history-groups">
+            <h3 className="history-column-title">{t('history.groups')}</h3>
+            <p className="dialog-hint">{t('history.groups.intro')}</p>
+            <ul className="history-group-list">
+              {groups.map((g) => (
+                <li
+                  key={g.id}
+                  className="history-group"
+                  data-testid="history-group"
+                  data-group={g.id}
+                  data-undone={g.undoneAt !== null || undefined}
+                >
+                  <span className="history-group-text">
+                    <span className="history-item-main">
+                      {g.files.length === 1
+                        ? t('history.group.titleOne')
+                        : fill(t('history.group.title'), { n: g.files.length })}
+                    </span>
+                    <small className="history-item-detail">
+                      {time.format(g.createdAt)}
+                      {g.label ? ` · ${fill(t('history.group.request'), { label: g.label })}` : ''}
+                    </small>
+                    <small className="history-item-detail history-group-files" data-testid="history-group-files">
+                      {g.files.join(' · ')}
+                    </small>
+                  </span>
+                  {g.undoneAt !== null ? (
+                    <span className="history-tag" data-testid="history-group-undone">
+                      {t('history.group.undone')}
+                    </span>
+                  ) : (
+                    onUndoGroup && (
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        data-testid="history-group-undo"
+                        disabled={busy}
+                        onClick={() => void undoGroup(g)}
+                      >
+                        {undoing === g.id ? t('history.group.undoing') : t('history.group.undo')}
+                      </button>
+                    )
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         <div className="history-columns">

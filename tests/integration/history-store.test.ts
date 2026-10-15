@@ -291,7 +291,7 @@ describe('history is never lost to read errors or damage (S21.1 review)', () => 
   it('an index from a newer NoobIDE is left untouched and its blobs survive', async () => {
     await fiveVersions(store());
     const index = JSON.parse(await readFile(indexFile(root), 'utf8'));
-    index.v = 2;
+    index.v = 3;
     const newer = JSON.stringify(index);
     await writeFile(indexFile(root), newer);
     const s = store({ maxTotalBytes: 10 });

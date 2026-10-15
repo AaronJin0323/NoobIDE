@@ -13,6 +13,36 @@ export function fakeAgentScript(name: string | undefined): readonly TurnScript[]
   switch (name) {
     case 'slow':
       return [{ text: ['Working on it…'], hang: true }];
+    case 'all-kinds':
+      // S34.2 undo from History: one proposal with every kind of change (edit, create, rename, delete).
+      return [
+        {
+          toolCalls: [
+            { name: 'read_file', input: { path: 'style.css' } },
+            { name: 'list_files', input: {} },
+          ],
+          usage: { inputTokens: 900, outputTokens: 30 },
+        },
+        {
+          toolCalls: [
+            {
+              name: 'propose_edit',
+              input: { path: 'style.css', old_text: 'color: red;', new_text: 'color: blue;', reason: 'Blue heading.' },
+            },
+            {
+              name: 'propose_create',
+              input: { path: 'about.html', content: '<h1>About me</h1>\n', reason: 'Add an about page.' },
+            },
+            {
+              name: 'propose_rename',
+              input: { path: 'notes.txt', new_path: 'old notes.txt', reason: 'Mark the notes as old.' },
+            },
+            { name: 'propose_delete', input: { path: 'unused.html', reason: 'Nothing links to it.' } },
+          ],
+          usage: { inputTokens: 1500, outputTokens: 160 },
+        },
+        { text: ['Done.'], usage: { inputTokens: 1700, outputTokens: 5 } },
+      ];
     case 'edit-and-create':
     default:
       return [

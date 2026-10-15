@@ -2941,8 +2941,8 @@
       "depends_on": [
         "S34.1"
       ],
-      "status": "in_progress",
-      "evidence": "ProposalReview in S33 chat extension; agent-apply/agent-decisions unit tests; e2e tests/e2e/ai-agent.spec.ts fixme until S31; undo group is renderer-memory (see report)"
+      "status": "done",
+      "evidence": "Undo group persisted in local history (index schema v2: groups + before-ai/after-ai; v1 read/upgraded, newer never written). tests/integration/history-groups.test.ts (10), src/renderer/ai/agent-apply.test.ts + agent-decisions.test.ts, history-model.test.ts; tests/e2e/ai-agent.spec.ts 4/4 (accept/reject + card undo; restart then undo turn from History: edit/create/rename/delete reversed; partial undo skips edited file); subagent review findings fixed; verify green, full e2e green (2 packaged-app timeouts passed on rerun) @ afdf52e"
     },
     {
       "id": "S35.1",
@@ -2958,7 +2958,7 @@
       "depends_on": [
         "S34.2"
       ],
-      "status": "in_progress",
+      "status": "done",
       "evidence": "Implementation complete; done once S34.2 is done. Evidence: src/renderer/ai/inline-edit-model.test.ts (18 tests) + tests/e2e/ai-edit.spec.ts (accept + one undo step, context menu + reject, stale refused, Stop, en + offline) + verify green @ 6101ba8"
     },
     {
@@ -2975,7 +2975,7 @@
       "depends_on": [
         "S35.1"
       ],
-      "status": "in_progress",
+      "status": "done",
       "evidence": "Implementation complete; done after S35.1. Evidence: src/renderer/problems/ai-fix.test.ts + tests/e2e/ai-edit.spec.ts 'Fix with AI on a page problem' (resolved after preview reload, zh-CN+en) @ 6101ba8"
     },
     {

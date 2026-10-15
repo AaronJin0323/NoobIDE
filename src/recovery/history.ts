@@ -3,6 +3,7 @@ import path from 'node:path';
 import { err, ok, type Result } from '../shared/result';
 import { SerialQueue, TEMP_SUFFIX, errorCode, silentLogger, writeFileAtomic, type RecoveryLogger } from './atomic-file';
 import { PROJECT_KEY, projectKey, sha256Hex } from './keys';
+import { schemaVersionOf } from '../main/json-file';
 
 /**
  * Local history: per-file snapshots of saved versions (S21.1, PLAN §7). Main process only; stored in the app-data
@@ -25,9 +26,23 @@ import { PROJECT_KEY, projectKey, sha256Hex } from './keys';
  * - The index set is loaded once and kept in memory with reference counts, so a snapshot costs one blob and one
  *   index write, never a scan of all history. Full garbage collection runs only in `cleanup()`.
  * - Limits evict the oldest versions first by a monotonic sequence (not the wall clock) and never a file's newest.
+ *
+ * Change groups (S34.2, index version 2): the changes of one AI agent turn are recorded as a group in the project's
+ * index — per step the version the file had before (`before-ai` snapshot) and the hash of what the turn left — so
+ * the History window can undo the whole turn after a reload or a crash. Version 1 indexes are read as they are (no
+ * groups) and written as version 2 on the next change; an index of a newer version is never written (see above).
  */
 
-export type SnapshotReason = 'before-save' | 'after-save' | 'before-format' | 'before-delete' | 'before-restore';
+export type SnapshotReason =
+  | 'before-save'
+  | 'after-save'
+  | 'before-format'
+  | 'before-delete'
+  | 'before-restore'
+  /** S34.2: the file's content right before an AI agent change was applied to it. */
+  | 'before-ai'
+  /** S34.2: the content an AI agent change left on disk. */
+  | 'after-ai';
 
 export interface SnapshotMeta {
   /** Unique per version: `<createdAt>-<hash prefix>-<seq>`. */
@@ -40,7 +55,46 @@ export interface SnapshotMeta {
   readonly seq: number;
   /** `after-save` only: when the save burst this version belongs to started. */
   readonly burstStart?: number;
+  /** S34.2: id of the change group (AI agent turn) this version was taken for. */
+  readonly group?: string;
 }
+
+/** S34.2: what made a change group. Only AI agent turns for now. */
+export type HistoryGroupKind = 'ai-agent';
+export type GroupStepKind = 'edit' | 'create' | 'delete' | 'rename';
+
+/** One applied change of a group, in the order it was applied. */
+export interface GroupStep {
+  readonly kind: GroupStepKind;
+  readonly relPath: string;
+  /** `rename` only: the new path. */
+  readonly to?: string;
+  /** Id of the version the file had before the change (`edit`, `delete`); null when none could be kept. */
+  readonly before: string | null;
+  /** SHA-256 of what the change left on disk (`edit`, `create`): undo refuses a file changed since. */
+  readonly afterHash: string | null;
+  readonly at: number;
+}
+
+export interface HistoryGroupRecord {
+  /** The agent turn's request id. */
+  readonly id: string;
+  readonly kind: HistoryGroupKind;
+  /** Short description shown in the History window (the user's request, clipped). */
+  readonly label: string;
+  readonly createdAt: number;
+  readonly seq: number;
+  readonly steps: readonly GroupStep[];
+  /** When the group was undone (absent: not undone). */
+  readonly undoneAt?: number;
+}
+
+export type GroupError = 'write-failed' | 'not-found';
+
+/** Groups kept per project (oldest dropped first), steps per group, characters of a label. */
+export const GROUP_LIMITS = { maxGroups: 100, maxSteps: 200, maxLabel: 200 } as const;
+export const GROUP_ID = /^[A-Za-z0-9-]{8,64}$/;
+const STEP_KINDS: readonly GroupStepKind[] = ['edit', 'create', 'delete', 'rename'];
 
 export interface HistoryLimits {
   readonly maxVersionsPerFile: number;
@@ -106,16 +160,29 @@ export type SnapshotError = 'too-large' | 'write-failed';
 export type HistoryReadError = 'unavailable';
 
 const FORMAT = 'noobide-history';
-const VERSION = 1;
+/** Index schema version: 1 = S21 versions only; 2 = S34.2 adds `groups` and the `before-ai`/`after-ai` reasons. */
+export const HISTORY_INDEX_VERSION = 2;
+const VERSION = HISTORY_INDEX_VERSION;
 const REASONS: readonly SnapshotReason[] = [
   'before-save',
   'after-save',
   'before-format',
   'before-delete',
   'before-restore',
+  'before-ai',
+  'after-ai',
 ];
-/** Snapshots taken around an operation (not a save) end the current save burst (S21.3). */
-const SEALS_BURST: ReadonlySet<SnapshotReason> = new Set(['before-format', 'before-delete', 'before-restore']);
+/**
+ * Snapshots taken around an operation (not a save) end the current save burst (S21.3). An AI change is such an
+ * operation: the version before it and the one it left must not be replaced by the next save of the burst.
+ */
+const SEALS_BURST: ReadonlySet<SnapshotReason> = new Set([
+  'before-format',
+  'before-delete',
+  'before-restore',
+  'before-ai',
+  'after-ai',
+]);
 const TRANSIENT = new Set(['EBUSY', 'EPERM', 'EACCES', 'EMFILE', 'ENFILE', 'EAGAIN']);
 const HASH_IN_TEXT = /[0-9a-f]{64}/g;
 const STALE_TEMP_MS = 60_000;
@@ -125,6 +192,8 @@ interface ProjectIndex {
   v: typeof VERSION;
   rootPath: string;
   files: Record<string, SnapshotMeta[]>;
+  /** S34.2 (version 2): change groups by id. */
+  groups: Record<string, HistoryGroupRecord>;
 }
 
 export interface HistoryOptions {
@@ -184,6 +253,7 @@ export class SnapshotStore {
     relPath: string,
     data: Uint8Array,
     reason: SnapshotReason,
+    options: { readonly group?: string } = {},
   ): Promise<Result<{ snapshot: SnapshotMeta; deduped: boolean }, SnapshotError>> {
     return this.queue.run(async () => {
       if (data.length > this.limits.maxSnapshotBytes) {
@@ -192,8 +262,7 @@ export class SnapshotStore {
       }
       await this.load();
       const key = projectKey(rootPath);
-      const blocked =
-        this.unavailable.get(key) ?? this.unavailable.get('*') ?? (this.newer.has(key) ? 'newer-format' : undefined);
+      const blocked = this.blocked(key);
       if (blocked !== undefined) {
         // Never overwrite a history this process cannot read.
         this.log('history.snapshot-refused', { reason: blocked });
@@ -236,6 +305,7 @@ export class SnapshotStore {
           reason,
           seq,
           ...(reason === 'after-save' ? { burstStart: coalesce ? newest.burstStart : createdAt } : {}),
+          ...(options.group !== undefined && GROUP_ID.test(options.group) ? { group: options.group } : {}),
         };
         const kept = trimFile(coalesce ? [...versions.slice(0, -1), meta] : [...versions, meta], this.limits);
         const keptIds = new Set(kept.map((m) => m.id));
@@ -270,6 +340,94 @@ export class SnapshotStore {
       const index = await this.readableIndex(rootPath);
       if (!index.ok) return index;
       return ok(Object.keys(index.value?.files ?? {}).sort());
+    });
+  }
+
+  /**
+   * S34.2: appends one applied change to a group (created with its first step). Beyond the limit the oldest groups
+   * are dropped; their versions stay until the normal limits remove them.
+   */
+  recordGroupStep(
+    rootPath: string,
+    group: { readonly id: string; readonly kind: HistoryGroupKind; readonly label: string },
+    step: Omit<GroupStep, 'at'>,
+  ): Promise<Result<HistoryGroupRecord, GroupError>> {
+    return this.queue.run(async () => {
+      await this.load();
+      const key = projectKey(rootPath);
+      const blocked = this.blocked(key);
+      if (blocked !== undefined) {
+        this.log('history.group-refused', { reason: blocked });
+        return err('write-failed', `history unavailable: ${blocked}`);
+      }
+      if (!GROUP_ID.test(group.id)) return err('write-failed', 'invalid group id');
+      try {
+        const index = this.indexes.get(key) ?? newIndex(rootPath);
+        const now = this.now();
+        const existing = index.groups[group.id];
+        if (existing && existing.steps.length >= GROUP_LIMITS.maxSteps) return err('write-failed', 'group is full');
+        const stored: GroupStep = {
+          kind: step.kind,
+          relPath: historyKey(step.relPath),
+          ...(step.kind === 'rename' && step.to !== undefined ? { to: historyKey(step.to) } : {}),
+          before: step.before,
+          afterHash: step.afterHash,
+          at: now,
+        };
+        const record: HistoryGroupRecord = existing
+          ? { ...existing, steps: [...existing.steps, stored] }
+          : {
+              id: group.id,
+              kind: group.kind,
+              label: clipLabel(group.label),
+              createdAt: now,
+              seq: (this.seq += 1),
+              steps: [stored],
+            };
+        index.groups[group.id] = record;
+        const ordered = Object.values(index.groups).sort((a, b) => a.seq - b.seq);
+        for (const old of ordered.slice(0, Math.max(0, ordered.length - GROUP_LIMITS.maxGroups))) {
+          delete index.groups[old.id];
+        }
+        this.indexes.set(key, index);
+        await this.writeIndex(index);
+        return ok(record);
+      } catch (e) {
+        this.log('history.group-failed', { code: errorCode(e) });
+        this.invalidate();
+        return err('write-failed', errorCode(e), e);
+      }
+    });
+  }
+
+  /** S34.2: the project's change groups, newest first. */
+  groups(rootPath: string): Promise<Result<HistoryGroupRecord[], HistoryReadError>> {
+    return this.queue.run(async () => {
+      const index = await this.readableIndex(rootPath);
+      if (!index.ok) return index;
+      return ok(Object.values(index.value?.groups ?? {}).sort((a, b) => b.seq - a.seq));
+    });
+  }
+
+  /** S34.2: remembers that a group was undone (the History window then shows it as undone). */
+  markGroupUndone(rootPath: string, id: string): Promise<Result<null, GroupError>> {
+    return this.queue.run(async () => {
+      await this.load();
+      const key = projectKey(rootPath);
+      const blocked = this.blocked(key);
+      if (blocked !== undefined) return err('write-failed', `history unavailable: ${blocked}`);
+      const index = this.indexes.get(key);
+      const group = index?.groups[id];
+      if (!index || !group) return err('not-found', 'no such group');
+      try {
+        index.groups[id] = { ...group, undoneAt: this.now() };
+        await this.writeIndex(index);
+        return ok(null);
+      } catch (e) {
+        this.log('history.group-failed', { code: errorCode(e) });
+        this.invalidate();
+        return err('write-failed', errorCode(e), e);
+      }
     });
   }
 
@@ -420,6 +578,11 @@ export class SnapshotStore {
     return this.queue.run(async () => undefined);
   }
 
+  /** Why this project's history must not be written now (unreadable, or written by a newer version), if so. */
+  private blocked(key: string): string | undefined {
+    return this.unavailable.get(key) ?? this.unavailable.get('*') ?? (this.newer.has(key) ? 'newer-format' : undefined);
+  }
+
   // ── loading ────────────────────────────────────────────────────────────
 
   private invalidate(): void {
@@ -467,6 +630,7 @@ export class SnapshotStore {
     for (const q of kept) await this.protectHashesIn(path.join(this.dir, 'quarantine', q));
     for (const index of this.indexes.values()) {
       for (const list of Object.values(index.files)) for (const m of list) this.seq = Math.max(this.seq, m.seq);
+      for (const g of Object.values(index.groups)) this.seq = Math.max(this.seq, g.seq);
     }
     this.loaded = true;
   }
@@ -493,11 +657,16 @@ export class SnapshotStore {
       parsed = undefined;
     }
     const record = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : null;
-    if (record && record.format === FORMAT && typeof record.v === 'number' && record.v > VERSION) {
+    // App-data upgrade/downgrade policy (S28.4, src/main/json-file.ts): an older version is read and written in the
+    // current version on the next change; a newer version is never written, moved or trimmed.
+    const schema = schemaVersionOf(record, VERSION, 'v');
+    const newer =
+      schema.kind === 'newer' || (typeof record?.v === 'number' && Number.isFinite(record.v) && record.v > VERSION);
+    if (record && record.format === FORMAT && newer) {
       // Written by a newer NoobIDE: leave it exactly as it is and keep everything it may reference.
       this.newer.add(key);
       this.protectText(raw);
-      this.log('history.index-newer', { v: record.v });
+      this.log('history.index-newer', { v: schema.kind === 'newer' ? schema.version : 'unknown' });
       return;
     }
     const index = record ? toIndex(record) : null;
@@ -558,10 +727,10 @@ export class SnapshotStore {
   private async writeIndex(index: ProjectIndex): Promise<void> {
     for (const [rel, list] of Object.entries(index.files)) if (list.length === 0) delete index.files[rel];
     const key = projectKey(index.rootPath);
-    if (Object.keys(index.files).length === 0) {
+    if (Object.keys(index.files).length === 0 && Object.keys(index.groups).length === 0) {
       await rm(this.indexPath(key), { force: true });
       this.indexes.delete(key);
-    } else await writeFileAtomic(this.indexPath(key), JSON.stringify(index));
+    } else await writeFileAtomic(this.indexPath(key), serializeIndex(index));
   }
 
   private addRef(meta: SnapshotMeta): void {
@@ -709,7 +878,26 @@ export class SnapshotStore {
 }
 
 function newIndex(rootPath: string): ProjectIndex {
-  return { format: FORMAT, v: VERSION, rootPath, files: nullRecord() };
+  return { format: FORMAT, v: VERSION, rootPath, files: nullRecord(), groups: nullRecord() };
+}
+
+/**
+ * An index without anything S34.2 added (no groups, no AI versions) is still written as version 1, so an older
+ * NoobIDE after a downgrade keeps using that project's history; version 2 only once it holds AI data.
+ */
+function serializeIndex(index: ProjectIndex): string {
+  const usesV2 =
+    Object.keys(index.groups).length > 0 ||
+    Object.values(index.files).some((list) =>
+      list.some((m) => m.group !== undefined || m.reason === 'before-ai' || m.reason === 'after-ai'),
+    );
+  if (usesV2) return JSON.stringify(index);
+  return JSON.stringify({ format: index.format, v: 1, rootPath: index.rootPath, files: index.files });
+}
+
+function clipLabel(label: string): string {
+  const line = label.replace(/\s+/g, ' ').trim();
+  return line.length > GROUP_LIMITS.maxLabel ? `${line.slice(0, GROUP_LIMITS.maxLabel - 1)}…` : line;
 }
 
 /** Clamps limits to sane values: positive integers, a snapshot never larger than what a file or the store may hold. */
@@ -739,15 +927,17 @@ function trimFile(list: SnapshotMeta[], limits: HistoryLimits): SnapshotMeta[] {
   return out;
 }
 
-function nullRecord(): Record<string, SnapshotMeta[]> {
-  return Object.create(null) as Record<string, SnapshotMeta[]>;
+function nullRecord<T>(): Record<string, T> {
+  return Object.create(null) as Record<string, T>;
 }
 
 /** Per-entry validation: bad entries are dropped, the rest of the index survives. `null` when the shape is wrong. */
 function toIndex(r: Record<string, unknown>): { index: ProjectIndex; dropped: number } | null {
-  if (r.format !== FORMAT || r.v !== VERSION || typeof r.rootPath !== 'string' || r.rootPath === '') return null;
+  // Version 1 (S21, no groups) or 2 (S34.2); a newer version never gets here.
+  if (r.format !== FORMAT || (r.v !== 1 && r.v !== VERSION)) return null;
+  if (typeof r.rootPath !== 'string' || r.rootPath === '') return null;
   if (typeof r.files !== 'object' || r.files === null || Array.isArray(r.files)) return null;
-  const files = nullRecord();
+  const files = nullRecord<SnapshotMeta[]>();
   let dropped = 0;
   let order = 0;
   for (const [rel, list] of Object.entries(r.files as Record<string, unknown>)) {
@@ -763,7 +953,56 @@ function toIndex(r: Record<string, unknown>): { index: ProjectIndex; dropped: nu
     }
     if (good.length > 0) files[historyKey(rel)] = good;
   }
-  return { index: { format: FORMAT, v: VERSION, rootPath: r.rootPath, files }, dropped };
+  const groups = nullRecord<HistoryGroupRecord>();
+  if (r.v === VERSION && typeof r.groups === 'object' && r.groups !== null && !Array.isArray(r.groups)) {
+    for (const [id, value] of Object.entries(r.groups as Record<string, unknown>)) {
+      const group = toGroup(id, value, (order += 1));
+      if (group) groups[id] = group;
+      else dropped += 1;
+    }
+  }
+  return { index: { format: FORMAT, v: VERSION, rootPath: r.rootPath, files, groups }, dropped };
+}
+
+/** `<createdAt>-<12 hex>-<seq>`, as `snapshot()` makes them. */
+const VERSION_ID = /^\d{1,16}-[0-9a-f]{12}-\d{1,16}$/;
+
+const isHashOrNull = (v: unknown): v is string | null =>
+  v === null || (typeof v === 'string' && /^[0-9a-f]{64}$/.test(v));
+
+/** A stored group, or null when any part of it is damaged (the group is dropped as a whole, never half-undone). */
+function toGroup(id: string, value: unknown, fallbackSeq: number): HistoryGroupRecord | null {
+  if (!GROUP_ID.test(id) || typeof value !== 'object' || value === null) return null;
+  const g = value as Record<string, unknown>;
+  if (g.id !== id || g.kind !== 'ai-agent' || typeof g.label !== 'string' || !Array.isArray(g.steps)) return null;
+  if (typeof g.createdAt !== 'number' || !Number.isFinite(g.createdAt)) return null;
+  if (g.steps.length > GROUP_LIMITS.maxSteps) return null;
+  const steps: GroupStep[] = [];
+  for (const item of g.steps as unknown[]) {
+    if (typeof item !== 'object' || item === null) return null;
+    const s = item as Record<string, unknown>;
+    if (!STEP_KINDS.includes(s.kind as GroupStepKind) || typeof s.relPath !== 'string' || s.relPath === '') return null;
+    if (s.kind === 'rename' && (typeof s.to !== 'string' || s.to === '')) return null;
+    if (!(s.before === null || (typeof s.before === 'string' && VERSION_ID.test(s.before)))) return null;
+    if (!isHashOrNull(s.afterHash)) return null;
+    steps.push({
+      kind: s.kind as GroupStepKind,
+      relPath: historyKey(s.relPath),
+      ...(s.kind === 'rename' ? { to: historyKey(s.to as string) } : {}),
+      before: s.before,
+      afterHash: s.afterHash,
+      at: typeof s.at === 'number' && Number.isFinite(s.at) ? s.at : g.createdAt,
+    });
+  }
+  return {
+    id,
+    kind: 'ai-agent',
+    label: clipLabel(g.label),
+    createdAt: g.createdAt,
+    seq: typeof g.seq === 'number' && Number.isSafeInteger(g.seq) ? g.seq : fallbackSeq,
+    steps,
+    ...(typeof g.undoneAt === 'number' && Number.isFinite(g.undoneAt) ? { undoneAt: g.undoneAt } : {}),
+  };
 }
 
 function toMeta(value: unknown, fallbackSeq: number): SnapshotMeta | null {
@@ -784,6 +1023,7 @@ function toMeta(value: unknown, fallbackSeq: number): SnapshotMeta | null {
   }
   const seq = typeof m.seq === 'number' && Number.isSafeInteger(m.seq) ? m.seq : fallbackSeq;
   const burstStart = typeof m.burstStart === 'number' && Number.isFinite(m.burstStart) ? m.burstStart : undefined;
+  const group = typeof m.group === 'string' && GROUP_ID.test(m.group) ? m.group : undefined;
   return {
     id: m.id,
     hash: m.hash,
@@ -792,6 +1032,7 @@ function toMeta(value: unknown, fallbackSeq: number): SnapshotMeta | null {
     reason: m.reason as SnapshotReason,
     seq,
     ...(burstStart !== undefined ? { burstStart } : {}),
+    ...(group !== undefined ? { group } : {}),
   };
 }
 

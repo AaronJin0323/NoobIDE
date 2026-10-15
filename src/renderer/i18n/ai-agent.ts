@@ -36,6 +36,7 @@ export const aiAgentZhCN = {
   'agent.undo.hint': '把这一轮接受的修改恢复原样。每个版本都保存在本地历史里。',
   'agent.undo.done': '已撤销 {n} 处修改。',
   'agent.undo.partial': '已撤销 {n} 处修改，{m} 处没能撤销：{reasons}',
+  'agent.undo.changed': '这一轮之后文件又被修改过；为了不覆盖你的内容，没有撤销。',
   'agent.decisionFailed': '没能把你的决定告诉 AI；已经应用的修改保留着。',
 };
 
@@ -77,5 +78,6 @@ export const aiAgentEn: Record<keyof typeof aiAgentZhCN, string> = {
     'Puts back what the accepted changes of this turn replaced. Every version is kept in local history.',
   'agent.undo.done': 'Undid {n} change(s).',
   'agent.undo.partial': 'Undid {n} change(s); {m} could not be undone: {reasons}',
+  'agent.undo.changed': 'The file was changed again after this turn; it was not undone so your content is kept.',
   'agent.decisionFailed': 'Your decision could not be passed to the AI; changes already applied are kept.',
 };

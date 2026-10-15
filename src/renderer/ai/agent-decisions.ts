@@ -2,18 +2,19 @@ import type { AiApi, AiFileChange, AiProposalDecision } from '../../shared/ipc/a
 import {
   applyChange,
   failureForAgent,
-  undoTurn,
+  undoGroupById,
   type AgentApplyHost,
   type ApplyFailure,
-  type UndoStep,
   type UndoTurnResult,
 } from './agent-apply';
 
 /**
  * The user's decisions on the agent's proposals (S34.2), per window. The chat panel (S33) keeps the turn's events;
  * this store keeps, per proposal, the state of every change, applies accepted changes one at a time through
- * {@link applyChange}, reports the decision to the agent once every change is decided, and remembers each turn's
- * applied changes as one undo group. Outside React so a re-render or a scrolled-away card never loses a decision.
+ * {@link applyChange} (which records each in the turn's local-history group), reports the decision to the agent once
+ * every change is decided, and undoes a turn from that history group — the same undo the History window offers, so
+ * it does not depend on this store's memory. Outside React so a re-render or a scrolled-away card never loses a
+ * decision.
  */
 export type ChangeState = 'pending' | 'applying' | 'applied' | 'failed' | 'rejected';
 
@@ -23,7 +24,10 @@ export interface ChangeView {
 }
 
 export interface ProposalRef {
+  /** The agent turn's request id: also the id of its local-history group. */
   readonly requestId: string;
+  /** Shown with the group in the History window: the user's request. */
+  readonly label: string;
   readonly proposalId: string;
   readonly changes: readonly AiFileChange[];
 }
@@ -61,7 +65,8 @@ export function decisionOf(proposal: ProposalRef, views: readonly ChangeView[]):
 
 export class AgentDecisionStore {
   private readonly proposals = new Map<string, ProposalState>();
-  private readonly applied = new Map<string, UndoStep[]>();
+  /** Turns with at least one applied change in this window (their cards offer undo). */
+  private readonly applied = new Set<string>();
   private readonly undone = new Map<string, UndoTurnResult>();
   private readonly listeners = new Set<() => void>();
   private working = false;
@@ -94,7 +99,9 @@ export class AgentDecisionStore {
   }
 
   canUndo(requestId: string): boolean {
-    return (this.applied.get(requestId)?.length ?? 0) > 0 && !this.undone.has(requestId);
+    // After a partial undo (files changed since), the rest can be tried again.
+    const undone = this.undone.get(requestId);
+    return this.applied.has(requestId) && (undone === undefined || undone.failures.length > 0);
   }
 
   async accept(ctx: DecisionContext, proposal: ProposalRef, index: number): Promise<void> {
@@ -123,13 +130,19 @@ export class AgentDecisionStore {
     this.report(ctx, proposal);
   }
 
-  async undo(host: AgentApplyHost | null, requestId: string): Promise<void> {
+  /**
+   * Undoes a turn from its local-history group (from the chat card or the History window). Undefined when another
+   * change or undo is running, or there is no project.
+   */
+  async undo(host: AgentApplyHost | null, requestId: string): Promise<UndoTurnResult | undefined> {
+    let result: UndoTurnResult | undefined;
     await this.exclusive(async () => {
-      const steps = this.applied.get(requestId);
-      if (!host || !steps || this.undone.has(requestId)) return;
-      this.undone.set(requestId, await undoTurn(host, steps));
+      if (!host) return;
+      result = await undoGroupById(host, requestId);
+      this.undone.set(requestId, result);
       this.changed();
     });
+    return result;
   }
 
   private async applyOne(ctx: DecisionContext, proposal: ProposalRef, index: number): Promise<void> {
@@ -140,18 +153,11 @@ export class AgentDecisionStore {
       return;
     }
     this.setView(proposal, index, { state: 'applying' });
-    const result = await applyChange(ctx.host, change);
+    const result = await applyChange(ctx.host, change, { id: proposal.requestId, label: proposal.label });
     if (result.ok) {
-      const steps = this.applied.get(proposal.requestId) ?? [];
-      steps.push(result.undo);
-      this.applied.set(proposal.requestId, steps);
+      this.applied.add(proposal.requestId);
       this.setView(proposal, index, { state: 'applied' });
     } else {
-      if (result.undo) {
-        const steps = this.applied.get(proposal.requestId) ?? [];
-        steps.push(result.undo);
-        this.applied.set(proposal.requestId, steps);
-      }
       this.setView(proposal, index, { state: 'failed', failure: result.failure });
     }
   }

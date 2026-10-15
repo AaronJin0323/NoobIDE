@@ -172,7 +172,21 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     // S20.2: create-project wizard (locations are opaque ids chosen in main).
     createProject: ['options', 'chooseLocation', 'check', 'create'],
     // S21.3/S21.4: local history (files by project id + relative path, other histories by opaque key).
-    history: ['files', 'versions', 'read', 'beforeRestore', 'restoreDeleted', 'overview', 'clear', 'cleanup', 'reveal'],
+    history: [
+      'files',
+      'versions',
+      'read',
+      'beforeRestore',
+      'restoreDeleted',
+      'overview',
+      'clear',
+      'cleanup',
+      'reveal',
+      'groupBefore',
+      'groupRecord',
+      'groups',
+      'groupUndone',
+    ],
     // S23: onboarding walkthrough progress (step ids and short signatures only).
     walkthrough: ['get', 'save'],
     problems: ['list', 'clearResolved', 'onChanged'],

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { translate, type MessageKey } from '../i18n/index';
 import {
   compareVersion,
+  groupUndoText,
   historyErrorKey,
   reasonKey,
   restoreOutcomeKey,
@@ -88,5 +89,22 @@ describe('local history view model (S21.3, S21.4)', () => {
         { relPath: 'a.js', exists: true },
       ]).map((f) => f.relPath),
     ).toEqual(['a.js', 'index.html', 'b.css']);
+  });
+
+  it('describes an undone AI turn: all undone, per-file reasons, or the turn not found (S34.2)', () => {
+    expect(groupUndoText(zh, { undone: 3, failed: [] })).toEqual({
+      ok: true,
+      text: '已撤销这一轮的修改（3 处）。撤销前的内容也保存为版本了，可以再恢复回来。',
+    });
+    expect(groupUndoText(en, { undone: 1, failed: [{ relPath: 'style.css', reason: 'changed' }] })).toEqual({
+      ok: false,
+      text: 'Undid 1 change(s); 1 were not undone: style.css: changed',
+    });
+    expect(groupUndoText(en, { undone: 0, failed: [{ relPath: null, reason: 'x' }] }).text).toBe(
+      'This turn is no longer in local history (it may have been cleared).',
+    );
+    expect(zh('history.reason.before-ai' as MessageKey)).toBe('AI 助手修改前');
+    expect(zh('history.group.title' as MessageKey)).toBe('AI 助手的修改 · {n} 个文件');
+    expect(en('history.group.title' as MessageKey)).toBe('AI assistant changes · {n} files');
   });
 });

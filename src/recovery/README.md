@@ -13,6 +13,13 @@ stored in app data, never in the project. Undo, autosave, recovery and history s
   Only a missing index means "no history": a locked or unreadable index makes that project's history _unavailable_
   (no writes, no blob deletion anywhere), damaged entries are dropped one by one, unparseable indexes are
   quarantined (no blob is deleted while any is kept), indexes from a newer app version are left untouched.
+  Index schema `v`: 1 (S21) or 2 (S34.2: `groups`, reasons `before-ai`/`after-ai`); a v1 index is read as it is and
+  written as v2 on the next change, a v3+ index is never written.
+- **Change groups (S34.2):** the applied changes of one AI agent turn, per step the version kept right before it
+  (`before-ai`) and the hash of what it left (`after-ai` snapshot). `recordGroupStep()`, `groups()`,
+  `markGroupUndone()`; at most 100 groups per project. The History window and the chat card undo a turn from its
+  group (renderer `src/renderer/ai/agent-apply.ts` `undoGroup`): edits through the restore path, created files to
+  the trash, renames back, deleted files from history — each only if unchanged since the turn.
 - `history-triggers.ts` (S21.2) — snapshots around saves (the save only reads the old bytes, bounded by a timeout;
   storing is queued) and before format, delete (listing filters: no dotfiles, no `node_modules`) and restore.
 - `atomic-file.ts`, `keys.ts` — atomic app-data writes, content-free logger, hashed storage keys.

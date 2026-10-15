@@ -26,8 +26,11 @@ export function compareVersion(current: string | null, version: string): Version
   return current === null ? { mode: 'deleted', text: version } : { mode: 'diff', diff: diffLines(current, version) };
 }
 
-/** How a restore went, as the workbench reports it. */
-export type RestoreOutcome = 'restored' | 'save-failed' | 'read-only' | 'failed';
+/**
+ * How a restore went, as the workbench reports it. `changed`: the file no longer held the text the caller expected
+ * (S34.2 undo of an agent turn); nothing was touched.
+ */
+export type RestoreOutcome = 'restored' | 'save-failed' | 'read-only' | 'changed' | 'failed';
 
 export function restoreOutcomeKey(outcome: RestoreOutcome): MessageKey {
   switch (outcome) {
@@ -69,6 +72,29 @@ export function storageText(t: Translate, usage: HistoryOverview['usage']): { us
       versions: String(usage.maxVersionsPerFile),
       perFile: formatBytes(usage.maxBytesPerFile),
     }),
+  };
+}
+
+/** S34.2: how undoing an AI agent turn went, as the workbench reports it (`reason`: already translated). */
+export interface GroupUndoOutcome {
+  readonly undone: number;
+  /** Steps that were skipped: the file (null when the turn itself was not found) and why. */
+  readonly failed: readonly { readonly relPath: string | null; readonly reason: string }[];
+}
+
+/** The notice after undoing a turn: everything undone, or what was not and why (per file). */
+export function groupUndoText(
+  t: Translate,
+  outcome: GroupUndoOutcome,
+): { readonly ok: boolean; readonly text: string } {
+  if (outcome.failed.length === 0) return { ok: true, text: fill(t('history.group.undoDone'), { n: outcome.undone }) };
+  if (outcome.undone === 0 && outcome.failed.every((f) => f.relPath === null)) {
+    return { ok: false, text: t('history.group.notFound') };
+  }
+  const reasons = outcome.failed.map((f) => (f.relPath ? `${f.relPath}: ${f.reason}` : f.reason)).join(' ');
+  return {
+    ok: false,
+    text: fill(t('history.group.undoPartial'), { n: outcome.undone, m: outcome.failed.length, reasons }),
   };
 }
 
