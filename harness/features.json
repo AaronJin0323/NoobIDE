@@ -3086,8 +3086,8 @@
       "depends_on": [
         "S36.2"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Windows 11 x64 @ 31314eb: five ai-*.spec.ts 24/24 twice (+ai-inline --repeat-each 5: 20 passed); fixes: Monaco CancellationError rejections swallowed (product, src/renderer/editor/monaco-cancellation.ts), CRLF clipboard compare + restore race (tests); tests/e2e/ai-keychain.spec.ts real safeStorage/DPAPI restart 1/1 twice; docs/reviews/G9.md Windows rows; verify green"
     },
     {
       "id": "S38.1",
