@@ -51,6 +51,7 @@ import { ProblemDetails } from '../problems/ProblemDetails';
 import { FixCard } from '../problems/FixCard';
 import { createFixHost } from '../problems/fix-host';
 import { useProblemFix } from '../problems/useProblemFix';
+import { usePreviewLoads } from '../problems/usePreviewLoads';
 import { requestReveal } from '../editor/editor-handle';
 // S23: onboarding walkthrough, final task and glossary
 import { useWalkthrough } from '../walkthrough/useWalkthrough';
@@ -377,8 +378,12 @@ export function Workbench() {
     );
   }, [bridge]);
 
-  const onChange = useCallback((uri: string, text: string) => {
-    const relPath = relPathOfUri(uri);
+  /**
+   * An edit of an open file's text, wherever it came from (typing in the editor, a history restore, a one-click fix
+   * applied to a background tab): the save pipeline gets the text, the recovery journal records it (S12) and a
+   * "changed on disk" notice is dismissed. The disk text going in during an S11 reload is not the user's edit.
+   */
+  const recordEdit = useCallback((relPath: string | undefined, text: string) => {
     const saver = saverOf(relPath);
     if (!relPath || !saver) return;
     if (reloading.current.has(relPath)) return; // S11: the disk text going in is not an edit of the user's
@@ -388,6 +393,7 @@ export function Workbench() {
     saver.edit(text);
     tabJournals.current.get(relPath)?.edited(saver.state.revision, () => saver.text); // S12
   }, []);
+  const onChange = useCallback((uri: string, text: string) => recordEdit(relPathOfUri(uri), text), [recordEdit]);
 
   // --- S11: external changes (watcher → re-read → compare hashes → reload / conflict / deleted) ---
   /** Puts a disk version into a tab's buffer: the model (one undoable edit, cursor kept), the saver and the tab. */
@@ -627,13 +633,14 @@ export function Workbench() {
       if (!kept.ok || !same() || saver !== saverOf(relPath)) return 'failed';
       // 3. The version becomes the editor content as one undoable edit, then goes through the save pipeline.
       const applied = await import('../editor/editor-models').then((m) => m.replaceModelText(tab.uri, text));
-      if (applied === null) return 'failed';
-      if (saver.text !== applied) saver.edit(applied);
+      if (applied === null || saver !== saverOf(relPath)) return 'failed';
+      // The editor reports the edit only for the model it shows; a background tab's edit is recorded here (journal).
+      if (saver.text !== applied) recordEdit(relPath, applied);
       if (!(await saver.save())) return 'save-failed';
       walkthroughRef.current.historyRestored(); // S23: the "recover" step
       return 'restored';
     },
-    [bridge, openFile],
+    [bridge, openFile, recordEdit],
   );
   // The history window belongs to one project: it closes when the project changes.
   const historyProjectId = doc.project?.projectId;
@@ -697,12 +704,14 @@ export function Workbench() {
           return tab ? { uri: tab.uri, readOnly: Boolean(tab.content.readOnly) } : null;
         },
         saverOf: (relPath) => saverOf(relPath),
+        recordEdit,
         uriOf: (relPath) => docRef.current.tabs.find((tab) => tab.relPath === relPath)?.uri,
         savedFiles: savedFiles.current,
       }),
-    [openFile],
+    [openFile, recordEdit],
   );
-  const problemFix = useProblemFix(fixHost, runtimeProblems.records);
+  const previewLoads = usePreviewLoads(bridge);
+  const problemFix = useProblemFix(fixHost, runtimeProblems.records, previewLoads);
   // A fix belongs to its project: another project starts without one.
   const clearFix = problemFix.clear;
   useEffect(() => clearFix(), [doc.project?.projectId, clearFix]);

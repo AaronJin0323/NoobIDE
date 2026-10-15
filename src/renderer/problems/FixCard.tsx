@@ -39,6 +39,8 @@ export function fixStatusText(fix: FixState, t: Translate, platform: PlatformId)
         return 'problems.fix.saveFailed';
       case 'checking':
         return 'problems.fix.checking';
+      case 'unchecked':
+        return 'problems.fix.unchecked';
       case 'awaiting-refresh':
         return 'problems.fix.awaitingRefresh';
       case 'still-reported':

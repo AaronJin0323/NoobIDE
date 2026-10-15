@@ -12,6 +12,7 @@
  */
 import type { ProblemAction, ProblemExplanation, ProblemRecord } from '../../shared/problem';
 import { UNDEFINED_NAME_RULE_ID, undefinedName } from '../../diagnostics/rules';
+import { identifierColumns } from '../../diagnostics/text';
 import { lastGeneration } from './sources';
 
 export type ReplaceTextAction = Extract<ProblemAction, { kind: 'replace-text' }>;
@@ -25,6 +26,8 @@ export type FixPhase =
   | 'save-failed'
   /** Saved; the language service is re-checking. */
   | 'checking'
+  /** Saved, but the language service gave no answer (timed out, file closed, not JavaScript): not resolved. */
+  | 'unchecked'
   /** Saved and the code check is clear; the page reported this problem, so a preview reload must confirm it. */
   | 'awaiting-refresh'
   /** The re-check (or the reloaded page) still reports it. */
@@ -50,6 +53,8 @@ export interface FixState {
   readonly version?: number;
   /** Preview generation the problem last occurred in when the fix was made (runtime problems). */
   readonly generation?: number;
+  /** Preview loads started when the fix was last saved (usePreviewLoads): a page problem needs a later load. */
+  readonly loadsAtSave?: number;
 }
 
 /**
@@ -68,6 +73,14 @@ export function startFix(record: ProblemRecord, action: ReplaceTextAction): FixS
   return { record, action, phase: 'applying', ...(generation !== undefined ? { generation } : {}) };
 }
 
+/**
+ * True when `name` stands at 1-based `column` of `lineText` as a whole identifier — not a piece of a longer name
+ * (`usrNameList`) and not a property after `.`. A fix or its undo touches the text only then.
+ */
+export function holdsIdentifier(lineText: string, column: number, name: string): boolean {
+  return identifierColumns(lineText, name).includes(column);
+}
+
 /** A current problem reports the same misspelled name on the same line of the same file. */
 export function reportsSameProblem(fix: FixState, record: ProblemRecord): boolean {
   const { span, from } = fix.action;
@@ -82,14 +95,22 @@ export type Verdict = 'checking' | 'awaiting-refresh' | 'still-reported' | 'reso
  *   null = no answer (yet)
  * @param runtime current runtime/console records of the project (with `stale` set for those not seen since the
  *   preview reloaded)
+ * @param completedLoad number of the latest completed preview load (usePreviewLoads `completed`)
  */
-export function verdict(fix: FixState, staticReports: boolean | null, runtime: readonly ProblemRecord[]): Verdict {
+export function verdict(
+  fix: FixState,
+  staticReports: boolean | null,
+  runtime: readonly ProblemRecord[],
+  completedLoad = 0,
+): Verdict {
   if (staticReports === true) return 'still-reported';
   const fromPage = fix.record.source !== 'static';
   const live = runtime.filter((r) => !r.stale && r.source !== 'static' && reportsSameProblem(fix, r));
   // Seen again in a page load after the one the fix was made in.
   if (fromPage && live.some((r) => (lastGeneration(r) ?? 0) > (fix.generation ?? 0))) return 'still-reported';
   if (staticReports === null) return 'checking';
+  // A page problem needs a page load that completed after the fix was saved, and in which it did not occur.
+  if (fromPage && (fix.loadsAtSave === undefined || completedLoad <= fix.loadsAtSave)) return 'awaiting-refresh';
   if (fromPage && live.length > 0) return 'awaiting-refresh';
   return 'resolved';
 }
@@ -100,6 +121,7 @@ export function canUndo(fix: FixState): boolean {
     fix.version !== undefined &&
     (fix.phase === 'save-failed' ||
       fix.phase === 'checking' ||
+      fix.phase === 'unchecked' ||
       fix.phase === 'awaiting-refresh' ||
       fix.phase === 'still-reported' ||
       fix.phase === 'resolved' ||
@@ -109,7 +131,12 @@ export function canUndo(fix: FixState): boolean {
 
 /** Phases in which the fix is saved and its effect is being (or can be) checked again. */
 export function canRecheck(fix: FixState): boolean {
-  return fix.phase === 'checking' || fix.phase === 'awaiting-refresh' || fix.phase === 'still-reported';
+  return (
+    fix.phase === 'checking' ||
+    fix.phase === 'unchecked' ||
+    fix.phase === 'awaiting-refresh' ||
+    fix.phase === 'still-reported'
+  );
 }
 
 /** Phases whose outcome follows the re-check and the runtime problems (the fix is saved). */
@@ -119,8 +146,13 @@ const JUDGED: ReadonlySet<FixPhase> = new Set(['checking', 'awaiting-refresh', '
  * The phase after new evidence. Only a saved fix is judged: applying, not applied, a failed save and undo keep
  * their phase — so a fix whose save failed can never become resolved.
  */
-export function nextPhase(fix: FixState, staticReports: boolean | null, runtime: readonly ProblemRecord[]): FixPhase {
-  return JUDGED.has(fix.phase) ? verdict(fix, staticReports, runtime) : fix.phase;
+export function nextPhase(
+  fix: FixState,
+  staticReports: boolean | null,
+  runtime: readonly ProblemRecord[],
+  completedLoad = 0,
+): FixPhase {
+  return JUDGED.has(fix.phase) ? verdict(fix, staticReports, runtime, completedLoad) : fix.phase;
 }
 
 export const isJudged = (phase: FixPhase): boolean => JUDGED.has(phase);

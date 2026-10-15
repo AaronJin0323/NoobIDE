@@ -15,6 +15,7 @@ import {
   type CompletionEntryLike,
   type NavigationItemLike,
 } from './declared-names';
+import { holdsIdentifier } from './fix-model';
 
 /** The language service must answer within this time, or the card is shown without did-you-mean names. */
 const WORKER_TIMEOUT_MS = 4000;
@@ -86,8 +87,14 @@ export function replaceSpan(
   const model = modelOf(uri);
   if (!model) return { ok: false, reason: 'no-model' };
   if (span.line > model.getLineCount()) return { ok: false, reason: 'changed' };
+  // The span must still hold exactly the misspelled name as a whole identifier (not part of `usrNameList`).
+  if (
+    span.endColumn !== span.column + from.length ||
+    !holdsIdentifier(model.getLineContent(span.line), span.column, from)
+  ) {
+    return { ok: false, reason: 'changed' };
+  }
   const range = new monaco.Range(span.line, span.column, span.line, span.endColumn);
-  if (model.getValueInRange(range) !== from) return { ok: false, reason: 'changed' };
   model.pushStackElement();
   model.pushEditOperations([], [{ range, text: to }], () => null);
   model.pushStackElement();
@@ -111,9 +118,10 @@ export function undoSpan(
   if (model.getAlternativeVersionId() === version) {
     model.undo();
   } else {
-    const range = new monaco.Range(span.line, span.column, span.line, span.column + to.length);
-    if (span.line > model.getLineCount() || model.getValueInRange(range) !== to)
+    if (span.line > model.getLineCount() || !holdsIdentifier(model.getLineContent(span.line), span.column, to)) {
       return { ok: false, reason: 'changed' };
+    }
+    const range = new monaco.Range(span.line, span.column, span.line, span.column + to.length);
     model.pushStackElement();
     model.pushEditOperations([], [{ range, text: from }], () => null);
     model.pushStackElement();

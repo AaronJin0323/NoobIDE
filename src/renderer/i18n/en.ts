@@ -334,6 +334,8 @@ export const en: Record<MessageKey, string> = {
   'problems.fix.notApplied.notOpen': 'Nothing was changed: {file} could not be opened.',
   'problems.fix.saveFailed':
     'Changed {from} to {to} in the editor, but saving failed: {reason} The change is kept in the editor; the problem is not resolved yet.',
+  'problems.fix.unchecked':
+    'Changed {from} to {to} and saved, but could not check again (the code check did not answer, or the file was closed). So it cannot be called resolved yet; use Check again to retry.',
   'problems.fix.checking': 'Changed {from} to {to} and saved. Checking again…',
   'problems.fix.awaitingRefresh':
     'Changed {from} to {to} and saved; the code check no longer reports this problem. Waiting for the preview to refresh to confirm the page no longer reports it either.',
