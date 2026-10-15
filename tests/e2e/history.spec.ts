@@ -231,6 +231,10 @@ test('clearing asks first and removes the project history; project files are unt
   await typeAtEnd(page, 'CHANGED 改动');
   await page.keyboard.press('ControlOrMeta+S');
   await expect.poll(() => readFile(path.join(rootB, 'index.html'), 'utf8')).toContain('改动');
+  // The new content is visible on disk before the save has finished (the folder is still being flushed), and the
+  // save's versions are queued only when it finishes. The window lists versions once when it opens, so wait for
+  // the save itself, not just the file.
+  await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', /saved|clean/);
   await page.getByTestId('show-history').click();
   await expect(versions()).toHaveCount(2);
   await page.getByTestId('history-clear-project').click();
