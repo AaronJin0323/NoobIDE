@@ -242,10 +242,12 @@ describe('bounded cost and recovery (review findings 5, 7, 11)', () => {
       // event loop (deleting 3000 files from here measured the test's I/O on slow runners, not the watcher).
       await removeElsewhere(p('many'), 3000);
       const deadline = Date.now() + 8000;
-      while (!events.some((e) => e.type === 'rescan') && Date.now() < deadline) {
+      // Wait until the deletes are fully classified: on Windows a rescan can already happen while the other process
+      // is still deleting, and the remaining deletes arrive in later batches.
+      while ((!events.some((e) => e.type === 'rescan') || watcher.snapshotSize >= 10) && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 25));
+        await watcher.idle();
       }
-      await watcher.idle();
     } finally {
       clearInterval(probe);
     }

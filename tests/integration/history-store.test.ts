@@ -182,7 +182,7 @@ describe('snapshot store (S21.1)', () => {
     const kept = await versions(s, root, REL);
     expect(kept.length).toBeGreaterThanOrEqual(60);
     expect(kept.length).toBeLessThanOrEqual(63);
-  });
+  }, 30_000); // 125 atomic snapshot writes: a correctness check, not a speed check (slow on CI Windows disks).
 
   it('skips contents over the snapshot size limit and clamps inconsistent limits', async () => {
     const s = store({ maxSnapshotBytes: 10 });

@@ -67,13 +67,17 @@ export function useProblemFix(
     setFix((now) => (now === target || (now && now.action === target.action) ? { ...now, ...patch } : now));
   }, []);
 
-  /** `saved`: the file was just saved — a page problem then needs a preview load that starts after this. */
+  /**
+   * `loadsAtSave`: the file was just saved — a page problem then needs a preview load that started after the count
+   * given here. Callers take it when the save is *requested*: the refresh a confirmed save triggers (S10.5) can be
+   * reported before the save's own result reaches this hook, and must still count.
+   */
   const recheckNow = useCallback(
-    (target: FixState, saved: boolean) => {
+    (target: FixState, loadsAtSave: number | null) => {
       if (!host) return;
       const seq = ++checks.current;
       setStaticReports(null);
-      update(target, { phase: 'checking', ...(saved ? { loadsAtSave: loadsRef.current.started } : {}) });
+      update(target, { phase: 'checking', ...(loadsAtSave !== null ? { loadsAtSave } : {}) });
       void host.stillReported(target).then((reports) => {
         if (seq !== checks.current || current.current?.action !== target.action) return;
         // No answer is not a clean answer: the card says it could not check, and never calls it resolved.
@@ -97,7 +101,11 @@ export function useProblemFix(
     return host.onSaved((relPath) => {
       const now = current.current;
       if (!now || relPath !== now.action.span.file) return;
-      if (isJudged(now.phase) || now.phase === 'save-failed' || now.phase === 'unchecked') recheckNow(now, true);
+      // Heard only after the save: a refresh it triggered may already be counted, so this can wait for one more
+      // load than needed (never less) — conservative, and the preview's Refresh settles it.
+      if (isJudged(now.phase) || now.phase === 'save-failed' || now.phase === 'unchecked') {
+        recheckNow(now, loadsRef.current.started);
+      }
     });
   }, [host, recheckNow]);
 
@@ -109,6 +117,7 @@ export function useProblemFix(
       setStaticReports(null);
       setFix(started);
       setSerial((n) => n + 1);
+      const loadsAtRequest = loadsRef.current.started;
       void host.apply(action).then((outcome) => {
         if (outcome.kind === 'not-applied') update(started, { phase: 'not-applied', reason: outcome.reason });
         else if (outcome.kind === 'save-failed')
@@ -116,7 +125,7 @@ export function useProblemFix(
         else {
           const applied = { ...started, version: outcome.version };
           update(started, { version: outcome.version });
-          recheckNow(applied, true);
+          recheckNow(applied, loadsAtRequest);
         }
       });
     },
@@ -138,15 +147,16 @@ export function useProblemFix(
   const retrySave = useCallback(() => {
     const now = current.current;
     if (!host || !now || now.phase !== 'save-failed') return;
+    const loadsAtRequest = loadsRef.current.started;
     void host.retrySave(now.action.span.file).then((result) => {
-      if (result.ok) recheckNow(now, true);
+      if (result.ok) recheckNow(now, loadsAtRequest);
       else update(now, { saveError: result.code });
     });
   }, [host, update, recheckNow]);
 
   const recheck = useCallback(() => {
     const now = current.current;
-    if (now && canRecheck(now)) recheckNow(now, false);
+    if (now && canRecheck(now)) recheckNow(now, null);
   }, [recheckNow]);
 
   const clear = useCallback(() => {
