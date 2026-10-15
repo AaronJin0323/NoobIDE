@@ -371,6 +371,25 @@ export const en: Record<MessageKey, string> = {
   'preview.console.olderTag': 'Before refresh',
   'preview.console.emptyFiltered': 'No output matches the filter.',
   // --- end S17.3 ---
+  // --- S25.4 preview permissions / decision 0016 flood stop ---
+  'preview.notice.permissionDenied':
+    'The page asked for {permission} access. The preview denies it by default, so features that need it (such as getUserMedia or geolocation) fail. To try them, use “Open in browser”.',
+  'preview.notice.consoleFloodStopped':
+    'The page wrote far too many console messages too quickly (getting around the output limit). To keep the editor responsive, NoobIDE stopped the script that was running. Check for a loop that keeps calling console.log.',
+  'preview.permission.camera': 'camera',
+  'preview.permission.microphone': 'microphone',
+  'preview.permission.camera-microphone': 'camera and microphone',
+  'preview.permission.location': 'location',
+  'preview.permission.notifications': 'notification',
+  'preview.permission.midi': 'MIDI device',
+  'preview.permission.clipboard': 'clipboard',
+  'preview.permission.screen': 'screen sharing',
+  'preview.permission.devices': 'device (USB, HID, serial, Bluetooth)',
+  'preview.permission.fullscreen': 'fullscreen',
+  'preview.permission.other': 'other',
+  'preview.notice.permissionDeniedOther':
+    'The page asked for a browser permission (such as locking the mouse pointer or opening another app). The preview denies it by default. To try it, use “Open in browser”.',
+  // --- end S25.4 ---
   // --- S28.1 About ---
   'about.title': 'About NoobIDE',
   'about.description':

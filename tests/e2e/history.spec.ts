@@ -3,7 +3,16 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { listTemplates } from '../../src/workspace/templates';
 import { launchApp, repoRoot, tempRoot } from './launch';
-import { answerFolderDialog, collectConsoleErrors, openFile, tabOf, treeRow, typeAtEnd } from './project';
+import {
+  answerFolderDialog,
+  collectConsoleErrors,
+  documentText,
+  focusEditor,
+  openFile,
+  tabOf,
+  treeRow,
+  typeAtEnd,
+} from './project';
 import { replaceEditorText } from './preview-helpers';
 
 /**
@@ -126,12 +135,12 @@ test('restore keeps the current content as a version first and goes through the 
 
   await page.keyboard.press('Escape');
   await expect(dialog()).toHaveCount(0);
-  await expect(page.locator('.monaco-editor .view-lines')).toContainText('你好，我是小雨');
+  await expect.poll(() => documentText(page.locator('.monaco-editor'))).toContain('你好，我是小雨');
   await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', /saved|clean/);
   // The restore is one ordinary edit in the editor: Ctrl+Z brings the previous text back.
-  await page.locator('.monaco-editor .view-lines').click();
+  await focusEditor(page);
   await page.keyboard.press('ControlOrMeta+Z');
-  await expect(page.locator('.monaco-editor .view-lines')).toContainText('你好，我是林小雨');
+  await expect.poll(() => documentText(page.locator('.monaco-editor'))).toContain('你好，我是林小雨');
   await page.keyboard.press('ControlOrMeta+S');
   await expect.poll(() => readFile(path.join(rootA, 'index.html'), 'utf8')).toContain('林小雨');
 });
@@ -231,6 +240,10 @@ test('clearing asks first and removes the project history; project files are unt
   await typeAtEnd(page, 'CHANGED 改动');
   await page.keyboard.press('ControlOrMeta+S');
   await expect.poll(() => readFile(path.join(rootB, 'index.html'), 'utf8')).toContain('改动');
+  // The new content is visible on disk before the save has finished (the folder is still being flushed), and the
+  // save's versions are queued only when it finishes. The window lists versions once when it opens, so wait for
+  // the save itself, not just the file.
+  await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', /saved|clean/);
   await page.getByTestId('show-history').click();
   await expect(versions()).toHaveCount(2);
   await page.getByTestId('history-clear-project').click();

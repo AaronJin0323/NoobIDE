@@ -5,6 +5,7 @@ import { launchApp } from './launch';
 import {
   answerSaveDialog,
   collectConsoleErrors,
+  documentText,
   makeProject,
   openFile,
   openProject,
@@ -28,6 +29,8 @@ let consoleErrors: string[];
 
 const status = () => page.getByTestId('save-status');
 const lines = () => page.locator('.monaco-editor .view-lines');
+/** The whole open document, however little of it fits in the window. */
+const editorText = () => documentText(page.locator('.monaco-editor'));
 const disk = (relPath: string) => readFile(path.join(root, ...relPath.split('/')), 'utf8');
 
 async function start() {
@@ -87,7 +90,7 @@ test('a failed save shows the reason with retry and save-elsewhere; the copy kee
   await expect(banner).toContainText('没有写入权限');
   await expect(banner).toContainText('你的修改还在编辑器里');
   await expect(banner.getByTestId('save-retry')).toHaveText('重试保存');
-  await expect(lines()).toContainText('KEEPME');
+  await expect.poll(editorText).toContain('KEEPME');
 
   // Retrying while the cause persists fails again and still keeps everything.
   await banner.getByTestId('save-retry').click();
@@ -127,7 +130,7 @@ test('closing the window with a failing save keeps the window open and the edits
   // The banner made the editor shorter; bring the last line into view before reading it.
   await lines().click();
   await page.keyboard.press(DOC_END);
-  await expect(lines()).toContainText('NOTDROPPED');
+  await expect.poll(editorText).toContain('NOTDROPPED');
   // A file that can never be saved must not trap the user: an explicit way out is offered.
   await expect(page.getByTestId('close-discarding')).toBeVisible();
   await chmod(file, 0o644);

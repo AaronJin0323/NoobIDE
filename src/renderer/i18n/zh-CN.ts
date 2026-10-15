@@ -350,6 +350,25 @@ export const zhCN = {
   'preview.console.olderTag': '刷新前',
   'preview.console.emptyFiltered': '没有符合筛选条件的输出。',
   // --- end S17.3 ---
+  // --- S25.4 preview permissions / decision 0016 flood stop ---
+  'preview.notice.permissionDenied':
+    '网页请求了{permission}权限，预览中默认拒绝，所以相关功能（例如 getUserMedia、定位）会失败。需要试用时，可以“在浏览器中打开”。',
+  'preview.notice.consoleFloodStopped':
+    '网页在极短时间内输出了太多控制台消息（绕过了输出限制），为了让编辑器保持流畅，NoobIDE 停止了正在运行的脚本。检查一下是否有循环一直在调用 console.log。',
+  'preview.permission.camera': '摄像头',
+  'preview.permission.microphone': '麦克风',
+  'preview.permission.camera-microphone': '摄像头和麦克风',
+  'preview.permission.location': '位置（定位）',
+  'preview.permission.notifications': '通知',
+  'preview.permission.midi': 'MIDI 设备',
+  'preview.permission.clipboard': '剪贴板',
+  'preview.permission.screen': '屏幕共享',
+  'preview.permission.devices': '外接设备（USB、HID、串口、蓝牙）',
+  'preview.permission.fullscreen': '全屏',
+  'preview.permission.other': '其他',
+  'preview.notice.permissionDeniedOther':
+    '网页请求了一项浏览器权限（例如锁定鼠标或打开外部程序），预览中默认拒绝。需要试用时，可以“在浏览器中打开”。',
+  // --- end S25.4 ---
   // --- S28.1 About ---
   'about.title': '关于 NoobIDE',
   'about.description': '给初学者用的网页编辑器：编写 HTML、CSS 和 JavaScript，并在旁边预览网页。',

@@ -19,10 +19,13 @@
  * How a page can observe it: `Object.getOwnPropertyDescriptor(console, 'log')` is an accessor, `alert` and `print`
  * are accessors on `window`, and the summary warning appears in its console (and in DevTools). A page that saves a
  * reference to a console method while under the limit can call it without limits; main's flood guard
- * (preview-manager.ts) still bounds what reaches the IDE in that case.
+ * (preview-manager.ts) then stops the running script (decision 0016 amendment).
+ *
+ * CONSOLE_LIMIT is 200 per second (was 1,000): the IDE shows at most 200 lines of a burst anyway, and main's flood
+ * guard trips at a multiple of it — the lower it is, the sooner a page that bypasses the limit is stopped.
  */
 
-export const CONSOLE_LIMIT = 1_000;
+export const CONSOLE_LIMIT = 200;
 export const CONSOLE_WINDOW_MS = 1_000;
 export const LIMITER_SOURCE_URL = 'noobide-preview://page-guard.js';
 const SUMMARY_PREFIX = 'NoobIDE: ';

@@ -95,8 +95,33 @@ export interface PreviewLogEntry {
    * request's referrer, which Chromium sets to the requesting stylesheet / importing module, else the page).
    */
   readonly initiator?: string;
+  /**
+   * An IDE notice about the page rather than the page's own output (`source: 'page-load'`); the workbench shows it
+   * localised instead of `message` (an English fallback).
+   */
+  readonly notice?: PreviewNotice;
   readonly at: number;
 }
+
+/** S25.4: what a denied permission request asked for (src/preview/permission-policy.ts). */
+export type PreviewPermissionKind =
+  | 'camera'
+  | 'microphone'
+  | 'camera-microphone'
+  | 'location'
+  | 'notifications'
+  | 'midi'
+  | 'clipboard'
+  | 'screen'
+  | 'devices'
+  | 'fullscreen'
+  | 'other';
+
+export type PreviewNotice =
+  /** S25.4: the page asked for a permission; the preview denies every permission. */
+  | { readonly kind: 'permission-denied'; readonly permission: PreviewPermissionKind }
+  /** Decision 0016 amendment: the page bypassed the console limit; its running script was stopped. */
+  | { readonly kind: 'console-flood-stopped' };
 
 export type PreviewEvent =
   | { readonly kind: 'status'; readonly status: PreviewStatus }

@@ -42,8 +42,8 @@ beforeEach(() => {
     { projectId: ID, origin: PREVIEW },
     { isDestroyed: () => destroyed, send: (channel, records) => sent.push({ channel, records }) },
   );
-  bridge.navigationStarted();
-  bridge.navigationCommitted();
+  bridge.navigationStarted(1);
+  bridge.navigationCommitted(1);
   bridge.entry({
     source: 'exception',
     level: 'error',
@@ -86,8 +86,8 @@ describe('runtime problems bridge (S16.2)', () => {
   });
 
   it('clearResolved removes problems not seen since the refresh and publishes at once', async () => {
-    bridge.navigationStarted();
-    bridge.navigationCommitted();
+    bridge.navigationStarted(2);
+    bridge.navigationCommitted(2);
     expect(await call(PROBLEMS_CHANNELS.clearResolved, workbench)).toEqual({ ok: true, value: 1 });
     expect(sent.at(-1)?.records).toEqual([]);
   });

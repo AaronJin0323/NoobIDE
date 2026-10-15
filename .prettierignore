@@ -3,6 +3,7 @@ out/
 dist/
 .vite/
 coverage/
+reports/
 package-lock.json
 PLAN.md
 harness/features.json

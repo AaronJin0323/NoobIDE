@@ -78,3 +78,42 @@ problem cards depend on them), the user's DevTools must keep working.
 - If installing the guard fails or times out (5 s), the preview still starts; `debugInfo().pageGuarded` is false
   (the flood e2e asserts it is true).
 - Windows x64: run the same e2e on the dev machine (harness/MANUAL-CHECKS.md#S05.5-windows).
+
+## Amendment (2026-10-15): bounding a page that bypasses the limiter
+
+**Context.** The residual above (a cached native console method in a loop) stalled main 1.3–2.1 s, and the first
+Windows CI run measured 356 ms for the (limited) worker flood. Measured on the M3 Pro: once messages reach main,
+each costs ~20–30 µs of main-thread time whether or not a listener is attached (Electron builds an event per
+message), and a page produces them faster than main consumes them, so the stall grows with the number of messages
+main sees before anything stops the page.
+
+**Options.** (a) Detach/reattach the listener (0010): does not remove Electron's per-message cost and stops
+detection. (b) Drop at the protocol level: Chromium has no protocol switch that keeps console messages from being
+sent to the browser process. (c) Stop the page through the lifecycle (crash the renderer): bounds main but destroys
+the page the beginner is working on. (d) **Stop the running script (chosen)** with `Runtime.terminateExecution`
+over the guard's existing protocol session — the page itself, its same-process frames, and every auto-attached
+dedicated worker and out-of-process iframe — and detect sooner.
+
+**Decision.**
+
+- Main's flood guard (`preview-manager.ts`): above `FLOOD_LIMIT` messages per 1 s window it calls
+  `stopRunawayScripts` (one request in flight, each answer awaited at most 250 ms), shows the localised notice
+  "the running script was stopped" once per page load (`notice.kind: 'console-flood-stopped'`, never dropped by
+  the log batch), and only counts the rest of the window. A further stop needs another `CONSOLE_LIMIT` messages
+  after the previous stop was answered (the backlog arrives before the answer), so a page that went quiet is not
+  stopped again. The page stays loaded; its timers and events keep running; a `setInterval` flood is stopped tick by
+  tick.
+- The in-page limit drops from 1,000 to **200 messages per second** per document/worker (the console shows at most
+  200 lines of a burst anyway), and `FLOOD_LIMIT` is 4 × 200 = 800 (two documents' windows back to back): measured,
+  the page is stopped within 0–1 ms of detection and main sees ~2,400 messages in total instead of ~10,000.
+- Workers: dedicated workers are auto-attached child sessions (tracked from `Target.attachedToTarget` /
+  `detachedFromTarget`) and are terminated with the page.
+
+**Consequences.** Measured on MacBook Pro M3 Pro, macOS 27.2 arm64, e2e flood test (`preview-isolation.spec.ts`):
+cached `console.log` loop in the page — stopped, longest main stall 26–72 ms (was 1,462–2,100 ms); the same in a
+dedicated worker — stopped, 44–58 ms; limited page flood 8–31 ms; limited worker flood 4–14 ms. With all 12 cores
+busy (12 spinning threads): 72 / 44 / 27 / 38 ms. The test now asserts < 200 ms for both bypass cases, that the
+script was stopped, that the page still answers, and that the notice is shown. Limits: `Runtime.terminateExecution`
+on a target that is idle at that moment ends its next script run instead (only after a page bypassed the limit);
+shared workers are still not attached (0015 refuses service workers); a page that keeps re-flooding from timers is
+stopped each time, costing main at most ~`FLOOD_LIMIT` messages per round. Windows x64: the same e2e (CI S06).

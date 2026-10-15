@@ -38,6 +38,14 @@ export class LogBuffer {
     this.entries.push(entry.message.length > max ? { ...entry, message: `${entry.message.slice(0, max)}…` } : entry);
   }
 
+  /**
+   * An IDE notice about the page (`entry.notice`: a denied permission, a stopped flood). Never dropped for a full
+   * batch — it explains what happened to the page — and bounded by its producers (once per kind and page load).
+   */
+  pushNotice(entry: PreviewLogEntry): void {
+    this.entries.push(entry);
+  }
+
   /** Messages the page's console rate limit suppressed (docs/decisions/0016): counted, never seen by main. */
   addDropped(count: number): void {
     if (Number.isSafeInteger(count) && count > 0)

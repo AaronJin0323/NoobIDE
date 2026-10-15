@@ -264,11 +264,65 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   expect(workerStall.count).toBeGreaterThan(10_000);
   expect(workerStall.max).toBeLessThan(200);
   expect((await previewInfo(app)).pageGuarded).toBe(true);
+  // Limited floods (page, then worker) never trip main's guard: nothing was stopped, no notice.
+  await expect(page.locator('.preview-console-line[data-notice="console-flood-stopped"]')).toHaveCount(0);
 
-  // Known residual (decision 0016): a page that saved a native console method before exceeding the limit bypasses
-  // it; only main's flood guard is left. Measured and logged here, bounded loosely against regressions.
-  const bypassStall = await app.evaluate(
-    async ({ webContents }, id) => {
+  // Decision 0016 amendment: a page that saved a native console method before exceeding the limit bypasses it.
+  // Main's flood guard then stops the running script (Runtime.terminateExecution), in the page and in workers, so
+  // the flood ends at its source; the longest main stall stays within the same budget.
+  const previewId = (await previewInfo(app)).previewWebContentsId ?? -1;
+  const pageBypass = await measureMainStall(
+    app,
+    previewId,
+    `(() => { const log = console.log; const end = Date.now() + 2000; let i = 0; while (Date.now() < end) { log('缓存的引用 ' + i); i += 1; } return 'finished'; })()`,
+  );
+  console.log(
+    `cached console.log reference in the page (limiter bypassed): ${pageBypass.result} after ${pageBypass.ms} ms; ` +
+      `longest main stall ${pageBypass.max} ms`,
+  );
+  expect(pageBypass.result).toBe('stopped');
+  expect(pageBypass.ms).toBeLessThan(1_000);
+  expect(pageBypass.max).toBeLessThan(200);
+  // The page itself still works, and the console says why its script stopped (once per page load).
+  expect(await evalInPreview<number>(app, '1 + 1')).toBe(2);
+  await expect(
+    page
+      .locator('.preview-console-line[data-notice="console-flood-stopped"]')
+      .filter({ hasText: '停止了正在运行的脚本' }),
+  ).toHaveCount(1);
+
+  // The same from a dedicated worker: its loop is ended too (it never posts 'finished').
+  const workerBypass = await measureMainStall(
+    app,
+    previewId,
+    `new Promise((resolve) => {
+      const code = 'const log = console.log; const end = Date.now() + 2000; let i = 0; while (Date.now() < end) { log("工作线程缓存 " + i); i += 1; } postMessage("finished");';
+      const w = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+      w.onmessage = (e) => resolve(e.data);
+      setTimeout(() => resolve('stopped'), 3000);
+    })`,
+  );
+  console.log(
+    `cached console.log reference in a worker (limiter bypassed): ${workerBypass.result}; ` +
+      `longest main stall ${workerBypass.max} ms`,
+  );
+  expect(workerBypass.result).toBe('stopped');
+  expect(workerBypass.max).toBeLessThan(200);
+  await page.getByTestId('preview-stop').click();
+  await waitForPreviewState(page, 'stopped');
+});
+
+/**
+ * Runs `code` in the preview while a 10 ms timer in main records the longest stall; also returns the code's result
+ * ('stopped' when its execution was terminated) and how long it ran.
+ */
+async function measureMainStall(
+  app: ElectronApplication,
+  previewId: number,
+  code: string,
+): Promise<{ max: number; result: string; ms: number }> {
+  return app.evaluate(
+    async ({ webContents }, { id, js }) => {
       let last = performance.now();
       let max = 0;
       const timer = setInterval(() => {
@@ -276,22 +330,19 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
         max = Math.max(max, now - last - 10);
         last = now;
       }, 10);
-      await webContents
-        .fromId(id)
-        ?.executeJavaScript(
-          `(() => { const log = console.log; const end = Date.now() + 2000; let i = 0; while (Date.now() < end) { log('缓存的引用 ' + i); i += 1; } return i; })()`,
-        );
-      await new Promise((r) => setTimeout(r, 3_000));
+      const started = Date.now();
+      const result = await Promise.race([
+        (webContents.fromId(id)?.executeJavaScript(js) ?? Promise.resolve('no preview')).then(String, () => 'stopped'),
+        new Promise<string>((r) => setTimeout(() => r('timeout'), 10_000)),
+      ]);
+      const ms = Date.now() - started;
+      await new Promise((r) => setTimeout(r, 1_000)); // whatever main still had queued
       clearInterval(timer);
-      return Math.round(max);
+      return { max: Math.round(max), result, ms };
     },
-    (await previewInfo(app)).previewWebContentsId ?? -1,
+    { id: previewId, js: code },
   );
-  console.log(`cached console.log reference (limiter bypassed) for 2 s: longest main stall ${bypassStall} ms`);
-  expect(bypassStall).toBeLessThan(15_000);
-  await page.getByTestId('preview-stop').click();
-  await waitForPreviewState(page, 'stopped');
-});
+}
 
 interface RawRecord {
   source: string;
@@ -474,12 +525,24 @@ test('a malicious page cannot read local files, other loopback services or the I
       info.previewWebContentsId ?? -1,
     );
     expect(rtc).toBe('disable_non_proxied_udp');
-    // No service worker exists after a refresh either.
+    // No service worker exists after a refresh either. The refreshed page runs its attacks again — including a new
+    // registration attempt, which is visible as an in-flight registration until its script request is refused —
+    // so the check waits until this page load has finished its attempts.
     await page.getByTestId('preview-reload').click();
     await waitForPreviewState(page, 'running');
-    expect(await evalInPreview<number>(app, 'navigator.serviceWorker.getRegistrations().then((r) => r.length)')).toBe(
-      0,
-    );
+    await expect
+      .poll(() => evalInPreview<string>(app, 'document.body.dataset.results ?? ""'), { timeout: 45_000 })
+      .not.toBe('');
+    const again = JSON.parse(await evalInPreview<string>(app, 'document.body.dataset.results')) as Record<
+      string,
+      string
+    >;
+    expect(again['service-worker']).toBe('failed');
+    await expect
+      .poll(() => evalInPreview<number>(app, 'navigator.serviceWorker.getRegistrations().then((r) => r.length)'), {
+        timeout: 5_000,
+      })
+      .toBe(0);
   } finally {
     await new Promise<void>((resolve) => other.close(() => resolve()));
   }

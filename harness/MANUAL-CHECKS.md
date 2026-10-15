@@ -282,6 +282,24 @@ injected errno codes; this confirms the real OS behaves the same.
   and nothing else breaks.
 - **Result:** _(owner fills in: pass/fail per step and platform, notes, date)_
 
+### S26.2 — Fault suite on both CI jobs (evidence from a GitHub Actions run)
+
+- **Platform:** GitHub Actions, workflow `CI` (`.github/workflows/ci.yml`), jobs `windows-x64` and `macos-arm64`
+- **Build:** the commit that added `npm run test:faults` (S26.2) or later, pushed to `main` or a pull request
+- **Steps:**
+  1. Push the branch and open the `CI` run for that commit (Actions tab, or `gh run list --workflow CI`).
+  2. In each of the two jobs, open the step **Fault suite (S26.2)**: it must be green and end with
+     `PASS: N passed, 0 failed, …`.
+  3. Open the run's **Summary**: each job appends a "Fault suite (S26.2) — <platform>-<arch>" table.
+  4. Download the artifacts `fault-suite-windows-x64` and `fault-suite-macos-arm64` (`gh run download <run-id> -n
+fault-suite-windows-x64`, same for macOS); each holds `<platform>-<arch>/junit.xml`, `results.json`, `summary.md`.
+- **Expected:** `win32-x64/summary.md` and `darwin-arm64/summary.md` both say PASS with 0 failed and list the same five
+  files. macOS: 0 skipped. Windows: exactly 7 skipped, each with its reason — the POSIX read-only folder test and the
+  6 "macOS privacy protection (TCC), simulated" tests (docs/release/fault-matrix.md "Running on CI"). Total tests
+  (passed + skipped) are equal on both platforms.
+- **Result:** _(owner fills in: run URL, pass/fail per job, counts, date)_ — then
+  `node harness/session.mjs set S26.2 done --evidence "CI run <url>: fault-suite-windows-x64 + fault-suite-macos-arm64 PASS"`
+
 ### S27.1 — Performance measurements on Windows x64 (docs/perf/win32-x64.md)
 
 - **Platform:** Windows x64. For a PLAN §11 claim: the fixed Windows reference machine (8 GB RAM, SSD); the developer

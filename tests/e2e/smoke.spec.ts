@@ -1,6 +1,7 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
 import { DOC_END } from './keys';
+import { documentText } from './project';
 
 let app: ElectronApplication;
 let page: Page;
@@ -45,7 +46,7 @@ test('renders the five workbench regions (S02.3)', async () => {
 
 test('Monaco highlights HTML with every request local (S02.4, S02.6)', async () => {
   await expect(page.locator('.monaco-editor')).toHaveCount(1);
-  await expect(page.locator('.view-lines')).toContainText('<h1 class="title">NoobIDE</h1>');
+  await expect.poll(() => documentText(page.locator('.monaco-editor'))).toContain('<h1 class="title">NoobIDE</h1>');
   // Tokenization is asynchronous; on a cold start (fresh app-data directory, no code cache) it can trail the text.
   const tokenClasses = () =>
     page.$$eval('.view-lines .view-line span span', (spans) => [

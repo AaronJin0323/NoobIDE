@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>权限请求</title>
+  </head>
+  <body>
+    <h1>权限请求</h1>
+    <p>这个页面请求摄像头、麦克风、定位、通知等权限；预览中都应被拒绝。</p>
+    <script>
+      // S25.4: every request settles (no OS prompt waits for an answer) and is refused. Each result is the error
+      // name (or the answer) and how long it took; 'timeout' means something was still waiting after 5 s.
+      function settle(promise) {
+        const started = Date.now();
+        return Promise.race([
+          Promise.resolve()
+            .then(() => promise())
+            .then(
+              (value) => ({ outcome: 'granted', value: String(value) }),
+              (error) => ({ outcome: 'denied', value: (error && error.name) || String(error) }),
+            ),
+          new Promise((resolve) => setTimeout(() => resolve({ outcome: 'timeout', value: '' }), 5000)),
+        ]).then((result) => ({ ...result, ms: Date.now() - started }));
+      }
+      const position = () =>
+        new Promise((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(
+            () => resolve('position'),
+            (error) => reject({ name: error.code === 1 ? 'PERMISSION_DENIED' : 'code ' + error.code }),
+            { timeout: 4000 },
+          ),
+        );
+      const missing = (name) => () => Promise.reject({ name: 'unsupported:' + name });
+      const notify = () =>
+        Notification.requestPermission().then((answer) =>
+          answer === 'granted' ? answer : Promise.reject({ name: answer }),
+        );
+      const requests = {
+        camera: () => navigator.mediaDevices.getUserMedia({ video: true }),
+        microphone: () => navigator.mediaDevices.getUserMedia({ audio: true }),
+        location: position,
+        notifications: notify,
+        midi: () => navigator.requestMIDIAccess({ sysex: true }),
+        clipboard: () => navigator.clipboard.readText(),
+        screen: () => navigator.mediaDevices.getDisplayMedia({ video: true }),
+        // No device chosen: HID answers with an empty list.
+        hid: navigator.hid
+          ? () =>
+              navigator.hid
+                .requestDevice({ filters: [] })
+                .then((devices) => (devices.length > 0 ? devices.length : Promise.reject({ name: 'no-device' })))
+          : missing('hid'),
+        serial: navigator.serial ? () => navigator.serial.requestPort() : missing('serial'),
+        usb: navigator.usb ? () => navigator.usb.requestDevice({ filters: [] }) : missing('usb'),
+        bluetooth: navigator.bluetooth
+          ? () => navigator.bluetooth.requestDevice({ acceptAllDevices: true })
+          : missing('bluetooth'),
+        // A refused fullscreen request may never settle; what counts is that the page did not go fullscreen.
+        fullscreen: () =>
+          Promise.race([
+            document.documentElement.requestFullscreen(),
+            new Promise((resolve) => setTimeout(resolve, 1000)),
+          ]).then(() => (document.fullscreenElement ? 'fullscreen' : Promise.reject({ name: 'not-fullscreen' }))),
+      };
+      // One request per call, each with its own user gesture (some APIs consume it).
+      window.requestPermission = (name) => settle(requests[name]);
+      window.permissionNames = Object.keys(requests);
+    </script>
+  </body>
+</html>

@@ -18,6 +18,9 @@ describe('preview webPreferences (S04.3)', () => {
     expect(prefs).toMatchObject(REQUIRED_PREVIEW_PREFERENCES);
     expect(prefs).toMatchObject({ nodeIntegration: false, contextIsolation: true, sandbox: true });
     expect(insecurePreviewPreferences(prefs)).toEqual([]);
+    // S25.4: no Web Bluetooth (on macOS it made the system end the whole IDE).
+    expect(prefs.disableBlinkFeatures).toBe('WebBluetooth');
+    expect(insecurePreviewPreferences({ ...prefs, disableBlinkFeatures: '' })).toEqual(['disableBlinkFeatures']);
   });
 
   it('reports every weakened value, a preload and a missing partition', () => {
@@ -137,6 +140,22 @@ describe('log buffer (S05.3)', () => {
     buffer.addDropped(-5);
     buffer.addDropped(Number.NaN);
     expect(buffer.take()).toEqual({ entries: [entry(1)], dropped: 1234, throttled: false });
+  });
+
+  it('keeps IDE notices about the page even when the batch is full', () => {
+    const buffer = new LogBuffer({ maxBatch: 2, maxMessageLength: 5 });
+    for (let i = 0; i < 10; i += 1) buffer.push(entry(i));
+    const notice: PreviewLogEntry = {
+      source: 'page-load',
+      level: 'warning',
+      message: 'console flood: the running script was stopped',
+      notice: { kind: 'console-flood-stopped' },
+      at: 11,
+    };
+    buffer.pushNotice(notice);
+    const batch = buffer.take();
+    expect(batch?.entries.at(-1)).toBe(notice); // not truncated, not dropped
+    expect(batch?.dropped).toBe(8);
   });
 
   it('clear forgets pending records', () => {

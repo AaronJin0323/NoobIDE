@@ -6,7 +6,10 @@ state machine, WebContentsView creation with sandboxing and per-project partitio
 Network and page guards (decisions 0015, 0016): `preview-proxy.ts` + `address-policy.ts` — every request of the
 preview session goes through a SOCKS5 proxy in main that allows only the project server (`127.0.0.1:<port>`) and
 public internet addresses, deciding on the resolved address; `page-guard.ts` — a script installed over the DevTools
-protocol before page scripts (pages, iframes, workers) that rate-limits the console and reports `alert()`.
+protocol before page scripts (pages, iframes, workers) that rate-limits the console and reports `alert()`. A page that bypasses the limit
+(a cached native console method in a loop) has its running scripts stopped by main's flood guard
+(`Runtime.terminateExecution`, decision 0016 amendment). `permission-policy.ts` (S25.4) — every permission request is
+denied by the session; the first of each kind per page load is explained in the console.
 
 Modules (S14, S15.4 — see docs/decisions/0018):
 

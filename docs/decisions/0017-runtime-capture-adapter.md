@@ -49,3 +49,24 @@ errors whose location is not in the project. The Problems panel (S17.1) already 
   arm64; Windows x64 runs the same suite (primary dev machine, CI S06).
 - Not available from these events: columns and stacks for exceptions, and the line of a failed `import` (only its
   file, as initiator). CDP (`Runtime.exceptionThrown`) would add them; revisit if the explanation rules need them.
+
+## Amendment (2026-10-15): one generation counter
+
+The capture adapter no longer counts generations itself. `PreviewCaptureHook.navigationStarted(generation)` /
+`navigationCommitted(generation)` carry the preview state machine's `PreviewStatus.generation` (S14.1: +1 per Start,
+refresh and page-initiated navigation) of the load in flight, so a record's `preview.generation`, the status pill's
+`data-generation` and the one-click fix's load counting (`usePreviewLoads`, S22.5, now numbered by
+`PreviewStatus.generation` too) are the same number. Consequences: generations no longer restart at 1 per session
+(the session id still separates sessions); Chromium's error page after a failed load and a navigation of a hung page
+are not new generations (the state machine does not count them). Verified by `runtime-capture.test.ts`,
+`preview-loads.test.ts` and the S16.3 e2e (snapshot generation equals the status generation after a refresh).
+
+## Amendment (2026-10-15): HTTP errors whose body Chromium aborts
+
+Chromium often stops reading the body of a failed image or module, so the request ends with `net::ERR_ABORTED`
+(otherwise ignored: navigation and reloads) and `onCompleted` never fires — measured on macOS: the missing module's
+404 in `预览 运行时` was lost in about one load of three (the S16.2 e2e's intermittent "12 of 13", also seen on Windows
+CI as "11 of 13"). `src/preview/resource-failures.ts` remembers the error status seen in `onResponseStarted` (bounded
+per request) and reports it once — from `onCompleted`, or from `onErrorOccurred` when the request was aborted after an
+error response. Two agents fixed this independently in Session 11; the tracker version was kept at merge because it
+records each request exactly once and has unit tests (`resource-failures.test.ts`).

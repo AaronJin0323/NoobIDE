@@ -9,7 +9,8 @@
  * - Mapping: src/preview/to-problem.ts (served URL → project-relative path, initiator file, cross-origin URL kept
  *   as data).
  * - Attribution (S16.3): every preview start is a new session; every committed main-frame navigation (first load,
- *   refresh, save-triggered reload) a new generation. An event belongs to the generation whose document was current
+ *   refresh, save-triggered reload) makes its page load current. Generation numbers are the preview's own
+ *   (`PreviewStatus.generation`, passed in by the PreviewManager), not a second counter. An event belongs to the generation whose document was current
  *   when it arrived: messages the old page sends while the next load is still in flight stay with the old
  *   generation; only the new document's own request is attributed to the pending one. A record whose latest
  *   occurrence is not in the current generation is listed with `stale: true`.
@@ -54,10 +55,14 @@ export interface RuntimeCaptureOptions {
 export interface PreviewCaptureSink {
   /** A preview started for the project; its server answers on `origin`. */
   sessionStarted(session: RuntimeSession): void;
-  /** A cross-document main-frame navigation began (first load, refresh). */
-  navigationStarted(): void;
-  /** That navigation committed: a new document — a new generation — is current. */
-  navigationCommitted(): void;
+  /**
+   * A cross-document main-frame navigation began (first load, refresh). `generation` is the preview's own page-load
+   * generation (`PreviewStatus.generation`, src/preview/state-machine.ts) of that load — the one counter that stale
+   * marking (S16.3), the status bar and the one-click fix's load counting (S22.5) all use.
+   */
+  navigationStarted(generation: number): void;
+  /** That navigation committed: the document of page load `generation` is current. */
+  navigationCommitted(generation: number): void;
   /** One raw record from the page, in arrival order. */
   entry(entry: PreviewLogEntry): void;
   /** The preview stopped. Records are kept (and stay attributed to the session that produced them). */
@@ -75,7 +80,7 @@ export class RuntimeCapture implements PreviewCaptureSink {
   private projectId: string | null = null;
   private origin: string | null = null;
   private sessionId: string | null = null;
-  /** Current generation of the session; 0 until the first document commits. */
+  /** Preview generation (PreviewStatus.generation) of the current document; 0 until the session's first commit. */
   private generation = 0;
   private pending: number | null = null;
   private timer: unknown = null;
@@ -104,14 +109,14 @@ export class RuntimeCapture implements PreviewCaptureSink {
     this.schedule();
   }
 
-  navigationStarted(): void {
+  navigationStarted(generation: number): void {
     if (this.sessionId === null) return;
-    this.pending = this.generation + 1;
+    this.pending = generation;
   }
 
-  navigationCommitted(): void {
+  navigationCommitted(generation: number): void {
     if (this.sessionId === null) return;
-    this.generation = this.pending ?? this.generation + 1;
+    this.generation = generation;
     this.pending = null;
     this.schedule();
   }

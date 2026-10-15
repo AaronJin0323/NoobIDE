@@ -3,6 +3,7 @@ import { networkInterfaces } from 'node:os';
 import {
   session as electronSession,
   WebContentsView,
+  webContents,
   type BrowserWindow,
   type Session,
   type WebContents,
@@ -25,6 +26,8 @@ import { PreviewProxy } from './preview-proxy';
 import { PreviewServer, TOKEN_HEADER } from './static-server';
 import { NotOwnerError, ServerRegistry, type ServerOwner } from './server-registry';
 import { DEFAULT_TYPING_PAUSE_MS, RefreshScheduler } from './refresh-scheduler';
+import { PermissionNotices } from './permission-policy';
+import { ResourceFailureTracker, type RequestOutcome } from './resource-failures';
 import { INITIAL_MACHINE, transition, type PreviewMachine, type PreviewMachineEvent } from './state-machine';
 // S15.5/S15.6: DPI-safe bounds and the F6 focus handoff out of the page.
 import { COMMAND_EVENTS } from '../shared/ipc/commands-contract';
@@ -58,8 +61,10 @@ export interface PreviewCaptureHook {
     /** The workbench that started the preview (receives change notifications). */
     target: { isDestroyed(): boolean; send(channel: string, ...args: never[]): void },
   ): void;
-  navigationStarted(): void;
-  navigationCommitted(): void;
+  /** A main-frame page load began; `generation` is its `PreviewStatus.generation` (the one load counter). */
+  navigationStarted(generation: number): void;
+  /** The document of page load `generation` committed. */
+  navigationCommitted(generation: number): void;
   entry(entry: PreviewLogEntry): void;
   sessionEnded(): void;
 }
@@ -101,17 +106,42 @@ interface LivePreview {
   pageGuarded: boolean;
   ping: { readonly id: number; readonly startedAt: number } | null;
   pingCounter: number;
+  /** S16.3: generation (PreviewStatus.generation) of the main-frame load in flight or last started. */
+  loadGeneration: number | null;
+  /** Decision 0016 amendment: the flood guard stopped a script of this page load (explained once per load). */
+  floodStopped: boolean;
 }
 
 const RECENT_RECORDS = 100;
 /**
- * Console flood guard: more than FLOOD_LIMIT messages within FLOOD_WINDOW_MS pauses capture for FLOOD_PAUSE_MS.
- * The in-page rate limit (page-guard.ts) normally keeps a page far below this; the guard is the backstop for a page
- * that bypasses it (decision 0016), so it allows the limiter's budget with room for two windows back to back.
+ * Console flood guard: more than FLOOD_LIMIT messages within FLOOD_WINDOW_MS stop the page's running scripts and
+ * skip capture for the rest of the window. The in-page rate limit (page-guard.ts) normally keeps a page far below
+ * this; the guard is the backstop for a page that bypasses it (decision 0016 + amendment), so it allows the
+ * limiter's budget with room for two windows back to back.
  */
 const FLOOD_WINDOW_MS = 1_000;
-const FLOOD_LIMIT = 3 * CONSOLE_LIMIT;
-const FLOOD_PAUSE_MS = 1_000;
+const FLOOD_LIMIT = 4 * CONSOLE_LIMIT;
+/**
+ * What one guarded document or worker can deliver within one FLOOD_WINDOW_MS of main: its windows are not aligned
+ * with main's, so up to two of them (plus their summaries).
+ */
+const FLOOD_PER_TARGET = 2 * CONSOLE_LIMIT + 10;
+
+/**
+ * The flood limit for this page: every document (frames, same-process or not) and every dedicated worker has its
+ * own in-page limiter, so a page that never bypassed it must not trip the guard however many it has. Computed once
+ * per window, not per message.
+ */
+function floodLimitFor(contents: WebContents): number {
+  let documents = 1;
+  try {
+    documents = Math.max(1, contents.mainFrame.framesInSubtree.length);
+  } catch {
+    // frame gone: keep 1
+  }
+  const workers = [...childSessions(contents).values()].filter((type) => type === 'worker').length;
+  return Math.max(FLOOD_LIMIT, (documents + workers) * FLOOD_PER_TARGET);
+}
 const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 };
 
 export class PreviewManager {
@@ -143,6 +173,8 @@ export class PreviewManager {
 
   /** S14.2: automatic refresh after a confirmed save and a typing pause. */
   private readonly refresher: RefreshScheduler;
+  /** S25.4: one console notice per denied permission kind and page load. */
+  private readonly permissionNotices = new PermissionNotices();
 
   constructor(private readonly deps: PreviewManagerDeps) {
     this.refresher = new RefreshScheduler({
@@ -318,6 +350,8 @@ export class PreviewManager {
       pageGuarded,
       ping: null,
       pingCounter: 0,
+      loadGeneration: null,
+      floodStopped: false,
     };
     this.live = live;
     this.startingWindow = null;
@@ -550,10 +584,39 @@ export class PreviewManager {
   private configureSession(ses: Session, server: PreviewServer): void {
     if (!this.configuredSessions.has(ses)) {
       this.configuredSessions.add(ses);
-      // No camera, microphone, location, notifications, clipboard reads, MIDI, USB…: the page is untrusted.
-      ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+      // S25.4: no camera, microphone, location, notifications, clipboard, MIDI, screen capture, USB/HID/serial/
+      // Bluetooth devices, fullscreen…: the page is untrusted. Every request is answered here, in main, before
+      // Chromium would ask the OS, so no system prompt appears. The first request of each kind per page load is
+      // explained in the console (permission-policy.ts), never in a dialog.
+      ses.setPermissionRequestHandler((wc, permission, callback, details) => {
+        callback(false);
+        const mediaTypes = 'mediaTypes' in details ? details.mediaTypes : undefined;
+        this.permissionDenied(wc, permission, { mediaTypes });
+      });
       ses.setPermissionCheckHandler(() => false);
       ses.setDevicePermissionHandler(() => false);
+      // Device choosers (navigator.hid / serial / usb .requestDevice): cancel, never pick a device.
+      ses.on('select-hid-device', (event, details, callback) => {
+        event.preventDefault();
+        callback('');
+        this.permissionDenied(details.frame ? webContentsOfFrame(details.frame) : null, 'hid');
+      });
+      ses.on('select-serial-port', (event, _ports, wc, callback) => {
+        event.preventDefault();
+        callback('');
+        this.permissionDenied(wc, 'serial');
+      });
+      ses.on('select-usb-device', (event, details, callback) => {
+        event.preventDefault();
+        callback();
+        this.permissionDenied(details.frame ? webContentsOfFrame(details.frame) : null, 'usb');
+      });
+      ses.setBluetoothPairingHandler((_details, callback) => callback({ confirmed: false }));
+      // getDisplayMedia: no screen or window is ever shared.
+      ses.setDisplayMediaRequestHandler((request, callback) => {
+        callback({});
+        this.permissionDenied(webContentsOfFrame(request.frame), 'display-capture');
+      });
       // A page must not drop files into the user's Downloads folder.
       ses.on('will-download', (event) => event.preventDefault());
     }
@@ -581,31 +644,39 @@ export class PreviewManager {
       }
       callback({ requestHeaders: { ...details.requestHeaders, [TOKEN_HEADER]: server.token } });
     });
-    ses.webRequest.onCompleted((details) => {
-      if (details.statusCode < 400) return;
+    // S16.4: an error response whose body Chromium cancels ends as ERR_ABORTED, not onCompleted (resource-failures.ts).
+    const failures = new ResourceFailureTracker();
+    const pushFailure = (
+      details: { url: string; method: string; resourceType: string; referrer: string },
+      outcome: RequestOutcome,
+    ) => {
+      if (outcome.kind === 'ignore') return; // e.g. aborted by navigating away or reloading: not a failure
       this.pushLog({
         source: 'network',
         level: 'error',
-        message: `${details.statusCode} ${details.method} ${details.resourceType}`,
+        message: `${outcome.kind === 'status' ? outcome.status : outcome.error} ${details.method} ${details.resourceType}`,
         url: details.url,
-        status: details.statusCode,
+        ...(outcome.kind === 'status' ? { status: outcome.status } : {}),
         resourceType: details.resourceType,
         ...(details.referrer ? { initiator: details.referrer } : {}),
         at: Date.now(),
       });
-    });
-    ses.webRequest.onErrorOccurred((details) => {
-      if (details.error === 'net::ERR_ABORTED') return; // Navigation away or reload, not a failure.
-      this.pushLog({
-        source: 'network',
-        level: 'error',
-        message: `${details.error} ${details.method} ${details.resourceType}`,
-        url: details.url,
-        resourceType: details.resourceType,
-        ...(details.referrer ? { initiator: details.referrer } : {}),
-        at: Date.now(),
-      });
-    });
+    };
+    ses.webRequest.onResponseStarted((details) => failures.responseStarted(details.id, details.statusCode));
+    ses.webRequest.onCompleted((details) => pushFailure(details, failures.completed(details.id, details.statusCode)));
+    ses.webRequest.onErrorOccurred((details) => pushFailure(details, failures.errored(details.id, details.error)));
+  }
+
+  /** S25.4: a request of the current preview page was denied; explain it once per kind and page load. */
+  private permissionDenied(
+    contents: WebContents | null | undefined,
+    permission: string,
+    details?: { readonly mediaTypes?: readonly string[] | undefined },
+  ): void {
+    const live = this.live;
+    if (!live || !contents || live.view.webContents.isDestroyed() || contents.id !== live.view.webContents.id) return;
+    const notice = this.permissionNotices.denied(permission, details);
+    if (notice) this.pushLog(notice);
   }
 
   /** Starts the session's network proxy and routes every request of the session through it (decision 0015). */
@@ -689,36 +760,71 @@ export class PreviewManager {
     contents.on('will-prevent-unload', (event) => event.preventDefault());
     // The page guard (docs/decisions/0016) stays installed for the view's lifetime; reinstall if it was detached.
     contents.debugger.on('detach', () => {
+      childSessions(contents).clear(); // their protocol sessions ended with the debugger
       if (!isCurrent() || contents.isDestroyed()) return;
       void installPageGuard(contents, { source: pageGuardSource(live.guardNonce), navigateFirst: false }).then((ok) => {
         live.pageGuarded = ok;
       });
     });
 
-    // Console flood guard (S05.3). Electron builds an event object in the main process for every console message
-    // while a listener is attached; a page logging ~400k messages/s would keep main (and with it all keyboard and
-    // mouse input) busy. Above FLOOD_LIMIT messages per FLOOD_WINDOW_MS the listener is detached for
-    // FLOOD_PAUSE_MS: those messages are skipped without counting, and the batch says so ("at least N dropped").
+    // Console flood guard (S05.3, decision 0016 + amendment). Chromium sends every console message of the page to
+    // main and Electron turns each into an event there, listener or not; the in-page limiter normally keeps a page
+    // far below FLOOD_LIMIT. A page that bypasses it (a native console method saved before the limit, then called in
+    // a loop) would keep main — and all keyboard and mouse input of the IDE — busy for seconds. Above FLOOD_LIMIT
+    // messages per FLOOD_WINDOW_MS the scripts that are running in the page and its workers are terminated over the
+    // DevTools protocol (Runtime.terminateExecution, like DevTools' "stop" for a runaway script): the flood stops at
+    // its source within milliseconds instead of queueing in main. Further messages of the window are only counted.
     let windowStart = 0;
     let inWindow = 0;
+    // A stop request is in flight; messages over the limit since the last stop finished (the backlog main still
+    // had queued arrives before the answer, so anything after it is new output). A further stop needs another
+    // CONSOLE_LIMIT of them: a page that went quiet is not stopped again (its next script would be ended instead).
+    let stopping = false;
+    let sinceStop = Number.POSITIVE_INFINITY;
+    let limit = FLOOD_LIMIT;
     const onConsole = (event: Electron.Event<Electron.WebContentsConsoleMessageEventParams>) => {
       const now = Date.now();
       if (now - windowStart > FLOOD_WINDOW_MS) {
         windowStart = now;
         inWindow = 0;
+        sinceStop = Number.POSITIVE_INFINITY;
+        limit = floodLimitFor(contents);
       }
       inWindow += 1;
-      if (inWindow > FLOOD_LIMIT) {
-        contents.off('console-message', onConsole);
-        this.logs.markThrottled();
-        live.timers.push(
-          setTimeout(() => {
-            if (this.live !== live || contents.isDestroyed()) return;
-            windowStart = Date.now();
-            inWindow = 0;
-            contents.on('console-message', onConsole);
-          }, FLOOD_PAUSE_MS),
-        );
+      if (inWindow > limit) {
+        if (inWindow === limit + 1) this.logs.markThrottled();
+        if (!isCurrent() || contents.isDestroyed()) return;
+        sinceStop += 1;
+        if (stopping || sinceStop <= CONSOLE_LIMIT) return;
+        stopping = true;
+        void stopRunawayScripts(contents).then((stopped) => {
+          stopping = false;
+          sinceStop = 0;
+          if (!isCurrent() || contents.isDestroyed()) return;
+          if (!stopped) {
+            // No protocol session (the guard could not be installed): fall back to 0010's guard and stop listening
+            // for the rest of the window, so at least our own handling costs nothing.
+            contents.off('console-message', onConsole);
+            live.timers.push(
+              setTimeout(() => {
+                if (this.live !== live || contents.isDestroyed()) return;
+                windowStart = Date.now();
+                inWindow = 0;
+                contents.on('console-message', onConsole);
+              }, FLOOD_WINDOW_MS),
+            );
+            return;
+          }
+          if (live.floodStopped) return;
+          live.floodStopped = true; // explained once per page load, and only when a script was really stopped
+          this.pushLog({
+            source: 'page-load',
+            level: 'warning',
+            message: 'console flood: the running script was stopped',
+            notice: { kind: 'console-flood-stopped' },
+            at: Date.now(),
+          });
+        });
         return;
       }
       const { message, level, lineNumber, sourceId } = event;
@@ -743,13 +849,20 @@ export class PreviewManager {
 
     contents.on('did-start-navigation', (event) => {
       if (!isCurrent() || !event.isMainFrame || event.isSameDocument) return;
-      this.deps.capture?.navigationStarted(); // S16.3: a new page load (generation) is on its way
       live.ping = null; // A ping sent to the previous document may never be answered.
       this.update(live, { type: 'navigate' });
+      // S16.3: a new page load is on its way. Its generation is the state machine's (a Start or refresh already
+      // counted it; a navigation the page makes by itself was counted just now), so problem records, the status and
+      // the one-click fix's load counting share one counter.
+      live.loadGeneration = this.machine.generation;
+      this.deps.capture?.navigationStarted(live.loadGeneration);
     });
-    // S16.3: the new document committed; from now on the page's records belong to the new generation.
+    // S16.3: the new document committed; from now on the page's records belong to its generation.
     contents.on('did-navigate', () => {
-      if (isCurrent()) this.deps.capture?.navigationCommitted();
+      if (!isCurrent()) return;
+      this.permissionNotices.pageLoaded(); // S25.4: a new page explains its own requests again
+      live.floodStopped = false;
+      this.deps.capture?.navigationCommitted(live.loadGeneration ?? this.machine.generation);
     });
     contents.on('did-stop-loading', () => {
       if (!isCurrent()) return;
@@ -863,7 +976,8 @@ export class PreviewManager {
       ...(raw.initiator === undefined ? {} : { initiator: sanitizeLogUrl(raw.initiator) }),
     };
     this.deps.capture?.entry(entry);
-    this.logs.push(entry);
+    if (entry.notice) this.logs.pushNotice(entry);
+    else this.logs.push(entry);
     if (this.recent.length >= RECENT_RECORDS) this.recent.shift();
     const max = DEFAULT_LOG_BUFFER.maxMessageLength;
     this.recent.push(entry.message.length > max ? { ...entry, message: `${entry.message.slice(0, max)}…` } : entry);
@@ -893,6 +1007,65 @@ export class PreviewManager {
 const GUARD_TIMEOUT_MS = 5_000;
 const guardListening = new WeakSet<WebContents>();
 const guardSources = new WeakMap<WebContents, string>();
+/** Auto-attached child targets (dedicated workers, out-of-process iframes) of each preview, by protocol session. */
+const guardChildren = new WeakMap<WebContents, Map<string, string>>();
+const TERMINATE_TIMEOUT_MS = 250;
+/** Previews with a terminate request in flight (at most one at a time). */
+const terminating = new WeakSet<WebContents>();
+
+function childSessions(contents: WebContents): Map<string, string> {
+  let children = guardChildren.get(contents);
+  if (!children) {
+    children = new Map();
+    guardChildren.set(contents, children);
+  }
+  return children;
+}
+
+/**
+ * Decision 0016 amendment: ends the JavaScript that is running right now in the page (its main thread, which also
+ * runs its same-process iframes), its dedicated workers and out-of-process iframes — the console flood's source.
+ * `Runtime.terminateExecution` interrupts a busy loop like DevTools' stop button; the page stays loaded, timers and
+ * events keep working. A target that is idle at that moment has its next script run ended instead (accepted: only a
+ * page that bypassed the console limit gets here). Bounded: one request at a time, each waited for at most 250 ms.
+ */
+async function stopRunawayScripts(contents: WebContents): Promise<boolean> {
+  if (terminating.has(contents) || contents.isDestroyed()) return false;
+  const dbg = contents.debugger;
+  if (!dbg.isAttached()) return false;
+  terminating.add(contents);
+  try {
+    const sessions: (string | undefined)[] = [undefined, ...childSessions(contents).keys()];
+    const answers = await withTimeout(
+      Promise.all(
+        sessions.map((s) =>
+          dbg.sendCommand('Runtime.terminateExecution', {}, s).then(
+            () => true,
+            () => false,
+          ),
+        ),
+      ),
+      TERMINATE_TIMEOUT_MS,
+      null,
+    );
+    // A target that was idle keeps the termination pending until its next script run (the answer comes only then):
+    // use it up with a harmless evaluation, so no later event handler, timer or the next document's page guard is
+    // ended instead.
+    await withTimeout(
+      Promise.all(
+        sessions.map((s) =>
+          dbg.sendCommand('Runtime.evaluate', { expression: '0', silent: true }, s).catch(() => undefined),
+        ),
+      ),
+      TERMINATE_TIMEOUT_MS,
+      [],
+    );
+    // Stopped when at least one target answered (a busy one answers as soon as its script is ended).
+    return answers === null || answers.some((a) => a);
+  } finally {
+    terminating.delete(contents);
+  }
+}
 const AUTO_ATTACH = { autoAttach: true, waitForDebuggerOnStart: true, flatten: true } as const;
 
 /**
@@ -924,7 +1097,10 @@ async function installPageGuard(
             .sendCommand('Page.handleJavaScriptDialog', { accept: params.type === 'beforeunload' }, session)
             .catch(() => undefined);
         } else if (method === 'Target.attachedToTarget' && params.sessionId && params.targetInfo) {
+          childSessions(contents).set(params.sessionId, params.targetInfo.type);
           void guardChildTarget(dbg, params.sessionId, params.targetInfo.type, guardSources.get(contents) ?? '');
+        } else if (method === 'Target.detachedFromTarget' && params.sessionId) {
+          childSessions(contents).delete(params.sessionId);
         }
       });
     }
@@ -977,6 +1153,16 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
       timer = setTimeout(() => resolve(fallback), ms);
     }),
   ]).finally(() => clearTimeout(timer));
+}
+
+/** The WebContents a frame belongs to (null when the frame is gone). */
+function webContentsOfFrame(frame: Electron.WebFrameMain | null | undefined): WebContents | null {
+  if (!frame) return null;
+  try {
+    return webContents.fromFrame(frame) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function urlOriginOf(url: string): string | null {

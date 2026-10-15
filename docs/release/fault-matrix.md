@@ -68,6 +68,36 @@ Abbreviations: **SF** `tests/integration/faults/save-faults.test.ts`, **JF** `�
 
 ## Manual-only parts
 
-Listed in `harness/MANUAL-CHECKS.md` under **S26.1**: a real full volume, a file really held open by another program
-on Windows, page network failures in the preview, and a read-only folder via Windows ACLs. S26.2 runs this suite on
-the Windows and macOS CI jobs.
+Listed in `harness/MANUAL-CHECKS.md` under **S26.1**. Automation cannot reproduce these, so each is checked by hand
+on Windows 11 x64 and macOS on Apple Silicon:
+
+| Manual-only case                                     | Why automation cannot cover it                                                      | Step         |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------ |
+| A really full volume                                 | needs a small real disk image; the suite injects ENOSPC/EDQUOT instead              | MC S26.1 / 1 |
+| A file really held open by another program (Windows) | needs a second process holding a share-deny handle; the suite injects EBUSY/EPERM   | MC S26.1 / 2 |
+| A read-only folder via Windows ACLs                  | `chmod` does not apply ACLs; the suite injects EACCES/EROFS and uses chmod on POSIX | MC S26.1 / 3 |
+| Page network failures (offline, unreachable host)    | needs the machine's network unplugged; rule 10 and resource failures are tested     | MC S26.1 / 4 |
+| Forced termination of the real app                   | kills the packaged process; the suite simulates the crash in-process                | MC S12.4     |
+| Real macOS privacy prompt (TCC) / Windows CFA        | needs the OS protection switched on for the app; the suite simulates the OS refusal | MC S25.3     |
+
+## Running on CI (S26.2)
+
+Both CI jobs (`windows-x64` on `windows-latest`, `macos-arm64` on `macos-14`) run the suite as its own step,
+**Fault suite (S26.2)** = `npm run test:faults` ([scripts/faults.mjs](../../scripts/faults.mjs)), before `verify`
+(which runs it again with every other test). The step runs `tests/integration/faults/` and
+`tests/integration/protected-folder.test.ts`, writes `reports/faults/<platform>-<arch>/` (`junit.xml`,
+`results.json`, `summary.md` — per-file passed/failed/skipped counts and every skip with its reason), appends the
+summary to the job summary, and uploads it as the artifact `fault-suite-windows-x64` / `fault-suite-macos-arm64`
+(also when the step fails). `tests/integration/ci-workflow.test.ts` checks the step and the upload are in the
+workflow; `tests/integration/fault-suite-report.test.ts` checks the skip policy.
+
+The step **fails** when a test fails, when nothing ran, or when a test is skipped on a platform without an entry in
+`SKIP_POLICY` in the script, so a fault test cannot be silently skipped on one OS. The only allowed skips:
+
+| Test                                                                             | Skipped on | Why, and what covers it there                                                                                                                     |
+| -------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SF "read-only folder on the real file system (POSIX)"                            | Windows    | `chmod 0o555` does not make an NTFS folder read-only. The injected EACCES/EROFS save faults run on Windows; real ACLs are MC S26.1 step 3.        |
+| `protected-folder.test.ts` "macOS privacy protection (TCC), simulated" (6 tests) | Windows    | needs POSIX path strings for the macOS adapter; the adapter is tested with POSIX strings on every OS in `src/platform/protected-folders.test.ts`. |
+| SF "read-only folder on the real file system (POSIX)"                            | any, root  | root ignores folder permissions (not the case on GitHub runners).                                                                                 |
+
+Everything else — including the Windows Controlled Folder Access simulation, which runs on both — runs on both jobs.
