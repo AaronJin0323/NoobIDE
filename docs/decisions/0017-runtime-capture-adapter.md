@@ -60,3 +60,11 @@ refresh and page-initiated navigation) of the load in flight, so a record's `pre
 (the session id still separates sessions); Chromium's error page after a failed load and a navigation of a hung page
 are not new generations (the state machine does not count them). Verified by `runtime-capture.test.ts`,
 `preview-loads.test.ts` and the S16.3 e2e (snapshot generation equals the status generation after a refresh).
+
+## Amendment (2026-10-15): HTTP errors recorded when the response starts
+
+A failed resource is recorded from `webRequest.onResponseStarted` (status ≥ 400) instead of `onCompleted`.
+Chromium often stops reading the body of a failed image or module, so the request ends with `net::ERR_ABORTED`
+(deliberately ignored: navigation and reloads) and `onCompleted` never fires — measured on macOS: the missing
+module's 404 in `预览 运行时` was lost in about one load of three (the S16.2 e2e's intermittent "12 of 13", also seen
+on Windows CI as "11 of 13"). After the change: 8/8 loads complete.
