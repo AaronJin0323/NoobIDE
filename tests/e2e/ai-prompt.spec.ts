@@ -180,6 +180,7 @@ test('"Fix with AI" on the pending warning runs the prompt; Ctrl/Cmd+Enter too; 
   await lineEnd(6);
   await page.keyboard.press(`${mod}+Enter`);
   await expect(zone()).toHaveAttribute('data-phase', 'review', { timeout: 30_000 });
+  await expect(zone().locator(':focus')).toHaveCount(1); // the phase's control has the focus
   await page.keyboard.press('Escape'); // = Reject
   await expect(zone()).toHaveCount(0);
   expect(await editorText()).toContain(`/ai ${ZH_PROMPT}`);
@@ -265,6 +266,8 @@ test('en: an English prompt from the context menu, labels in English, Accept and
       'The AI code replaces the /ai request on line 4 of style.css',
     );
     await expect(zone()).toHaveAttribute('data-phase', 'review', { timeout: 30_000 });
+    // The review phase moves focus to its main control one render later; Escape is the panel's key from there.
+    await expect(zone().locator(':focus')).toHaveCount(1);
     await page.keyboard.press('Escape'); // = Reject
     await expect(zone()).toHaveCount(0);
     await expect(page.locator('.monaco-editor .suggest-widget.visible')).toHaveCount(0);

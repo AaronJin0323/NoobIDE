@@ -189,6 +189,7 @@ test('Stop cancels a running edit and nothing changes', async () => {
   await zone().getByTestId('inline-edit-stop').click();
   await expect(zone()).toHaveAttribute('data-phase', 'cancelled');
   await expect(status()).toHaveText('已停止，代码没有变化。');
+  await expect(zone().locator(':focus')).toHaveCount(1); // the phase's control has the focus
   await page.keyboard.press('Escape');
   await expect(zone()).toHaveCount(0);
   expect(await disk('index.html')).toBe(HTML);
@@ -204,6 +205,7 @@ test('en: labels, the request locale, an error explained, Esc closes', async () 
     await expect(zone()).toHaveAttribute('data-phase', 'review', { timeout: 30_000 });
     await expect(zone().getByTestId('inline-edit-diff')).toContainText('English comment');
     await expect(status()).toContainText('Proposed change: 0 lines removed, 1 lines added');
+    await expect(zone().locator(':focus')).toHaveCount(1); // the phase's control has the focus
     await page.keyboard.press('Escape'); // = Reject
     await expect(announce()).toHaveText('AI change rejected. Your code is unchanged.');
 
@@ -214,6 +216,7 @@ test('en: labels, the request locale, an error explained, Esc closes', async () 
     await expect(error).toHaveAttribute('data-code', 'offline', { timeout: 30_000 });
     await expect(error).toContainText('Cannot reach the AI service. Check the network connection.');
     await expect(zone().getByTestId('inline-edit-retry')).toBeVisible();
+    await expect(zone().locator(':focus')).toHaveCount(1); // the phase's control has the focus
     await page.keyboard.press('Escape');
     await expect(zone()).toHaveCount(0);
     expect(await disk('index.html')).toBe(HTML);

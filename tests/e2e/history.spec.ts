@@ -197,8 +197,9 @@ test('Format Document keeps the text as it was before formatting, unsaved edits 
   const formatted = await readFile(path.join(rootA, 'style.css'), 'utf8');
   // Hand-written CSS goes in and is formatted right away, before autosave writes it: the only copy of this exact text
   // is the editor buffer, and the save that follows the format writes the formatted text.
+  // The shortcut keeps the focus in the editor (opening the Editor options panel would blur it and save first).
   await replaceEditorText(app, page, `${formatted}\nh1{color:red;margin:0} /* FMT-MARK */\n`);
-  await page.getByTestId('format-document').click();
+  await page.keyboard.press('Shift+Alt+F');
   await expect.poll(() => readFile(path.join(rootA, 'style.css'), 'utf8')).toContain('color: red');
   await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', /saved|clean/);
 

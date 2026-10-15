@@ -3,6 +3,62 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 21 — 2026-10-16 — Product assessment by six subagents, fixes (S44, milestone M15)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/product-assessment` (worktree
+noobide-release-readiness-9ff870). Owner request: "fan out subagents, assess the product, troubleshoot and fix".
+Six read-only assessors (data safety, security, S41–S43 integration, i18n/a11y, platform/release, hands-on beginner
+journey in the built app), then six fixers in isolated worktrees, merged here, plus an independent reviewer for the
+save-pipeline / recovery-journal changes (CLAUDE.md high-stakes rule).
+
+**Done**
+
+- S44.1 — **data:** Format Document and Convert Indentation store a "before formatting" version
+  (`history:before-format`, validated; ends the save burst). It was never wired (PROGRESS had "not yet wired").
+- S44.2 — **data:** the disk BOM follows reload, take-disk and Keep mine; it used to be reverted by the next save.
+- S44.3 — **data:** crash copies of a moved/renamed/missing folder can be read, copied, saved as (dialog in main),
+  discarded, or re-targeted to the folder's new location (decision 0033). Before: unreachable, and they blocked
+  last-session restore forever. Review fixes: a renamed or other folder needs a confirmation; journal records whose
+  relPath leaves the project are quarantined.
+- S44.4 — S41–S43 integration: Fix with AI on the pending `/ai` warning runs the prompt (was a fix request inviting
+  deletion of the prompt); `/ai` inert without a ready key (ADR 0031); no warning on read-only tabs; suggestions never
+  take Enter on an `/ai` line; inline AI accept refused under the rename/move/trash lock.
+- S44.5 — beginner text and a11y: preview console explains blocked links and failed loads; no raw tool ids or error
+  codes; English plurals; key store named per platform (Windows: Data Protection, not Credential Manager — it is
+  DPAPI); palette finds New project by "create"/创建; focus returns after annotation edits, History, Glossary.
+- S44.6 — beginner journey: the preview stage was 449×1 px at 1280×800 with walkthrough + Problems open (now ≥ 240);
+  broken links no longer trap the preview on an English 404 (localized 404 page, page path + Back to entry page,
+  save refresh returns to the entry); glass dialogs were see-through (opacity animation made the backdrop a backdrop
+  root); 404 hints now name the similar file (projectFiles was never supplied); tab strip room + overflow cues; file
+  names no longer cut in the tree; reopened-project notice is informational. Default window 1440×900 when it fits.
+- S44.7 — release: `THIRD_PARTY_NOTICES.txt` (every production dependency's license text) ships and opens from About;
+  release.yml fails a tag that is not v + package.json version.
+- Security assessment found no provable defect (live static-server probe: traversal, 8.3 names, Host, token, dotfiles).
+- Merge interactions fixed in specs: smoke bridge shape, About has two buttons, before-format e2e uses the shortcut
+  (opening the new Editor options panel blurs the editor, which saves first; the text is then kept as an after-save
+  version — nothing lost, but no separate "before formatting" row).
+
+**Evidence**
+
+- `npm run verify` green; full e2e on Windows x64 (see S44.x evidence); fixer evidence per branch in the commits.
+
+**Decisions / owner questions**
+
+- A pending `/ai` line is autosaved (ADR 0031: user text is never held back) — with a key, a script has a syntax error
+  until the prompt runs. Changing that (hold autosave for that file) is an owner decision.
+- NoobIDE itself has no license (`package.json` has no "license"); owner decision.
+- Save as… of an orphaned crash copy removes the copy once written (like a save).
+
+**Problems**
+
+- The hands-on assessor's app run created `DocumentsNoobIDE Projects产品 展示` in the owner's real Documents (its fake
+  location was lost on relaunch) and sent a test file to the Recycle Bin; reported to the owner.
+- Not done on macOS; CI covers it. The S05.8 / console-flood / 200k snapshot CI failures belong to a separate session.
+
+**Next up**
+
+- Confirm CI on main after push; owner decisions above; a beginner study (H.6) on the new layout.
+
 ## Session 20 (side session) — 2026-10-16 — Smarter indentation and context-aware suggestions (S43, M14)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/admiring-shannon-3c0373`

@@ -128,6 +128,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'recovery',
       'settings',
       'logs',
+      'notices',
       'projectConfig',
       'recentProjects',
       'lifecycle',
@@ -161,7 +162,21 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     // S10.6: close requests arrive as a listener registration only; the IPC event object never reaches the page.
     app: ['onCloseRequested', 'answerClose', 'closeDiscarding'],
     // S12: crash-recovery journal calls.
-    recovery: ['record', 'discardSaved', 'listPending', 'openProject', 'read', 'discard', 'clear'],
+    // Decision 0033: crash copies of a moved or missing folder, by journal key (no path crosses the bridge).
+    recovery: [
+      'record',
+      'discardSaved',
+      'listPending',
+      'openProject',
+      'read',
+      'discard',
+      'clear',
+      'readPending',
+      'discardPending',
+      'savePendingAs',
+      'relocate',
+      'relocateConfirm',
+    ],
     // S13.1: settings in app data.
     settings: ['get', 'update'],
     // S13.6: open the log folder (no path crosses the bridge).

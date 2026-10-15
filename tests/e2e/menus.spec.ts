@@ -87,7 +87,7 @@ test('the menu bar follows the platform, the interface language and the command 
   await clickMenuItem(app, 'about');
   await expect(page.getByRole('dialog')).toBeVisible();
   // The dialog moves focus to Close after it mounts; Escape is handled from inside the dialog.
-  await expect(page.getByRole('dialog').getByRole('button')).toBeFocused();
+  await expect(page.getByRole('dialog').getByTestId('about-close')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
 

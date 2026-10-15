@@ -163,6 +163,15 @@
         "Completions suggest the project's ids, classes and file paths in context, offline, within the measured latency budget",
         "AI ghost-text suggestions carry a visible, accessible AI label; language-service suggestions never look like AI ones"
       ]
+    },
+    {
+      "id": "M15",
+      "title": "Product assessment fixes (owner request 2026-10-16)",
+      "plan_refs": "harness/PROGRESS.md Session 21; docs/decisions/0031-inline-ai-prompt.md; docs/decisions/0033-orphaned-crash-copies.md; AGENTS.md invariants",
+      "exit_criteria": [
+        "Every verified defect from the six-area assessment (data safety, security, S41-S43 integration, i18n/a11y, platform/release, hands-on beginner journey) is fixed with a test or recorded as an owner decision",
+        "npm run verify and the full e2e suite are green on Windows x64"
+      ]
     }
   ],
   "sessions": [
@@ -622,6 +631,18 @@
         "S32"
       ],
       "plan_refs": "docs/decisions/0032-smart-suggestions.md; PLAN §4, §9; docs/capabilities.md"
+    },
+    {
+      "id": "S44",
+      "milestone": "M15",
+      "title": "Product assessment and fixes",
+      "goal": "Assess the product in six areas with read-only subagents, then fix the verified defects with tests and independent review of high-stakes changes.",
+      "depends_on": [
+        "S41",
+        "S42",
+        "S43"
+      ],
+      "plan_refs": "harness/PROGRESS.md Session 21"
     }
   ],
   "features": [
@@ -3785,6 +3806,113 @@
       ],
       "status": "needs_manual_check",
       "evidence": "steps in harness/MANUAL-CHECKS.md#S43.8"
+    },
+    {
+      "id": "S44.1",
+      "session": "S44",
+      "milestone": "M15",
+      "title": "Local history keeps the text before formatting",
+      "description": "",
+      "acceptance": [
+        "Format Document and Convert Indentation store a \"before formatting\" version of the buffer (dirty or not) through a validated history:before-format channel; it ends the save burst so a following autosave cannot coalesce it away",
+        "Integration test (save A, before-format, save formatted B within coalesceMs keeps both) and e2e (Format right after paste shows a 格式化前 entry)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "see PROGRESS Session 21; full e2e Windows x64 307 passed / 1 flaky (ai-prompt Escape race, fixed: focus wait; ai-prompt+ai-edit 26/26) + verify green on claude/product-assessment"
+    },
+    {
+      "id": "S44.2",
+      "session": "S44",
+      "milestone": "M15",
+      "title": "The disk BOM is kept when it changes outside NoobIDE",
+      "description": "",
+      "acceptance": [
+        "Reload, take-disk and Keep mine all update the BOM the next save and journal copy use; e2e: a BOM added outside survives type+save, and a removed one stays removed"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "see PROGRESS Session 21; full e2e Windows x64 307 passed / 1 flaky (ai-prompt Escape race, fixed: focus wait; ai-prompt+ai-edit 26/26) + verify green on claude/product-assessment"
+    },
+    {
+      "id": "S44.3",
+      "session": "S44",
+      "milestone": "M15",
+      "title": "Crash copies of a moved or missing folder stay reachable",
+      "description": "",
+      "acceptance": [
+        "Read, copy, save as (dialog in main) and discard by journal key without an open project; choose the folder new location (confirmation unless the folder kept its name and has every file); a missing folder no longer blocks last-session restore",
+        "Journal records whose relPath leaves the project are quarantined",
+        "Integration tests (renamed root, re-target, confirmation, tampered record) and two e2e tests in recovery.spec.ts; decision 0033"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "see PROGRESS Session 21; full e2e Windows x64 307 passed / 1 flaky (ai-prompt Escape race, fixed: focus wait; ai-prompt+ai-edit 26/26) + verify green on claude/product-assessment"
+    },
+    {
+      "id": "S44.4",
+      "session": "S44",
+      "milestone": "M15",
+      "title": "S41-S43 integration fixes",
+      "description": "",
+      "acceptance": [
+        "Fix with AI on the pending /ai warning runs the prompt; /ai is inert without a ready AI key (ADR 0031); no pending warning on read-only tabs; suggestions never take Enter on an /ai line; inline AI accept refuses while the file is renamed/moved/trashed",
+        "Unit tests and ai-prompt.spec.ts e2e"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "see PROGRESS Session 21; full e2e Windows x64 307 passed / 1 flaky (ai-prompt Escape race, fixed: focus wait; ai-prompt+ai-edit 26/26) + verify green on claude/product-assessment"
+    },
+    {
+      "id": "S44.5",
+      "session": "S44",
+      "milestone": "M15",
+      "title": "Beginner-facing messages, plurals and focus",
+      "description": "",
+      "acceptance": [
+        "Blocked links and failed loads in the preview console are explained in the interface language; AI steps and write failures never show raw tool ids or error codes; English plurals; key-store wording per platform; palette finds New project by \"create\"/创建",
+        "Annotations strip, History and Glossary dialogs return keyboard focus; the indentation status announces mixed tabs/spaces",
+        "Unit tests; preview.spec.ts"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "see PROGRESS Session 21; full e2e Windows x64 307 passed / 1 flaky (ai-prompt Escape race, fixed: focus wait; ai-prompt+ai-edit 26/26) + verify green on claude/product-assessment"
+    },
+    {
+      "id": "S44.6",
+      "session": "S44",
+      "milestone": "M15",
+      "title": "Beginner journey layout and broken links",
+      "description": "",
+      "acceptance": [
+        "At 1280x720 content with walkthrough and Problems open the preview view is at least 200 px high in zh-CN and en (preview-layout.spec.ts)",
+        "A missing page shows a localized 404 (escaped path, no script, own CSP), the toolbar shows the page path and a Back to entry page control, a save refresh on a 404 returns to the entry page; page-not-found diagnostic",
+        "Dialogs are frosted (pixel check in glass.spec.ts); 404 explanations name the similar file; tabs get room and overflow cues; the file tree keeps real file names; the reopened-project notice is informational"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "see PROGRESS Session 21; full e2e Windows x64 307 passed / 1 flaky (ai-prompt Escape race, fixed: focus wait; ai-prompt+ai-edit 26/26) + verify green on claude/product-assessment"
+    },
+    {
+      "id": "S44.7",
+      "session": "S44",
+      "milestone": "M15",
+      "title": "Third-party license notices and release tag check",
+      "description": "",
+      "acceptance": [
+        "Packaging ships resources/THIRD_PARTY_NOTICES.txt with the license text of every production dependency (integration test fails on a missing license); About opens it",
+        "release.yml fails a tag build unless the tag is v + package.json version (release-workflow test)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "see PROGRESS Session 21; full e2e Windows x64 307 passed / 1 flaky (ai-prompt Escape race, fixed: focus wait; ai-prompt+ai-edit 26/26) + verify green on claude/product-assessment"
     }
   ]
 }
