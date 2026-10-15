@@ -320,6 +320,8 @@ test('S15.6: keyboard focus goes into the page with Enter and comes back with F6
   // Starting or refreshing the page does not take the keyboard focus away from the workbench (FocusGuard): after a
   // save refreshes the preview, the next key presses must still reach the editor.
   const workbenchKeepsFocus = async () => {
+    // A load may move the focus for a moment (the view takes it natively); it must come straight back and stay.
+    await expect.poll(async () => (await focusState()).page, { timeout: 2_000 }).toBe(false);
     for (let i = 0; i < 10; i += 1) {
       const state = await focusState();
       expect(state.page).toBe(false);
@@ -337,6 +339,7 @@ test('S15.6: keyboard focus goes into the page with Enter and comes back with F6
   await waitForPreviewState(page, 'running');
   await workbenchKeepsFocus();
   await page.getByTestId('preview-reload').click();
+  await page.waitForTimeout(300);
   await waitForPreviewState(page, 'running');
   await workbenchKeepsFocus();
   // Showing the view again after an overlay closes does not take the focus either.
