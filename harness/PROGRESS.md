@@ -44,6 +44,15 @@ work and limiter redesign) was **still running at pause** — check it first; th
 see its branch note below). No single CI run has had both jobs green yet (S06.1/S06.2/S26.2 open). package-lock.json
 regenerated on macOS (new AI deps) — regenerate on Windows per AGENTS.md.
 
+**Merged at pause (packaged-app timeouts):** product fix — the packaged self-test (`language.spec`/`workers.spec`)
+ran on the developer's REAL app data (reopened their project, rewrote `session.json`); it now uses a temp
+`--user-data-dir`. `upgrade.spec` now kills its processes on failure and bounds every wait. **Open, likely product
+bug:** a preview restored at startup can stay in "Starting" forever — the navigation from about:blank is held before any
+request (suspected: the preview's own `Target.setAutoAttach {waitForDebuggerOnStart: true}` pausing the main frame after
+a process swap with nothing resuming it). Reproduced 1 in 3 under load; repro scripts were in a temp dir on the Mac
+(not kept). Fix: resume the preview page from main after each navigation (or don't wait for the debugger), plus a
+regression e2e that restores a session with a preview without Playwright attached.
+
 **Owner action needed (on Windows):** `git pull`; `npm install`; run `npm run verify` and `npm run test:e2e`; check CI
 run 38708368168 and the next one; run `npm run test:ai-live` with your keys (S36.1); Windows manual checks in
 MANUAL-CHECKS.md (S05.5-windows, S15.5, S17.4, S24.2, S25.3, S26.1, S27.1, S28.1, S28.4, S36.1, IME S09.4); edit PLAN
