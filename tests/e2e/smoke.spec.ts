@@ -181,6 +181,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'versions',
       'read',
       'beforeRestore',
+      'beforeFormat',
       'restoreDeleted',
       'overview',
       'clear',

@@ -46,6 +46,7 @@ test.beforeAll(async () => {
   await writeFile(file('lines.txt'), `${body}\n`);
   await mkdir(file('恢复 文件夹'));
   await writeFile(file('恢复 文件夹/retry.txt'), 'RECREATE-CONTENT\n');
+  await writeFile(file('bom.txt'), 'plain start\n');
   app = await launchApp();
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
@@ -255,6 +256,29 @@ test('a deleted file reappearing with different text requires a choice and keeps
   await banner.getByTestId('conflict-keep-mine').click();
   await expect.poll(() => disk('index.html')).toContain('REAPPEARED-KEEP-MINE');
   await expect(status()).toHaveAttribute('data-state', 'saved');
+});
+
+test('a UTF-8 BOM added or removed by another program is kept by the next save', async () => {
+  const bytes = () => readFile(file('bom.txt'));
+  await openFile(page, 'bom.txt');
+  // Opened without a BOM; another editor writes the file with one.
+  await writeFile(
+    file('bom.txt'),
+    Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('plain start\nBOM-ADDED\n')]),
+  );
+  await expect.poll(editorText).toContain('BOM-ADDED');
+  await typeAtEnd(page, 'TYPED-AFTER-ADD');
+  await expect.poll(async () => (await bytes()).toString('utf8')).toContain('TYPED-AFTER-ADD');
+  await expect(status()).toHaveAttribute('data-state', 'saved');
+  expect([...(await bytes()).subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+
+  // And the reverse: the other editor removes the BOM again.
+  await writeFile(file('bom.txt'), 'plain start\nBOM-REMOVED\n');
+  await expect.poll(editorText).toContain('BOM-REMOVED');
+  await typeAtEnd(page, 'TYPED-AFTER-REMOVE');
+  await expect.poll(async () => (await bytes()).toString('utf8')).toContain('TYPED-AFTER-REMOVE');
+  await expect(status()).toHaveAttribute('data-state', 'saved');
+  expect((await bytes()).toString('utf8').startsWith('plain start\n')).toBe(true);
 });
 
 test('a deleted clean file can be closed after confirming (S11.3)', async () => {

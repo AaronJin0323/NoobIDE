@@ -44,6 +44,8 @@ export type JournalHealth = string | null;
 
 export class JournalScheduler {
   private buffer: JournalBuffer | null = null;
+  /** The BOM copies are sent with: the buffer's at `begin`, then the disk's after a reload (`setBom`). */
+  private bom = false;
   private pending: { revision: number; getText: () => string } | null = null;
   private firstUnsentAt: number | null = null;
   private timer: unknown = null;
@@ -59,8 +61,17 @@ export class JournalScheduler {
   begin(buffer: JournalBuffer | null): void {
     this.cancel();
     this.buffer = buffer;
+    this.bom = buffer?.bom ?? false;
     this.retryDelay = JOURNAL_RETRY_MS;
     this.onHealth(null);
+  }
+
+  /**
+   * The file's BOM changed on disk (a reload of a version written outside NoobIDE): copies sent from now on carry
+   * it, so a restored crash copy is saved with the file's current BOM.
+   */
+  setBom(bom: boolean): void {
+    if (this.buffer) this.bom = bom;
   }
 
   /** The buffer changed; `getText` is read when the copy is actually sent, so the newest text goes out. */
@@ -107,7 +118,7 @@ export class JournalScheduler {
         bufferId: buffer.bufferId,
         revision: buffer.baseRevision + pending.revision,
         text: pending.getText(),
-        bom: buffer.bom,
+        bom: this.bom,
       });
       failure = result.ok ? null : result.code;
     } catch {

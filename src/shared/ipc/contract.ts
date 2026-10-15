@@ -77,6 +77,7 @@ export const CHANNELS = {
   historyVersions: 'history:versions',
   historyRead: 'history:read',
   historyBeforeRestore: 'history:before-restore',
+  historyBeforeFormat: 'history:before-format',
   historyRestoreDeleted: 'history:restore-deleted',
   historyOverview: 'history:overview',
   historyClear: 'history:clear',

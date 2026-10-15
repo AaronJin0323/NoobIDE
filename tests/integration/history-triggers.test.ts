@@ -275,6 +275,47 @@ describe('snapshots before format, delete and restore (S21.2)', REAL_IO, () => {
     expect(await historyFiles()).not.toContain('.env');
   });
 
+  it('format within a save burst: the hand-written version survives the save of the formatted text', async () => {
+    const handWritten = 'function  f( ){return 1}\n';
+    const formatted = 'function f() {\n  return 1;\n}\n';
+    const original = await readFile(path.join(root, 'script.js'), 'utf8');
+    expect(await save('script.js', handWritten)).toMatchObject({ ok: true }); // autosaved hand-written code
+    await triggers.whenIdle();
+    clock += 10_000; // well inside the coalesce window
+    // The buffer is clean: the text kept before formatting equals the version just saved (deduped, burst sealed).
+    await triggers.beforeFormatText(root, 'script.js', new TextEncoder().encode(handWritten));
+    clock += 10_000;
+    expect(await save('script.js', formatted)).toMatchObject({ ok: true });
+    const texts = (await contents('script.js')).map((c) => c.text);
+    expect(texts[0]).toBe(formatted);
+    expect(texts).toContain(handWritten);
+    expect(texts.at(-1)).toBe(original);
+  });
+
+  it('format of a buffer with unsaved edits keeps that buffer text as "before-format", then the formatted save', async () => {
+    expect(await save('style.css', 'a{color:red}\n')).toMatchObject({ ok: true });
+    await triggers.whenIdle();
+    clock += 5_000;
+    const dirty = 'a{color:red}\nb{margin:0}\n'; // typed, never saved
+    await triggers.beforeFormatText(root, 'style.css', new TextEncoder().encode(dirty));
+    clock += 5_000;
+    expect(await save('style.css', 'a {\n  color: red;\n}\nb {\n  margin: 0;\n}\n')).toMatchObject({ ok: true });
+    const list = await contents('style.css');
+    expect(list[0]).toEqual({ reason: 'after-save', text: 'a {\n  color: red;\n}\nb {\n  margin: 0;\n}\n' });
+    expect(list).toContainEqual({ reason: 'before-format', text: dirty });
+    expect(list.map((c) => c.text)).toContain('a{color:red}\n');
+  });
+
+  it('the buffer text kept before formatting is skipped (and logged) when it is larger than the history limit', async () => {
+    const small = new HistoryTriggers(
+      new SnapshotStore({ dir: path.join(tmp, 'small'), limits: { maxSnapshotBytes: 10 } }),
+      log,
+    );
+    await small.beforeFormatText(root, 'index.html', new TextEncoder().encode('<p>more than ten bytes</p>'));
+    expect(logs.some((l) => l.startsWith('history.snapshot-skipped'))).toBe(true);
+    expect(logs.join('\n')).not.toContain('more than ten bytes'); // logs never contain source code
+  });
+
   it('missing files, folders without files and oversized files are skipped without errors', async () => {
     await triggers.beforeDelete(root, 'gone.html', path.join(root, 'gone.html'));
     await triggers.beforeFormat(root, 'gone.html', path.join(root, 'gone.html'));

@@ -155,6 +155,35 @@ describe('restoring (S21.3)', () => {
     expect(list.value.map((v) => v.reason)).toEqual(['after-save', 'after-save', 'before-save']);
   });
 
+  it('before-format keeps the buffer text sent (unsaved edits, BOM) and ends the save burst', async () => {
+    await writeFile(path.join(root, 'index.html'), '<h1>saved</h1>\n');
+    await store.snapshot(root, 'index.html', enc('<h1>saved</h1>\n'), 'after-save');
+    const request = { projectId: ID, relPath: 'index.html', text: '<h1>saved</h1>\n<p>未保存</p>\n', bom: true };
+    expect(await call(CHANNELS.historyBeforeFormat, request)).toEqual({ ok: true, value: null });
+    // The formatted text is saved within the same minute: it is a new version, not a replacement of the burst.
+    await store.snapshot(root, 'index.html', enc('<h1>formatted</h1>\n'), 'after-save');
+    const list = (await store.list(root, 'index.html')) as { ok: true; value: { reason: string; id: string }[] };
+    expect(list.value.map((v) => v.reason)).toEqual(['after-save', 'before-format', 'after-save']);
+    const kept = await call(CHANNELS.historyRead, { projectId: ID, relPath: 'index.html', id: list.value[1]?.id });
+    expect(kept).toEqual({ ok: true, value: { text: '<h1>saved</h1>\n<p>未保存</p>\n', bom: true } });
+  });
+
+  it('before-format refuses a file that does not exist and malformed payloads', async () => {
+    const valid = { projectId: ID, relPath: 'css 样式/gone.css', text: 'a{}', bom: false };
+    expect(await call(CHANNELS.historyBeforeFormat, valid)).toMatchObject({ ok: false, code: 'not-found' });
+    for (const payload of [
+      { ...valid, relPath: '../outside.css' },
+      { ...valid, text: 42 },
+      { ...valid, bom: 'yes' },
+      { ...valid, extra: 1 },
+      { projectId: ID, relPath: 'a.css', text: 'a{}' },
+      { ...valid, text: 'x'.repeat(5 * 1024 * 1024 + 1) },
+    ]) {
+      expect(await call(CHANNELS.historyBeforeFormat, payload)).toEqual({ ok: false, code: 'invalid-request' });
+    }
+    expect(await store.files(root)).toEqual({ ok: true, value: [] });
+  });
+
   it('restores a deleted file (and its deleted folder) byte for byte', async () => {
     const bytes = enc('body { color: 红; }\r\n');
     await store.snapshot(root, 'css 样式/主 样式.css', bytes, 'before-delete');

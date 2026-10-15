@@ -192,6 +192,30 @@ test('a deleted file is listed as deleted and can be restored with a version of 
   await expect(tabOf(page, 'style.css')).toBeVisible();
 });
 
+test('Format Document keeps the text as it was before formatting, unsaved edits included (PLAN §7)', async () => {
+  await openFile(page, 'style.css');
+  const formatted = await readFile(path.join(rootA, 'style.css'), 'utf8');
+  // Hand-written CSS goes in and is formatted right away, before autosave writes it: the only copy of this exact text
+  // is the editor buffer, and the save that follows the format writes the formatted text.
+  await replaceEditorText(app, page, `${formatted}\nh1{color:red;margin:0} /* FMT-MARK */\n`);
+  await page.getByTestId('format-document').click();
+  await expect.poll(() => readFile(path.join(rootA, 'style.css'), 'utf8')).toContain('color: red');
+  await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', /saved|clean/);
+
+  await page.getByTestId('show-history').click();
+  await expect(dialog()).toBeVisible();
+  const kept = versions().and(page.locator('[data-reason="before-format"]'));
+  await expect(kept).toHaveCount(1);
+  await expect(kept).toContainText('格式化前');
+  await kept.click();
+  // Restoring it would bring the hand-written line back.
+  await expect(page.getByTestId('history-diff').locator('[data-kind="added"]')).toContainText(
+    'h1{color:red;margin:0} /* FMT-MARK */',
+  );
+  await page.getByTestId('history-close').click();
+  await expect(dialog()).toHaveCount(0);
+});
+
 test('storage: usage and policy are shown, the history folder can be revealed and cleaned up (S21.4)', async () => {
   await page.getByTestId('rail-history').click();
   await expect(page.getByTestId('history-usage')).toHaveText(/^历史占用 .+（上限 256\.0 MB）$/);
