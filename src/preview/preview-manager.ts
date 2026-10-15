@@ -11,11 +11,10 @@ import {
   PREVIEW_EVENT_CHANNEL,
   type PreviewBounds,
   type PreviewEvent,
-  type PreviewFailure,
   type PreviewLogEntry,
   type PreviewStartError,
-  type PreviewState,
   type PreviewStatus,
+  type RefreshMode,
 } from '../shared/ipc/preview-contract';
 import { err, ok, type Result } from '../shared/result';
 import { DEFAULT_LOG_BUFFER, LogBuffer, sanitizeLogUrl } from './log-buffer';
@@ -24,6 +23,9 @@ import { createPreviewWebPreferences, insecurePreviewPreferences, partitionForPr
 import { decidePreviewRequest, isAllowedNavigation } from './request-policy';
 import { PreviewProxy } from './preview-proxy';
 import { PreviewServer, TOKEN_HEADER } from './static-server';
+import { NotOwnerError, ServerRegistry, type ServerOwner } from './server-registry';
+import { DEFAULT_TYPING_PAUSE_MS, RefreshScheduler } from './refresh-scheduler';
+import { INITIAL_MACHINE, transition, type PreviewMachine, type PreviewMachineEvent } from './state-machine';
 
 /**
  * Owns the one live preview: its loopback server, its isolated WebContentsView and its state (S04.3, S05.1–S05.4,
@@ -67,6 +69,10 @@ export interface PreviewManagerDeps {
   readonly watchdog?: WatchdogOptions;
   /** How often buffered log records are sent to the workbench. */
   readonly logFlushMs?: number;
+  /** S14.2: typing pause before an automatic refresh may run. */
+  readonly typingPauseMs?: number;
+  /** S15.4: opens a URL in the user's default browser (shell.openExternal). */
+  openExternal?(url: string): Promise<void>;
   /**
    * S16.2: runtime capture adapter. Receives every raw record admitted from the page — after the in-page console
    * rate limit (docs/decisions/0016) and with its URLs sanitised (decision 0015).
@@ -76,6 +82,8 @@ export interface PreviewManagerDeps {
 
 interface LivePreview {
   readonly projectId: string;
+  /** S14.6: webContents id of the workbench window that started it (the owner). */
+  readonly windowId: number;
   readonly server: PreviewServer;
   /** The session's only route onto the network (docs/decisions/0015). */
   readonly proxy: PreviewProxy;
@@ -90,8 +98,6 @@ interface LivePreview {
   pageGuarded: boolean;
   ping: { readonly id: number; readonly startedAt: number } | null;
   pingCounter: number;
-  /** State to return to when the page answers again after being unresponsive. */
-  beforeUnresponsive: PreviewState;
 }
 
 const RECENT_RECORDS = 100;
@@ -107,7 +113,9 @@ const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 
 
 export class PreviewManager {
   private live: LivePreview | null = null;
-  private status: PreviewStatus = { state: 'stopped', projectId: null };
+  private status: PreviewStatus = { state: 'stopped', projectId: null, generation: 0 };
+  /** S14.1: the pure state machine; `status` is its published form. */
+  private machine: PreviewMachine = INITIAL_MACHINE;
   private bounds: PreviewBounds = { x: 0, y: 0, width: 0, height: 0, visible: false };
   private readonly logs = new LogBuffer(DEFAULT_LOG_BUFFER);
   /** Incremented on every start/stop so late async results of an older preview are ignored. */
@@ -120,13 +128,23 @@ export class PreviewManager {
   private recent: PreviewLogEntry[] = [];
   /** Window of a start that is still waiting for its server (no view yet). */
   private startingWindow: BrowserWindow | null = null;
+  /** S14.6: owner (project + window) of a start that is still waiting for its server. */
+  private startingOwner: ServerOwner | null = null;
+  /** S14.6: at most one loopback server per open project, owned by the project and window that started it. */
+  private readonly servers = new ServerRegistry<PreviewServer>((root, options) => PreviewServer.start(root, options));
   /** A save arrived while the page was loading; reload when the load finishes. */
   private reloadPending = false;
-  /** Last port per project root, reused so the page keeps its origin (and its storage) across starts. */
-  private readonly lastPorts = new Map<string, number>();
   private startQueue: Promise<unknown> = Promise.resolve();
 
-  constructor(private readonly deps: PreviewManagerDeps) {}
+  /** S14.2: automatic refresh after a confirmed save and a typing pause. */
+  private readonly refresher: RefreshScheduler;
+
+  constructor(private readonly deps: PreviewManagerDeps) {
+    this.refresher = new RefreshScheduler({
+      quietMs: deps.typingPauseMs ?? DEFAULT_TYPING_PAUSE_MS,
+      refresh: () => void this.reload(),
+    });
+  }
 
   getStatus(): PreviewStatus {
     return this.status;
@@ -161,17 +179,24 @@ export class PreviewManager {
     if (this.generation !== ticket + 1) return ok(this.status);
     const generation = this.generation;
     this.startingWindow = window;
+    const owner: ServerOwner = { projectId, windowId: window.webContents.id };
+    this.startingOwner = owner;
     this.reloadPending = false;
-    this.setStatus(window, { state: 'starting', projectId });
+    this.refresher.cancel();
+    this.apply(window, projectId, { type: 'start' });
 
     let server: PreviewServer;
     try {
-      // Reuse the project's previous port when free: storage is per origin, so a stable port keeps localStorage.
-      server = await PreviewServer.start(root, { preferredPort: this.lastPorts.get(root) });
-      this.lastPorts.set(root, server.port);
+      // S14.6: the project's one server (the registry reuses the previous port when free: storage is per origin, so
+      // a stable port keeps localStorage).
+      server = await this.servers.acquire(owner, root);
     } catch (e) {
-      if (generation === this.generation)
-        this.setStatus(window, { state: 'failed', projectId, failure: 'server-failed' });
+      if (this.startingOwner === owner) this.startingOwner = null;
+      if (e instanceof NotOwnerError) {
+        if (generation === this.generation) this.apply(window, null, { type: 'stop' });
+        return err('not-owner', e.message);
+      }
+      if (generation === this.generation) this.apply(window, projectId, { type: 'server-failed' });
       return err('server-failed', e instanceof Error ? e.message : 'server failed', e);
     }
     // S13.2: the configured entry page ('' = the server's index.html); a broken config never blocks the preview.
@@ -183,7 +208,7 @@ export class PreviewManager {
       '',
     );
     if (generation !== this.generation || window.isDestroyed()) {
-      await server.close();
+      await this.servers.release(projectId, owner);
       return ok(this.status);
     }
 
@@ -192,7 +217,7 @@ export class PreviewManager {
     const webPreferences = createPreviewWebPreferences(partition);
     const insecure = insecurePreviewPreferences(webPreferences);
     if (insecure.length > 0) {
-      await server.close();
+      await this.servers.release(projectId);
       throw new Error(`insecure preview webPreferences: ${insecure.join(', ')}`);
     }
     // S05.5: every request of the session goes through the proxy, which decides on resolved addresses. Service
@@ -204,18 +229,47 @@ export class PreviewManager {
       await ses.clearStorageData({ storages: ['serviceworkers'] });
     } catch (e) {
       await proxy?.close();
-      await server.close();
-      if (generation === this.generation)
-        this.setStatus(window, { state: 'failed', projectId, failure: 'server-failed' });
+      await this.servers.release(projectId, owner);
+      if (this.startingOwner === owner) this.startingOwner = null;
+      if (generation === this.generation) this.apply(window, projectId, { type: 'server-failed' });
       return err('server-failed', e instanceof Error ? e.message : 'proxy failed', e);
     }
-
     if (generation !== this.generation || window.isDestroyed()) {
       await proxy.close();
-      await server.close();
+      await this.servers.release(projectId, owner);
       return ok(this.status);
     }
+    try {
+      const view = { generation, proxy, partition, webPreferences, entryPath };
+      return await this.attachView(projectId, window, owner, server, view);
+    } catch (e) {
+      // S14.6: nothing may keep listening without a view (e.g. the window went away mid-start).
+      if (this.live?.projectId === projectId) await this.stop({ announce: false });
+      else {
+        await proxy.close();
+        await this.servers.release(projectId);
+      }
+      if (this.startingOwner === owner) this.startingOwner = null;
+      this.startingWindow = null;
+      if (!window.isDestroyed()) this.apply(window, projectId, { type: 'server-failed' });
+      return err('server-failed', e instanceof Error ? e.message : 'preview view failed', e);
+    }
+  }
 
+  private async attachView(
+    projectId: string,
+    window: BrowserWindow,
+    owner: ServerOwner,
+    server: PreviewServer,
+    options: {
+      readonly generation: number;
+      readonly proxy: PreviewProxy;
+      readonly partition: string;
+      readonly webPreferences: Electron.WebPreferences;
+      readonly entryPath: string;
+    },
+  ): Promise<Result<PreviewStatus, PreviewStartError>> {
+    const { proxy, partition, webPreferences, entryPath } = options;
     const view = new WebContentsView({ webPreferences });
     view.setBackgroundColor('#ffffff');
     // No UDP outside the proxy: WebRTC cannot reach local or LAN addresses directly.
@@ -223,16 +277,20 @@ export class PreviewManager {
     // S05.7: the console rate limit must be in place before the first page script runs.
     const guardNonce = randomBytes(8).toString('hex');
     const pageGuarded = await installPageGuard(view.webContents, { source: pageGuardSource(guardNonce) });
-    if (generation !== this.generation || window.isDestroyed()) {
+    if (options.generation !== this.generation || window.isDestroyed()) {
       view.webContents.close();
       await proxy.close();
-      await server.close();
+      await this.servers.release(projectId, owner);
       return ok(this.status);
     }
-    const onWindowClosed = () => void this.stop({ announce: false });
+    const onWindowClosed = () => {
+      void this.stop({ announce: false });
+      void this.servers.releaseWindow(owner.windowId); // S14.6: defence in depth
+    };
     window.once('closed', onWindowClosed);
     const live: LivePreview = {
       projectId,
+      windowId: owner.windowId,
       server,
       proxy,
       view,
@@ -244,10 +302,10 @@ export class PreviewManager {
       pageGuarded,
       ping: null,
       pingCounter: 0,
-      beforeUnresponsive: 'starting',
     };
     this.live = live;
     this.startingWindow = null;
+    this.startingOwner = null;
     this.logs.clear();
     this.recent = [];
     this.deps.capture?.sessionStarted({ projectId, origin: server.origin }, window.webContents);
@@ -259,7 +317,7 @@ export class PreviewManager {
     live.timers.push(setInterval(() => this.checkResponsive(live, watchdog), watchdog.intervalMs));
 
     const url = `${server.origin}/${entryPath}`;
-    this.setStatus(window, { state: 'starting', projectId, url });
+    this.setStatus(window, { ...this.status, url });
     view.webContents.loadURL(url).catch(() => undefined); // Failures arrive as did-fail-load.
     return ok(this.status);
   }
@@ -270,13 +328,15 @@ export class PreviewManager {
     // Always invalidate a start that is still waiting for its server, so Stop during startup is never lost.
     this.generation += 1;
     this.reloadPending = false;
+    this.refresher.cancel();
     if (!live) {
       const starting = this.startingWindow;
       this.startingWindow = null;
+      this.startingOwner = null;
       if (this.status.state !== 'stopped') {
-        const status: PreviewStatus = { state: 'stopped', projectId: null };
-        if (starting && !starting.isDestroyed() && (options.announce ?? true)) this.setStatus(starting, status);
-        else this.status = status;
+        if (starting && !starting.isDestroyed() && (options.announce ?? true)) {
+          this.apply(starting, null, { type: 'stop' });
+        } else this.apply(null, null, { type: 'stop' });
       }
       return this.status;
     }
@@ -293,10 +353,8 @@ export class PreviewManager {
     }
     this.logs.clear();
     await live.proxy.close();
-    await live.server.close();
-    const status: PreviewStatus = { state: 'stopped', projectId: null };
-    if (options.announce ?? true) this.setStatus(live.window, status);
-    else this.status = status;
+    await this.servers.release(live.projectId);
+    this.apply((options.announce ?? true) ? live.window : null, null, { type: 'stop' });
     return this.status;
   }
 
@@ -308,18 +366,113 @@ export class PreviewManager {
       this.reloadPending = true;
       return this.status;
     }
-    // A hung page cannot reload itself; the user has to Stop (which recreates the view on the next Start).
-    if (this.status.state === 'unresponsive') return this.status;
-    if (this.status.state === 'failed' && this.status.failure === 'crashed') return this.status;
-    this.update(live, 'refreshing');
+    // A hung page cannot reload itself (the user has to Stop, which recreates the view on the next Start); a
+    // crashed page has nothing to reload. The state machine refuses both.
+    const before = this.machine;
+    this.update(live, { type: 'refresh' });
+    if (this.machine === before) return this.status;
     live.view.webContents.reloadIgnoringCache();
     return this.status;
   }
 
-  /** A file of the project was saved: refresh the page (PLAN §3 automatic refresh after a successful save). */
-  fileSaved(projectId: string): void {
-    if (this.live?.projectId === projectId) this.reload();
+  /**
+   * A file of the project was saved (confirmed write). S14.2: in automatic mode the page refreshes once the user
+   * pauses typing (PLAN §3); in manual mode it only notes that the page may be older than the files.
+   */
+  fileSaved(projectId: string, mode: RefreshMode = 'auto'): void {
+    const live = this.live;
+    if (live?.projectId !== projectId) return;
+    if (mode === 'auto') {
+      this.refresher.saved();
+      return;
+    }
+    if (!this.status.outdated && this.status.state !== 'stopped') {
+      this.setStatus(live.window, { ...this.status, outdated: true });
+    }
   }
+
+  /** S14.2: a key was typed in the code editor; a pending automatic refresh waits for the pause. */
+  typing(): void {
+    this.refresher.typing();
+  }
+
+  // --- S14.5 / S15.4: toolbar actions (owner checks are done by the IPC layer) ---
+
+  /**
+   * S14.5: clears the project's preview storage — its own partition only (localStorage, IndexedDB, cookies, cache
+   * storage, service workers, HTTP cache). A page of that project that is showing reloads, so it starts empty.
+   */
+  async clearData(projectId: string): Promise<Result<null, 'unknown-project'>> {
+    const root = this.deps.rootOf(projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    const ses = electronSession.fromPartition(partitionForProject(root));
+    await ses.clearStorageData();
+    await ses.clearCache();
+    if (this.live?.projectId === projectId) this.reload();
+    return ok(null);
+  }
+
+  /**
+   * S15.4: opens the page that is showing (same path and query) in the default browser through a one-time grant;
+   * the grant URL goes straight to the OS and never to the renderer or a log.
+   */
+  async openExternal(): Promise<Result<null, 'not-running'>> {
+    const live = this.live;
+    if (!live || !this.deps.openExternal) return err('not-running', 'no preview');
+    let target = '/';
+    const contents = live.view.webContents;
+    const shown = !contents.isDestroyed() ? contents.getURL() : (this.status.url ?? '');
+    try {
+      const url = new URL(shown || (this.status.url ?? ''));
+      if (url.origin === live.server.origin) target = `${url.pathname}${url.search}`;
+    } catch {
+      // keep '/'
+    }
+    await this.deps.openExternal(live.server.grantExternal(target));
+    return ok(null);
+  }
+
+  /** S15.4 (advanced): Chromium's developer tools for the preview page, in their own window. */
+  openDevTools(): Result<null, 'not-running'> {
+    const contents = this.live?.view.webContents;
+    if (!contents || contents.isDestroyed()) return err('not-running', 'no preview');
+    contents.openDevTools({ mode: 'detach', activate: true });
+    return ok(null);
+  }
+
+  // --- S14.6: ownership and project lifecycle ---
+
+  /**
+   * Whether `requester` (a workbench window, optionally naming a project) owns the current preview: the window
+   * that started it, and the same project when one is named. With no view and no start in flight there is nothing
+   * to protect (at most a failed status to clear), so the answer is true. Toolbar actions from another window, or for a project that is no longer the
+   * previewed one (a late click after a project switch), are refused by the IPC layer with `not-owner`.
+   */
+  isOwner(requester: { readonly windowId: number; readonly projectId?: string | undefined }): boolean {
+    const current = this.live ? { windowId: this.live.windowId, projectId: this.live.projectId } : this.startingOwner;
+    if (!current) return true;
+    return current.windowId === requester.windowId && (requester.projectId ?? current.projectId) === current.projectId;
+  }
+
+  /** A project was opened (or switched to) in a window: another project's preview and servers shut down. */
+  async projectSwitched(projectId: string): Promise<void> {
+    const previewed = this.live?.projectId ?? this.startingOwner?.projectId ?? this.status.projectId;
+    if (previewed !== null && previewed !== projectId) await this.stop();
+    await this.servers.releaseAllExcept(projectId);
+  }
+
+  /** A project was closed: its preview stops and its server shuts down. */
+  async projectClosed(projectId: string): Promise<void> {
+    const previewed = this.live?.projectId ?? this.startingOwner?.projectId ?? this.status.projectId;
+    if (previewed === null || previewed === projectId) await this.stop();
+    await this.servers.release(projectId);
+  }
+
+  /** Projects with a running (or starting) server — for tests and diagnostics. */
+  serverProjects(): string[] {
+    return this.servers.projects;
+  }
+  // --- end S14.6 ---
 
   setBounds(bounds: PreviewBounds): void {
     this.bounds = bounds;
@@ -334,6 +487,8 @@ export class PreviewManager {
       status: this.status,
       origin: live?.server.origin ?? null,
       partition: live?.partition ?? null,
+      serverProjects: this.servers.projects, // S14.6
+      generation: this.status.generation ?? 0, // S14.1
       previewPid: contents ? contents.getOSProcessId() : null,
       previewWebContentsId: contents ? contents.id : null,
       viewBounds: live ? live.view.getBounds() : null,
@@ -537,7 +692,7 @@ export class PreviewManager {
       if (!isCurrent() || !event.isMainFrame || event.isSameDocument) return;
       this.deps.capture?.navigationStarted(); // S16.3: a new page load (generation) is on its way
       live.ping = null; // A ping sent to the previous document may never be answered.
-      if (this.status.state === 'running') this.update(live, 'refreshing');
+      this.update(live, { type: 'navigate' });
     });
     // S16.3: the new document committed; from now on the page's records belong to the new generation.
     contents.on('did-navigate', () => {
@@ -545,8 +700,7 @@ export class PreviewManager {
     });
     contents.on('did-stop-loading', () => {
       if (!isCurrent()) return;
-      const state = this.status.state;
-      if (state === 'starting' || state === 'refreshing') this.update(live, 'running');
+      this.update(live, { type: 'load-finished' });
       if (this.reloadPending && this.status.state === 'running') {
         this.reloadPending = false;
         this.reload();
@@ -561,7 +715,7 @@ export class PreviewManager {
         url: validatedURL,
         at: Date.now(),
       });
-      this.update(live, 'failed', 'load-failed');
+      this.update(live, { type: 'load-failed' });
     });
     contents.on('unresponsive', () => {
       if (isCurrent()) this.markUnresponsive(live);
@@ -570,7 +724,7 @@ export class PreviewManager {
       if (isCurrent()) this.markResponsive(live);
     });
     contents.on('render-process-gone', () => {
-      if (isCurrent()) this.update(live, 'failed', 'crashed');
+      if (isCurrent()) this.update(live, { type: 'crashed' });
     });
   }
 
@@ -605,27 +759,41 @@ export class PreviewManager {
   }
 
   private markUnresponsive(live: LivePreview): void {
-    if (this.status.state === 'unresponsive' || this.status.state === 'failed') return;
-    live.beforeUnresponsive = this.status.state;
-    this.update(live, 'unresponsive');
+    this.update(live, { type: 'unresponsive' });
   }
 
   private markResponsive(live: LivePreview): void {
     if (this.status.state !== 'unresponsive') return;
-    const back = live.beforeUnresponsive;
     const contents = live.view.webContents;
-    // If the page finished loading while it was busy, it is running now.
-    const loading = !contents.isDestroyed() && contents.isLoadingMainFrame();
-    this.update(live, back === 'running' || !loading ? 'running' : back);
+    this.update(live, { type: 'responsive', loading: !contents.isDestroyed() && contents.isLoadingMainFrame() });
   }
 
-  private update(live: LivePreview, state: PreviewState, failure?: PreviewFailure): void {
-    this.setStatus(live.window, {
-      state,
-      projectId: live.projectId,
-      ...(failure ? { failure } : {}),
-      ...(this.status.url ? { url: this.status.url } : {}),
-    });
+  private update(live: LivePreview, event: PreviewMachineEvent): void {
+    this.apply(live.window, live.projectId, event);
+  }
+
+  /**
+   * S14.1: feeds an event to the state machine and publishes the result. Nothing is sent when the event does not
+   * apply (the machine returns the same object). `window` null: update silently (no workbench to tell).
+   */
+  private apply(window: BrowserWindow | null, projectId: string | null, event: PreviewMachineEvent): void {
+    const next = transition(this.machine, event);
+    if (next === this.machine) return;
+    this.machine = next;
+    const url = next.state === 'stopped' || event.type === 'start' ? undefined : this.status.url;
+    // S14.2: a new page load (or Stop) shows the saved files again; other changes keep the "outdated" note.
+    const fresh = event.type === 'start' || event.type === 'refresh' || event.type === 'navigate';
+    const outdated = !fresh && next.state !== 'stopped' && this.status.outdated === true;
+    const status: PreviewStatus = {
+      state: next.state,
+      projectId: next.state === 'stopped' ? null : projectId,
+      ...(next.failure ? { failure: next.failure } : {}),
+      ...(url ? { url } : {}),
+      generation: next.generation,
+      ...(outdated ? { outdated } : {}),
+    };
+    if (window) this.setStatus(window, status);
+    else this.status = status;
   }
 
   private setStatus(window: BrowserWindow, status: PreviewStatus): void {

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { en } from '../i18n/en';
+import { zhCN } from '../i18n/zh-CN';
 import type { PreviewLogEntry, PreviewStatus } from '../../shared/ipc/preview-contract';
 import {
   EMPTY_LOG,
@@ -28,6 +30,15 @@ describe('preview pane model (S04.3, S05.2, S05.3)', () => {
   it('has a label for every state', () => {
     for (const s of ['stopped', 'starting', 'running', 'refreshing', 'unresponsive', 'failed'] as const) {
       expect(stateLabelKey(s)).toMatch(/^preview\./);
+    }
+  });
+
+  it('S14.1: shows every state as its own text in both languages (never by colour alone)', () => {
+    const states = ['stopped', 'starting', 'running', 'refreshing', 'unresponsive', 'failed'] as const;
+    for (const dict of [zhCN, en]) {
+      const texts = states.map((s) => dict[stateLabelKey(s)]);
+      expect(texts.every((text) => text.trim().length > 0)).toBe(true);
+      expect(new Set(texts).size).toBe(states.length);
     }
   });
 

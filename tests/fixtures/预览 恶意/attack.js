@@ -88,6 +88,9 @@ await attempt('service-worker', async () => {
   const registration = await navigator.serviceWorker.register('sw.js');
   return `registered ${registration.scope}`;
 });
+// The "Open in browser" grant (S15.4) can only be redeemed by a top-level visit the user started; a page cannot
+// guess one, and redeeming from the page (Sec-Fetch-Site: same-origin) is refused even with a valid token.
+await attempt('external-browser-grant', () => fetch(`/.noobide-grant/${'0'.repeat(64)}`).then(readText));
 await attempt('ide-bridge', () => {
   if (typeof window.noobide === 'undefined' && typeof require === 'undefined') throw new Error('none');
   return 'bridge present';

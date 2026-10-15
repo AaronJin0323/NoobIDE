@@ -448,6 +448,7 @@ test('a malicious page cannot read local files, other loopback services or the I
         'zero-address',
         'image-dns-name',
         'service-worker',
+        'external-browser-grant',
         'ide-bridge',
       ].sort(),
     );

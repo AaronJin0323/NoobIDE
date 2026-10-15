@@ -1,6 +1,7 @@
 import type { MessageKey } from './zh-CN';
 import { welcomeHistoryEn } from './welcome-history';
 import { commandsEn } from './commands'; // S24
+import { previewToolbarEn } from './preview-toolbar'; // S14/S15.4
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -289,6 +290,7 @@ export const en: Record<MessageKey, string> = {
   // S20.2 welcome + create wizard, S21.3/S21.4 local history (welcome-history.ts)
   ...welcomeHistoryEn,
   ...commandsEn, // S24
+  ...previewToolbarEn, // S14/S15.4 preview manager and toolbar
   // --- S18.3 formatting ---
   'format.button': 'Format',
   'format.title': 'Format the code: indentation and line breaks ({shortcut})',
