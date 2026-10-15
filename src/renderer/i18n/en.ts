@@ -69,6 +69,7 @@ export const en: Record<MessageKey, string> = {
   'problems.unchecked': 'Not checked yet',
   'problems.uncheckedDetail': 'Your code has not been checked yet. Open a project and save to see problems here.',
   'problems.toggle': 'Show or hide the problems panel',
+  'problems.list': 'Problem list',
   'problems.collapse': 'Collapse the problems panel',
   'narrow.switch': 'Show code or preview',
   'narrow.code': 'Code',

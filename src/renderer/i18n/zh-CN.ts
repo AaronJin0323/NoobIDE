@@ -68,6 +68,7 @@ export const zhCN = {
   'problems.uncheckedDetail': '还没有检查过代码。打开项目并保存后，这里会列出问题。',
   'problems.toggle': '显示或隐藏问题面板',
   'problems.collapse': '收起问题面板',
+  'problems.list': '问题列表',
   'narrow.switch': '显示代码或预览',
   'narrow.code': '代码',
   // ── S20.3 文件角色 (src/renderer/workbench/file-role.ts) ──

@@ -108,7 +108,15 @@ export function ProblemsPanel({
             {t('problems.uncheckedDetail')}
           </p>
         ) : (
-          <div className="problems-body" data-testid="problems-list">
+          // Focusable: the list scrolls inside a short panel, and keyboard users must be able to scroll it (axe
+          // scrollable-region-focusable).
+          <div
+            className="problems-body"
+            data-testid="problems-list"
+            role="region"
+            aria-label={t('problems.list')}
+            tabIndex={0}
+          >
             {fixCard}
             {view.total === 0 && view.resolvedCandidates === 0 && (
               <p className="problems-message" data-testid="problems-none">
