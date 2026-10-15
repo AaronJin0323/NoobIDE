@@ -10,6 +10,7 @@ export default tseslint.config(
       'dist/',
       '.vite/',
       'coverage/',
+      'reports/',
       'tests/fixtures/',
       'resources/templates/',
       'docs/wireframes/',

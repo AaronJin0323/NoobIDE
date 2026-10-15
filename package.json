@@ -23,7 +23,8 @@
     "test:watch": "vitest",
     "test:e2e": "node scripts/e2e.mjs",
     "selftest:packaged": "node scripts/selftest.mjs --packaged",
-    "selftest:dev": "node scripts/selftest.mjs --dev"
+    "selftest:dev": "node scripts/selftest.mjs --dev",
+    "test:faults": "node scripts/faults.mjs"
   },
   "dependencies": {
     "monaco-editor": "0.57.0",

@@ -34,6 +34,14 @@ async function journalRecords(): Promise<string[]> {
   return out;
 }
 
+/**
+ * Waits until `count` journal records exist before a forced termination. Only the S12.1 test checks the 2 s budget
+ * (on an idle path; the scheduler's timing is also proven with fake timers in journal-scheduler.test.ts). The other
+ * tests just need the record on disk before the kill, so they wait with the default timeout: a 2 s cap there failed
+ * them when the machine was busy, without saying anything about recovery.
+ */
+const journaled = (count: number) => expect.poll(journalRecords, { intervals: [50] }).toHaveLength(count);
+
 async function projectTree(dir: string, prefix = ''): Promise<string[]> {
   const out: string[] = [];
   for (const e of await readdir(dir, { withFileTypes: true })) {
@@ -177,7 +185,7 @@ test('after a forced termination the relaunched app offers the edits with a diff
   const onDisk = await readFile(file, 'utf8');
   await readOnly('子 文件夹/页面 二.html');
   await typeAtEnd('崩溃前没保存的一行');
-  await expect.poll(journalRecords, { timeout: 2000, intervals: [50] }).toHaveLength(1);
+  await journaled(1);
   await kill();
   await writable('子 文件夹/页面 二.html');
   expect(await readFile(file, 'utf8')).toBe(onDisk);
@@ -217,7 +225,7 @@ test('restoring never saves a restored copy silently; each copy opens in its own
   await openProjectAndFile('index.html');
   await readOnly('index.html');
   await typeAtEnd('第一份副本');
-  await expect.poll(journalRecords, { timeout: 2000, intervals: [50] }).toHaveLength(1);
+  await journaled(1);
   await kill();
   await writable('index.html');
   await start();
@@ -225,7 +233,7 @@ test('restoring never saves a restored copy silently; each copy opens in its own
   await openProjectAndFile('script.js');
   await readOnly('script.js');
   await typeAtEnd('第二份副本');
-  await expect.poll(journalRecords, { timeout: 2000, intervals: [50] }).toHaveLength(2);
+  await journaled(2);
   await kill();
   await writable('script.js');
   const indexOnDisk = await readFile(path.join(root, 'index.html'), 'utf8');
@@ -266,7 +274,7 @@ test('"decide later" keeps the copy; the clear-data control removes it (S12.3)',
   await openProjectAndFile('style.css');
   await readOnly('style.css');
   await typeAtEnd('稍后处理');
-  await expect.poll(journalRecords, { timeout: 2000, intervals: [50] }).toHaveLength(1);
+  await journaled(1);
   await kill();
   await writable('style.css');
 

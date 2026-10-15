@@ -4,6 +4,7 @@ dist/
 .vite/
 coverage/
 test-results/
+reports/
 playwright-report/
 *.log
 # git bundles used to hand history between machines
