@@ -99,7 +99,7 @@ test('an opened folder asks for "Start preview" once; the choice is kept in app 
   const before = (await readdir(rootA)).sort();
   await openProject(app, page, rootA);
   await expect(page.getByTestId('preview-consent')).toBeVisible();
-  await expect(page.getByTestId('preview-consent')).toContainText('只有在你点“启动预览”之后才会运行');
+  await expect(page.getByTestId('preview-consent')).toContainText('只有在你点“开始预览”之后才会运行');
   await waitForPreviewState(page, 'stopped');
   expect((await previewInfo(app)).previewWebContentsId).toBeNull();
   expect(await serverProjects()).toEqual([]);
