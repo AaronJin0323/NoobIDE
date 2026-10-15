@@ -21,7 +21,6 @@ export const en: Record<MessageKey, string> = {
   'rail.files': 'Files',
   'rail.problems': 'Problems',
   'files.empty': 'No folder is open yet.',
-  'files.emptyHint': 'Opening folders and creating projects arrive in a later version.',
   'editor.loading': 'Loading the editor…',
   'editor.welcomeTab': 'sample.html',
   'editor.sampleBadge': 'Sample · not saved to disk',

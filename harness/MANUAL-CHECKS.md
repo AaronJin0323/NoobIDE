@@ -478,3 +478,30 @@ Needs owner task H.5 (repository on GitHub with Actions enabled). Agents cannot 
 - **Expected:** every step passes.
 - **Result:** _(owner fills in: pass/fail per step, macOS version, monitors, date)_
 - **Close with:** `node harness/session.mjs set S15.6 done --evidence "manual: macOS <version> arm64, <date>, steps 1-6 pass + e2e preview-layout.spec"`
+
+### S17.4 — Invite-only build: tester installs on macOS arm64 and Windows x64 (Gate G3)
+
+- **Platform:** a second Apple Silicon Mac (not the build machine) and a Windows 11 x64 machine without Node.js
+- **Build:** the `noobide-macos-arm64` / `noobide-windows-x64` artifacts of a green CI run on main (or `npm run make`
+  on each platform), after the ad-hoc signature fix described in `docs/reviews/G3.md` condition 2
+- **Agent pre-check (MacBook Pro M3 Pro, macOS 27.2, 2026-10-15, `3314de9`):** DMG `hdiutil verify` VALID; a
+  quarantined copy (as after a Safari download) mounted and installed to a scratch folder is refused by Gatekeeper
+  (`spctl`: "invalid Info.plist (plist or signature have been modified)"); after
+  `xattr -dr com.apple.quarantine` it launches natively (4 processes, none Rosetta-translated). No Windows installer
+  exists yet (CI never reached "Make installers" on Windows).
+- **Steps (macOS):**
+  1. Send yourself the DMG through a real download (browser, AirDrop or a file share) so it carries the quarantine
+     mark. Double-click it, drag NoobIDE to Applications, eject.
+  2. Open NoobIDE from Applications. Write down the exact Gatekeeper message. If System Settings → Privacy &
+     Security shows "Open Anyway", use it; otherwise run `xattr -dr com.apple.quarantine /Applications/NoobIDE.app`
+     in Terminal and open it again.
+  3. Create a project from the default template, change the heading, save, see it in the preview; add a misspelled
+     variable to `script.js`, save, see the problem card with file and line. Quit.
+- **Steps (Windows):**
+  1. Download `NoobIDE-Setup.exe` from the CI artifact on a machine without Node.js. Run it; on SmartScreen use
+     More info → Run anyway; write down the exact messages.
+  2. Same as macOS step 3. Then uninstall from Settings → Apps.
+- **Expected:** both install and run the macOS step 3 / Windows step 2 journey; the Gatekeeper / SmartScreen texts are
+  recorded so the tester instructions in `docs/reviews/G3.md` can be corrected.
+- **Result:** _(owner fills in: machines, OS versions, date, messages seen, pass/fail per step)_
+- **Close with:** `node harness/session.mjs set S17.4 done --evidence "docs/reviews/G3.md + manual: <Mac> macOS <ver> and Windows <ver> installs from CI run <url>, <date>"`
