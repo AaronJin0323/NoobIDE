@@ -2796,8 +2796,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/ai/providers/{anthropic,openai}.test.ts (real SDK clients over mocked fetch: request shape incl. adaptive thinking, cache_control, eager_input_streaming, fallbacks; tool-input validation; refusal/max_tokens; error mapping) + src/ai/fake-provider.test.ts (scripted text/tool calls/refusal/errors/slow-stream cancel, schema validator); deps @anthropic-ai/sdk 0.134.0, openai 7.34.0 in decision 0025; verify green"
     },
     {
       "id": "S31.2",
