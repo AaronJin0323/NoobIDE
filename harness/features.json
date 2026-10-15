@@ -1460,8 +1460,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Fixture tests/fixtures/跨平台 迁移 (LF page, CRLF css, mixed CRLF/LF js, NFC Unicode name; crlf-* keep bytes). Detector src/shared/portability.test.ts (6 tests, injected listings: case conflicts, NFC/NFD twins, decomposed names, Windows-invalid/reserved/trailing-dot/too-long names, input never changed); tests/integration/portability.test.ts (3 tests: hazards the volume accepts are generated at test time - on macOS APFS (case/normalisation-insensitive) the ?, CON, trailing-dot and NFD names; every issue reported; tree snapshot of raw name bytes + size + mtime + sha256 identical before/after scan + ProjectService.open + listDir: nothing renamed); IPC src/main/app-data-ipc.test.ts (3 tests: projectId only, sender/payload/unknown project); notice text src/renderer/workbench/transfer-notice.test.ts (zh-CN+en for every kind); e2e tests/e2e/portability.spec.ts: opening the project shows the non-blocking transfer notice listing crlf-mixed.js and the generated names, tree intact, snapshot unchanged after the app closes. Decision 0022. verify green + full e2e 182 passed/2 skipped macOS arm64 @ b2885d8"
     },
     {
       "id": "S13.6",
@@ -1491,8 +1491,8 @@
         "S13.4",
         "S13.5"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/reviews/G2.md @ 3d564bd: every M2 exit criterion (forced-termination recovery, failed saves keep edits, cross-platform transfer, review) with macOS arm64 evidence at this commit (verify green, full e2e 182 passed, 2 skipped) and Windows x64 evidence from earlier commits, marked as not re-run. Verdict: conditional pass pending a Windows verify and e2e of the merged HEAD (S13.5 never run on Windows), the S09.4/S09.5 IME manual checks and a physical Mac to Windows transfer. Re-estimate included."
     },
     {
       "id": "S14.1",
