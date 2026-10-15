@@ -272,7 +272,8 @@ test('context menu (Shift+F10) and the shortcut reveal an entry in File Explorer
   await page.keyboard.press('End');
   await page.keyboard.press('Enter');
   await expect(menu).toHaveCount(0);
-  expect(await recorded('__revealed')).toEqual([p('子 文件夹')]);
+  // The menu closes before main receives the reveal request (IPC), so the recorder is polled, not read once.
+  await expect.poll(() => recorded('__revealed')).toEqual([p('子 文件夹')]);
 
   await row('主 样式.css').click();
   await page.keyboard.press(process.platform === 'darwin' ? 'Alt+Meta+R' : 'Shift+Alt+R');
