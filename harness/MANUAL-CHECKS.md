@@ -391,3 +391,72 @@ Needs owner task H.5 (repository on GitHub with Actions enabled). Agents cannot 
 - **Result:** _(owner fills in: Mac model, macOS version, date, pass/fail per step, Gatekeeper notes)_
 - **Close with:**
   `node harness/session.mjs set S06.3 done --evidence "manual: <Mac model>, macOS <ver>, <date>, DMG install + Activity Monitor Apple + Chinese path save + infinite loop pass"`
+
+### S15.5 — Preview view sync on Windows: scaling, monitors, fullscreen, overlays, focus
+
+- **Platform:** Windows 11 x64; for step 4 a second monitor with a different scale (e.g. laptop 150 % + external
+  100 %). Design and evidence: docs/decisions/0019-preview-view-sync.md.
+- **Build:** the commit that set S15.5 to needs_manual_check (or later), `npm start` or the packaged app.
+- **Setup:** `npm run test:e2e -- preview-layout` must pass first (8 tests: drag/persist, narrow switch, width
+  switch, overlays, focus handoff, fullscreen, forced scale 1.5 and 2). Then open a template project (Create →
+  any template); its preview starts by itself.
+- **Steps:** repeat steps 1–3 at **100 %, 150 % and 200 %** (Settings → System → Display → Scale; sign out/in if
+  Windows asks).
+  1. **Edges:** the white page fills the dashed preview stage exactly — no gap and no overlap on any edge, also at
+     the right edge next to the window border. Drag the editor | preview divider slowly and quickly with the mouse,
+     **across the page area** too: the page follows during the drag, the divider stops exactly where you release.
+  2. **Persisted sizes:** drag the files | editor divider and the editor | preview divider to odd positions, close
+     NoobIDE, reopen: both dividers are where you left them (not a few pixels off). Collapse the files panel with
+     the rail "Files" button, reopen: it is still collapsed; open it again: same width as before.
+  3. **Narrow and width switch:** make the window narrower than ~960 px: a Code / Preview switch appears; on Code
+     the page is gone, on Preview it fills the middle; the files drawer (rail "Files") is drawn above the page, not
+     under it. Back to wide: three columns, the page on the stage. "手机宽度 375px" shows a 375 px wide page
+     centred in the stage; "桌面宽度" fills it again.
+  4. **Monitor moves:** drag the window to the other monitor (different scale) and back, also maximised: the page
+     stays exactly on the stage after each move (no offset, no blur that stays).
+  5. **Fullscreen / maximise:** F11 is not bound; use the window's maximise button and Win+↑ / Win+↓, and snap
+     (Win+← / Win+→): the page follows each time.
+  6. **Overlays above the page:** open "更多操作" (⋯ top right): the menu is drawn above the page (the page hides
+     while the menu overlaps it). Open "关于", the history dialog (rail "历史"), the create-project wizard, and a
+     delete confirmation (right-click a file → 删除): each dialog is fully visible; the page reappears when it
+     closes. The native title-bar menu (Alt) also opens above the page.
+  7. **Keyboard focus:** click into the editor, save (Ctrl+S) a file so the preview refreshes, keep typing: the
+     characters go into the editor, never into the page. Press F6 until the preview area is focused (outline on
+     the stage), press Enter, then Tab: the page's own controls get focus (try a page with a link or button).
+     Press F6: focus returns to NoobIDE (problems strip); Shift+F6 from inside the page returns to the editor.
+     Ctrl+S while the page has the focus still saves the active file.
+- **Expected:** every step passes at every scale. Note any 1 px gap or offset with the scale at which it happened.
+- **Result:** _(owner fills in: pass/fail per step and scale, Windows build, monitors, date)_
+- **Close with:** `node harness/session.mjs set S15.5 done --evidence "manual: Win 11 <build>, 100/150/200 %, <date>, steps 1-7 pass"`
+
+### S15.6 — Preview view sync on macOS: Retina, monitors, fullscreen, overlays, focus
+
+- **Platform:** macOS on Apple Silicon; for step 2 an external non-Retina monitor (or one set to a different scale).
+- **Already demonstrated on this Mac (macOS arm64, `tests/e2e/preview-layout.spec.ts`, 8 passed):** view on the stage
+  within half a pixel per edge after mouse drags (dividers), narrow switch, files drawer, viewport switch, native
+  fullscreen in and out, About dialog / "more actions" menu / any modal backdrop hiding the view, Enter into the
+  page and F6 / Shift+F6 back, start and refresh not taking the focus, devicePixelRatio 1.5 and 2
+  (`--force-device-scale-factor`) with exact persisted divider sizes after a restart.
+- **Note:** the focus and fullscreen tests need the NoobIDE window to become the active app; macOS refuses that while
+  someone works in another app, and the two tests then report "skipped". They passed (8/8, 0 skipped) on this Mac
+  after the merge with P3's toolbar; if a re-run shows them skipped, run `npm run test:e2e -- preview-layout` once
+  with the Mac otherwise idle.
+- **Steps still needing a person (real input and hardware):**
+  1. **Retina:** on the built-in display, the page fills the dashed stage exactly at every window size; text in the
+     page is sharp.
+  2. **Monitor moves:** drag the window between the Retina display and the external monitor (and back), also with
+     the window spanning both while dragging: after the move the page sits exactly on the stage and is sharp.
+  3. **Fullscreen with real input:** the green window button (or ⌃⌘F / fn+F where macOS offers it) into fullscreen and back, also with the window on the
+     external monitor; Mission Control / Spaces switch while in fullscreen: the page follows each time.
+  4. **Mouse drag across the page:** drag the editor | preview divider quickly over the page area with a mouse and
+     with the trackpad: the divider keeps following and stops where you let go.
+  5. **Overlays:** the native menu bar menus and the right-click context menus open above the page; open the
+     history dialog, the create-project wizard and a delete confirmation (right-click a file → 删除): each dialog is
+     fully visible, the page comes back when it closes.
+  6. **Focus with the real keyboard:** type in the editor, ⌘S so the preview refreshes, keep typing: the characters
+     stay in the editor. F6 to the preview, Enter, Tab inside the page, F6 back (fn+F6 on a Mac keyboard), ⌘S while
+     the page has the focus saves the active file. Chinese input method: composing Chinese in the editor while the
+     preview refreshes is not interrupted.
+- **Expected:** every step passes.
+- **Result:** _(owner fills in: pass/fail per step, macOS version, monitors, date)_
+- **Close with:** `node harness/session.mjs set S15.6 done --evidence "manual: macOS <version> arm64, <date>, steps 1-6 pass + e2e preview-layout.spec"`

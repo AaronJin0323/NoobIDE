@@ -26,6 +26,9 @@ import { PreviewServer, TOKEN_HEADER } from './static-server';
 import { NotOwnerError, ServerRegistry, type ServerOwner } from './server-registry';
 import { DEFAULT_TYPING_PAUSE_MS, RefreshScheduler } from './refresh-scheduler';
 import { INITIAL_MACHINE, transition, type PreviewMachine, type PreviewMachineEvent } from './state-machine';
+// S15.5/S15.6: DPI-safe bounds and the F6 focus handoff out of the page.
+import { COMMAND_EVENTS } from '../shared/ipc/commands-contract';
+import { FocusGuard, focusHandoffStep, toViewBounds } from './view-sync';
 
 /**
  * Owns the one live preview: its loopback server, its isolated WebContentsView and its state (S04.3, S05.1–S05.4,
@@ -134,6 +137,8 @@ export class PreviewManager {
   private readonly servers = new ServerRegistry<PreviewServer>((root, options) => PreviewServer.start(root, options));
   /** A save arrived while the page was loading; reload when the load finishes. */
   private reloadPending = false;
+  /** S15.5/S15.6: a start or refresh must not take the keyboard focus away from the workbench. */
+  private readonly focusGuard = new FocusGuard();
   private startQueue: Promise<unknown> = Promise.resolve();
 
   /** S14.2: automatic refresh after a confirmed save and a typing pause. */
@@ -321,6 +326,7 @@ export class PreviewManager {
     this.recent = [];
     this.deps.capture?.sessionStarted({ projectId, origin: server.origin }, window.webContents);
     this.wireContents(live, view.webContents);
+    this.focusGuard.loadStarted(window.webContents.isFocused(), Date.now());
     window.contentView.addChildView(view);
     this.applyBounds();
     live.timers.push(setInterval(() => this.flushLogs(), this.deps.logFlushMs ?? 250));
@@ -382,6 +388,7 @@ export class PreviewManager {
     const before = this.machine;
     this.update(live, { type: 'refresh' });
     if (this.machine === before) return this.status;
+    this.focusGuard.loadStarted(!live.window.isDestroyed() && live.window.webContents.isFocused(), Date.now());
     live.view.webContents.reloadIgnoringCache();
     return this.status;
   }
@@ -524,16 +531,20 @@ export class PreviewManager {
     if (!live || live.window.isDestroyed()) return;
     const { x, y, width, height, visible } = this.bounds;
     const show = visible && width >= 1 && height >= 1;
+    // A hidden page must not keep the keyboard focus (a dialog drawn where it was would get no key presses).
+    if (!show && live.view.getVisible() && live.view.webContents.isFocused()) live.window.webContents.focus();
     live.view.setVisible(show);
     if (!show) return;
-    // Bounds arrive in workbench CSS pixels; the view is positioned in window DIPs.
-    const zoom = live.window.webContents.getZoomFactor();
-    live.view.setBounds({
-      x: Math.round(x * zoom),
-      y: Math.round(y * zoom),
-      width: Math.round(width * zoom),
-      height: Math.round(height * zoom),
-    });
+    // Bounds arrive in workbench CSS pixels; the view is positioned in window DIPs (edges rounded, S15.5/S15.6).
+    live.view.setBounds(toViewBounds({ x, y, width, height }, live.window.webContents.getZoomFactor()));
+  }
+
+  /** S15.5/S15.6: the workbench hands the keyboard focus to the page (its stage element was focused). */
+  focusPage(): void {
+    const live = this.live;
+    if (!live || live.view.webContents.isDestroyed() || !live.view.getVisible()) return;
+    this.focusGuard.userFocused();
+    live.view.webContents.focus();
   }
 
   private configureSession(ses: Session, server: PreviewServer): void {
@@ -636,6 +647,32 @@ export class PreviewManager {
   private wireContents(live: LivePreview, contents: WebContents): void {
     const origin = live.server.origin;
     const isCurrent = () => this.live === live;
+    // S15.5/S15.6: F6 / Shift+F6 in the page give the focus back to the workbench (DOM focus there is still on the
+    // preview stage, so its region order continues from the preview). Also stops the menu accelerator (macOS).
+    contents.on('before-input-event', (event, input) => {
+      const step = focusHandoffStep(input);
+      if (step === null || live.window.isDestroyed()) return;
+      event.preventDefault();
+      live.window.webContents.focus();
+      live.window.webContents.send(COMMAND_EVENTS.run, step === 1 ? 'focus-next-region' : 'focus-previous-region');
+    });
+    // A load gives the view the focus by itself; hand it back when the workbench had it (FocusGuard).
+    contents.on('did-stop-loading', () => {
+      if (isCurrent()) this.focusGuard.loadFinished(Date.now());
+    });
+    contents.on('focus', () => {
+      if (!isCurrent() || !this.focusGuard.shouldReturnFocus(Date.now())) return;
+      // Not from inside the focus notification (the view is still becoming the first responder), and late enough
+      // for a click's input event to arrive first: a click into the page is the user's choice and keeps the focus.
+      setTimeout(() => {
+        if (!isCurrent() || live.window.isDestroyed() || !this.focusGuard.shouldReturnFocus(Date.now())) return;
+        live.window.webContents.focus();
+      }, 50);
+    });
+    contents.on('input-event', (_event, input) => {
+      if (isCurrent() && ['mouseDown', 'rawKeyDown', 'keyDown', 'touchStart'].includes(input.type))
+        this.focusGuard.userFocused();
+    });
     contents.setWindowOpenHandler(({ url }) => {
       this.pushLog({ source: 'page-load', level: 'warning', message: 'window.open blocked', url, at: Date.now() });
       return { action: 'deny' };

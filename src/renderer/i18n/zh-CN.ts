@@ -383,6 +383,13 @@ export const zhCN = {
   'glossary.empty': '没有找到这个术语。',
   'glossary.close': '关闭',
   // --- end S23 ---
+  // --- S15.3 viewport width, S15.5/S15.6 keyboard focus into the page ---
+  'preview.viewport.label': '页面宽度',
+  'preview.viewport.desktop': '桌面宽度',
+  'preview.viewport.mobile': '手机宽度 {width}px',
+  'preview.viewport.note': '只改变页面的宽度，不是手机模拟：不会模拟手机系统、触摸或屏幕像素密度。',
+  'preview.stage.label': '网页预览。按 Enter 进入网页，按 F6 回到 NoobIDE。',
+  // --- end S15 ---
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

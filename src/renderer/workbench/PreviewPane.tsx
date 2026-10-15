@@ -26,6 +26,8 @@ import {
   viewVisible,
   type LogView,
 } from './preview-model';
+// S15.3 viewport width; S15.5/S15.6 overlays above the native view.
+import { MOBILE_WIDTH, OVERLAY_SELECTOR, coveredBy, viewRect, type ViewportWidth } from './preview-viewport';
 import { setPreviewCommandTarget } from './preview-commands';
 
 interface PreviewPaneProps {
@@ -123,6 +125,46 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
     if (bridge && status.projectId !== null && status.projectId !== projectId) void bridge.stop();
   }, [bridge, projectId, status.projectId]);
 
+  // --- S15.5/S15.6: the native view is always drawn above the workbench DOM, so it hides while a dialog, a modal
+  // backdrop or a DOM menu overlaps the stage (any of them, not only the ones the workbench knows about). ---
+  const [overlaid, setOverlaid] = useState(false);
+  useEffect(() => {
+    let frame = 0;
+    const check = () => {
+      frame = 0;
+      const stage = stageRef.current?.getBoundingClientRect();
+      if (!stage) return;
+      const rects = [...document.querySelectorAll(OVERLAY_SELECTOR)]
+        .filter((el) => !stageRef.current?.contains(el))
+        .map((el) => el.getBoundingClientRect());
+      setOverlaid(coveredBy(stage, rects));
+    };
+    const schedule = () => {
+      if (frame === 0) frame = requestAnimationFrame(check);
+    };
+    check();
+    // Dialogs and menus are mounted and unmounted (conditional rendering), so child-list changes are enough. Only
+    // changes that add or remove an overlay count: editor typing re-renders lines and must not cost a layout.
+    const isOverlay = (node: Node) =>
+      node instanceof Element && (node.matches(OVERLAY_SELECTOR) || node.querySelector(OVERLAY_SELECTOR) !== null);
+    const observer = new MutationObserver((records) => {
+      if (records.some((r) => [...r.addedNodes].some(isOverlay) || [...r.removedNodes].some(isOverlay))) schedule();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('resize', schedule);
+    // The stage can also move under an open overlay (a divider drag, a collapsed panel).
+    const stageObserver = new ResizeObserver(schedule);
+    if (stageRef.current) stageObserver.observe(stageRef.current);
+    return () => {
+      observer.disconnect();
+      stageObserver.disconnect();
+      window.removeEventListener('resize', schedule);
+      if (frame !== 0) cancelAnimationFrame(frame);
+    };
+  }, []);
+  // --- S15.3: desktop or mobile WIDTH only (not device emulation) ---
+  const [viewport, setViewport] = useState<ViewportWidth>('desktop');
+
   // --- S14.3 entry page and S14.2 refresh mode, read from .noobide/project.json through main ---
   const loadOptions = useCallback(() => {
     if (!bridge?.options || !projectId) {
@@ -160,17 +202,20 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
     if (!projectId) autoTried.current = null;
   }, [projectId]);
 
-  const showView = !covered && viewVisible(status, !hidden);
+  const showView = !covered && !overlaid && viewVisible(status, !hidden);
 
   // Keep the native view exactly over the stage: size changes (ResizeObserver), window resizes and layout changes
   // that move the stage without resizing it (checked after every render).
   const lastSent = useRef('');
   const sendBounds = useCallback(() => {
     if (!bridge) return;
-    const rect = stageRef.current?.getBoundingClientRect();
+    const stage = stageRef.current?.getBoundingClientRect();
+    const rect = stage
+      ? viewRect({ x: stage.left, y: stage.top, width: stage.width, height: stage.height }, viewport)
+      : undefined;
     const bounds = {
-      x: rect?.left ?? 0,
-      y: rect?.top ?? 0,
+      x: rect?.x ?? 0,
+      y: rect?.y ?? 0,
       width: rect?.width ?? 0,
       height: rect?.height ?? 0,
       visible: showView && rect !== undefined,
@@ -179,7 +224,7 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
     if (key === lastSent.current) return;
     lastSent.current = key;
     void bridge.setBounds(bounds);
-  }, [bridge, showView]);
+  }, [bridge, showView, viewport]);
 
   useLayoutEffect(() => {
     sendBounds();
@@ -192,9 +237,23 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
     observer.observe(stage);
     observer.observe(document.body);
     window.addEventListener('resize', sendBounds);
+    // S15.5/S15.6: moving to a monitor with another scale factor changes devicePixelRatio; re-send then too.
+    let ratio: MediaQueryList | null = null;
+    const watchRatio = () => {
+      ratio?.removeEventListener('change', onRatio);
+      ratio = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      ratio.addEventListener('change', onRatio);
+    };
+    const onRatio = () => {
+      lastSent.current = '';
+      sendBounds();
+      watchRatio();
+    };
+    watchRatio();
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', sendBounds);
+      ratio?.removeEventListener('change', onRatio);
     };
   }, [sendBounds]);
 
@@ -427,6 +486,35 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
           </div>
         </div>
       )}
+      {/* S15.3: honest labels — "width", and a note that this is not phone emulation. Shown with a project only. */}
+      {projectId !== null && (
+        <div
+          className="viewport-switch"
+          role="group"
+          aria-label={t('preview.viewport.label')}
+          aria-describedby="preview-viewport-note"
+          data-testid="viewport-switch"
+          title={t('preview.viewport.note')}
+        >
+          {(['desktop', 'mobile'] as const).map((choice) => (
+            <button
+              key={choice}
+              type="button"
+              className="viewport-choice"
+              aria-pressed={viewport === choice}
+              data-testid={`viewport-${choice}`}
+              onClick={() => setViewport(choice)}
+            >
+              {choice === 'desktop'
+                ? t('preview.viewport.desktop')
+                : t('preview.viewport.mobile').replace('{width}', String(MOBILE_WIDTH))}
+            </button>
+          ))}
+          <span id="preview-viewport-note" className="viewport-note" hidden={viewport !== 'mobile'}>
+            {t('preview.viewport.note')}
+          </span>
+        </div>
+      )}
       {notices.length > 0 && (
         <div className="preview-notices" role="status" data-testid="preview-notices">
           {notices.map((notice) => (
@@ -442,7 +530,21 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
           ))}
         </div>
       )}
-      <div className="preview-stage" ref={stageRef} data-testid="preview-stage">
+      {/* S15.5/S15.6: keyboard focus handoff — Enter on the stage gives the page the focus; F6 in the page returns */}
+      <div
+        className={viewport === 'mobile' ? 'preview-stage mobile' : 'preview-stage'}
+        ref={stageRef}
+        data-testid="preview-stage"
+        data-viewport={viewport}
+        tabIndex={showView ? 0 : -1}
+        role={showView ? 'group' : undefined}
+        aria-label={showView ? t('preview.stage.label') : undefined}
+        onKeyDown={(event) => {
+          if (!showView || event.key !== 'Enter' || event.target !== event.currentTarget) return;
+          event.preventDefault();
+          void bridge?.focus();
+        }}
+      >
         {consent ? (
           <div className="empty-state" data-testid="preview-consent">
             <span className="empty-icon">

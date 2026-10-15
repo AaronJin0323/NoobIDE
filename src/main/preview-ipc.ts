@@ -34,6 +34,8 @@ export interface PreviewIpcDeps {
     setBounds(bounds: PreviewBounds): void;
     /** S14.6: the requesting window (webContents id) started the preview, and it is of the named project. */
     isOwner(requester: { readonly windowId: number; readonly projectId?: string | undefined }): boolean;
+    /** S15.5/S15.6: give the page the keyboard focus. */
+    focusPage(): void;
     // S14.2 / S14.5 / S15.4 (optional so older fakes stay valid; main.ts passes the real manager)
     typing?(): void;
     clearData?(projectId: string): Promise<Result<null, 'unknown-project'>>;
@@ -138,6 +140,11 @@ export function registerPreviewIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: P
   handle(PREVIEW_CHANNELS.setBounds, parsePreviewBounds, async (bounds, event) => {
     if (!owns(event)) return NOT_OWNER;
     deps.preview.setBounds(bounds);
+    return { ok: true, value: null };
+  });
+  handle(PREVIEW_CHANNELS.focus, parseNoPayload, async (_payload, event) => {
+    if (!owns(event)) return NOT_OWNER;
+    deps.preview.focusPage();
     return { ok: true, value: null };
   });
 }

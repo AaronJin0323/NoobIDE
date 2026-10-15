@@ -62,6 +62,7 @@ const api: NoobideApi = {
     clearData: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.clearData, request),
     openExternal: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.openExternal, request),
     devTools: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.devTools, request),
+    focus: () => ipcRenderer.invoke(PREVIEW_CHANNELS.focus),
     onEvent: (listener) => {
       const wrapped = (_event: unknown, payload: PreviewEvent) => listener(payload);
       ipcRenderer.on(PREVIEW_EVENT_CHANNEL, wrapped);

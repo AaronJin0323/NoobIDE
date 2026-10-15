@@ -406,4 +406,12 @@ export const en: Record<MessageKey, string> = {
   'glossary.empty': 'No term matches.',
   'glossary.close': 'Close',
   // --- end S23 ---
+  // --- S15.3 viewport width, S15.5/S15.6 keyboard focus into the page ---
+  'preview.viewport.label': 'Page width',
+  'preview.viewport.desktop': 'Desktop width',
+  'preview.viewport.mobile': 'Mobile width {width}px',
+  'preview.viewport.note':
+    'Changes only the width of the page. This is not phone emulation: no mobile system, touch or pixel density.',
+  'preview.stage.label': 'Web page preview. Press Enter to go into the page, F6 to come back to NoobIDE.',
+  // --- end S15 ---
 };

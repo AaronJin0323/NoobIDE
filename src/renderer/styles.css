@@ -1402,3 +1402,34 @@ button {
   flex: none;
   font-style: italic;
 }
+
+/* ── Preview viewport width (S15.3) ────────────────────── */
+.viewport-switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 10px 0;
+  flex-wrap: wrap;
+}
+.viewport-choice {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.viewport-choice[aria-pressed='true'] {
+  background: var(--raised);
+  color: var(--text);
+  font-weight: 600;
+  /* not colour alone: the chosen width is also bold and outlined */
+  border-color: currentColor;
+}
+.viewport-note {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 11px;
+}

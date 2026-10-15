@@ -23,6 +23,8 @@ export const PREVIEW_CHANNELS = {
   // S15.4 toolbar
   openExternal: 'preview:open-external',
   devTools: 'preview:devtools',
+  /** S15.5/S15.6: move the keyboard focus into the page. */
+  focus: 'preview:focus',
 } as const;
 
 /** Main → workbench notifications (webContents.send). */
@@ -141,6 +143,8 @@ export interface PreviewApi {
   reload(request?: PreviewOwnerRequest): Promise<IpcResult<PreviewStatus, 'not-owner'>>;
   /** Where the view sits over the preview pane, in workbench CSS pixels. Ignored for a preview of another window. */
   setBounds(bounds: PreviewBounds): Promise<IpcResult<null, 'not-owner'>>;
+  /** S15.5/S15.6: gives the page the keyboard focus (F6 / Shift+F6 in the page hand it back). */
+  focus(): Promise<IpcResult<null, 'not-owner'>>;
   /** Subscribes to status and log events; returns the unsubscribe function. */
   onEvent(listener: (event: PreviewEvent) => void): () => void;
   // --- S14.2 ---
