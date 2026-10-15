@@ -16,6 +16,8 @@ export interface ProblemCardProps {
   fixBusy?: boolean | undefined;
   /** S33.2: opens the AI chat about this problem (with the card's title); absent while AI is not offered. */
   onAskAi?: ((record: ProblemRecord, title: string) => void) | undefined;
+  /** S35.2: asks the AI for a fix of the reported file around the reported line; absent while AI is not offered. */
+  onFixWithAi?: ((record: ProblemRecord, title: string) => void) | undefined;
 }
 
 type Translate = (key: MessageKey) => string;
@@ -54,6 +56,7 @@ export function ProblemCardBody({
   onFix,
   fixBusy,
   onAskAi,
+  onFixWithAi,
   t,
   locale,
   originalOpen,
@@ -158,6 +161,17 @@ export function ProblemCardBody({
           }
           return null;
         })}
+        {onFixWithAi && record.file && record.line !== undefined && (
+          <button
+            type="button"
+            className="secondary-button"
+            data-testid="problem-fix-ai"
+            title={t('problems.card.fixWithAiHint')}
+            onClick={() => onFixWithAi(record, text.title)}
+          >
+            {t('problems.card.fixWithAi')}
+          </button>
+        )}
         {onAskAi && (
           <button
             type="button"

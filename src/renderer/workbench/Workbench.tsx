@@ -96,6 +96,11 @@ import { AgentDecisionStore } from '../ai/agent-decisions';
 import { agentChatExtensions } from '../ai/AgentProposalCard';
 import { aiBridge } from '../ai/ai-bridge';
 import { toggleInlineAi } from '../ai/useInlineAiState'; // S32.1
+// S35: AI inline edit (Ctrl/Cmd+I) and "Fix with AI" on the problem card
+import { useInlineEdit, type InlineEditHost } from '../ai/useInlineEdit';
+import { setEditorContextActionGroup } from '../editor/editor-handle';
+import { useAiFix, type AiFixHost } from '../problems/useAiFix';
+import { AiFixCard } from '../problems/AiFixCard';
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -870,6 +875,71 @@ export function Workbench() {
   });
   // --- end S33 ---
 
+  // --- S35: AI inline edit and "Fix with AI". An accepted change is one undoable edit of the file's editor model,
+  // recorded and saved through the file's own save pipeline (like the S22.5 fix); the AI fix's verdict follows the
+  // S22.5 rules (re-check, and a preview load after the save for page problems). ---
+  const aiFixHost = useMemo<AiFixHost>(
+    () => ({
+      stillReported: async (record) => {
+        const uri = record.file ? docRef.current.tabs.find((tab) => tab.relPath === record.file)?.uri : undefined;
+        if (!uri) return null;
+        return (await import('../problems/ai-fix-monaco')).stillReportsProblem(uri, record);
+      },
+      onSaved: (listener) => savedFiles.current.subscribe((file) => listener(file.relPath)),
+    }),
+    [],
+  );
+  const aiFix = useAiFix(aiFixHost, runtimeProblems.records, previewLoads);
+  const clearAiFix = aiFix.clear;
+  useEffect(() => clearAiFix(), [doc.project?.projectId, clearAiFix]);
+  const inlineEditHost = useMemo<InlineEditHost>(
+    () => ({
+      relPathOf: (uri) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath,
+      readOnly: (relPath) => Boolean(docRef.current.tabs.find((tab) => tab.relPath === relPath)?.content.readOnly),
+      commit: async (relPath, text) => {
+        const saver = saverOf(relPath);
+        if (!saver) return { ok: false, code: 'not-found' };
+        // The editor reports the edit only for the model it shows; anything else is recorded here.
+        if (saver.text !== text) recordEdit(relPath, text);
+        if (await saver.save()) return { ok: true };
+        const state = saver.state;
+        return {
+          ok: false,
+          code: state.error?.code ?? (state.conflict ? 'changed-on-disk' : state.deleted ? 'not-found' : 'unknown'),
+        };
+      },
+      showFile: async (relPath) => {
+        const project = docRef.current.project;
+        if (!project) return null;
+        if (narrow) dispatchLayout({ type: 'showNarrowView', view: 'code' }); // the code must be visible
+        await openFile(relPath);
+        if (docRef.current.project?.projectId !== project.projectId) return null;
+        dispatch({ type: 'activate', relPath });
+        const tab = await eventually(() => docRef.current.tabs.find((open) => open.relPath === relPath));
+        if (!tab) return null;
+        const shown = await eventually(() => (activeEditor()?.shownUri() === tab.uri ? tab.uri : undefined));
+        return shown ?? null;
+      },
+    }),
+    [openFile, recordEdit, narrow],
+  );
+  const inlineEdit = useInlineEdit(doc.project?.projectId ?? null, inlineEditHost, {
+    loadsStarted: () => previewLoads.started,
+    onFixCommitted: (commit) => aiFix.committed(commit.record, commit),
+  });
+  const startInlineEdit = inlineEdit.start;
+  useEffect(() => {
+    if (!inlineEdit.shown) {
+      setEditorContextActionGroup('inline-edit', []);
+      return undefined;
+    }
+    setEditorContextActionGroup('inline-edit', [
+      { id: 'ai-inline-edit', label: t('ai.editor.inlineEdit'), needsSelection: false, run: () => startInlineEdit() },
+    ]);
+    return () => setEditorContextActionGroup('inline-edit', []);
+  }, [inlineEdit.shown, t, startInlineEdit]);
+  // --- end S35 ---
+
   // Closing the window or quitting: main asks first; we answer after every file is saved (S10.6).
   useEffect(() => {
     if (!bridge) return;
@@ -934,6 +1004,7 @@ export function Workbench() {
     // S33: AI chat and "Explain this code" (only while AI is offered)
     'ai-toggle-chat': ai.shown ? ai.toggle : undefined,
     'ai-explain-code': ai.shown ? () => ai.explainSelection() : undefined,
+    'ai-inline-edit': inlineEdit.shown ? inlineEdit.start : undefined, // S35.1
     // S32.1: AI ghost-text suggestions on / off (offered only when the AI bridge exists)
     'toggle-inline-ai': aiBridge() ? () => toggleInlineAi(docRef.current.project?.projectId ?? null) : undefined,
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
@@ -1172,14 +1243,19 @@ export function Workbench() {
             onFix={problemFix.apply}
             fixBusy={problemFix.fix?.phase === 'applying' || problemFix.fix?.phase === 'undoing'}
             onAskAi={ai.shown ? ai.askAboutProblem : undefined}
+            onFixWithAi={inlineEdit.shown ? (record, title) => void inlineEdit.fixProblem(record, title) : undefined}
           />
         )}
         fixCard={
-          problemFix.fix && (
-            <FixCard fix={problemFix.fix} serial={problemFix.serial} actions={problemFix} onGoTo={goTo} />
-          )
+          <>
+            {problemFix.fix && (
+              <FixCard fix={problemFix.fix} serial={problemFix.serial} actions={problemFix} onGoTo={goTo} />
+            )}
+            {aiFix.fix /* S35.2 */ && <AiFixCard fix={aiFix.fix} serial={aiFix.serial} actions={aiFix} onGoTo={goTo} />}
+          </>
         }
       />
+      {inlineEdit.element /* S35: what an inline edit did, announced politely */}
       {/* S13.1: the settings file was unusable and was backed up */}
       {settingsNotice && <SettingsNotice snapshot={settingsNotice} onDismiss={() => setSettingsNotice(null)} />}
       {entryNotice && <EntryNotice state={entryNotice} onDismiss={() => setEntryNotice(null)} />}

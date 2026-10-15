@@ -103,9 +103,31 @@ export function verdict(
   runtime: readonly ProblemRecord[],
   completedLoad = 0,
 ): Verdict {
+  return judge(fix, staticReports, runtime, completedLoad, (r) => reportsSameProblem(fix, r));
+}
+
+/** What a verdict needs of a fix: the one-click fix above, or an AI fix (S35.2, problems/ai-fix.ts). */
+export interface JudgedFix {
+  readonly record: ProblemRecord;
+  readonly generation?: number;
+  readonly loadsAtSave?: number;
+}
+
+/**
+ * The S22.5 rules for any fix, given how to recognise the same problem in a newer report (`same`): still reported
+ * when the re-check says so or the page reported it again in a newer load; resolved only after a re-check answered
+ * and — for a page problem — a preview load completed after the save without it.
+ */
+export function judge(
+  fix: JudgedFix,
+  staticReports: boolean | null,
+  runtime: readonly ProblemRecord[],
+  completedLoad: number,
+  same: (record: ProblemRecord) => boolean,
+): Verdict {
   if (staticReports === true) return 'still-reported';
   const fromPage = fix.record.source !== 'static';
-  const live = runtime.filter((r) => !r.stale && r.source !== 'static' && reportsSameProblem(fix, r));
+  const live = runtime.filter((r) => !r.stale && r.source !== 'static' && same(r));
   // Seen again in a page load after the one the fix was made in.
   if (fromPage && live.some((r) => (lastGeneration(r) ?? 0) > (fix.generation ?? 0))) return 'still-reported';
   if (staticReports === null) return 'checking';

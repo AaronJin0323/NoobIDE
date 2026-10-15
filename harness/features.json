@@ -2958,8 +2958,8 @@
       "depends_on": [
         "S34.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "in_progress",
+      "evidence": "Implementation complete; done once S34.2 is done. Evidence: src/renderer/ai/inline-edit-model.test.ts (18 tests) + tests/e2e/ai-edit.spec.ts (accept + one undo step, context menu + reject, stale refused, Stop, en + offline) + verify green @ 6101ba8"
     },
     {
       "id": "S35.2",
@@ -2975,8 +2975,8 @@
       "depends_on": [
         "S35.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "in_progress",
+      "evidence": "Implementation complete; done after S35.1. Evidence: src/renderer/problems/ai-fix.test.ts + tests/e2e/ai-edit.spec.ts 'Fix with AI on a page problem' (resolved after preview reload, zh-CN+en) @ 6101ba8"
     },
     {
       "id": "S36.1",
