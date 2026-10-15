@@ -16,6 +16,8 @@ import { CaretRest } from './caret-rest';
 // S32.1: AI ghost-text suggestions for the file on screen (rules in src/renderer/ai/inline-*.ts).
 import { attachInlineAi } from '../ai/inline-monaco';
 import type { InlineTarget } from '../ai/inline-context';
+// S35: inline edit zone (Ctrl/Cmd+I, Fix with AI).
+import { createEditZone } from '../ai/edit-zone-monaco';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -178,6 +180,10 @@ export function CodeEditor({
       },
       reveal: (target) => revealIn(editor, target),
       selection: () => selectionIn(editor, uriOf()),
+      openEditZone: (lines) => {
+        const uri = uriOf();
+        return uri ? createEditZone(editor, uri, lines ?? null) : null; // S35
+      },
     });
     // --- end S17.2 / S18.3 ---
     // S33.2: context-menu actions of the workbench ("Ask AI to explain this code").
