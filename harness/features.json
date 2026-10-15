@@ -3139,8 +3139,8 @@
       "depends_on": [
         "S36.2"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/ai/chat-store.test.ts (6: app-data only, atomic, caps+oldest-first pruning, corrupt skipped/moved aside, newer untouched), src/shared/ipc/ai-history-parse.test.ts, tests/integration/ai-history.test.ts (IPC sender+payload checks every channel, save/list/get/delete, recent count/delete, revoke+delete, logs without chat text), src/renderer/ai/chat-history.test.ts (10), tests/e2e/ai-history.spec.ts (4: reopen after restart, delete with confirmation, recent removal offers delete) + verify green @ f5b8803"
     },
     {
       "id": "S39.2",
@@ -3157,8 +3157,8 @@
       "depends_on": [
         "S36.2"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/ai/usage-store.test.ts (day rollover, budget), tests/integration/ai-history.test.ts (chat/inline/edit/agent usage per provider with fake provider usage events; budget refuses new requests with budget-reached, agent turn over budget mid-turn finishes; next local day resets; non-AI save/read unaffected), src/renderer/ai/usage-ui.test.ts (tokens as text on chat/agent/inline edit, Settings usage+budget text zh-CN/en, inline paused), e2e ai-history.spec.ts Settings usage + verify green @ f5b8803"
     }
   ]
 }
