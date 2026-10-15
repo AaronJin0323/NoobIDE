@@ -2087,8 +2087,8 @@
       "depends_on": [
         "S22.2"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/problems/ProblemCard.tsx (source tag, file+line, title, explanation, possible causes, checks, Go to code, Show original; zh-CN+en), ProblemDetails.tsx + rule-context-monaco.ts + declared-names.ts (did-you-mean gets the reported line and names declared in scope from the JS language service, so the card shows the PLAN §9 check 'userName（第 2 行）'). Unit: problem-card.test.ts (PLAN §9 example zh-CN/en, original verbatim, labelled group, causes for 3b), declared-names.test.ts. e2e: tests/e2e/problem-card.spec.ts test 1 (zh-CN + en card on a Chinese+spaces path) and walkthrough.spec.ts deliberate-error step now asserts location, explanation and suggested checks on the card (lesson text unchanged). verify + full e2e (188 passed) green on macOS arm64 @ f72596b"
     },
     {
       "id": "S22.5",
@@ -2108,8 +2108,8 @@
         "S22.2",
         "S22.4"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "fix-model.ts (fixActionOf: undefined-name rule, exactly one candidate, located span; verdict/nextPhase: resolved only after language-service re-check is clear and, for page problems, a preview reload without it; failed save/undo phases never judged), fix-host.ts (open file → one undo-step model edit of exactly that span, only if it still reads the misspelling → file's DocumentSaver atomic save; failure keeps edit), useProblemFix.ts, FixCard.tsx (status as polite role=status text, Undo / Save again / Check again / Go to code / Show original / Clear; zh-CN+en). Unit: fix-model.test.ts (6), fix-host.test.ts (5: only that span, one undo step, failed save keeps edit, not-applied when changed/read-only, card Undo), fix-card.test.ts (7), problem-card.test.ts (offer gating 4). e2e tests/e2e/problem-card.spec.ts: several/zero candidates → no fix + Go to code; keyboard fix → focus on result card, disk == fixed text, resolved after re-check, card Undo restores+saves; Ctrl/Cmd+Z in editor undoes, autosave → still-reported; chmod 444 → save-failed, edit kept, never resolved, retry → resolved; runtime problem resolved only after preview reload, en text. verify + full e2e green @ f72596b"
     },
     {
       "id": "S23.1",
