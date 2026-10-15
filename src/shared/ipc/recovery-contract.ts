@@ -12,6 +12,8 @@ import {
   type OpenFolderError,
   type OpenedProject,
   type ReadFileError,
+  type SavedCopy,
+  type WriteFileError,
 } from './contract';
 
 const BUFFER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -72,6 +74,49 @@ export interface RecoveredEntry {
 }
 
 export type RecoveryReadError = 'unknown-project' | 'not-found' | 'corrupt';
+
+/**
+ * Decision 0033: a pending copy named by its project key (from listPending) and buffer id. Works without an open
+ * project, so copies stay reachable when the project folder was moved, renamed or is on a missing drive.
+ */
+export interface PendingRef {
+  readonly key: string;
+  readonly bufferId: string;
+}
+
+/** The text of a pending copy, read without opening its project (nothing on disk to compare with). */
+export interface PendingEntry {
+  readonly relPath: string;
+  readonly bufferId: string;
+  readonly revision: number;
+  readonly updatedAt: number;
+  readonly text: string;
+  readonly bom: boolean;
+}
+
+export type PendingReadError = 'not-found' | 'corrupt';
+
+/** Saved with the native save dialog (in main); the journal copy is removed once the file is on disk. */
+export interface SavedPendingCopy extends SavedCopy {
+  readonly removed: boolean;
+}
+
+/**
+ * Result of pointing at a moved project folder. `confirm`: the chosen folder lacks some of the recovered files; the
+ * user confirms with `relocateConfirm` and the opaque `choiceId` (main keeps the folder; the renderer never sends a
+ * path). `cancelled`: the folder dialog was closed.
+ */
+export type RelocateResult =
+  | { readonly status: 'cancelled' }
+  | { readonly status: 'opened'; readonly project: OpenedProject }
+  | {
+      readonly status: 'confirm';
+      readonly choiceId: string;
+      readonly folderName: string;
+      readonly missing: readonly string[];
+    };
+
+export type RelocateError = OpenFolderError | 'not-found' | 'expired' | 'write-failed';
 export type RecoveryOpenError = OpenFolderError | 'not-found';
 
 export interface RecoveryApi {
@@ -83,6 +128,17 @@ export interface RecoveryApi {
   read(request: BufferRef): Promise<IpcResult<RecoveredEntry, RecoveryReadError>>;
   /** The user threw this recovered copy away. */
   discard(request: BufferRef): Promise<IpcResult<{ removed: boolean }, 'unknown-project'>>;
+  /** Decision 0033: pending copies without an open project. */
+  readPending(request: PendingRef): Promise<IpcResult<PendingEntry, PendingReadError>>;
+  discardPending(request: PendingRef): Promise<IpcResult<{ removed: boolean }, never>>;
+  /** Asks for a destination with the native save dialog in main; `null` when cancelled. */
+  savePendingAs(request: PendingRef): Promise<IpcResult<SavedPendingCopy | null, PendingReadError | WriteFileError>>;
+  /** Asks for the project folder's new location with the native folder dialog in main. */
+  relocate(request: { readonly key: string }): Promise<IpcResult<RelocateResult, RelocateError>>;
+  relocateConfirm(request: {
+    readonly key: string;
+    readonly choiceId: string;
+  }): Promise<IpcResult<RelocateResult, RelocateError>>;
   /** Clear-data control: removes every journal record. */
   clear(): Promise<IpcResult<null, 'clear-failed'>>;
 }
@@ -129,4 +185,18 @@ export function parseJournalSavedRequest(payload: unknown): JournalSavedRequest 
 export function parseRecoveryKeyRequest(payload: unknown): { key: string } | null {
   if (!isRecord(payload) || !hasExactKeys(payload, ['key'])) return null;
   return typeof payload.key === 'string' && PROJECT_KEY.test(payload.key) ? { key: payload.key } : null;
+}
+
+export function parsePendingRef(payload: unknown): PendingRef | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['key', 'bufferId'])) return null;
+  const { key, bufferId } = payload;
+  if (typeof key !== 'string' || !PROJECT_KEY.test(key)) return null;
+  return typeof bufferId === 'string' && BUFFER_ID.test(bufferId) ? { key, bufferId } : null;
+}
+
+export function parseRelocateConfirm(payload: unknown): { key: string; choiceId: string } | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['key', 'choiceId'])) return null;
+  const { key, choiceId } = payload;
+  if (typeof key !== 'string' || !PROJECT_KEY.test(key)) return null;
+  return typeof choiceId === 'string' && BUFFER_ID.test(choiceId) ? { key, choiceId } : null;
 }

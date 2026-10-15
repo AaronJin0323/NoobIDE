@@ -182,6 +182,19 @@ export async function decideRestore(input: {
   return exists ? { kind: 'open', rootPath: input.lastProject } : { kind: 'skip', reason: 'missing' };
 }
 
+/**
+ * Decision 0033: how many pending crash-copy projects should hold back the session restore. Only projects whose
+ * folder is still where the copies say: copies of a moved, renamed or disconnected folder stay pending (the recovery
+ * dialog still offers them) but no longer keep a different last project from reopening on every start.
+ */
+export async function blockingRecoveryCount(
+  pending: readonly { readonly rootPath: string }[],
+  isDir: (p: string) => Promise<boolean> = isDirectory,
+): Promise<number> {
+  const reachable = await Promise.all(pending.map((p) => isDir(p.rootPath)));
+  return reachable.filter(Boolean).length;
+}
+
 async function isDirectory(p: string): Promise<boolean> {
   try {
     return (await stat(p)).isDirectory();

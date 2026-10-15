@@ -35,7 +35,17 @@ let deps: IpcDeps & {
   trashItem: ReturnType<typeof vi.fn>;
   revealItem: ReturnType<typeof vi.fn>;
   journal: Record<
-    'record' | 'discardSaved' | 'discard' | 'listPending' | 'rootOfPending' | 'read' | 'usage' | 'clearAll',
+    | 'record'
+    | 'discardSaved'
+    | 'discard'
+    | 'listPending'
+    | 'rootOfPending'
+    | 'read'
+    | 'usage'
+    | 'clearAll'
+    | 'readPending'
+    | 'discardPending'
+    | 'retarget',
     Fake
   >;
 };
@@ -58,6 +68,7 @@ beforeEach(() => {
       ),
       write: vi.fn(async () => ok({ savedAt: 1, version: { mtimeMs: 1, size: 1, hash: 'a'.repeat(64) } })),
       writeCopy: vi.fn(async (destination: string) => ok({ path: destination })),
+      writeStandaloneCopy: vi.fn(async (destination: string) => ok({ path: destination })),
       rootOf: vi.fn((id: string) => (id === ID ? '/p' : undefined)),
       listDir: vi.fn(async () => ok({ relPath: '', entries: [], truncated: false })),
       createEntry: vi.fn(async (r: { relPath: string }) => ok({ relPath: r.relPath })),
@@ -89,6 +100,11 @@ beforeEach(() => {
         limits: { maxEntryBytes: 50, maxTotalBytes: 100, maxEntries: 5, maxQuarantined: 1 },
       })),
       clearAll: vi.fn(async () => ok(null)),
+      readPending: vi.fn(async () =>
+        ok({ rootPath: '/gone', relPath: '子/a.html', bufferId: BUF, revision: 3, updatedAt: 5, text: 'r', bom: true }),
+      ),
+      discardPending: vi.fn(async () => ok({ removed: true })),
+      retarget: vi.fn(async () => ok({ moved: 1 })),
     },
   };
   registerIpcHandlers({ handle: (channel: string, h: Handler) => void handlers.set(channel, h) } as never, deps);
@@ -440,5 +456,101 @@ describe('recovery channels (S12)', () => {
   it('clear removes all journal data', async () => {
     expect(await call(CHANNELS.recoveryClear, workbench)).toEqual({ ok: true, value: null });
     expect(deps.journal.clearAll).toHaveBeenCalled();
+  });
+});
+
+describe('pending copies without an open project (decision 0033)', () => {
+  const ref = { key: KEY, bufferId: BUF };
+
+  it('reads a pending copy by key and buffer id, without its old root', async () => {
+    const result = await call(CHANNELS.recoveryReadPending, workbench, ref);
+    expect(result).toEqual({
+      ok: true,
+      value: { relPath: '子/a.html', bufferId: BUF, revision: 3, updatedAt: 5, text: 'r', bom: true },
+    });
+    expect(deps.journal.readPending).toHaveBeenCalledWith(KEY, BUF);
+    expect(deps.projects.open).not.toHaveBeenCalled();
+  });
+
+  it('discards a pending copy by key and buffer id', async () => {
+    expect(await call(CHANNELS.recoveryDiscardPending, workbench, ref)).toEqual({ ok: true, value: { removed: true } });
+    expect(deps.journal.discardPending).toHaveBeenCalledWith(KEY, BUF);
+  });
+
+  it('"Save as…" asks main for the destination, writes the text, then removes the copy', async () => {
+    expect(await call(CHANNELS.recoverySavePendingAs, workbench, ref)).toEqual({
+      ok: true,
+      value: { path: '/backup/a.html', removed: true },
+    });
+    expect(deps.chooseSaveFile).toHaveBeenCalledWith(workbench, 'a.html');
+    expect(deps.projects.writeStandaloneCopy).toHaveBeenCalledWith('/backup/a.html', 'r', true);
+    expect(deps.journal.discardPending).toHaveBeenCalledWith(KEY, BUF);
+  });
+
+  it('a cancelled save dialog writes nothing and keeps the copy', async () => {
+    deps.chooseSaveFile = vi.fn(async () => null);
+    expect(await call(CHANNELS.recoverySavePendingAs, workbench, ref)).toEqual({ ok: true, value: null });
+    expect(deps.projects.writeStandaloneCopy).not.toHaveBeenCalled();
+    expect(deps.journal.discardPending).not.toHaveBeenCalled();
+  });
+
+  it('a failed write keeps the copy', async () => {
+    (deps.projects.writeStandaloneCopy as Fake).mockResolvedValueOnce({
+      ok: false,
+      code: 'permission-denied',
+      message: 'EACCES',
+    });
+    expect(await call(CHANNELS.recoverySavePendingAs, workbench, ref)).toMatchObject({
+      ok: false,
+      code: 'permission-denied',
+    });
+    expect(deps.journal.discardPending).not.toHaveBeenCalled();
+  });
+
+  it('an unknown copy shows no dialog', async () => {
+    deps.journal.readPending.mockResolvedValueOnce({ ok: false, code: 'not-found', message: 'no record' });
+    expect(await call(CHANNELS.recoverySavePendingAs, workbench, ref)).toMatchObject({ code: 'not-found' });
+    expect(deps.chooseSaveFile).not.toHaveBeenCalled();
+  });
+
+  it('relocating a key that has no pending copies shows no dialog', async () => {
+    expect(await call(CHANNELS.recoveryRelocate, workbench, { key: 'f'.repeat(32) })).toMatchObject({
+      ok: false,
+      code: 'not-found',
+    });
+    expect(deps.chooseFolder).not.toHaveBeenCalled();
+  });
+
+  it('a cancelled folder dialog changes nothing', async () => {
+    deps.chooseFolder = vi.fn(async () => null);
+    expect(await call(CHANNELS.recoveryRelocate, workbench, { key: KEY })).toEqual({
+      ok: true,
+      value: { status: 'cancelled' },
+    });
+    expect(deps.journal.retarget).not.toHaveBeenCalled();
+  });
+
+  it('confirming an unknown folder choice is refused', async () => {
+    const choiceId = '00000000-0000-4000-8000-000000000000';
+    expect(await call(CHANNELS.recoveryRelocateConfirm, workbench, { key: KEY, choiceId })).toMatchObject({
+      ok: false,
+      code: 'expired',
+    });
+    expect(deps.journal.retarget).not.toHaveBeenCalled();
+    expect(deps.projects.open).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a key that is a path', CHANNELS.recoveryReadPending, { key: 'C:/Users', bufferId: BUF }],
+    ['a buffer id that is a path', CHANNELS.recoveryDiscardPending, { key: KEY, bufferId: '../x' }],
+    ['a destination from the renderer', CHANNELS.recoverySavePendingAs, { ...ref, path: 'C:/x.html' }],
+    ['a folder from the renderer', CHANNELS.recoveryRelocate, { key: KEY, folder: 'C:/x' }],
+    ['a choice that is not an id', CHANNELS.recoveryRelocateConfirm, { key: KEY, choiceId: 'C:/x' }],
+    ['a missing buffer id', CHANNELS.recoveryReadPending, { key: KEY }],
+  ])('rejects %s', async (_name, channel, payload) => {
+    expect(await call(channel, workbench, payload)).toMatchObject({ ok: false, code: 'invalid-request' });
+    expect(deps.chooseFolder).not.toHaveBeenCalled();
+    expect(deps.chooseSaveFile).not.toHaveBeenCalled();
+    for (const fn of Object.values(deps.journal)) expect(fn).not.toHaveBeenCalled();
   });
 });

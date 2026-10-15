@@ -297,7 +297,19 @@ export class ProjectService {
    */
   async writeCopy(destination: string, request: WriteFileRequest): Promise<Result<SavedCopy, WriteFileError>> {
     if (!this.projects.has(request.projectId)) return err('unknown-project', 'project is not open');
-    const data = encodeText(request.text, request.bom);
+    return this.writeStandaloneCopy(destination, request.text, request.bom);
+  }
+
+  /**
+   * Decision 0033: "Save as…" of a crash copy whose project folder is missing. Like writeCopy, the destination comes
+   * from the native save dialog in main (which already asked before replacing a file); no project needs to be open.
+   */
+  async writeStandaloneCopy(
+    destination: string,
+    text: string,
+    bom: boolean,
+  ): Promise<Result<SavedCopy, WriteFileError>> {
+    const data = encodeText(text, bom);
     if (data.length > MAX_TEXT_FILE_BYTES) return err('too-large', `${data.length} bytes`);
     const target = path.resolve(destination);
     return this.serialized(target, async (): Promise<Result<SavedCopy, WriteFileError>> => {

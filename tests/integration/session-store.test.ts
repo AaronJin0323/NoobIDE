@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { SessionStore, decideRestore } from '../../src/main/session-store';
+import { SessionStore, blockingRecoveryCount, decideRestore } from '../../src/main/session-store';
 
 /** S13.4: session state in app data (path with Chinese characters and spaces); crash recovery takes precedence. */
 let tmp: string;
@@ -88,6 +88,33 @@ describe('restore decision (S13.4)', () => {
       kind: 'skip',
       reason: 'missing',
     });
+  });
+
+  it('copies of a moved or missing project folder do not hold back the restore (decision 0033)', async () => {
+    const other = path.join(tmp, '另一个 项目');
+    await mkdir(other);
+    const gone = path.join(tmp, '已移动 的 项目');
+    // Only the copies of the moved folder are pending: the last project reopens; the dialog still offers them.
+    expect(await blockingRecoveryCount([{ rootPath: gone }])).toBe(0);
+    expect(
+      await decideRestore({
+        enabled: true,
+        pendingRecovery: await blockingRecoveryCount([{ rootPath: gone }]),
+        lastProject: other,
+      }),
+    ).toEqual({ kind: 'open', rootPath: other });
+    // Copies of a folder that is still there keep precedence over the restore.
+    expect(await blockingRecoveryCount([{ rootPath: gone }, { rootPath: project }])).toBe(1);
+    expect(
+      await decideRestore({
+        enabled: true,
+        pendingRecovery: await blockingRecoveryCount([{ rootPath: gone }, { rootPath: project }]),
+        lastProject: other,
+      }),
+    ).toEqual({ kind: 'skip', reason: 'recovery-pending' });
+    // A file where the folder was is not the folder.
+    await writeFile(gone, 'not a folder');
+    expect(await blockingRecoveryCount([{ rootPath: gone }])).toBe(0);
   });
 
   it('flush resolves only once writes that were not awaited are on disk (quit drains the session)', async () => {

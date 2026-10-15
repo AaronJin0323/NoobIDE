@@ -53,6 +53,7 @@ export interface IpcDeps {
     | 'read'
     | 'write'
     | 'writeCopy'
+    | 'writeStandaloneCopy'
     | 'rootOf'
     | 'listDir'
     | 'createEntry'
@@ -162,7 +163,11 @@ export function registerIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: IpcDeps)
   });
   // S12: crash-recovery journal channels.
   // S07.3: projects reopened by crash recovery are watched too (passes the sender like openFolder).
-  registerRecoveryHandlers(handle, deps.projects, deps.journal, deps.projectOpened?.bind(deps));
+  // Decision 0033: copies of a moved project folder use the same native dialogs, shown by main.
+  registerRecoveryHandlers(handle, deps.projects, deps.journal, deps.projectOpened?.bind(deps), {
+    chooseFolder: (event) => deps.chooseFolder(event),
+    chooseSaveFile: (event, fileName) => deps.chooseSaveFile(event, fileName),
+  });
   // S20.2: create-project wizard; the new project is watched like one opened from the folder dialog.
   registerCreateProjectHandlers(handle, deps.projects, deps.create, deps.projectOpened?.bind(deps));
   // S21.3/S21.4: local history window.
