@@ -4,7 +4,8 @@
  *
  * - Script URLs on the preview origin become project-relative paths (decoded, so Chinese names and spaces survive).
  * - Scripts on other origins keep their URL in `data.scriptUrl`; they are not project files.
- * - Line/column 0 mean "unknown" and are dropped.
+ * - Line/column 0 mean "unknown" and are dropped. An error reported against an HTML page without a line (Chromium
+ *   does this for unresolvable module imports) gets no file: the mistake is not in the page.
  * - An opaque cross-origin error ("Script error." with no location, S16.6) gets the code
  *   `cross-origin-script-error` so the explanation can say why the location is unavailable.
  */
@@ -47,9 +48,25 @@ export function isOpaqueCrossOriginError(raw: RawPageError): boolean {
 export function projectPathFromUrl(url: string, previewOrigin: string): string | undefined {
   try {
     const u = new URL(url);
-    if (u.origin !== new URL(previewOrigin).origin) return undefined;
+    // blob:/filesystem: URLs report the page's origin but are not files on the server.
+    if (!/^https?:$/.test(u.protocol) || u.origin !== new URL(previewOrigin).origin) return undefined;
     const path = decodeURIComponent(u.pathname).replace(/^\/+/, '');
     return path || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Like projectPathFromUrl, but a directory URL ('/', 'pages/') names the page the server sends for it, its
+ * index.html — so inline <script> errors and requests made by the page are attributed to that file (S16.2, S16.4).
+ */
+export function projectFileFromUrl(url: string, previewOrigin: string): string | undefined {
+  try {
+    const u = new URL(url);
+    if (!/^https?:$/.test(u.protocol) || u.origin !== new URL(previewOrigin).origin) return undefined;
+    const path = decodeURIComponent(u.pathname).replace(/^\/+/, '');
+    return path === '' || path.endsWith('/') ? `${path}index.html` : path;
   } catch {
     return undefined;
   }
@@ -73,8 +90,12 @@ export function normalizePageError(raw: RawPageError, opts: NormalizeOptions): P
     raw.kind === 'unhandledrejection'
       ? 'unhandledrejection'
       : (raw.errorName ?? ERROR_NAME.exec(raw.message)?.[1] ?? 'Error');
-  const file = raw.filename ? projectPathFromUrl(raw.filename, opts.previewOrigin) : undefined;
-  const line = file && raw.lineno && raw.lineno > 0 ? raw.lineno : undefined;
+  const served = raw.filename ? projectFileFromUrl(raw.filename, opts.previewOrigin) : undefined;
+  const hasLine = raw.lineno !== undefined && raw.lineno > 0;
+  // Chromium reports some module errors (an import of a bare name like 'lodash') against the page, with no line.
+  // The mistake is in a module, not in the page, so no file is claimed rather than a misleading one.
+  const file = served && (hasLine || !/\.html?$/i.test(served)) ? served : undefined;
+  const line = file && hasLine ? raw.lineno : undefined;
   const column = line && raw.colno && raw.colno > 0 ? raw.colno : undefined;
   return {
     ...base,
@@ -82,6 +103,7 @@ export function normalizePageError(raw: RawPageError, opts: NormalizeOptions): P
     ...(file ? { file } : {}),
     ...(line ? { line } : {}),
     ...(column ? { column } : {}),
-    ...(raw.filename && !file ? { data: { scriptUrl: raw.filename } } : {}),
+    // Only scripts on other origins: their URL is the location the browser reported, outside the project.
+    ...(raw.filename && !served ? { data: { scriptUrl: raw.filename } } : {}),
   };
 }

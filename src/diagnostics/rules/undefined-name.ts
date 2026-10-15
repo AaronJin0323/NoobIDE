@@ -19,7 +19,8 @@ export const UNDEFINED_NAME_RULE_ID = 'undefined-name';
 const RUNTIME = new RegExp(`(?:^|[\\s:])(${IDENTIFIER}) is not defined\\b`, 'u');
 const STATIC = /Cannot find name '([^']+)'\.(?: Did you mean '([^']+)'\?)?/;
 
-function undefinedName(record: Parameters<Rule['explain']>[0]): { name: string; suggestion?: string } | null {
+/** The undefined name a record reports (and the language service's own suggestion), or null for other problems. */
+export function undefinedName(record: Parameters<Rule['explain']>[0]): { name: string; suggestion?: string } | null {
   if (record.source === 'static') {
     if (record.code !== '2304' && record.code !== '2552') return null;
     const m = STATIC.exec(record.originalMessage);

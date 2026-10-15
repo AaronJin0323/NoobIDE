@@ -251,6 +251,18 @@ export const zhCN = {
   'layout.resizeFiles': '调整文件面板的宽度',
   'layout.resizeEditor': '调整代码和预览的宽度比例',
   'session.restored': '已重新打开上次的项目，位置：',
+  'transfer.title': '这个项目换到另一个系统（Windows / macOS）时可能会出问题。NoobIDE 没有改动任何文件：',
+  'transfer.caseConflict':
+    '“{folder}”里的 {names} 只差大小写：在 Windows 和 macOS 上它们会变成同一个文件。请给其中一个换个名称。',
+  'transfer.unicodeConflict':
+    '“{folder}”里的 {names} 看起来一样，但用了不同的 Unicode 写法：macOS 会把它们当成同一个文件。请给其中一个换个名称。',
+  'transfer.decomposedName':
+    '“{path}”的名称用了分解形式的 Unicode 字符（常见于从 Mac 拷来的文件）：在 Windows 上输入的链接可能找不到它。重新输入一遍名称即可修复。',
+  'transfer.unportableName': '“{path}”的名称不能在 Windows 或 macOS 上使用。{reason}',
+  'transfer.mixedEol': '“{path}”混用了 CRLF 和 LF 两种换行符：编辑并保存后会统一成一种。',
+  'transfer.rootFolder': '项目文件夹',
+  'transfer.more': '还有 {n} 个问题没有列出。',
+  'transfer.truncated': '项目很大，只检查了一部分文件。',
   'files.setEntry': '设为入口页面',
   'entry.set': '已设为入口页面：',
   'entry.setDetail': '下次启动预览时会先打开它。设置保存在项目的 .noobide/project.json 里，删掉这个文件也不影响网页。',
@@ -293,6 +305,37 @@ export const zhCN = {
   'problems.original.code': '代码',
   'problems.original.firstSeen': '首次',
   'problems.original.lastSeen': '最近',
+  // --- S22.4 problem card / S22.5 one-click fix ---
+  'problems.card.source.static': '代码检查',
+  'problems.card.source.runtime': '运行时错误',
+  'problems.card.source.resource': '资源加载失败',
+  'problems.card.source.console': '控制台错误',
+  'problems.card.count': '×{n} 次',
+  'problems.fix.heading': '刚才的一键修改',
+  'problems.fix.applying': '正在把 {from} 改成 {to} 并保存……',
+  'problems.fix.notApplied.changed': '没有修改：{file} 第 {line} 行的代码已经变了，那里不再是 {from}。',
+  'problems.fix.notApplied.readOnly': '没有修改：{file} 是只读的。',
+  'problems.fix.notApplied.notOpen': '没有修改：打不开 {file}。',
+  'problems.fix.saveFailed': '已在编辑器里把 {from} 改成 {to}，但保存失败：{reason} 修改还在编辑器里，问题还没有解决。',
+  'problems.fix.unchecked':
+    '已把 {from} 改成 {to} 并保存，但没能重新检查（代码检查没有回应，或文件已经关闭）。所以还不能说问题已经解决，可以点“重新检查”再试。',
+  'problems.fix.checking': '已把 {from} 改成 {to} 并保存，正在重新检查……',
+  'problems.fix.awaitingRefresh':
+    '已把 {from} 改成 {to} 并保存，代码检查不再报告这个问题。还要等预览刷新后，确认页面运行时也不再出现。',
+  'problems.fix.stillReported':
+    '已把 {from} 改成 {to}，但重新检查后仍然报告这个问题。可以看看原始错误，或转到代码检查一下。',
+  'problems.fix.resolved.static': '已解决：{file} 第 {line} 行，重新检查后不再报告这个问题。',
+  'problems.fix.resolved.runtime': '已解决：{file} 第 {line} 行，重新检查和刷新预览后都没有再出现。',
+  'problems.fix.undoing': '正在撤销……',
+  'problems.fix.undone': '已撤销：{file} 第 {line} 行恢复为 {from}，并已保存。',
+  'problems.fix.undoFailed.changed': '无法撤销：那一处代码后来又改过了。可以在编辑器里按 {shortcut} 撤销。',
+  'problems.fix.undoFailed.save': '已撤销，但保存失败：{reason} 修改还在编辑器里。',
+  'problems.fix.undoHint': '在编辑器里也可以按 {shortcut} 撤销这次修改。',
+  'problems.fix.undo': '撤销这次修改',
+  'problems.fix.retrySave': '重新保存',
+  'problems.fix.recheck': '重新检查',
+  'problems.fix.clear': '清除',
+  // --- end S22.4 / S22.5 ---
   // --- end S17.2 ---
   // --- S17.3 console view ---
   'preview.console.filter': '显示',

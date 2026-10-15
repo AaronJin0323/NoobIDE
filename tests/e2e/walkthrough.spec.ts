@@ -259,6 +259,13 @@ test.describe('the PLAN §2 journey (S23.2) and the final task (S23.3)', () => {
     await expect(row).toContainText('找不到变量 userNmae');
     await row.getByTestId('problem-summary').click();
     await expect(row.getByTestId('problem-card')).toBeVisible();
+    // S22.4: the card the lesson describes — file and line, explanation, and the suggested checks.
+    await expect(row.getByTestId('problem-card-location')).toHaveText('script.js，第 12 行：');
+    await expect(row.getByTestId('problem-explanation')).toHaveText('这个名字可能拼错了，也可能还没有定义。');
+    await expect(row.getByTestId('problem-checks')).toContainText('检查它的拼写是否和定义时的 userName', {
+      timeout: 15_000,
+    });
+    await expect(row.getByTestId('problem-checks')).toContainText('如果这个变量还没有定义，先声明它。');
     await row.getByTestId('problem-show-original').click();
     await expect(row.getByTestId('problem-original-message')).toHaveText(
       "Cannot find name 'userNmae'. Did you mean 'userName'?",

@@ -194,6 +194,11 @@ export const zhCN = {
   'crossOrigin.check.crossorigin':
     '如果那个网站支持 CORS，也可以给 <script> 加上 crossorigin 属性，这样能看到错误详情。',
   'crossOrigin.check.console': '在控制台里看看同一时间有没有其他更具体的错误。',
+  'crossOrigin.external.title': '另一个网站的脚本报告了错误：{url}',
+  'crossOrigin.external.explanation':
+    '浏览器报告这个错误发生在从另一个网站加载的脚本里（{url}），不在你的项目文件中，所以 NoobIDE 无法带你跳到你代码中的某一行。页面自己只会收到“Script error.”：浏览器会隐藏其他网站脚本中错误的细节。',
+  'crossOrigin.external.check.calls':
+    '检查你自己的代码里在出错前使用这个库的那几行：传给它的值是否正确，页面是否已经准备好（例如元素是否已经存在）。',
 } as const satisfies Record<string, string>;
 
 export type DiagnosticsMessageKey = keyof typeof zhCN;

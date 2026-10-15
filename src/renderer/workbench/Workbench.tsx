@@ -46,9 +46,13 @@ import { useStaticProblems } from '../problems/useStaticProblems';
 // S17.1: runtime / resource problems (main's store when present, else the preview's events) and the panel view.
 import { useRuntimeProblems } from '../problems/useRuntimeProblems';
 import { buildView } from '../problems/problems-view';
-// S17.2: go to code + original error in the problem details.
-import { ProblemCard } from '../problems/ProblemCard';
-import { explain } from '../../diagnostics/rules';
+// S17.2 / S22.4: the problem card (go to code, original error, explanation and checks).
+import { ProblemDetails } from '../problems/ProblemDetails';
+// S22.5: one-click fix of a misspelled name.
+import { FixCard } from '../problems/FixCard';
+import { createFixHost } from '../problems/fix-host';
+import { useProblemFix } from '../problems/useProblemFix';
+import { usePreviewLoads } from '../problems/usePreviewLoads';
 import { requestReveal } from '../editor/editor-handle';
 // S23: onboarding walkthrough, final task and glossary
 import { useWalkthrough } from '../walkthrough/useWalkthrough';
@@ -72,6 +76,7 @@ import { isEntryPath } from '../../shared/project-config';
 import type { TreeEntry } from '../../shared/ipc/contract';
 import { EntryNotice, type EntryNoticeState } from './EntryNotice';
 import { SessionNotice } from './SessionNotice';
+import { TransferNotice } from './TransferNotice'; // S13.5
 import { useI18n } from '../i18n/I18nProvider';
 import { Splitter } from './Splitter';
 import { persistedLayout } from './layout';
@@ -374,8 +379,12 @@ export function Workbench() {
     );
   }, [bridge]);
 
-  const onChange = useCallback((uri: string, text: string) => {
-    const relPath = relPathOfUri(uri);
+  /**
+   * An edit of an open file's text, wherever it came from (typing in the editor, a history restore, a one-click fix
+   * applied to a background tab): the save pipeline gets the text, the recovery journal records it (S12) and a
+   * "changed on disk" notice is dismissed. The disk text going in during an S11 reload is not the user's edit.
+   */
+  const recordEdit = useCallback((relPath: string | undefined, text: string) => {
     const saver = saverOf(relPath);
     if (!relPath || !saver) return;
     if (reloading.current.has(relPath)) return; // S11: the disk text going in is not an edit of the user's
@@ -385,6 +394,7 @@ export function Workbench() {
     saver.edit(text);
     tabJournals.current.get(relPath)?.edited(saver.state.revision, () => saver.text); // S12
   }, []);
+  const onChange = useCallback((uri: string, text: string) => recordEdit(relPathOfUri(uri), text), [recordEdit]);
 
   // --- S11: external changes (watcher → re-read → compare hashes → reload / conflict / deleted) ---
   /** Puts a disk version into a tab's buffer: the model (one undoable edit, cursor kept), the saver and the tab. */
@@ -624,13 +634,14 @@ export function Workbench() {
       if (!kept.ok || !same() || saver !== saverOf(relPath)) return 'failed';
       // 3. The version becomes the editor content as one undoable edit, then goes through the save pipeline.
       const applied = await import('../editor/editor-models').then((m) => m.replaceModelText(tab.uri, text));
-      if (applied === null) return 'failed';
-      if (saver.text !== applied) saver.edit(applied);
+      if (applied === null || saver !== saverOf(relPath)) return 'failed';
+      // The editor reports the edit only for the model it shows; a background tab's edit is recorded here (journal).
+      if (saver.text !== applied) recordEdit(relPath, applied);
       if (!(await saver.save())) return 'save-failed';
       walkthroughRef.current.historyRestored(); // S23: the "recover" step
       return 'restored';
     },
-    [bridge, openFile],
+    [bridge, openFile, recordEdit],
   );
   // The history window belongs to one project: it closes when the project changes.
   const historyProjectId = doc.project?.projectId;
@@ -678,6 +689,38 @@ export function Workbench() {
     if (pendingGoTo && doc.docError?.relPath === pendingGoTo.file) setPendingGoTo(null);
   }, [pendingGoTo, doc.docError]);
   // --- end S17.2 ---
+
+  // --- S22.4/S22.5: problem card explained with the facts of its location; one-click fix of a misspelled name, as
+  // an ordinary editor edit saved through the file's own save pipeline (problems/fix-host.ts). ---
+  const fixHost = useMemo(
+    () =>
+      createFixHost({
+        async showFile(relPath) {
+          const project = docRef.current.project;
+          if (!project) return null;
+          await openFile(relPath);
+          if (docRef.current.project?.projectId !== project.projectId) return null;
+          dispatch({ type: 'activate', relPath });
+          const tab = await eventually(() => docRef.current.tabs.find((open) => open.relPath === relPath));
+          return tab ? { uri: tab.uri, readOnly: Boolean(tab.content.readOnly) } : null;
+        },
+        saverOf: (relPath) => saverOf(relPath),
+        recordEdit,
+        uriOf: (relPath) => docRef.current.tabs.find((tab) => tab.relPath === relPath)?.uri,
+        savedFiles: savedFiles.current,
+      }),
+    [openFile, recordEdit],
+  );
+  const previewLoads = usePreviewLoads(bridge);
+  const problemFix = useProblemFix(fixHost, runtimeProblems.records, previewLoads);
+  // A fix belongs to its project: another project starts without one.
+  const clearFix = problemFix.clear;
+  useEffect(() => clearFix(), [doc.project?.projectId, clearFix]);
+  const uriOfFile = useCallback(
+    (relPath: string) => docRef.current.tabs.find((tab) => tab.relPath === relPath)?.uri,
+    [],
+  );
+  // --- end S22.4/S22.5 ---
 
   // Closing the window or quitting: main asks first; we answer after every file is saved (S10.6).
   useEffect(() => {
@@ -957,7 +1000,20 @@ export function Workbench() {
         projectOpen={project !== null}
         view={problemsView}
         onClearResolved={runtimeProblems.clearResolved}
-        renderDetails={(record) => <ProblemCard record={record} explanation={explain(record)} onGoTo={goTo} />}
+        renderDetails={(record) => (
+          <ProblemDetails
+            record={record}
+            uriOf={uriOfFile}
+            onGoTo={goTo}
+            onFix={problemFix.apply}
+            fixBusy={problemFix.fix?.phase === 'applying' || problemFix.fix?.phase === 'undoing'}
+          />
+        )}
+        fixCard={
+          problemFix.fix && (
+            <FixCard fix={problemFix.fix} serial={problemFix.serial} actions={problemFix} onGoTo={goTo} />
+          )
+        }
       />
       {/* S13.1: the settings file was unusable and was backed up */}
       {settingsNotice && <SettingsNotice snapshot={settingsNotice} onDismiss={() => setSettingsNotice(null)} />}
@@ -965,6 +1021,8 @@ export function Workbench() {
       {restoredFrom && project?.rootPath === restoredFrom && (
         <SessionNotice rootPath={restoredFrom} onDismiss={() => setRestoredFrom(null)} />
       )}
+      {/* S13.5: what would break on the other system (report only, nothing is renamed) */}
+      <TransferNotice api={bridge?.portability} projectId={project?.projectId ?? null} />
       {/* S12: crash-recovery prompt and journal health */}
       <RecoveryDialog
         bridge={bridge}

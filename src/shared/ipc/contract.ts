@@ -16,6 +16,7 @@ import type { RecoveryApi } from './recovery-contract';
 // S13 app data (settings, recent projects, session, logs): types and parsers in app-data-contract.ts.
 import type {
   LogsApi,
+  PortabilityApi,
   ProjectConfigApi,
   ProjectLifecycleApi,
   RecentProjectsApi,
@@ -26,6 +27,7 @@ import type { CreateProjectApi } from './create-contract'; // S20.2
 import type { HistoryApi } from './history-contract'; // S21.3/S21.4
 import type { CommandsApi } from './commands-contract'; // S24.2
 import type { WalkthroughApi } from './walkthrough-contract'; // S23
+import type { ProblemsApi } from './problems-contract'; // S16.2
 
 export const IPC_API_VERSION = 1;
 
@@ -398,6 +400,8 @@ export interface NoobideApi {
   readonly lifecycle?: ProjectLifecycleApi;
   /** S13.4: session restore (last project, its tabs, layout sizes). */
   readonly session?: SessionApi;
+  /** S13.5: cross-platform transfer check of the open project (report only). */
+  readonly portability?: PortabilityApi;
   // --- end S13 ---
   /** S20.2: create-project wizard (create-contract.ts). */
   readonly createProject: CreateProjectApi;
@@ -407,6 +411,8 @@ export interface NoobideApi {
   readonly commands?: CommandsApi;
   /** S23: onboarding walkthrough progress in app data (walkthrough-contract.ts). */
   readonly walkthrough?: WalkthroughApi;
+  /** S16.2: runtime, console and resource problems of the preview (problems-contract.ts). */
+  readonly problems?: ProblemsApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */

@@ -20,6 +20,8 @@ import {
 import { parseSettingsPatch } from '../shared/settings';
 import { isTrustedSender, senderInfo } from './ipc';
 import type { SettingsStore } from './settings-store';
+import { scanPortability } from '../workspace/portability-scan';
+import type { PortabilityReport } from '../shared/portability';
 
 /**
  * IPC handlers of the S13 app-data channels (app-data-contract.ts). Same checks as ipc.ts, in the same order: the
@@ -44,6 +46,8 @@ export interface AppDataIpcDeps {
   /** Number of crash-recovery records waiting (crash recovery takes precedence over session restore). */
   pendingRecovery(): Promise<number>;
   restoreEnabled(): Promise<boolean>;
+  /** S13.5: the read-only portability scan (tests inject one; default src/workspace/portability-scan). */
+  scanPortability?(root: string): Promise<PortabilityReport>;
 }
 
 type Run<P> = (payload: P, event: IpcMainInvokeEvent) => Promise<IpcResult<unknown, string>>;
@@ -159,5 +163,16 @@ export function registerAppDataIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: A
     const { entry: _old, ...rest } = current;
     // writeProjectConfig refuses to replace a file it cannot read (invalid or newer), so nothing is lost.
     return toIpcResult(await writeProjectConfig(root, entry === null ? rest : { ...rest, entry }));
+  });
+
+  // ── S13.5 cross-platform project transfer: report only, nothing on disk changes ──
+  handle(APP_DATA_CHANNELS.portabilityCheck, parseProjectRequest, async ({ projectId }) => {
+    const root = deps.projects.rootOf(projectId);
+    if (root === undefined) return UNKNOWN_PROJECT;
+    try {
+      return { ok: true, value: await (deps.scanPortability ?? scanPortability)(root) };
+    } catch {
+      return { ok: false, code: 'scan-failed', message: 'project folder could not be read' };
+    }
   });
 }

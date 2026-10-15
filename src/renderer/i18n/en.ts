@@ -266,6 +266,19 @@ export const en: Record<MessageKey, string> = {
   'layout.resizeFiles': 'Resize the files panel',
   'layout.resizeEditor': 'Resize code and preview',
   'session.restored': 'Reopened your last project. Location:',
+  'transfer.title':
+    'This project may run into problems on the other system (Windows / macOS). NoobIDE has not changed any file:',
+  'transfer.caseConflict':
+    'In "{folder}", {names} differ only in letter case: on Windows and macOS they become one file. Rename one of them.',
+  'transfer.unicodeConflict':
+    'In "{folder}", {names} look the same but are written with different Unicode forms: macOS treats them as one file. Rename one of them.',
+  'transfer.decomposedName':
+    'The name "{path}" uses decomposed Unicode characters (common for files copied from a Mac): a link typed on Windows may not find it. Typing the name again fixes it.',
+  'transfer.unportableName': 'The name "{path}" cannot be used on Windows or macOS. {reason}',
+  'transfer.mixedEol': '"{path}" mixes CRLF and LF line breaks: after you edit and save it, they become one kind.',
+  'transfer.rootFolder': 'the project folder',
+  'transfer.more': '{n} more not listed.',
+  'transfer.truncated': 'The project is large; only part of it was checked.',
   'files.setEntry': 'Set as entry page',
   'entry.set': 'Entry page set:',
   'entry.setDetail':
@@ -309,6 +322,41 @@ export const en: Record<MessageKey, string> = {
   'problems.original.code': 'Code',
   'problems.original.firstSeen': 'First',
   'problems.original.lastSeen': 'Latest',
+  // --- S22.4 problem card / S22.5 one-click fix ---
+  'problems.card.source.static': 'Code check',
+  'problems.card.source.runtime': 'Runtime error',
+  'problems.card.source.resource': 'Loading failed',
+  'problems.card.source.console': 'Console error',
+  'problems.card.count': '×{n} times',
+  'problems.fix.heading': 'Your one-click fix',
+  'problems.fix.applying': 'Changing {from} to {to} and saving…',
+  'problems.fix.notApplied.changed':
+    'Nothing was changed: line {line} of {file} has changed and no longer reads {from}.',
+  'problems.fix.notApplied.readOnly': 'Nothing was changed: {file} is read-only.',
+  'problems.fix.notApplied.notOpen': 'Nothing was changed: {file} could not be opened.',
+  'problems.fix.saveFailed':
+    'Changed {from} to {to} in the editor, but saving failed: {reason} The change is kept in the editor; the problem is not resolved yet.',
+  'problems.fix.unchecked':
+    'Changed {from} to {to} and saved, but could not check again (the code check did not answer, or the file was closed). So it cannot be called resolved yet; use Check again to retry.',
+  'problems.fix.checking': 'Changed {from} to {to} and saved. Checking again…',
+  'problems.fix.awaitingRefresh':
+    'Changed {from} to {to} and saved; the code check no longer reports this problem. Waiting for the preview to refresh to confirm the page no longer reports it either.',
+  'problems.fix.stillReported':
+    'Changed {from} to {to}, but checking again still reports this problem. Look at the original error, or go to the code.',
+  'problems.fix.resolved.static': 'Resolved: {file} line {line} — checking again no longer reports this problem.',
+  'problems.fix.resolved.runtime':
+    'Resolved: {file} line {line} — not reported again after checking again and refreshing the preview.',
+  'problems.fix.undoing': 'Undoing…',
+  'problems.fix.undone': 'Undone: {file} line {line} reads {from} again, and it is saved.',
+  'problems.fix.undoFailed.changed':
+    'Cannot undo: that part of the code has changed since. You can undo in the editor with {shortcut}.',
+  'problems.fix.undoFailed.save': 'Undone, but saving failed: {reason} The text is kept in the editor.',
+  'problems.fix.undoHint': 'You can also undo this change in the editor with {shortcut}.',
+  'problems.fix.undo': 'Undo this change',
+  'problems.fix.retrySave': 'Save again',
+  'problems.fix.recheck': 'Check again',
+  'problems.fix.clear': 'Clear',
+  // --- end S22.4 / S22.5 ---
   // --- end S17.2 ---
   // --- S17.3 console view ---
   'preview.console.filter': 'Show',

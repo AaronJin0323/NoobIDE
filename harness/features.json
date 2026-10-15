@@ -911,8 +911,8 @@
       "depends_on": [
         "H.5"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": ".github/workflows/ci.yml: matrix windows-latest x64 + macos-14 arm64, arch assert, npm ci, verify, test:e2e, make, inspect-arch, upload out/make; actions SHA-pinned (checkout v7.0.1, setup-node v7.1.0, upload-artifact v7.0.2), permissions contents: read; tests/integration/ci-workflow.test.ts (8 tests). macOS job commands run on Apple Silicon M3 Pro / macOS 27.2: npm ci from the committed lockfile in a clean dir OK, verify green, test:e2e 181 passed/2 skipped, make -> dmg+zip, inspect-arch passed. ADR 0021. Actions run (H.5) pending: harness/MANUAL-CHECKS.md#S06.1"
     },
     {
       "id": "S06.2",
@@ -927,8 +927,8 @@
       "depends_on": [
         "S06.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "scripts/inspect-arch.mjs (pure Node Mach-O thin/fat/fat64 + PE COFF parsing; ADR 0021) + tests/integration/inspect-arch.test.ts (13 tests, synthetic headers); real run on out/NoobIDE-darwin-arm64 after npm run make on Apple Silicon M3 Pro: 13 Mach-O all arm64, 0 errors (matches file(1)); wired as CI step after make in .github/workflows/ci.yml. 'Runs in CI' and the Windows x64 PE run need the Actions run: harness/MANUAL-CHECKS.md#S06.1 / S06.2"
     },
     {
       "id": "S06.3",
@@ -943,8 +943,8 @@
       "depends_on": [
         "S06.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "agent pre-check on physical M3 Pro, macOS 27.2: DMG hdiutil verify VALID, mounted + app copied (scratch, not /Applications), installed copy 13 Mach-O all arm64, launched: 4 processes none Rosetta-translated (P_TRANSLATED flag clear); e2e Chinese-path save (S03.3/S03.4) and endless-loop (S05.1) pass on the packaged arm64 app. Activity Monitor + hand checks in the installed app: harness/MANUAL-CHECKS.md#S06.3"
     },
     {
       "id": "S06.4",
@@ -1460,8 +1460,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Fixture tests/fixtures/跨平台 迁移 (LF page, CRLF css, mixed CRLF/LF js, NFC Unicode name; crlf-* keep bytes). Detector src/shared/portability.test.ts (6 tests, injected listings: case conflicts, NFC/NFD twins, decomposed names, Windows-invalid/reserved/trailing-dot/too-long names, input never changed); tests/integration/portability.test.ts (3 tests: hazards the volume accepts are generated at test time - on macOS APFS (case/normalisation-insensitive) the ?, CON, trailing-dot and NFD names; every issue reported; tree snapshot of raw name bytes + size + mtime + sha256 identical before/after scan + ProjectService.open + listDir: nothing renamed); IPC src/main/app-data-ipc.test.ts (3 tests: projectId only, sender/payload/unknown project); notice text src/renderer/workbench/transfer-notice.test.ts (zh-CN+en for every kind); e2e tests/e2e/portability.spec.ts: opening the project shows the non-blocking transfer notice listing crlf-mixed.js and the generated names, tree intact, snapshot unchanged after the app closes. Decision 0022. verify green + full e2e 182 passed/2 skipped macOS arm64 @ b2885d8"
     },
     {
       "id": "S13.6",
@@ -1491,8 +1491,8 @@
         "S13.4",
         "S13.5"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/reviews/G2.md @ 3d564bd: every M2 exit criterion (forced-termination recovery, failed saves keep edits, cross-platform transfer, review) with macOS arm64 evidence at this commit (verify green, full e2e 182 passed, 2 skipped) and Windows x64 evidence from earlier commits, marked as not re-run. Verdict: conditional pass pending a Windows verify and e2e of the merged HEAD (S13.5 never run on Windows), the S09.4/S09.5 IME manual checks and a physical Mac to Windows transfer. Re-estimate included."
     },
     {
       "id": "S14.1",
@@ -1699,8 +1699,8 @@
       "depends_on": [
         "S16.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/diagnostics/runtime-capture.ts (RuntimeCapture) wired in main by src/main/problems-bridge.ts (PreviewManager capture hook) and read via window.noobide.problems (problems-contract.ts, sender-checked). Unit: runtime-capture.test.ts (all record kinds, inline <script> -> index.html, bare import claims no file), problems-bridge.test.ts (8). e2e tests/e2e/runtime-problems.spec.ts on fixture '预览 运行时' under a Chinese+space path: SyntaxError 脚本/语法 错误.js:2, TypeError 脚本/同步 异常.js:3, unhandledrejection 脚本/未处理 拒绝.js:3, inline ReferenceError index.html:21, console error/warning 脚本/控制台.js:2/3 (console.log ignored), missing export 脚本/模块 入口.js:2, missing module 404 with initiator 脚本/模块 缺失.js; Problems panel badges fed by the bridge. verify green, full e2e 187 passed @ 5a2a22b (+merge main)"
     },
     {
       "id": "S16.3",
@@ -1715,8 +1715,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "RuntimeCapture: new session per Start, new generation per committed main-frame navigation (did-navigate); old-page events during a pending load stay in the old generation, only the mainFrame request goes to the pending one; records whose latest occurrence is not in the current session+generation are stale; clearResolved removes them. Unit runtime-capture.test.ts (4 S16.3 tests incl. late events); e2e runtime-problems.spec.ts: fix a file on disk + Refresh -> generation 2, the fixed TypeError stale (count 1, gen 1), the repeated SyntaxError not stale (count 2, first gen 1, last gen 2), clearResolved removes exactly the stale ones. Decision 0017. verify + full e2e green @ 5a2a22b"
     },
     {
       "id": "S16.4",
@@ -1731,8 +1731,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Network records carry the request referrer as initiator (preview-manager webRequest) -> resource.initiatorFile (directory URL -> its index.html), requestedPath, status / netError, resourceType. e2e runtime-problems.spec.ts: 图片/不存在 的图.png 404 initiator index.html; 图片/背景 缺失.png initiator 样式/主 样式.css; 数据/缺失 的数据.json fetch initiator index.html; 脚本/不存在 的模块.js initiator 脚本/模块 缺失.js; https://noobide-e2e.invalid image -> net::ERR_* with no status/path. Unit runtime-capture.test.ts (2). @ 5a2a22b"
     },
     {
       "id": "S16.5",
@@ -1747,8 +1747,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "blocked",
-      "evidence": "Store logic done @ 825eb96: src/diagnostics/store.ts + store.test.ts (8 tests: dedupe with counts keeping first original + latest verbatim, token-bucket rate limit with per-source dropped counts, per-source LRU ring buffer with eviction counts, 20k console flood cannot evict runtime errors, 100k events < 2s). Cannot be set done: depends on S16.2 (runtime capture adapter, todo). Unblocks when S16.2 feeds captured events into ProblemStore; then add an integration test with a real flooding page and mark done."
+      "status": "done",
+      "evidence": "ProblemStore now rate-limits per source (console flood cannot starve runtime errors; store.test.ts new test) + per-source LRU ring buffer + dedupe with counts keeping first original and latest repeat. e2e runtime-problems.spec.ts with real flooding page '预览 错误洪水' (3000 distinct console errors + 3000 repeats + an uncaught error): 309 console records kept, 2692 dropped and counted, the repeat is one record with count>1 and verbatim original/last, the ReferenceError after the flood kept (runtime dropped 0), workbench list bounded. Unit runtime-capture.test.ts flood (20k, eviction counted). @ 5a2a22b"
     },
     {
       "id": "S16.6",
@@ -1763,8 +1763,8 @@
       "depends_on": [
         "S16.2"
       ],
-      "status": "blocked",
-      "evidence": "Pure logic done @ 06f686b: src/diagnostics/normalize.ts (isOpaqueCrossOriginError, normalizePageError → code cross-origin-script-error with no file/line) + rules/cross-origin.ts (explains the browser hides cross-origin error details so no file/line can be shown, lists external <script> URLs, checks: bundle the library locally / crossorigin attribute); normalize.test.ts (7 tests, zh-CN+en, honesty). Cannot be done: depends on S16.2 (runtime capture adapter, todo) and the criterion needs a real opaque error from a cross-origin script in the sandboxed preview. Unblocks when S16.2 calls normalizePageError; then add an e2e/integration test loading a script from a second loopback origin that throws."
+      "status": "done",
+      "evidence": "Real cross-origin error in the sandboxed preview: e2e runtime-problems.spec.ts serves https://cdn.noobide-e2e.example/外部 库.js via protocol.handle on the preview partition (no network); the page's own window.onerror sees only 'Script error.', NoobIDE's record keeps 'Uncaught Error: 外部库出错', no file/line, data.scriptUrl; the panel titles it '另一个网站的脚本报告了错误：…' with Show original and no Go to code. rules/cross-origin.ts: certain 'external' variant (zh-CN + en messages, honesty checks) beside the opaque 'Script error.' variant; fixtures.ts + runtime-capture.test.ts. @ 5a2a22b"
     },
     {
       "id": "S17.1",
@@ -2087,8 +2087,8 @@
       "depends_on": [
         "S22.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/problems/ProblemCard.tsx (source tag, file+line, title, explanation, possible causes, checks, Go to code, Show original; zh-CN+en), ProblemDetails.tsx + rule-context-monaco.ts + declared-names.ts (did-you-mean gets the reported line and names declared in scope from the JS language service, so the card shows the PLAN §9 check 'userName（第 2 行）'). Unit: problem-card.test.ts (PLAN §9 example zh-CN/en, original verbatim, labelled group, causes for 3b), declared-names.test.ts. e2e: tests/e2e/problem-card.spec.ts test 1 (zh-CN + en card on a Chinese+spaces path) and walkthrough.spec.ts deliberate-error step now asserts location, explanation and suggested checks on the card (lesson text unchanged). verify + full e2e (188 passed) green on macOS arm64 @ f72596b"
     },
     {
       "id": "S22.5",
@@ -2108,8 +2108,8 @@
         "S22.2",
         "S22.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Original: fix-model/fix-host/useProblemFix/FixCard + problem-card.spec.ts @ f72596b. Review fixes @ 2e031d8: (1) Workbench recordEdit (saver + recovery journal + disk-notice dismissal) used by fix-host and S21.3 restoreVersion so edits of a model the editor does not show are journaled — fix-host.test 'records the edit for the recovery journal…' + e2e problem-card.spec.ts 'background tab… save fails is journaled and survives a forced kill' (chmod 444, journal record holds the fix, SIGKILL, relaunch offers it with diff; note: on this machine the e2e passes also without the fix because the editor won the switch race — the unit test pins the contract); (2) holdsIdentifier boundary check in replaceSpan/undoSpan (fix-model.test, fix-host.test 'part of a longer name'); (3) saver/URI identity re-checked after every await (fix-host.test 'no longer the tab'); (4) 'unchecked' phase, zh-CN+en, Check again (fix-model.test, fix-card.test); (5) page problems need a preview load started after the save and completed (usePreviewLoads + preview-loads.test, fix-model.test). verify + full e2e (190 passed, 2 skipped) green on macOS arm64."
     },
     {
       "id": "S23.1",

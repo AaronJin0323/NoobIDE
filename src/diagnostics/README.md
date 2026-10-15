@@ -11,6 +11,10 @@ Pure TypeScript, no Electron/DOM imports (usable from main, renderer and tests):
   limit for new records, per-source LRU capacity, dropped/evicted counters, `revision` for throttled redraws (S16.5).
 - `normalize.ts` — page error → `ProblemInput` (preview URL → project path, opaque cross-origin "Script error."
   detection). For the capture adapter (S16.2).
+- `runtime-capture.ts` — the runtime capture adapter (S16.2–S16.6, decision 0017): raw preview records →
+  ProblemRecords in a bounded store, attributed to preview session + generation (a new generation per committed
+  page load; records not seen since are `stale`), coalesced change notifications. Wired in main by
+  `src/main/problems-bridge.ts`, read by the workbench through `window.noobide.problems`.
 - `rules/` — explanation engine (`engine.ts`), built-in rules in priority order (`index.ts` → `DEFAULT_RULES`,
   `explain`, `explainRecord`), fixtures per rule (`fixtures.ts`) and machine-checked honesty rules (`honesty.ts`):
   uncertain causes are worded as possibilities in every locale, "Show original error" is always offered.
