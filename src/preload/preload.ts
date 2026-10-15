@@ -81,6 +81,11 @@ const api: NoobideApi = {
     read: (request) => ipcRenderer.invoke(CHANNELS.recoveryRead, request),
     discard: (request) => ipcRenderer.invoke(CHANNELS.recoveryDiscard, request),
     clear: () => ipcRenderer.invoke(CHANNELS.recoveryClear),
+    readPending: (request) => ipcRenderer.invoke(CHANNELS.recoveryReadPending, request),
+    discardPending: (request) => ipcRenderer.invoke(CHANNELS.recoveryDiscardPending, request),
+    savePendingAs: (request) => ipcRenderer.invoke(CHANNELS.recoverySavePendingAs, request),
+    relocate: (request) => ipcRenderer.invoke(CHANNELS.recoveryRelocate, request),
+    relocateConfirm: (request) => ipcRenderer.invoke(CHANNELS.recoveryRelocateConfirm, request),
   },
   // --- end S12 ---
   // --- S13 app data ---

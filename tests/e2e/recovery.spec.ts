@@ -1,8 +1,9 @@
-import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, repoRoot, tempRoot } from './launch';
 import { DOC_END } from './keys';
+import { answerFolderDialog, answerSaveDialog } from './project';
 
 /**
  * S12.1–S12.3 end to end: unsaved edits are journaled to app data within 2 s, survive a forced termination of the
@@ -297,6 +298,109 @@ test('"decide later" keeps the copy; the clear-data control removes it (S12.3)',
 
   await start();
   await expect(page.getByTestId('recovery-dialog')).toHaveCount(0);
+  await stop();
+});
+
+/**
+ * Moves the project folder like a user in Explorer / Finder would between runs. Right after a forced termination a
+ * helper process or the OS indexer can hold the folder for a moment (EPERM/EBUSY on Windows), so the move is retried.
+ */
+async function moveProject(to: string) {
+  await mkdir(path.dirname(to), { recursive: true });
+  await expect
+    .poll(
+      () =>
+        rename(root, to).then(
+          () => true,
+          () => false,
+        ),
+      { timeout: 15_000, intervals: [250] },
+    )
+    .toBe(true);
+  root = to;
+}
+
+test('copies of a moved project folder can be read, saved elsewhere and discarded (decision 0033)', async () => {
+  await start();
+  await openProjectAndFile('index.html');
+  await readOnly('index.html');
+  await typeAtEnd('移动之前没保存的一行');
+  await journaled(1);
+  await page.getByTestId('file-tree').locator('[data-path="script.js"]').click();
+  await expect(selectedTab()).toHaveText('script.js');
+  await readOnly('script.js');
+  await typeAtEnd('另一份没保存的修改');
+  await journaled(2);
+  await kill();
+  await writable('index.html');
+  await writable('script.js');
+  const oldRoot = root;
+  await moveProject(path.join(tmp, '移动 之后', '中文 路径 项目'));
+  const backup = path.join(tmp, '备份 文件夹');
+  await mkdir(backup, { recursive: true });
+
+  await start();
+  const dialog = page.getByTestId('recovery-dialog');
+  await expect(dialog.getByTestId('recovery-project')).toContainText(path.basename(path.dirname(oldRoot)));
+  await dialog.getByTestId('recovery-review').click();
+  // The folder is gone from its old place: the copies are shown read-only instead of an error with no way out.
+  const orphan = dialog.getByTestId('recovery-orphan');
+  await expect(orphan).toBeVisible();
+  await expect(dialog.getByTestId('recovery-error')).toContainText('找不到这个项目文件夹');
+  await orphan.getByRole('tab', { name: 'script.js' }).click();
+  await expect(orphan.getByTestId('recovery-orphan-text')).toContainText('另一份没保存的修改');
+
+  // Save as…: main shows the native save dialog (faked here) and writes the file; the copy is no longer needed.
+  await answerSaveDialog(app as ElectronApplication, path.join(backup, '找回的 script.js'));
+  await orphan.getByTestId('recovery-save-as').click();
+  await expect(dialog.getByTestId('recovery-notice')).toContainText(path.join(backup, '找回的 script.js'));
+  expect(await readFile(path.join(backup, '找回的 script.js'), 'utf8')).toContain('另一份没保存的修改');
+  await expect.poll(journalRecords).toHaveLength(1);
+
+  // The other copy: read it, then discard it (with a confirmation).
+  await expect(orphan.getByRole('tab')).toHaveCount(1);
+  await expect(orphan.getByTestId('recovery-orphan-text')).toContainText('移动之前没保存的一行');
+  await orphan.getByTestId('recovery-discard').click();
+  await orphan.getByTestId('recovery-discard-confirm').click();
+  await expect.poll(journalRecords).toHaveLength(0);
+  await dialog.getByTestId('recovery-close').click();
+  await expect(dialog).toHaveCount(0);
+  // The moved project itself was never written.
+  expect(await readFile(path.join(root, 'script.js'), 'utf8')).not.toContain('另一份没保存的修改');
+  await stop();
+});
+
+test('pointing at the folder’s new location brings back the normal review and restore (decision 0033)', async () => {
+  await start();
+  await openProjectAndFile('style.css');
+  await readOnly('style.css');
+  await typeAtEnd('改名之前没保存');
+  await journaled(1);
+  await kill();
+  await writable('style.css');
+  const onDisk = await readFile(path.join(root, 'style.css'), 'utf8');
+  await moveProject(path.join(tmp, 'D 盘 换了', '中文 路径 项目'));
+
+  await start();
+  const dialog = page.getByTestId('recovery-dialog');
+  await dialog.getByTestId('recovery-review').click();
+  await expect(dialog.getByTestId('recovery-orphan')).toBeVisible();
+  await answerFolderDialog(app as ElectronApplication, root);
+  await dialog.getByTestId('recovery-relocate').click();
+  // The folder holds every recovered file: the project opens and the usual diff against the disk is shown.
+  await expect(page.getByTestId('project-name')).toHaveText('中文 路径 项目');
+  const diff = dialog.getByTestId('recovery-diff');
+  await expect(diff.locator('[data-kind="added"]')).toContainText('改名之前没保存');
+  await dialog.getByTestId('recovery-restore').click();
+  await expect(dialog).toHaveCount(0);
+  await expect(selectedTab()).toHaveText('style.css');
+  await expect(editorText()).toContainText('改名之前没保存');
+  await expect(status()).toHaveText('未保存');
+  expect(await readFile(path.join(root, 'style.css'), 'utf8')).toBe(onDisk);
+  await page.keyboard.press('ControlOrMeta+S');
+  await expect(status()).toHaveText('已保存');
+  expect(await readFile(path.join(root, 'style.css'), 'utf8')).toContain('改名之前没保存');
+  await expect.poll(journalRecords, { timeout: 5000 }).toHaveLength(0);
   await stop();
 });
 

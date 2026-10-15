@@ -59,6 +59,12 @@ export const CHANNELS = {
   recoveryRead: 'recovery:read',
   recoveryDiscard: 'recovery:discard',
   recoveryClear: 'recovery:clear',
+  // Decision 0033: copies of a project whose folder moved or is missing (no open project needed).
+  recoveryReadPending: 'recovery:read-pending',
+  recoveryDiscardPending: 'recovery:discard-pending',
+  recoverySavePendingAs: 'recovery:save-pending-as',
+  recoveryRelocate: 'recovery:relocate',
+  recoveryRelocateConfirm: 'recovery:relocate-confirm',
   // --- end S12 ---
   // --- S20.2 create-project wizard (types and parsers: create-contract.ts) ---
   createProjectOptions: 'workspace:create-project-options',

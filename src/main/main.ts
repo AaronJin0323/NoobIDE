@@ -58,7 +58,7 @@ import { appDataPath } from './app-data-layout'; // S28.4: one list of app-data 
 // S23 onboarding walkthrough progress (app data)
 import { WalkthroughStore } from './walkthrough-store';
 import { registerWalkthroughIpcHandlers } from './walkthrough-ipc';
-import { SessionStore } from './session-store';
+import { SessionStore, blockingRecoveryCount } from './session-store';
 import type { WebContents } from 'electron';
 import { resolveTemplatesDir } from '../workspace/templates'; // S20.2
 import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
@@ -459,7 +459,8 @@ function start(): void {
       projectOpened,
       projectClosed,
       session: sessionStore,
-      pendingRecovery: async () => (await journal.listPending()).length,
+      // Decision 0033: copies of a moved or missing project folder do not hold back the restore of another project.
+      pendingRecovery: async () => blockingRecoveryCount(await journal.listPending()),
       restoreEnabled: async () => (await settings.snapshot()).settings.restoreSession,
     });
     // --- end S13 ---

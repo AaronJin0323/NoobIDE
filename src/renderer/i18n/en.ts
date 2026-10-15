@@ -237,6 +237,24 @@ export const en: Record<MessageKey, string> = {
   'recovery.restoreFailed': 'This file could not be restored. The recovery copy is still kept.',
   'recovery.discardConfirm': 'Discard now? These changes cannot be brought back',
   'recovery.recoveredText': 'Content of the recovery copy',
+  // Decision 0033: copies of a project folder that was moved, renamed or is on a disconnected drive.
+  'recovery.folderMissing':
+    'The project folder is no longer at its old location. It may have been moved or renamed, or its drive is not connected. You can still read, copy or save the unsaved changes below.',
+  'recovery.oldLocation': 'Old location: {path}',
+  'recovery.relocate': 'Choose the folder’s new location…',
+  'recovery.relocateMissing': 'These files are not in “{folder}”. Use this folder anyway?',
+  'recovery.relocateConfirm': 'Use this folder anyway',
+  'recovery.relocateFailed': 'This folder could not be used. The recovery copies are still kept.',
+  'recovery.relocateExpired': 'Please choose the folder again.',
+  'recovery.readOnlyText': 'Read-only view of the unsaved changes',
+  'recovery.copy': 'Copy text',
+  'recovery.copied': 'Copied. You can paste it anywhere.',
+  'recovery.copyFailed': 'Could not copy. Select the text and copy it yourself.',
+  'recovery.saveAs': 'Save as…',
+  'recovery.savedAs': 'Saved to {path}. That recovery copy is no longer needed and was removed.',
+  'recovery.saveAsFailed': 'The file could not be saved there. The recovery copy is still kept.',
+  'recovery.back': 'Back to the list',
+  'recovery.close': 'Close',
   // --- end S12 ---
   // --- S11 external changes ---
   'save.deleted': 'File deleted on disk — the text is still in the editor',

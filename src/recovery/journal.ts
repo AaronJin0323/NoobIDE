@@ -256,6 +256,87 @@ export class RecoveryJournal {
     });
   }
 
+  /**
+   * Decision 0033: reads a copy left by an earlier run by its project key and buffer id, without the project being
+   * open — its folder may have been moved, renamed or be on a drive that is not connected. Buffers of this process
+   * are not pending and are never returned here.
+   */
+  readPending(key: string, bufferId: string): Promise<Result<RecoveredBuffer, ReadEntryError>> {
+    return this.queue.run(async () => {
+      const rel = await this.pendingRel(key, bufferId);
+      if (rel === undefined) return err('not-found', 'no record');
+      const result = await this.readRecord(rel);
+      if (!result.ok) return err(result.code === 'not-found' ? 'not-found' : 'corrupt', result.code);
+      const r = result.value.record;
+      return ok({
+        rootPath: r.rootPath,
+        relPath: r.relPath,
+        bufferId: r.bufferId,
+        revision: r.revision,
+        updatedAt: r.updatedAt,
+        text: r.text,
+        bom: r.bom,
+      });
+    });
+  }
+
+  /** Decision 0033: the user threw away (or saved elsewhere) a pending copy of a project that is not open. */
+  discardPending(key: string, bufferId: string): Promise<Result<{ removed: boolean }, never>> {
+    return this.queue.run(async () => {
+      const rel = await this.pendingRel(key, bufferId);
+      if (rel === undefined) return ok({ removed: false });
+      this.floors.set(rel, Infinity);
+      return ok({ removed: await this.remove(rel) });
+    });
+  }
+
+  /**
+   * Decision 0033: the project folder of pending copies was moved; the user pointed at its new location. Every
+   * readable record of `key` is rewritten for `newRoot` (a real path) under the new project key, then the old record
+   * is removed — write first, remove second, so an interruption leaves a copy in at least one place. A record that
+   * already exists at the new place with the same or a newer revision wins. Unreadable records stay where they are.
+   */
+  retarget(key: string, newRoot: string): Promise<Result<{ moved: number }, 'not-found' | 'write-failed'>> {
+    return this.queue.run(async () => {
+      if (!PROJECT_KEY.test(key)) return err('not-found', 'bad key');
+      const newKey = projectKey(newRoot);
+      if (newKey === key) return ok({ moved: 0 });
+      let names: string[];
+      try {
+        names = await readdir(path.join(this.dir, key));
+      } catch (e) {
+        return err('not-found', errorCode(e));
+      }
+      const sizes = await this.loadSizes();
+      let moved = 0;
+      for (const name of names) {
+        if (!name.endsWith('.json')) continue;
+        const rel = path.join(key, name);
+        const result = await this.readRecord(rel);
+        if (!result.ok) continue;
+        const old = result.value.record;
+        if (this.ownBuffers.has(old.bufferId)) continue;
+        const newRel = path.join(newKey, `${fileKey(old.relPath)}-${old.bufferId}.json`);
+        const existing = await this.readRecord(newRel);
+        if (!existing.ok || existing.value.record.revision < old.revision) {
+          const record: EntryRecord = { ...old, rootPath: newRoot };
+          const data = Buffer.from(JSON.stringify(record), 'utf8');
+          try {
+            await writeFileAtomic(path.join(this.dir, newRel), data);
+          } catch (e) {
+            this.log('recovery.retarget-failed', { code: errorCode(e) });
+            return err('write-failed', errorCode(e), e);
+          }
+          sizes.set(newRel, data.length);
+        }
+        await this.remove(rel);
+        moved += 1;
+      }
+      this.log('recovery.retargeted', { moved });
+      return ok({ moved });
+    });
+  }
+
   usage(): Promise<JournalUsage> {
     return this.queue.run(async () => {
       const sizes = await this.loadSizes();
@@ -283,6 +364,14 @@ export class RecoveryJournal {
   private entryRel(target: JournalTarget, bufferId: string): string {
     if (!BUFFER_ID.test(bufferId)) throw new Error('invalid buffer id');
     return path.join(projectKey(target.rootPath), `${fileKey(target.relPath)}-${bufferId}.json`);
+  }
+
+  /** The record of a pending (earlier run's) buffer under a project key; undefined for anything else. */
+  private async pendingRel(key: string, bufferId: string): Promise<string | undefined> {
+    if (!PROJECT_KEY.test(key) || !BUFFER_ID.test(bufferId) || this.ownBuffers.has(bufferId)) return undefined;
+    const names = await readdir(path.join(this.dir, key)).catch(() => [] as string[]);
+    const name = names.find((n) => n.endsWith(`-${bufferId}.json`));
+    return name === undefined ? undefined : path.join(key, name);
   }
 
   private async remove(rel: string): Promise<boolean> {

@@ -225,6 +225,24 @@ export const zhCN = {
   'recovery.restoreFailed': '无法恢复这个文件，恢复副本仍然保留着。',
   'recovery.discardConfirm': '确定丢弃？这份修改将无法找回',
   'recovery.recoveredText': '恢复副本的内容',
+  // 决策 0033：项目文件夹被移动、改名，或所在磁盘没有连接时的恢复副本。
+  'recovery.folderMissing':
+    '在原来的位置找不到这个项目文件夹，它可能被移动或改名了，或者所在的磁盘没有连接。你仍然可以在下面查看、复制或另存这些未保存的修改。',
+  'recovery.oldLocation': '原来的位置：{path}',
+  'recovery.relocate': '选择文件夹的新位置…',
+  'recovery.relocateMissing': '“{folder}”里没有下面这些文件。仍然使用这个文件夹吗？',
+  'recovery.relocateConfirm': '仍然使用这个文件夹',
+  'recovery.relocateFailed': '无法使用这个文件夹，恢复副本仍然保留着。',
+  'recovery.relocateExpired': '请重新选择文件夹。',
+  'recovery.readOnlyText': '未保存修改的只读内容',
+  'recovery.copy': '复制内容',
+  'recovery.copied': '已复制，可以粘贴到任何地方。',
+  'recovery.copyFailed': '复制失败，请手动选中文字后复制。',
+  'recovery.saveAs': '另存为…',
+  'recovery.savedAs': '已保存到 {path}。这份恢复副本不再需要，已经移除。',
+  'recovery.saveAsFailed': '无法保存到那里，恢复副本仍然保留着。',
+  'recovery.back': '返回列表',
+  'recovery.close': '关闭',
   // --- end S12 ---
   // --- S11 external changes ---
   'save.deleted': '文件已在磁盘上删除 — 内容还在编辑器里',
