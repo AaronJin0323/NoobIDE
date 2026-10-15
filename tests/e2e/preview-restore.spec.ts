@@ -92,13 +92,18 @@ async function restartOnce(i: number) {
       url: string;
       guarded: boolean | null;
       trace: unknown;
+      noBackgrounding: boolean;
     }>(`(async () => {
       const info = globalThis.__noobideTestHooks.preview();
       const contents = process.mainModule.require('electron').webContents.fromId(info.previewWebContentsId);
-      return { title: await contents.executeJavaScript('document.title'), url: contents.getURL(), guarded: info.pageGuarded, trace: info.guardTrace };
+      const { app } = process.mainModule.require('electron');
+      return { title: await contents.executeJavaScript('document.title'), url: contents.getURL(), guarded: info.pageGuarded, trace: info.guardTrace, noBackgrounding: app.commandLine.hasSwitch('disable-renderer-backgrounding') };
     })()`);
     expect(loaded.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/index\.html$|^http:\/\/127\.0\.0\.1:\d+\/$/);
     expect(loaded.title).not.toBe('');
+    // The preview's renderer is never lowered to background priority while its guard is installed (CHROMIUM_SWITCHES).
+    expect(loaded.noBackgrounding).toBe(true);
+    console.log(`S05.8 restart ${i + 1}: page guard ${JSON.stringify(loaded.trace)}`);
     expect(loaded.guarded, `restart ${i + 1}: page guard ${JSON.stringify(loaded.trace)}`).toBe(true);
   } finally {
     await restarted.quit();

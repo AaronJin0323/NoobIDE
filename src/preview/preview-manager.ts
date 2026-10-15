@@ -1453,6 +1453,9 @@ export class PreviewManager {
  * Longest the page guard's DevTools commands may take once the view has a document. They answer only once the view's
  * renderer process runs, which a loaded machine is slow to start (S05.8, Windows x64: 2–5 s with 1.5 busy threads per
  * core, more than 15 s with 2). Waiting keeps the page guarded; a Stop or a newer Start ends the wait at once.
+ * The view is not in the window yet, so Chromium used to lower its renderer to background priority (Windows: Idle
+ * class) and a busy CPU starved it: no answer within 45 s on the 3-core macOS CI runner. CHROMIUM_SWITCHES
+ * (preview-options.ts) keeps renderers at their launch priority.
  */
 const GUARD_TIMEOUT_MS = 45_000;
 /**
@@ -1468,6 +1471,11 @@ export interface GuardTrace {
   firstDocumentMs: number | null;
   firstDocumentAttempts: number;
   commandsMs: number | null;
+  /**
+   * When Page.enable, Page.addScriptToEvaluateOnNewDocument and Target.setAutoAttach answered (ms after the first
+   * was sent). Answers after a commands-timeout are still added, so they can be later than commandsMs.
+   */
+  commandAnswersMs: number[];
   outcome: 'pending' | 'installed' | 'no-first-document' | 'commands-failed' | 'commands-timeout' | 'not-wanted';
 }
 const guardTraces = new WeakMap<WebContents, GuardTrace>();
@@ -1618,7 +1626,13 @@ async function installPageGuard(
   },
 ): Promise<boolean> {
   guardSources.set(contents, options.source);
-  const trace: GuardTrace = { firstDocumentMs: null, firstDocumentAttempts: 0, commandsMs: null, outcome: 'pending' };
+  const trace: GuardTrace = {
+    firstDocumentMs: null,
+    firstDocumentAttempts: 0,
+    commandsMs: null,
+    commandAnswersMs: [],
+    outcome: 'pending',
+  };
   guardTraces.set(contents, trace);
   const wanted = options.wanted ?? (() => true);
   if (options.navigateFirst ?? true) {
@@ -1662,10 +1676,14 @@ async function installPageGuard(
         }
       });
     }
+    const answered = () => trace.commandAnswersMs.push(Date.now() - commandsStarted);
     await dbg.sendCommand('Page.enable');
+    answered();
     await dbg.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: options.source });
+    answered();
     // Workers and out-of-process iframes start paused until the guard is in place (guardChildTarget).
     await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH);
+    answered();
     return true;
   };
   if (!wanted()) {
@@ -1697,7 +1715,7 @@ async function installPageGuard(
 /** S05.8: the last page guard install's trace of a view (null before any). */
 function guardTraceOf(contents: WebContents | null): GuardTrace | null {
   const trace = contents ? guardTraces.get(contents) : undefined;
-  return trace ? { ...trace } : null;
+  return trace ? { ...trace, commandAnswersMs: [...trace.commandAnswersMs] } : null;
 }
 
 /**

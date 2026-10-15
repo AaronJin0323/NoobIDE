@@ -82,6 +82,23 @@ async function isolationFacts() {
   };
 }
 
+/**
+ * Waits until a snapshot of the current page completes its outline walk. Answering once is not enough: a walk that
+ * queued behind the page's first layout ends "ok" with no outline (outlineUnavailable 'timeout') while the page is
+ * still busy, and the next snapshot is then "not available" at once (CI, macOS runner).
+ */
+async function pageSettled(): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const snap = await snapshot(false);
+        return snap.ok ? (snap.outline ? 'walked' : `ok, outline ${snap.outlineUnavailable}`) : snap.code;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe('walked');
+}
+
 /** Runs `work` while measuring main's slowest round trip of a trivial evaluation. */
 async function measuringMain<T>(work: () => Promise<T>): Promise<{ result: T; elapsed: number; slowest: number }> {
   let slowest = 0;
@@ -193,7 +210,7 @@ test('a huge DOM gives a bounded snapshot within the time budget and main keeps 
   // Its first layout (150 000 elements, a 2 MB text node) keeps the page's main thread busy for a moment; meanwhile
   // a snapshot is "not available" at once by design (watchdog ping unanswered for SNAPSHOT_BUSY_MS, see the busy-page
   // test). Wait until the page answers, as the 200 000-element test does, then measure.
-  await expect.poll(async () => (await snapshot(false)).ok, { timeout: 30_000 }).toBe(true);
+  await pageSettled();
   const { result: snap, elapsed, slowest } = await measuringMain(() => snapshot());
   console.log(
     `huge DOM snapshot: ${elapsed} ms (${snap.ok ? 'ok' : snap.code}; slowest main round trip ${slowest} ms)`,
@@ -212,7 +229,7 @@ test('a huge DOM gives a bounded snapshot within the time budget and main keeps 
 test('200 000 elements before the first item: the visit limit ends the walk within the budget (S38.1)', async () => {
   await showPage('很多 div.html', 60_000);
   // Its first layout keeps the page busy for a moment ("not available" meanwhile); wait until it answers.
-  await expect.poll(async () => (await snapshot(false)).ok, { timeout: 30_000 }).toBe(true);
+  await pageSettled();
   const { result: snap, elapsed, slowest } = await measuringMain(() => snapshot(false));
   console.log(`many-elements snapshot: ${elapsed} ms (slowest main round trip ${slowest} ms)`);
   expect(snap.ok).toBe(true);
@@ -223,7 +240,14 @@ test('200 000 elements before the first item: the visit limit ends the walk with
 
 test('a busy page gives "not available" within the budget; an unresponsive one at once (S38.1)', async () => {
   await showPage('忙碌.html');
-  await page.waitForTimeout(800); // its 8-second loop has started
+  // Its 8-second loop has started (it logs just before; a fixed wait raced a slow load on the Windows runner).
+  await expect
+    .poll(async () => {
+      const info = (await previewInfo(app)) as unknown as { recentRecords: { message: string }[] };
+      return info.recentRecords.some((r) => r.message === '忙碌开始');
+    })
+    .toBe(true);
+  await page.waitForTimeout(100);
   const started = Date.now();
   const busy = await snapshot();
   const elapsed = Date.now() - started;

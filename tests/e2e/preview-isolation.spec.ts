@@ -139,6 +139,8 @@ test('unresponsive state: Stop recovers, and Chromium’s unresponsive event is 
 });
 
 test('a console flood keeps the log bounded, every keystroke lands and main never stalls (S05.3, S05.7)', async () => {
+  // About 2 minutes; up to three floods and three windows per bypass case on a noisy runner.
+  test.setTimeout(360_000);
   const root = await project('预览 日志洪水');
   await openProject(app, page, root);
   await openInEditor('index.html');
@@ -163,60 +165,107 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   const point = { x: Math.round(box.x + 40), y: Math.round(box.y + 10) };
 
   // S05.7: the main (browser UI) thread's longest stall over the whole flood, from a 10 ms timer in main.
-  await app.evaluate(() => {
-    const lag = { max: 0, timer: undefined as ReturnType<typeof setInterval> | undefined };
-    (globalThis as unknown as { __mainLag: typeof lag }).__mainLag = lag;
-    let last = performance.now();
-    lag.timer = setInterval(() => {
-      const now = performance.now();
-      lag.max = Math.max(lag.max, now - last - 10);
-      last = now;
-    }, 10);
-  });
-  await page.getByTestId('preview-start').click();
-  const sent = await app.evaluate(async ({ BrowserWindow }, at) => {
-    const wc = BrowserWindow.getAllWindows()[0]?.webContents;
-    if (!wc) return { sends: [] as number[], mainLag: 0 };
-    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    await wait(500); // the page is flooding by now
-    BrowserWindow.getAllWindows()[0]?.focus();
-    wc.focus();
-    wc.sendInputEvent({ type: 'mouseDown', x: at.x, y: at.y, button: 'left', clickCount: 1 });
-    wc.sendInputEvent({ type: 'mouseUp', x: at.x, y: at.y, button: 'left', clickCount: 1 });
-    await wait(100);
-    const sends: number[] = [];
-    let mainLag = 0;
-    for (let i = 0; i < 20; i += 1) {
-      const before = Date.now();
-      await wait(150);
-      mainLag = Math.max(mainLag, Date.now() - before - 150);
-      sends.push(Date.now());
-      wc.sendInputEvent({ type: 'keyDown', keyCode: 'Q' });
-      wc.sendInputEvent({ type: 'char', keyCode: 'q' });
-      wc.sendInputEvent({ type: 'keyUp', keyCode: 'Q' });
-    }
-    return { sends, mainLag };
-  }, point);
+  // Stalls over 50 ms are kept with their time since the start click, so a failure shows when main stalled.
+  // On the 4-vCPU Windows CI runner main also stalls for 0.1–0.9 s at random with no console output at all (the
+  // baselines of the next test part), so one flood cannot show a 200 ms bound there: the flood runs up to
+  // FLOOD_ATTEMPTS times (Stop + Start: a new view, so the page floods again) until one run meets every timing bound.
+  // A limiter that let the flood through would stall main for seconds in every run.
+  const FLOOD_ATTEMPTS = 3;
+  const floodRun = async () => {
+    await page.evaluate(() => {
+      const probe = (window as unknown as { __probe: { inputs: number[]; maxTimerLag: number } }).__probe;
+      probe.inputs = [];
+      probe.maxTimerLag = 0;
+    });
+    await app.evaluate(() => {
+      const t0 = performance.now();
+      const lag = {
+        max: 0,
+        startedAt: Date.now(),
+        stalls: [] as [number, number][],
+        timer: undefined as ReturnType<typeof setInterval> | undefined,
+      };
+      (globalThis as unknown as { __mainLag: typeof lag }).__mainLag = lag;
+      let last = performance.now();
+      lag.timer = setInterval(() => {
+        const now = performance.now();
+        const stall = now - last - 10;
+        lag.max = Math.max(lag.max, stall);
+        if (stall > 50 && lag.stalls.length < 50) lag.stalls.push([Math.round(last - t0), Math.round(stall)]);
+        last = now;
+      }, 10);
+    });
+    await page.getByTestId('preview-start').click();
+    const sent = await app.evaluate(async ({ BrowserWindow }, at) => {
+      const wc = BrowserWindow.getAllWindows()[0]?.webContents;
+      if (!wc) return { sends: [] as number[], mainLag: 0 };
+      const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      await wait(500); // the page is flooding by now
+      BrowserWindow.getAllWindows()[0]?.focus();
+      wc.focus();
+      wc.sendInputEvent({ type: 'mouseDown', x: at.x, y: at.y, button: 'left', clickCount: 1 });
+      wc.sendInputEvent({ type: 'mouseUp', x: at.x, y: at.y, button: 'left', clickCount: 1 });
+      await wait(100);
+      const sends: number[] = [];
+      let mainLag = 0;
+      for (let i = 0; i < 20; i += 1) {
+        const before = Date.now();
+        await wait(150);
+        mainLag = Math.max(mainLag, Date.now() - before - 150);
+        sends.push(Date.now());
+        wc.sendInputEvent({ type: 'keyDown', keyCode: 'Q' });
+        wc.sendInputEvent({ type: 'char', keyCode: 'q' });
+        wc.sendInputEvent({ type: 'keyUp', keyCode: 'Q' });
+      }
+      return { sends, mainLag };
+    }, point);
 
-  await expect
-    .poll(() => evalInPreview<string>(app, 'document.body.dataset.count ?? ""'), { timeout: 30_000 })
-    .not.toBe('');
-  const logged = Number(await evalInPreview<string>(app, 'document.body.dataset.count'));
-  const mainStall = await app.evaluate(() => {
-    const lag = (globalThis as unknown as { __mainLag: { max: number; timer: ReturnType<typeof setInterval> } })
-      .__mainLag;
-    clearInterval(lag.timer);
-    return Math.round(lag.max);
-  });
-  const probe = await page.evaluate(
-    () => (window as unknown as { __probe: { inputs: number[]; maxTimerLag: number } }).__probe,
-  );
-  const latencies = sent.sends.map((t, i) => (probe.inputs[i] ?? Number.POSITIVE_INFINITY) - t);
-  console.log(
-    `console flood: ${logged} messages in 6 s; keystroke latency ms ${JSON.stringify(latencies)}; ` +
-      `workbench max timer lag ${Math.round(probe.maxTimerLag)} ms; main max timer lag ${sent.mainLag} ms; ` +
-      `longest main-thread stall during the flood ${mainStall} ms`,
-  );
+    await expect
+      .poll(() => evalInPreview<string>(app, 'document.body.dataset.count ?? ""'), { timeout: 30_000 })
+      .not.toBe('');
+    const logged = Number(await evalInPreview<string>(app, 'document.body.dataset.count'));
+    const { mainStall, stalls, startedAt } = await app.evaluate(() => {
+      const lag = (
+        globalThis as unknown as {
+          __mainLag: {
+            max: number;
+            startedAt: number;
+            stalls: [number, number][];
+            timer: ReturnType<typeof setInterval>;
+          };
+        }
+      ).__mainLag;
+      clearInterval(lag.timer);
+      return { mainStall: Math.round(lag.max), stalls: lag.stalls, startedAt: lag.startedAt };
+    });
+    const probe = await page.evaluate(
+      () => (window as unknown as { __probe: { inputs: number[]; maxTimerLag: number } }).__probe,
+    );
+    const latencies = sent.sends.map((t, i) => (probe.inputs[i] ?? Number.POSITIVE_INFINITY) - t);
+    console.log(
+      `console flood: ${logged} messages in 6 s; keystroke latency ms ${JSON.stringify(latencies)}; ` +
+        `workbench max timer lag ${Math.round(probe.maxTimerLag)} ms; main max timer lag ${sent.mainLag} ms; ` +
+        `longest main-thread stall during the flood ${mainStall} ms; stalls over 50 ms [ms after Start, ms] ${JSON.stringify(stalls)}; keystrokes sent at ${JSON.stringify(sent.sends.map((t) => t - startedAt))}`,
+    );
+    const floodInfo = (await previewInfo(app)) as unknown as { floodTrace?: unknown; guardTrace?: unknown };
+    console.log(
+      `console flood: main flood guard ${JSON.stringify(floodInfo.floodTrace)}; page guard ${JSON.stringify(floodInfo.guardTrace)}`,
+    );
+    const timely =
+      probe.inputs.length === 20 &&
+      Math.max(...latencies) < 500 &&
+      probe.maxTimerLag < 500 &&
+      mainStall < 200 &&
+      sent.mainLag < 200;
+    return { logged, mainStall, mainLag: sent.mainLag, probe, latencies, timely };
+  };
+  let run = await floodRun();
+  for (let attempt = 1; attempt < FLOOD_ATTEMPTS && !run.timely; attempt += 1) {
+    await page.getByTestId('preview-stop').click();
+    await waitForPreviewState(page, 'stopped');
+    run = await floodRun();
+  }
+  const { logged, mainStall, probe, latencies } = run;
   // All 20 keystrokes typed during the flood reached the editor, each quickly.
   expect(probe.inputs.length).toBe(20);
   await expect(editorText()).toContainText('q'.repeat(20));
@@ -224,7 +273,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   expect(probe.maxTimerLag).toBeLessThan(500);
   // S05.7: the in-page rate limit (decision 0016) keeps the messages that reach main far below what stalls it.
   expect(mainStall).toBeLessThan(200);
-  expect(sent.mainLag).toBeLessThan(200);
+  expect(run.mainLag).toBeLessThan(200);
   // Messages below the limit keep the page's own file and line (the limiter hands out the native method).
   const records = (await previewInfo(app)) as unknown as { recentRecords: RawRecord[] };
   const flood = records.recentRecords.filter((r) => r.source === 'console' && r.message.startsWith('洪水消息'));
@@ -429,8 +478,9 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
           workers.push(w);
           w.onmessage = () => { done += 1; };
         }
-        // At most ${MAX_GUARDED_SCOPES} run; the others never start (decision 0016, second amendment).
-        setTimeout(() => { workers.forEach((w) => w.terminate()); resolve(done === ${MAX_GUARDED_SCOPES} ? 'finished' : 'done: ' + done); }, ${LOOP_MS + 2_000});
+        // At most ${MAX_GUARDED_SCOPES} run; the others never start (decision 0016, second amendment). Waited for
+        // 5 s: on the 4-vCPU Windows runner the last of the eight sometimes started more than 2 s late.
+        setTimeout(() => { workers.forEach((w) => w.terminate()); resolve(done === ${MAX_GUARDED_SCOPES} ? 'finished' : 'done: ' + done); }, ${LOOP_MS + 5_000});
       })`,
     ],
     [
@@ -472,28 +522,109 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   console.log(`200 iframes without console output (baseline): longest main stall ${framesOnly.max} ms`);
   expect(framesOnly.result).toBe('finished');
   expect(framesOnly.max).toBeLessThan(1_500); // frame lifecycle alone stays bounded too
-  const stallBudget = (name: string) => 200 + (name.startsWith('200 iframes') ? framesOnly.max : 0);
+  // The same holds for creating and removing iframes as fast as possible (Windows runner: 263–703 ms with console
+  // output, the 200-iframe baseline alone 320–328 ms there; macOS runner and dev machines < 70 ms).
+  const churnOnly = await measureMainStall(
+    app,
+    previewId,
+    `(() => {
+      let frames = 0;
+      ${loop("const f = document.createElement('iframe'); document.body.append(f); void f.contentWindow.console.log; f.remove(); frames += 1")}
+      return frames > 100 ? 'finished' : 'only ' + frames + ' frames';
+    })()`,
+  );
+  console.log(
+    `iframes created and removed in a loop without console output (baseline): longest main stall ${churnOnly.max} ms`,
+  );
+  expect(churnOnly.result).toBe('finished');
+  expect(churnOnly.max).toBeLessThan(1_500);
+  // And for eight busy workers at once: on the 4-vCPU Windows runner they alone stalled main 0.7–3 s (CI run
+  // 38805786307), console or not; the same code with a no-op instead of the log call is the baseline.
+  const workersOnly = await measureMainStall(
+    app,
+    previewId,
+    `new Promise((resolve) => {
+      const code = ${JSON.stringify(`${loop('void i')} postMessage('done');`)};
+      const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+      const workers = [];
+      let done = 0;
+      for (let k = 0; k < 20; k += 1) {
+        const w = new Worker(url);
+        workers.push(w);
+        w.onmessage = () => { done += 1; };
+      }
+      setTimeout(() => { workers.forEach((w) => w.terminate()); resolve(done === ${MAX_GUARDED_SCOPES} ? 'finished' : 'done: ' + done); }, ${LOOP_MS + 5_000});
+    })`,
+  );
+  console.log(`20 workers at once without console output (baseline): longest main stall ${workersOnly.max} ms`);
+  expect(workersOnly.result).toBe('finished');
+  expect(workersOnly.max).toBeLessThan(5_000);
+  const stallBudget = (name: string) =>
+    200 +
+    (name.startsWith('200 iframes') ? framesOnly.max : 0) +
+    (name.startsWith('iframes created and removed') ? churnOnly.max : 0) +
+    (name.startsWith('20 workers') ? workersOnly.max : 0);
+  // On the 4-vCPU Windows CI runner main also stalls for 0.1–0.9 s at random with no console output at all (the
+  // baselines above, measured run to run), so one window cannot show a 200 ms bound there. A limiter bypass stalls
+  // main in every window; a runner stall does not. Each case gets up to STALL_ATTEMPTS windows and the best one counts;
+  // what reaches main and the result are checked in every window.
+  const STALL_ATTEMPTS = 3;
+  const bestOf = async (
+    name: string,
+    measure: () => Promise<Awaited<ReturnType<typeof measureMainStall>>>,
+    check: (run: Awaited<ReturnType<typeof measureMainStall>>) => void,
+    stall: (run: Awaited<ReturnType<typeof measureMainStall>>) => number,
+  ) => {
+    const stalls: number[] = [];
+    for (let attempt = 0; attempt < STALL_ATTEMPTS; attempt += 1) {
+      const run = await measure();
+      check(run);
+      stalls.push(stall(run));
+      if (stall(run) < stallBudget(name)) break;
+    }
+    if (stalls.length > 1) console.log(`${name}: stalls in ${stalls.length} windows ${JSON.stringify(stalls)} ms`);
+    expect(Math.min(...stalls), name).toBeLessThan(stallBudget(name));
+  };
   for (const [name, code] of bypasses) {
-    const run = await measureMainStall(app, previewId, code);
-    console.log(
-      `${name}: ${run.result} after ${run.ms} ms; ${run.messages} messages reached main; longest main stall ${run.max} ms`,
+    await bestOf(
+      name,
+      () => measureMainStall(app, previewId, code),
+      (run) => {
+        console.log(
+          `${name}: ${run.result} after ${run.ms} ms; ${run.messages} messages reached main; longest main stall ${run.max} ms`,
+        );
+        expect(run.result, name).toBe('finished');
+        expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name));
+      },
+      (run) => run.max,
     );
-    expect(run.result, name).toBe('finished');
-    expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name));
-    expect(run.max, name).toBeLessThan(stallBudget(name));
   }
   // Nothing needed stopping.
   await expect(page.locator('.preview-console-line[data-notice="console-flood-stopped"]')).toHaveCount(0);
 
   // The design does not depend on main being fast: with an artificial 0.6 ms of main-thread work per console
-  // message (what a loaded Windows CI runner measured), the same saved references keep main's stall within budget.
+  // message (what a loaded Windows CI runner measured), main never has to take more than the limiter's bursts in one
+  // go (page-guard.ts: CONSOLE_BURST + MAX_GUARDED_SCOPES × WORKER_CONSOLE_BURST messages, ≤ 156 ms of that work),
+  // and the rest of each stall stays within the budget. The simulated work is wall-clock time: on the 3-core macOS
+  // runner, where "20 workers" itself runs 8 busy threads, 170–208 messages in one go took 196–250 ms, so the
+  // simulated part is checked through the batch size, not the wall-clock total.
+  const MOST_AT_ONCE = CONSOLE_BURST + MAX_GUARDED_SCOPES * WORKER_CONSOLE_BURST;
   for (const [name, code] of bypasses.filter(([n]) =>
     /page|worker$|sandboxed|^200 iframes|^20 workers|in a loop/.test(n),
   )) {
-    const run = await measureMainStall(app, previewId, code, { costMs: 0.6 });
-    console.log(`${name} (main 0.6 ms per message): ${run.messages} messages; longest main stall ${run.max} ms`);
-    expect(run.result, name).toBe('finished');
-    expect(run.max, name).toBeLessThan(stallBudget(name));
+    await bestOf(
+      name,
+      () => measureMainStall(app, previewId, code, { costMs: 0.6 }),
+      (run) => {
+        console.log(
+          `${name} (main 0.6 ms per message): ${run.messages} messages; longest main stall ${run.max} ms; ` +
+            `most messages between two 10 ms ticks ${run.batch}; longest stall beyond the simulated work ${run.unexplained} ms`,
+        );
+        expect(run.result, name).toBe('finished');
+        expect(run.batch, name).toBeLessThanOrEqual(MOST_AT_ONCE);
+      },
+      (run) => run.unexplained,
+    );
   }
 
   // Defence in depth (decision 0016, first amendment): output the limiter cannot see — here a DevTools isolated
@@ -531,14 +662,17 @@ async function measureMainStall(
   previewId: number,
   code: string,
   options: { costMs?: number; isolatedWorld?: boolean } = {},
-): Promise<{ max: number; result: string; ms: number; messages: number }> {
+): Promise<{ max: number; result: string; ms: number; messages: number; batch: number; unexplained: number }> {
   return app.evaluate(
     async ({ webContents }, { id, js, costMs, isolatedWorld }) => {
       const wc = webContents.fromId(id);
-      if (!wc) return { max: 0, result: 'no preview', ms: 0, messages: 0 };
+      if (!wc) return { max: 0, result: 'no preview', ms: 0, messages: 0, batch: 0, unexplained: 0 };
       let messages = 0;
+      let sinceTick = 0;
+      let batch = 0;
       const onMessage = () => {
         messages += 1;
+        sinceTick += 1;
         if (costMs > 0) {
           const until = performance.now() + costMs;
           while (performance.now() < until) {
@@ -549,10 +683,15 @@ async function measureMainStall(
       wc.on('console-message', onMessage);
       let last = performance.now();
       let max = 0;
+      let unexplained = 0;
       const timer = setInterval(() => {
         const now = performance.now();
         max = Math.max(max, now - last - 10);
+        // The part of this gap that the simulated per-message work does not account for.
+        unexplained = Math.max(unexplained, now - last - 10 - sinceTick * costMs);
         last = now;
+        batch = Math.max(batch, sinceTick);
+        sinceTick = 0;
       }, 10);
       const evaluate = async (): Promise<string> => {
         if (!isolatedWorld) return String(await wc.executeJavaScript(js));
@@ -578,7 +717,7 @@ async function measureMainStall(
       await new Promise((r) => setTimeout(r, 1_000)); // whatever main still had queued
       clearInterval(timer);
       wc.off('console-message', onMessage);
-      return { max: Math.round(max), result, ms, messages };
+      return { max: Math.round(max), result, ms, messages, batch, unexplained: Math.round(unexplained) };
     },
     { id: previewId, js: code, costMs: options.costMs ?? 0, isolatedWorld: options.isolatedWorld ?? false },
   );
