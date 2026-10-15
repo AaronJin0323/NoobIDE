@@ -67,13 +67,14 @@ describe('focusHandoffStep (S15.5/S15.6 focus out of the page)', () => {
     expect(focusHandoffStep(key({ control: true }))).toBeNull();
     expect(focusHandoffStep(key({ alt: true }))).toBeNull();
     expect(focusHandoffStep(key({ meta: true }))).toBeNull();
+    expect(focusHandoffStep(key({ isAutoRepeat: true }))).toBeNull(); // holding F6 does not cycle every region
   });
 });
 
 describe('FocusGuard (S15.5/S15.6: loading a page does not steal the keyboard focus)', () => {
   it('returns focus taken during a load that began while the workbench had it', () => {
     const guard = new FocusGuard(500);
-    guard.loadStarted(true);
+    guard.loadStarted(true, 0);
     expect(guard.shouldReturnFocus(0)).toBe(true);
     guard.loadFinished(1_000);
     expect(guard.shouldReturnFocus(1_400)).toBe(true); // late focus change within the grace period
@@ -83,19 +84,26 @@ describe('FocusGuard (S15.5/S15.6: loading a page does not steal the keyboard fo
 
   it('leaves the focus alone when the page already had it, or the user asked for it', () => {
     const guard = new FocusGuard();
-    guard.loadStarted(false); // e.g. refreshing while the user works inside the page
+    guard.loadStarted(false, 0); // e.g. refreshing while the user works inside the page
     expect(guard.shouldReturnFocus(0)).toBe(false);
-    guard.loadStarted(true);
+    guard.loadStarted(true, 0);
     guard.userFocused(); // Enter on the preview stage
     expect(guard.shouldReturnFocus(0)).toBe(false);
   });
 
   it('a new load restarts the guard', () => {
     const guard = new FocusGuard(10);
-    guard.loadStarted(true);
+    guard.loadStarted(true, 0);
     guard.loadFinished(0);
     expect(guard.shouldReturnFocus(100)).toBe(false);
-    guard.loadStarted(true);
+    guard.loadStarted(true, 150);
     expect(guard.shouldReturnFocus(200)).toBe(true);
+  });
+
+  it('a page that never stops loading is guarded for at most maxMs', () => {
+    const guard = new FocusGuard(500, 3_000);
+    guard.loadStarted(true, 1_000);
+    expect(guard.shouldReturnFocus(3_900)).toBe(true);
+    expect(guard.shouldReturnFocus(4_100)).toBe(false);
   });
 });

@@ -38,6 +38,7 @@ export interface KeyInput {
   readonly control: boolean;
   readonly alt: boolean;
   readonly meta: boolean;
+  readonly isAutoRepeat?: boolean;
 }
 
 /**
@@ -47,7 +48,7 @@ export interface KeyInput {
  */
 export function focusHandoffStep(input: KeyInput): 1 | -1 | null {
   if (input.type !== 'keyDown' || input.key !== 'F6') return null;
-  if (input.control || input.alt || input.meta) return null;
+  if (input.control || input.alt || input.meta || input.isAutoRepeat === true) return null;
   return input.shift ? -1 : 1;
 }
 
@@ -61,13 +62,22 @@ export function focusHandoffStep(input: KeyInput): 1 | -1 | null {
 export class FocusGuard {
   private active = false;
   private until = Number.POSITIVE_INFINITY;
+  private cap = Number.POSITIVE_INFINITY;
 
-  constructor(private readonly graceMs = 500) {}
+  /**
+   * `maxMs` caps the guard from the start of the load: a page that never stops loading (a long poll, a slow image)
+   * must not keep bouncing the user's clicks back to the workbench.
+   */
+  constructor(
+    private readonly graceMs = 500,
+    private readonly maxMs = 3_000,
+  ) {}
 
-  /** A start or refresh begins; `workbenchFocused` is whether the workbench page had the keyboard focus. */
-  loadStarted(workbenchFocused: boolean): void {
+  /** A start or refresh begins at `now`; `workbenchFocused` is whether the workbench had the keyboard focus. */
+  loadStarted(workbenchFocused: boolean, now: number): void {
     this.active = workbenchFocused;
     this.until = Number.POSITIVE_INFINITY;
+    this.cap = now + this.maxMs;
   }
 
   /** The page stopped loading at `now`; late focus changes within the grace period are still returned. */
@@ -75,7 +85,7 @@ export class FocusGuard {
     if (this.active) this.until = now + this.graceMs;
   }
 
-  /** The user asked for the page to have the focus. */
+  /** The user asked for the page to have the focus (Enter on the stage, a click or key press in the page). */
   userFocused(): void {
     this.active = false;
   }
@@ -83,7 +93,7 @@ export class FocusGuard {
   /** The page received the focus at `now`: true when it should go back to the workbench. */
   shouldReturnFocus(now: number): boolean {
     if (!this.active) return false;
-    if (now > this.until) {
+    if (now > this.until || now > this.cap) {
       this.active = false;
       return false;
     }

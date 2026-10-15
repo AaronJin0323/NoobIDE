@@ -89,12 +89,21 @@ export function PreviewPane({
       if (frame === 0) frame = requestAnimationFrame(check);
     };
     check();
-    // Dialogs and menus are mounted and unmounted (conditional rendering), so child-list changes are enough.
-    const observer = new MutationObserver(schedule);
+    // Dialogs and menus are mounted and unmounted (conditional rendering), so child-list changes are enough. Only
+    // changes that add or remove an overlay count: editor typing re-renders lines and must not cost a layout.
+    const isOverlay = (node: Node) =>
+      node instanceof Element && (node.matches(OVERLAY_SELECTOR) || node.querySelector(OVERLAY_SELECTOR) !== null);
+    const observer = new MutationObserver((records) => {
+      if (records.some((r) => [...r.addedNodes].some(isOverlay) || [...r.removedNodes].some(isOverlay))) schedule();
+    });
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener('resize', schedule);
+    // The stage can also move under an open overlay (a divider drag, a collapsed panel).
+    const stageObserver = new ResizeObserver(schedule);
+    if (stageRef.current) stageObserver.observe(stageRef.current);
     return () => {
       observer.disconnect();
+      stageObserver.disconnect();
       window.removeEventListener('resize', schedule);
       if (frame !== 0) cancelAnimationFrame(frame);
     };

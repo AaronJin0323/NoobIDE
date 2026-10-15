@@ -368,6 +368,22 @@ test('S15.6: keyboard focus goes into the page with Enter and comes back with F6
   }, id);
   await expect.poll(() => evalInPreview<string[]>(electron(), 'window.__keys')).toContain('a');
 
+  // A dialog drawn over the page hides it, and the hidden page does not keep the keyboard focus.
+  await page.evaluate(() => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'dialog-backdrop';
+    backdrop.id = 'test-backdrop-2';
+    document.body.appendChild(backdrop);
+  });
+  await expect.poll(viewVisible).toBe(false);
+  await expect.poll(focusState).toMatchObject({ page: false, workbench: true });
+  await page.evaluate(() => document.getElementById('test-backdrop-2')?.remove());
+  await expect.poll(viewVisible).toBe(true);
+  await focusWindow();
+  await stage.focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await focusState()).page).toBe(true);
+
   // F6 in the page: focus returns to the workbench and moves on to the region after the preview.
   await electron().evaluate(({ webContents }, previewId) => {
     const wc = webContents.fromId(previewId as number);

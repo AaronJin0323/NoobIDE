@@ -418,6 +418,10 @@ Needs owner task H.5 (repository on GitHub with Actions enabled). Agents cannot 
   fullscreen in and out, About dialog / "more actions" menu / any modal backdrop hiding the view, Enter into the
   page and F6 / Shift+F6 back, start and refresh not taking the focus, devicePixelRatio 1.5 and 2
   (`--force-device-scale-factor`) with exact persisted divider sizes after a restart.
+- **Note:** the focus and fullscreen tests need the NoobIDE window to become the active app; macOS refuses that while
+  someone works in another app, and the two tests then report "skipped". They passed on b1ac96f (8/8); after the
+  review fixes (input-event, hidden-page focus, F6 auto-repeat) they were skipped on this Mac. Run
+  `npm run test:e2e -- preview-layout` once with the Mac otherwise idle and confirm **8 passed, 0 skipped**.
 - **Steps still needing a person (real input and hardware):**
   1. **Retina:** on the built-in display, the page fills the dashed stage exactly at every window size; text in the
      page is sharp.
