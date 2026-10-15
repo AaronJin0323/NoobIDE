@@ -45,7 +45,7 @@ export const previewToolbarZhCN = {
   // ── S14.4 启动预览前的确认 ──
   'preview.consent.title': '这个文件夹的网页还没有运行',
   'preview.consent.detail':
-    '这个文件夹是从你的电脑上打开的。为了安全，只有在你点“启动预览”之后才会运行它的网页脚本；NoobIDE 会记住你的选择，下次打开时自动预览。',
+    '这个文件夹是从你的电脑上打开的。为了安全，只有在你点“开始预览”之后才会运行它的网页脚本；NoobIDE 会记住你的选择，下次打开时自动预览。',
 } as const;
 
 export const previewToolbarEn: Record<keyof typeof previewToolbarZhCN, string> = {
