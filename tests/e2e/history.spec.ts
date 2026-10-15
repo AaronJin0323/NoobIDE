@@ -3,7 +3,16 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { listTemplates } from '../../src/workspace/templates';
 import { launchApp, repoRoot, tempRoot } from './launch';
-import { answerFolderDialog, collectConsoleErrors, openFile, tabOf, treeRow, typeAtEnd } from './project';
+import {
+  answerFolderDialog,
+  collectConsoleErrors,
+  documentText,
+  focusEditor,
+  openFile,
+  tabOf,
+  treeRow,
+  typeAtEnd,
+} from './project';
 import { replaceEditorText } from './preview-helpers';
 
 /**
@@ -126,12 +135,12 @@ test('restore keeps the current content as a version first and goes through the 
 
   await page.keyboard.press('Escape');
   await expect(dialog()).toHaveCount(0);
-  await expect(page.locator('.monaco-editor .view-lines')).toContainText('你好，我是小雨');
+  await expect.poll(() => documentText(page.locator('.monaco-editor'))).toContain('你好，我是小雨');
   await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', /saved|clean/);
   // The restore is one ordinary edit in the editor: Ctrl+Z brings the previous text back.
-  await page.locator('.monaco-editor .view-lines').click();
+  await focusEditor(page);
   await page.keyboard.press('ControlOrMeta+Z');
-  await expect(page.locator('.monaco-editor .view-lines')).toContainText('你好，我是林小雨');
+  await expect.poll(() => documentText(page.locator('.monaco-editor'))).toContain('你好，我是林小雨');
   await page.keyboard.press('ControlOrMeta+S');
   await expect.poll(() => readFile(path.join(rootA, 'index.html'), 'utf8')).toContain('林小雨');
 });

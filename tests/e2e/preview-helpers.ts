@@ -2,6 +2,7 @@ import { cp, mkdir, mkdtemp } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, type ElectronApplication, type Page } from '@playwright/test';
 import { repoRoot, tempRoot } from './launch';
+import { focusEditor } from './project';
 
 /** Shared steps for the preview e2e specs (S04, S05). */
 
@@ -64,7 +65,7 @@ export async function evalInPreview<T>(app: ElectronApplication, code: string): 
 /** Replaces the whole editor text through the clipboard (typing markup would trigger Monaco's auto-closing). */
 export async function replaceEditorText(app: ElectronApplication, page: Page, text: string): Promise<void> {
   await app.evaluate(({ clipboard }, value) => clipboard.writeText(value), text);
-  await page.locator('.monaco-editor .view-lines').click();
+  await focusEditor(page);
   await page.keyboard.press('ControlOrMeta+A');
   await page.keyboard.press('ControlOrMeta+V');
 }
