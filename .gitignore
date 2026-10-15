@@ -1,6 +1,8 @@
 node_modules
 out/
 dist/
+# generated at package time (scripts/third-party-notices.mjs)
+build/
 .vite/
 coverage/
 test-results/

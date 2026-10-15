@@ -63,9 +63,23 @@ async function adHocSignMac(outputPaths: readonly string[]): Promise<void> {
   }
 }
 
+/**
+ * Third-party license notices (release readiness): Vite bundles production dependencies and drops their license
+ * comments, so scripts/third-party-notices.mjs writes their license texts from package-lock.json + node_modules into
+ * build/ (gitignored) before every package, and extraResource ships it as <resources>/THIRD_PARTY_NOTICES.txt (the
+ * About dialog opens it). The script fails the build when a production package has no license text.
+ */
+const THIRD_PARTY_NOTICES = path.join('build', 'THIRD_PARTY_NOTICES.txt');
+
 const config: ForgeConfig = {
   ...(process.env.NOOBIDE_OUT_DIR ? { outDir: process.env.NOOBIDE_OUT_DIR } : {}),
   hooks: {
+    prePackage: async () => {
+      // Forge runs from the project folder; extraResource resolves the same relative path.
+      const script = path.resolve('scripts', 'third-party-notices.mjs');
+      const { stdout } = await execFileAsync(process.execPath, [script, path.resolve(THIRD_PARTY_NOTICES)]);
+      process.stdout.write(stdout);
+    },
     ...(buildVersion
       ? {
           // Runs on the copied, pruned app before app.asar is made (after the Vite plugin rewrote package.json):
@@ -102,7 +116,8 @@ const config: ForgeConfig = {
     asar: true,
     // S20.1: built-in templates are copied next to app.asar as <resources>/templates (plain files, readable with fs).
     // Resolved at runtime by resolveTemplatesDir() in src/workspace/templates.ts.
-    extraResource: ['resources/templates'],
+    // Release readiness: third-party license notices as <resources>/THIRD_PARTY_NOTICES.txt (written in prePackage).
+    extraResource: ['resources/templates', THIRD_PARTY_NOTICES],
     // S28.1 (docs/decisions/0012-installers-and-app-identity.md): icon and version information. The packager picks
     // icon.icns on macOS and icon.ico on Windows (placeholder artwork from scripts/make-icons.mjs). The version is
     // package.json "version" (CFBundleShortVersionString / FileVersion / ProductVersion; About shows the same).

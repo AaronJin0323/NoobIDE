@@ -91,6 +91,9 @@ const api: NoobideApi = {
   logs: {
     openFolder: () => ipcRenderer.invoke(APP_DATA_CHANNELS.openLogsFolder),
   },
+  notices: {
+    open: () => ipcRenderer.invoke(APP_DATA_CHANNELS.openThirdPartyNotices),
+  },
   projectConfig: {
     get: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.projectConfig, request),
     setEntry: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.projectSetEntry, request),

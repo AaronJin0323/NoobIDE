@@ -30,6 +30,7 @@ test('About shows the app version and runtime versions, translated, and closes w
     await expect(page.getByTestId('about-version')).toHaveText(`版本 ${appVersion}`);
     await expect(page.getByTestId('about-runtime')).toContainText(`Electron ${electronVersion}`);
     await expect(page.getByTestId('about-close')).toBeFocused();
+    await expect(page.getByTestId('about-notices')).toHaveText('第三方软件许可');
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
 
@@ -63,6 +64,18 @@ test('the native preview view is hidden while About is open, so it cannot cover 
     await app.close();
     await rm(tmp, { recursive: true, force: true });
   }
+});
+
+test('the packaged app ships the third-party license notices next to app.asar', async () => {
+  const exe = packagedExecutable();
+  expect(exe, 'packaged app in out/').toBeDefined();
+  const resources =
+    process.platform === 'darwin'
+      ? path.resolve(path.dirname(exe!), '..', 'Resources')
+      : path.join(path.dirname(exe!), 'resources');
+  const notices = readFileSync(path.join(resources, 'THIRD_PARTY_NOTICES.txt'), 'utf8');
+  expect(notices).toContain('Meta Platforms'); // react
+  expect(notices).toContain('monaco-editor: bundled third-party notices');
 });
 
 function plistString(plist: string, key: string): string | undefined {

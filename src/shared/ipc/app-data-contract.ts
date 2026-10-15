@@ -16,6 +16,8 @@ export const APP_DATA_CHANNELS = {
   settingsUpdate: 'settings:update',
   // S13.6
   openLogsFolder: 'app:open-logs-folder',
+  // Release readiness: third-party license notices shipped with the app
+  openThirdPartyNotices: 'app:open-third-party-notices',
   // S13.2
   projectConfig: 'project:config',
   projectSetEntry: 'project:set-entry',
@@ -51,6 +53,12 @@ export interface SettingsApi {
 export interface LogsApi {
   /** Shows the log folder (in app data) in Explorer / Finder. */
   openFolder(): Promise<IpcResult<null, 'open-failed'>>;
+}
+
+// ── Third-party license notices ──
+export interface NoticesApi {
+  /** Opens <resources>/THIRD_PARTY_NOTICES.txt (license texts of bundled packages) in the OS text viewer. */
+  open(): Promise<IpcResult<null, 'open-failed'>>;
 }
 
 // ── S13.2 .noobide/project.json ──

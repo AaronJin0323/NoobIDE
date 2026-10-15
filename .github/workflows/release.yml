@@ -44,6 +44,15 @@ jobs:
         with:
           persist-credentials: false
 
+      # The installers carry package.json "version" (Squirrel upgrades compare it), so a tag must name exactly that
+      # version: tag v1.2.3 needs "version": "1.2.3". The ref arrives through env only. A manual dispatch on a branch
+      # (the dry run) logs a notice and continues. Runs on the runner's preinstalled Node, before anything else.
+      - name: Check tag matches package.json version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: node scripts/check-release-tag.mjs
+
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
