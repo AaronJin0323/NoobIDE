@@ -11,9 +11,9 @@
  *    takes every console method away from the page and puts a limiter function in its place; the native methods live
  *    only in this closure, so no reference the page can keep, bind, copy from a descriptor or reach through a
  *    prototype or `console.context()` is ever a native console method (decision 0016, second amendment). The
- *    limiter (a token bucket: CONSOLE_BURST at once, CONSOLE_LIMIT per CONSOLE_WINDOW_MS on average, shared by all
- *    documents of the page's frame tree; workers and worklets have a small bucket each) calls the native method or
- *    nothing. Uncaught errors, `reportError()` and unhandled rejections become console messages
+ *    limiter (a token bucket: CONSOLE_BURST at once, CONSOLE_LIMIT per CONSOLE_WINDOW_MS on average, owned by the
+ *    top document and spent by its same-origin frames; other frames get a share that starts empty; workers and
+ *    worklets a small bucket each, main limiting how many start and run) calls the native method or nothing. Uncaught errors, `reportError()` and unhandled rejections become console messages
  *    too: above the limit their events are cancelled, so Chromium does not report them; `navigator.vibrate()` (a
  *    console error per blocked call) is limited the same way. Suppressed messages are summarised at most once per
  *    window with a console warning from LIMITER_SOURCE_URL, which main turns into the IDE's "N messages dropped".
@@ -35,8 +35,9 @@
  * source text is the guard's (not `[native code]`); stack traces taken inside a console call (`console.trace`, an
  * argument's `toString`) show frames of LIMITER_SOURCE_URL and a stub at the caller's line; above the limit console
  * calls do nothing and `error`/`unhandledrejection` events arrive with `defaultPrevented` set; `console.context()`
- * returns a plain object; `CSS.paintWorklet` and `audioWorklet` are missing; the share of a frame shrinks as the page
- * adds frames; the summary warning appears in its console. Nothing is added to the page's global scope.
+ * returns a plain object; `CSS.paintWorklet` and `audioWorklet` are missing; the top document has a non-writable,
+ * non-configurable, non-enumerable global LEDGER_NAME (calling it spends one message of the budget); a cross-origin
+ * frame's share shrinks as the page adds frames; the summary warning appears in its console.
  */
 
 export const CONSOLE_LIMIT = 200;
@@ -56,6 +57,8 @@ export const WORKER_CONSOLE_BURST = 20;
  */
 export const MAX_GUARDED_SCOPES = 8;
 export const LIMITER_SOURCE_URL = 'noobide-preview://page-guard.js';
+/** The top document's budget, offered to its same-origin frames (a non-writable, non-configurable global). */
+export const LEDGER_NAME = 'noobidePreviewConsoleBudget';
 const SUMMARY_PREFIX = 'NoobIDE: ';
 
 /** Console methods that only return an object (no output); everything else that is a function is limited. */
@@ -83,6 +86,7 @@ export function pageGuardSource(nonce: string): string {
   const WORKER_BURST = ${WORKER_CONSOLE_BURST};
   const MAX_DOCUMENTS = 1000;
   const RECOUNT_MS = 100;
+  const LEDGER = ${JSON.stringify(LEDGER_NAME)};
   const OWN_URL = ${JSON.stringify(LIMITER_SOURCE_URL)};
   const UNLIMITED = ${JSON.stringify(UNLIMITED_METHODS)};
   const STUB_CACHE = ${STUB_CACHE};
@@ -123,10 +127,14 @@ export function pageGuardSource(nonce: string): string {
 
   // --- limit ---------------------------------------------------------------------------------------------------
   // A token bucket: LIMIT messages per WINDOW_MS on average, at most BURST at once (what main has to take in one go).
-  // The budget belongs to the whole page, not to one realm: a document shares it with every other document of its
-  // frame tree (counted from \`top\` through the cross-origin-readable \`length\` and indexed child windows, which a
-  // page cannot fake), so a page with many iframes gets no more than one. Workers and worklets (no frame tree; main
-  // limits how many run) get the smaller WORKER_BURST / WORKER_LIMIT each.
+  // The budget belongs to the page, not to one realm, so that creating realms (iframes, again and again) gains nothing:
+  // - the top document owns it and offers it to its frames as \`top.${LEDGER_NAME}\` (non-writable, non-configurable,
+  //   defined before any page script: a page can call it, which only spends its own budget, but never replace it);
+  // - a frame that can reach it (same origin) spends from it;
+  // - a frame that cannot (opaque or other origin) gets 1/N of the budget, N being the documents of the frame tree
+  //   (counted from \`top\` through the cross-origin-readable \`length\` and indexed child windows, which a page cannot
+  //   fake), and starts empty, so frames created and removed in a loop get nothing;
+  // - a worker or worklet (no frame tree) gets WORKER_BURST / WORKER_LIMIT; main limits how many start and run.
   const lengthOf = (() => {
     const d = describe(g, 'length');
     return d && typeof d.get === 'function' ? d.get : null;
@@ -136,13 +144,24 @@ export function pageGuardSource(nonce: string): string {
     return d && typeof d.get === 'function' ? d.get : null;
   })();
   const inFrameTree = lengthOf !== null && topOf !== null;
-  const countDocuments = () => {
-    let top = null;
+  let topWindow = null;
+  try {
+    topWindow = inFrameTree ? R(topOf, g, []) : null;
+  } catch {
+    topWindow = null;
+  }
+  const isTop = inFrameTree && topWindow === g;
+  let ledger = null;
+  if (inFrameTree && !isTop && topWindow) {
     try {
-      top = R(topOf, g, []);
+      const d = describe(topWindow, LEDGER);
+      if (d && typeof d.value === 'function' && d.writable === false && d.configurable === false) ledger = d.value;
     } catch {
-      return 1;
+      ledger = null; // another origin
     }
+  }
+  const shared = inFrameTree && !isTop && ledger === null;
+  const countDocuments = () => {
     let n = 0;
     const visit = (w, depth) => {
       n += 1;
@@ -164,55 +183,72 @@ export function pageGuardSource(nonce: string): string {
         if (child) visit(child, depth + 1);
       }
     };
-    if (top) visit(top, 0);
+    if (topWindow) visit(topWindow, 0);
     return n > 0 ? n : 1;
   };
-  let documents = inFrameTree ? countDocuments() : 1;
+  let documents = shared ? countDocuments() : 1;
   let counted = now();
-  const share = () => (inFrameTree ? 1 / documents : 1);
-  const burst = () => (inFrameTree ? BURST : WORKER_BURST) * share();
-  const rate = () => (inFrameTree ? LIMIT : WORKER_LIMIT) * share();
-  let tokens = burst() > 1 ? burst() : 1;
+  const burst = () => (inFrameTree ? BURST / documents : WORKER_BURST);
+  const rate = () => (inFrameTree ? LIMIT / documents : WORKER_LIMIT);
+  let tokens = shared ? 0 : burst();
   let refilled = counted;
   let lastReport = refilled;
   let suppressed = 0;
   let timer = 0;
-  // Refills the bucket (recounting the frame tree now and then) and takes \`weight\` tokens if there are enough.
-  const take = (t, weight) => {
-    if (inFrameTree && (t - counted >= RECOUNT_MS || t < counted)) {
+  // Refills the bucket and takes \`weight\` tokens if there are enough (a share below one token never logs).
+  const ownTake = (t, weight) => {
+    if (shared && (t - counted >= RECOUNT_MS || t < counted)) {
       documents = countDocuments();
       counted = t;
     }
     const elapsed = t - refilled;
     refilled = t;
     if (elapsed > 0) tokens = tokens + (elapsed * rate()) / WINDOW_MS;
-    // Each realm can hold at least one token (with more than BURST documents the page's burst is one per document).
-    const most = burst() > 1 ? burst() : 1;
+    const most = burst();
     if (tokens > most) tokens = most;
     if (tokens < weight) return false;
     tokens -= weight;
     return true;
   };
-  // The summary is a console message too and takes a token: with many frames it waits for its turn.
+  const take = (t, weight) => {
+    if (ledger === null) return ownTake(t, weight);
+    try {
+      return R(ledger, undefined, []) === true;
+    } catch {
+      return false;
+    }
+  };
+  if (isTop) {
+    const holder = {
+      [LEDGER]() {
+        return ownTake(now(), 1);
+      },
+    };
+    define(g, LEDGER, { __proto__: null, value: holder[LEDGER], writable: false, enumerable: false, configurable: false });
+  }
+  // The summary is a console message too and takes a token: with a spent budget it waits for its turn.
   const report = () => {
-    timer = 0;
     if (suppressed === 0) return;
     const t = now();
+    lastReport = t;
     if (!take(t, 1)) {
-      if (later) timer = R(later, g, [report, WINDOW_MS]);
+      if (!timer && later) timer = R(later, g, [onTimer, WINDOW_MS]);
       return;
     }
-    lastReport = t;
     const n = suppressed;
     suppressed = 0;
     R(nativeWarn, c, ['${SUMMARY_PREFIX}' + n + ' console messages were not shown (more than ' + LIMIT + ' per second). [${nonce}]']);
+  };
+  const onTimer = () => {
+    timer = 0;
+    report();
   };
   const admit = (weight = 1) => {
     const t = now();
     if (suppressed > 0 && t - lastReport >= WINDOW_MS) report();
     if (take(t, weight)) return true;
     suppressed += weight;
-    if (!timer && later) timer = R(later, g, [report, WINDOW_MS]);
+    if (!timer && later) timer = R(later, g, [onTimer, WINDOW_MS]);
     return false;
   };
 

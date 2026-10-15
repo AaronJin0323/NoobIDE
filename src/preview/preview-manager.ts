@@ -1051,6 +1051,31 @@ const terminating = new WeakSet<WebContents>();
 /** Dedicated workers and worklets of each preview that run with the guard (at most MAX_GUARDED_SCOPES). */
 const guardedScopeSets = new WeakMap<WebContents, Set<string>>();
 
+/** When each preview's recent workers and worklets were started (for the start rate, scopeStartTurn). */
+const scopeStartTimes = new WeakMap<WebContents, number[]>();
+
+function scopeStarts(contents: WebContents): number[] {
+  let starts = scopeStartTimes.get(contents);
+  if (!starts) {
+    starts = [];
+    scopeStartTimes.set(contents, starts);
+  }
+  return starts;
+}
+
+/** Waits until fewer than MAX_GUARDED_SCOPES workers/worklets were started in the last FLOOD_WINDOW_MS, then counts one. */
+async function scopeStartTurn(starts: number[]): Promise<void> {
+  for (;;) {
+    const now = Date.now();
+    while (starts.length > 0 && now - (starts[0] ?? 0) >= FLOOD_WINDOW_MS) starts.shift();
+    if (starts.length < MAX_GUARDED_SCOPES) {
+      starts.push(now);
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, FLOOD_WINDOW_MS - (now - (starts[0] ?? now)) + 1));
+  }
+}
+
 function guardedScopes(contents: WebContents): Set<string> {
   let scopes = guardedScopeSets.get(contents);
   if (!scopes) {
@@ -1148,6 +1173,7 @@ async function installPageGuard(
           void guardChildTarget(
             dbg,
             guardedScopes(contents),
+            scopeStarts(contents),
             params.sessionId,
             params.targetInfo.type,
             guardSources.get(contents) ?? '',
@@ -1194,6 +1220,7 @@ interface GuardEventParams {
 async function guardChildTarget(
   dbg: Electron.Debugger,
   scopes: Set<string>,
+  starts: number[],
   sessionId: string,
   type: string,
   source: string,
@@ -1211,6 +1238,9 @@ async function guardChildTarget(
       );
       resume = true;
     } else if (type === 'worker' || type === 'worklet') {
+      // Each one starts with its own small budget: at most MAX_GUARDED_SCOPES start per FLOOD_WINDOW_MS (the others
+      // wait, paused, for their turn) and run at once (further ones never start).
+      await scopeStartTurn(starts);
       if (scopes.size >= MAX_GUARDED_SCOPES) return;
       scopes.add(sessionId);
       // Their global scope exists and waits; the guard runs before their own script.

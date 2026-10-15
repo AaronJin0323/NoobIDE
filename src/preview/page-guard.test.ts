@@ -26,7 +26,31 @@ interface Printed {
  * like a new preview document. `prelude` runs before the guard (what the browser provides); `strings: false` is a
  * Content Security Policy without 'unsafe-eval'.
  */
-function realm(options: { prelude?: string; strings?: boolean; worker?: boolean; frames?: number } = {}) {
+interface RealmOptions {
+  prelude?: string;
+  strings?: boolean;
+  worker?: boolean;
+  frames?: number;
+  /** A frame: what its \`top\` returns (another realm's global, or an opaque stand-in). */
+  top?: unknown;
+  /** A clock shared with other realms of the same test. */
+  clock?: { t: number };
+}
+
+/** An opaque (cross-origin) view of a top window: its properties cannot be described, only frames counted. */
+function opaque(top: Record<string | number, unknown>): unknown {
+  return new Proxy(top, {
+    getOwnPropertyDescriptor() {
+      throw new Error('SecurityError: cross-origin');
+    },
+    get(target, key) {
+      if (key === '__kids' || (typeof key === 'string' && /^\d+$/.test(key))) return target[key];
+      throw new Error('SecurityError: cross-origin');
+    },
+  });
+}
+
+function realm(options: RealmOptions = {}) {
   const printed: Printed[] = [];
   const natives: Record<string, (...args: unknown[]) => unknown> = {};
   for (const method of METHODS) {
@@ -41,7 +65,7 @@ function realm(options: { prelude?: string; strings?: boolean; worker?: boolean;
   const nativeContext = function context() {
     return { log: natives.log, warn: natives.warn };
   };
-  let now = 1_000_000;
+  const clock = options.clock ?? { t: 1_000_000 };
   const timers: (() => void)[] = [];
   const console: Record<string, unknown> = { ...natives, context: nativeContext };
   const sandbox: Record<string, unknown> = {
@@ -56,7 +80,8 @@ function realm(options: { prelude?: string; strings?: boolean; worker?: boolean;
     print: () => {
       throw new Error('print must never open');
     },
-    __now: () => now,
+    __now: () => clock.t,
+    __top: options.top,
   };
   const context = createContext(sandbox, { codeGeneration: { strings: options.strings ?? true, wasm: false } });
   runInContext(
@@ -90,8 +115,13 @@ function realm(options: { prelude?: string; strings?: boolean; worker?: boolean;
         return w;
       };
       const kids = Array.from({ length: ${options.frames ?? 0} }, childWindow);
-      Object.defineProperty(globalThis, 'top', { get() { return globalThis; }, configurable: false });
-      Object.defineProperty(globalThis, 'length', { get() { return this === globalThis ? kids.length : 0; }, configurable: true });
+      globalThis.__kids = kids;
+      const top = globalThis.__top || globalThis;
+      Object.defineProperty(globalThis, 'top', { get() { return top; }, configurable: false });
+      Object.defineProperty(globalThis, 'length', {
+        get() { if (this === globalThis) return kids.length; const k = this.__kids; return k ? k.length : 0; },
+        configurable: true,
+      });
       kids.forEach((k, i) => Object.defineProperty(globalThis, i, { get: () => k }));
       globalThis.__addFrames = (n) => { for (let i = 0; i < n; i += 1) { const k = childWindow(); Object.defineProperty(globalThis, kids.length, { get: () => k }); kids.push(k); } };
     }
@@ -110,10 +140,13 @@ function realm(options: { prelude?: string; strings?: boolean; worker?: boolean;
     printed,
     logs: () => printed.filter((p) => p.method !== 'warn' || !String(p.args[0]).startsWith('NoobIDE:')),
     summaries: () => printed.filter((p) => p.method === 'warn' && String(p.args[0]).startsWith('NoobIDE:')),
+    global: runInContext('globalThis', context) as Record<string | number, unknown>,
+    clock,
     advance: (ms: number) => {
-      now += ms;
+      clock.t += ms;
     },
     runTimers: () => timers.splice(0).forEach((t) => t()),
+    pendingTimers: () => timers.length,
   };
 }
 
@@ -271,31 +304,56 @@ describe('page guard: rate limit and summaries', () => {
     expect(r.summaries()).toHaveLength(2);
   });
 
-  it('all documents of a page share one budget, however many iframes it creates', () => {
-    const r = realm({ frames: 9 });
-    for (let i = 0; i < 1_000; i += 1) r.console.log(i);
-    expect(r.logs()).toHaveLength(CONSOLE_BURST / 10);
-    // More frames later (counted again after 100 ms): the share shrinks, but every document may hold one message.
-    r.page(`__addFrames(990)`);
-    r.advance(10_000); // 1000 documents share 200 per second: 0.2 per second each, at most 1 held
-    for (let i = 0; i < 1_000; i += 1) r.console.log(i);
-    // That one token goes to the summary of what was suppressed before.
-    expect(r.logs()).toHaveLength(CONSOLE_BURST / 10);
-    expect(r.summaries()).toHaveLength(1);
+  it('same-origin frames spend the top document’s budget: creating frames again and again gains nothing', () => {
+    const top = realm({ frames: 1 });
+    const frames = Array.from({ length: 50 }, () => realm({ top: top.global, clock: top.clock }));
+    for (const frame of frames) for (let i = 0; i < 100; i += 1) frame.console.log(i);
+    for (let i = 0; i < 100; i += 1) top.console.log(i);
+    const total = top.logs().length + frames.reduce((n, f) => n + f.logs().length, 0);
+    expect(total).toBe(CONSOLE_BURST);
+    expect(top.logs()).toHaveLength(0);
+    // The budget the page sees on \`top\` cannot be replaced or redefined; calling it only spends it.
+    const kept = top.page<boolean>(`
+      const before = noobidePreviewConsoleBudget;
+      try { noobidePreviewConsoleBudget = () => true; } catch {}
+      try { Object.defineProperty(globalThis, 'noobidePreviewConsoleBudget', { value: () => true }); } catch {}
+      noobidePreviewConsoleBudget === before && noobidePreviewConsoleBudget() === false`);
+    expect(kept).toBe(true);
   });
 
-  it('a summary waits for a token too (many realms cannot flood main with summaries)', () => {
-    const r = realm({ frames: 999 });
-    for (let i = 0; i < 50; i += 1) r.console.log(i);
-    expect(r.logs()).toHaveLength(1);
+  it('a frame that cannot reach the budget (other origin) starts empty and gets 1/N of it', () => {
+    const top = realm({ frames: 9 });
+    const fresh = realm({ top: opaque(top.global), clock: top.clock });
+    for (let i = 0; i < 100; i += 1) fresh.console.log(i);
+    expect(fresh.logs()).toHaveLength(0); // frames created in a loop get nothing
+    fresh.advance(5_000);
+    for (let i = 0; i < 100; i += 1) fresh.console.log(i);
+    // 10 documents: a tenth of the burst; one token pays the summary of the first 100.
+    expect(fresh.logs()).toHaveLength(CONSOLE_BURST / 10 - 1);
+    expect(fresh.summaries()).toHaveLength(1);
+  });
+
+  it('with more than CONSOLE_BURST documents a frame that cannot reach the budget never logs', () => {
+    const top = realm({ frames: 999 });
+    const fresh = realm({ top: opaque(top.global), clock: top.clock });
+    fresh.advance(60_000);
+    for (let i = 0; i < 100; i += 1) fresh.console.log(i);
+    expect(fresh.logs()).toHaveLength(0);
+  });
+
+  it('a summary waits for a token and retries with one timer (no timer per console call)', () => {
+    const r = realm();
+    for (let i = 0; i < CONSOLE_BURST + 50; i += 1) r.console.log(i);
+    r.advance(1_000);
+    r.page(`for (let i = 0; i < 10000; i += 1) noobidePreviewConsoleBudget();`); // the page spends its budget
+    for (let i = 0; i < 1_000; i += 1) {
+      r.console.log(i);
+      if (i % 100 === 0) r.advance(1_000 / CONSOLE_LIMIT / 2);
+    }
+    expect(r.pendingTimers()).toBeLessThanOrEqual(1);
     r.advance(1_000);
     r.runTimers();
-    // One token per ~5 s for this document (200/s shared by 1000): the summary is not sent yet.
-    expect(r.summaries()).toHaveLength(0);
-    r.advance(5_000);
-    r.runTimers();
     expect(r.summaries()).toHaveLength(1);
-    expect(parseLimiterSummary(String(r.summaries()[0]?.args[0]), LIMITER_SOURCE_URL, NONCE)).toBe(49);
   });
 
   it('a worker or worklet (no frame tree) has its own smaller budget', () => {

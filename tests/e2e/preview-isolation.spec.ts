@@ -375,6 +375,49 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
       })()`,
     ],
     [
+      'iframes created and removed in a loop, each a saved console.log',
+      `(() => {
+        let frames = 0;
+        ${loop("const f = document.createElement('iframe'); document.body.append(f); const log = f.contentWindow.console.log; for (let k = 0; k < 60; k += 1) log('循环框架 ' + k); f.remove(); frames += 1")}
+        return frames > 100 ? 'finished' : 'only ' + frames + ' frames';
+      })()`,
+    ],
+    [
+      'sandboxed iframes created and removed in a loop',
+      `new Promise((resolve) => {
+        const code = ${JSON.stringify(`<script>const log = console.log; for (let k = 0; k < 60; k += 1) log('沙箱循环 ' + k);</script>`)};
+        const end = Date.now() + ${LOOP_MS};
+        let frames = 0;
+        const next = () => {
+          if (Date.now() >= end) return resolve(frames > 20 ? 'finished' : 'only ' + frames + ' frames');
+          const f = document.createElement('iframe');
+          f.sandbox = 'allow-scripts';
+          f.srcdoc = code;
+          f.onload = () => { f.remove(); frames += 1; next(); };
+          document.body.append(f);
+        };
+        next();
+      })`,
+    ],
+    [
+      'workers started and ended in a loop, each a saved console.log',
+      `new Promise((resolve) => {
+        const code = ${JSON.stringify(`const log = console.log; for (let k = 0; k < 20; k += 1) log('循环线程 ' + k); postMessage('done');`)};
+        const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+        const end = Date.now() + ${LOOP_MS};
+        const all = [];
+        let done = 0;
+        const spawn = () => {
+          if (Date.now() >= end) return;
+          const w = new Worker(url);
+          all.push(w);
+          w.onmessage = () => { done += 1; w.terminate(); spawn(); };
+        };
+        for (let k = 0; k < ${MAX_GUARDED_SCOPES}; k += 1) spawn();
+        setTimeout(() => { all.forEach((w) => w.terminate()); resolve(done > 0 ? 'finished' : 'none ran'); }, ${LOOP_MS + 500});
+      })`,
+    ],
+    [
       '20 workers at once, each with a saved console.log',
       `new Promise((resolve) => {
         const code = ${JSON.stringify(`const log = console.log; ${loop("log('多个线程 ' + i)")} postMessage('done');`)};
@@ -398,11 +441,13 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   // What the page's documents (one shared budget, at least one message each) or a set of workers may send in
   // LOOP_MS, plus summaries (page-guard.ts).
   const allowed = CONSOLE_BURST + Math.ceil((CONSOLE_LIMIT * LOOP_MS) / 1_000) + 10;
+  // Workers: at most MAX_GUARDED_SCOPES start per second and run at once, each with its own small budget.
+  const workerWindows = Math.ceil((LOOP_MS + 500) / 1_000) + 1;
   const allowedFor = (name: string) =>
-    name.startsWith('200 iframes')
-      ? allowed + 201
-      : name.startsWith('20 workers')
-        ? MAX_GUARDED_SCOPES * (WORKER_CONSOLE_BURST + Math.ceil((WORKER_CONSOLE_LIMIT * LOOP_MS) / 1_000) + 2)
+    name.startsWith('20 workers')
+      ? MAX_GUARDED_SCOPES * (WORKER_CONSOLE_BURST + Math.ceil((WORKER_CONSOLE_LIMIT * LOOP_MS) / 1_000) + 2)
+      : name.startsWith('workers started and ended')
+        ? workerWindows * MAX_GUARDED_SCOPES * (WORKER_CONSOLE_BURST + 2)
         : allowed;
   for (const [name, code] of bypasses) {
     const run = await measureMainStall(app, previewId, code);
@@ -418,7 +463,9 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
 
   // The design does not depend on main being fast: with an artificial 0.6 ms of main-thread work per console
   // message (what a loaded Windows CI runner measured), the same saved references keep main's stall within budget.
-  for (const [name, code] of bypasses.filter(([n]) => /page|worker$|sandboxed|^200 iframes|^20 workers/.test(n))) {
+  for (const [name, code] of bypasses.filter(([n]) =>
+    /page|worker$|sandboxed|^200 iframes|^20 workers|in a loop/.test(n),
+  )) {
     const run = await measureMainStall(app, previewId, code, { costMs: 0.6 });
     console.log(`${name} (main 0.6 ms per message): ${run.messages} messages; longest main stall ${run.max} ms`);
     expect(run.result, name).toBe('finished');
