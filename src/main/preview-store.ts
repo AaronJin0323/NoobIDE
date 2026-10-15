@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { SerialQueue, writeFileAtomic, type RecoveryLogger } from '../recovery/atomic-file';
-import { backupFile, readJsonFile } from './json-file';
+import { backupFile, readJsonFile, schemaVersionOf } from './json-file';
 
 /**
  * Preview decisions kept in app data (`<userData>/preview.json`, never inside a project — AGENTS.md):
@@ -10,8 +10,8 @@ import { backupFile, readJsonFile } from './json-file';
  *   no path text. Capped at MAX_TRUSTED (oldest forgotten first: that folder simply asks again).
  * - S14.2 one-time notes: "refreshing reloads the page and clears what it was doing" is shown once, then never again.
  *
- * Same robustness as the other app-data stores: a corrupt file is backed up and reset, an unreadable one makes the
- * store work in memory only, writes are serialized and atomic.
+ * Same robustness as the other app-data stores: a corrupt file is backed up and reset, an unreadable one or one
+ * written by a newer NoobIDE (S28.4) makes the store work in memory only, writes are serialized and atomic.
  */
 export const PREVIEW_STORE_VERSION = 1;
 export const MAX_TRUSTED = 500;
@@ -102,8 +102,14 @@ export class PreviewStore {
   private load(): void {
     this.loaded ??= this.queue.run(async () => {
       const read = await readJsonFile(this.options.file);
-      if (read.kind === 'parsed') this.state = loadPreviewStoreState(read.value);
-      else if (read.kind === 'unreadable') {
+      if (read.kind === 'parsed') {
+        this.state = loadPreviewStoreState(read.value);
+        if (schemaVersionOf(read.value, PREVIEW_STORE_VERSION).kind === 'newer') {
+          // S28.4 downgrade: written by a newer NoobIDE — use it, never write it (decisions last until quit).
+          this.writable = false;
+          this.options.log?.('preview-store-newer-version', { readOnly: true });
+        }
+      } else if (read.kind === 'unreadable') {
         this.writable = false;
         this.options.log?.('preview-store-unreadable', { code: read.code });
       } else if (read.kind === 'corrupt') {

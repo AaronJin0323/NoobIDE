@@ -1,6 +1,11 @@
 import { SerialQueue, writeFileAtomic, type RecoveryLogger } from '../recovery/atomic-file';
-import { DEFAULT_WALKTHROUGH, loadWalkthroughState, type WalkthroughState } from '../shared/walkthrough';
-import { backupFile, readJsonFile } from './json-file';
+import {
+  DEFAULT_WALKTHROUGH,
+  loadWalkthroughState,
+  WALKTHROUGH_VERSION,
+  type WalkthroughState,
+} from '../shared/walkthrough';
+import { backupFile, readJsonFile, schemaVersionOf } from './json-file';
 
 export interface WalkthroughStoreOptions {
   /** `<userData>/walkthrough.json` (app data, never inside a project). */
@@ -11,7 +16,8 @@ export interface WalkthroughStoreOptions {
 /**
  * Onboarding walkthrough progress in app data (S23.1). Loaded once and validated field by field (an invalid field
  * takes its default). A file that is not JSON is moved aside to a timestamped backup, never silently overwritten; an
- * unreadable one makes the store work in memory only. Saves are serialized and atomic (temp file + rename).
+ * unreadable one, or one written by a newer NoobIDE (S28.4), makes the store work in memory only. Saves are
+ * serialized and atomic (temp file + rename).
  */
 export class WalkthroughStore {
   private state: WalkthroughState = DEFAULT_WALKTHROUGH;
@@ -45,8 +51,14 @@ export class WalkthroughStore {
 
   private async loadNow(): Promise<WalkthroughState> {
     const read = await readJsonFile(this.options.file);
-    if (read.kind === 'parsed') this.state = loadWalkthroughState(read.value);
-    else if (read.kind === 'unreadable') {
+    if (read.kind === 'parsed') {
+      this.state = loadWalkthroughState(read.value);
+      if (schemaVersionOf(read.value, WALKTHROUGH_VERSION).kind === 'newer') {
+        // S28.4 downgrade: written by a newer NoobIDE — use it, never write it (progress lasts until quit).
+        this.writable = false;
+        this.options.log?.('walkthrough-newer-version', { readOnly: true });
+      }
+    } else if (read.kind === 'unreadable') {
       this.writable = false;
       this.options.log?.('walkthrough-unreadable', { code: read.code });
     } else if (read.kind === 'corrupt') {

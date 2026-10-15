@@ -3,12 +3,13 @@ import path from 'node:path';
 import { SerialQueue, writeFileAtomic, type RecoveryLogger } from '../recovery/atomic-file';
 import { projectKey } from '../recovery/keys';
 import { parseProjectTabs, parseSessionLayout, type ProjectTabs, type SessionLayout } from '../shared/session';
-import { backupFile, readJsonFile } from './json-file';
+import { backupFile, readJsonFile, schemaVersionOf } from './json-file';
 
 /**
  * Session state in app data (S13.4, `session.json`): the project that was open when the app last closed normally,
  * its open tabs and the visible one per project (keyed by the real root path), and the layout sizes. Never stored in
- * a project folder; tab paths are relative. A corrupt file is backed up and the session starts empty.
+ * a project folder; tab paths are relative. A corrupt file is backed up and the session starts empty; one written by a
+ * newer NoobIDE (S28.4 downgrade) is used but never written.
  */
 export const SESSION_VERSION = 1;
 const MAX_PROJECTS = 30;
@@ -33,7 +34,8 @@ export interface SessionStoreOptions {
 function parseData(value: unknown): SessionData | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
-  if (raw.version !== SESSION_VERSION) return null;
+  // An older or a newer (S28.4) file is read field by field; only a broken version makes it unusable.
+  if (schemaVersionOf(raw, SESSION_VERSION).kind === 'invalid') return null;
   const data: SessionData = { lastProject: null, layout: null, projects: {} };
   if (typeof raw.lastProject === 'string' && path.isAbsolute(raw.lastProject)) data.lastProject = raw.lastProject;
   data.layout = parseSessionLayout(raw.layout);
@@ -68,8 +70,14 @@ export class SessionStore {
         return;
       }
       const parsed = read.kind === 'parsed' ? parseData(read.value) : null;
-      if (parsed) this.data = parsed;
-      else {
+      if (parsed) {
+        this.data = parsed;
+        if (read.kind === 'parsed' && schemaVersionOf(read.value, SESSION_VERSION).kind === 'newer') {
+          // S28.4 downgrade: written by a newer NoobIDE — use it, never write it (changes last until quit).
+          this.writable = false;
+          this.options.log?.('session-newer-version', { readOnly: true });
+        }
+      } else {
         const backup = await backupFile(this.options.file, 'corrupt');
         this.options.log?.('session-reset', { backedUp: backup !== null });
         if (backup === null) this.writable = false;
