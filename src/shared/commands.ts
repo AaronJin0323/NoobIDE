@@ -51,6 +51,8 @@ export const COMMAND_IDS = [
   'preview-open-external',
   'preview-devtools',
   'preview-clear-data',
+  // S32.1 AI ghost-text suggestions
+  'toggle-inline-ai',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -150,6 +152,8 @@ export const COMMANDS: readonly CommandDefinition[] = [
   { id: 'preview-open-external', label: 'command.preview.openExternal', when: (c) => c.hasProject && !c.modalOpen },
   { id: 'preview-devtools', label: 'command.preview.devTools', when: (c) => c.hasProject && !c.modalOpen },
   { id: 'preview-clear-data', label: 'command.preview.clearData', when: (c) => c.hasProject && !c.modalOpen },
+  // S32.1: switches AI ghost-text suggestions on or off (AiConfig.inlineCompletions); only offered with an AI bridge.
+  { id: 'toggle-inline-ai', label: 'command.toggleInlineAi', when: noModal },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));
@@ -195,6 +199,8 @@ export const APP_MENU_COMMANDS: readonly (CommandId | '-')[] = [
   'theme-system',
   'theme-light',
   'theme-dark',
+  '-',
+  'toggle-inline-ai', // S32.1
   '-',
   'help-walkthrough',
   'help-glossary',

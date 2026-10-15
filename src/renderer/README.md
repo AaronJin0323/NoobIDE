@@ -11,4 +11,5 @@ Folders: `workbench/` (shell, file tree, tabs, editor and preview panes, problem
 model registry, language configuration), `problems/` (problem views and cards, static problems, one-click fix),
 `history/` (local history window), `recovery/` (journal scheduler, restore dialog), `welcome/` (welcome screen and
 create-project wizard), `walkthrough/` (onboarding and glossary), `commands/` (command hooks and F6 region focus; the registry itself is `src/shared/commands.ts`), `i18n/`
-(zh-CN / en dictionaries), `theme/`.
+(zh-CN / en dictionaries), `theme/`, `ai/` (AI features over `window.noobide.ai`, decision 0025; S32 ghost-text
+suggestions in `inline-*.ts`).

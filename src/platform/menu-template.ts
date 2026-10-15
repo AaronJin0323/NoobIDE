@@ -139,6 +139,8 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       role('copy', 'menu.copy'),
       role('paste', 'menu.paste'),
       role('selectAll', 'menu.selectAll'),
+      SEPARATOR,
+      command('toggle-inline-ai'), // S32.1
     ],
   };
 
