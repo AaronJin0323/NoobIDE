@@ -2,6 +2,7 @@ import type { MessageKey } from './zh-CN';
 import { welcomeHistoryEn } from './welcome-history';
 import { commandsEn } from './commands'; // S24
 import { previewToolbarEn } from './preview-toolbar'; // S14/S15.4
+import { aiAgentEn } from './ai-agent'; // S34.2
 import { aiChatEn } from './ai-chat'; // S33
 import { aiInlineEn } from './ai-inline'; // S32.1
 
@@ -294,6 +295,7 @@ export const en: Record<MessageKey, string> = {
   ...welcomeHistoryEn,
   ...commandsEn, // S24
   ...previewToolbarEn, // S14/S15.4 preview manager and toolbar
+  ...aiAgentEn, // S34.2 AI agent panel and proposal review
   ...aiChatEn, // S33 AI chat and explain
   ...aiInlineEn, // S32.1 AI ghost-text suggestions
   // --- S18.3 formatting ---
