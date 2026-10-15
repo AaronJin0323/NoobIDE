@@ -3,6 +3,30 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 18 — 2026-10-16 — CI red on main: ai-history test used the unresolved temp path
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/fix-ci-ai-history`.
+
+**Done**
+
+- CI `Verify` failed on both jobs for every push to main since S39 (runs 38673893839 … 38762366576). The only
+  persistent failure: `tests/integration/ai-history.test.ts` "revoking consent … counted and deleted by id" got
+  `count: 0`. Cause (test-only): its `recentRootOf` fake returned the raw temp path, while the chat store keys by
+  the project's **real** root (ProjectService realpath; main's `recent.touch` records the same real root, so the
+  product is consistent). On CI the temp dir is a symlink (macOS `/var` → `/private/var`) or an 8.3 short name
+  (Windows `RUNNER~1`), so the hashes differed; the dev machine's temp path is already real, which hid it.
+- Fix: the fake returns `projects.rootOf(projectId)`. Reproduced locally with TMP set to a junction: old test fails
+  with the CI assertion, fixed test passes. `npm run verify` green.
+
+**Problems / notes**
+
+- Run 38723694371 also had a one-off `watcher.test.ts` "mass delete … never blocks" timing failure on Windows; it did
+  not recur in later runs. Watch for it.
+
+**Next up**
+
+- Confirm the next CI run on main is green (then G1/G3 reviews can cite a green CI run again).
+
 ## Session 17 — 2026-10-16 — Preview annotations for the AI assistant (S41, milestone M12)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, in worktree branch `claude/frosty-blackburn-4c3d2c`

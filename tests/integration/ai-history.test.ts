@@ -153,7 +153,9 @@ async function setup() {
     chats,
     usage,
     rootOf: (id) => projects.rootOf(id),
-    recentRootOf: async (id) => (id === RECENT ? projectRoot : undefined),
+    // Main records recent entries by the project's real root (ProjectService realpath), not the path as typed: on CI
+    // the temp dir is a symlink (macOS /var) or an 8.3 short name (Windows RUNNER~1), so the raw path never matches.
+    recentRootOf: async (id) => (id === RECENT ? projects.rootOf(projectId) : undefined),
   });
   expect(await call(AI_CHANNELS.setKey, { provider: 'anthropic', key: 'sk-ant-test-0123456789' })).toEqual({
     ok: true,
