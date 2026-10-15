@@ -2283,7 +2283,7 @@
       "verify": "auto",
       "depends_on": [],
       "status": "done",
-      "evidence": "tests/e2e/preview-permissions.spec.ts (12 request kinds denied <1 s, no OS prompt/TCC change, notices once per kind) + src/preview/permission-policy.test.ts @ 9ec309e"
+      "evidence": "tests/e2e/preview-permissions.spec.ts: 12 request kinds (camera, mic, location, notifications, MIDI, clipboard, screen, HID/serial/USB, Bluetooth disabled, fullscreen) refused in <2 s each (most <1 ms), OS media access status and window count unchanged, localised notice once per kind; src/preview/permission-policy.test.ts; full e2e green macOS arm64 @ 615768d"
     },
     {
       "id": "S26.1",
