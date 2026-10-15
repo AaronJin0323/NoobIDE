@@ -74,6 +74,22 @@ describe('journal scheduling (S12.1)', () => {
     });
   });
 
+  it('copies carry the BOM the file has now, after another program added or removed it', async () => {
+    scheduler.setBom(true);
+    type(1);
+    await vi.advanceTimersByTimeAsync(JOURNAL_DEBOUNCE_MS);
+    expect(sink.record).toHaveBeenLastCalledWith(expect.objectContaining({ revision: 1, bom: true }));
+    scheduler.setBom(false);
+    type(2);
+    await vi.advanceTimersByTimeAsync(JOURNAL_DEBOUNCE_MS);
+    expect(sink.record).toHaveBeenLastCalledWith(expect.objectContaining({ revision: 2, bom: false }));
+    // A new buffer starts from its own BOM again.
+    scheduler.begin({ ...BUFFER, bom: true });
+    type(1);
+    await vi.advanceTimersByTimeAsync(JOURNAL_DEBOUNCE_MS);
+    expect(sink.record).toHaveBeenLastCalledWith(expect.objectContaining({ revision: 1, bom: true }));
+  });
+
   it('continuous typing still reaches the journal within 2 s of the first unsent edit', async () => {
     const start = Date.now();
     const sentAt: number[] = [];

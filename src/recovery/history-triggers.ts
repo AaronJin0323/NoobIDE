@@ -72,6 +72,19 @@ export class HistoryTriggers implements SaveHistoryHook {
     await this.snapshotFile(rootPath, relPath, absPath, 'before-format');
   }
 
+  /**
+   * Before the formatter (or a whole-file indentation conversion) rewrites an editor buffer: `data` is the buffer's
+   * own bytes, which may hold edits that are not on disk yet. Like every operation snapshot it ends the current save
+   * burst, so the save of the formatted text that follows cannot coalesce over the version kept before it.
+   */
+  async beforeFormatText(rootPath: string, relPath: string, data: Uint8Array): Promise<void> {
+    if (data.length > this.store.limits.maxSnapshotBytes) {
+      this.log('history.snapshot-skipped', { reason: 'too-large', bytes: data.length });
+      return;
+    }
+    await this.safely(() => this.store.snapshot(rootPath, relPath, data, 'before-format'));
+  }
+
   /** Before restoring an older version over the current file. */
   async beforeRestore(rootPath: string, relPath: string, absPath: string): Promise<void> {
     await this.snapshotFile(rootPath, relPath, absPath, 'before-restore');

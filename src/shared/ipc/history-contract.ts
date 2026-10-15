@@ -4,13 +4,21 @@
  * project's id plus a portable relative path, versions by their id, other projects' histories by their opaque key.
  * Version text crosses IPC only on `read` and is never logged.
  */
-import { CHANNELS, isListedRelPath, isPortableRelPath, isProjectId, type IpcResult } from './contract';
+import {
+  CHANNELS,
+  MAX_TEXT_FILE_BYTES,
+  isListedRelPath,
+  isPortableRelPath,
+  isProjectId,
+  type IpcResult,
+} from './contract';
 
 export const HISTORY_CHANNELS = {
   files: CHANNELS.historyFiles,
   versions: CHANNELS.historyVersions,
   read: CHANNELS.historyRead,
   beforeRestore: CHANNELS.historyBeforeRestore,
+  beforeFormat: CHANNELS.historyBeforeFormat,
   restoreDeleted: CHANNELS.historyRestoreDeleted,
   overview: CHANNELS.historyOverview,
   clear: CHANNELS.historyClear,
@@ -100,6 +108,15 @@ export interface GroupRecordRequest {
   };
 }
 
+export interface BeforeFormatRequest {
+  readonly projectId: string;
+  readonly relPath: string;
+  /** The buffer's whole text (in memory, never logged). */
+  readonly text: string;
+  /** The file's current UTF-8 BOM, so the kept version has the bytes a save of this text would write. */
+  readonly bom: boolean;
+}
+
 export interface HistoryVersionText {
   readonly text: string;
   readonly bom: boolean;
@@ -175,6 +192,12 @@ export interface HistoryApi {
     readonly projectId: string;
     readonly relPath: string;
   }): Promise<IpcResult<null, HistoryError>>;
+  /**
+   * Keeps the text of a file's editor buffer as a version (reason before-format) right before the formatter (or a
+   * whole-file indentation conversion) rewrites it. The buffer may hold unsaved edits, so its own text is sent, not
+   * what is on disk. Ends the current save burst, so the next save cannot replace the version kept before it.
+   */
+  beforeFormat(request: BeforeFormatRequest): Promise<IpcResult<null, HistoryError>>;
   /** Creates a deleted file again with a version's content; refuses if anything has that name now. */
   restoreDeleted(request: VersionRequest): Promise<IpcResult<{ readonly relPath: string }, HistoryError>>;
   overview(request: { readonly projectId: string | null }): Promise<IpcResult<HistoryOverview, never>>;
@@ -228,6 +251,15 @@ export function parseHistoryFileRequest(payload: unknown): { projectId: string; 
   if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath'])) return null;
   const { projectId, relPath } = payload;
   return isProjectId(projectId) && isListedRelPath(relPath) ? { projectId, relPath } : null;
+}
+
+export function parseBeforeFormatRequest(payload: unknown): BeforeFormatRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath', 'text', 'bom'])) return null;
+  const { projectId, relPath, text, bom } = payload;
+  if (!isProjectId(projectId) || !isListedRelPath(relPath)) return null;
+  // Like a save: a JS string can be up to 3 UTF-8 bytes per code unit; main checks the encoded size.
+  if (typeof text !== 'string' || text.length > MAX_TEXT_FILE_BYTES || typeof bom !== 'boolean') return null;
+  return { projectId, relPath, text, bom };
 }
 
 export function parseVersionRequest(payload: unknown): VersionRequest | null {

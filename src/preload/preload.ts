@@ -137,6 +137,7 @@ const api: NoobideApi = {
     versions: (request) => ipcRenderer.invoke(CHANNELS.historyVersions, request),
     read: (request) => ipcRenderer.invoke(CHANNELS.historyRead, request),
     beforeRestore: (request) => ipcRenderer.invoke(CHANNELS.historyBeforeRestore, request),
+    beforeFormat: (request) => ipcRenderer.invoke(CHANNELS.historyBeforeFormat, request),
     restoreDeleted: (request) => ipcRenderer.invoke(CHANNELS.historyRestoreDeleted, request),
     overview: (request) => ipcRenderer.invoke(CHANNELS.historyOverview, request),
     clear: (request) => ipcRenderer.invoke(CHANNELS.historyClear, request),

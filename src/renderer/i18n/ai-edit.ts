@@ -34,10 +34,12 @@ export const aiEditZhCN = {
   'ai.edit.noChange': 'AI 没有提出任何修改，代码没有变化。可以换个说法再试。',
   'ai.edit.saveFailed': '修改已经放进编辑器，但保存失败：{reason} 修改还在编辑器里，不会丢失。',
   'ai.edit.stale': '发送之后这段代码又被改动了，所以没有应用 AI 的修改，你的代码保持不变。可以用现在的代码再试一次。',
+  'ai.edit.blocked':
+    '这个文件现在不能修改（只读，或者正在重命名、移动或删除），所以没有应用 AI 的修改，你的代码保持不变。等操作完成后可以再试一次。',
   'ai.edit.cancelled': '已停止，代码没有变化。',
   'ai.edit.retry': '再试一次',
   'ai.edit.close': '关闭',
-  'ai.edit.readOnly': '这个文件不能修改（只读，或者使用了其他编码），所以 AI 也不能改它。',
+  'ai.edit.readOnly': '这个文件现在不能修改（只读、使用了其他编码，或者正在重命名、移动或删除），所以 AI 也不能改它。',
   'ai.edit.noKey': '还没有 API 密钥，所以不能用 AI 修改代码。请先在“设置 → AI”里填写密钥。',
   'ai.edit.openSettings': '打开 AI 设置',
   'ai.edit.error.empty-answer': 'AI 返回了空的回答，所以没有修改任何代码。可以再试一次。',
@@ -89,10 +91,13 @@ export const aiEditEn: Record<keyof typeof aiEditZhCN, string> = {
     'The change is in the editor, but saving failed: {reason} It stays in the editor; nothing is lost.',
   'ai.edit.stale':
     'This code changed after it was sent, so the AI change was not applied and your code stays as it is. You can try again with the current code.',
+  'ai.edit.blocked':
+    'This file cannot be changed right now (it is read-only, or being renamed, moved or deleted), so the AI change was not applied and your code stays as it is. You can try again once that has finished.',
   'ai.edit.cancelled': 'Stopped. Your code is unchanged.',
   'ai.edit.retry': 'Try again',
   'ai.edit.close': 'Close',
-  'ai.edit.readOnly': 'This file cannot be changed (read-only, or in another encoding), so the AI cannot change it.',
+  'ai.edit.readOnly':
+    'This file cannot be changed right now (read-only, in another encoding, or being renamed, moved or deleted), so the AI cannot change it.',
   'ai.edit.noKey': 'There is no API key yet, so AI cannot edit code. Add your key in Settings → AI first.',
   'ai.edit.openSettings': 'Open AI settings',
   'ai.edit.error.empty-answer': 'The AI returned an empty answer, so nothing was changed. You can try again.',

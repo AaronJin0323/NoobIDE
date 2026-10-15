@@ -63,6 +63,8 @@ export function statusText(t: Translate, state: InlineEditState, platform: Platf
       return t('ai.edit.noChange');
     case 'stale':
       return t('ai.edit.stale');
+    case 'blocked':
+      return t('ai.edit.blocked');
     case 'cancelled':
       return t('ai.edit.cancelled');
     case 'save-failed':
@@ -116,7 +118,8 @@ export function InlineEditPanel({
     if (state.phase === 'review') actions.reject();
     else actions.close();
   };
-  const retry = ['error', 'cancelled', 'stale', 'no-change'].includes(state.phase) && state.instruction.trim() !== '';
+  const retry =
+    ['error', 'cancelled', 'stale', 'blocked', 'no-change'].includes(state.phase) && state.instruction.trim() !== '';
 
   return (
     <section

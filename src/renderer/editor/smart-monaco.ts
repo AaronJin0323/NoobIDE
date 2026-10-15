@@ -19,6 +19,7 @@ import {
   type IndentGuess,
 } from './indent-detect';
 import { indentOverride, publishIndent, registerIndentCommands } from './indent-state';
+import { emitBeforeFormat } from './format-hook';
 import { completionContextAt, htmlRegionAt, type CompletionContext } from './completion-context';
 import { suggestPaths } from './path-suggest';
 import { MAX_INDEXED_CHARS, indexedLanguage, symbolsOf, type ProjectIndex, type SymbolTable } from './project-index';
@@ -386,6 +387,8 @@ export function attachSmartEditing(editor: monaco.editor.ICodeEditor): monaco.ID
       const from = guess.confidence === 'none' ? { insertSpaces, tabSize } : guess;
       const edits = convertIndentation(model.getValue(), from, { insertSpaces, tabSize });
       if (edits.length === 0) return;
+      // A whole-file rewrite like formatting: local history keeps the text as it was first (PLAN §7).
+      emitBeforeFormat({ uri: model.uri.toString(), text: model.getValue(), languageId: model.getLanguageId() });
       model.pushStackElement();
       editor.executeEdits(
         'noobide-indent',

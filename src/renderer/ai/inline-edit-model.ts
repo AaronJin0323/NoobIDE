@@ -157,6 +157,8 @@ export type InlineEditPhase =
   | 'save-failed'
   /** The code in the range changed after it was sent: nothing applied. */
   | 'stale'
+  /** On Accept the file could not be changed (read-only, or being renamed, moved or trashed): nothing applied. */
+  | 'blocked'
   /** The request failed (AiErrorCode explained), or was refused before sending (too large). */
   | 'error'
   /** Stopped by the user: nothing changed. */
@@ -202,6 +204,7 @@ export type InlineEditAction =
   | { readonly type: 'cancelled' }
   | { readonly type: 'accept' }
   | { readonly type: 'stale' }
+  | { readonly type: 'blocked' }
   | { readonly type: 'applied' }
   | { readonly type: 'save-failed'; readonly code: string };
 
@@ -215,7 +218,7 @@ export function inlineEditReducer(state: InlineEditState, action: InlineEditActi
       return state.phase === 'consent' ? { ...state, phase: 'instruction' } : state;
     case 'send':
       // A new request from the instruction box, or "try again" after an error, a stop or a stale answer.
-      if (!['instruction', 'error', 'cancelled', 'stale', 'no-change'].includes(state.phase)) return state;
+      if (!['instruction', 'error', 'cancelled', 'stale', 'blocked', 'no-change'].includes(state.phase)) return state;
       if (!state.instruction.trim()) return state;
       return {
         ...withoutUsage(state),
@@ -252,11 +255,37 @@ export function inlineEditReducer(state: InlineEditState, action: InlineEditActi
       return state.phase === 'review' ? { ...state, phase: 'applying' } : state;
     case 'stale':
       return state.phase === 'applying' || state.phase === 'review' ? { ...state, phase: 'stale' } : state;
+    case 'blocked':
+      return state.phase === 'applying' || state.phase === 'review' ? { ...state, phase: 'blocked' } : state;
     case 'applied':
       return state.phase === 'applying' ? { ...state, phase: 'applied' } : state;
     case 'save-failed':
       return state.phase === 'applying' ? { ...state, phase: 'save-failed', saveError: action.code } : state;
   }
+}
+
+/** The part of the edit zone Accept uses (editor-handle's EditZone.apply). */
+export interface ApplyTarget {
+  apply(
+    text: string,
+    expected: string,
+  ): { readonly ok: true; readonly text: string } | { readonly ok: false; readonly reason: string };
+}
+
+/**
+ * Accept: the proposal goes into the editor as one undoable edit — but never while the file cannot be changed (read-
+ * only, or being renamed, moved or trashed: `blocked` is asked right now, not when the session opened). The edit is
+ * applied programmatically, which an editor's read-only option does not stop, so this check is the guard.
+ */
+export function acceptProposal(
+  blocked: boolean,
+  zone: ApplyTarget,
+  proposal: string,
+  original: string,
+): { readonly ok: true; readonly text: string } | { readonly ok: false; readonly reason: 'blocked' | 'stale' } {
+  if (blocked) return { ok: false, reason: 'blocked' };
+  const applied = zone.apply(proposal, original);
+  return applied.ok ? { ok: true, text: applied.text } : { ok: false, reason: 'stale' };
 }
 
 function withoutUsage(state: InlineEditState): InlineEditState {

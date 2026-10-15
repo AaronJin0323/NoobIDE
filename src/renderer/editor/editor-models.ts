@@ -32,6 +32,14 @@ export function releaseModel(uri: string): void {
   models.release(uri);
 }
 
+/**
+ * Whether a tab's URI (as main sent it) names the model whose `model.uri.toString()` is `modelUri`: Monaco normalises
+ * a parsed URI (percent-encoding, the drive letter), so the two strings can differ for the same file.
+ */
+export function isModelUriOf(tabUri: string, modelUri: string): boolean {
+  return tabUri === modelUri || monaco.Uri.parse(tabUri).toString() === modelUri;
+}
+
 /** The project closed: release every file model (the sample keeps its in-memory model). */
 export function releaseFileModels(): void {
   models.retainOnly(models.uris().filter((uri) => !uri.startsWith('file:')));

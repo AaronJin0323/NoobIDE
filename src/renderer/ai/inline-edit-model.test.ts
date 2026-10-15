@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { translate } from '../i18n/index';
 import { I18nValueProvider } from '../i18n/I18nProvider';
 import {
+  acceptProposal,
   EDIT_CONTEXT_CHARS,
   EDIT_CONTEXT_LINES,
   EDIT_MAX_RANGE_CHARS,
@@ -190,6 +191,34 @@ describe('inline edit session (S35.1)', () => {
     );
   });
 
+  it('Accept on a file that cannot be changed right now applies nothing and says why; trying again is possible', () => {
+    const calls: string[] = [];
+    const zone = {
+      apply: (text: string) => {
+        calls.push(text);
+        return { ok: true as const, text };
+      },
+    };
+    // Renamed, moved or trashed meanwhile (or read-only): the zone is never asked to apply the proposal.
+    expect(acceptProposal(true, zone, 'blue', 'red')).toEqual({ ok: false, reason: 'blocked' });
+    expect(calls).toEqual([]);
+    expect(acceptProposal(false, zone, 'blue', 'red')).toEqual({ ok: true, text: 'blue' });
+    expect(calls).toEqual(['blue']);
+    const changed = { apply: () => ({ ok: false as const, reason: 'changed' }) };
+    expect(acceptProposal(false, changed, 'blue', 'red')).toEqual({ ok: false, reason: 'stale' });
+
+    const review = run(
+      initialEditState('instruction', 'x'),
+      { type: 'send' },
+      { type: 'answer', original: 'a', text: 'b', eol: '\n' },
+    );
+    const blocked = run(review, { type: 'accept' }, { type: 'blocked' });
+    expect(blocked.phase).toBe('blocked');
+    expect(run(blocked, { type: 'applied' }).phase).toBe('blocked');
+    expect(run(blocked, { type: 'send' }).phase).toBe('running');
+    expect(run(initialEditState('instruction', 'x'), { type: 'blocked' }).phase).toBe('instruction');
+  });
+
   it('consent comes first; Accept only from review', () => {
     expect(run(initialEditState('consent', 'x'), { type: 'send' }).phase).toBe('consent');
     expect(run(initialEditState('consent', 'x'), { type: 'consented' }).phase).toBe('instruction');
@@ -206,6 +235,8 @@ describe('inline edit texts in zh-CN and en (S35.1)', () => {
     expect(targetText(en, { ...target, wholeFile: true })).toBe('Code to change: all of index.html');
     expect(statusText(en, { ...initialEditState('running') }, 'windows')).toBe('The AI is writing the change…');
     expect(statusText(zh, { ...initialEditState('stale') }, 'windows')).toContain('没有应用');
+    expect(statusText(zh, { ...initialEditState('blocked') }, 'windows')).toContain('正在重命名、移动或删除');
+    expect(statusText(en, { ...initialEditState('blocked') }, 'windows')).toContain('being renamed, moved or deleted');
     expect(statusText(en, { ...initialEditState('applied') }, 'mac')).toContain('⌘Z');
     expect(statusText(en, { ...initialEditState('applied') }, 'windows')).toContain('Ctrl+Z');
     for (const code of [...AI_ERROR_CODES, 'empty-answer']) {

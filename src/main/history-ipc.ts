@@ -4,6 +4,7 @@ import path from 'node:path';
 import { parseNoPayload, parseProjectRequest, type IpcResult } from '../shared/ipc/contract';
 import {
   HISTORY_CHANNELS,
+  parseBeforeFormatRequest,
   parseClearRequest,
   parseGroupBeforeRequest,
   parseGroupRecordRequest,
@@ -22,7 +23,7 @@ import { historyKey, type HistoryGroupRecord, type SnapshotStore } from '../reco
 import type { HistoryTriggers } from '../recovery/history-triggers';
 import { errorCode } from '../recovery/atomic-file';
 import { absoluteFromRel, isInside, resolveExisting } from '../workspace/paths';
-import { decodeText } from '../workspace/text-codec';
+import { decodeText, encodeText } from '../workspace/text-codec';
 import type { ProjectService } from '../workspace/project-service';
 import type { HandleFn } from './ipc';
 
@@ -50,7 +51,7 @@ export interface HistoryPort {
     | 'groups'
     | 'markGroupUndone'
   >;
-  readonly triggers: Pick<HistoryTriggers, 'beforeRestore' | 'snapshotForGroup'>;
+  readonly triggers: Pick<HistoryTriggers, 'beforeRestore' | 'beforeFormatText' | 'snapshotForGroup'>;
   /** Shows the history folder in the file manager (shell.showItemInFolder / openPath). */
   revealFolder(folder: string): void;
 }
@@ -252,6 +253,18 @@ export function registerHistoryHandlers(
     const { key, absPath } = await keyOf(root, relPath);
     if (!(await isFile(absPath)) || absPath === null) return { ok: false, code: 'not-found', message: 'no such file' };
     await port.triggers.beforeRestore(root, key, absPath);
+    return { ok: true, value: null };
+  });
+
+  // The buffer's text is kept (it may hold unsaved edits); only for a file that exists in the project, so history is
+  // never created for arbitrary names.
+  handle(HISTORY_CHANNELS.beforeFormat, parseBeforeFormatRequest, async ({ projectId, relPath, text, bom }) => {
+    const root = projects.rootOf(projectId);
+    if (root === undefined) return UNKNOWN_PROJECT;
+    if (!port) return UNAVAILABLE;
+    const { key, absPath } = await keyOf(root, relPath);
+    if (!(await isFile(absPath))) return { ok: false, code: 'not-found', message: 'no such file' };
+    await port.triggers.beforeFormatText(root, key, encodeText(text, bom));
     return { ok: true, value: null };
   });
 

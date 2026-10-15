@@ -15,6 +15,7 @@ import { providerName } from './chat-text';
 import { InlineEditPanel, type InlineEditPanelActions } from './InlineEditPanel';
 import { buildGenerateRequest, fitIndent, parsePromptLine, promptLinesOf, promptProblems } from './ai-prompt-model';
 import {
+  acceptProposal,
   buildEditRequest,
   fixInstruction,
   fixLinesOf,
@@ -28,7 +29,10 @@ import {
 export interface InlineEditHost {
   /** Project-relative path of an open tab's model URI. */
   relPathOf(uri: string): string | undefined;
-  /** The tab cannot be edited (read-only, another encoding). */
+  /**
+   * The tab cannot be edited (read-only, another encoding) or the file is being renamed, moved or trashed. Asked when
+   * the session opens and again right before an accepted change is applied.
+   */
   readOnly(relPath: string): boolean;
   /**
    * The applied text reaches the file's save pipeline (recorded like a typed edit when the editor's own change
@@ -252,11 +256,12 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
     const proposal = stateRef.current.proposal;
     if (!s || stateRef.current.phase !== 'review' || proposal === null) return;
     dispatch({ type: 'accept' });
-    // Re-checked now: the range must still read exactly what was sent.
-    const applied = s.zone.apply(proposal, s.original);
+    // Re-checked now: the file must still be changeable (it may be being renamed, moved or trashed since the session
+    // opened) and the range must still read exactly what was sent.
+    const applied = acceptProposal(hostRef.current.readOnly(s.relPath), s.zone, proposal, s.original);
     s.zone.markProposal(false);
     if (!applied.ok) {
-      dispatch({ type: 'stale' });
+      dispatch({ type: applied.reason });
       return;
     }
     const loadsAtRequest = optionsRef.current.loadsStarted?.() ?? 0;

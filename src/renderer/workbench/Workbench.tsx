@@ -31,6 +31,8 @@ import { HistoryDialog } from '../history/HistoryDialog';
 import type { GroupUndoOutcome, RestoreOutcome as HistoryRestoreOutcome } from '../history/history-model';
 import type { HistoryGroup } from '../../shared/ipc/history-contract';
 import { undoFailureText } from '../ai/ProposalReview';
+import { onBeforeFormat } from '../editor/format-hook'; // PLAN §7: "before formatting" history versions
+import { editBlocked } from './edit-lock';
 
 /** S21.3: polls until `get` returns a value (state that arrives with a later render), or undefined after `ms`. */
 async function eventually<T>(get: () => T | undefined, ms = 3000): Promise<T | undefined> {
@@ -157,6 +159,11 @@ export function Workbench() {
   // --- S11: external changes ---
   /** Per open tab: the disk version its buffer is based on (last read, reload or confirmed save). */
   const knownDisk = useRef(new Map<string, FileVersion>());
+  /**
+   * Per open tab: whether the file on disk starts with a UTF-8 BOM (last read, reload or disk version taken). Saves
+   * and the recovery journal use it, so a BOM added or removed outside NoobIDE is not reverted by the next save.
+   */
+  const diskBom = useRef(new Map<string, boolean>());
   /** Tabs whose model is being replaced with the disk text: that edit is not the user's. */
   const reloading = useRef(new Set<string>());
   const lockedRef = useRef<readonly string[]>([]);
@@ -249,6 +256,7 @@ export function Workbench() {
       scheduler.begin({ projectId: project.projectId, relPath, bom: content.bom, ...journal });
       tabJournals.current.set(relPath, scheduler);
       knownDisk.current.set(relPath, content.version); // S11.1
+      diskBom.current.set(relPath, content.bom);
       const saver = new DocumentSaver({
         initialText: content.text,
         async write(text, { create }) {
@@ -259,7 +267,7 @@ export function Workbench() {
             projectId: project.projectId,
             relPath,
             text,
-            bom: content.bom,
+            bom: diskBom.current.get(relPath) ?? content.bom,
             ...(create ? { create: true as const } : expectedHash ? { expectedHash } : {}),
           });
           if (result.ok) {
@@ -288,6 +296,7 @@ export function Workbench() {
     if (journal) journals.release(journal);
     tabJournals.current.delete(relPath);
     knownDisk.current.delete(relPath); // S11
+    diskBom.current.delete(relPath);
   };
 
   /**
@@ -405,7 +414,7 @@ export function Workbench() {
       projectId: project.projectId,
       relPath: tab.relPath,
       text: saver.text,
-      bom: tab.content.bom,
+      bom: diskBom.current.get(tab.relPath) ?? tab.content.bom,
     });
     if (result.ok && result.value === null) return; // cancelled
     setCopyNotice(
@@ -449,7 +458,11 @@ export function Workbench() {
     }
     saver.reload(text);
     knownDisk.current.set(relPath, content.version);
-    tabJournals.current.get(relPath)?.saved(saver.state.revision); // nothing unsaved is left to journal
+    // The disk's BOM (also when only the BOM changed outside NoobIDE) is what the next save and journal copy keep.
+    diskBom.current.set(relPath, content.bom);
+    const journal = tabJournals.current.get(relPath);
+    journal?.setBom(content.bom);
+    journal?.saved(saver.state.revision); // nothing unsaved is left to journal
     dispatch({ type: 'diskReloaded', relPath, content, notice });
   }, []);
 
@@ -530,6 +543,8 @@ export function Workbench() {
       // failed save cancels the operation and shows that tab. Nothing typed during the operation can get lost.
       beforeChange: async (relPath) => {
         setLockedPaths((paths) => [...paths, relPath]);
+        // Locked at once (not only from the next render): an AI change accepted meanwhile must already see it.
+        lockedRef.current = [...lockedRef.current, relPath];
         for (const [open, saver] of [...savers.current]) {
           if (!isSameOrBelow(open, relPath)) continue;
           if (!(await saver.save())) {
@@ -711,6 +726,28 @@ export function Workbench() {
     },
     [bridge, openFile, recordEdit],
   );
+  // PLAN §7: right before the formatter (or a whole-file indentation conversion) rewrites a file's buffer, its text —
+  // unsaved edits included — is kept as a "before formatting" version. Main ends the save burst there, so the save of
+  // the formatted text cannot coalesce over it. Separate from undo (the format is one undo step) and the journal.
+  useEffect(() => {
+    if (!bridge) return undefined;
+    const unsubscribe = onBeforeFormat(({ uri, text }) => {
+      const project = docRef.current.project;
+      if (!project) return;
+      // The event names the model's normalised URI; the editor module is loaded (it is formatting right now).
+      void editorModels()
+        .then(({ isModelUriOf }) => {
+          const relPath = docRef.current.tabs.find((tab) => isModelUriOf(tab.uri, uri))?.relPath;
+          if (!relPath || !savers.current.has(relPath) || docRef.current.project?.projectId !== project.projectId) {
+            return undefined;
+          }
+          const bom = diskBom.current.get(relPath) ?? false;
+          return bridge.history.beforeFormat({ projectId: project.projectId, relPath, text, bom });
+        })
+        .catch(() => undefined);
+    });
+    return () => void unsubscribe();
+  }, [bridge]);
   // The history window belongs to one project: it closes when the project changes.
   const historyProjectId = doc.project?.projectId;
   useEffect(() => setHistoryFor(null), [historyProjectId]);
@@ -905,7 +942,13 @@ export function Workbench() {
   const inlineEditHost = useMemo<InlineEditHost>(
     () => ({
       relPathOf: (uri) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath,
-      readOnly: (relPath) => Boolean(docRef.current.tabs.find((tab) => tab.relPath === relPath)?.content.readOnly),
+      // Read-only tabs, and files being renamed, moved or trashed (the agent host checks the same lock).
+      readOnly: (relPath) =>
+        editBlocked(
+          relPath,
+          docRef.current.tabs.find((tab) => tab.relPath === relPath),
+          lockedRef.current,
+        ),
       commit: async (relPath, text) => {
         const saver = saverOf(relPath);
         if (!saver) return { ok: false, code: 'not-found' };
