@@ -2448,8 +2448,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "agent-check @ 9945ba8: docs/release/install.zh-CN.md + install.en.md (install on Apple Silicon/Windows x64 incl. unsigned Gatekeeper/SmartScreen steps, manual upgrade §6, uninstall §8, data locations §5 checked against src/main/main.ts app.getPath('userData') stores + limits, project folder only .noobide/project.json, offline §7 per S27.2, system requirements with minimum OS pending H.1, capability list citing done feature ids in HTML comments) + docs/release/release-notes-template.md (zh-CN + en). Statements depending on S28.4/S28.5 (data surviving upgrade, what uninstall leaves) are marked 'to be confirmed' and must be updated when those close. verify green."
     },
     {
       "id": "S29.1",
