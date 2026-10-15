@@ -203,6 +203,35 @@ the loop still ran to its end (5,965 ms), longest main stall 3,514 ms. The bypas
   its stall bound depends on main's speed, the limiter's does not. Its limit no longer grows with the number of
   frames and workers (`FLOOD_LIMIT` + documents + 8 small worker budgets): a page cannot raise it by creating realms.
 
+**Why `IsolateSandboxedIframes` is off app-wide.** What is lost: an iframe with a `sandbox` attribute (opaque
+origin) **inside the preview page** no longer gets a renderer process of its own; it runs in the preview page's
+process, as all its other same-site frames already do and as Chromium did before that feature. The only boundary
+that disappears is a process boundary between the user's page and a sandboxed frame it embeds — both the user's
+project content (or a page the user chose to embed); the sandbox attribute itself (no scripts unless allowed, opaque
+origin, no top navigation, no popups) is enforced as before. Nothing changes for the IDE: the preview page is still a
+separate `WebContentsView` with its own session partition, an OS-sandboxed renderer process and no preload (0009),
+and other sites still get separate processes (site isolation). The workbench renderer embeds no sandboxed iframes
+(no `<iframe>` in `src/renderer`); the switch only decides where such frames would live, it never puts a frame into
+the workbench's process. Why it is needed: Chromium starts a sandboxed `srcdoc` frame in its own process without
+waiting for the DevTools client, so its scripts ran before any guard could be installed (measured 1 M messages,
+4–5 s main stall); in the page's process it gets the guard from `Page.addScriptToEvaluateOnNewDocument` like every
+frame. If the workbench ever shows sandboxed iframes (e.g. rendered Markdown), this decision must be revisited.
+
+**Why paint and audio worklets are removed, and what would keep them.** A paint worklet runs in global scopes the
+DevTools protocol does not expose (also off the main thread): there is no place to install the guard at all. An
+AudioWorklet's scope is reachable and its console is limited, but its global scope is not an event target: an
+uncaught error in a `port.onmessage` handler or an unhandled rejection is reported by Chromium as a console error
+per occurrence and cannot be cancelled (the review measured 7,000 messages from one message loop). A bounded way to
+keep AudioWorklet was considered: in the worklet scope, wrap `registerProcessor` (a subclass whose `process` catches
+and reports through the limiter; a throwing `process` already stops its processor after the first error) and wrap
+`MessagePort` handlers (`onmessage`, `addEventListener`) in try/catch with limited reporting. That bounds thrown
+errors but not unhandled rejections (any promise rejected inside a handler and not returned), for which the scope
+has no hook; those would rely on main's backstop again, whose stall depends on main's speed. So the preview removes
+`audioWorklet` (and the paint/layout/animation worklets) and says so: a beginner tutorial that uses AudioWorklet
+does not work in the preview (`ctx.audioWorklet` is undefined) but works in "Open in external browser" (S15.4).
+Revisiting is an owner decision (proposed backlog item: AudioWorklet with wrapped processors/handlers, accepting
+the rejection residual).
+
 **Trade-offs.** `console.log.toString()` is not `[native code]`; stack traces inside a console call show guard and
 stub frames; in DevTools a message's location link opens the stub (blank lines and the call at the right line)
 instead of the file; `console.time`/`groupEnd` count against the budget; 101+ lines printed at once lose the rest to
