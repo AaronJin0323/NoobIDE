@@ -1,6 +1,14 @@
 import { createContext, runInContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { CONSOLE_BURST, CONSOLE_LIMIT, LIMITER_SOURCE_URL, pageGuardSource, parseLimiterSummary } from './page-guard';
+import {
+  CONSOLE_BURST,
+  CONSOLE_LIMIT,
+  LIMITER_SOURCE_URL,
+  WORKER_CONSOLE_BURST,
+  WORKER_CONSOLE_LIMIT,
+  pageGuardSource,
+  parseLimiterSummary,
+} from './page-guard';
 
 const NONCE = '0123456789abcdef';
 const PAGE_URL = 'http://127.0.0.1:5173/js/app.js';
@@ -18,7 +26,7 @@ interface Printed {
  * like a new preview document. `prelude` runs before the guard (what the browser provides); `strings: false` is a
  * Content Security Policy without 'unsafe-eval'.
  */
-function realm(options: { prelude?: string; strings?: boolean } = {}) {
+function realm(options: { prelude?: string; strings?: boolean; worker?: boolean; frames?: number } = {}) {
   const printed: Printed[] = [];
   const natives: Record<string, (...args: unknown[]) => unknown> = {};
   for (const method of METHODS) {
@@ -71,6 +79,22 @@ function realm(options: { prelude?: string; strings?: boolean } = {}) {
     globalThis.Navigator = Navigator;
     globalThis.navigator = new Navigator();
     globalThis.CSS = { paintWorklet: { addModule() {} }, supports() { return true; } };
+    class BaseAudioContext {}
+    Object.defineProperty(BaseAudioContext.prototype, 'audioWorklet', { get() { return {}; }, configurable: true });
+    globalThis.BaseAudioContext = BaseAudioContext;
+    if (!${options.worker ? 'true' : 'false'}) {
+      // A window: \`top\` and \`length\` accessors and indexed child windows, like Chromium's WindowProxy.
+      const childWindow = () => {
+        const w = {};
+        Object.defineProperty(w, 'length', { get: () => 0 });
+        return w;
+      };
+      const kids = Array.from({ length: ${options.frames ?? 0} }, childWindow);
+      Object.defineProperty(globalThis, 'top', { get() { return globalThis; }, configurable: false });
+      Object.defineProperty(globalThis, 'length', { get() { return this === globalThis ? kids.length : 0; }, configurable: true });
+      kids.forEach((k, i) => Object.defineProperty(globalThis, i, { get: () => k }));
+      globalThis.__addFrames = (n) => { for (let i = 0; i < n; i += 1) { const k = childWindow(); Object.defineProperty(globalThis, kids.length, { get: () => k }); kids.push(k); } };
+    }
     ${options.prelude ?? ''}`,
     context,
   );
@@ -181,6 +205,12 @@ describe('page guard: no native console method is ever reachable (S05.7, decisio
     expect(r.page<string>(`String(new Error().stack)`)).toBe('x');
   });
 
+  it('a page that freezes Error still gets limited output', () => {
+    const r = realm();
+    r.page(`Object.preventExtensions(Error); for (let i = 0; i < 500; i += 1) console.log(i);`);
+    expect(r.logs()).toHaveLength(CONSOLE_BURST);
+  });
+
   it('a page that blocks stack traces still gets limited output (without a location)', () => {
     const r = realm();
     r.page(`
@@ -207,6 +237,9 @@ describe('page guard: rate limit and summaries', () => {
     const r = realm();
     for (let i = 0; i < CONSOLE_BURST + 50; i += 1) r.console.log(i);
     expect(r.logs()).toHaveLength(CONSOLE_BURST);
+    r.advance(1_000);
+    r.runTimers(); // the summary of the 50 (it takes a token too)
+    expect(r.summaries()).toHaveLength(1);
     // A steady CONSOLE_LIMIT per second all gets through.
     const step = 1_000 / CONSOLE_LIMIT;
     for (let i = 0; i < 3 * CONSOLE_LIMIT; i += 1) {
@@ -233,8 +266,48 @@ describe('page guard: rate limit and summaries', () => {
     expect(parseLimiterSummary(text, LIMITER_SOURCE_URL, NONCE)).toBe(250);
     expect(r.summaries()[0]?.caller).toContain(LIMITER_SOURCE_URL);
     for (let i = 0; i < 1_000; i += 1) r.console.error(i);
+    r.advance(1_000);
     r.runTimers();
     expect(r.summaries()).toHaveLength(2);
+  });
+
+  it('all documents of a page share one budget, however many iframes it creates', () => {
+    const r = realm({ frames: 9 });
+    for (let i = 0; i < 1_000; i += 1) r.console.log(i);
+    expect(r.logs()).toHaveLength(CONSOLE_BURST / 10);
+    // More frames later (counted again after 100 ms): the share shrinks, but every document may hold one message.
+    r.page(`__addFrames(990)`);
+    r.advance(10_000); // 1000 documents share 200 per second: 0.2 per second each, at most 1 held
+    for (let i = 0; i < 1_000; i += 1) r.console.log(i);
+    // That one token goes to the summary of what was suppressed before.
+    expect(r.logs()).toHaveLength(CONSOLE_BURST / 10);
+    expect(r.summaries()).toHaveLength(1);
+  });
+
+  it('a summary waits for a token too (many realms cannot flood main with summaries)', () => {
+    const r = realm({ frames: 999 });
+    for (let i = 0; i < 50; i += 1) r.console.log(i);
+    expect(r.logs()).toHaveLength(1);
+    r.advance(1_000);
+    r.runTimers();
+    // One token per ~5 s for this document (200/s shared by 1000): the summary is not sent yet.
+    expect(r.summaries()).toHaveLength(0);
+    r.advance(5_000);
+    r.runTimers();
+    expect(r.summaries()).toHaveLength(1);
+    expect(parseLimiterSummary(String(r.summaries()[0]?.args[0]), LIMITER_SOURCE_URL, NONCE)).toBe(49);
+  });
+
+  it('a worker or worklet (no frame tree) has its own smaller budget', () => {
+    const r = realm({ worker: true });
+    for (let i = 0; i < 1_000; i += 1) r.console.log(i);
+    expect(r.logs()).toHaveLength(WORKER_CONSOLE_BURST);
+    r.advance(1_000);
+    for (let i = 0; i < 1_000; i += 1) r.console.log(i);
+    // The refilled bucket pays for the summary first.
+    expect(r.logs()).toHaveLength(WORKER_CONSOLE_BURST + WORKER_CONSOLE_BURST - 1);
+    expect(r.summaries()).toHaveLength(1);
+    expect(WORKER_CONSOLE_LIMIT).toBeLessThan(CONSOLE_LIMIT);
   });
 
   it('cancels uncaught errors and unhandled rejections above the limit, only for the global object', () => {
@@ -313,9 +386,10 @@ describe('page guard: dialogs, worklets, nonce', () => {
     expect(r.logs()[0]?.caller).toContain(`${PAGE_URL}:1:`);
   });
 
-  it('removes the CSS worklet entry points (their scopes cannot be guarded)', () => {
+  it('removes the CSS and audio worklet entry points (their errors or scopes cannot be guarded)', () => {
     const r = realm();
     expect(r.page(`CSS.paintWorklet`)).toBeUndefined();
+    expect(r.page(`'audioWorklet' in BaseAudioContext.prototype`)).toBe(false);
     expect(r.page(`typeof CSS.supports`)).toBe('function');
   });
 

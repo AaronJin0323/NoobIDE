@@ -5,7 +5,13 @@ import { rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { CONSOLE_BURST, CONSOLE_LIMIT } from '../../src/preview/page-guard';
+import {
+  CONSOLE_BURST,
+  CONSOLE_LIMIT,
+  MAX_GUARDED_SCOPES,
+  WORKER_CONSOLE_BURST,
+  WORKER_CONSOLE_LIMIT,
+} from '../../src/preview/page-guard';
 import { previewEntryToProblem } from '../../src/preview/to-problem';
 import type { PreviewLogEntry } from '../../src/shared/ipc/preview-contract';
 import { launchApp } from './launch';
@@ -252,7 +258,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
         `new Promise((resolve) => {
         const code = 'const end = Date.now() + 3000; let i = 0; while (Date.now() < end) { console.log("工作线程 " + i); i += 1; } postMessage(i);';
         const worker = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
-        worker.onmessage = (e) => resolve(e.data);
+        worker.onmessage = (e) => { worker.terminate(); resolve(e.data); };
       })`,
       );
       await new Promise((r) => setTimeout(r, 300));
@@ -283,7 +289,8 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   const inWorker = (code: string) =>
     `new Promise((resolve) => {
       const w = new Worker(URL.createObjectURL(new Blob([${JSON.stringify(code)}], { type: 'text/javascript' })));
-      w.onmessage = (e) => resolve(e.data);
+      // Ended afterwards: a running worker holds one of the MAX_GUARDED_SCOPES slots.
+      w.onmessage = (e) => { w.terminate(); resolve(e.data); };
       setTimeout(() => resolve('stopped'), ${LOOP_MS + 3_000});
     })`;
   const inFrame = (setup: string) =>
@@ -341,35 +348,69 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
       ),
     ],
     [
-      'saved console.log in an AudioWorklet',
-      `(async () => {
-        const code = ${JSON.stringify(`const log = console.log; ${loop("log('音频 ' + i)")}`)};
+      'worklet entry points are gone (paint and audio worklets cannot be limited)',
+      `(() => {
         if (typeof CSS.paintWorklet !== 'undefined') return 'paint worklet reachable';
-        let ctx;
-        try {
-          ctx = new AudioContext();
-        } catch {
-          return 'finished'; // no audio output on this machine: nothing to test
+        if ('audioWorklet' in BaseAudioContext.prototype) return 'audio worklet reachable';
+        const f = document.createElement('iframe');
+        document.body.append(f);
+        const reachable = typeof f.contentWindow.CSS.paintWorklet !== 'undefined' || 'audioWorklet' in f.contentWindow.BaseAudioContext.prototype;
+        f.remove();
+        return reachable ? 'reachable in an iframe' : 'finished';
+      })()`,
+    ],
+    [
+      '200 iframes, each with a saved console.log',
+      `(() => {
+        const logs = [];
+        for (let k = 0; k < 200; k += 1) {
+          const f = document.createElement('iframe');
+          f.style.display = 'none';
+          document.body.append(f);
+          logs.push(f.contentWindow.console.log);
         }
-        await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
-        await ctx.close();
+        ${loop("for (const log of logs) log('多个框架 ' + i)")}
+        document.querySelectorAll('iframe').forEach((f) => f.remove());
         return 'finished';
       })()`,
+    ],
+    [
+      '20 workers at once, each with a saved console.log',
+      `new Promise((resolve) => {
+        const code = ${JSON.stringify(`const log = console.log; ${loop("log('多个线程 ' + i)")} postMessage('done');`)};
+        const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+        const workers = [];
+        let done = 0;
+        for (let k = 0; k < 20; k += 1) {
+          const w = new Worker(url);
+          workers.push(w);
+          w.onmessage = () => { done += 1; };
+        }
+        // At most ${MAX_GUARDED_SCOPES} run; the others never start (decision 0016, second amendment).
+        setTimeout(() => { workers.forEach((w) => w.terminate()); resolve(done === ${MAX_GUARDED_SCOPES} ? 'finished' : 'done: ' + done); }, ${LOOP_MS + 2_000});
+      })`,
     ],
     [
       'reportError and rejected promises',
       `(() => { const report = reportError; ${loop("report(new Error('报告 ' + i)); if (i % 1000 === 0) Promise.reject(i)")} return 'finished'; })()`,
     ],
   ];
-  // What one guarded document or worker may send in LOOP_MS, plus its summaries (page-guard.ts).
+  // What the page's documents (one shared budget, at least one message each) or a set of workers may send in
+  // LOOP_MS, plus summaries (page-guard.ts).
   const allowed = CONSOLE_BURST + Math.ceil((CONSOLE_LIMIT * LOOP_MS) / 1_000) + 10;
+  const allowedFor = (name: string) =>
+    name.startsWith('200 iframes')
+      ? allowed + 201
+      : name.startsWith('20 workers')
+        ? MAX_GUARDED_SCOPES * (WORKER_CONSOLE_BURST + Math.ceil((WORKER_CONSOLE_LIMIT * LOOP_MS) / 1_000) + 2)
+        : allowed;
   for (const [name, code] of bypasses) {
     const run = await measureMainStall(app, previewId, code);
     console.log(
       `${name}: ${run.result} after ${run.ms} ms; ${run.messages} messages reached main; longest main stall ${run.max} ms`,
     );
     expect(run.result, name).toBe('finished');
-    expect(run.messages, name).toBeLessThanOrEqual(allowed);
+    expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name));
     expect(run.max, name).toBeLessThan(200);
   }
   // Nothing needed stopping.
@@ -377,7 +418,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
 
   // The design does not depend on main being fast: with an artificial 0.6 ms of main-thread work per console
   // message (what a loaded Windows CI runner measured), the same saved references keep main's stall within budget.
-  for (const [name, code] of bypasses.filter(([n]) => /page|worker$|sandboxed/.test(n))) {
+  for (const [name, code] of bypasses.filter(([n]) => /page|worker$|sandboxed|^200 iframes|^20 workers/.test(n))) {
     const run = await measureMainStall(app, previewId, code, { costMs: 0.6 });
     console.log(`${name} (main 0.6 ms per message): ${run.messages} messages; longest main stall ${run.max} ms`);
     expect(run.result, name).toBe('finished');

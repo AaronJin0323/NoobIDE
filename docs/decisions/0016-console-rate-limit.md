@@ -145,10 +145,17 @@ the loop still ran to its end (5,965 ms), longest main stall 3,514 ms. The bypas
   (writable, configurable, like the native one). The native methods exist only in the guard's closure. Descriptor
   values, `call`/`apply`/`bind`, `Reflect.apply`, prototype lookups and saved references all yield the limiter;
   `console.context()` returns a plain object of limiters. A console method the page assigns can only call limiters.
-- **Rate:** a token bucket per document/worker/worklet — `CONSOLE_BURST` = 100 messages at once,
-  `CONSOLE_LIMIT` = 200 per second on average (was: 200 per 1 s window, i.e. bursts of 200). The burst is what main
-  must take in one go; at 0.6 ms per message 100 cost 60 ms. Summaries are reported at most once per second (inline
-  in a busy loop, by timer otherwise), unchanged in form and nonce.
+- **Rate (one budget per page):** a token bucket — `CONSOLE_BURST` = 100 messages at once, `CONSOLE_LIMIT` = 200
+  per second on average (was: 200 per 1 s window per document, i.e. bursts of 200 each). All documents of the frame
+  tree **share** it: each document's guard counts the documents from `top` through the cross-origin-readable
+  `length` getter (captured from its own realm before page scripts) and indexed child windows — neither can be faked
+  by a page, also not from an opaque-origin sandboxed frame — and takes `1/N` of the burst and rate (recounted every
+  100 ms; every document may hold one message, so with more than 100 documents the burst is one per document).
+  Summaries take a token too. Dedicated workers and worklets have no frame tree: each gets `WORKER_CONSOLE_BURST` =
+  20 / `WORKER_CONSOLE_LIMIT` = 50 per second, and main lets at most `MAX_GUARDED_SCOPES` = 8 of them run at once
+  (further ones stay paused and never start). What main must take in one go is therefore bounded by about
+  100 + 8 × 20 = 260 messages whatever the page does (≈ 156 ms at 0.6 ms per message); a single document's burst
+  costs 60 ms. (Found by the review: with a bucket per realm, 200 iframes × 100 sent 20,000 messages at once.)
 - **Attribution (S05.4):** for an admitted call the limiter reads its caller's location from V8's structured stack
   trace (`Error.captureStackTrace` with the guard's own `prepareStackTrace` set for that moment and the page's
   restored after; builtin frames such as `Array.prototype.forEach` are skipped, as Chromium does) and calls the native
@@ -165,46 +172,60 @@ the loop still ran to its end (5,965 ms), longest main stall 3,514 ms. The bypas
   listeners on the global object registered before any page script; above the limit the event is cancelled so
   Chromium does not report it; a worker's error weighs 2 because Chromium reports it twice); `navigator.vibrate()`
   (a console error per blocked call); `CSS.paintWorklet` / `layoutWorklet` / `animationWorklet` are removed (paint
-  worklet scopes run where the protocol cannot inject: measured 1.8 M unlimited messages and a 9–16 s main stall).
+  worklet scopes run where the protocol cannot inject: measured 1.8 M unlimited messages and a 9–16 s main stall);
+  `BaseAudioContext.prototype.audioWorklet` is removed (an AudioWorklet's console is guarded, but its global scope
+  is no event target, so uncaught errors and rejections of its message handlers cannot be cancelled: the review
+  measured 7,000 unlimited messages).
 - **Reach:** documents and same-process frames (also an iframe's initial `about:blank`, `srcdoc`, `data:`,
   `javascript:` URLs) via `Page.addScriptToEvaluateOnNewDocument`; out-of-process iframes, dedicated workers (nested
-  too) and **worklets** (AudioWorklet — measured unlimited before) via auto-attach, paused until the guard ran. A
-  worker or worklet the guard could not be installed in is **not resumed** (fails closed). Chromium's
+  too) and worklets via auto-attach, paused until the guard ran. **Fails closed:** a target the guard could not be
+  installed in, a worker or worklet beyond `MAX_GUARDED_SCOPES`, and any target type the guard does not know stay
+  paused; only service workers and shared workers are resumed without it. Chromium's
   `IsolateSandboxedIframes` is switched off for the app (`DISABLED_CHROMIUM_FEATURES`): a sandboxed `srcdoc` iframe
   in its own process started its scripts before the protocol could install anything (it does not wait for the
   debugger; measured 1 M messages, 4–5 s stall); in the page's process it gets the guard like any frame. The preview
   as a whole is still its own sandboxed process apart from the IDE. Shared workers' console is not sent to main
   (measured 0 messages); service workers are refused (0015) and only resumed.
 - Main's flood guard and `Runtime.terminateExecution` stay as **defence in depth** for output the limiter cannot see;
-  its stall bound depends on main's speed, the limiter's does not.
+  its stall bound depends on main's speed, the limiter's does not. Its limit no longer grows with the number of
+  frames and workers (`FLOOD_LIMIT` + documents + 8 small worker budgets): a page cannot raise it by creating realms.
 
 **Trade-offs.** `console.log.toString()` is not `[native code]`; stack traces inside a console call show guard and
 stub frames; in DevTools a message's location link opens the stub (blank lines and the call at the right line)
 instead of the file; `console.time`/`groupEnd` count against the budget; 101+ lines printed at once lose the rest to
-"N messages dropped" (was 201+); CSS paint worklets are unavailable in the preview; error events above the limit
-arrive `defaultPrevented`. DevTools coexistence is otherwise unchanged (the user's DevTools sees the same limited
+"N messages dropped" (was 201+), and a page with iframes shares those 100 among its documents; a worker shows 20 lines
+at once and 50 per second; a 9th simultaneously running worker never starts; CSS paint worklets and AudioWorklets are
+unavailable in the preview; error events above the limit arrive `defaultPrevented`. DevTools coexistence is otherwise unchanged (the user's DevTools sees the same limited
 stream; the S05.4 coexistence e2e passes).
 
-**Measurements** (MacBook Pro M3 Pro, macOS 27.2 arm64; e2e flood test `preview-isolation.spec.ts`; each bypass
-loop runs 1.5 s, all ran to their end — nothing had to be stopped — and 400–403 messages reached main):
+**Measurements** (MacBook Pro M3 Pro, macOS 27.2 arm64; e2e flood test `preview-isolation.spec.ts` after the review
+fixes; each bypass loop runs 1.5 s, all ran to their end — nothing had to be stopped; messages that reached main in
+brackets):
 
-| case                                                | normal                                    | 12 cores busy  | main +0.6 ms/message |
-| --------------------------------------------------- | ----------------------------------------- | -------------- | -------------------- |
-| limited flood fixture (6 s) / worker flood (3 s)    | 3–4 / 3 ms                                | 13 / 13 ms     | —                    |
-| saved `console.log` in the page                     | 2 ms                                      | 16 ms          | 27–35 ms             |
-| descriptor value, call, apply, bind, Reflect.apply  | 2–3 ms                                    | 15 ms          | —                    |
-| `console.context()` / prototype                     | 2–3 ms                                    | 3 ms           | —                    |
-| new iframe's console (initial about:blank)          | 3 ms                                      | 3 ms           | —                    |
-| sandboxed `srcdoc` iframe                           | 3–4 ms                                    | 14 ms          | 48–61 ms             |
-| dedicated worker / nested worker                    | 3–4 ms                                    | 15 ms          | 57–58 / 32–36 ms     |
-| AudioWorklet                                        | 3–4 ms                                    | 19 ms          | —                    |
-| `reportError` + rejections                          | 2–3 ms                                    | 17 ms          | —                    |
-| backstop (isolated-world flood, not page-reachable) | stopped after 198–242 ms, stall 88–121 ms | 252 ms, 139 ms | —                    |
+| case                                                | normal         | 12 cores busy  | main +0.6 ms/message |
+| --------------------------------------------------- | -------------- | -------------- | -------------------- |
+| limited flood fixture (6 s) / worker flood (3 s)    | 3–4 / 3–16 ms  | 61 / 22 ms     | —                    |
+| saved `console.log` in the page (401)               | 3–11 ms        | 15 ms          | 37–55 ms             |
+| descriptor value, call, apply, bind, Reflect.apply  | 5–18 ms        | 13 ms          | —                    |
+| `console.context()` / prototype                     | 3 ms           | 14 ms          | —                    |
+| new iframe's console, initial about:blank (200)     | 2–3 ms         | 16 ms          | —                    |
+| sandboxed `srcdoc` iframe (200)                     | 3 ms           | 16 ms          | 26–28 ms             |
+| dedicated worker / nested worker (95)               | 2–13 / 2 ms    | 11 / 13 ms     | 10–19 / 6–15 ms      |
+| 200 iframes, each a saved `console.log` (400)       | 3 ms           | 18 ms          | 59–61 ms             |
+| 20 workers at once, 8 run (760)                     | 4–19 ms        | 38 ms          | 55–59 ms             |
+| `reportError` + rejections (401)                    | 2 ms           | 22 ms          | —                    |
+| backstop (isolated-world flood, not page-reachable) | stopped, 37 ms | stopped, 34 ms | —                    |
 
-Asserted: result `finished`, ≤ `CONSOLE_BURST + 1.5 × CONSOLE_LIMIT + 10` messages, stall < 200 ms (also with
-the 0.6 ms/message slow main); the backstop is asserted to stop the isolated-world flood and show the notice, its
-stall only logged. Before this amendment the same probe measured, without a guard in reach: AudioWorklet 1.0 M
-messages / 5.6 s stall, paint worklet 1.8 M / 9–16 s, sandboxed srcdoc iframe 1.0 M / 4–5 s; with the old getter a
-saved reference was unlimited (Windows CI above). Remaining residuals (backstop only): Chromium-generated warnings
-other than the ones above (e.g. a future per-call intervention), and a page whose CSP forbids `eval` loses file and
-line for its console messages. Windows x64: the same e2e on CI (S06).
+Asserted: result `finished`, at most `CONSOLE_BURST + 1.5 × CONSOLE_LIMIT + 10` messages (plus one per document
+for the 200 iframes; `8 × (WORKER_CONSOLE_BURST + 1.5 × WORKER_CONSOLE_LIMIT + 2)` for the workers), stall < 200 ms,
+also with the 0.6 ms/message slow main; the worklet entry points are gone in the page and in an iframe; the backstop
+stops the isolated-world flood and shows the notice (its stall only logged). Before this amendment the same probe
+measured, without a guard in reach: AudioWorklet 1.0 M messages / 5.6 s stall, paint worklet 1.8 M / 9–16 s,
+sandboxed srcdoc iframe 1.0 M / 4–5 s; with the old getter a saved reference was unlimited (Windows CI above).
+
+**Residuals (backstop only, its bound depends on main's speed).** Messages Chromium itself generates per request
+or call, which a page can trigger cheaply: CSP violations (`img-src 'none'` + 3,000 image loads → 3,001 messages,
+review), network errors of blocked or failed requests ("Failed to load resource", "Refused to connect"), and any
+other per-call warning or intervention not listed above. They are queued asynchronously, so stopping the script does
+not take back what was already issued. A page whose CSP forbids `eval` loses file and line for its console messages.
+Windows x64: the same e2e on CI (S06).

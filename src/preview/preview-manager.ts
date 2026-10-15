@@ -19,7 +19,15 @@ import {
 } from '../shared/ipc/preview-contract';
 import { err, ok, type Result } from '../shared/result';
 import { DEFAULT_LOG_BUFFER, LogBuffer, sanitizeLogUrl } from './log-buffer';
-import { CONSOLE_LIMIT, LIMITER_SOURCE_URL, pageGuardSource, parseLimiterSummary } from './page-guard';
+import {
+  CONSOLE_LIMIT,
+  LIMITER_SOURCE_URL,
+  MAX_GUARDED_SCOPES,
+  WORKER_CONSOLE_BURST,
+  WORKER_CONSOLE_LIMIT,
+  pageGuardSource,
+  parseLimiterSummary,
+} from './page-guard';
 import { createPreviewWebPreferences, insecurePreviewPreferences, partitionForProject } from './preview-options';
 import { decidePreviewRequest, isAllowedNavigation } from './request-policy';
 import { PreviewProxy } from './preview-proxy';
@@ -135,15 +143,11 @@ const RECENT_RECORDS = 100;
 const FLOOD_WINDOW_MS = 1_000;
 const FLOOD_LIMIT = 4 * CONSOLE_LIMIT;
 /**
- * What one guarded document or worker can deliver within one FLOOD_WINDOW_MS of main: its windows are not aligned
- * with main's, so up to two of them (plus their summaries).
- */
-const FLOOD_PER_TARGET = 2 * CONSOLE_LIMIT + 10;
-
-/**
- * The flood limit for this page: every document (frames, same-process or not) and every dedicated worker has its
- * own in-page limiter, so a page that never bypassed it must not trip the guard however many it has. Computed once
- * per window, not per message.
+ * The flood limit for this page within one FLOOD_WINDOW_MS. All documents of the page share one in-page budget
+ * (page-guard.ts: CONSOLE_BURST at once, CONSOLE_LIMIT per second, at least one message per document), and each
+ * running dedicated worker or worklet has its own small one (at most MAX_GUARDED_SCOPES of them run). A page that
+ * stays within its budget never trips the guard; the limit does not grow with anything a page can create freely.
+ * Computed once per window, not per message.
  */
 function floodLimitFor(contents: WebContents): number {
   let documents = 1;
@@ -152,9 +156,8 @@ function floodLimitFor(contents: WebContents): number {
   } catch {
     // frame gone: keep 1
   }
-  // Dedicated workers and worklets (out-of-process iframes are frames, counted above).
-  const workers = [...childSessions(contents).values()].filter((type) => type !== 'iframe').length;
-  return Math.max(FLOOD_LIMIT, (documents + workers) * FLOOD_PER_TARGET);
+  const scopes = guardedScopes(contents).size;
+  return FLOOD_LIMIT + Math.min(documents, 1_000) + scopes * 2 * (WORKER_CONSOLE_BURST + WORKER_CONSOLE_LIMIT);
 }
 const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 };
 
@@ -782,6 +785,7 @@ export class PreviewManager {
     // The page guard (docs/decisions/0016) stays installed for the view's lifetime; reinstall if it was detached.
     contents.debugger.on('detach', () => {
       childSessions(contents).clear(); // their protocol sessions ended with the debugger
+      guardedScopes(contents).clear();
       if (!isCurrent() || contents.isDestroyed()) return;
       void installPageGuard(contents, { source: pageGuardSource(live.guardNonce), navigateFirst: false }).then((ok) => {
         live.pageGuarded = ok;
@@ -1044,6 +1048,18 @@ const TERMINATE_TIMEOUT_MS = 250;
 /** Previews with a terminate request in flight (at most one at a time). */
 const terminating = new WeakSet<WebContents>();
 
+/** Dedicated workers and worklets of each preview that run with the guard (at most MAX_GUARDED_SCOPES). */
+const guardedScopeSets = new WeakMap<WebContents, Set<string>>();
+
+function guardedScopes(contents: WebContents): Set<string> {
+  let scopes = guardedScopeSets.get(contents);
+  if (!scopes) {
+    scopes = new Set();
+    guardedScopeSets.set(contents, scopes);
+  }
+  return scopes;
+}
+
 function childSessions(contents: WebContents): Map<string, string> {
   let children = guardChildren.get(contents);
   if (!children) {
@@ -1131,6 +1147,7 @@ async function installPageGuard(
           childSessions(contents).set(params.sessionId, params.targetInfo.type);
           void guardChildTarget(
             dbg,
+            guardedScopes(contents),
             params.sessionId,
             params.targetInfo.type,
             guardSources.get(contents) ?? '',
@@ -1138,6 +1155,7 @@ async function installPageGuard(
           );
         } else if (method === 'Target.detachedFromTarget' && params.sessionId) {
           childSessions(contents).delete(params.sessionId);
+          guardedScopes(contents).delete(params.sessionId);
         }
       });
     }
@@ -1167,19 +1185,21 @@ interface GuardEventParams {
 
 /**
  * Puts the guard into an auto-attached child target that waits for us, then lets it run. Out-of-process iframes
- * get it for every document; dedicated workers and worklets (an AudioWorklet's console reaches main like the
- * page's) get it once, before their own script. Fails closed (decision 0016, second amendment): a target the guard
- * could not be installed in is not resumed, so no script without the console limit runs (a worker that never
- * starts instead of one that can stall the IDE).
+ * get it for every document; dedicated workers and worklets get it once, before their own script. Fails closed
+ * (decision 0016, second amendment): a target the guard could not be installed in is not resumed, nor is a worker or
+ * worklet beyond MAX_GUARDED_SCOPES running at once (each has its own console budget), nor a target type the guard
+ * does not know. Only service workers (refused before their script loads, decision 0015; a guard evaluation there
+ * would never answer) and shared workers (Chromium does not send their console to main) run without it.
  */
 async function guardChildTarget(
   dbg: Electron.Debugger,
+  scopes: Set<string>,
   sessionId: string,
   type: string,
   source: string,
   waiting: boolean,
 ) {
-  let guarded = false;
+  let resume = false;
   try {
     if (type === 'iframe') {
       await dbg.sendCommand('Page.enable', {}, sessionId);
@@ -1189,23 +1209,28 @@ async function guardChildTarget(
         waiting ? { source } : { source, runImmediately: true },
         sessionId,
       );
+      resume = true;
     } else if (type === 'worker' || type === 'worklet') {
+      if (scopes.size >= MAX_GUARDED_SCOPES) return;
+      scopes.add(sessionId);
       // Their global scope exists and waits; the guard runs before their own script.
       const result = (await dbg.sendCommand('Runtime.evaluate', { expression: source }, sessionId)) as {
         exceptionDetails?: unknown;
       };
       if (result.exceptionDetails) throw new Error('page guard failed in a child target');
+      resume = true;
+    } else if (type === 'service_worker' || type === 'shared_worker') {
+      resume = true;
     }
-    // Other targets are only resumed: a service worker (refused before its script loads, decision 0015; a guard
-    // evaluation there would never answer) and shared workers (Chromium does not send their console to main).
-    guarded = true;
-    if (type === 'iframe' || type === 'worker') {
+    if (resume && (type === 'iframe' || type === 'worker')) {
       await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH, sessionId).catch(() => undefined); // nested targets
     }
   } catch {
-    // The target went away or refused the guard: it stays paused (fails closed).
+    // The target went away or refused the guard: it stays paused (fails closed) and does not hold a slot.
+    resume = false;
+    scopes.delete(sessionId);
   }
-  if (guarded) await dbg.sendCommand('Runtime.runIfWaitingForDebugger', {}, sessionId).catch(() => undefined);
+  if (resume) await dbg.sendCommand('Runtime.runIfWaitingForDebugger', {}, sessionId).catch(() => undefined);
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {

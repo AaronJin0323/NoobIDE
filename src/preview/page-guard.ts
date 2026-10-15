@@ -1,17 +1,19 @@
 /**
- * A small script installed into every document, dedicated worker and audio worklet of the preview before the page's
+ * A small script installed into every document, dedicated worker and worklet of the preview before the page's
  * own scripts (S05.7, S05.5; docs/decisions/0016). It is not a preload: it runs in the page's own main world with
  * the page's own permissions, is installed by main through the DevTools protocol
  * (`Page.addScriptToEvaluateOnNewDocument`, and `Runtime.evaluate` in paused workers and worklets), and gives the
  * page nothing it did not have.
  *
  * 1. Console rate limit. Chromium sends every console message of a page to the browser (main) process; a page
- *    logging in a tight loop would keep main — and with it all keyboard and mouse input of the IDE — busy. The guard
+ *    logging in a tight loop would keep main — and with it all keyboard and mouse input of the IDE — busy. The
+ *    guard
  *    takes every console method away from the page and puts a limiter function in its place; the native methods live
  *    only in this closure, so no reference the page can keep, bind, copy from a descriptor or reach through a
  *    prototype or `console.context()` is ever a native console method (decision 0016, second amendment). The
- *    limiter (a token bucket: CONSOLE_BURST at once, CONSOLE_LIMIT per CONSOLE_WINDOW_MS on average) calls the
- *    native method or nothing. Uncaught errors, `reportError()` and unhandled rejections become console messages
+ *    limiter (a token bucket: CONSOLE_BURST at once, CONSOLE_LIMIT per CONSOLE_WINDOW_MS on average, shared by all
+ *    documents of the page's frame tree; workers and worklets have a small bucket each) calls the native method or
+ *    nothing. Uncaught errors, `reportError()` and unhandled rejections become console messages
  *    too: above the limit their events are cancelled, so Chromium does not report them; `navigator.vibrate()` (a
  *    console error per blocked call) is limited the same way. Suppressed messages are summarised at most once per
  *    window with a console warning from LIMITER_SOURCE_URL, which main turns into the IDE's "N messages dropped".
@@ -25,15 +27,16 @@
  *    `eval`, the guard calls the native method itself (main records such messages without a file and line).
  * 3. `alert()` is reported in the console instead of opening a dialog (dialogs are disabled for the preview by
  *    `disableDialogs`, which is the actual protection: no page can block the IDE with a modal dialog). `print()`
- *    does nothing. `CSS.paintWorklet` (and the layout/animation worklets) are removed: Chromium runs paint worklets
- *    in global scopes the DevTools protocol cannot reach, and their console reaches main unlimited.
+ *    does nothing. `CSS.paintWorklet` (and the layout/animation worklets) and `audioWorklet` are removed: Chromium
+ *    runs paint worklets in global scopes the DevTools protocol cannot reach, and an audio worklet's uncaught errors
+ *    cannot be cancelled; both reach main unlimited.
  *
  * How a page can observe it: console methods, `alert`, `print` and `navigator.vibrate` are ordinary functions whose
  * source text is the guard's (not `[native code]`); stack traces taken inside a console call (`console.trace`, an
  * argument's `toString`) show frames of LIMITER_SOURCE_URL and a stub at the caller's line; above the limit console
  * calls do nothing and `error`/`unhandledrejection` events arrive with `defaultPrevented` set; `console.context()`
- * returns a plain object; `CSS.paintWorklet` is missing; the summary warning appears in its console. Nothing is
- * added to the page's global scope.
+ * returns a plain object; `CSS.paintWorklet` and `audioWorklet` are missing; the share of a frame shrinks as the page
+ * adds frames; the summary warning appears in its console. Nothing is added to the page's global scope.
  */
 
 export const CONSOLE_LIMIT = 200;
@@ -43,6 +46,15 @@ export const CONSOLE_WINDOW_MS = 1_000;
  * BURST × its per-message cost (~20–30 µs on an M3 Pro, ~0.6 ms on a loaded Windows CI runner) however slow it is.
  */
 export const CONSOLE_BURST = 100;
+/** The budget of one dedicated worker or worklet (each has its own; main caps how many run, preview-manager.ts). */
+export const WORKER_CONSOLE_LIMIT = 50;
+export const WORKER_CONSOLE_BURST = 20;
+/**
+ * How many dedicated workers and worklets of one preview may run (with the guard) at once; main leaves further ones
+ * paused, so they never start (preview-manager.ts). Together with the page's own budget this bounds what main must
+ * take in one go: about CONSOLE_BURST + MAX_GUARDED_SCOPES × WORKER_CONSOLE_BURST messages.
+ */
+export const MAX_GUARDED_SCOPES = 8;
 export const LIMITER_SOURCE_URL = 'noobide-preview://page-guard.js';
 const SUMMARY_PREFIX = 'NoobIDE: ';
 
@@ -67,6 +79,10 @@ export function pageGuardSource(nonce: string): string {
   const LIMIT = ${CONSOLE_LIMIT};
   const WINDOW_MS = ${CONSOLE_WINDOW_MS};
   const BURST = ${CONSOLE_BURST};
+  const WORKER_LIMIT = ${WORKER_CONSOLE_LIMIT};
+  const WORKER_BURST = ${WORKER_CONSOLE_BURST};
+  const MAX_DOCUMENTS = 1000;
+  const RECOUNT_MS = 100;
   const OWN_URL = ${JSON.stringify(LIMITER_SOURCE_URL)};
   const UNLIMITED = ${JSON.stringify(UNLIMITED_METHODS)};
   const STUB_CACHE = ${STUB_CACHE};
@@ -107,15 +123,86 @@ export function pageGuardSource(nonce: string): string {
 
   // --- limit ---------------------------------------------------------------------------------------------------
   // A token bucket: LIMIT messages per WINDOW_MS on average, at most BURST at once (what main has to take in one go).
-  let tokens = BURST;
-  let refilled = now();
+  // The budget belongs to the whole page, not to one realm: a document shares it with every other document of its
+  // frame tree (counted from \`top\` through the cross-origin-readable \`length\` and indexed child windows, which a
+  // page cannot fake), so a page with many iframes gets no more than one. Workers and worklets (no frame tree; main
+  // limits how many run) get the smaller WORKER_BURST / WORKER_LIMIT each.
+  const lengthOf = (() => {
+    const d = describe(g, 'length');
+    return d && typeof d.get === 'function' ? d.get : null;
+  })();
+  const topOf = (() => {
+    const d = describe(g, 'top');
+    return d && typeof d.get === 'function' ? d.get : null;
+  })();
+  const inFrameTree = lengthOf !== null && topOf !== null;
+  const countDocuments = () => {
+    let top = null;
+    try {
+      top = R(topOf, g, []);
+    } catch {
+      return 1;
+    }
+    let n = 0;
+    const visit = (w, depth) => {
+      n += 1;
+      if (n >= MAX_DOCUMENTS || depth > 64) return;
+      let length = 0;
+      try {
+        length = R(lengthOf, w, []);
+      } catch {
+        return;
+      }
+      if (typeof length !== 'number') return;
+      for (let i = 0; i < length && n < MAX_DOCUMENTS; i += 1) {
+        let child = null;
+        try {
+          child = w[i];
+        } catch {
+          child = null;
+        }
+        if (child) visit(child, depth + 1);
+      }
+    };
+    if (top) visit(top, 0);
+    return n > 0 ? n : 1;
+  };
+  let documents = inFrameTree ? countDocuments() : 1;
+  let counted = now();
+  const share = () => (inFrameTree ? 1 / documents : 1);
+  const burst = () => (inFrameTree ? BURST : WORKER_BURST) * share();
+  const rate = () => (inFrameTree ? LIMIT : WORKER_LIMIT) * share();
+  let tokens = burst() > 1 ? burst() : 1;
+  let refilled = counted;
   let lastReport = refilled;
   let suppressed = 0;
   let timer = 0;
+  // Refills the bucket (recounting the frame tree now and then) and takes \`weight\` tokens if there are enough.
+  const take = (t, weight) => {
+    if (inFrameTree && (t - counted >= RECOUNT_MS || t < counted)) {
+      documents = countDocuments();
+      counted = t;
+    }
+    const elapsed = t - refilled;
+    refilled = t;
+    if (elapsed > 0) tokens = tokens + (elapsed * rate()) / WINDOW_MS;
+    // Each realm can hold at least one token (with more than BURST documents the page's burst is one per document).
+    const most = burst() > 1 ? burst() : 1;
+    if (tokens > most) tokens = most;
+    if (tokens < weight) return false;
+    tokens -= weight;
+    return true;
+  };
+  // The summary is a console message too and takes a token: with many frames it waits for its turn.
   const report = () => {
     timer = 0;
-    lastReport = now();
     if (suppressed === 0) return;
+    const t = now();
+    if (!take(t, 1)) {
+      if (later) timer = R(later, g, [report, WINDOW_MS]);
+      return;
+    }
+    lastReport = t;
     const n = suppressed;
     suppressed = 0;
     R(nativeWarn, c, ['${SUMMARY_PREFIX}' + n + ' console messages were not shown (more than ' + LIMIT + ' per second). [${nonce}]']);
@@ -123,14 +210,7 @@ export function pageGuardSource(nonce: string): string {
   const admit = (weight = 1) => {
     const t = now();
     if (suppressed > 0 && t - lastReport >= WINDOW_MS) report();
-    const elapsed = t - refilled;
-    refilled = t;
-    if (elapsed > 0) tokens = tokens + (elapsed * LIMIT) / WINDOW_MS;
-    if (tokens > BURST) tokens = BURST;
-    if (tokens >= weight) {
-      tokens -= weight;
-      return true;
-    }
+    if (take(t, weight)) return true;
     suppressed += weight;
     if (!timer && later) timer = R(later, g, [report, WINDOW_MS]);
     return false;
@@ -145,8 +225,8 @@ export function pageGuardSource(nonce: string): string {
     const saved = describe(NativeError, 'prepareStackTrace');
     if (saved) setProto(saved, null); // restored below without consulting Object.prototype
     if (saved && !saved.configurable) return null;
-    define(NativeError, 'prepareStackTrace', { __proto__: null, value: keepSites, writable: true, configurable: true });
     try {
+      define(NativeError, 'prepareStackTrace', { __proto__: null, value: keepSites, writable: true, configurable: true });
       const holder = { __proto__: null };
       R(captureStack, NativeError, [holder]);
       const sites = holder.stack;
@@ -154,8 +234,12 @@ export function pageGuardSource(nonce: string): string {
     } catch {
       return null;
     } finally {
-      if (saved) define(NativeError, 'prepareStackTrace', saved);
-      else delete NativeError.prepareStackTrace;
+      try {
+        if (saved) define(NativeError, 'prepareStackTrace', saved);
+        else delete NativeError.prepareStackTrace;
+      } catch {
+        // the page made Error non-extensible: nothing was changed
+      }
     }
   };
   {
@@ -306,6 +390,14 @@ export function pageGuardSource(nonce: string): string {
     };
     define(navProto, 'vibrate', { value: holder.vibrate, writable: true, enumerable: vibrateDesc.enumerable, configurable: true });
   }
+
+  // --- audio worklets ------------------------------------------------------------------------------------------
+  // An AudioWorklet's console is limited (main installs the guard there), but its global scope is no event target:
+  // uncaught errors and rejections of its message handlers cannot be cancelled and reach main unlimited.
+  const BaseAudio = g.BaseAudioContext;
+  const audioProto = typeof BaseAudio === 'function' ? BaseAudio.prototype : null;
+  const audioDesc = audioProto ? describe(audioProto, 'audioWorklet') : undefined;
+  if (audioDesc && audioDesc.configurable) delete audioProto.audioWorklet;
 
   // --- CSS worklets ---------------------------------------------------------------------------------------------
   // Chromium runs CSS paint worklets in global scopes that are not reachable over the DevTools protocol (no guard),
