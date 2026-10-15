@@ -14,6 +14,8 @@ export interface ProblemCardProps {
   onFix?: ((record: ProblemRecord, action: ReplaceTextAction) => void) | undefined;
   /** S22.5: a fix is being applied; the fix button waits. */
   fixBusy?: boolean | undefined;
+  /** S33.2: opens the AI chat about this problem (with the card's title); absent while AI is not offered. */
+  onAskAi?: ((record: ProblemRecord, title: string) => void) | undefined;
 }
 
 type Translate = (key: MessageKey) => string;
@@ -51,6 +53,7 @@ export function ProblemCardBody({
   onGoTo,
   onFix,
   fixBusy,
+  onAskAi,
   t,
   locale,
   originalOpen,
@@ -155,6 +158,17 @@ export function ProblemCardBody({
           }
           return null;
         })}
+        {onAskAi && (
+          <button
+            type="button"
+            className="quiet-button"
+            data-testid="problem-ask-ai"
+            title={t('problems.card.askAiHint')}
+            onClick={() => onAskAi(record, text.title)}
+          >
+            {t('problems.card.askAi')}
+          </button>
+        )}
       </div>
       {originalOpen && <OriginalError id={originalId} record={record} locale={locale} t={t} />}
     </div>
