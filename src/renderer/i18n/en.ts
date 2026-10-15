@@ -307,6 +307,39 @@ export const en: Record<MessageKey, string> = {
   'problems.original.code': 'Code',
   'problems.original.firstSeen': 'First',
   'problems.original.lastSeen': 'Latest',
+  // --- S22.4 problem card / S22.5 one-click fix ---
+  'problems.card.source.static': 'Code check',
+  'problems.card.source.runtime': 'Runtime error',
+  'problems.card.source.resource': 'Loading failed',
+  'problems.card.source.console': 'Console error',
+  'problems.card.count': '×{n} times',
+  'problems.fix.heading': 'Your one-click fix',
+  'problems.fix.applying': 'Changing {from} to {to} and saving…',
+  'problems.fix.notApplied.changed':
+    'Nothing was changed: line {line} of {file} has changed and no longer reads {from}.',
+  'problems.fix.notApplied.readOnly': 'Nothing was changed: {file} is read-only.',
+  'problems.fix.notApplied.notOpen': 'Nothing was changed: {file} could not be opened.',
+  'problems.fix.saveFailed':
+    'Changed {from} to {to} in the editor, but saving failed: {reason} The change is kept in the editor; the problem is not resolved yet.',
+  'problems.fix.checking': 'Changed {from} to {to} and saved. Checking again…',
+  'problems.fix.awaitingRefresh':
+    'Changed {from} to {to} and saved; the code check no longer reports this problem. Waiting for the preview to refresh to confirm the page no longer reports it either.',
+  'problems.fix.stillReported':
+    'Changed {from} to {to}, but checking again still reports this problem. Look at the original error, or go to the code.',
+  'problems.fix.resolved.static': 'Resolved: {file} line {line} — checking again no longer reports this problem.',
+  'problems.fix.resolved.runtime':
+    'Resolved: {file} line {line} — not reported again after checking again and refreshing the preview.',
+  'problems.fix.undoing': 'Undoing…',
+  'problems.fix.undone': 'Undone: {file} line {line} reads {from} again, and it is saved.',
+  'problems.fix.undoFailed.changed':
+    'Cannot undo: that part of the code has changed since. You can undo in the editor with {shortcut}.',
+  'problems.fix.undoFailed.save': 'Undone, but saving failed: {reason} The text is kept in the editor.',
+  'problems.fix.undoHint': 'You can also undo this change in the editor with {shortcut}.',
+  'problems.fix.undo': 'Undo this change',
+  'problems.fix.retrySave': 'Save again',
+  'problems.fix.recheck': 'Check again',
+  'problems.fix.clear': 'Clear',
+  // --- end S22.4 / S22.5 ---
   // --- end S17.2 ---
   // --- S17.3 console view ---
   'preview.console.filter': 'Show',
