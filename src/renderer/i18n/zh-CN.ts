@@ -369,6 +369,11 @@ export const zhCN = {
     '网页请求了{permission}权限，预览中默认拒绝，所以相关功能（例如 getUserMedia、定位）会失败。需要试用时，可以“在浏览器中打开”。',
   'preview.notice.consoleFloodStopped':
     '网页在极短时间内输出了太多控制台消息（绕过了输出限制），为了让编辑器保持流畅，NoobIDE 停止了正在运行的脚本。检查一下是否有循环一直在调用 console.log。',
+  // S25.1/S25.2: told once the preview was restarted after sleep
+  'preview.notice.restartedAfterSleepServer':
+    '电脑刚才处于睡眠状态，预览用的本地服务器已经停止。NoobIDE 重新启动了预览；你的文件和未保存的修改都没有受到影响。',
+  'preview.notice.restartedAfterSleepPage':
+    '电脑刚才处于睡眠状态，醒来后网页没有响应。NoobIDE 重新启动了预览；你的文件和未保存的修改都没有受到影响。',
   'preview.permission.camera': '摄像头',
   'preview.permission.microphone': '麦克风',
   'preview.permission.camera-microphone': '摄像头和麦克风',

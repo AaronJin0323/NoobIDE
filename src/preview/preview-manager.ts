@@ -559,6 +559,100 @@ export class PreviewManager {
   }
   // --- end S14.6 ---
 
+  // --- S25.1/S25.2: probes for sleep/wake recovery (src/main/wake-recovery.ts decides, decision 0028) ---
+
+  /** The preview showing now (null: none, or still waiting for its server). */
+  wakeSubject(): { readonly projectId: string; readonly state: PreviewStatus['state'] } | null {
+    const live = this.live;
+    return live ? { projectId: live.projectId, state: this.status.state } : null;
+  }
+
+  /**
+   * After sleep: a watchdog ping sent before the machine slept looks hours old, which would mark a healthy page
+   * unresponsive. Forget it; the next tick pings afresh (a page that really hangs is caught again within seconds).
+   */
+  forgetStalePing(): void {
+    if (this.live) this.live.ping = null;
+  }
+
+  /**
+   * Whether the preview's loopback server still answers HTTP (static-server.ts `answers`) and the session's network
+   * proxy still accepts connections (all page traffic goes through it, decision 0015).
+   */
+  async serverAnswers(timeoutMs: number): Promise<boolean> {
+    const live = this.live;
+    if (!live) return false;
+    const [server, proxy] = await Promise.all([live.server.answers(timeoutMs), live.proxy.answers(timeoutMs)]);
+    return server && proxy;
+  }
+
+  /** Whether the page's main thread runs a trivial script within `timeoutMs` (false when crashed or hung). */
+  async pageAnswers(timeoutMs: number): Promise<boolean> {
+    const contents = this.live?.view.webContents;
+    if (!contents || contents.isDestroyed() || contents.isCrashed()) return false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(false), timeoutMs);
+    });
+    try {
+      return await Promise.race([
+        contents.mainFrame.executeJavaScript('0').then(
+          () => true,
+          () => false,
+        ),
+        timeout,
+      ]);
+    } catch {
+      return false; // frame gone
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Restarts the preview of the same project in the same window: a new view (a hung or crashed page cannot reload
+   * itself) and the project's server again (the registry tries the previous port first, so the page keeps its
+   * origin and storage; otherwise the new URL is loaded). Then tells the user why, in their language, in the
+   * console. Never touches project files or editor buffers. False when nothing was restarted.
+   */
+  async restartAfterWake(reason: 'server' | 'page'): Promise<boolean> {
+    const live = this.live;
+    if (!live || live.window.isDestroyed()) return false;
+    const { projectId, window } = live;
+    const stopping = this.stop({ announce: false });
+    const ticket = this.generation; // stop() counted itself synchronously
+    await stopping;
+    // The user pressed Stop, or a project switch or another Start came in while stopping: theirs wins.
+    if (this.generation !== ticket || this.live !== null || window.isDestroyed()) {
+      // Our stop was silent: make sure the workbench does not keep showing the old page as running.
+      if (this.status.state === 'stopped' && !window.isDestroyed()) this.setStatus(window, this.status);
+      return false;
+    }
+    const result = await this.start(projectId, window);
+    const started = this.live as LivePreview | null; // (TS narrowed `live` above; start() set it)
+    if (!result.ok || started?.projectId !== projectId) return false;
+    this.pushLog({
+      source: 'page-load',
+      level: 'info',
+      message:
+        reason === 'server'
+          ? 'The preview restarted after the computer woke up: its local server had stopped.'
+          : 'The preview restarted after the computer woke up: the page had stopped responding.',
+      notice: { kind: 'restarted-after-sleep', reason },
+      at: Date.now(),
+    });
+    return true;
+  }
+
+  /** Test hook (S25 e2e fault injection): the server's socket dies without the preview noticing. */
+  async debugKillServerSocket(): Promise<boolean> {
+    const live = this.live;
+    if (!live) return false;
+    await live.server.close();
+    return true;
+  }
+  // --- end S25.1/S25.2 ---
+
   setBounds(bounds: PreviewBounds): void {
     this.bounds = bounds;
     this.applyBounds();

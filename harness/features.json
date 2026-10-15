@@ -2399,8 +2399,8 @@
       ],
       "verify": "manual-win",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "simulated: src/main/wake-recovery.test.ts (15) + src/platform/power-events.test.ts + tests/integration/wake-recovery.test.ts (11: dead watch, dead/hung server socket, proxy, same-port restart, clock jump) + tests/e2e/sleep-wake.spec.ts (4, real powerMonitor events, faults injected) @ 0969001, verify green; real sleep: steps in harness/MANUAL-CHECKS.md#S25.1"
     },
     {
       "id": "S25.2",
@@ -2413,8 +2413,8 @@
       ],
       "verify": "manual-mac",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "simulated: src/main/wake-recovery.test.ts (15) + src/platform/power-events.test.ts + tests/integration/wake-recovery.test.ts (11: dead watch, dead/hung server socket, proxy, same-port restart, clock jump) + tests/e2e/sleep-wake.spec.ts (4, real powerMonitor events, faults injected) @ 0969001, verify green; real sleep: steps in harness/MANUAL-CHECKS.md#S25.2 (macOS run of the e2e not done)"
     },
     {
       "id": "S25.3",
@@ -2545,8 +2545,8 @@
       "depends_on": [
         "H.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "pipeline ready, needs H.2 secrets: docs/release/signing.md"
     },
     {
       "id": "S28.3",
@@ -2561,8 +2561,8 @@
       "depends_on": [
         "H.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "pipeline ready, needs H.2 secrets: docs/release/signing.md"
     },
     {
       "id": "S28.4",

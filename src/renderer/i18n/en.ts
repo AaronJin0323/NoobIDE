@@ -390,6 +390,11 @@ export const en: Record<MessageKey, string> = {
     'The page asked for {permission} access. The preview denies it by default, so features that need it (such as getUserMedia or geolocation) fail. To try them, use “Open in browser”.',
   'preview.notice.consoleFloodStopped':
     'The page wrote far too many console messages too quickly (getting around the output limit). To keep the editor responsive, NoobIDE stopped the script that was running. Check for a loop that keeps calling console.log.',
+  // S25.1/S25.2: told once the preview was restarted after sleep
+  'preview.notice.restartedAfterSleepServer':
+    'The computer was asleep and the preview’s local server had stopped. NoobIDE restarted the preview; your files and unsaved edits are untouched.',
+  'preview.notice.restartedAfterSleepPage':
+    'The computer was asleep and the page stopped responding afterwards. NoobIDE restarted the preview; your files and unsaved edits are untouched.',
   'preview.permission.camera': 'camera',
   'preview.permission.microphone': 'microphone',
   'preview.permission.camera-microphone': 'camera and microphone',
