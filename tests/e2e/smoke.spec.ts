@@ -127,6 +127,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'recentProjects',
       'lifecycle',
       'session',
+      'portability', // S13.5: cross-platform transfer check (report only)
       'createProject',
       'history',
       'commands', // S24.2: command context + native menu choices
