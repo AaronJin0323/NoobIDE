@@ -1,0 +1,558 @@
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import type { IpcMainInvokeEvent } from 'electron';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { AiConfigStore, AiConsentStore } from '../../src/ai/config-store';
+import { createFakeProviders, parseFakeScript, type FakeProviderHub } from '../../src/ai/fake-provider';
+import { createTestEncryptor, KeyStore } from '../../src/ai/keys';
+import { AiService, type AgentRunner } from '../../src/ai/service';
+import { registerAiIpcHandlers } from '../../src/main/ai-ipc';
+import { appDataPath } from '../../src/main/app-data-layout';
+import { AppLog } from '../../src/main/app-log';
+import { AI_CHANNELS, type AiEvent } from '../../src/shared/ipc/ai-contract';
+
+/**
+ * S31.2 / S31.3 integration: the real AiService, key store, config and consent stores, the AI IPC handlers and the
+ * app log, with the scripted fake provider (no network). Covers sender and payload validation, consent, streaming,
+ * cancel, error mapping, budgets, the agent hook, and that the key never appears in an IPC response, an event, the
+ * log or the key file.
+ */
+const ORIGIN = 'noobide://app';
+const PROJECT = '3f1c2a9e-8b7d-4c6e-9f00-1a2b3c4d5e6f';
+const OTHER_PROJECT = '9a1c2a9e-8b7d-4c6e-9f00-1a2b3c4d5e6f';
+const KEY = 'sk-ant-api03-TOPSECRET-0123456789abcdefghijklmnopqrstuvwxyz';
+const BAD_KEY = 'sk-bad-key-REJECTED-000';
+
+type Handler = (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown>;
+
+interface FakeSender {
+  id: number;
+  sent: AiEvent[];
+  destroyed: boolean;
+  onDestroyed?: () => void;
+}
+
+let dir: string;
+let userData: string;
+let handlers: Map<string, Handler>;
+let responses: unknown[];
+let hub: FakeProviderHub;
+let service: AiService;
+let appLog: AppLog;
+let projectFiles: Record<string, string>;
+let agentRunner: AgentRunner | undefined;
+
+function makeSender(id: number): FakeSender {
+  return { id, sent: [], destroyed: false };
+}
+
+function eventFor(sender: FakeSender, url = `${ORIGIN}/index.html`, topLevel = true): IpcMainInvokeEvent {
+  return {
+    senderFrame: { url, parent: topLevel ? null : {} },
+    sender: {
+      id: sender.id,
+      isDestroyed: () => sender.destroyed,
+      send: (_channel: string, event: AiEvent) => sender.sent.push(event),
+      once: (_name: string, listener: () => void) => {
+        sender.onDestroyed = listener;
+      },
+    },
+  } as unknown as IpcMainInvokeEvent;
+}
+
+let win: FakeSender;
+let win2: FakeSender;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- IPC results are checked by shape in each test
+async function call(channel: string, sender: FakeSender, payload?: unknown): Promise<any> {
+  const handler = handlers.get(channel);
+  if (!handler) throw new Error(`no handler for ${channel}`);
+  const result = await (payload === undefined ? handler(eventFor(sender)) : handler(eventFor(sender), payload));
+  responses.push(result);
+  return result;
+}
+
+async function setup(script: unknown, options: { runner?: AgentRunner; secure?: boolean } = {}) {
+  hub = createFakeProviders(parseFakeScript(script));
+  agentRunner = options.runner;
+  appLog = new AppLog({ dir: appDataPath(userData, 'logs') });
+  const log = (event: string, fields: Readonly<Record<string, string | number | boolean>>) =>
+    appLog.write('warn', event, fields);
+  service = new AiService({
+    keys: new KeyStore({
+      file: appDataPath(userData, 'aiKeys'),
+      encryptor: createTestEncryptor(options.secure ?? true),
+      log,
+    }),
+    config: new AiConfigStore({ file: appDataPath(userData, 'aiConfig'), log }),
+    consent: new AiConsentStore({ file: appDataPath(userData, 'aiConsent'), log }),
+    providers: hub.factory,
+    rootOf: (id) => (id === PROJECT ? path.join(dir, '我的 项目') : undefined),
+    readFile: async (_id, relPath) => projectFiles[relPath] ?? null,
+    ...(agentRunner ? { agentRunner } : {}),
+    log: (level, event, fields) => appLog.write(level, event, fields),
+    budgets: { inline: { maxOutputTokens: 50, timeoutMs: 300, effort: 'low' } },
+  });
+  handlers = new Map();
+  registerAiIpcHandlers({ handle: (channel: string, h: Handler) => void handlers.set(channel, h) } as never, {
+    allowedOrigin: ORIGIN,
+    service,
+  });
+}
+
+async function finished(sender: FakeSender, requestId: string): Promise<AiEvent[]> {
+  for (let i = 0; i < 200; i += 1) {
+    const events = sender.sent.filter((e) => e.requestId === requestId);
+    if (events.some((e) => e.type === 'done' || e.type === 'error')) return events;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  throw new Error('request did not finish');
+}
+
+const chat = (prompt: string, extra: Record<string, unknown> = {}) => ({
+  kind: 'chat',
+  projectId: PROJECT,
+  history: [],
+  prompt,
+  context: [],
+  locale: 'zh-CN',
+  ...extra,
+});
+
+async function storeKey(key = KEY) {
+  expect(await call(AI_CHANNELS.setKey, win, { provider: 'anthropic', key })).toEqual({ ok: true, value: null });
+}
+
+async function logText(): Promise<string> {
+  const logs = appDataPath(userData, 'logs');
+  const names = await readdir(logs).catch(() => [] as string[]);
+  return (await Promise.all(names.map((n) => readFile(path.join(logs, n), 'utf8')))).join('\n');
+}
+
+beforeEach(async () => {
+  dir = await mkdtemp(path.join(os.tmpdir(), 'noobide-ai-'));
+  userData = path.join(dir, '用户 数据');
+  responses = [];
+  projectFiles = { 'index.html': '<h1>PROJECT-CODE-MARKER</h1>' };
+  win = makeSender(1);
+  win2 = makeSender(2);
+});
+afterEach(async () => {
+  await rm(dir, { recursive: true, force: true });
+});
+
+describe('AI IPC and service (S31.3)', () => {
+  it('refuses senders that are not the workbench and malformed payloads on every channel', async () => {
+    await setup({});
+    for (const channel of Object.values(AI_CHANNELS)) {
+      const handler = handlers.get(channel);
+      expect(handler).toBeDefined();
+      for (const event of [
+        eventFor(win, 'http://127.0.0.1:5000/index.html'),
+        eventFor(win, `${ORIGIN}/index.html`, false),
+      ]) {
+        expect(await handler?.(event, { provider: 'anthropic' })).toMatchObject({ code: 'forbidden-sender' });
+      }
+    }
+    const bad: [string, unknown][] = [
+      [AI_CHANNELS.setKey, { provider: 'anthropic' }],
+      [AI_CHANNELS.setKey, { provider: 'gemini', key: 'x' }],
+      [AI_CHANNELS.setKey, { provider: 'anthropic', key: 'x'.repeat(600) }],
+      [AI_CHANNELS.testKey, { provider: 'anthropic', extra: 1 }],
+      [AI_CHANNELS.status, { projectId: '../x' }],
+      [AI_CHANNELS.setConfig, { config: { enabled: true } }],
+      [AI_CHANNELS.setConsent, { projectId: PROJECT, allowed: 'yes' }],
+      [AI_CHANNELS.request, { kind: 'shell', command: 'rm -rf /' }],
+      [AI_CHANNELS.request, chat('x', { locale: 'fr' })],
+      [AI_CHANNELS.request, chat('x', { context: [{ kind: 'file', relPath: '../secret' }] })],
+      [AI_CHANNELS.request, chat('x', { projectId: null, context: [{ kind: 'file', relPath: 'a.html' }] })],
+      [
+        AI_CHANNELS.request,
+        {
+          kind: 'inline',
+          projectId: PROJECT,
+          relPath: 'a.js',
+          languageId: 'javascript',
+          prefix: 'x'.repeat(50_000),
+          suffix: '',
+        },
+      ],
+      [AI_CHANNELS.cancel, { requestId: 'nope' }],
+      [AI_CHANNELS.resolveProposal, { requestId: PROJECT, proposalId: 'p', results: [{ accepted: 'yes' }] }],
+    ];
+    for (const [channel, payload] of bad) {
+      expect(await call(channel, win, payload)).toMatchObject({ ok: false, code: 'invalid-request' });
+    }
+    expect(hub.requests).toHaveLength(0);
+  });
+
+  it('stores a key that never comes back in IPC responses, events, logs or the key file (S31.2)', async () => {
+    await setup({ turns: [{ match: 'hello', steps: [{ type: 'text', text: 'Hi!' }] }] });
+    const before = await call(AI_CHANNELS.status, win, { projectId: PROJECT });
+    expect(before).toMatchObject({
+      ok: true,
+      value: {
+        keyStored: { anthropic: false, openai: false },
+        secureStorage: true,
+        projectConsent: false,
+        config: { enabled: true, provider: null, inlineCompletions: true },
+      },
+    });
+    await storeKey();
+    const status = await call(AI_CHANNELS.status, win, { projectId: PROJECT });
+    expect(status.value).toMatchObject({
+      keyStored: { anthropic: true, openai: false },
+      config: { provider: 'anthropic' },
+    });
+    expect(status.value.config.models).toEqual({
+      chat: 'claude-opus-5-5',
+      agent: 'claude-opus-5-5',
+      edit: 'claude-opus-5-5',
+      inline: 'claude-haiku-5-5',
+    });
+    expect(await call(AI_CHANNELS.testKey, win, { provider: 'anthropic' })).toEqual({ ok: true, value: null });
+    expect((await call(AI_CHANNELS.listModels, win, { provider: 'anthropic' })).ok).toBe(true);
+    const started = await call(AI_CHANNELS.request, win, chat('hello', { projectId: null }));
+    const events = await finished(win, started.value.requestId);
+    expect(events.map((e) => e.type)).toEqual(['text', 'done']);
+
+    const everything = JSON.stringify([responses, win.sent]);
+    expect(everything).not.toContain(KEY);
+    expect(everything).not.toContain('TOPSECRET');
+    const log = await logText();
+    expect(log).toContain('ai-key-stored');
+    expect(log).not.toContain(KEY);
+    expect(log).not.toContain('TOPSECRET');
+    const keyFile = await readFile(appDataPath(userData, 'aiKeys'), 'utf8');
+    expect(keyFile).not.toContain(KEY);
+    expect(keyFile).not.toContain('TOPSECRET');
+    for (const name of await readdir(userData)) {
+      if (name === 'logs') continue;
+      expect(await readFile(path.join(userData, name), 'utf8')).not.toContain('TOPSECRET');
+    }
+
+    expect(await call(AI_CHANNELS.clearKey, win, { provider: 'anthropic' })).toEqual({ ok: true, value: null });
+    expect((await call(AI_CHANNELS.status, win, {})).value.keyStored.anthropic).toBe(false);
+    expect(await call(AI_CHANNELS.request, win, chat('hello', { projectId: null }))).toMatchObject({ code: 'no-key' });
+  });
+
+  it('without secure storage the key is not stored and AI stays off (S31.2)', async () => {
+    await setup({}, { secure: false });
+    expect(await call(AI_CHANNELS.setKey, win, { provider: 'openai', key: KEY })).toMatchObject({
+      ok: false,
+      code: 'no-secure-storage',
+    });
+    const status = await call(AI_CHANNELS.status, win, {});
+    expect(status.value).toMatchObject({ secureStorage: false, keyStored: { anthropic: false, openai: false } });
+    expect(await call(AI_CHANNELS.request, win, chat('hi', { projectId: null }))).toMatchObject({ code: 'no-key' });
+  });
+
+  it('explains a rejected key and offline tests', async () => {
+    await setup({ rejectKeys: [BAD_KEY] });
+    await storeKey(BAD_KEY);
+    expect(await call(AI_CHANNELS.testKey, win, { provider: 'anthropic' })).toMatchObject({
+      ok: false,
+      code: 'unauthorized',
+    });
+    expect(await call(AI_CHANNELS.testKey, win, { provider: 'openai' })).toMatchObject({ ok: false, code: 'no-key' });
+    await setup({ testError: 'offline' });
+    expect(await call(AI_CHANNELS.testKey, win, { provider: 'anthropic' })).toMatchObject({ code: 'offline' });
+  });
+
+  it('refuses project code until the project is allowed; consent is revocable and remembered', async () => {
+    await setup({ defaultTurn: { steps: [{ type: 'text', text: 'answer' }] } });
+    await storeKey();
+    const withFile = chat('what is this?', { context: [{ kind: 'file', relPath: 'index.html' }] });
+    expect(await call(AI_CHANNELS.request, win, withFile)).toMatchObject({ ok: false, code: 'no-consent' });
+    const inline = {
+      kind: 'inline',
+      projectId: PROJECT,
+      relPath: 'a.js',
+      languageId: 'javascript',
+      prefix: 'let',
+      suffix: '',
+    };
+    expect(await call(AI_CHANNELS.request, win, inline)).toMatchObject({ code: 'no-consent' });
+    // A question without project context needs no consent.
+    expect((await call(AI_CHANNELS.request, win, chat('general question'))).ok).toBe(true);
+    expect(await call(AI_CHANNELS.setConsent, win, { projectId: OTHER_PROJECT, allowed: true })).toMatchObject({
+      code: 'unknown-project',
+    });
+    expect(await call(AI_CHANNELS.request, win, chat('x', { projectId: OTHER_PROJECT }))).toMatchObject({
+      code: 'unknown-project',
+    });
+
+    expect(await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: true })).toEqual({
+      ok: true,
+      value: null,
+    });
+    expect((await call(AI_CHANNELS.status, win, { projectId: PROJECT })).value.projectConsent).toBe(true);
+    const started = await call(AI_CHANNELS.request, win, withFile);
+    expect(started.ok).toBe(true);
+    await finished(win, started.value.requestId);
+    // The file was re-read from disk by main and sent as data inside <context>.
+    const sent = hub.requests.at(-1)?.messages.at(-1);
+    expect(sent?.role === 'user' && sent.text).toContain('<context>');
+    expect(sent?.role === 'user' && sent.text).toContain('PROJECT-CODE-MARKER');
+    expect(hub.requests.at(-1)?.system).toContain('Simplified Chinese');
+    // The consent file holds a hash, not the path.
+    const consent = await readFile(appDataPath(userData, 'aiConsent'), 'utf8');
+    expect(consent).not.toContain('我的 项目');
+    expect(consent).toMatch(/[0-9a-f]{64}/);
+
+    expect(await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: false })).toEqual({
+      ok: true,
+      value: null,
+    });
+    expect(await call(AI_CHANNELS.request, win, withFile)).toMatchObject({ code: 'no-consent' });
+    // Logs carry ids, purpose, model and counts — never the prompt or the code.
+    const log = await logText();
+    expect(log).toContain('"event":"ai-request"');
+    expect(log).toContain('"purpose":"chat"');
+    expect(log).toContain('"model":"claude-opus-5-5"');
+    expect(log).not.toContain('PROJECT-CODE-MARKER');
+    expect(log).not.toContain('what is this');
+    expect(log).not.toContain('answer');
+  });
+
+  it('switching AI off refuses requests; inline can be switched off on its own', async () => {
+    await setup({});
+    await storeKey();
+    await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: true });
+    const config = (await call(AI_CHANNELS.status, win, {})).value.config;
+    expect(await call(AI_CHANNELS.setConfig, win, { config: { ...config, inlineCompletions: false } })).toMatchObject({
+      ok: true,
+      value: { inlineCompletions: false },
+    });
+    const inline = {
+      kind: 'inline',
+      projectId: PROJECT,
+      relPath: 'a.js',
+      languageId: 'javascript',
+      prefix: 'let',
+      suffix: '',
+    };
+    expect(await call(AI_CHANNELS.request, win, inline)).toMatchObject({ code: 'disabled' });
+    expect((await call(AI_CHANNELS.request, win, chat('x'))).ok).toBe(true);
+    await call(AI_CHANNELS.setConfig, win, { config: { ...config, enabled: false } });
+    expect(await call(AI_CHANNELS.request, win, chat('x'))).toMatchObject({ code: 'disabled' });
+    // Persisted with a schema version.
+    expect(JSON.parse(await readFile(appDataPath(userData, 'aiConfig'), 'utf8'))).toMatchObject({
+      version: 1,
+      enabled: false,
+      provider: 'anthropic',
+    });
+  });
+
+  it('streams, cancels (only from the starting window) and closes requests with the window', async () => {
+    await setup({
+      turns: [
+        {
+          match: 'slow',
+          repeat: true,
+          steps: [
+            { type: 'text', text: 'part' },
+            { type: 'delay', ms: 5_000 },
+            { type: 'text', text: 'never' },
+          ],
+        },
+      ],
+    });
+    await storeKey();
+    const started = await call(AI_CHANNELS.request, win, chat('slow', { projectId: null }));
+    const id = started.value.requestId as string;
+    for (let i = 0; i < 100 && !win.sent.some((e) => e.type === 'text'); i += 1)
+      await new Promise((r) => setTimeout(r, 5));
+    expect(await call(AI_CHANNELS.cancel, win2, { requestId: id })).toEqual({ ok: true, value: null });
+    expect(service.active).toContain(id);
+    expect(await call(AI_CHANNELS.cancel, win, { requestId: id })).toEqual({ ok: true, value: null });
+    const events = await finished(win, id);
+    expect(events.map((e) => e.type)).toEqual(['text', 'error']);
+    expect(events.at(-1)).toMatchObject({ code: 'cancelled' });
+    expect(win2.sent).toHaveLength(0);
+
+    const second = await call(AI_CHANNELS.request, win, chat('slow', { projectId: null }));
+    win.destroyed = true;
+    win.onDestroyed?.();
+    for (let i = 0; i < 100 && service.active.includes(second.value.requestId); i += 1) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    expect(service.active).not.toContain(second.value.requestId);
+  });
+
+  it('maps provider failures and refusals to error codes', async () => {
+    await setup({
+      turns: [
+        { match: 'limit', steps: [{ type: 'error', code: 'rate-limited' }] },
+        { match: 'net', steps: [{ type: 'error', code: 'offline' }] },
+        { match: 'big', steps: [{ type: 'error', code: 'context-too-large' }] },
+        { match: 'model', steps: [{ type: 'error', code: 'model-not-found' }] },
+        { match: 'nope', steps: [{ type: 'text', text: 'partial' }], stop: 'refusal' },
+      ],
+    });
+    await storeKey();
+    const expectations: [string, string][] = [
+      ['limit', 'rate-limited'],
+      ['net', 'offline'],
+      ['big', 'context-too-large'],
+      ['model', 'provider-error'],
+      ['nope', 'refused'],
+    ];
+    for (const [prompt, code] of expectations) {
+      const started = await call(AI_CHANNELS.request, win, chat(prompt, { projectId: null }));
+      const events = await finished(win, started.value.requestId);
+      expect(events.at(-1)).toMatchObject({ type: 'error', code });
+    }
+    const huge = chat('x', {
+      projectId: null,
+      context: [
+        { kind: 'selection', text: 'y'.repeat(399_000) },
+        { kind: 'selection', text: 'y'.repeat(10_000) },
+      ],
+    });
+    const started = await call(AI_CHANNELS.request, win, huge);
+    expect((await finished(win, started.value.requestId)).at(-1)).toMatchObject({ code: 'context-too-large' });
+  });
+
+  it('inline completions arrive as one cleaned piece, replace the previous one and respect the time budget', async () => {
+    await setup({
+      turns: [
+        {
+          match: 'first',
+          steps: [
+            { type: 'delay', ms: 2_000 },
+            { type: 'text', text: 'late' },
+          ],
+        },
+        {
+          match: 'second',
+          steps: [
+            { type: 'text', text: '```js\n' },
+            { type: 'text', text: 'x = 1;\n```' },
+          ],
+        },
+        { match: 'third', steps: [{ type: 'delay', ms: 2_000 }] },
+      ],
+    });
+    await storeKey();
+    await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: true });
+    const inline = (prefix: string) => ({
+      kind: 'inline',
+      projectId: PROJECT,
+      relPath: 'a.js',
+      languageId: 'javascript',
+      prefix,
+      suffix: '',
+    });
+    const first = await call(AI_CHANNELS.request, win, inline('first'));
+    const second = await call(AI_CHANNELS.request, win, inline('second'));
+    expect((await finished(win, first.value.requestId)).at(-1)).toMatchObject({ code: 'cancelled' });
+    expect((await finished(win, second.value.requestId)).filter((e) => e.type !== 'done')).toEqual([
+      { requestId: second.value.requestId, type: 'text', text: 'x = 1;' },
+    ]);
+    expect(hub.requests.find((r) => r.purpose === 'inline')?.model).toBe('claude-haiku-5-5');
+    const third = await call(AI_CHANNELS.request, win, inline('third'));
+    expect((await finished(win, third.value.requestId)).at(-1)).toMatchObject({
+      code: 'provider-error',
+      message: 'timed out',
+    });
+  });
+
+  it('runs edit requests with the edit prompt and the locale', async () => {
+    await setup({ turns: [{ purpose: 'edit', steps: [{ type: 'text', text: 'button { color: blue; }' }] }] });
+    await storeKey();
+    await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: true });
+    const started = await call(AI_CHANNELS.request, win, {
+      kind: 'edit',
+      projectId: PROJECT,
+      relPath: 'style.css',
+      languageId: 'css',
+      instruction: 'make the button blue',
+      selection: 'button { color: red; }',
+      before: '',
+      after: '',
+      locale: 'en',
+    });
+    const events = await finished(win, started.value.requestId);
+    expect(events[0]).toMatchObject({ type: 'text', text: 'button { color: blue; }' });
+    const req = hub.requests.at(-1);
+    expect(req?.system).toContain('replaces the selection');
+    expect(req?.system).toContain('comments in English');
+    expect(req?.messages.at(-1)).toMatchObject({ role: 'user' });
+  });
+
+  it('routes agent requests to the injected runner and its proposal decisions back', async () => {
+    await setup({});
+    await storeKey();
+    await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: true });
+    const agent = { kind: 'agent', projectId: PROJECT, history: [], prompt: 'add a page', context: [], locale: 'en' };
+    expect(await call(AI_CHANNELS.request, win, agent)).toMatchObject({
+      code: 'provider-error',
+      message: 'agent not available',
+    });
+
+    let seenModel = '';
+    const runner: AgentRunner = async (ctx) => {
+      seenModel = ctx.model;
+      expect(await ctx.readFile('index.html')).toContain('PROJECT-CODE-MARKER');
+      ctx.emit({ type: 'step', tool: 'read_file', summary: 'read index.html' });
+      ctx.emit({
+        type: 'proposal',
+        proposalId: 'p1',
+        reason: 'add about page',
+        changes: [{ kind: 'create', relPath: 'about.html', after: '<h1>About</h1>' }],
+      });
+      const decision = await ctx.waitForDecision('p1');
+      ctx.emit({ type: 'text', text: decision.results[0]?.accepted ? 'applied' : 'skipped' });
+      return { usage: { inputTokens: 5, outputTokens: 3 } };
+    };
+    await setup({}, { runner });
+    const started = await call(AI_CHANNELS.request, win, agent);
+    const id = started.value.requestId as string;
+    for (let i = 0; i < 100 && !win.sent.some((e) => e.type === 'proposal'); i += 1)
+      await new Promise((r) => setTimeout(r, 5));
+    const decision = { requestId: id, proposalId: 'p1', results: [{ accepted: true, applied: true }] };
+    expect(await call(AI_CHANNELS.resolveProposal, win2, decision)).toMatchObject({ code: 'unknown-request' });
+    expect(await call(AI_CHANNELS.resolveProposal, win, decision)).toEqual({ ok: true, value: null });
+    const events = await finished(win, id);
+    expect(events.map((e) => e.type)).toEqual(['step', 'proposal', 'text', 'done']);
+    expect(events.at(-1)).toMatchObject({ usage: { inputTokens: 5, outputTokens: 3 } });
+    expect(seenModel).toBe('claude-opus-5-5');
+
+    // Stop while waiting for a decision cancels the turn.
+    const again = await call(AI_CHANNELS.request, win, agent);
+    for (
+      let i = 0;
+      i < 100 && !win.sent.some((e) => e.requestId === again.value.requestId && e.type === 'proposal');
+      i += 1
+    ) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    await call(AI_CHANNELS.cancel, win, { requestId: again.value.requestId });
+    expect((await finished(win, again.value.requestId)).at(-1)).toMatchObject({ type: 'error', code: 'cancelled' });
+  });
+
+  it('picks OpenAI defaults from the model list on first use', async () => {
+    await setup({
+      models: [
+        { id: 'gpt-new', displayName: 'gpt-new' },
+        { id: 'gpt-new-mini', displayName: 'gpt-new-mini' },
+      ],
+    });
+    expect(await call(AI_CHANNELS.setKey, win, { provider: 'openai', key: KEY })).toEqual({ ok: true, value: null });
+    expect((await call(AI_CHANNELS.status, win, {})).value.config).toMatchObject({
+      provider: 'openai',
+      models: { chat: '', inline: '' },
+    });
+    const started = await call(AI_CHANNELS.request, win, chat('hi', { projectId: null }));
+    await finished(win, started.value.requestId);
+    expect(hub.requests.at(-1)).toMatchObject({ provider: 'openai', model: 'gpt-new' });
+    expect((await call(AI_CHANNELS.status, win, {})).value.config.models).toEqual({
+      chat: 'gpt-new',
+      agent: 'gpt-new',
+      edit: 'gpt-new',
+      inline: 'gpt-new-mini',
+    });
+  });
+});
