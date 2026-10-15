@@ -158,7 +158,8 @@ export function EditorPane(props: EditorPaneProps) {
             onClick={() => props.onShowHistory?.(tab.relPath)}
           >
             <HistoryIcon size={15} />
-            {t('history.open')}
+            {/* In a narrow editor only the icon shows (styles.css); the name stays the same. */}
+            <span className="history-label">{t('history.open')}</span>
           </button>
         )}
         {/* Format and the code font size sit behind "Editor options", so the tabs keep the header's width. */}

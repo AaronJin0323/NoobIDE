@@ -72,7 +72,16 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
   // The chevrons are shown while the strip overflows at all, so scrolling never changes the strip's width; it changes
   // only when the overflow starts or ends, and then the active tab is shown again.
   const overflowing = overflow.start || overflow.end;
-  useEffect(() => showTab(active), [showTab, active, tabs.length, overflowing]);
+  useEffect(() => {
+    showTab(active);
+    // A new tab can still change size after this commit (its state label, the strip's chevrons): check again once
+    // the layout has settled.
+    const frame = requestAnimationFrame(() => {
+      measure();
+      showTab(active);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [showTab, measure, active, tabs.length, overflowing]);
   useEffect(() => {
     const bar = barRef.current;
     if (!bar) return undefined;

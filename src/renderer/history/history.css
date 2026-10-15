@@ -205,6 +205,21 @@
 .history-button + .zoom {
   margin-left: 4px;
 }
+/* A narrow editor (e.g. a 960 px window) gives the tabs the room: the button shows only its icon; the word stays in
+   the accessible name (visually hidden, not removed) and the tooltip. */
+.editor {
+  container-type: inline-size;
+}
+@container (max-width: 440px) {
+  .history-button .history-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
 /* The window scrolls as a whole; its sections never shrink into each other. */
 .history-dialog > * {
   flex: none;
