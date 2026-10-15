@@ -12,7 +12,7 @@ import {
   tabOf,
   treeRow,
 } from './project';
-import { DOC_END } from './keys';
+import { DOC_END, DOC_START } from './keys';
 
 /**
  * S43 (decision 0032): detected indentation drives Enter, auto-close, paste and format; the status bar shows it and
@@ -242,7 +242,7 @@ test('a whole-line paste (copied with nothing selected) never re-indents the lin
   await openFile(page, 'two.js');
   await focusEditor(page);
   // Line 4 is "    console.log(sum);"; copy it with nothing selected, paste with the cursor in the middle of it.
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START); // ⌘↑ on macOS: Monaco does not bind ⌘Home
   for (let i = 0; i < 3; i += 1) await page.keyboard.press('ArrowDown');
   await page.keyboard.press('End');
   for (let i = 0; i < 6; i += 1) await page.keyboard.press('ArrowLeft');
