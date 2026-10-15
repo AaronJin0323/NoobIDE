@@ -3231,6 +3231,23 @@
       ],
       "status": "done",
       "evidence": "tests/e2e/smoke.spec.ts S02.2 green on Windows x64 (7/7 with preview-layout run); previewSnapshot in preload.ts:189 + ai-contract.ts, aiHistory in preload.ts:197 + ai-history-contract.ts"
+    },
+    {
+      "id": "S39.4",
+      "session": "S39",
+      "milestone": "M10",
+      "title": "AI budget integration test does not race the usage store",
+      "description": "tests/integration/ai-history.test.ts \"refuses new requests once the budget is reached…\" failed in verify on the Windows dev machine (Session 14) and once with ENOTEMPTY in teardown (Session 13).",
+      "acceptance": [
+        "The failing assertion and cause are identified; a product bug is fixed in the product, a timing assumption in the test is replaced by explicit synchronisation (no weakened behaviour check)",
+        "The file passes 10 runs in a row, and also with the usage store artificially slowed down"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S39.2"
+      ],
+      "status": "done",
+      "evidence": "Cause (test): a fixed 150 ms agent-step delay raced budgetReached(), which waits behind the usage file write; under load the turn finished first (service.active empty, ai-history.test.ts:369). Teardown ENOTEMPTY: an un-awaited inline request still writing ai-usage.json. Fix: explicit gate on step 2, poll for the step event, drain the last request. 10/10 runs; 6/6 with budgetReached slowed by 200 ms (old test fails); src/ai + file 92 passed. dayKey() uses local dates and usage-store.test pins local midnight (no product bug)."
     }
   ]
 }

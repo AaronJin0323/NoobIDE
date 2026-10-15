@@ -11,6 +11,7 @@ import { AiService } from '../../src/ai/service';
 import { AiUsageStore } from '../../src/ai/usage-store';
 import { createAgentRunner } from '../../src/ai/agent/runner';
 import { createProjectPorts } from '../../src/ai/agent/ports';
+import type { ModelPort } from '../../src/ai/agent/model-port';
 import { ScriptedModel, type TurnScript } from '../../src/ai/agent/scripted-model';
 import { registerAiHistoryIpcHandlers } from '../../src/main/ai-history-ipc';
 import { registerAiIpcHandlers } from '../../src/main/ai-ipc';
@@ -44,6 +45,8 @@ let sent: AiEvent[];
 let clock: number;
 let appLog: AppLog;
 let agentScript: TurnScript[];
+/** When set, every agent model call after the first waits for it (holds a turn mid-way without relying on timing). */
+let laterCallsWait: Promise<void> | null;
 let service: AiService;
 
 function eventFor(url = `${ORIGIN}/index.html`, topLevel = true): IpcMainInvokeEvent {
@@ -57,6 +60,25 @@ function eventFor(url = `${ORIGIN}/index.html`, topLevel = true): IpcMainInvokeE
       on: () => undefined,
     },
   } as unknown as IpcMainInvokeEvent;
+}
+
+/** The scripted agent model, with calls after the first held until {@link laterCallsWait} settles. */
+function gatedModel(port: ModelPort): ModelPort {
+  let calls = 0;
+  return {
+    provider: port.provider,
+    ...(port.acceptsImages !== undefined ? { acceptsImages: port.acceptsImages } : {}),
+    streamTurn: (request) => {
+      const index = calls;
+      calls += 1;
+      return {
+        async *[Symbol.asyncIterator]() {
+          if (index > 0 && laterCallsWait) await laterCallsWait;
+          yield* port.streamTurn(request);
+        },
+      };
+    },
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- IPC results are checked by shape in each test
@@ -119,7 +141,7 @@ async function setup() {
     rootOf: (id) => projects.rootOf(id),
     readFile: async () => null,
     agentRunner: createAgentRunner({ projectPorts: (id) => createProjectPorts({ projects, projectId: id }) }),
-    agentModel: () => new ScriptedModel(agentScript),
+    agentModel: () => gatedModel(new ScriptedModel(agentScript)),
     log: (level, event, fields) => appLog.write(level, event, fields),
     usage,
   });
@@ -204,6 +226,7 @@ beforeEach(async () => {
   sent = [];
   clock = new Date(2026, 9, 15, 12).getTime();
   agentScript = [];
+  laterCallsWait = null;
 });
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
@@ -353,19 +376,24 @@ describe('token usage and the daily budget (S39.2)', () => {
       value: { dailyBudget: 1000, budgetReached: false },
     });
     // Step 1 of the turn already goes over the budget; the turn still runs its next step and ends with 'done'.
+    // Step 2 is held until the mid-turn checks are done: a fixed delay raced the budget check's queued usage write,
+    // which on a loaded machine took longer than the delay and let the turn end before `active` was checked.
     agentScript = [
       { toolCalls: [{ name: 'list_files', input: {} }], usage: { inputTokens: 1200, outputTokens: 10 } },
-      { text: ['Finished anyway.'], usage: { inputTokens: 1300, outputTokens: 20 }, delayMs: 150 },
+      { text: ['Finished anyway.'], usage: { inputTokens: 1300, outputTokens: 20 } },
     ];
+    let releaseStep2 = () => undefined as void;
+    laterCallsWait = new Promise<void>((resolve) => (releaseStep2 = resolve));
     const started = await call(AI_CHANNELS.request, agentRequest('build it'));
     expect(started).toMatchObject({ ok: true });
     const id = started.value.requestId as string;
-    for (let i = 0; i < 200 && !sent.some((e) => e.requestId === id && e.type === 'step'); i += 1) {
-      await new Promise((r) => setTimeout(r, 5));
-    }
+    await expect
+      .poll(() => sent.some((e) => e.requestId === id && e.type === 'step'), { timeout: 10_000, interval: 5 })
+      .toBe(true);
     // Mid-turn: the budget is reached, so a new request is refused while the turn keeps going.
     expect(await call(AI_CHANNELS.request, chatRequest('hello'))).toMatchObject({ ok: false, code: 'budget-reached' });
     expect(service.active).toContain(id);
+    releaseStep2();
     const events = await finished(id);
     expect(events.at(-1)).toMatchObject({ type: 'done', usage: { inputTokens: 2500, outputTokens: 30 } });
     expect(events.some((e) => e.type === 'text' && e.text.includes('Finished anyway.'))).toBe(true);
@@ -394,7 +422,10 @@ describe('token usage and the daily budget (S39.2)', () => {
       dailyBudget: null,
       budgetReached: false,
     });
-    expect(await call(AI_CHANNELS.request, inlineRequest())).toMatchObject({ ok: true });
+    // Awaited to the end, and its usage write drained (reads queue behind writes): a request left running writes
+    // ai-usage.json while afterEach removes the folder (seen once as ENOTEMPTY on '用户 数据').
+    expect((await run(inlineRequest())).at(-1)).toMatchObject({ type: 'done' });
+    expect((await call(AI_HISTORY_CHANNELS.usage)).value).toMatchObject({ day: '2026-10-15', totalTokens: 2530 + 42 });
     expect(await logText()).toContain('ai-budget-refused');
   });
 });
