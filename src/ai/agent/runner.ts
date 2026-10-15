@@ -27,6 +27,8 @@ export interface AgentRunInput {
   readonly request: AiRequest;
   readonly model: ModelPort;
   readonly budgets?: Partial<AgentBudgets>;
+  /** S38.2: the requesting window (webContents id): the preview tools read only a preview this window owns. */
+  readonly owner?: number;
   /**
    * S38.2: screenshots of the Preview context items the user saw (resolved by the service from its snapshot cache),
    * sent with the first message when the model accepts images.
@@ -48,7 +50,7 @@ export type AgentRunner = (input: AgentRunInput, emit: (event: AiEvent) => void,
 
 export interface AgentRunnerDeps {
   /** Ports onto the open project's existing services, or null when that project is not open (tools.ts). */
-  projectPorts(projectId: string): AgentProjectPorts | null;
+  projectPorts(projectId: string, owner?: number): AgentProjectPorts | null;
   readonly budgets?: Partial<AgentBudgets>;
   readonly newId?: () => string;
   readonly now?: () => number;
@@ -95,7 +97,7 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
         });
         return;
       }
-      const ports = deps.projectPorts(request.projectId);
+      const ports = deps.projectPorts(request.projectId, input.owner);
       if (!ports) {
         emit({
           requestId: input.requestId,

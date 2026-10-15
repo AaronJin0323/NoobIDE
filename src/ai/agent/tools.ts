@@ -70,6 +70,8 @@ export const LIMITS = {
   searchQueryChars: 200,
   problems: 50,
   consoleEntries: 50,
+  /** Screenshots one agent turn may send (each is up to ~1.5 MB and stays in the history). */
+  screenshots: 3,
   /** Uncaught errors always listed by get_console, even when newer messages pushed them out of the window. */
   uncaughtErrors: 10,
   messageChars: 500,
@@ -379,6 +381,8 @@ export interface ToolContext {
   readonly signal: AbortSignal;
   /** S38.2: the model reads images (otherwise get_page_screenshot falls back to the outline). */
   readonly acceptsImages?: boolean;
+  /** S38.2: screenshots this turn may still send (shared by the turn's calls; LIMITS.screenshots at the start). */
+  readonly screenshots?: { left: number };
 }
 
 export async function runReadTool(
@@ -558,11 +562,12 @@ function getConsole(ctx: ToolContext, limit: number): ToolOutcome {
     `[${r.entry.level}] ${r.entry.source}${r.where ? ` ${r.where}` : ''}: ${clip(r.entry.message, LIMITS.messageChars)}`;
   // Uncaught errors first, even when newer messages pushed them out of the recent window: they are what breaks a page.
   const uncaught = records.filter((r) => r.entry.source === 'exception');
+  const others = recent.filter((r) => r.entry.source !== 'exception');
   const lines = [
     `Uncaught errors (${uncaught.length === 0 ? 'none' : 'newest last'}):`,
     ...uncaught.slice(Math.max(0, uncaught.length - LIMITS.uncaughtErrors)).map(line),
-    `Recent messages (${recent.length} of ${records.length}, oldest first):`,
-    ...recent.map(line),
+    `Other recent messages (${others.length}, oldest first):`,
+    ...others.map(line),
   ];
   return done(frameData(ctx.nonce, 'kind="console"', neutralizeData(lines.join('\n'))));
 }
@@ -584,11 +589,19 @@ async function pageOutline(ctx: ToolContext): Promise<ToolOutcome> {
 }
 
 async function pageScreenshot(ctx: ToolContext): Promise<ToolOutcome> {
-  const capture = await ctx.ports.previewSnapshot({ screenshot: ctx.acceptsImages === true });
+  const budget = ctx.screenshots;
+  const allowed = ctx.acceptsImages === true && (budget === undefined || budget.left > 0);
+  if (allowed && budget) budget.left -= 1;
+  const capture = await ctx.ports.previewSnapshot({ screenshot: allowed });
   if (!capture.ok) return fail(capture.code === 'not-running' ? NOT_RUNNING : NOT_AVAILABLE);
   const text = pageText(ctx, capture.value);
   if (!ctx.acceptsImages) {
     return done(`This model cannot receive images, so here is the page as text instead.\n${text}`);
+  }
+  if (!allowed) {
+    return done(
+      `This turn already sent ${LIMITS.screenshots} screenshots (the limit), so here is the page as text instead.\n${text}`,
+    );
   }
   if (!capture.value.png) {
     return done(

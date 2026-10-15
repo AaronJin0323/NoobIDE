@@ -19,16 +19,23 @@ export interface ProjectPortsDeps {
   readonly projectId: string;
   readonly problems?: { list(): readonly ProblemRecord[] };
   /** The PreviewManager: status, reload, recent records and (S38.1) page snapshots. */
-  readonly preview?: PreviewSource & { reload(): PreviewStatus };
+  readonly preview?: PreviewSource & {
+    reload(): PreviewStatus;
+    isOwner?(requester: { readonly windowId: number; readonly projectId?: string }): boolean;
+  };
+  /** S38.2: the requesting window; with it, the preview tools only read a preview this window owns. */
+  readonly owner?: number;
 }
 
 /** Null when the project is not open (the runner then reports `unknown-project`). */
 export function createProjectPorts(deps: ProjectPortsDeps): AgentProjectPorts | null {
-  const { projects, projectId, problems, preview } = deps;
+  const { projects, projectId, problems, preview, owner } = deps;
   if (projects.rootOf(projectId) === undefined) return null;
   const previewOfProject = () => {
     const status = preview?.getStatus();
-    return status && status.projectId === projectId && status.state !== 'stopped' ? status : null;
+    if (!status || status.projectId !== projectId || status.state === 'stopped') return null;
+    if (owner !== undefined && preview?.isOwner && !preview.isOwner({ windowId: owner, projectId })) return null;
+    return status;
   };
   /**
    * The hidden-file policy on the REAL location: an ordinary-looking name can be a link to `.env` or `.git`, and on

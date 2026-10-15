@@ -159,7 +159,9 @@ export function pickOpenAiDefaults(models: readonly AiModelInfo[]): Record<AiPur
  */
 export function modelAcceptsImages(provider: AiProviderId | 'fake', model: string): boolean {
   if (provider !== 'openai') return true;
-  return !/^(gpt-3\.5|gpt-4(?![o.]|-turbo)|o1-mini|o3-mini|text-|davinci|babbage)/.test(model);
+  if (/^gpt-4-vision/.test(model)) return true;
+  if (/(audio|realtime|search|transcribe|tts)/.test(model)) return false;
+  return !/^(gpt-3\.5|gpt-4(?![o.]|-turbo)|o1-mini|o1-preview|o3-mini|text-|davinci|babbage)/.test(model);
 }
 
 /** Validates a parsed tool input against the tool's schema; returns the problem, or null when it is valid. */

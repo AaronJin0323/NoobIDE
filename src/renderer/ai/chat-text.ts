@@ -21,6 +21,7 @@ export const AI_ERROR_CODES: readonly AiErrorCode[] = [
   'provider-error',
   'unknown-project',
   'budget-exhausted',
+  'preview-expired',
 ];
 
 const ERROR_KEYS: Record<AiErrorCode, MessageKey> = {
@@ -36,6 +37,7 @@ const ERROR_KEYS: Record<AiErrorCode, MessageKey> = {
   'provider-error': 'ai.error.provider-error',
   'unknown-project': 'ai.error.unknown-project',
   'budget-exhausted': 'ai.error.budget-exhausted', // S34
+  'preview-expired': 'ai.error.preview-expired', // S38.2
 };
 
 /** The plain-language explanation of an error code; IPC errors ('invalid-request', …) get the generic text. */

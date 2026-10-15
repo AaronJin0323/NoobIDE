@@ -126,10 +126,11 @@ export function setupAi(options: AiMainOptions): AiMain {
     },
     // S34: the agent loop over main's existing services (no new file-system path).
     agentRunner: createAgentRunner({
-      projectPorts: (projectId) =>
+      projectPorts: (projectId, owner) =>
         createProjectPorts({
           projects,
           projectId,
+          ...(owner !== undefined ? { owner } : {}),
           ...(options.problems ? { problems: options.problems } : {}),
           ...(options.preview ? { preview: options.preview } : {}),
         }),

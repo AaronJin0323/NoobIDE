@@ -306,15 +306,26 @@ export class AiService {
     );
   }
 
-  /** Drops expired snapshots and keeps room for one more of `owner`. */
-  private pruneSnapshots(owner: number): void {
+  /** Drops expired snapshots (of every window) and keeps room for one more of `owner`. */
+  private pruneSnapshots(owner: number | null): void {
     const now = this.now();
     const mine: string[] = [];
     for (const [id, s] of this.snapshots) {
       if (now - s.at > PREVIEW_SNAPSHOT_TTL_MS) this.snapshots.delete(id);
       else if (s.owner === owner) mine.push(id);
     }
-    while (mine.length >= PREVIEW_SNAPSHOTS_PER_WINDOW) this.snapshots.delete(mine.shift() as string);
+    while (owner !== null && mine.length >= PREVIEW_SNAPSHOTS_PER_WINDOW) this.snapshots.delete(mine.shift() as string);
+  }
+
+  /** A Preview item names a snapshot whose screenshot main no longer keeps for this window and project. */
+  private missingSnapshot(request: AiRequest, owner: number): boolean {
+    if ((request.kind !== 'chat' && request.kind !== 'agent') || request.projectId === null) return false;
+    this.pruneSnapshots(null);
+    return request.context.some((item) => {
+      if (item.kind !== 'preview' || !item.snapshotId) return false;
+      const cached = this.snapshots.get(item.snapshotId);
+      return !cached || cached.owner !== owner || cached.projectId !== request.projectId;
+    });
   }
 
   /** The screenshots of a request's Preview items, from this window's snapshots of this project only. */
@@ -360,6 +371,8 @@ export class AiService {
       }
     }
     if (request.kind === 'agent' && !this.deps.agentRunner) return err('provider-error', 'agent not available');
+    // S38.2: a Preview chip promised its screenshot; if main no longer keeps it, say so instead of sending less.
+    if (this.missingSnapshot(request, owner)) return err('preview-expired', 'the preview screenshot expired');
 
     // A new inline completion replaces the window's previous one (typing moved on).
     if (request.kind === 'inline') {
@@ -466,6 +479,7 @@ export class AiService {
             requestId,
             request,
             model: port,
+            owner: run.owner,
             ...(contextImages.length > 0 ? { contextImages } : {}),
             // The loop enforces the turn's working time (excluding waits for the user) and output per step.
             budgets: { maxWallTimeMs: budget.timeoutMs, maxOutputTokensPerStep: budget.maxOutputTokens },

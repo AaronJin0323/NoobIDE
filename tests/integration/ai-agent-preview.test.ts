@@ -94,19 +94,23 @@ function run(
     decide: (e: Extract<AiEvent, { type: 'proposal' }>) => AiProposalDecision['results'];
     acceptsImages?: boolean;
     pageText?: string;
+    /** The window asking (the preview is owned by window 1). */
+    owner?: number;
   },
 ) {
   const events: AiEvent[] = [];
   const model = new ScriptedModel(script, { acceptsImages: options.acceptsImages ?? true });
   const status: PreviewStatus = { state: 'running', projectId, url: `${ORIGIN}/` };
   const runner = createAgentRunner({
-    projectPorts: (id) =>
+    projectPorts: (id, owner) =>
       createProjectPorts({
         projects: service,
         projectId: id,
+        ...(owner !== undefined ? { owner } : {}),
         preview: {
           getStatus: () => status,
           reload: () => status,
+          isOwner: (r) => r.windowId === 1,
           recentRecords: () => records,
           pageSnapshot: async () => ({ ok: true, value: snapshot(options.pageText ?? '联系我') }),
         },
@@ -124,6 +128,7 @@ function run(
         locale: 'en',
       },
       model,
+      owner: options.owner ?? 1,
     },
     (event) => {
       events.push(event);
@@ -179,7 +184,7 @@ describe('preview-aware agent (S38.2)', () => {
     // The console: the uncaught error first, by project file and line, even after 60 newer messages.
     const consoleText = first[1]?.content ?? '';
     expect(consoleText).toContain('[error] exception 脚本.js:3: Uncaught ReferenceError: sendMesage is not defined');
-    expect(consoleText.indexOf('脚本.js:3')).toBeLessThan(consoleText.indexOf('Recent messages'));
+    expect(consoleText.indexOf('脚本.js:3')).toBeLessThan(consoleText.indexOf('Other recent messages'));
     const read = lastToolResults(h.model.requests[2] as never);
     expect(read[0]?.content).toContain('sendMesage();');
     const proposal = h.events.find((e) => e.type === 'proposal');
@@ -270,5 +275,36 @@ describe('preview-aware agent (S38.2)', () => {
     const parts = (user?.content ?? []) as { type: string; image_url?: { url: string } }[];
     expect(parts.map((p) => p.type)).toEqual(['text', 'image_url']);
     expect(parts[1]?.image_url?.url).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it('sends at most three screenshots per turn; then the page comes as text', async () => {
+    const shot = { name: 'get_page_screenshot', input: {} };
+    const h = run([{ toolCalls: [shot, shot, shot, shot] }, { text: ['ok'] }], { decide: () => [] });
+    await h.finished;
+    const results = lastToolResults(h.model.requests[1] as never);
+    expect(results.map((r) => r.images?.length ?? 0)).toEqual([1, 1, 1, 0]);
+    expect(results[3]?.content).toContain('already sent 3 screenshots');
+  });
+
+  it('another window’s agent cannot read this window’s preview', async () => {
+    const h = run(
+      [
+        {
+          toolCalls: [
+            { name: 'get_page_outline', input: {} },
+            { name: 'get_page_screenshot', input: {} },
+            { name: 'get_console', input: {} },
+          ],
+        },
+        { text: ['ok'] },
+      ],
+      { decide: () => [], owner: 2 },
+    );
+    await h.finished;
+    const results = lastToolResults(h.model.requests[1] as never);
+    expect(results[0]).toMatchObject({ isError: true });
+    expect(results[0]?.content).toContain('not running');
+    expect(results[1]?.images).toBeUndefined();
+    expect(results[2]?.content).not.toContain('sendMesage');
   });
 });

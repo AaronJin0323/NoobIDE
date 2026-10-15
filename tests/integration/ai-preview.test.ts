@@ -220,10 +220,8 @@ describe('Preview chip in main (S38.2)', () => {
     await call(AI_CHANNELS.setConsent, 1, { projectId: PROJECT, allowed: true });
     const { value: snapshot } = await call(AI_CHANNELS.previewSnapshot, 1, { projectId: PROJECT, locale: 'en' });
     const item = { kind: 'preview', text: snapshot.text, snapshotId: snapshot.snapshotId };
-    const other = await call(AI_CHANNELS.request, 2, chatWith(item));
-    await finished(2, other.value.requestId);
-    const fromOther = hub.requests.at(-1)?.messages.at(-1);
-    expect(fromOther?.role === 'user' && fromOther.images).toBeFalsy();
+    expect(await call(AI_CHANNELS.request, 2, chatWith(item))).toMatchObject({ ok: false, code: 'preview-expired' });
+    expect(hub.requests).toHaveLength(0);
 
     // OpenAI with a text-only model: the chip says so, and the request carries no image.
     expect(await call(AI_CHANNELS.setKey, 1, { provider: 'openai', key: 'sk-openai-test-0123456789' })).toMatchObject({
@@ -264,5 +262,25 @@ describe('Preview chip in main (S38.2)', () => {
     ]) {
       expect(await call(AI_CHANNELS.request, 1, chatWith(item))).toMatchObject({ ok: false, code: 'invalid-request' });
     }
+  });
+
+  it('a chip whose screenshot main no longer keeps is refused with an explanation, not sent without it', async () => {
+    await call(AI_CHANNELS.setConsent, 1, { projectId: PROJECT, allowed: true });
+    const first = (await call(AI_CHANNELS.previewSnapshot, 1, { projectId: PROJECT, locale: 'en' })).value;
+    // Four newer snapshots of this window replace the first one.
+    for (let i = 0; i < 4; i += 1) await call(AI_CHANNELS.previewSnapshot, 1, { projectId: PROJECT, locale: 'en' });
+    const before = hub.requests.length;
+    expect(
+      await call(AI_CHANNELS.request, 1, chatWith({ kind: 'preview', text: first.text, snapshotId: first.snapshotId })),
+    ).toMatchObject({ ok: false, code: 'preview-expired' });
+    // A snapshot id this window never took is refused the same way.
+    expect(
+      await call(
+        AI_CHANNELS.request,
+        1,
+        chatWith({ kind: 'preview', text: 'x', snapshotId: '0a1c2a9e-8b7d-4c6e-9f00-1a2b3c4d5e6f' }),
+      ),
+    ).toMatchObject({ ok: false, code: 'preview-expired' });
+    expect(hub.requests.length).toBe(before);
   });
 });

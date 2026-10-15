@@ -173,7 +173,9 @@ export type AiErrorCode =
   | 'provider-error'
   | 'unknown-project'
   /** S34: an agent turn reached its step, token or wall-time budget and stopped (accepted changes are kept). */
-  | 'budget-exhausted';
+  | 'budget-exhausted'
+  /** S38.2: a Preview chip's screenshot is no longer kept (too old, or newer snapshots replaced it): add it again. */
+  | 'preview-expired';
 
 export type AiEvent =
   | { readonly requestId: string; readonly type: 'text'; readonly text: string }

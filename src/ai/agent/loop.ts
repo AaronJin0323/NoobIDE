@@ -115,6 +115,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
   const usage = { inputTokens: 0, outputTokens: 0 };
   let workedMs = 0;
   let textEmitted = false;
+  /** S38.2: screenshots this turn may still send. */
+  const screenshots = { left: LIMITS.screenshots };
 
   try {
     const images = model.acceptsImages ? (options.contextImages ?? []) : [];
@@ -297,6 +299,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
         nonce: options.nonce,
         signal,
         acceptsImages: model.acceptsImages === true,
+        screenshots,
       });
     } catch {
       outcome = { isError: true, content: 'The tool failed unexpectedly.' };

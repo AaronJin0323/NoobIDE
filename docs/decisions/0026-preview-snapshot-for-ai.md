@@ -53,6 +53,11 @@ text as untrusted data (it can contain prompt-injection text).
   (`script.js:3`) instead of preview URLs; the chat gets a **Preview** context chip that shows exactly the text that
   will be sent (path, title, outline, recent errors) and the screenshot thumbnail. Main keeps the screenshot of a chip
   (by id, per window, a few at most) so the request sends the image the user saw; the renderer never sends image bytes.
+  A chip whose screenshot main no longer keeps (30 minutes, or four newer snapshots of that window) is refused with
+  `preview-expired` instead of being sent without its image. The agent's preview tools read only a preview owned by
+  the requesting window, and one agent turn sends at most three screenshots (then the page comes as text). The
+  agent's own screenshots are not shown as thumbnails; its step list says each one was taken, and the project's
+  consent covers them like the files it reads.
 - Page content is untrusted data: framed like file text (chat: `<preview>` context tag + `neutralizeData`; agent: the
   per-run nonce frame + `neutralizeData`), never logged (logs get sizes, timings and codes only), and it cannot approve
   proposals (only `ai:resolve-proposal` from the workbench can) or add tools (the tool list is fixed).

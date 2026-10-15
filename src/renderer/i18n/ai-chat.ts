@@ -101,6 +101,7 @@ export const aiChatZhCN = {
   'ai.error.cancelled': '已停止。',
   'ai.error.provider-error': 'AI 服务出错了，这不是你的问题。请稍后再试。',
   'ai.error.unknown-project': '这个项目已经关闭了，所以没有发送。',
+  'ai.error.preview-expired': '这个预览的截图已经过期了。请移除“预览”这一项，再点“添加预览”，然后重新发送。',
   'ai.error.budget-exhausted':
     '这一轮用完了允许的步数、用量或时间，已经停止。已经接受的修改都保留着；再发一条消息可以让它接着做。',
   'ai.error.generic': '请求没有完成。请再试一次。',
@@ -215,6 +216,8 @@ export const aiChatEn: Record<keyof typeof aiChatZhCN, string> = {
   'ai.error.cancelled': 'Stopped.',
   'ai.error.provider-error': 'The AI service had a problem; it is not your fault. Please try again later.',
   'ai.error.unknown-project': 'This project has been closed, so nothing was sent.',
+  'ai.error.preview-expired':
+    'The screenshot of this preview is no longer kept. Remove the Preview item, click “Add preview” again and send once more.',
   'ai.error.budget-exhausted':
     'This turn used up its allowed steps, usage or time and stopped. Changes you accepted are kept; send another message to let it continue.',
   'ai.error.generic': 'The request did not complete. Please try again.',

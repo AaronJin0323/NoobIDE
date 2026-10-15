@@ -83,7 +83,17 @@ describe('images for providers (S38.2)', () => {
     for (const model of ['gpt-5', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4-turbo', 'o3', 'gpt-5-codex', '']) {
       expect(modelAcceptsImages('openai', model)).toBe(true);
     }
-    for (const model of ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-0613', 'o1-mini', 'o3-mini']) {
+    expect(modelAcceptsImages('openai', 'gpt-4-vision-preview')).toBe(true);
+    for (const model of [
+      'gpt-3.5-turbo',
+      'gpt-4',
+      'gpt-4-0613',
+      'o1-mini',
+      'o1-preview',
+      'o3-mini',
+      'gpt-4o-audio-preview',
+      'gpt-4o-search-preview',
+    ]) {
       expect(modelAcceptsImages('openai', model)).toBe(false);
     }
   });

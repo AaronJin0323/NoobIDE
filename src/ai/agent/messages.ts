@@ -43,6 +43,7 @@ const ERRORS: Record<AgentLocale, Partial<Record<AiErrorCode, string>> & { fallb
   'zh-CN': {
     cancelled: '已停止。',
     refused: 'AI 拒绝了这个请求。换一种说法试试。',
+    'preview-expired': '预览的截图已经过期了，请重新添加预览。',
     'budget-exhausted':
       '这一轮用完了允许的步数、用量或时间，已停止。已经接受的修改都保留着；可以继续发一条消息让它接着做。',
     'context-too-large': '发送的内容太多了。请减少附带的文件后再试。',
@@ -56,6 +57,7 @@ const ERRORS: Record<AgentLocale, Partial<Record<AiErrorCode, string>> & { fallb
   en: {
     cancelled: 'Stopped.',
     refused: 'The AI declined this request. Try asking in a different way.',
+    'preview-expired': 'The preview screenshot is no longer kept. Add the preview again.',
     'budget-exhausted':
       'This turn used up its allowed steps, usage or time and was stopped. Changes you accepted are kept; send another message to let it continue.',
     'context-too-large': 'Too much was attached. Remove some files from the context and try again.',
