@@ -84,6 +84,24 @@ export class PreviewProxy {
     return proxy;
   }
 
+  /**
+   * S25.1/S25.2 (decision 0028): whether the proxy's loopback listener still accepts connections after sleep. Only
+   * opens and closes a TCP connection (no SOCKS request is made).
+   */
+  answers(timeoutMs = 2_000): Promise<boolean> {
+    if (!this.server.listening) return Promise.resolve(false);
+    return new Promise<boolean>((resolve) => {
+      const socket = netConnect({ host: '127.0.0.1', port: this.port });
+      const done = (alive: boolean) => {
+        socket.destroy();
+        resolve(alive);
+      };
+      socket.setTimeout(timeoutMs, () => done(false));
+      socket.once('connect', () => done(true));
+      socket.once('error', () => done(false));
+    });
+  }
+
   async close(): Promise<void> {
     for (const socket of this.sockets) socket.destroy();
     this.sockets.clear();
