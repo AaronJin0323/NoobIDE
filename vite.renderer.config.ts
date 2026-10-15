@@ -6,7 +6,10 @@ import react from '@vitejs/plugin-react';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 // S28.1: the About dialog shows the same version Electron reports (app.getVersion() reads package.json too).
-const { version } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { version: string };
+// S28.4: NOOBIDE_BUILD_VERSION (forge.config.ts) builds "the next version" for the upgrade check.
+const version =
+  process.env.NOOBIDE_BUILD_VERSION ??
+  (JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { version: string }).version;
 
 // Workbench renderer (React + Monaco). Everything is bundled locally; no CDN (offline-first invariant).
 export default defineConfig({
