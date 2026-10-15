@@ -99,6 +99,13 @@ const config: ForgeConfig = {
         setupExe: 'NoobIDE-Setup.exe',
         setupIcon: 'resources/icons/icon.ico',
         copyright: APP_COPYRIGHT,
+        // NuGet (nuspec) requires Authors; package.json has no "author", so `make` failed with "Authors is
+        // required." on Windows. Also shown as the publisher in Settings → Apps.
+        authors: 'NoobIDE contributors',
+        owners: 'NoobIDE contributors',
+        // Squirrel stamps the nuspec description into Setup.exe's ProductName / FileDescription (what SmartScreen
+        // and File Explorer show); without this they read package.json's long description.
+        description: 'NoobIDE',
       },
       ['win32'],
     ),
