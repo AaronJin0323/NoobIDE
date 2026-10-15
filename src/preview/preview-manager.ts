@@ -9,10 +9,8 @@ import {
   PREVIEW_EVENT_CHANNEL,
   type PreviewBounds,
   type PreviewEvent,
-  type PreviewFailure,
   type PreviewLogEntry,
   type PreviewStartError,
-  type PreviewState,
   type PreviewStatus,
 } from '../shared/ipc/preview-contract';
 import { err, ok, type Result } from '../shared/result';
@@ -20,6 +18,7 @@ import { DEFAULT_LOG_BUFFER, LogBuffer } from './log-buffer';
 import { createPreviewWebPreferences, insecurePreviewPreferences, partitionForProject } from './preview-options';
 import { decidePreviewRequest, isAllowedNavigation } from './request-policy';
 import { PreviewServer, TOKEN_HEADER } from './static-server';
+import { INITIAL_MACHINE, transition, type PreviewMachine, type PreviewMachineEvent } from './state-machine';
 
 /**
  * Owns the one live preview: its loopback server, its isolated WebContentsView and its state (S04.3, S05.1–S05.4,
@@ -58,8 +57,6 @@ interface LivePreview {
   readonly timers: ReturnType<typeof setInterval>[];
   ping: { readonly id: number; readonly startedAt: number } | null;
   pingCounter: number;
-  /** State to return to when the page answers again after being unresponsive. */
-  beforeUnresponsive: PreviewState;
 }
 
 const RECENT_RECORDS = 100;
@@ -71,7 +68,9 @@ const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 
 
 export class PreviewManager {
   private live: LivePreview | null = null;
-  private status: PreviewStatus = { state: 'stopped', projectId: null };
+  private status: PreviewStatus = { state: 'stopped', projectId: null, generation: 0 };
+  /** S14.1: the pure state machine; `status` is its published form. */
+  private machine: PreviewMachine = INITIAL_MACHINE;
   private bounds: PreviewBounds = { x: 0, y: 0, width: 0, height: 0, visible: false };
   private readonly logs = new LogBuffer(DEFAULT_LOG_BUFFER);
   /** Incremented on every start/stop so late async results of an older preview are ignored. */
@@ -102,7 +101,7 @@ export class PreviewManager {
     const generation = ++this.generation;
     this.startingWindow = window;
     this.reloadPending = false;
-    this.setStatus(window, { state: 'starting', projectId });
+    this.apply(window, projectId, { type: 'start' });
 
     let server: PreviewServer;
     try {
@@ -110,8 +109,7 @@ export class PreviewManager {
       server = await PreviewServer.start(root, { preferredPort: this.lastPorts.get(root) });
       this.lastPorts.set(root, server.port);
     } catch (e) {
-      if (generation === this.generation)
-        this.setStatus(window, { state: 'failed', projectId, failure: 'server-failed' });
+      if (generation === this.generation) this.apply(window, projectId, { type: 'server-failed' });
       return err('server-failed', e instanceof Error ? e.message : 'server failed', e);
     }
     // S13.2: the configured entry page ('' = the server's index.html); a broken config never blocks the preview.
@@ -146,7 +144,6 @@ export class PreviewManager {
       timers: [],
       ping: null,
       pingCounter: 0,
-      beforeUnresponsive: 'starting',
     };
     this.live = live;
     this.startingWindow = null;
@@ -160,7 +157,7 @@ export class PreviewManager {
     live.timers.push(setInterval(() => this.checkResponsive(live, watchdog), watchdog.intervalMs));
 
     const url = `${server.origin}/${entryPath}`;
-    this.setStatus(window, { state: 'starting', projectId, url });
+    this.setStatus(window, { ...this.status, url });
     view.webContents.loadURL(url).catch(() => undefined); // Failures arrive as did-fail-load.
     return ok(this.status);
   }
@@ -175,9 +172,9 @@ export class PreviewManager {
       const starting = this.startingWindow;
       this.startingWindow = null;
       if (this.status.state !== 'stopped') {
-        const status: PreviewStatus = { state: 'stopped', projectId: null };
-        if (starting && !starting.isDestroyed() && (options.announce ?? true)) this.setStatus(starting, status);
-        else this.status = status;
+        if (starting && !starting.isDestroyed() && (options.announce ?? true)) {
+          this.apply(starting, null, { type: 'stop' });
+        } else this.apply(null, null, { type: 'stop' });
       }
       return this.status;
     }
@@ -193,9 +190,7 @@ export class PreviewManager {
     }
     this.logs.clear();
     await live.server.close();
-    const status: PreviewStatus = { state: 'stopped', projectId: null };
-    if (options.announce ?? true) this.setStatus(live.window, status);
-    else this.status = status;
+    this.apply((options.announce ?? true) ? live.window : null, null, { type: 'stop' });
     return this.status;
   }
 
@@ -207,10 +202,11 @@ export class PreviewManager {
       this.reloadPending = true;
       return this.status;
     }
-    // A hung page cannot reload itself; the user has to Stop (which recreates the view on the next Start).
-    if (this.status.state === 'unresponsive') return this.status;
-    if (this.status.state === 'failed' && this.status.failure === 'crashed') return this.status;
-    this.update(live, 'refreshing');
+    // A hung page cannot reload itself (the user has to Stop, which recreates the view on the next Start); a
+    // crashed page has nothing to reload. The state machine refuses both.
+    const before = this.machine;
+    this.update(live, { type: 'refresh' });
+    if (this.machine === before) return this.status;
     live.view.webContents.reloadIgnoringCache();
     return this.status;
   }
@@ -370,12 +366,11 @@ export class PreviewManager {
     contents.on('did-start-navigation', (event) => {
       if (!isCurrent() || !event.isMainFrame || event.isSameDocument) return;
       live.ping = null; // A ping sent to the previous document may never be answered.
-      if (this.status.state === 'running') this.update(live, 'refreshing');
+      this.update(live, { type: 'navigate' });
     });
     contents.on('did-stop-loading', () => {
       if (!isCurrent()) return;
-      const state = this.status.state;
-      if (state === 'starting' || state === 'refreshing') this.update(live, 'running');
+      this.update(live, { type: 'load-finished' });
       if (this.reloadPending && this.status.state === 'running') {
         this.reloadPending = false;
         this.reload();
@@ -390,7 +385,7 @@ export class PreviewManager {
         url: validatedURL,
         at: Date.now(),
       });
-      this.update(live, 'failed', 'load-failed');
+      this.update(live, { type: 'load-failed' });
     });
     contents.on('unresponsive', () => {
       if (isCurrent()) this.markUnresponsive(live);
@@ -399,7 +394,7 @@ export class PreviewManager {
       if (isCurrent()) this.markResponsive(live);
     });
     contents.on('render-process-gone', () => {
-      if (isCurrent()) this.update(live, 'failed', 'crashed');
+      if (isCurrent()) this.update(live, { type: 'crashed' });
     });
   }
 
@@ -434,27 +429,37 @@ export class PreviewManager {
   }
 
   private markUnresponsive(live: LivePreview): void {
-    if (this.status.state === 'unresponsive' || this.status.state === 'failed') return;
-    live.beforeUnresponsive = this.status.state;
-    this.update(live, 'unresponsive');
+    this.update(live, { type: 'unresponsive' });
   }
 
   private markResponsive(live: LivePreview): void {
     if (this.status.state !== 'unresponsive') return;
-    const back = live.beforeUnresponsive;
     const contents = live.view.webContents;
-    // If the page finished loading while it was busy, it is running now.
-    const loading = !contents.isDestroyed() && contents.isLoadingMainFrame();
-    this.update(live, back === 'running' || !loading ? 'running' : back);
+    this.update(live, { type: 'responsive', loading: !contents.isDestroyed() && contents.isLoadingMainFrame() });
   }
 
-  private update(live: LivePreview, state: PreviewState, failure?: PreviewFailure): void {
-    this.setStatus(live.window, {
-      state,
-      projectId: live.projectId,
-      ...(failure ? { failure } : {}),
-      ...(this.status.url ? { url: this.status.url } : {}),
-    });
+  private update(live: LivePreview, event: PreviewMachineEvent): void {
+    this.apply(live.window, live.projectId, event);
+  }
+
+  /**
+   * S14.1: feeds an event to the state machine and publishes the result. Nothing is sent when the event does not
+   * apply (the machine returns the same object). `window` null: update silently (no workbench to tell).
+   */
+  private apply(window: BrowserWindow | null, projectId: string | null, event: PreviewMachineEvent): void {
+    const next = transition(this.machine, event);
+    if (next === this.machine) return;
+    this.machine = next;
+    const url = next.state === 'stopped' || event.type === 'start' ? undefined : this.status.url;
+    const status: PreviewStatus = {
+      state: next.state,
+      projectId: next.state === 'stopped' ? null : projectId,
+      ...(next.failure ? { failure: next.failure } : {}),
+      ...(url ? { url } : {}),
+      generation: next.generation,
+    };
+    if (window) this.setStatus(window, status);
+    else this.status = status;
   }
 
   private setStatus(window: BrowserWindow, status: PreviewStatus): void {

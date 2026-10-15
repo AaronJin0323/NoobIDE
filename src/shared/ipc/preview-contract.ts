@@ -29,6 +29,12 @@ export interface PreviewStatus {
   readonly failure?: PreviewFailure;
   /** Address of the page, for display and "open in browser" later. */
   readonly url?: string;
+  /**
+   * S14.1 page-load generation (src/preview/state-machine.ts): +1 on every Start, refresh and page-initiated
+   * navigation; never decreases, not reset by Stop. Records of a lower generation are stale (S16.3). Main always
+   * sets it; optional only so older literals (renderer fallbacks, tests) stay valid.
+   */
+  readonly generation?: number;
 }
 
 /** A raw record from the preview page (console, uncaught error, failed request). Diagnostics rules interpret it. */
