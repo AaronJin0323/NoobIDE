@@ -1,0 +1,60 @@
+/* S39.1 past chats in the AI chat panel and S39.2 usage in Settings → AI. Colours only from the theme tokens. */
+.ai-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ai-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ai-history-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.ai-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ai-history-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+.ai-history-text {
+  display: flex;
+  flex: 1 1 140px;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ai-history-actions,
+.ai-history-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.ai-history-confirm-text {
+  flex: 1 1 100%;
+  font-size: 12px;
+}
+.ai-saved-proposal p {
+  margin: 0 0 4px;
+}
+.ai-usage-lines {
+  margin: 0;
+  padding-left: 18px;
+}

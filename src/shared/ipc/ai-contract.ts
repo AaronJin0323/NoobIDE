@@ -56,6 +56,8 @@ export interface AiStatus {
   readonly secureStorage: boolean;
   /** Projects (by id) the user allowed to send code from, for the open project only. */
   readonly projectConsent: boolean;
+  /** S39.2: the optional daily token budget is used up: new requests are refused, inline suggestions pause. */
+  readonly budgetReached?: boolean;
 }
 
 export type AiKeyError = 'invalid-provider' | 'empty-key' | 'no-secure-storage' | 'write-failed';
@@ -148,7 +150,9 @@ export type AiErrorCode =
   | 'provider-error'
   | 'unknown-project'
   /** S34: an agent turn reached its step, token or wall-time budget and stopped (accepted changes are kept). */
-  | 'budget-exhausted';
+  | 'budget-exhausted'
+  /** S39.2: today's optional token budget (Settings → AI) is used up; new requests wait until tomorrow. */
+  | 'budget-reached';
 
 export type AiEvent =
   | { readonly requestId: string; readonly type: 'text'; readonly text: string }

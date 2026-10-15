@@ -14,6 +14,7 @@ import {
 } from '../shared/ipc/ai-contract';
 import { err, ok, type Result } from '../shared/result';
 import type { AiConfigStore, AiConsentStore } from './config-store';
+import type { AiUsageStore } from './usage-store';
 import type { KeyStore } from './keys';
 import type { ModelPort } from './agent/model-port';
 import type { AgentRun, AgentRunner } from './agent/runner';
@@ -80,6 +81,11 @@ export interface AiServiceDeps {
   /** Overrides how the agent's ModelPort is built (fake mode: a ScriptedModel). Default: toModelPort(provider). */
   readonly agentModel?: AgentModelFactory;
   readonly log?: AiLog;
+  /**
+   * S39.2: token use per day and provider, and the optional daily budget. When the budget is reached, NEW requests are
+   * refused with 'budget-reached' (running ones finish; their tokens still count).
+   */
+  readonly usage?: Pick<AiUsageStore, 'record' | 'budgetReached'>;
   readonly now?: () => number;
   /** For tests: shorter budgets. */
   readonly budgets?: Partial<Record<AiPurpose, AiBudget>>;
@@ -152,6 +158,7 @@ export class AiService {
       keyStored,
       secureStorage: this.deps.keys.secureStorageAvailable(),
       projectConsent: root !== undefined && (await this.deps.consent.isAllowed(root)),
+      ...(this.deps.usage ? { budgetReached: await this.deps.usage.budgetReached() } : {}),
     };
   }
 
@@ -237,6 +244,11 @@ export class AiService {
     const providerId = config.provider;
     const provider = providerId ? await this.provider(providerId) : null;
     if (!providerId || !provider) return err('no-key', 'no key stored');
+    // S39.2: the optional daily budget stops new requests only; running ones finish.
+    if (this.deps.usage && (await this.deps.usage.budgetReached())) {
+      this.log('info', 'ai-budget-refused', { purpose: request.kind });
+      return err('budget-reached', 'daily token budget reached');
+    }
     if (request.projectId !== null) {
       const root = this.deps.rootOf(request.projectId);
       if (root === undefined) return err('unknown-project', 'project is not open');
@@ -345,7 +357,9 @@ export class AiService {
       if (request.kind === 'agent') {
         const runner = this.deps.agentRunner;
         if (!runner) throw new ProviderError('provider-error', 'agent not available');
-        const port = this.deps.agentModel?.(providerId, provider, model) ?? toModelPort(provider, model);
+        const basePort = this.deps.agentModel?.(providerId, provider, model) ?? toModelPort(provider, model);
+        // S39.2: every model call of the turn counts as it ends (also when the turn stops or fails later).
+        const port = countingPort(basePort, (callUsage) => this.recordUsage(providerId, callUsage));
         const agentRun = runner(
           {
             requestId,
@@ -366,8 +380,15 @@ export class AiService {
         await agentRun.finished;
         return;
       } else {
-        usage = await this.runModel(request, provider, model, budget, run, (text) =>
-          send({ requestId, type: 'text', text }),
+        await this.runModel(
+          request,
+          provider,
+          model,
+          budget,
+          run,
+          (text) => send({ requestId, type: 'text', text }),
+          // Known as soon as the provider reports it, so a refusal's tokens count too (S39.2).
+          (reported) => (usage = reported),
         );
       }
       send({
@@ -386,6 +407,7 @@ export class AiService {
     } finally {
       clearTimeout(timer);
       this.running.delete(requestId);
+      if (request.kind !== 'agent' && usage) this.recordUsage(providerId, usage);
       this.log(code === 'ok' || code === 'cancelled' ? 'info' : 'warn', 'ai-request', {
         id: requestId,
         purpose: request.kind,
@@ -408,12 +430,12 @@ export class AiService {
     budget: AiBudget,
     run: Running,
     onText: (text: string) => void,
-  ): Promise<ProviderUsage | undefined> {
+    onUsage: (usage: ProviderUsage) => void,
+  ): Promise<void> {
     const { system, messages } = await this.prompt(request);
     // Inline and edit answers are code to insert: buffered, cleaned of a stray Markdown fence, sent as one piece.
     const buffered = request.kind !== 'chat';
     let text = '';
-    let usage: ProviderUsage | undefined;
     for await (const event of provider.stream({
       model,
       purpose: request.kind,
@@ -427,7 +449,7 @@ export class AiService {
         text += event.text;
         if (!buffered) onText(event.text);
       } else if (event.type === 'stop') {
-        usage = event.usage;
+        if (event.usage) onUsage(event.usage);
         if (event.reason === 'refusal') throw new RefusedError();
       }
     }
@@ -435,7 +457,6 @@ export class AiService {
       const cleaned = stripCodeFence(text);
       if (cleaned) onText(cleaned);
     }
-    return usage;
   }
 
   private async prompt(
@@ -492,6 +513,15 @@ export class AiService {
     return this.deps.now?.() ?? Date.now();
   }
 
+  /** S39.2: adds a call's tokens to today's total. Never fails a request. */
+  private recordUsage(providerId: AiProviderId, usage: ProviderUsage): void {
+    const store = this.deps.usage;
+    if (!store) return;
+    void store
+      .record(providerId, { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens })
+      .catch(() => this.log('warn', 'ai-usage-record-failed', { provider: providerId }));
+  }
+
   private log(level: 'info' | 'warn' | 'error', event: string, fields: Record<string, string | number | boolean>) {
     this.deps.log?.(level, event, fields);
   }
@@ -502,6 +532,29 @@ class RefusedError extends Error {
     super('the model declined this request');
     this.name = 'RefusedError';
   }
+}
+
+/**
+ * S39.2: a ModelPort that reports each call's tokens (the last `usage` event of the call) when that call ends —
+ * finished, failed or stopped — so an agent turn's spending counts step by step, even if the turn never reaches 'done'.
+ */
+export function countingPort(port: ModelPort, onCall: (usage: ProviderUsage) => void): ModelPort {
+  return {
+    provider: port.provider,
+    streamTurn: (request) => ({
+      async *[Symbol.asyncIterator]() {
+        let last: ProviderUsage | null = null;
+        try {
+          for await (const event of port.streamTurn(request)) {
+            if (event.type === 'usage') last = { inputTokens: event.inputTokens, outputTokens: event.outputTokens };
+            yield event;
+          }
+        } finally {
+          if (last) onCall(last);
+        }
+      },
+    }),
+  };
 }
 
 function providerMessage(e: unknown): string {

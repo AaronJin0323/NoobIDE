@@ -29,6 +29,8 @@ export type InlineBlockReason =
   | 'inline-off'
   | 'no-key'
   | 'no-consent'
+  /** S39.2: today's token budget is used up: suggestions pause (the status line says so). */
+  | 'budget-reached'
   | 'no-project'
   | 'read-only'
   | 'encoding'
@@ -46,6 +48,7 @@ export function statusBlockReason(status: AiStatus | null): InlineBlockReason | 
   if (!config.inlineCompletions) return 'inline-off';
   if (config.provider === null || !status.keyStored[config.provider]) return 'no-key';
   if (!status.projectConsent) return 'no-consent';
+  if (status.budgetReached === true) return 'budget-reached';
   return null;
 }
 

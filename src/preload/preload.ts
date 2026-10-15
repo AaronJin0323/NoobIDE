@@ -9,6 +9,7 @@ import { WALKTHROUGH_CHANNELS } from '../shared/ipc/walkthrough-contract';
 import { PROBLEMS_CHANNELS, PROBLEMS_EVENT_CHANNEL } from '../shared/ipc/problems-contract'; // S16.2
 import type { ProblemRecord } from '../shared/problem';
 import { AI_CHANNELS, AI_EVENT_CHANNEL, type AiEvent } from '../shared/ipc/ai-contract'; // S31
+import { AI_HISTORY_CHANNELS } from '../shared/ipc/ai-history-contract'; // S39
 
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
@@ -191,6 +192,18 @@ const api: NoobideApi = {
       return () => void ipcRenderer.removeListener(AI_EVENT_CHANNEL, wrapped);
     },
   },
+  // S39: saved chats (app data) and token usage.
+  aiHistory: {
+    listChats: (request) => ipcRenderer.invoke(AI_HISTORY_CHANNELS.listChats, request),
+    getChat: (request) => ipcRenderer.invoke(AI_HISTORY_CHANNELS.getChat, request),
+    saveChat: (request) => ipcRenderer.invoke(AI_HISTORY_CHANNELS.saveChat, request),
+    deleteChat: (request) => ipcRenderer.invoke(AI_HISTORY_CHANNELS.deleteChat, request),
+    deleteProjectChats: (request) => ipcRenderer.invoke(AI_HISTORY_CHANNELS.deleteProjectChats, request),
+    countRecentChats: (request) => ipcRenderer.invoke(AI_HISTORY_CHANNELS.countRecentChats, request),
+    deleteRecentChats: (request) => ipcRenderer.invoke(AI_HISTORY_CHANNELS.deleteRecentChats, request),
+    usage: () => ipcRenderer.invoke(AI_HISTORY_CHANNELS.usage),
+    setDailyBudget: (request) => ipcRenderer.invoke(AI_HISTORY_CHANNELS.setDailyBudget, request),
+  },
 };
 
 contextBridge.exposeInMainWorld(
@@ -213,5 +226,6 @@ contextBridge.exposeInMainWorld(
     walkthrough: Object.freeze(api.walkthrough), // S23
     problems: Object.freeze(api.problems), // S16.2
     ai: Object.freeze(api.ai), // S31
+    aiHistory: Object.freeze(api.aiHistory), // S39
   }),
 );

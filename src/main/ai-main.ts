@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import type { IpcMain } from 'electron';
+import { AiChatStore } from '../ai/chat-store';
 import { AiConfigStore, AiConsentStore } from '../ai/config-store';
+import { AiUsageStore } from '../ai/usage-store';
 import {
   BUILTIN_FAKE_SCRIPT,
   createFakeProviders,
@@ -17,7 +19,9 @@ import { ScriptedModel } from '../ai/agent/scripted-model';
 import { fakeAgentScript } from '../ai/agent/fake-scripts';
 import type { RecoveryLogger } from '../recovery/atomic-file';
 import type { ProjectService } from '../workspace/project-service';
+import { registerAiHistoryIpcHandlers } from './ai-history-ipc';
 import { registerAiIpcHandlers } from './ai-ipc';
+import type { RecentProjects } from './recent-projects';
 import { appDataPath } from './app-data-layout';
 
 /**
@@ -31,6 +35,8 @@ export interface AiMainOptions {
   readonly allowedOrigin: string;
   readonly userData: string;
   readonly projects: Pick<ProjectService, 'rootOf' | 'read' | 'listDir'>;
+  /** S39.1: the recent-projects list, so removing an entry can offer to delete its saved chats. */
+  readonly recent?: Pick<RecentProjects, 'rootOf'>;
   /** S34 agent tools: runtime problems (problemsBridge.capture) and the preview (PreviewManager). */
   readonly problems?: ProjectPortsDeps['problems'];
   readonly preview?: ProjectPortsDeps['preview'];
@@ -77,6 +83,9 @@ export function aiTestEnv(input: {
 
 export interface AiMain {
   readonly service: AiService;
+  /** S39: saved chats per project and token usage (app data). */
+  readonly chats: AiChatStore;
+  readonly usage: AiUsageStore;
   /** Only with NOOBIDE_AI_FAKE: what the fake provider received (e2e assertions). */
   readonly fake: FakeProviderHub | null;
 }
@@ -114,6 +123,8 @@ export function setupAi(options: AiMainOptions): AiMain {
   }
   const encryptor = fake ? createTestEncryptor(fake.script.secureStorage ?? true) : options.safeStorage;
   const { projects } = options;
+  const chats = new AiChatStore({ dir: appDataPath(options.userData, 'aiChats'), log: options.logger });
+  const usage = new AiUsageStore({ file: appDataPath(options.userData, 'aiUsage'), log: options.logger });
   const service = new AiService({
     keys: new KeyStore({ file: appDataPath(options.userData, 'aiKeys'), encryptor, log: options.logger }),
     config: new AiConfigStore({ file: appDataPath(options.userData, 'aiConfig'), log: options.logger }),
@@ -137,7 +148,15 @@ export function setupAi(options: AiMainOptions): AiMain {
     // Fake mode: agent requests play a scripted agent (one ScriptedModel per request).
     ...(fake ? { agentModel: () => new ScriptedModel(fakeAgentScript(fakeAgentScriptName)) } : {}),
     log: options.log,
+    usage, // S39.2
   });
   registerAiIpcHandlers(options.ipcMain, { allowedOrigin: options.allowedOrigin, service });
-  return { service, fake };
+  registerAiHistoryIpcHandlers(options.ipcMain, {
+    allowedOrigin: options.allowedOrigin,
+    chats,
+    usage,
+    rootOf: (projectId) => projects.rootOf(projectId),
+    recentRootOf: async (id) => options.recent?.rootOf(id),
+  });
+  return { service, chats, usage, fake };
 }

@@ -37,9 +37,14 @@ export function aiAvailable(status: AiStatus | null): boolean {
   return provider !== null && status.keyStored[provider];
 }
 
-/** Inline completions may show: AI available, inline switched on, and the project allowed. */
+/** Inline completions may show: AI available, inline switched on, the project allowed, and (S39.2) budget left. */
 export function inlineAvailable(status: AiStatus | null): boolean {
-  return aiAvailable(status) && status?.config.inlineCompletions === true && status.projectConsent;
+  return (
+    aiAvailable(status) &&
+    status?.config.inlineCompletions === true &&
+    status.projectConsent &&
+    status.budgetReached !== true
+  );
 }
 
 export function useAiStatus(

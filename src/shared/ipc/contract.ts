@@ -29,6 +29,7 @@ import type { CommandsApi } from './commands-contract'; // S24.2
 import type { WalkthroughApi } from './walkthrough-contract'; // S23
 import type { ProblemsApi } from './problems-contract'; // S16.2
 import type { AiApi } from './ai-contract'; // S31 AI assistant (decision 0025)
+import type { AiHistoryApi } from './ai-history-contract'; // S39 saved chats and token usage
 
 export const IPC_API_VERSION = 1;
 
@@ -421,6 +422,8 @@ export interface NoobideApi {
   readonly problems?: ProblemsApi;
   /** S31 AI assistant (decision 0025): keys, config, consent and requests. The key is never returned. */
   readonly ai?: AiApi;
+  /** S39: saved chats per project (app data) and token usage with the optional daily budget. */
+  readonly aiHistory?: AiHistoryApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */

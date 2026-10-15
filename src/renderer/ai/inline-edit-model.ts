@@ -167,6 +167,8 @@ export interface InlineEditState {
   readonly error: { readonly code: AiErrorCode | string; readonly message?: string } | null;
   /** Save error code for 'save-failed'. */
   readonly saveError: string | null;
+  /** S39.2: tokens the answer used (shown as text with the diff). */
+  readonly usage?: { readonly inputTokens: number; readonly outputTokens: number };
 }
 
 export const initialEditState = (phase: InlineEditPhase, instruction = ''): InlineEditState => ({
@@ -185,7 +187,13 @@ export type InlineEditAction =
   | { readonly type: 'consented' }
   | { readonly type: 'send' }
   | { readonly type: 'started'; readonly requestId: string }
-  | { readonly type: 'answer'; readonly original: string; readonly text: string; readonly eol: '\n' | '\r\n' }
+  | {
+      readonly type: 'answer';
+      readonly original: string;
+      readonly text: string;
+      readonly eol: '\n' | '\r\n';
+      readonly usage?: { readonly inputTokens: number; readonly outputTokens: number };
+    }
   | { readonly type: 'failed'; readonly code: AiErrorCode | string; readonly message?: string }
   | { readonly type: 'cancelled' }
   | { readonly type: 'accept' }
@@ -205,18 +213,26 @@ export function inlineEditReducer(state: InlineEditState, action: InlineEditActi
       // A new request from the instruction box, or "try again" after an error, a stop or a stale answer.
       if (!['instruction', 'error', 'cancelled', 'stale', 'no-change'].includes(state.phase)) return state;
       if (!state.instruction.trim()) return state;
-      return { ...state, phase: 'running', requestId: null, proposal: null, error: null, saveError: null };
+      return {
+        ...withoutUsage(state),
+        phase: 'running',
+        requestId: null,
+        proposal: null,
+        error: null,
+        saveError: null,
+      };
     case 'started':
       return state.phase === 'running' ? { ...state, requestId: action.requestId } : state;
     case 'answer': {
       if (state.phase !== 'running') return state;
       const proposal = normalizeProposal(action.original, action.text, action.eol);
+      const usage = action.usage ? { usage: action.usage } : {};
       if (!proposal.trim() && action.original.trim()) {
-        return { ...state, phase: 'error', error: { code: 'empty-answer' }, requestId: null };
+        return { ...state, phase: 'error', error: { code: 'empty-answer' }, requestId: null, ...usage };
       }
       return sameRangeText(proposal, action.original)
-        ? { ...state, phase: 'no-change', proposal, requestId: null }
-        : { ...state, phase: 'review', proposal, requestId: null };
+        ? { ...state, phase: 'no-change', proposal, requestId: null, ...usage }
+        : { ...state, phase: 'review', proposal, requestId: null, ...usage };
     }
     case 'failed':
       if (state.phase !== 'running' && state.phase !== 'instruction') return state;
@@ -237,6 +253,12 @@ export function inlineEditReducer(state: InlineEditState, action: InlineEditActi
     case 'save-failed':
       return state.phase === 'applying' ? { ...state, phase: 'save-failed', saveError: action.code } : state;
   }
+}
+
+function withoutUsage(state: InlineEditState): InlineEditState {
+  if (!state.usage) return state;
+  const { usage: _usage, ...rest } = state;
+  return rest;
 }
 
 /** Error codes whose explanation offers Settings → AI. */

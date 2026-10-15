@@ -18,6 +18,7 @@ import type { AiChatExtensions, AiConsentRenderer } from './chat-extensions';
 import { contextLabel, errorExplanation, providerName } from './chat-text';
 import { Markdown, type MarkdownLabels } from './Markdown';
 import { CloseIcon } from './ai-icons';
+import { SavedProposal } from './SavedChatsList';
 import './ai-chat.css';
 
 type Translate = (key: MessageKey) => string;
@@ -46,6 +47,16 @@ export interface ChatPanelProps {
   /** Opens Settings → AI; absent while nothing can open it (the panel then says where the settings are). */
   readonly onOpenSettings?: (() => void) | undefined;
   readonly extensions?: AiChatExtensions | undefined;
+  /** S39.1: saved chats of the open project (absent without a project or a history bridge). */
+  readonly pastChats?: PastChatsSlot | undefined;
+}
+
+/** S39.1: the "Past chats" button, the list shown in place of the conversation, and the history notice. */
+export interface PastChatsSlot {
+  readonly listOpen: boolean;
+  readonly onToggle: () => void;
+  readonly list: ReactNode;
+  readonly notice: MessageKey | null;
 }
 
 export function ChatPanel(props: ChatPanelProps) {
@@ -85,6 +96,7 @@ export function ChatPanelView({
   consent,
   onOpenSettings,
   extensions,
+  pastChats,
   t,
 }: ChatPanelProps & { t: Translate }) {
   const key = projectKeyOf(projectId);
@@ -150,6 +162,8 @@ export function ChatPanelView({
             )}
           </div>
         );
+      case 'saved-proposal':
+        return <SavedProposal key={i} part={part} t={t} />;
     }
   };
 
@@ -178,6 +192,17 @@ export function ChatPanelView({
             ))}
           </select>
         )}
+        {pastChats && (
+          <button
+            type="button"
+            className="quiet-button"
+            aria-pressed={pastChats.listOpen}
+            data-testid="ai-history-toggle"
+            onClick={pastChats.onToggle}
+          >
+            {t('ai.history.button')}
+          </button>
+        )}
         <button type="button" className="quiet-button" data-testid="ai-new" onClick={() => actions.newConversation()}>
           {t('ai.chat.new')}
         </button>
@@ -194,7 +219,9 @@ export function ChatPanelView({
       </div>
 
       <div className="ai-body">
-        {stateKey && availability.kind !== 'loading' ? (
+        {pastChats?.listOpen ? (
+          pastChats.list
+        ) : stateKey && availability.kind !== 'loading' ? (
           <div className="ai-state" role="status" data-testid="ai-state" data-state={availability.kind}>
             <p>{t(stateKey)}</p>
             {availability.kind !== 'unavailable' && settingsHelp}
@@ -257,6 +284,11 @@ export function ChatPanelView({
           </div>
         )}
       </div>
+      {pastChats?.notice && (
+        <p className="ai-notice" role="status" data-testid="ai-history-notice">
+          {t(pastChats.notice)}
+        </p>
+      )}
 
       {showConsent &&
         projectId !== null &&

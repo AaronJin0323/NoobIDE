@@ -14,6 +14,9 @@ import type { MessageKey } from '../i18n/index';
 import { fill } from '../recovery/format';
 import { useModalKeys } from '../workbench/focus-trap';
 import { AiConsentPrompt } from './AiConsentPrompt';
+import { AiUsageSection, RevokeChatsPrompt } from './AiHistorySettings';
+import { aiHistoryBridge } from './chat-history';
+import type { AiHistoryApi } from '../../shared/ipc/ai-history-contract';
 import { onOpenAiSettings } from './ai-bridge';
 import {
   keyErrorKey,
@@ -58,12 +61,15 @@ export function AiSettingsDialog({
   api,
   projectId,
   onClose,
+  history = aiHistoryBridge(),
 }: {
   readonly api: AiApi;
   readonly projectId: string | null;
   readonly onClose: () => void;
+  /** S39: saved chats and token usage; absent in builds without it. */
+  readonly history?: AiHistoryApi | undefined;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const titleId = useId();
   const keyId = useId();
   const dialog = useRef<HTMLDivElement>(null);
@@ -78,6 +84,9 @@ export function AiSettingsDialog({
   const [busy, setBusy] = useState(false);
   const [models, setModels] = useState<Partial<Record<AiProviderId, readonly AiModelInfo[]>>>({});
   const [loadingModels, setLoadingModels] = useState(false);
+  // S39.1: after a revoke, how many saved chats the project has (the prompt offers to delete them).
+  const [revokeChats, setRevokeChats] = useState(0);
+  const [revokeMessage, setRevokeMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await api.status({ projectId });
@@ -166,6 +175,9 @@ export function AiSettingsDialog({
     await api.setConsent({ projectId, allowed: false });
     await refresh();
     notifyAiStatusChanged();
+    setRevokeMessage(null);
+    const saved = await history?.listChats({ projectId }).catch(() => null);
+    setRevokeChats(saved?.ok ? saved.value.chats.length : 0);
   };
 
   const config = status?.config;
@@ -400,7 +412,26 @@ export function AiSettingsDialog({
                     />
                   </>
                 )}
+                {history && projectId !== null && revokeChats > 0 && (
+                  <RevokeChatsPrompt
+                    api={history}
+                    projectId={projectId}
+                    count={revokeChats}
+                    t={t}
+                    onDone={(deleted) => {
+                      setRevokeChats(0);
+                      setRevokeMessage(deleted === null ? null : fill(t('ai.history.revoke.deleted'), { n: deleted }));
+                    }}
+                  />
+                )}
+                {revokeMessage && (
+                  <p className="dialog-hint" role="status" data-testid="ai-revoke-chats-result">
+                    {revokeMessage}
+                  </p>
+                )}
               </div>
+
+              {history && <AiUsageSection api={history} t={t} locale={locale} />}
             </>
           )}
         </div>

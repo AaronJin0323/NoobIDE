@@ -227,7 +227,13 @@ export class InlineRequester {
 
   private noteError(code: AiErrorCode | RequestError): void {
     this.stats.lastError = code;
-    if (code === 'no-key' || code === 'no-consent' || code === 'disabled' || code === 'unauthorized') {
+    if (
+      code === 'no-key' ||
+      code === 'no-consent' ||
+      code === 'disabled' ||
+      code === 'unauthorized' ||
+      code === 'budget-reached' // S39.2: the status line then says the suggestions are paused
+    ) {
       this.options.onStatusError?.(code);
     }
   }
