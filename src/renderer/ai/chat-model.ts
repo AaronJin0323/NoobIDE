@@ -25,6 +25,11 @@ export type TurnKind = 'chat' | 'agent';
 export interface ChatChip {
   readonly id: string;
   readonly item: AiContextItem;
+  /** S38.2 Preview chips: the screenshot thumbnail (a PNG data URL) and whether the model will get it. */
+  readonly preview?: {
+    readonly thumbnail: string | null;
+    readonly imagesAccepted: { readonly chat: boolean; readonly agent: boolean };
+  };
 }
 
 export interface ChatDraft {
@@ -163,6 +168,7 @@ export function titleOf(prompt: string): string {
 
 /** Two chips are the same context when they name the same thing (adding it twice keeps one). */
 export function chipKey(item: AiContextItem): string {
+  if (item.kind === 'preview') return 'preview'; // one Preview chip: a new snapshot replaces the old one
   return [item.kind, item.relPath ?? '', item.startLine ?? '', item.endLine ?? '', item.label ?? ''].join('\u0000');
 }
 
@@ -273,11 +279,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return withDraft(state, action.projectKey, (draft) => ({ ...draft, kind: action.kind }));
     case 'addChip': {
       const key = chipKey(action.chip.item);
-      const next = withDraft(state, action.projectKey, (draft) =>
-        draft.chips.some((chip) => chipKey(chip.item) === key)
+      const next = withDraft(state, action.projectKey, (draft) => {
+        // A new Preview snapshot replaces the earlier one (the page changed); other kinds keep the first.
+        if (action.chip.item.kind === 'preview') {
+          return { ...draft, chips: [...draft.chips.filter((c) => c.item.kind !== 'preview'), action.chip] };
+        }
+        return draft.chips.some((chip) => chipKey(chip.item) === key)
           ? draft
-          : { ...draft, chips: [...draft.chips, action.chip] },
-      );
+          : { ...draft, chips: [...draft.chips, action.chip] };
+      });
       return { ...next, notice: null };
     }
     case 'removeChip':

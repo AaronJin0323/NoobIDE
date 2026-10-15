@@ -14,6 +14,7 @@ import {
   toolInputProblem,
   type AiProvider,
   type ProviderEvent,
+  type ProviderImage,
   type ProviderMessage,
   type ProviderStopReason,
   type ProviderStreamRequest,
@@ -127,14 +128,21 @@ function toolParams(request: ProviderStreamRequest): BetaTool[] | undefined {
 /** Provider-neutral history → Anthropic messages (append-only; native assistant blocks echoed unchanged). */
 export function toAnthropicMessages(messages: readonly ProviderMessage[]): BetaMessageParam[] {
   return messages.map((message): BetaMessageParam => {
-    if (message.role === 'user') return { role: 'user', content: message.text };
+    if (message.role === 'user') {
+      // S38.2: images (a preview screenshot) go before the text that refers to them.
+      if (!message.images || message.images.length === 0) return { role: 'user', content: message.text };
+      return { role: 'user', content: [...message.images.map(imageBlock), { type: 'text', text: message.text }] };
+    }
     if (message.role === 'tool') {
       return {
         role: 'user',
         content: message.results.map((result) => ({
           type: 'tool_result' as const,
           tool_use_id: result.callId,
-          content: result.content,
+          content:
+            result.images && result.images.length > 0
+              ? [{ type: 'text' as const, text: result.content }, ...result.images.map(imageBlock)]
+              : result.content,
           ...(result.isError ? { is_error: true } : {}),
         })),
       };
@@ -149,6 +157,13 @@ export function toAnthropicMessages(messages: readonly ProviderMessage[]): BetaM
     }
     return { role: 'assistant', content: content.length > 0 ? content : message.text };
   });
+}
+
+function imageBlock(image: ProviderImage) {
+  return {
+    type: 'image' as const,
+    source: { type: 'base64' as const, media_type: image.mediaType, data: image.data },
+  };
 }
 
 function stopReasonOf(message: BetaMessage): ProviderStopReason {

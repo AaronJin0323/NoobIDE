@@ -67,5 +67,9 @@ export function contextLabel(t: Translate, item: AiContextItem): string {
         : fill(t('ai.chat.context.problem'), { label: item.label ?? '' });
     case 'console':
       return item.label ?? t('ai.chat.context.console');
+    case 'preview':
+      return item.label
+        ? fill(t('ai.chat.context.preview'), { path: item.label })
+        : t('ai.chat.context.previewStartPage');
   }
 }

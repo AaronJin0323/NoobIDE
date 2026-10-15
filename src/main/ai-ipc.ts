@@ -2,6 +2,7 @@ import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { AI_CHANNELS, AI_EVENT_CHANNEL, type AiEvent } from '../shared/ipc/ai-contract';
 import {
   parseAiRequest,
+  parsePreviewSnapshotRequest,
   parseProposalDecision,
   parseProviderOnly,
   parseRequestId,
@@ -38,6 +39,7 @@ export interface AiIpcDeps {
     | 'cancel'
     | 'cancelAllFor'
     | 'resolveProposal'
+    | 'previewSnapshot'
   >;
 }
 
@@ -117,4 +119,10 @@ export function registerAiIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: AiIpcD
   handle(AI_CHANNELS.resolveProposal, parseProposalDecision, async (decision, event) =>
     toIpcResult(service.resolveProposal(decision, event.sender.id)),
   );
+  // S38.2: the Preview chip's snapshot, for the window that owns the project's preview (its snapshots are dropped
+  // when that window's page goes away).
+  handle(AI_CHANNELS.previewSnapshot, parsePreviewSnapshotRequest, async ({ projectId, locale }, event) => {
+    watch(event);
+    return toIpcResult(await service.previewSnapshot(projectId, locale, event.sender.id));
+  });
 }

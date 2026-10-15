@@ -424,7 +424,13 @@ function start(): void {
     Object.assign((globalThis as { __noobideTestHooks?: object }).__noobideTestHooks ?? {}, {
       // Fake provider only: what it was asked (purpose, model, provider). Never set in a normal run.
       aiRequests: () =>
-        ai.fake?.requests.map((r) => ({ provider: r.provider, purpose: r.purpose, model: r.model })) ?? null,
+        ai.fake?.requests.map((r) => ({
+          provider: r.provider,
+          purpose: r.purpose,
+          model: r.model,
+          // S38.2: how many images the request carried (counts only).
+          images: r.messages.reduce((n, m) => n + (m.role === 'user' ? (m.images?.length ?? 0) : 0), 0),
+        })) ?? null,
     });
     // --- end S31 ---
     // S23: onboarding walkthrough progress

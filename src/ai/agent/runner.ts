@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { AiEvent, AiFileChange, AiProposalDecision, AiRequest } from '../../shared/ipc/ai-contract';
 import { errorMessage } from './messages';
-import type { ModelPort } from './model-port';
+import type { AgentImage, ModelPort } from './model-port';
 import { runAgentLoop, type AgentAiRequest, type AgentBudgets, type DecisionResults } from './loop';
 import type { AgentProjectPorts } from './tools';
 
@@ -27,6 +27,11 @@ export interface AgentRunInput {
   readonly request: AiRequest;
   readonly model: ModelPort;
   readonly budgets?: Partial<AgentBudgets>;
+  /**
+   * S38.2: screenshots of the Preview context items the user saw (resolved by the service from its snapshot cache),
+   * sent with the first message when the model accepts images.
+   */
+  readonly contextImages?: readonly AgentImage[];
 }
 
 export interface AgentRun {
@@ -111,6 +116,7 @@ export function createAgentRunner(deps: AgentRunnerDeps): AgentRunner {
         awaitDecision,
         newId: deps.newId ?? randomUUID,
         nonce: randomBytes(6).toString('hex'),
+        ...(input.contextImages ? { contextImages: input.contextImages } : {}),
         ...(deps.now ? { now: deps.now } : {}),
       });
     };

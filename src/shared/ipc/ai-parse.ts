@@ -114,6 +114,16 @@ export function parseSetConsent(payload: unknown): { projectId: string; allowed:
     : null;
 }
 
+/** S38.2: `{ projectId, locale }` of ai:preview-snapshot. */
+export function parsePreviewSnapshotRequest(payload: unknown): { projectId: string; locale: 'zh-CN' | 'en' } | null {
+  return isRecord(payload) &&
+    exactKeys(payload, ['projectId', 'locale']) &&
+    isProjectId(payload.projectId) &&
+    isLocale(payload.locale)
+    ? { projectId: payload.projectId, locale: payload.locale }
+    : null;
+}
+
 export function parseRequestId(payload: unknown): { requestId: string } | null {
   return isRecord(payload) &&
     exactKeys(payload, ['requestId']) &&
@@ -134,15 +144,25 @@ function parseHistory(raw: unknown): AiChatMessage[] | null {
   return out;
 }
 
-const CONTEXT_KINDS = ['file', 'selection', 'problem', 'console'] as const;
+const CONTEXT_KINDS = ['file', 'selection', 'problem', 'console', 'preview'] as const;
 
 function parseContext(raw: unknown): AiContextItem[] | null {
   if (!Array.isArray(raw) || raw.length > AI_LIMITS.contextItems) return null;
   const out: AiContextItem[] = [];
   for (const item of raw) {
-    if (!isRecord(item) || !exactKeys(item, ['kind'], ['relPath', 'startLine', 'endLine', 'text', 'label']))
+    if (
+      !isRecord(item) ||
+      !exactKeys(item, ['kind'], ['relPath', 'startLine', 'endLine', 'text', 'label', 'snapshotId'])
+    )
       return null;
     if (!CONTEXT_KINDS.includes(item.kind as 'file')) return null;
+    // S38.2: a preview item carries the text the user saw and names the snapshot whose screenshot goes with it.
+    if (item.kind === 'preview' && (typeof item.text !== 'string' || item.relPath !== undefined)) return null;
+    if (
+      item.snapshotId !== undefined &&
+      (item.kind !== 'preview' || !str(item.snapshotId, 64) || !REQUEST_ID.test(item.snapshotId))
+    )
+      return null;
     if (item.relPath !== undefined && !isPortableRelPath(item.relPath)) return null;
     if (item.startLine !== undefined && !line(item.startLine)) return null;
     if (item.endLine !== undefined && (!line(item.endLine) || !line(item.startLine) || item.endLine < item.startLine)) {
@@ -159,6 +179,7 @@ function parseContext(raw: unknown): AiContextItem[] | null {
       ...(item.endLine !== undefined ? { endLine: item.endLine as number } : {}),
       ...(item.text !== undefined ? { text: item.text as string } : {}),
       ...(item.label !== undefined ? { label: item.label as string } : {}),
+      ...(item.snapshotId !== undefined ? { snapshotId: item.snapshotId as string } : {}),
     });
   }
   return out;

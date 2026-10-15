@@ -11,6 +11,8 @@ import {
 import {
   ProviderError,
   type AiProvider,
+  modelAcceptsImages,
+  type ProviderImage,
   type ProviderMessage,
   type ProviderStopReason,
   type ProviderToolCall,
@@ -53,17 +55,24 @@ export function toProviderMessages(provider: string, messages: readonly AgentMes
     if (message.role === 'user') {
       const results: ProviderToolResult[] = [];
       const texts: string[] = [];
+      const images: ProviderImage[] = [];
       for (const block of message.content) {
         if (block.type === 'tool_result') {
           results.push({
             callId: block.toolUseId,
             content: block.content,
             ...(block.isError ? { isError: true } : {}),
+            ...(block.images && block.images.length > 0
+              ? { images: block.images.map((i) => ({ mediaType: i.mediaType, data: i.data })) }
+              : {}),
           });
         } else if (block.type === 'text') texts.push(block.text);
+        else if (block.type === 'image') images.push({ mediaType: block.mediaType, data: block.data });
       }
       if (results.length > 0) out.push({ role: 'tool', results });
-      if (texts.length > 0) out.push({ role: 'user', text: texts.join('\n\n') });
+      if (texts.length > 0 || images.length > 0) {
+        out.push({ role: 'user', text: texts.join('\n\n'), ...(images.length > 0 ? { images } : {}) });
+      }
       continue;
     }
     let text = '';
@@ -98,6 +107,7 @@ export function toModelPortError(e: unknown): ModelPortError {
 export function toModelPort(provider: AiProvider, model: string): ModelPort {
   return {
     provider: provider.id,
+    acceptsImages: modelAcceptsImages(provider.id, model),
     async *streamTurn(request: ModelTurnRequest): AsyncIterable<ModelStreamEvent> {
       const invalid = new Map<string, string>();
       try {

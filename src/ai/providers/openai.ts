@@ -11,6 +11,7 @@ import {
   toolInputProblem,
   type AiProvider,
   type ProviderEvent,
+  type ProviderImage,
   type ProviderMessage,
   type ProviderStopReason,
   type ProviderStreamRequest,
@@ -104,13 +105,31 @@ export function createOpenAiProvider(apiKey: string, options: OpenAiProviderOpti
 export function toOpenAiMessages(system: string, messages: readonly ProviderMessage[]): ChatCompletionMessageParam[] {
   const out: ChatCompletionMessageParam[] = [{ role: 'developer', content: system }];
   for (const message of messages) {
-    if (message.role === 'user') out.push({ role: 'user', content: message.text });
-    else if (message.role === 'tool') {
+    if (message.role === 'user') {
+      // S38.2: images as `image_url` parts (data URLs) after the text.
+      out.push(
+        message.images && message.images.length > 0
+          ? { role: 'user', content: [{ type: 'text', text: message.text }, ...message.images.map(imagePart)] }
+          : { role: 'user', content: message.text },
+      );
+    } else if (message.role === 'tool') {
       for (const result of message.results) {
         out.push({
           role: 'tool',
           tool_call_id: result.callId,
           content: result.isError ? JSON.stringify({ error: result.content }) : result.content,
+        });
+      }
+      // Chat Completions tool messages carry text only: a result's images follow in one user message, after all
+      // the tool messages of the step (they must directly follow the assistant's tool calls).
+      const withImages = message.results.filter((r) => r.images && r.images.length > 0);
+      if (withImages.length > 0) {
+        out.push({
+          role: 'user',
+          content: withImages.flatMap((r) => [
+            { type: 'text' as const, text: `Image returned by tool call ${r.callId}:` },
+            ...(r.images ?? []).map(imagePart),
+          ]),
         });
       }
     } else {
@@ -131,6 +150,10 @@ export function toOpenAiMessages(system: string, messages: readonly ProviderMess
     }
   }
   return out;
+}
+
+function imagePart(image: ProviderImage) {
+  return { type: 'image_url' as const, image_url: { url: `data:${image.mediaType};base64,${image.data}` } };
 }
 
 function toolParams(request: ProviderStreamRequest): ChatCompletionTool[] | undefined {

@@ -16,11 +16,19 @@ export interface ProviderToolCall {
   readonly input: unknown;
 }
 
+/** S38.2: an image sent to the model (a preview screenshot): base64 PNG. */
+export interface ProviderImage {
+  readonly mediaType: 'image/png';
+  readonly data: string;
+}
+
 export interface ProviderToolResult {
   readonly callId: string;
   /** Plain text (or JSON text) given back to the model. File contents are data, never instructions. */
   readonly content: string;
   readonly isError?: boolean;
+  /** S38.2: images that belong to the result (only for models that accept images, see modelAcceptsImages). */
+  readonly images?: readonly ProviderImage[];
 }
 
 /**
@@ -29,7 +37,12 @@ export interface ProviderToolResult {
  * Histories are append-only (never edit an earlier turn).
  */
 export type ProviderMessage =
-  | { readonly role: 'user'; readonly text: string }
+  | {
+      readonly role: 'user';
+      readonly text: string;
+      /** S38.2: images sent with the text (a preview screenshot the user saw in the Preview chip). */
+      readonly images?: readonly ProviderImage[];
+    }
   | {
       readonly role: 'assistant';
       readonly text: string;
@@ -138,6 +151,15 @@ export function pickOpenAiDefaults(models: readonly AiModelInfo[]): Record<AiPur
   if (full === undefined) return null;
   const fast = ids.find((id) => id.startsWith('gpt-') && small(id)) ?? full;
   return { chat: full, agent: full, edit: full, inline: fast };
+}
+
+/**
+ * S38.2: whether a model can read images. Every Claude model can. OpenAI: the current GPT/o-series and Codex models
+ * can; older text-only ones (GPT-3.5, the first GPT-4, o1-mini / o3-mini) cannot, and get the text-only fallback.
+ */
+export function modelAcceptsImages(provider: AiProviderId | 'fake', model: string): boolean {
+  if (provider !== 'openai') return true;
+  return !/^(gpt-3\.5|gpt-4(?![o.]|-turbo)|o1-mini|o3-mini|text-|davinci|babbage)/.test(model);
 }
 
 /** Validates a parsed tool input against the tool's schema; returns the problem, or null when it is valid. */

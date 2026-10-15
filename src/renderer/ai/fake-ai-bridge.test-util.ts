@@ -70,6 +70,9 @@ export class FakeAiBridge implements AiApi {
   resolveProposal() {
     return Promise.resolve({ ok: true as const, value: null });
   }
+  previewSnapshot() {
+    return Promise.resolve({ ok: false as const, code: 'not-running' as const, message: 'no preview' });
+  }
   onEvent(listener: (event: AiEvent) => void) {
     this.listeners.add(listener);
     return () => {

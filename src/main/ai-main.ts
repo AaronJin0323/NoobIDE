@@ -10,7 +10,7 @@ import {
 } from '../ai/fake-provider';
 import { createTestEncryptor, KeyStore, type KeyEncryptor } from '../ai/keys';
 import { realProviderFactory } from '../ai/providers/index';
-import { AiService, type AiLog } from '../ai/service';
+import { AiService, type AiLog, type AiServiceDeps } from '../ai/service';
 import { createAgentRunner } from '../ai/agent/runner';
 import { createProjectPorts, type ProjectPortsDeps } from '../ai/agent/ports';
 import { ScriptedModel } from '../ai/agent/scripted-model';
@@ -33,7 +33,7 @@ export interface AiMainOptions {
   readonly projects: Pick<ProjectService, 'rootOf' | 'read' | 'listDir'>;
   /** S34 agent tools: runtime problems (problemsBridge.capture) and the preview (PreviewManager). */
   readonly problems?: ProjectPortsDeps['problems'];
-  readonly preview?: ProjectPortsDeps['preview'];
+  readonly preview?: ProjectPortsDeps['preview'] & NonNullable<AiServiceDeps['preview']>;
   /** Electron safeStorage. */
   readonly safeStorage: KeyEncryptor;
   readonly logger: RecoveryLogger;
@@ -137,6 +137,7 @@ export function setupAi(options: AiMainOptions): AiMain {
     // Fake mode: agent requests play a scripted agent (one ScriptedModel per request).
     ...(fake ? { agentModel: () => new ScriptedModel(fakeAgentScript(fakeAgentScriptName)) } : {}),
     log: options.log,
+    ...(options.preview ? { preview: options.preview } : {}), // S38.2: Preview chip snapshots
   });
   registerAiIpcHandlers(options.ipcMain, { allowedOrigin: options.allowedOrigin, service });
   return { service, fake };
