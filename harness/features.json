@@ -3482,8 +3482,8 @@
       "depends_on": [
         "S41.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/preview-annotations.spec.ts part 1 (4 e2e, Windows x64: real mouse pick via inspect mode does not run the page's click handler, isolation facts + page globals identical, page MutationObserver sees nothing, Esc in page and Cancel end pick mode, keyboard candidates, script-created li not-found, <style> rule located, region -> section.card, highlight) + src/preview/element-pick.test.ts (10) @ 9860b75"
     },
     {
       "id": "S41.4",
@@ -3502,8 +3502,8 @@
         "S41.2",
         "S41.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/main/annotation-store.test.ts (6: CRUD, hash file name, caps, corrupt moved aside, newer read-only, parsers) + tests/integration/annotations-ipc.test.ts (8: trusted sender on all channels, pick->save->list with Chinese paths, nothing in project, pickId per window/once, owner checks, region validation, re-locate after edits, context text zh-CN/en) @ 9860b75"
     },
     {
       "id": "S41.5",
