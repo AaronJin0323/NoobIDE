@@ -1,5 +1,8 @@
 // S05.5: a hostile page tries every way out of the project. config.json is written by the e2e test:
-// { "secretFileUrl": "file:///…/secret.txt", "otherPortUrl": "http://127.0.0.1:<port>/" }
+// { "secretFileUrl": "file:///…/secret.txt", "otherPortUrl": "http://127.0.0.1:<port>/", "otherPort": <port>,
+//   "lanUrl": "http://<this machine's LAN address>:<port>/" | null, "machineName": "<os.hostname()>" }
+// The e2e run maps rebind.test to 127.0.0.1 in Chromium's resolver (--host-resolver-rules), like a public DNS name
+// that points at loopback (localtest.me, *.nip.io) or a DNS-rebinding attack.
 const config = await (await fetch('config.json')).json();
 const results = {};
 
@@ -48,6 +51,43 @@ await attempt('websocket-other-port', () =>
     socket.onerror = () => reject(new Error('ws'));
   }),
 );
+await attempt('dns-name-to-loopback', () => fetch(`http://rebind.test:${config.otherPort}/`).then(readText));
+await attempt('dns-name-to-loopback-no-cors', () =>
+  fetch(`http://rebind.test:${config.otherPort}/`, { mode: 'no-cors' }).then(() => 'opaque response'),
+);
+await attempt('dns-name-to-server', () => fetch(`http://rebind.test:${location.port}/index.html`).then(readText));
+await attempt('websocket-dns-name', () =>
+  new Promise((resolve, reject) => {
+    const socket = new WebSocket(`ws://rebind.test:${config.otherPort}/`);
+    socket.onopen = () => resolve('open');
+    socket.onerror = () => reject(new Error('ws'));
+  }),
+);
+await attempt('public-dns-name-to-loopback', () =>
+  fetch(`http://localtest.me:${config.otherPort}/`, { mode: 'no-cors' }).then(() => 'opaque response'),
+);
+await attempt('machine-name', () =>
+  fetch(`http://${config.machineName}:${config.otherPort}/`, { mode: 'no-cors' }).then(() => 'opaque response'),
+);
+await attempt('lan-ip', () => {
+  if (!config.lanUrl) throw new Error('no LAN address on this machine');
+  return fetch(config.lanUrl, { mode: 'no-cors' }).then(() => 'opaque response');
+});
+await attempt('zero-address', () =>
+  fetch(`http://0.0.0.0:${config.otherPort}/`, { mode: 'no-cors' }).then(() => 'opaque response'),
+);
+await attempt('image-dns-name', () =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve('loaded');
+    img.onerror = () => reject(new Error('img'));
+    img.src = `http://rebind.test:${config.otherPort}/pixel.png`;
+  }),
+);
+await attempt('service-worker', async () => {
+  const registration = await navigator.serviceWorker.register('sw.js');
+  return `registered ${registration.scope}`;
+});
 await attempt('ide-bridge', () => {
   if (typeof window.noobide === 'undefined' && typeof require === 'undefined') throw new Error('none');
   return 'bridge present';

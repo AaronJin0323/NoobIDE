@@ -1,6 +1,7 @@
 # 0009 — Preview isolation and the loopback static server
 
-- **Status:** accepted
+- **Status:** accepted; network policy amended by 0015 (resolved-address proxy, dialogs, beforeunload, service
+  workers)
 - **Date:** 2026-10-14
 - **Feature:** S04.1, S04.3, S05.1, S05.2, S05.5
 
@@ -46,9 +47,9 @@ control: any local program or any browser tab could otherwise read the project (
 
 ## Consequences (incl. how it is verified on macOS arm64 and Windows x64)
 
-- Known limit: a public DNS name that resolves to 127.0.0.1 (`*.nip.io`, `localtest.me`) cannot be recognised by
-  hostname in `onBeforeRequest`. Our server still refuses it (Host + token); other local services that trust any
-  loopback client stay reachable from a preview page, exactly as from any browser tab.
+- ~~Known limit: a public DNS name that resolves to 127.0.0.1 (`*.nip.io`, `localtest.me`) cannot be recognised by
+  hostname in `onBeforeRequest`.~~ Closed by 0015: every request of the preview session goes through a proxy that
+  decides on the resolved address and connects to exactly that address.
 - `Sec-Fetch-Site` refusal also blocks the user's own sandboxed (opaque-origin) iframes from loading project files.
 - "Open in external browser" (S15) cannot reuse the header; it will need its own short-lived grant (for example a
   one-time token exchanged for a cookie).

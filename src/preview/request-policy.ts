@@ -4,9 +4,9 @@
  *
  * - Requests: the project's own server is allowed. `file:` and loopback addresses (other ports, `localhost`,
  *   `localhost.`, `[::1]`, `0.0.0.0/8`) are blocked, so a page cannot read local files or talk to other local
- *   services. Known limit (docs/decisions/0009): a public DNS name that resolves to 127.0.0.1 (e.g. *.nip.io) cannot
- *   be recognised by hostname. Our own server still refuses it (Host header + token); other local services that
- *   trust any loopback client remain exposed to it, as they are to any browser tab.
+ *   services. This is the first layer only: a host name cannot be judged here (`localtest.me`, a LAN name or a
+ *   DNS-rebinding name may resolve to a local address), so every request then goes through the session's proxy
+ *   (preview-proxy.ts, docs/decisions/0015), which decides on the resolved address.
  *   Public web resources stay allowed — the user's page may use a CDN like any webpage, and normal browser
  *   same-origin and CORS checks still apply (PLAN §8 does not let us disable them).
  * - Top-level navigation: only within the project's server origin. Leaving it is blocked; the workbench may later

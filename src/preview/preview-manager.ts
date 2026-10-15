@@ -1,3 +1,4 @@
+import { networkInterfaces } from 'node:os';
 import {
   session as electronSession,
   WebContentsView,
@@ -16,9 +17,11 @@ import {
   type PreviewStatus,
 } from '../shared/ipc/preview-contract';
 import { err, ok, type Result } from '../shared/result';
-import { DEFAULT_LOG_BUFFER, LogBuffer } from './log-buffer';
+import { DEFAULT_LOG_BUFFER, LogBuffer, sanitizeLogUrl } from './log-buffer';
+import { CONSOLE_LIMIT, PAGE_GUARD_SOURCE, parseLimiterSummary } from './page-guard';
 import { createPreviewWebPreferences, insecurePreviewPreferences, partitionForProject } from './preview-options';
 import { decidePreviewRequest, isAllowedNavigation } from './request-policy';
+import { PreviewProxy } from './preview-proxy';
 import { PreviewServer, TOKEN_HEADER } from './static-server';
 
 /**
@@ -46,11 +49,19 @@ export interface PreviewManagerDeps {
   readonly watchdog?: WatchdogOptions;
   /** How often buffered log records are sent to the workbench. */
   readonly logFlushMs?: number;
+  /**
+   * Hook for runtime diagnostics (S16): called with every raw record admitted from the page — after the in-page
+   * console rate limit (docs/decisions/0016) and with its URL sanitised — before the workbench batch cap. Must not
+   * throw or block; record-level dedupe and bounding are the consumer's job.
+   */
+  onRecord?(entry: PreviewLogEntry): void;
 }
 
 interface LivePreview {
   readonly projectId: string;
   readonly server: PreviewServer;
+  /** The session's only route onto the network (docs/decisions/0015). */
+  readonly proxy: PreviewProxy;
   readonly view: WebContentsView;
   readonly partition: string;
   readonly window: BrowserWindow;
@@ -63,9 +74,13 @@ interface LivePreview {
 }
 
 const RECENT_RECORDS = 100;
-/** Console flood guard: more than FLOOD_LIMIT messages within FLOOD_WINDOW_MS pauses capture for FLOOD_PAUSE_MS. */
-const FLOOD_WINDOW_MS = 100;
-const FLOOD_LIMIT = 500;
+/**
+ * Console flood guard: more than FLOOD_LIMIT messages within FLOOD_WINDOW_MS pauses capture for FLOOD_PAUSE_MS.
+ * The in-page rate limit (page-guard.ts) normally keeps a page far below this; the guard is the backstop for a page
+ * that bypasses it (decision 0016), so it allows the limiter's budget with room for two windows back to back.
+ */
+const FLOOD_WINDOW_MS = 1_000;
+const FLOOD_LIMIT = 3 * CONSOLE_LIMIT;
 const FLOOD_PAUSE_MS = 1_000;
 const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 };
 
@@ -77,7 +92,8 @@ export class PreviewManager {
   /** Incremented on every start/stop so late async results of an older preview are ignored. */
   private generation = 0;
   private readonly configuredSessions = new WeakSet<Session>();
-  /** Metadata of blocked requests for tests and diagnostics: scheme + host only, never paths or contents. */
+  /** Metadata of blocked requests for tests and diagnostics: scheme + host only, never paths or contents.
+   * `scheme: 'proxy'` marks connections the network proxy refused (docs/decisions/0015). */
   readonly blockedRequests: { readonly scheme: string; readonly host: string }[] = [];
   /** The most recent raw records (S05.4) for diagnostics and tests; bounded, cleared with the preview. */
   private recent: PreviewLogEntry[] = [];
@@ -124,21 +140,44 @@ export class PreviewManager {
 
     const partition = partitionForProject(server.root);
     const ses = electronSession.fromPartition(partition);
-    this.configureSession(ses, server);
     const webPreferences = createPreviewWebPreferences(partition);
     const insecure = insecurePreviewPreferences(webPreferences);
     if (insecure.length > 0) {
       await server.close();
       throw new Error(`insecure preview webPreferences: ${insecure.join(', ')}`);
     }
+    // S05.5: every request of the session goes through the proxy, which decides on resolved addresses. Service
+    // workers left by an earlier run are removed (new registrations are refused in configureSession).
+    let proxy: PreviewProxy;
+    try {
+      proxy = await this.startProxy(ses, server);
+      this.configureSession(ses, server);
+      await ses.clearStorageData({ storages: ['serviceworkers'] });
+    } catch (e) {
+      await server.close();
+      if (generation === this.generation)
+        this.setStatus(window, { state: 'failed', projectId, failure: 'server-failed' });
+      return err('server-failed', e instanceof Error ? e.message : 'proxy failed', e);
+    }
 
     const view = new WebContentsView({ webPreferences });
     view.setBackgroundColor('#ffffff');
+    // No UDP outside the proxy: WebRTC cannot reach local or LAN addresses directly.
+    view.webContents.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
+    // S05.7: the console rate limit must be in place before the first page script runs.
+    await installPageGuard(view.webContents);
+    if (generation !== this.generation || window.isDestroyed()) {
+      view.webContents.close();
+      await proxy.close();
+      await server.close();
+      return ok(this.status);
+    }
     const onWindowClosed = () => void this.stop({ announce: false });
     window.once('closed', onWindowClosed);
     const live: LivePreview = {
       projectId,
       server,
+      proxy,
       view,
       partition,
       window,
@@ -192,6 +231,7 @@ export class PreviewManager {
       contents.close();
     }
     this.logs.clear();
+    await live.proxy.close();
     await live.server.close();
     const status: PreviewStatus = { state: 'stopped', projectId: null };
     if (options.announce ?? true) this.setStatus(live.window, status);
@@ -283,7 +323,18 @@ export class PreviewManager {
       if (this.blockedRequests.length < 500) this.blockedRequests.push(requestMeta(details.url));
       callback({ cancel: true });
     });
-    ses.webRequest.onBeforeSendHeaders({ urls: [`${origin}/*`] }, (details, callback) => {
+    ses.webRequest.onBeforeSendHeaders((details, callback) => {
+      // S05.5: no service workers. A registration would outlive refreshes and restarts and could answer requests
+      // in place of the project's files; Chromium marks the worker's script request with this header.
+      if (Object.keys(details.requestHeaders).some((h) => h.toLowerCase() === 'service-worker')) {
+        if (this.blockedRequests.length < 500) this.blockedRequests.push({ scheme: 'service-worker', host: '' });
+        callback({ cancel: true });
+        return;
+      }
+      if (urlOriginOf(details.url) !== origin) {
+        callback({});
+        return;
+      }
       callback({ requestHeaders: { ...details.requestHeaders, [TOKEN_HEADER]: server.token } });
     });
     ses.webRequest.onCompleted((details) => {
@@ -311,6 +362,34 @@ export class PreviewManager {
     });
   }
 
+  /** Starts the session's network proxy and routes every request of the session through it (decision 0015). */
+  private async startProxy(ses: Session, server: PreviewServer): Promise<PreviewProxy> {
+    const proxy = await PreviewProxy.start({
+      serverHost: '127.0.0.1',
+      serverPort: server.port,
+      // Chromium's own resolver (network service): same answers the page would get, no libuv threadpool use.
+      resolve: async (host) => (await ses.resolveHost(host)).endpoints.map((e) => e.address),
+      localAddresses: () =>
+        Object.values(networkInterfaces())
+          .flat()
+          .map((i) => i?.address ?? '')
+          .filter((a) => a !== ''),
+      onBlocked: ({ host, port }) => {
+        if (this.blockedRequests.length < 500) this.blockedRequests.push({ scheme: 'proxy', host: `${host}:${port}` });
+      },
+    });
+    try {
+      // `<-loopback>` removes Chromium's implicit loopback bypass: even 127.0.0.1 goes through the proxy, so no
+      // request type that webRequest does not see (e.g. WebTransport) can reach a loopback service directly.
+      await ses.setProxy({ mode: 'fixed_servers', proxyRules: proxy.proxyRules, proxyBypassRules: '<-loopback>' });
+      await ses.closeAllConnections();
+    } catch (e) {
+      await proxy.close();
+      throw e;
+    }
+    return proxy;
+  }
+
   private wireContents(live: LivePreview, contents: WebContents): void {
     const origin = live.server.origin;
     const isCurrent = () => this.live === live;
@@ -326,6 +405,12 @@ export class PreviewManager {
     contents.on('will-navigate', (event) => guard(event, event.url));
     contents.on('will-redirect', (event) => guard(event, event.url));
     contents.on('will-attach-webview', (event) => event.preventDefault());
+    // S05.5: a beforeunload handler must never keep the page alive: refresh, Stop and closing the IDE always win.
+    contents.on('will-prevent-unload', (event) => event.preventDefault());
+    // The page guard (docs/decisions/0016) stays installed for the view's lifetime; reinstall if it was detached.
+    contents.debugger.on('detach', () => {
+      if (isCurrent() && !contents.isDestroyed()) void installPageGuard(contents, { navigateFirst: false });
+    });
 
     // Console flood guard (S05.3). Electron builds an event object in the main process for every console message
     // while a listener is attached; a page logging ~400k messages/s would keep main (and with it all keyboard and
@@ -356,6 +441,12 @@ export class PreviewManager {
       const { message, level, lineNumber, sourceId } = event;
       // Electron's own development-only warnings ("Electron Security Warning…") are not the user's output.
       if (sourceId.startsWith('node:electron/')) return;
+      // The in-page rate limit (S05.7) reports what it suppressed; the IDE shows it as dropped messages.
+      const suppressed = parseLimiterSummary(message, sourceId);
+      if (suppressed !== null) {
+        this.logs.addDropped(suppressed);
+        return;
+      }
       this.pushLog({
         source: /^Uncaught\b/.test(message) ? 'exception' : 'console',
         level,
@@ -462,8 +553,15 @@ export class PreviewManager {
     this.send(window, { kind: 'status', status });
   }
 
-  private pushLog(entry: PreviewLogEntry): void {
+  private pushLog(raw: PreviewLogEntry): void {
     if (!this.live) return;
+    // S05.5: URLs can be long or carry content (data: URLs, credentials); records only keep a sanitised form.
+    const entry: PreviewLogEntry = raw.url === undefined ? raw : { ...raw, url: sanitizeLogUrl(raw.url) };
+    try {
+      this.deps.onRecord?.(entry);
+    } catch {
+      // A consumer bug must not break capture.
+    }
     this.logs.push(entry);
     if (this.recent.length >= RECENT_RECORDS) this.recent.shift();
     const max = DEFAULT_LOG_BUFFER.maxMessageLength;
@@ -488,6 +586,86 @@ export class PreviewManager {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
       window.webContents.send(PREVIEW_EVENT_CHANNEL, event);
     }
+  }
+}
+
+const GUARD_TIMEOUT_MS = 5_000;
+const guardListening = new WeakSet<WebContents>();
+const AUTO_ATTACH = { autoAttach: true, waitForDebuggerOnStart: true, flatten: true } as const;
+
+/**
+ * Installs the page guard (console rate limit, alert reporting — page-guard.ts, decision 0016) through the DevTools
+ * protocol, before any page script runs: into every future document of the view, every out-of-process iframe and
+ * every dedicated worker (workers send their console messages to main too). Other DevTools clients (the user's
+ * DevTools) coexist. `Page.addScriptToEvaluateOnNewDocument` needs the Page domain and an existing document: on a
+ * view that never navigated the commands never answer, so a fresh view first loads about:blank. Best effort with a
+ * timeout: without the guard the preview still works and main's flood guard still bounds the console.
+ */
+async function installPageGuard(contents: WebContents, options: { navigateFirst?: boolean } = {}): Promise<void> {
+  const install = async () => {
+    if (options.navigateFirst ?? true) await contents.loadURL('about:blank');
+    const dbg = contents.debugger;
+    if (!dbg.isAttached()) dbg.attach('1.3');
+    if (!guardListening.has(contents)) {
+      guardListening.add(contents);
+      dbg.on('message', (_event, method, params: GuardEventParams, sessionId?: string) => {
+        if (contents.isDestroyed()) return;
+        const session = sessionId || undefined;
+        if (method === 'Page.javascriptDialogOpening') {
+          // With the Page domain enabled Chromium may wait for a protocol client to answer a JavaScript dialog.
+          // Never wait: leave the page on beforeunload, dismiss everything else.
+          dbg
+            .sendCommand('Page.handleJavaScriptDialog', { accept: params.type === 'beforeunload' }, session)
+            .catch(() => undefined);
+        } else if (method === 'Target.attachedToTarget' && params.sessionId && params.targetInfo) {
+          void guardChildTarget(dbg, params.sessionId, params.targetInfo.type);
+        }
+      });
+    }
+    await dbg.sendCommand('Page.enable');
+    await dbg.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: PAGE_GUARD_SOURCE });
+    // Workers and out-of-process iframes start paused until the guard is in place (guardChildTarget).
+    await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH);
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    install().catch(() => undefined),
+    new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, GUARD_TIMEOUT_MS);
+    }),
+  ]);
+  clearTimeout(timer);
+}
+
+interface GuardEventParams {
+  readonly type?: string;
+  readonly sessionId?: string;
+  readonly targetInfo?: { readonly type: string };
+}
+
+/** Puts the guard into an auto-attached child target, then always lets it run (it waits for us). */
+async function guardChildTarget(dbg: Electron.Debugger, sessionId: string, type: string): Promise<void> {
+  try {
+    if (type === 'worker') {
+      await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH, sessionId); // nested workers
+      await dbg.sendCommand('Runtime.evaluate', { expression: PAGE_GUARD_SOURCE }, sessionId);
+    } else if (type === 'iframe') {
+      await dbg.sendCommand('Page.enable', {}, sessionId);
+      await dbg.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: PAGE_GUARD_SOURCE }, sessionId);
+      await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH, sessionId);
+    }
+  } catch {
+    // The target went away or refused; it must still not stay paused.
+  } finally {
+    await dbg.sendCommand('Runtime.runIfWaitingForDebugger', {}, sessionId).catch(() => undefined);
+  }
+}
+
+function urlOriginOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
   }
 }
 
