@@ -110,6 +110,17 @@
         "8–12 new beginners tested on both platforms",
         "Both platforms pass release criteria before public download"
       ]
+    },
+    {
+      "id": "M9",
+      "title": "AI assistant (owner scope change 2026-10-15)",
+      "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md; PLAN §7 (AI rules)",
+      "exit_criteria": [
+        "Completions, chat/explain, inline edit and agent mode work with a user-supplied Anthropic or OpenAI key",
+        "Keys never leave main; code is sent only with per-project consent; logs contain no code",
+        "Agent changes are always diffs the user accepts, applied through the save pipeline and undoable",
+        "Every non-AI feature works unchanged without a key or offline"
+      ]
     }
   ],
   "sessions": [
@@ -428,6 +439,73 @@
         "S02"
       ],
       "plan_refs": "§3, §9; docs/reviews/interface-assessment-2026-10-14.md"
+    },
+    {
+      "id": "S31",
+      "milestone": "M9",
+      "title": "AI foundation",
+      "goal": "Providers (Anthropic, OpenAI) in main, encrypted keys, config, per-project consent, request service with cancel and safe logging, Settings → AI, and a fake provider for tests.",
+      "depends_on": [
+        "S13",
+        "S24"
+      ],
+      "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md; PLAN §7 (AI rules)"
+    },
+    {
+      "id": "S32",
+      "milestone": "M9",
+      "title": "Inline completions",
+      "goal": "Ghost-text code suggestions in the editor from the inline model, debounced, cancellable and bounded.",
+      "depends_on": [
+        "S31"
+      ],
+      "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md; PLAN §7 (AI rules)"
+    },
+    {
+      "id": "S33",
+      "milestone": "M9",
+      "title": "AI chat and explain",
+      "goal": "A chat panel with visible context, plus \"Explain this code\" and \"Ask AI\" on problems.",
+      "depends_on": [
+        "S31"
+      ],
+      "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md; PLAN §7 (AI rules)"
+    },
+    {
+      "id": "S34",
+      "milestone": "M9",
+      "title": "Agent mode",
+      "goal": "An agent that reads the project and proposes file changes as diffs the user accepts, applied through the save pipeline.",
+      "depends_on": [
+        "S31",
+        "S33"
+      ],
+      "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md; PLAN §7 (AI rules)"
+    },
+    {
+      "id": "S35",
+      "milestone": "M9",
+      "title": "Inline edit and AI fix",
+      "goal": "Ctrl/Cmd+I edits a selection from an instruction as a reviewable diff; problem cards offer an AI fix.",
+      "depends_on": [
+        "S31",
+        "S34"
+      ],
+      "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md; PLAN §7 (AI rules)"
+    },
+    {
+      "id": "S36",
+      "milestone": "M9",
+      "title": "AI safety and quality gate",
+      "goal": "Independent security review, live smoke test, docs and a gate review for the AI milestone.",
+      "depends_on": [
+        "S31",
+        "S32",
+        "S33",
+        "S34",
+        "S35"
+      ],
+      "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md; PLAN §7 (AI rules)"
     }
   ],
   "features": [
@@ -2704,6 +2782,238 @@
       ],
       "status": "done",
       "evidence": "layout.ts NARROW_QUERY (max-width: 959px) + layout.test.ts; e2e shell.spec at 800x600: files hidden, aria-pressed Code/Preview switch shows one view, file drawer, buffer survives, back to 1280 restores three columns @ 80f1115; WebContentsView bounds remain S15.2"
+    },
+    {
+      "id": "S31.1",
+      "session": "S31",
+      "milestone": "M9",
+      "title": "Provider layer over the official SDKs",
+      "description": "",
+      "acceptance": [
+        "src/ai/providers: one streaming interface over @anthropic-ai/sdk and openai (exact pinned versions, decision 0025): text deltas, tool calls, usage, stop reasons including refusal; listModels and testKey",
+        "Anthropic requests use streaming, adaptive thinking and prompt caching of the stable system prompt and tool list; tool inputs are validated before use",
+        "Unit tests with a scripted fake provider and SDK-level mocks; no test calls a real provider"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S31.2",
+      "session": "S31",
+      "milestone": "M9",
+      "title": "Encrypted key storage",
+      "description": "",
+      "acceptance": [
+        "Keys are encrypted with Electron safeStorage in the app-data dir, never returned to a renderer, logged, or written into a project; clearKey removes them",
+        "Without safeStorage the key is not stored and AI stays off with an explanation (zh-CN + en)",
+        "Test: after setKey the key string appears in no renderer state, no IPC response and no log file"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S31.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S31.3",
+      "session": "S31",
+      "milestone": "M9",
+      "title": "AI config, consent and request service",
+      "description": "",
+      "acceptance": [
+        "ai-ipc validates sender and every payload (contract src/shared/ipc/ai-contract.ts); config persisted in app data with schema version",
+        "A request carrying project code is refused with no-consent until the user allows that project; consent is revocable",
+        "Requests stream AiEvents, can be cancelled, map provider failures to AiErrorCode (offline, unauthorized, rate-limited, refused…) with explanations, and log only ids, purpose, model, tokens, duration and error codes"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S31.1",
+        "S31.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S31.4",
+      "session": "S31",
+      "milestone": "M9",
+      "title": "Settings → AI",
+      "description": "",
+      "acceptance": [
+        "Provider choice, key entry (masked, write-only), Test, model per purpose from listModels, AI on/off and inline on/off; keyboard reachable, zh-CN + en",
+        "AI is on by default once a key is stored (owner decision); AI off removes every AI surface",
+        "E2E with the fake provider: enter key → status shows stored, key never displayed again; test success and failure explained"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S31.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S32.1",
+      "session": "S32",
+      "milestone": "M9",
+      "title": "Ghost-text completions",
+      "description": "",
+      "acceptance": [
+        "Monaco inline completions for HTML/CSS/JS from the inline model with bounded prefix/suffix; Tab accepts, Esc dismisses, word-by-word accept",
+        "Debounced; typing cancels the in-flight request; no request without consent, key, or with AI/inline off; large or read-only files excluded",
+        "E2E with the fake provider: suggestion appears, accept inserts exactly it as one undo step, cancel on typing observed"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S31.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S33.1",
+      "session": "S33",
+      "milestone": "M9",
+      "title": "Chat panel",
+      "description": "",
+      "acceptance": [
+        "A chat region (rail button + command) streams answers rendered as safe Markdown (no HTML injection), with Stop, copy code, and token usage",
+        "Context chips (current file, selection, problem) are visible and removable before sending; exactly those items are sent",
+        "E2E with the fake provider in zh-CN and en; offline/no-key/no-consent states explained"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S31.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S33.2",
+      "session": "S33",
+      "milestone": "M9",
+      "title": "Explain code and Ask AI on problems",
+      "description": "",
+      "acceptance": [
+        "\"Explain this code\" on a selection and \"Ask AI\" on a problem card open the chat with the right context and the explain mode",
+        "Answers follow the UI locale; the original error is included for problems",
+        "E2E with the fake provider"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S33.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S34.1",
+      "session": "S34",
+      "milestone": "M9",
+      "title": "Agent loop with project-confined tools",
+      "description": "",
+      "acceptance": [
+        "Read-only tools (list, read, search, problems, console, refresh preview) and proposal tools; every path confined to the project root with ProjectService checks (no traversal, links out, dotfiles per policy)",
+        "Proposal tools stop the loop and wait for the user decision; the outcome is returned as the tool result; budgets for steps, tokens and time; Stop ends the turn",
+        "Unit/integration tests with the fake provider including prompt-injection content in project files that tries to self-approve or escape the root"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S31.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S34.2",
+      "session": "S34",
+      "milestone": "M9",
+      "title": "Diff review and apply through the save pipeline",
+      "description": "",
+      "acceptance": [
+        "Each proposed change is shown as a diff (Monaco diff editor) with the agent reason; Accept/Reject per change and for all",
+        "Accepted changes go through the existing save pipeline (atomic write, history snapshot, journal, open tabs follow); a failed apply keeps content and reports the failure to the agent",
+        "One agent turn can be undone as a group from local history; E2E: propose edit+create, accept one, reject one, files and history verified"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S34.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S35.1",
+      "session": "S35",
+      "milestone": "M9",
+      "title": "Inline edit (Ctrl/Cmd+I)",
+      "description": "",
+      "acceptance": [
+        "Instruction on a selection (or file) produces an inline diff in the editor; Accept applies as one undoable editor edit, Reject leaves the text unchanged",
+        "Registered in the command registry; works from the keyboard; E2E with the fake provider"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S34.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S35.2",
+      "session": "S35",
+      "milestone": "M9",
+      "title": "AI fix on the problem card",
+      "description": "",
+      "acceptance": [
+        "A problem card offers \"Fix with AI\" (besides the deterministic fix) producing a reviewable diff for the reported file; resolved state follows the S22.5 rules (re-check / reload)",
+        "E2E with the fake provider"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S35.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S36.1",
+      "session": "S36",
+      "milestone": "M9",
+      "title": "AI security review and live smoke test",
+      "description": "",
+      "acceptance": [
+        "An independent review of key handling, consent, IPC, agent confinement and prompt-injection defences against decision 0025; findings fixed",
+        "npm run test:ai-live runs chat, inline and one agent proposal against real providers when NOOBIDE_AI_LIVE_* keys are set; never in CI"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S31.4",
+        "S32.1",
+        "S33.2",
+        "S34.2",
+        "S35.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S36.2",
+      "session": "S36",
+      "milestone": "M9",
+      "title": "AI docs and gate review",
+      "description": "",
+      "acceptance": [
+        "Install docs explain keys, cost, consent and privacy (zh-CN + en); docs/reviews/G9.md gate review with evidence per platform"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S36.1"
+      ],
+      "status": "todo",
+      "evidence": ""
     }
   ]
 }
