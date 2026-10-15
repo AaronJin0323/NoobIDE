@@ -242,7 +242,9 @@ export function RecoveryDialog({ bridge, health, onProjectOpened, onRestore, onC
                   <li key={p.key} className="recovery-project" data-testid="recovery-project">
                     <strong>{p.name}</strong>
                     <span className="alert-detail">{p.rootPath}</span>
-                    <span className="alert-detail">{fill(t('recovery.files'), { n: p.files.length })}</span>
+                    <span className="alert-detail">
+                      {fill(t('recovery.files', p.files.length), { n: p.files.length })}
+                    </span>
                     <ul className="recovery-file-names">
                       {p.files.map((f) => (
                         <li key={f.bufferId}>{f.relPath}</li>
@@ -395,7 +397,7 @@ function EntryDiff({ entry }: { entry: RecoveredEntry }) {
       <p className="recovery-diff-summary">
         {diff.identical
           ? t('recovery.identical')
-          : `${fill(t('recovery.added'), { n: diff.added })} · ${fill(t('recovery.removed'), { n: diff.removed })}`}
+          : `${fill(t('recovery.added', diff.added), { n: diff.added })} · ${fill(t('recovery.removed', diff.removed), { n: diff.removed })}`}
       </p>
       {diff.tooLarge ? (
         <p className="alert-detail">{t('recovery.tooLarge')}</p>
@@ -404,7 +406,7 @@ function EntryDiff({ entry }: { entry: RecoveredEntry }) {
           {diff.lines.map((line, index) =>
             line.kind === 'skipped' ? (
               <li key={index} className="diff-line diff-skipped">
-                {fill(t('recovery.skipped'), { n: line.count })}
+                {fill(t('recovery.skipped', line.count), { n: line.count })}
               </li>
             ) : (
               <li key={index} className={`diff-line diff-${line.kind}`} data-kind={line.kind}>

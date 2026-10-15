@@ -3,7 +3,7 @@ import { shortcutLabel, type PlatformId } from '../../platform/labels';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { fill } from '../recovery/format';
-import { saveErrorKey } from '../workbench/EditorPane';
+import { saveErrorKey } from '../workbench/file-op-messages';
 import { errorExplanation } from './chat-text';
 import { proposalDiff, SETTINGS_ERRORS, type InlineEditPhase, type InlineEditState } from './inline-edit-model';
 import './inline-edit.css';

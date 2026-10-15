@@ -136,7 +136,12 @@ export function WelcomeScreen({
                     )}
                     {askChats?.id === project.id && (
                       <span className="welcome-recent-chats" role="group" data-testid="welcome-recent-chats">
-                        <small>{fill(t('welcome.recentChats.ask'), { name: project.name, n: askChats.count })}</small>
+                        <small>
+                          {fill(t('welcome.recentChats.ask', askChats.count), {
+                            name: project.name,
+                            n: askChats.count,
+                          })}
+                        </small>
                         <span className="welcome-actions">
                           <button
                             type="button"

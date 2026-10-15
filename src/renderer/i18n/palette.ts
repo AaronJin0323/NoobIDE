@@ -13,6 +13,8 @@ export const paletteZhCN = {
   'palette.count': '找到 {n} 个命令',
   'palette.other': '英文：{label}',
   'palette.keys': '↑ ↓ 选择 · Enter 运行 · Esc 关闭',
+  // 命令的其他叫法（用空格分隔），搜索时也会匹配
+  'palette.keywords.newProject': '创建 新建 做网页 第一个网页 网站 开始',
 } as const;
 
 export const paletteEn: Record<keyof typeof paletteZhCN, string> = {
@@ -26,4 +28,6 @@ export const paletteEn: Record<keyof typeof paletteZhCN, string> = {
   'palette.count': 'Commands found: {n}',
   'palette.other': 'Chinese: {label}',
   'palette.keys': '↑ ↓ choose · Enter run · Esc close',
+  // Other words for a command (space-separated), also matched by the search
+  'palette.keywords.newProject': 'create make start webpage website site page',
 };

@@ -1,5 +1,6 @@
 import { en } from './en';
 import { zhCN, type MessageKey } from './zh-CN';
+import { ONE_FORMS } from './plural';
 
 export type { MessageKey };
 export type Locale = 'zh-CN' | 'en';
@@ -9,7 +10,18 @@ export const LOCALES: readonly Locale[] = ['zh-CN', 'en'];
 
 const dictionaries: Record<Locale, Record<MessageKey, string>> = { 'zh-CN': zhCN, en };
 
-export function translate(locale: Locale, key: MessageKey): string {
+/**
+ * A message in the user's language. With `count`, a message about a number of things ("{n} errors") uses the
+ * locale's singular form when the count is 1 (plural.ts); without it, or where the locale has none, the dictionary
+ * text. The caller still fills `{n}` itself.
+ */
+export type Translate = (key: MessageKey, count?: number) => string;
+
+export function translate(locale: Locale, key: MessageKey, count?: number): string {
+  if (count === 1) {
+    const one = ONE_FORMS[locale]?.[key];
+    if (one !== undefined) return one;
+  }
   return dictionaries[locale][key];
 }
 

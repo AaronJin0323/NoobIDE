@@ -12,7 +12,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { fill, formatBytes } from '../recovery/format';
 import type { LineDiff } from '../recovery/line-diff';
-import { useModalKeys } from '../workbench/focus-trap';
+import { useModalKeys, useReturnFocus } from '../workbench/focus-trap';
 import { WarningIcon } from '../workbench/icons';
 import {
   compareVersion,
@@ -64,6 +64,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
   const { t, locale } = useI18n();
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  useReturnFocus(); // focus goes back to the History button / menu entry when the dialog closes
   const [files, setFiles] = useState<readonly HistoryFile[] | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [versions, setVersions] = useState<readonly HistoryVersion[] | null>(null);

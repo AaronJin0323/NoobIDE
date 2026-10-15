@@ -64,16 +64,15 @@ export function ProblemsPanel({
   const [selected, setSelected] = useState<string | null>(null);
   const announcement = useAnnouncement(view, projectOpen);
 
+  const info = view.total - view.errors - view.warnings;
   const summary = !projectOpen
     ? t('problems.unchecked')
     : view.total === 0
       ? t('problems.none')
       : [
-          view.errors ? fill(t('problems.count.errors'), view.errors) : '',
-          view.warnings ? fill(t('problems.count.warnings'), view.warnings) : '',
-          view.total - view.errors - view.warnings
-            ? fill(t('problems.count.info'), view.total - view.errors - view.warnings)
-            : '',
+          view.errors ? fill(t('problems.count.errors', view.errors), view.errors) : '',
+          view.warnings ? fill(t('problems.count.warnings', view.warnings), view.warnings) : '',
+          info ? fill(t('problems.count.info', info), info) : '',
         ]
           .filter(Boolean)
           .join(' · ');
@@ -255,7 +254,7 @@ function useAnnouncement(view: ProblemsView, projectOpen: boolean): string {
       announced.current = activeIds(latest.current);
       if (!news) return;
       const message =
-        news.kind === 'new' ? fill(t('problems.announce.new'), news.count) : t('problems.announce.cleared');
+        news.kind === 'new' ? fill(t('problems.announce.new', news.count), news.count) : t('problems.announce.cleared');
       // A repeated identical message is still announced: alternate a trailing zero-width space.
       setText((current) => (current === message ? `${message}${ZERO_WIDTH_SPACE}` : message));
     }, ANNOUNCE_DELAY_MS);

@@ -26,6 +26,7 @@ import {
   PURPOSE_LABEL,
   PURPOSE_ORDER,
   testErrorKey,
+  withKeyStore,
 } from './ai-status';
 import './ai.css';
 
@@ -204,7 +205,7 @@ export function AiSettingsDialog({
           <p className="dialog-hint">{t('ai.settings.intro')}</p>
           {status && !status.secureStorage && (
             <p className="ais-message ais-message-error" role="alert" data-testid="ai-no-secure-storage">
-              {t('ai.settings.noSecureStorage')}
+              {withKeyStore(t('ai.settings.noSecureStorage'), t)}
             </p>
           )}
 
@@ -286,14 +287,14 @@ export function AiSettingsDialog({
                     {t('ai.settings.key.save')}
                   </button>
                 </form>
-                <p className="dialog-hint">{t('ai.settings.key.hint')}</p>
+                <p className="dialog-hint">{withKeyStore(t('ai.settings.key.hint'), t)}</p>
                 {keyMessage && (
                   <p
                     className={`ais-message ai-message-${keyMessage.tone}`}
                     role={keyMessage.tone === 'error' ? 'alert' : 'status'}
                     data-testid="ai-key-message"
                   >
-                    {t(keyMessage.key)}
+                    {withKeyStore(t(keyMessage.key), t)}
                   </p>
                 )}
                 <div className="ais-row">
@@ -420,7 +421,9 @@ export function AiSettingsDialog({
                     t={t}
                     onDone={(deleted) => {
                       setRevokeChats(0);
-                      setRevokeMessage(deleted === null ? null : fill(t('ai.history.revoke.deleted'), { n: deleted }));
+                      setRevokeMessage(
+                        deleted === null ? null : fill(t('ai.history.revoke.deleted', deleted), { n: deleted }),
+                      );
                     }}
                   />
                 )}

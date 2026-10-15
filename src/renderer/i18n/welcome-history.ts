@@ -214,7 +214,7 @@ export const welcomeHistoryEn: Record<WelcomeHistoryKey, string> = {
   'history.group.undone': 'Undone',
   'history.group.undoDone':
     'Undid this turn’s changes ({n}). The content before the undo was kept as versions, so you can restore it again.',
-  'history.group.undoPartial': 'Undid {n} change(s); {m} were not undone: {reasons}',
+  'history.group.undoPartial': '{n} changes undone; {m} not undone: {reasons}',
   'history.group.undoBusy': 'Other changes are being applied or undone; try again in a moment.',
   'history.group.notFound': 'This turn is no longer in local history (it may have been cleared).',
   'history.compareCurrent': 'Compared with the current content',

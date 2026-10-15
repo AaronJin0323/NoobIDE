@@ -393,6 +393,19 @@ export const zhCN = {
   'preview.permission.other': '其他',
   'preview.notice.permissionDeniedOther':
     '网页请求了一项浏览器权限（例如锁定鼠标或打开外部程序），预览中默认拒绝。需要试用时，可以“在浏览器中打开”。',
+  // 被拦截的链接、加载失败（用户能看懂的说明，原始错误代码只作为补充信息）
+  'preview.notice.linkBlockedNavigate':
+    '预览里只显示这个项目自己的网页，所以没有跳转到这个链接（它指向别的网站或电脑上的文件）。想试试这个链接，可以点“{button}”，在你的浏览器里打开网页后再点它。',
+  'preview.notice.linkBlockedNewWindow':
+    '预览不会打开新窗口或新标签页（例如带 target="_blank" 的链接，或 window.open），所以这个链接没有打开。想试试它，可以点“{button}”，在你的浏览器里打开网页后再点它。',
+  'preview.notice.loadFailed.server':
+    '网页没有加载出来：预览连不上 NoobIDE 的本地服务器。点“刷新”再试一次；如果还是不行，先停止预览，再重新开始。',
+  'preview.notice.loadFailed.timeout': '网页没有加载出来：等待太久没有响应。点“刷新”再试一次。',
+  'preview.notice.loadFailed.notFound': '网页没有加载出来：找不到这个文件。检查一下文件名和链接里的路径是否一致。',
+  'preview.notice.loadFailed.offline':
+    '网页没有加载出来：找不到这个网址。如果它在互联网上，请检查网络连接；预览本身不需要联网。',
+  'preview.notice.loadFailed.blocked': '网页没有加载出来：为了安全，预览拦截了这个地址。',
+  'preview.notice.loadFailed.other': '网页没有加载出来。点“刷新”再试一次；下面的错误代码可以帮助查找原因。',
   // --- end S25.4 ---
   // --- S28.1 About ---
   'about.title': '关于 NoobIDE',

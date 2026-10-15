@@ -163,6 +163,22 @@ describe('log buffer (S05.3)', () => {
     expect(batch?.dropped).toBe(8);
   });
 
+  it('keeps blocked-link notices under the batch cap (a page can open windows in a loop)', () => {
+    const buffer = new LogBuffer({ maxBatch: 3, maxMessageLength: 100 });
+    for (let i = 0; i < 50; i += 1) {
+      buffer.pushNotice({
+        source: 'page-load',
+        level: 'warning',
+        message: 'window.open blocked',
+        notice: { kind: 'link-blocked', how: 'new-window' },
+        at: i,
+      });
+    }
+    const batch = buffer.take();
+    expect(batch?.entries).toHaveLength(3);
+    expect(batch?.dropped).toBe(47);
+  });
+
   it('clear forgets pending records', () => {
     const buffer = new LogBuffer({ maxBatch: 1, maxMessageLength: 5 });
     buffer.push(entry(1));

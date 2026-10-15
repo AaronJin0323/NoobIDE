@@ -15,8 +15,8 @@ import { fill } from '../recovery/format';
 // S18.3: format command (button + Monaco's Shift+Alt+F / ⇧⌥F) on the editor handle, without importing Monaco here.
 import { activeEditor } from '../editor/editor-handle';
 import { withShortcut } from '../commands/useCommands'; // S24.1
-import { formatShortcutLabel, protectedFolderKey, type PlatformId } from '../../platform/labels';
-import { rendererPlatform } from './file-op-messages';
+import { formatShortcutLabel } from '../../platform/labels';
+import { saveErrorKey } from './file-op-messages';
 import { useInlineAiState } from '../ai/useInlineAiState'; // S32.1
 import { IndentStatus } from './IndentStatus'; // S43.2
 
@@ -73,23 +73,6 @@ function openErrorKey(code: string): MessageKey {
       return 'editor.error.notFound';
     default:
       return 'editor.error.generic';
-  }
-}
-
-export function saveErrorKey(code: string, platform: PlatformId = rendererPlatform()): MessageKey {
-  switch (code) {
-    case 'protected-folder':
-      return protectedFolderKey(platform); // S25.3
-    case 'permission-denied':
-      return 'save.error.permission';
-    case 'busy':
-      return 'save.error.busy';
-    case 'disk-full':
-      return 'save.error.diskFull';
-    case 'not-found':
-      return 'save.error.notFound';
-    default:
-      return 'save.error.generic';
   }
 }
 
@@ -245,9 +228,15 @@ export function EditorPane(props: EditorPaneProps) {
             </span>
             {notice && (
               <span className="alert-detail" data-testid="save-copy-notice" role="status">
-                {notice.path !== null
-                  ? `${t('save.copySaved')} ${notice.path}`
-                  : `${t('save.copyFailed')} ${notice.code ?? ''} ${notice.message ?? ''}`}
+                {notice.path !== null ? (
+                  `${t('save.copySaved')} ${notice.path}`
+                ) : (
+                  // The explanation first; the system's own message only as secondary detail.
+                  <>
+                    {`${t('save.copyFailed')} ${t(saveErrorKey(notice.code ?? ''))}`}
+                    {notice.message && <small>{` ${t('error.detail')}: ${notice.message}`}</small>}
+                  </>
+                )}
               </span>
             )}
           </div>

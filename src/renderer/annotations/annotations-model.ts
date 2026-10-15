@@ -480,3 +480,46 @@ export function coversStage(mode: PickMode): boolean {
 export function canSave(state: AnnotationsState): boolean {
   return state.mode.kind === 'naming' && !state.mode.saving && state.draft.trim().length > 0;
 }
+
+// ── Focus ──────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** What the strip's focus depends on: the pick mode, the note being edited and the note waiting for Delete. */
+export interface FocusState {
+  readonly mode: PickMode['kind'];
+  readonly editing: string | null;
+  readonly deleting: string | null;
+}
+
+export const focusStateOf = (state: AnnotationsState): FocusState => ({
+  mode: state.mode.kind,
+  editing: state.editing?.id ?? null,
+  deleting: state.confirmDelete,
+});
+
+/**
+ * Where the keyboard focus goes after a change, so it is never lost on <body> (WCAG 2.4.3): into the step that
+ * starts (the list, the picture, the note, the edit box, the Delete question), or back to the control that started
+ * a step that ended (the note's Edit / Delete button; the Annotate menu when the note or the mode is gone).
+ */
+export type FocusTarget =
+  | { readonly kind: 'mode'; readonly mode: 'choosing' | 'drawing' | 'naming' }
+  | { readonly kind: 'edit-input' }
+  | { readonly kind: 'delete-question' }
+  | { readonly kind: 'item-control'; readonly id: string; readonly control: 'edit' | 'delete' }
+  | { readonly kind: 'annotate-menu' };
+
+export function focusAfter(before: FocusState, now: FocusState): FocusTarget | null {
+  if (now.editing !== null && now.editing !== before.editing) return { kind: 'edit-input' };
+  if (now.deleting !== null && now.deleting !== before.deleting) return { kind: 'delete-question' };
+  if (now.mode !== before.mode && (now.mode === 'choosing' || now.mode === 'drawing' || now.mode === 'naming')) {
+    return { kind: 'mode', mode: now.mode };
+  }
+  if (before.editing !== null && now.editing === null) {
+    return { kind: 'item-control', id: before.editing, control: 'edit' };
+  }
+  if (before.deleting !== null && now.deleting === null) {
+    return { kind: 'item-control', id: before.deleting, control: 'delete' };
+  }
+  if (before.mode !== 'idle' && now.mode === 'idle') return { kind: 'annotate-menu' };
+  return null;
+}

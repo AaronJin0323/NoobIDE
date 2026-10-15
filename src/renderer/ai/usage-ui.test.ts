@@ -174,7 +174,7 @@ describe('revoking consent offers to delete the project’s chats (S39.1)', () =
     const html = renderToStaticMarkup(
       createElement(RevokeChatsPrompt, { api, projectId: 'p1', count: 2, onDone: () => undefined, t: tr('en') }),
     );
-    expect(html).toContain('This project also has 2 saved AI chat(s). Delete them too?');
+    expect(html).toContain('This project also has 2 saved AI chats. Delete them too?');
     expect(html).toContain('data-testid="ai-revoke-chats-delete"');
     expect(html).toContain('data-testid="ai-revoke-chats-keep"');
     const zh = renderToStaticMarkup(

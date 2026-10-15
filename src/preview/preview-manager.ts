@@ -1074,13 +1074,27 @@ export class PreviewManager {
         this.focusGuard.userFocused();
     });
     contents.setWindowOpenHandler(({ url }) => {
-      this.pushLog({ source: 'page-load', level: 'warning', message: 'window.open blocked', url, at: Date.now() });
+      this.pushLog({
+        source: 'page-load',
+        level: 'warning',
+        message: 'window.open blocked',
+        notice: { kind: 'link-blocked', how: 'new-window' },
+        url,
+        at: Date.now(),
+      });
       return { action: 'deny' };
     });
     const guard = (event: { preventDefault(): void }, url: string) => {
       if (isAllowedNavigation(url, origin)) return;
       event.preventDefault();
-      this.pushLog({ source: 'page-load', level: 'warning', message: 'navigation blocked', url, at: Date.now() });
+      this.pushLog({
+        source: 'page-load',
+        level: 'warning',
+        message: 'navigation blocked',
+        notice: { kind: 'link-blocked', how: 'navigate' },
+        url,
+        at: Date.now(),
+      });
     };
     contents.on('will-navigate', (event) => guard(event, event.url));
     contents.on('will-redirect', (event) => guard(event, event.url));
@@ -1222,6 +1236,7 @@ export class PreviewManager {
         source: 'page-load',
         level: 'error',
         message: errorDescription,
+        notice: { kind: 'load-failed', code: errorCode },
         url: validatedURL,
         at: Date.now(),
       });

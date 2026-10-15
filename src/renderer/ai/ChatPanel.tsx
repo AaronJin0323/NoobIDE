@@ -16,12 +16,14 @@ import {
 } from './chat-model';
 import type { AiChatExtensions, AiConsentRenderer } from './chat-extensions';
 import { contextLabel, errorExplanation, providerName } from './chat-text';
+import { withKeyStore } from './ai-status';
 import { Markdown, type MarkdownLabels } from './Markdown';
 import { CloseIcon } from './ai-icons';
 import { SavedProposal } from './SavedChatsList';
 import './ai-chat.css';
 
-type Translate = (key: MessageKey) => string;
+/** `count` picks the singular form of a counted message (i18n/plural.ts). */
+type Translate = (key: MessageKey, count?: number) => string;
 
 /** What the panel can ask the controller to do (AiChatController implements it). */
 export interface ChatPanelActions {
@@ -194,16 +196,16 @@ export function ChatPanelView({
         return <Markdown key={i} source={part.text} labels={labels} />;
       case 'step':
         return (
-          <div key={i} className="ai-step" data-testid="ai-step">
-            {extensions?.renderStep?.(part, turn) ??
-              fill(t('ai.chat.step'), { tool: part.tool, summary: part.summary })}
+          // The summary is a sentence in the user's language; the tool id is for tests and styling only.
+          <div key={i} className="ai-step" data-testid="ai-step" data-tool={part.tool}>
+            {extensions?.renderStep?.(part, turn) ?? part.summary}
           </div>
         );
       case 'proposal':
         return (
           <div key={i} className="ai-proposal" data-testid="ai-proposal">
             {extensions?.renderProposal?.(part, turn) ?? (
-              <p>{fill(t('ai.chat.proposal.unsupported'), { n: part.changes.length })}</p>
+              <p>{fill(t('ai.chat.proposal.unsupported', part.changes.length), { n: part.changes.length })}</p>
             )}
           </div>
         );
@@ -268,7 +270,7 @@ export function ChatPanelView({
           pastChats.list
         ) : stateKey && availability.kind !== 'loading' ? (
           <div className="ai-state" role="status" data-testid="ai-state" data-state={availability.kind}>
-            <p>{t(stateKey)}</p>
+            <p>{withKeyStore(t(stateKey), t)}</p>
             {availability.kind !== 'unavailable' && settingsHelp}
           </div>
         ) : (

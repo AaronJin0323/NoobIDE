@@ -156,7 +156,9 @@ describe('chat panel (S33.1)', () => {
     expect(noKey).toContain('打开 AI 设置');
     const where = render({ availability: { kind: 'no-key' } }, { locale: 'en' });
     expect(where).toContain('Settings → AI is in the “More actions” menu');
-    expect(render({ availability: { kind: 'no-secure-storage' } })).toContain('系统钥匙串不可用');
+    // Outside the app (no platform bridge) the key store is named generically, never the macOS Keychain.
+    expect(render({ availability: { kind: 'no-secure-storage' } })).toContain('系统的安全存储不可用');
+    expect(render({ availability: { kind: 'no-key' } })).not.toContain('{keyStore}');
     expect(render({ availability: { kind: 'disabled' } }, { locale: 'en' })).toContain('AI is switched off');
   });
 
@@ -174,12 +176,14 @@ describe('chat panel (S33.1)', () => {
     const agentTurn = turn({
       kind: 'agent',
       parts: [
-        { kind: 'step', tool: 'read', summary: 'index.html' },
+        { kind: 'step', tool: 'read_file', summary: '读取 index.html' },
         { kind: 'proposal', proposalId: 'x', changes: [{ kind: 'delete', relPath: 'a.css' }], reason: '没用了' },
       ],
     });
     const plain = render(withTurns(agentTurn));
-    expect(plain).toContain('read：index.html');
+    // The step reads as a sentence; the tool id is only an attribute (not shown to the user).
+    expect(plain).toContain('data-tool="read_file">读取 index.html</div>');
+    expect(plain.replace(/data-tool="[^"]*"/g, '')).not.toContain('read_file');
     expect(plain).toContain('AI 想修改 1 个文件');
     const extended = render(withTurns(agentTurn), {
       extensions: {
@@ -188,7 +192,7 @@ describe('chat panel (S33.1)', () => {
         renderProposal: (part) => createElement('span', null, `REVIEW ${part.proposalId}`),
       },
     });
-    expect(extended).toContain('STEP read');
+    expect(extended).toContain('STEP read_file');
     expect(extended).toContain('REVIEW x');
     expect(extended).toContain('data-testid="ai-kind"');
   });

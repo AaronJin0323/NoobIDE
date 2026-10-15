@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { moveSelection, normalize, searchPalette, type PaletteEntry } from './palette-model';
+import { otherLocale, translate } from '../i18n/index';
+import {
+  PALETTE_KEYWORDS,
+  keywordList,
+  moveSelection,
+  normalize,
+  searchPalette,
+  type PaletteEntry,
+} from './palette-model';
 
 const entries: PaletteEntry[] = [
   { id: 'save', label: '保存', otherLabel: 'Save', shortcut: 'Ctrl+S' },
@@ -55,5 +63,48 @@ describe('command palette search (S40.5)', () => {
     expect(moveSelection(1, 3, 'End')).toBe(2);
     expect(moveSelection(2, 3, 'Home')).toBe(0);
     expect(moveSelection(0, 0, 'ArrowDown')).toBe(-1);
+  });
+});
+
+describe('keywords: other words for a command', () => {
+  // Built like the palette does: label in the interface language, keywords from both locales.
+  const withKeywords = (locale: 'zh-CN' | 'en'): PaletteEntry[] =>
+    (['new-project', 'save', 'preview-refresh'] as const).map((id) => {
+      const label =
+        id === 'new-project' ? 'command.newProject' : id === 'save' ? 'command.save' : 'command.preview.refresh';
+      const keywords = PALETTE_KEYWORDS[id];
+      return {
+        id,
+        label: translate(locale, label),
+        otherLabel: translate(otherLocale(locale), label),
+        shortcut: null,
+        ...(keywords
+          ? {
+              keywords: [
+                ...keywordList(translate(locale, keywords)),
+                ...keywordList(translate(otherLocale(locale), keywords)),
+              ],
+            }
+          : {}),
+      };
+    });
+
+  it('“create” (and 创建) finds New project in both interface languages, like the welcome button says', () => {
+    for (const locale of ['zh-CN', 'en'] as const) {
+      for (const query of ['create', 'Create', '创建', 'webpage', '网页']) {
+        const found = searchPalette(withKeywords(locale), query);
+        expect(found[0]?.entry.id, `${locale} ${query}`).toBe('new-project');
+        expect(found[0]?.viaOther).toBe(false);
+      }
+    }
+  });
+
+  it('a label match still ranks above a keyword match', () => {
+    const entries: PaletteEntry[] = [
+      { id: 'new-project', label: 'New project…', otherLabel: '新建项目…', shortcut: null, keywords: ['save'] },
+      { id: 'save', label: 'Save', otherLabel: '保存', shortcut: null },
+    ];
+    expect(searchPalette(entries, 'save').map((m) => m.entry.id)).toEqual(['save', 'new-project']);
+    expect(keywordList('a b，c、d, e')).toEqual(['a', 'b', 'c', 'd', 'e']);
   });
 });

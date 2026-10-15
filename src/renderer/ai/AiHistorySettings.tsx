@@ -7,7 +7,8 @@ import { fill } from '../recovery/format';
 import { notifyAiStatusChanged, PROVIDER_LABEL } from './ai-status';
 import './ai-history.css';
 
-type Translate = (key: MessageKey) => string;
+/** `count` picks the singular form of a counted message (i18n/plural.ts). */
+type Translate = (key: MessageKey, count?: number) => string;
 
 export const DEFAULT_DAILY_BUDGET = 200_000;
 
@@ -180,7 +181,7 @@ export function RevokeChatsPrompt({
 }) {
   return (
     <div className="ais-section" role="group" aria-label={t('ai.history.title')} data-testid="ai-revoke-chats">
-      <p>{fill(t('ai.history.revoke.ask'), { n: count })}</p>
+      <p>{fill(t('ai.history.revoke.ask', count), { n: count })}</p>
       <div className="ais-row">
         <button
           type="button"

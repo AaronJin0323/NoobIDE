@@ -180,8 +180,11 @@ test('window.open is denied and off-origin navigation is blocked (S04.3)', async
   const url = await evalInPreview<string>(app, 'location.href');
   expect(new URL(url).origin).toBe(origin);
   expect(await app.evaluate(({ webContents }) => webContents.getAllWebContents().length)).toBe(windowsBefore);
-  await expect(page.getByTestId('preview-console')).toContainText('window.open blocked');
-  await expect(page.getByTestId('preview-console')).toContainText('navigation blocked');
+  // Explained in the user's language (not the English fallback), pointing at the “Open in browser” button.
+  const blocked = page.getByTestId('preview-console').locator('.preview-console-line[data-notice="link-blocked"]');
+  await expect.poll(() => blocked.count()).toBeGreaterThanOrEqual(2);
+  await expect(page.getByTestId('preview-console')).not.toContainText('navigation blocked');
+  await expect(page.getByTestId('preview-console')).not.toContainText('window.open blocked');
 });
 
 test('edit → save → the preview shows the new heading (S04.4)', async () => {

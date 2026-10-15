@@ -1163,6 +1163,11 @@ button {
   flex: none;
   color: var(--muted);
 }
+.preview-console-detail {
+  flex: none;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
 
 /* ── S17.1: Problems panel ─────────────────────────────── */
 .problems-panel:not([hidden]) {

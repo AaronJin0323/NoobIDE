@@ -82,8 +82,8 @@ export function AgentProposalCard({ part, turn, store, api, host }: AgentProposa
       {undoResult && lastProposal === part && (
         <p role="status" data-testid="agent-undo-result">
           {undoResult.failures.length === 0
-            ? fill(t('agent.undo.done'), { n: undoResult.undone })
-            : fill(t('agent.undo.partial'), {
+            ? fill(t('agent.undo.done', undoResult.undone), { n: undoResult.undone })
+            : fill(t('agent.undo.partial', undoResult.undone), {
                 n: undoResult.undone,
                 m: undoResult.failures.length,
                 reasons: undoResult.failures
