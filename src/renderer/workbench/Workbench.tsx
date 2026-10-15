@@ -53,11 +53,13 @@ import { FixCard } from '../problems/FixCard';
 import { createFixHost } from '../problems/fix-host';
 import { useProblemFix } from '../problems/useProblemFix';
 import { usePreviewLoads } from '../problems/usePreviewLoads';
-import { requestReveal } from '../editor/editor-handle';
+import { activeEditor, requestReveal } from '../editor/editor-handle';
 // S23: onboarding walkthrough, final task and glossary
 import { useWalkthrough } from '../walkthrough/useWalkthrough';
 import { WalkthroughPanel } from '../walkthrough/WalkthroughPanel';
 import { GlossaryDialog } from '../walkthrough/GlossaryDialog';
+// S33: AI chat panel, "Explain this code" and "Ask AI" on problems
+import { useAiChat } from '../ai/useAiChat';
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
@@ -747,6 +749,20 @@ export function Workbench() {
   );
   // --- end S22.4/S22.5 ---
 
+  // --- S33: AI chat. The chat reads the open buffers and the editor selection only when the user adds them as context
+  // (and sends exactly what the chips show); every AI surface is absent without the AI bridge or with AI off. ---
+  const aiHost = useMemo(
+    () => ({
+      activeFile: () => (docRef.current.project ? docRef.current.active : null),
+      fileText: (relPath: string) => savers.current.get(relPath)?.text,
+      relPathOf: (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath,
+      editorSelection: () => activeEditor()?.selection?.() ?? null,
+    }),
+    [],
+  );
+  const ai = useAiChat(doc.project?.projectId ?? null, aiHost);
+  // --- end S33 ---
+
   // Closing the window or quitting: main asks first; we answer after every file is saved (S10.6).
   useEffect(() => {
     if (!bridge) return;
@@ -807,6 +823,9 @@ export function Workbench() {
     // S23: onboarding help
     'help-walkthrough': () => walkthroughRef.current.open(),
     'help-glossary': () => setGlossaryFor({ term: null }),
+    // S33: AI chat and "Explain this code" (only while AI is offered)
+    'ai-toggle-chat': ai.shown ? ai.toggle : undefined,
+    'ai-explain-code': ai.shown ? () => ai.explainSelection() : undefined,
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
   };
   const commands = useCommands(platform, commandContext, commandHandlers);
@@ -918,6 +937,7 @@ export function Workbench() {
           problemsOpen={visible.problemsPanel}
           onToggleFiles={() => dispatchLayout({ type: 'toggleFiles', narrow })}
           onToggleProblems={() => dispatchLayout({ type: 'toggleProblems' })}
+          ai={ai.shown ? { open: ai.open, onToggle: ai.toggle } : undefined}
         />
         <FilesPanel
           hidden={!visible.files}
@@ -1001,13 +1021,19 @@ export function Workbench() {
         <PreviewPane
           hidden={!visible.preview}
           covered={
-            (narrow && visible.files) || wizardOpen || historyFor !== null || aboutOpen.open || glossaryFor !== null
+            (narrow && visible.files) ||
+            (narrow && ai.panel !== null) || // S33: the chat overlays the column in a narrow window
+            wizardOpen ||
+            historyFor !== null ||
+            aboutOpen.open ||
+            glossaryFor !== null
           }
           projectId={project?.projectId ?? null}
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
           autoStartProjectId={autoPreview}
           onRenamePage={renamePage}
         />
+        {ai.panel /* S33.1 AI chat region */}
       </div>
       {/* S23: walkthrough strip / final task card (in the layout flow: never covers the editor or the preview) */}
       <WalkthroughPanel
@@ -1033,6 +1059,7 @@ export function Workbench() {
             onGoTo={goTo}
             onFix={problemFix.apply}
             fixBusy={problemFix.fix?.phase === 'applying' || problemFix.fix?.phase === 'undoing'}
+            onAskAi={ai.shown ? ai.askAboutProblem : undefined}
           />
         )}
         fixCard={
