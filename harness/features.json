@@ -833,8 +833,8 @@
       "depends_on": [
         "S05.1"
       ],
-      "status": "blocked",
-      "evidence": "Log buffer capped and shown as 'N messages dropped' / 'at least N' (src/preview/log-buffer.ts + unit tests; e2e S05.3: <=200 lines shown, dropped notice, 20/20 keystrokes delivered, workbench renderer timer lag <=15 ms). NOT met: 'IDE input stays responsive' - Electron emits a main-process event per console message; ~650k msgs/6 s stalls the main/UI thread 3.2-4.7 s even with the flood guard (8 s without). Unblocked by S05.7 (in-page rate limiter before page scripts, decision needed; see docs/decisions/0010) @ 9566bea"
+      "status": "done",
+      "evidence": "Criterion proven with the S05.7 in-page limiter: e2e flood: 20/20 keystrokes <=1 ms latency, longest main stall 11-23 ms (<200), workbench lag <=9 ms, <=200 lines + 'N messages dropped' (limiter summaries counted as dropped); macOS arm64 M3 Pro @ 5ba4155"
     },
     {
       "id": "S05.4",
@@ -862,8 +862,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": "Reopened after preview security review @ bba57a2: page reaches other loopback/LAN services via DNS names resolving to 127.0.0.1 (localtest.me) and the machine's LAN IP; policy only blocks loopback hostnames. Fix in progress (W1 agent)."
+      "status": "done",
+      "evidence": "SOCKS5 proxy deciding on resolved addresses (src/preview/preview-proxy.ts, address-policy.ts; <-loopback>, interface networks, mapped/NAT64), disableDialogs + will-prevent-unload, SW cancelled + cleared, sanitizeLogUrl; decision 0015. e2e preview-isolation S05.5 (24 attacks incl. file://, traversal, symlink, other loopback ports, rebind.test->127.0.0.1, localtest.me, machine name, LAN IP, 0.0.0.0, ws, img, service worker: all failed, otherHits 0; proxy refusals asserted; dialogs/beforeunload/print test; start-start-stop) + tests/integration/preview-proxy.test.ts (27) + unit tests; without the proxy the e2e reads the other service via rebind.test/localtest.me/LAN IP. Independent review findings fixed. verify green, full e2e 196/196 on macOS arm64 @ 5ba4155"
     },
     {
       "id": "S05.6",
@@ -895,8 +895,8 @@
       "depends_on": [
         "S05.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "In-page getter-based console limit (1000/s per document) installed over CDP into documents, OOPIFs and dedicated workers (src/preview/page-guard.ts, installPageGuard); decision 0016 (DevTools coexistence, page observability, residual: cached native reference ~2 s stall). e2e flood fixture 预览 日志洪水: longest main-thread stall 11-23 ms (was 8-9 s), worker flood 16-22 ms; flood records keep index.html line 18; S05.4 records unchanged (errors.js:1/:3); M3 Pro macOS 27.2 @ 5ba4155"
     },
     {
       "id": "S06.1",

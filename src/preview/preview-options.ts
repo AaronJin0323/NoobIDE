@@ -20,6 +20,8 @@ export function createPreviewWebPreferences(partition: string): WebPreferences {
     webviewTag: false,
     navigateOnDragDrop: false,
     safeDialogs: true,
+    // S05.5: alert/confirm/prompt/beforeunload never open a dialog; a page cannot block the IDE with one.
+    disableDialogs: true,
     spellcheck: false,
     devTools: true,
   };
@@ -34,6 +36,7 @@ export const REQUIRED_PREVIEW_PREFERENCES = {
   webSecurity: true,
   allowRunningInsecureContent: false,
   webviewTag: false,
+  disableDialogs: true,
 } as const satisfies Partial<WebPreferences>;
 
 /** Names of required preview preferences that `prefs` violates, including any preload (empty array = isolated). */

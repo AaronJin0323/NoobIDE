@@ -1,6 +1,6 @@
 # 0010 — Capturing preview diagnostics: webContents events, not CDP
 
-- **Status:** accepted (spike; revisit in S05.7 / S16.2)
+- **Status:** accepted (spike; revisit in S16.2); console volume amended by 0016 (in-page rate limit)
 - **Date:** 2026-10-14
 - **Feature:** S05.3, S05.4
 
@@ -49,5 +49,5 @@ within 100 ms; skipped messages are then reported as "at least N dropped".
   listener). Keystrokes are delayed, not lost, and the workbench renderer stays at ≤ 15 ms timer lag. S05.3 stays
   blocked; S05.7 tracks an in-page rate limiter installed before page scripts (CDP
   `Page.addScriptToEvaluateOnNewDocument` with getter-based console methods keeps the user's call site as the
-  message location).
+  message location). Done in 0016: longest main stall during the flood 16–23 ms on an M3 Pro.
 - Verified on Windows x64 by the e2e suite; macOS arm64 runs the same suite on the CI runner (S06).

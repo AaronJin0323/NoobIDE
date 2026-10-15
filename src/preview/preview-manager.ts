@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+import { networkInterfaces } from 'node:os';
 import {
   session as electronSession,
   WebContentsView,
@@ -15,9 +17,11 @@ import {
   type RefreshMode,
 } from '../shared/ipc/preview-contract';
 import { err, ok, type Result } from '../shared/result';
-import { DEFAULT_LOG_BUFFER, LogBuffer } from './log-buffer';
+import { DEFAULT_LOG_BUFFER, LogBuffer, sanitizeLogUrl } from './log-buffer';
+import { CONSOLE_LIMIT, pageGuardSource, parseLimiterSummary } from './page-guard';
 import { createPreviewWebPreferences, insecurePreviewPreferences, partitionForProject } from './preview-options';
 import { decidePreviewRequest, isAllowedNavigation } from './request-policy';
+import { PreviewProxy } from './preview-proxy';
 import { PreviewServer, TOKEN_HEADER } from './static-server';
 import { NotOwnerError, ServerRegistry, type ServerOwner } from './server-registry';
 import { DEFAULT_TYPING_PAUSE_MS, RefreshScheduler } from './refresh-scheduler';
@@ -69,7 +73,10 @@ export interface PreviewManagerDeps {
   readonly typingPauseMs?: number;
   /** S15.4: opens a URL in the user's default browser (shell.openExternal). */
   openExternal?(url: string): Promise<void>;
-  /** S16.2: runtime capture adapter. */
+  /**
+   * S16.2: runtime capture adapter. Receives every raw record admitted from the page — after the in-page console
+   * rate limit (docs/decisions/0016) and with its URLs sanitised (decision 0015).
+   */
   readonly capture?: PreviewCaptureHook;
 }
 
@@ -78,19 +85,29 @@ interface LivePreview {
   /** S14.6: webContents id of the workbench window that started it (the owner). */
   readonly windowId: number;
   readonly server: PreviewServer;
+  /** The session's only route onto the network (docs/decisions/0015). */
+  readonly proxy: PreviewProxy;
   readonly view: WebContentsView;
   readonly partition: string;
   readonly window: BrowserWindow;
   readonly onWindowClosed: () => void;
   readonly timers: ReturnType<typeof setInterval>[];
+  /** Per-preview secret in the page guard's summary messages, so a page cannot forge them (decision 0016). */
+  readonly guardNonce: string;
+  /** Whether the page guard (console limit) was installed; false only if installing timed out or failed. */
+  pageGuarded: boolean;
   ping: { readonly id: number; readonly startedAt: number } | null;
   pingCounter: number;
 }
 
 const RECENT_RECORDS = 100;
-/** Console flood guard: more than FLOOD_LIMIT messages within FLOOD_WINDOW_MS pauses capture for FLOOD_PAUSE_MS. */
-const FLOOD_WINDOW_MS = 100;
-const FLOOD_LIMIT = 500;
+/**
+ * Console flood guard: more than FLOOD_LIMIT messages within FLOOD_WINDOW_MS pauses capture for FLOOD_PAUSE_MS.
+ * The in-page rate limit (page-guard.ts) normally keeps a page far below this; the guard is the backstop for a page
+ * that bypasses it (decision 0016), so it allows the limiter's budget with room for two windows back to back.
+ */
+const FLOOD_WINDOW_MS = 1_000;
+const FLOOD_LIMIT = 3 * CONSOLE_LIMIT;
 const FLOOD_PAUSE_MS = 1_000;
 const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 };
 
@@ -104,7 +121,8 @@ export class PreviewManager {
   /** Incremented on every start/stop so late async results of an older preview are ignored. */
   private generation = 0;
   private readonly configuredSessions = new WeakSet<Session>();
-  /** Metadata of blocked requests for tests and diagnostics: scheme + host only, never paths or contents. */
+  /** Metadata of blocked requests for tests and diagnostics: scheme + host only, never paths or contents.
+   * `scheme: 'proxy'` marks connections the network proxy refused (docs/decisions/0015). */
   readonly blockedRequests: { readonly scheme: string; readonly host: string }[] = [];
   /** The most recent raw records (S05.4) for diagnostics and tests; bounded, cleared with the preview. */
   private recent: PreviewLogEntry[] = [];
@@ -116,6 +134,7 @@ export class PreviewManager {
   private readonly servers = new ServerRegistry<PreviewServer>((root, options) => PreviewServer.start(root, options));
   /** A save arrived while the page was loading; reload when the load finishes. */
   private reloadPending = false;
+  private startQueue: Promise<unknown> = Promise.resolve();
 
   /** S14.2: automatic refresh after a confirmed save and a typing pause. */
   private readonly refresher: RefreshScheduler;
@@ -131,12 +150,34 @@ export class PreviewManager {
     return this.status;
   }
 
-  async start(projectId: string, window: BrowserWindow): Promise<Result<PreviewStatus, PreviewStartError>> {
+  /**
+   * Starts are serialised: each one reconfigures the per-project session (proxy, webRequest handlers), so a stale
+   * start must never interleave with a newer one. A newer start (or Stop) invalidates an older one through
+   * `generation`; the older one then cleans up at its next check.
+   */
+  start(projectId: string, window: BrowserWindow): Promise<Result<PreviewStatus, PreviewStartError>> {
+    this.generation += 1; // invalidate a start that is still in progress
+    // A Stop (or a newer Start) while this one waits in the queue cancels it before it begins.
+    const ticket = this.generation;
+    const run = this.startQueue.then(() =>
+      this.generation === ticket ? this.startNow(projectId, window, ticket) : ok(this.status),
+    );
+    this.startQueue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async startNow(
+    projectId: string,
+    window: BrowserWindow,
+    ticket: number,
+  ): Promise<Result<PreviewStatus, PreviewStartError>> {
     const root = this.deps.rootOf(projectId);
     if (root === undefined) return err('unknown-project', 'project is not open');
     if (window.isDestroyed()) return err('no-window', 'window is gone');
-    await this.stop({ announce: false });
-    const generation = ++this.generation;
+    await this.stop({ announce: false }); // bumps generation once
+    // Another Start or a Stop arrived while the old preview was stopping: this start is no longer wanted.
+    if (this.generation !== ticket + 1) return ok(this.status);
+    const generation = this.generation;
     this.startingWindow = window;
     const owner: ServerOwner = { projectId, windowId: window.webContents.id };
     this.startingOwner = owner;
@@ -160,45 +201,97 @@ export class PreviewManager {
     }
     // S13.2: the configured entry page ('' = the server's index.html); a broken config never blocks the preview.
     // Read while this start is current; the generation check below catches a Stop that arrived meanwhile.
-    const entryPath = (await this.deps.entryPathOf?.(projectId).catch(() => '')) ?? '';
+    // Bounded: starts are serialised, so one that never settles would block every later Start.
+    const entryPath = await withTimeout(
+      this.deps.entryPathOf?.(projectId).catch(() => '') ?? Promise.resolve(''),
+      5_000,
+      '',
+    );
     if (generation !== this.generation || window.isDestroyed()) {
       await this.servers.release(projectId, owner);
       return ok(this.status);
     }
 
     const partition = partitionForProject(server.root);
+    const ses = electronSession.fromPartition(partition);
     const webPreferences = createPreviewWebPreferences(partition);
     const insecure = insecurePreviewPreferences(webPreferences);
     if (insecure.length > 0) {
       await this.servers.release(projectId);
       throw new Error(`insecure preview webPreferences: ${insecure.join(', ')}`);
     }
+    // S05.5: every request of the session goes through the proxy, which decides on resolved addresses. Service
+    // workers left by an earlier run are removed (new registrations are refused in configureSession).
+    let proxy: PreviewProxy | undefined;
     try {
-      return this.attachView(projectId, window, owner, server, partition, webPreferences, entryPath);
+      proxy = await this.startProxy(ses, server);
+      this.configureSession(ses, server);
+      await ses.clearStorageData({ storages: ['serviceworkers'] });
     } catch (e) {
+      await proxy?.close();
+      await this.servers.release(projectId, owner);
+      if (this.startingOwner === owner) this.startingOwner = null;
+      if (generation === this.generation) this.apply(window, projectId, { type: 'server-failed' });
+      return err('server-failed', e instanceof Error ? e.message : 'proxy failed', e);
+    }
+    if (generation !== this.generation || window.isDestroyed()) {
+      await proxy.close();
+      await this.servers.release(projectId, owner);
+      return ok(this.status);
+    }
+    try {
+      const view = { generation, proxy, partition, webPreferences, entryPath };
+      return await this.attachView(projectId, window, owner, server, view);
+    } catch (e) {
+      const current = generation === this.generation; // a Stop/Start meanwhile owns the status
       // S14.6: nothing may keep listening without a view (e.g. the window went away mid-start).
       if (this.live?.projectId === projectId) await this.stop({ announce: false });
-      else await this.servers.release(projectId);
+      else {
+        await proxy.close();
+        await this.servers.release(projectId);
+      }
       if (this.startingOwner === owner) this.startingOwner = null;
       this.startingWindow = null;
-      if (!window.isDestroyed()) this.apply(window, projectId, { type: 'server-failed' });
+      if (!window.isDestroyed() && current) {
+        this.apply(window, projectId, { type: 'server-failed' });
+      }
       return err('server-failed', e instanceof Error ? e.message : 'preview view failed', e);
     }
   }
 
-  private attachView(
+  private async attachView(
     projectId: string,
     window: BrowserWindow,
     owner: ServerOwner,
     server: PreviewServer,
-    partition: string,
-    webPreferences: Electron.WebPreferences,
-    entryPath: string,
-  ): Result<PreviewStatus, PreviewStartError> {
-    const ses = electronSession.fromPartition(partition);
-    this.configureSession(ses, server);
+    options: {
+      readonly generation: number;
+      readonly proxy: PreviewProxy;
+      readonly partition: string;
+      readonly webPreferences: Electron.WebPreferences;
+      readonly entryPath: string;
+    },
+  ): Promise<Result<PreviewStatus, PreviewStartError>> {
+    const { proxy, partition, webPreferences, entryPath } = options;
     const view = new WebContentsView({ webPreferences });
-    view.setBackgroundColor('#ffffff');
+    const guardNonce = randomBytes(8).toString('hex');
+    let pageGuarded: boolean;
+    try {
+      view.setBackgroundColor('#ffffff');
+      // No UDP outside the proxy: WebRTC cannot reach local or LAN addresses directly.
+      view.webContents.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
+      // S05.7: the console rate limit must be in place before the first page script runs.
+      pageGuarded = await installPageGuard(view.webContents, { source: pageGuardSource(guardNonce) });
+    } catch (e) {
+      if (!view.webContents.isDestroyed()) view.webContents.close(); // no orphaned renderer
+      throw e;
+    }
+    if (options.generation !== this.generation || window.isDestroyed()) {
+      view.webContents.close();
+      await proxy.close();
+      await this.servers.release(projectId, owner);
+      return ok(this.status);
+    }
     const onWindowClosed = () => {
       void this.stop({ announce: false });
       void this.servers.releaseWindow(owner.windowId); // S14.6: defence in depth
@@ -208,11 +301,14 @@ export class PreviewManager {
       projectId,
       windowId: owner.windowId,
       server,
+      proxy,
       view,
       partition,
       window,
       onWindowClosed,
       timers: [],
+      guardNonce,
+      pageGuarded,
       ping: null,
       pingCounter: 0,
     };
@@ -265,6 +361,7 @@ export class PreviewManager {
       contents.close();
     }
     this.logs.clear();
+    await live.proxy.close();
     await this.servers.release(live.projectId);
     this.apply((options.announce ?? true) ? live.window : null, null, { type: 'stop' });
     return this.status;
@@ -410,6 +507,7 @@ export class PreviewManager {
         ? (contents as unknown as { getLastWebPreferences(): Record<string, unknown> | null }).getLastWebPreferences()
         : null,
       blockedRequests: [...this.blockedRequests],
+      pageGuarded: live?.pageGuarded ?? null,
       recentRecords: [...this.recent],
     };
   }
@@ -451,7 +549,18 @@ export class PreviewManager {
       if (this.blockedRequests.length < 500) this.blockedRequests.push(requestMeta(details.url));
       callback({ cancel: true });
     });
-    ses.webRequest.onBeforeSendHeaders({ urls: [`${origin}/*`] }, (details, callback) => {
+    ses.webRequest.onBeforeSendHeaders((details, callback) => {
+      // S05.5: no service workers. A registration would outlive refreshes and restarts and could answer requests
+      // in place of the project's files; Chromium marks the worker's script request with this header.
+      if (Object.keys(details.requestHeaders).some((h) => h.toLowerCase() === 'service-worker')) {
+        if (this.blockedRequests.length < 500) this.blockedRequests.push({ scheme: 'service-worker', host: '' });
+        callback({ cancel: true });
+        return;
+      }
+      if (urlOriginOf(details.url) !== origin) {
+        callback({});
+        return;
+      }
       callback({ requestHeaders: { ...details.requestHeaders, [TOKEN_HEADER]: server.token } });
     });
     ses.webRequest.onCompleted((details) => {
@@ -481,6 +590,42 @@ export class PreviewManager {
     });
   }
 
+  /** Starts the session's network proxy and routes every request of the session through it (decision 0015). */
+  private async startProxy(ses: Session, server: PreviewServer): Promise<PreviewProxy> {
+    const proxy = await PreviewProxy.start({
+      serverHost: '127.0.0.1',
+      serverPort: server.port,
+      // Chromium's own resolver (network service): same answers the page would get, no libuv threadpool use.
+      resolve: async (host) => (await ses.resolveHost(host)).endpoints.map((e) => e.address),
+      // This machine's addresses and the networks they sit in: with IPv6 (and public IPv4 LANs) the LAN's
+      // devices have global addresses, so "not private" is not enough.
+      localNetworks: () =>
+        Object.values(networkInterfaces())
+          .flat()
+          .filter((i) => i !== undefined && !i.internal)
+          .map((i) => i?.cidr ?? '')
+          .filter((c) => c !== ''),
+      localAddresses: () =>
+        Object.values(networkInterfaces())
+          .flat()
+          .map((i) => i?.address ?? '')
+          .filter((a) => a !== ''),
+      onBlocked: ({ host, port }) => {
+        if (this.blockedRequests.length < 500) this.blockedRequests.push({ scheme: 'proxy', host: `${host}:${port}` });
+      },
+    });
+    try {
+      // `<-loopback>` removes Chromium's implicit loopback bypass: even 127.0.0.1 goes through the proxy, so no
+      // request type that webRequest does not see (e.g. WebTransport) can reach a loopback service directly.
+      await ses.setProxy({ mode: 'fixed_servers', proxyRules: proxy.proxyRules, proxyBypassRules: '<-loopback>' });
+      await ses.closeAllConnections();
+    } catch (e) {
+      await proxy.close();
+      throw e;
+    }
+    return proxy;
+  }
+
   private wireContents(live: LivePreview, contents: WebContents): void {
     const origin = live.server.origin;
     const isCurrent = () => this.live === live;
@@ -496,6 +641,15 @@ export class PreviewManager {
     contents.on('will-navigate', (event) => guard(event, event.url));
     contents.on('will-redirect', (event) => guard(event, event.url));
     contents.on('will-attach-webview', (event) => event.preventDefault());
+    // S05.5: a beforeunload handler must never keep the page alive: refresh, Stop and closing the IDE always win.
+    contents.on('will-prevent-unload', (event) => event.preventDefault());
+    // The page guard (docs/decisions/0016) stays installed for the view's lifetime; reinstall if it was detached.
+    contents.debugger.on('detach', () => {
+      if (!isCurrent() || contents.isDestroyed()) return;
+      void installPageGuard(contents, { source: pageGuardSource(live.guardNonce), navigateFirst: false }).then((ok) => {
+        live.pageGuarded = ok;
+      });
+    });
 
     // Console flood guard (S05.3). Electron builds an event object in the main process for every console message
     // while a listener is attached; a page logging ~400k messages/s would keep main (and with it all keyboard and
@@ -526,6 +680,12 @@ export class PreviewManager {
       const { message, level, lineNumber, sourceId } = event;
       // Electron's own development-only warnings ("Electron Security Warning…") are not the user's output.
       if (sourceId.startsWith('node:electron/')) return;
+      // The in-page rate limit (S05.7) reports what it suppressed; the IDE shows it as dropped messages.
+      const suppressed = parseLimiterSummary(message, sourceId, live.guardNonce);
+      if (suppressed !== null) {
+        this.logs.addDropped(suppressed);
+        return;
+      }
       this.pushLog({
         source: /^Uncaught\b/.test(message) ? 'exception' : 'console',
         level,
@@ -650,8 +810,14 @@ export class PreviewManager {
     this.send(window, { kind: 'status', status });
   }
 
-  private pushLog(entry: PreviewLogEntry): void {
+  private pushLog(raw: PreviewLogEntry): void {
     if (!this.live) return;
+    // S05.5: URLs can be long or carry content (data: URLs, credentials); records only keep a sanitised form.
+    const entry: PreviewLogEntry = {
+      ...raw,
+      ...(raw.url === undefined ? {} : { url: sanitizeLogUrl(raw.url) }),
+      ...(raw.initiator === undefined ? {} : { initiator: sanitizeLogUrl(raw.initiator) }),
+    };
     this.deps.capture?.entry(entry);
     this.logs.push(entry);
     if (this.recent.length >= RECENT_RECORDS) this.recent.shift();
@@ -677,6 +843,103 @@ export class PreviewManager {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
       window.webContents.send(PREVIEW_EVENT_CHANNEL, event);
     }
+  }
+}
+
+const GUARD_TIMEOUT_MS = 5_000;
+const guardListening = new WeakSet<WebContents>();
+const guardSources = new WeakMap<WebContents, string>();
+const AUTO_ATTACH = { autoAttach: true, waitForDebuggerOnStart: true, flatten: true } as const;
+
+/**
+ * Installs the page guard (console rate limit, alert reporting — page-guard.ts, decision 0016) through the DevTools
+ * protocol, before any page script runs: into every future document of the view, every out-of-process iframe and
+ * every dedicated worker (workers send their console messages to main too). Other DevTools clients (the user's
+ * DevTools) coexist. `Page.addScriptToEvaluateOnNewDocument` needs the Page domain and an existing document: on a
+ * view that never navigated the commands never answer, so a fresh view first loads about:blank. Best effort with a
+ * timeout: without the guard the preview still works and main's flood guard still bounds the console.
+ */
+async function installPageGuard(
+  contents: WebContents,
+  options: { readonly source: string; readonly navigateFirst?: boolean },
+): Promise<boolean> {
+  guardSources.set(contents, options.source);
+  const install = async () => {
+    if (options.navigateFirst ?? true) await contents.loadURL('about:blank');
+    const dbg = contents.debugger;
+    if (!dbg.isAttached()) dbg.attach('1.3');
+    if (!guardListening.has(contents)) {
+      guardListening.add(contents);
+      dbg.on('message', (_event, method, params: GuardEventParams, sessionId?: string) => {
+        if (contents.isDestroyed()) return;
+        const session = sessionId || undefined;
+        if (method === 'Page.javascriptDialogOpening') {
+          // With the Page domain enabled Chromium may wait for a protocol client to answer a JavaScript dialog.
+          // Never wait: leave the page on beforeunload, dismiss everything else.
+          dbg
+            .sendCommand('Page.handleJavaScriptDialog', { accept: params.type === 'beforeunload' }, session)
+            .catch(() => undefined);
+        } else if (method === 'Target.attachedToTarget' && params.sessionId && params.targetInfo) {
+          void guardChildTarget(dbg, params.sessionId, params.targetInfo.type, guardSources.get(contents) ?? '');
+        }
+      });
+    }
+    await dbg.sendCommand('Page.enable');
+    await dbg.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: options.source });
+    // Workers and out-of-process iframes start paused until the guard is in place (guardChildTarget).
+    await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH);
+    return true;
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const installed = await Promise.race([
+    install().catch(() => false),
+    new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(false), GUARD_TIMEOUT_MS);
+    }),
+  ]);
+  clearTimeout(timer);
+  return installed;
+}
+
+interface GuardEventParams {
+  readonly type?: string;
+  readonly sessionId?: string;
+  readonly targetInfo?: { readonly type: string };
+}
+
+/** Puts the guard into an auto-attached child target, then always lets it run (it waits for us). */
+async function guardChildTarget(dbg: Electron.Debugger, sessionId: string, type: string, source: string) {
+  try {
+    if (type === 'worker') {
+      await dbg.sendCommand('Runtime.evaluate', { expression: source }, sessionId);
+      await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH, sessionId).catch(() => undefined); // nested workers
+    } else if (type === 'iframe') {
+      await dbg.sendCommand('Page.enable', {}, sessionId);
+      await dbg.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source }, sessionId);
+      await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH, sessionId).catch(() => undefined);
+    }
+  } catch {
+    // The target went away or refused; it must still not stay paused.
+  } finally {
+    await dbg.sendCommand('Runtime.runIfWaitingForDebugger', {}, sessionId).catch(() => undefined);
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => {
+      timer = setTimeout(() => resolve(fallback), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+function urlOriginOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
   }
 }
 
