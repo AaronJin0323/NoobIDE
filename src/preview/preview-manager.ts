@@ -110,7 +110,19 @@ interface LivePreview {
   loadGeneration: number | null;
   /** Decision 0016 amendment: the flood guard stopped a script of this page load (explained once per load). */
   floodStopped: boolean;
+  /** The flood guard's last decisions, newest last (counts and timings only, never content; for the e2e suite). */
+  readonly floodTrace: FloodTraceEntry[];
 }
+
+/** One flood guard decision: a stop sent, or its answer. `ms` is main's time since the counting window began. */
+interface FloodTraceEntry {
+  readonly kind: 'stop-sent' | 'stop-answered';
+  readonly ms: number;
+  readonly inWindow: number;
+  readonly limit: number;
+  readonly stopped?: boolean;
+}
+const FLOOD_TRACE = 20;
 
 const RECENT_RECORDS = 100;
 /**
@@ -352,6 +364,7 @@ export class PreviewManager {
       pingCounter: 0,
       loadGeneration: null,
       floodStopped: false,
+      floodTrace: [],
     };
     this.live = live;
     this.startingWindow = null;
@@ -561,6 +574,7 @@ export class PreviewManager {
         : null,
       blockedRequests: [...this.blockedRequests],
       pageGuarded: live?.pageGuarded ?? null,
+      floodTrace: live ? [...live.floodTrace] : [],
       recentRecords: [...this.recent],
     };
   }
@@ -802,7 +816,13 @@ export class PreviewManager {
         sinceStop += 1;
         if (stopping || sinceStop <= CONSOLE_LIMIT) return;
         stopping = true;
+        const trace = (entry: FloodTraceEntry) => {
+          if (live.floodTrace.length >= FLOOD_TRACE) live.floodTrace.shift();
+          live.floodTrace.push(entry);
+        };
+        trace({ kind: 'stop-sent', ms: now - windowStart, inWindow, limit });
         void stopRunawayScripts(contents).then((stopped) => {
+          trace({ kind: 'stop-answered', ms: Date.now() - windowStart, inWindow, limit, stopped });
           stopping = false;
           sinceStop = 0;
           if (!isCurrent() || contents.isDestroyed()) return;

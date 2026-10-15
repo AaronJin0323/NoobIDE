@@ -278,7 +278,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   );
   console.log(
     `cached console.log reference in the page (limiter bypassed): ${pageBypass.result} after ${pageBypass.ms} ms; ` +
-      `longest main stall ${pageBypass.max} ms`,
+      `longest main stall ${pageBypass.max} ms; guard ${JSON.stringify((await previewInfo(app)).floodTrace)}`,
   );
   expect(pageBypass.result).toBe('stopped');
   expect(pageBypass.ms).toBeLessThan(1_000);
@@ -304,7 +304,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   );
   console.log(
     `cached console.log reference in a worker (limiter bypassed): ${workerBypass.result}; ` +
-      `longest main stall ${workerBypass.max} ms`,
+      `longest main stall ${workerBypass.max} ms; guard ${JSON.stringify((await previewInfo(app)).floodTrace)}`,
   );
   expect(workerBypass.result).toBe('stopped');
   expect(workerBypass.max).toBeLessThan(200);
