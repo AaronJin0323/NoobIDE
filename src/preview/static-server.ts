@@ -1,6 +1,12 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { open, realpath, stat } from 'node:fs/promises';
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import {
+  createServer,
+  request as httpRequest,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { mimeTypeFor } from './mime';
 import { parseRequestTarget, resolveInRoot } from './request-path';
@@ -95,6 +101,35 @@ export class PreviewServer {
     }
     port = (server.address() as AddressInfo).port;
     return new PreviewServer(server, root, port, token, grants);
+  }
+
+  /**
+   * S25.1/S25.2 health check after sleep (decision 0027): whether the listening socket still answers HTTP. Asks for
+   * a dotfile path without the ownership secret, so the answer (403) comes from the request checks alone: no file
+   * is opened, nothing is served, and the secret never leaves the process. Any HTTP answer counts as alive.
+   */
+  answers(timeoutMs = 2_000): Promise<boolean> {
+    if (!this.server.listening) return Promise.resolve(false);
+    return new Promise<boolean>((resolve) => {
+      const req = httpRequest(
+        {
+          host: LOOPBACK_HOST,
+          port: this.port,
+          method: 'HEAD',
+          path: '/.noobide-health',
+          headers: { Host: `${LOOPBACK_HOST}:${this.port}` },
+          agent: false,
+          timeout: timeoutMs,
+        },
+        (res) => {
+          res.resume();
+          resolve(true);
+        },
+      );
+      req.on('timeout', () => req.destroy());
+      req.on('error', () => resolve(false));
+      req.end();
+    });
   }
 
   async close(): Promise<void> {

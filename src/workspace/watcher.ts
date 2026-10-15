@@ -130,6 +130,37 @@ export class ProjectWatcher {
     this.knownCount = 0;
   }
 
+  /**
+   * S25.1/S25.2 (decision 0027): the computer woke from sleep. An OS watch can die silently or miss events while
+   * the machine sleeps (FSEvents may coalesce or drop history; ReadDirectoryChangesW handles can be dropped by a
+   * network or USB volume going away), so the watch is re-attached on a fresh snapshot and `rescan` is reported:
+   * listeners reload the tree and compare open files with the disk. Serialised after batches already in flight;
+   * pending raw events are dropped because the rescan covers them. Never rejects.
+   */
+  resync(): Promise<void> {
+    if (this.closed) return Promise.resolve();
+    this.flushing = this.flushing
+      .then(async () => {
+        if (this.closed) return;
+        this.detach();
+        if (this.timer) clearTimeout(this.timer);
+        if (this.restartTimer) clearTimeout(this.restartTimer);
+        this.timer = null;
+        this.restartTimer = null;
+        this.pending.clear();
+        this.early.clear();
+        this.held.clear();
+        await this.rebuildSnapshot();
+        if (this.closed) return;
+        this.attach();
+        this.emit([{ type: 'rescan' }]);
+      })
+      .catch(() => {
+        if (!this.closed) this.emit([{ type: 'rescan' }]);
+      });
+    return this.flushing;
+  }
+
   /** Resolves when every batch received so far has been emitted (tests). */
   async idle(): Promise<void> {
     await this.flushing;
@@ -142,6 +173,7 @@ export class ProjectWatcher {
 
   private attach(): void {
     if (this.closed) return;
+    this.detach(); // never two OS watches (a resync can overlap the first start)
     try {
       const watcher = this.watchFn(this.root, (filename) => this.onRaw(filename));
       watcher.on('error', () => this.lost(watcher));

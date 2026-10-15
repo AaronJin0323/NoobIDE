@@ -2377,7 +2377,7 @@
       ],
       "verify": "manual-win",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
@@ -2391,7 +2391,7 @@
       ],
       "verify": "manual-mac",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

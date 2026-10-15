@@ -126,7 +126,9 @@ export type PreviewNotice =
   /** S25.4: the page asked for a permission; the preview denies every permission. */
   | { readonly kind: 'permission-denied'; readonly permission: PreviewPermissionKind }
   /** Decision 0016 amendment: the page bypassed the console limit; its running script was stopped. */
-  | { readonly kind: 'console-flood-stopped' };
+  | { readonly kind: 'console-flood-stopped' }
+  /** S25.1/S25.2: after sleep the preview was restarted because its server or its page had stopped answering. */
+  | { readonly kind: 'restarted-after-sleep'; readonly reason: 'server' | 'page' };
 
 export type PreviewEvent =
   | { readonly kind: 'status'; readonly status: PreviewStatus }

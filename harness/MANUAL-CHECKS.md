@@ -575,3 +575,51 @@ cost: a few cents per provider.
   events and the app log).
 - **Result:** _(owner fills in: providers run, models, pass/fail, cost seen in the provider console, date)_
 - **Close with:** `node harness/session.mjs set S36.1 done --evidence "review: docs/reviews/G9.md + live: npm run test:ai-live <providers>, <date>, 10/10 passed"`
+
+### S25.1 — Sleep/wake recovery on Windows x64 (real sleep)
+
+Recovery is proven with a simulated powerMonitor, a simulated clock jump and injected faults
+(`src/main/wake-recovery.test.ts`, `tests/integration/wake-recovery.test.ts`, `tests/e2e/sleep-wake.spec.ts`,
+decision 0027). This confirms it on a real sleep, where the OS decides what dies.
+
+- **Platform:** Windows 11 x64 laptop (ideally one with Modern Standby: `powercfg /a` lists "Standby (S0 Low Power
+  Idle)"), on battery and on mains if possible
+- **Build:** the packaged app of the commit that set S25.1 to needs_manual_check (`npm run package`, run
+  `out\NoobIDE-win32-x64\NoobIDE.exe`), or an installer built from it
+- **Steps:**
+  1. Open a project whose path has Chinese characters and spaces (e.g. `Documents\网页 练习\睡眠 测试`, with an
+     `index.html` that has `<script>setInterval(() => document.title = Date.now(), 1000)</script>`). Start the
+     preview; wait for "运行中 / Running". Open `index.html` and type a line `BEFORE_SLEEP`, then go straight to step 2
+     (autosave may write it first after the typing pause; either way it must not be lost).
+  2. Start menu › Power › **Sleep** (or close the lid). Leave it asleep for **at least 5 minutes**.
+  3. While it sleeps nothing else is needed. Wake it, unlock it, and within the first minute:
+     - check that `BEFORE_SLEEP` is still in the editor (unsaved, or saved by autosave) and no recovery prompt appears;
+     - in File Explorer, create `醒来 新建.html` in the project folder: it must appear in NoobIDE's file tree within a
+       few seconds;
+     - edit `index.html` in NoobIDE (add `AFTER_WAKE`), press Ctrl+S: the status says "已保存 / Saved" and the file on
+       disk contains both lines (open it in Notepad);
+     - the preview refreshes with the change (automatic refresh) and the page's title keeps ticking.
+  4. App menu › Open logs folder: the newest log has a `wake-recovery` line after `power-suspend` (trigger, watcher,
+     server, page; no paths or file contents).
+  5. Repeat steps 1–3 once with the lid closed for ≥ 5 min on battery (Modern Standby may not report sleep: the log
+     line then says `trigger: clock-jump` or `unlock-screen`).
+- **Expected:** no edit is lost and saving works; the tree shows the new file; the preview either keeps running
+  without a reload or, if its server or page did not survive the sleep, restarts once by itself with the console
+  line "电脑刚才处于睡眠状态…" / "The computer was asleep…". It never stays "Starting" or "Not responding".
+- **Result:** _(owner fills in: pass/fail per step, the `wake-recovery` log line, Windows build, date)_
+- **Close with:** `node harness/session.mjs set S25.1 done --evidence "manual: Windows 11 <build>, <date>, sleep ≥5 min, steps 1-5 pass"`
+
+### S25.2 — Sleep/wake recovery on macOS (physical Apple Silicon Mac, real sleep)
+
+- **Platform:** macOS (current stable and the minimum supported version, if available) on Apple Silicon
+- **Build:** the packaged arm64 app of the same commit (`npm run package` on the Mac, or the CI artifact)
+- **Steps:**
+  1. As S25.1 step 1, with the project in `~/Documents/网页 练习/睡眠 测试` (grant the Documents access prompt).
+  2. Apple menu › **Sleep** (or close the lid). Leave it asleep for **at least 5 minutes**.
+  3. Wake, unlock, and run the checks of S25.1 step 3 (create the file in Finder; save with Cmd+S).
+  4. Also lock the screen only (Ctrl+Cmd+Q) for 1 minute with the app hidden (Cmd+H), unlock, and check the preview
+     still answers and no restart notice appears for a healthy page.
+  5. Check the log as in S25.1 step 4 (the app menu › Open logs folder).
+- **Expected:** as S25.1. The lock-only case gives at most one `wake-recovery` line with `server: ok`, `page: ok`.
+- **Result:** _(owner fills in: pass/fail per step, the `wake-recovery` log line, macOS version, date)_
+- **Close with:** `node harness/session.mjs set S25.2 done --evidence "manual: macOS <version> arm64, <date>, sleep ≥5 min, steps 1-5 pass"`
