@@ -347,7 +347,10 @@ export class PreviewManager {
       // No UDP outside the proxy: WebRTC cannot reach local or LAN addresses directly.
       view.webContents.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
       // S05.7: the console rate limit must be in place before the first page script runs.
-      pageGuarded = await installPageGuard(view.webContents, { source: pageGuardSource(guardNonce) });
+      pageGuarded = await installPageGuard(view.webContents, {
+        source: pageGuardSource(guardNonce),
+        wanted: () => options.generation === this.generation && !window.isDestroyed(),
+      });
     } catch (e) {
       if (!view.webContents.isDestroyed()) view.webContents.close(); // no orphaned renderer
       throw e;
@@ -1098,7 +1101,19 @@ export class PreviewManager {
   }
 }
 
-const GUARD_TIMEOUT_MS = 5_000;
+/**
+ * Longest the page guard's DevTools commands may take once the view has a document. They need the view's renderer
+ * process, which a loaded machine is slow to start (S05.8: 2–5 s measured under full CPU load on Windows x64).
+ */
+const GUARD_TIMEOUT_MS = 15_000;
+/**
+ * S05.8: a new view's first navigation (to about:blank, which needs no request) can stay pending for 30–45 s on a
+ * loaded machine before it commits (measured on Windows x64, stock Electron 44 too), while a second load of the same
+ * URL issued meanwhile commits at once. So the first document is asked for again every FIRST_DOCUMENT_RETRY_MS, for
+ * at most FIRST_DOCUMENT_TIMEOUT_MS; a Stop or a newer Start ends the wait.
+ */
+const FIRST_DOCUMENT_RETRY_MS = 1_000;
+const FIRST_DOCUMENT_TIMEOUT_MS = 30_000;
 const guardListening = new WeakSet<WebContents>();
 const guardSources = new WeakMap<WebContents, string>();
 /** Auto-attached child targets (dedicated workers, out-of-process iframes) of each preview, by protocol session. */
@@ -1229,14 +1244,27 @@ const AUTO_ATTACH = { autoAttach: true, waitForDebuggerOnStart: true, flatten: t
  * DevTools) coexist. `Page.addScriptToEvaluateOnNewDocument` needs the Page domain and an existing document: on a
  * view that never navigated the commands never answer, so a fresh view first loads about:blank. Best effort with a
  * timeout: without the guard the preview still works and main's flood guard still bounds the console.
+ *
+ * S05.8: the first document comes first and on its own (showFirstDocument), then the commands are bounded by
+ * GUARD_TIMEOUT_MS. With one 5 s bound over both, a first navigation stuck on a loaded machine made the preview run
+ * without its guard after 5 s of "Starting", the about:blank load still pending when the page's own load began.
+ * The e2e suite never saw it with Playwright's DevTools connection to every view; tests/e2e/preview-restore.spec.ts
+ * restarts the app without that connection.
  */
 async function installPageGuard(
   contents: WebContents,
-  options: { readonly source: string; readonly navigateFirst?: boolean },
+  options: {
+    readonly source: string;
+    readonly navigateFirst?: boolean;
+    /** False once a Stop or a newer Start made this preview obsolete: stop waiting for the first document. */
+    readonly wanted?: () => boolean;
+  },
 ): Promise<boolean> {
   guardSources.set(contents, options.source);
+  if (options.navigateFirst ?? true) {
+    if (!(await showFirstDocument(contents, options.wanted ?? (() => true)))) return false;
+  }
   const install = async () => {
-    if (options.navigateFirst ?? true) await contents.loadURL('about:blank');
     const dbg = contents.debugger;
     if (!dbg.isAttached()) dbg.attach('1.3');
     if (!guardListening.has(contents)) {
@@ -1274,15 +1302,48 @@ async function installPageGuard(
     await dbg.sendCommand('Target.setAutoAttach', AUTO_ATTACH);
     return true;
   };
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const installed = await Promise.race([
-    install().catch(() => false),
-    new Promise<boolean>((resolve) => {
-      timer = setTimeout(() => resolve(false), GUARD_TIMEOUT_MS);
-    }),
-  ]);
-  clearTimeout(timer);
-  return installed;
+  const wanted = options.wanted ?? (() => true);
+  if (!wanted()) return false;
+  // Bounded, and given up as soon as the preview is no longer wanted: starts are serialised, so a Stop or a newer
+  // Start must not wait for these commands. A late install still guards the view's later documents.
+  const running = install().catch(() => false);
+  const deadline = Date.now() + GUARD_TIMEOUT_MS;
+  let installed: boolean | null = null;
+  void running.then((ok) => (installed = ok));
+  while (installed === null && Date.now() < deadline && wanted() && !contents.isDestroyed()) {
+    await withTimeout(running, 250, false);
+  }
+  return installed === true;
+}
+
+/**
+ * S05.8: loads about:blank into a new view and resolves true once a document is there; false when the view went
+ * away, the preview is no longer wanted or FIRST_DOCUMENT_TIMEOUT_MS passed. A load still pending after
+ * FIRST_DOCUMENT_RETRY_MS is replaced by a new one (the replaced load rejects as aborted; that is expected). When
+ * either bound runs out the preview still opens, without the guard (decision 0016: best effort for the page itself,
+ * fail-closed only for workers and frames) — measured: 7–8 s to a guarded page under full load, 0.4 s idle.
+ */
+async function showFirstDocument(contents: WebContents, wanted: () => boolean): Promise<boolean> {
+  const deadline = Date.now() + FIRST_DOCUMENT_TIMEOUT_MS;
+  let shown = false;
+  while (!shown && !contents.isDestroyed() && Date.now() < deadline && wanted()) {
+    const attempt = contents.loadURL('about:blank').then(
+      () => true,
+      () => false,
+    );
+    const retryAt = Date.now() + FIRST_DOCUMENT_RETRY_MS;
+    let settled = false;
+    void attempt.then(() => (settled = true));
+    while (!settled && Date.now() < retryAt && wanted() && !contents.isDestroyed()) {
+      await withTimeout(attempt, 250, false);
+    }
+    shown = settled && (await attempt);
+    // A load that failed by itself (not replaced by the next attempt) waits out its turn: no tight loop of loads.
+    while (!shown && Date.now() < retryAt && wanted() && !contents.isDestroyed()) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  return shown;
 }
 
 interface GuardEventParams {

@@ -1025,15 +1025,16 @@
       "acceptance": [
         "The cause is identified and explained in a code comment; the fix is in the product (main process), not in a test",
         "A new e2e restores a session with a running preview WITHOUT Playwright attached to the preview (the app driven only through the main-process inspector) and sees the preview reach Running on every one of at least 5 restarts",
-        "The page guard still runs before the first page script and in auto-attached workers and iframes (existing S05.7 tests stay green)"
+        "The page guard still runs before the first page script and in auto-attached workers and iframes (existing S05.7 tests stay green)",
+        "Without Playwright attached and with the CPU saturated (one busy thread per core x1.5), a restored preview reaches Running with the page guard installed (pageGuarded true) on every one of at least 6 restarts, each within 15 s"
       ],
       "verify": "auto",
       "depends_on": [
         "S05.7",
         "S14.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Cause: a new preview view's first navigation (about:blank) can stay pending 30-45 s on a loaded machine without a DevTools client (also stock Electron 44); one 5 s bound over it + the guard commands made previews start unguarded after 5 s (Session 12's stall). Fix in main: showFirstDocument re-issues about:blank every 1 s (<=30 s, cancelled by Stop/newer Start), guard commands bounded 15 s and cancellable. tests/e2e/preview-restore.spec.ts (5 restarts, no Playwright, 2 busy threads/core): FAILS on old code (pageGuarded false), passes twice on the fix. Repro at 1.5x load: 6/6 restarts running+guarded in 7-8 s (before: unguarded ~6 s or 49 s); idle 0.4 s. preview e2e specs 40/40; independent review findings fixed."
     },
     {
       "id": "S06.1",
