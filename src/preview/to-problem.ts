@@ -1,4 +1,4 @@
-import { normalizePageError, projectPathFromUrl } from '../diagnostics/normalize';
+import { normalizePageError, projectFileFromUrl, projectPathFromUrl } from '../diagnostics/normalize';
 import type { PreviewLogEntry } from '../shared/ipc/preview-contract';
 import type { PreviewAttribution, ProblemInput, ResourceType } from '../shared/problem';
 
@@ -8,7 +8,8 @@ import type { PreviewAttribution, ProblemInput, ResourceType } from '../shared/p
  *
  * - `exception` (Chromium's "Uncaught …" console record) → normalizePageError → source 'runtime'.
  * - `console` error / warning → source 'console' (info and debug output are not problems).
- * - `network` → source 'resource', code 'resource-failed', with the requested path and HTTP status / net error.
+ * - `network` → source 'resource', code 'resource-failed', with the requested path, the initiator file (S16.4) and
+ *   HTTP status / net error.
  * - `page-load` records (blocked navigation, window.open) are preview notices, not problems → null.
  */
 export interface ToProblemOptions {
@@ -32,7 +33,7 @@ export function previewEntryToProblem(entry: PreviewLogEntry, opts: ToProblemOpt
       );
     case 'console': {
       if (entry.level !== 'error' && entry.level !== 'warning') return null;
-      const file = entry.url ? projectPathFromUrl(entry.url, opts.previewOrigin) : undefined;
+      const file = entry.url ? projectFileFromUrl(entry.url, opts.previewOrigin) : undefined;
       return {
         source: 'console',
         severity: entry.level === 'error' ? 'error' : 'warning',
@@ -50,6 +51,8 @@ export function previewEntryToProblem(entry: PreviewLogEntry, opts: ToProblemOpt
       const requestedPath = projectPathFromUrl(entry.url, opts.previewOrigin);
       const resourceType = mapResourceType(entry.resourceType);
       const netError = /^net::[A-Z_]+/.exec(entry.message)?.[0];
+      // S16.4: who asked for it — the page, the stylesheet (url(...)) or the importing module (the referrer).
+      const initiatorFile = entry.initiator ? projectFileFromUrl(entry.initiator, opts.previewOrigin) : undefined;
       return {
         source: 'resource',
         severity: 'error',
@@ -60,6 +63,7 @@ export function previewEntryToProblem(entry: PreviewLogEntry, opts: ToProblemOpt
         resource: {
           requestedUrl: entry.url,
           ...(requestedPath ? { requestedPath } : {}),
+          ...(initiatorFile ? { initiatorFile } : {}),
           ...(entry.status !== undefined ? { status: entry.status } : {}),
           ...(resourceType ? { resourceType } : {}),
           ...(netError ? { netError } : {}),

@@ -4,9 +4,9 @@
  *
  * - Identical problems (same dedupe key) collapse into one record whose count goes up. The first occurrence's
  *   message and stack stay on the record verbatim; the latest repeat is kept verbatim in `last`.
- * - New records are admitted through a token bucket per store (burst + steady rate). Excess new records are dropped
- *   and counted per source, so the UI can say "N messages were not shown". Repeats of existing records are always
- *   counted: that costs no memory.
+ * - New records are admitted through a token bucket per source (burst + steady rate), so a console flood cannot
+ *   starve the runtime error that follows it. Excess new records are dropped and counted per source, so the UI can
+ *   say "N messages were not shown". Repeats of existing records are always counted: that costs no memory.
  * - Each source has its own capacity (console output cannot push runtime errors out). When full, the record that was
  *   seen least recently is evicted (an LRU ring buffer) and the eviction is counted.
  * - `revision` increases on every visible change so a UI can redraw at its own frame rate instead of per event.
@@ -26,9 +26,9 @@ import {
 export interface ProblemStoreOptions {
   /** Max records kept per source. Default: 200 for static/runtime/resource, 1000 for console. */
   readonly capacity?: Partial<Record<ProblemSource, number>>;
-  /** New records admitted per second once the burst is used up. Default 50. */
+  /** New records admitted per second and source once the burst is used up. Default 50. */
   readonly ratePerSecond?: number;
-  /** New records admitted in a burst. Default 200. */
+  /** New records admitted in a burst, per source. Default 200. */
   readonly burst?: number;
   /** Clock in milliseconds. Default Date.now. */
   readonly now?: () => number;
@@ -54,8 +54,9 @@ export class ProblemStore {
   private readonly rate: number;
   private readonly burst: number;
   private readonly now: () => number;
-  private tokens: number;
-  private refilledAt: number;
+  /** Token bucket per source. */
+  private readonly tokens: Record<ProblemSource, number>;
+  private readonly refilledAt: Record<ProblemSource, number>;
   private seq = 0;
   private readonly dropped = zeroCounts();
   private readonly evicted = zeroCounts();
@@ -66,8 +67,9 @@ export class ProblemStore {
     this.rate = options.ratePerSecond ?? 50;
     this.burst = options.burst ?? 200;
     this.now = options.now ?? Date.now;
-    this.tokens = this.burst;
-    this.refilledAt = this.now();
+    const start = this.now();
+    this.tokens = { static: this.burst, runtime: this.burst, resource: this.burst, console: this.burst };
+    this.refilledAt = { static: start, runtime: start, resource: start, console: start };
     for (const s of PROBLEM_SOURCES) this.bySource.set(s, new Map());
   }
 
@@ -86,7 +88,7 @@ export class ProblemStore {
       this.rev++;
       return 'repeat';
     }
-    if (!this.takeToken()) {
+    if (!this.takeToken(input.source)) {
       this.dropped[input.source]++;
       this.rev++;
       return 'dropped';
@@ -162,13 +164,13 @@ export class ProblemStore {
     return b;
   }
 
-  private takeToken(): boolean {
+  private takeToken(source: ProblemSource): boolean {
     const t = this.now();
-    const elapsed = Math.max(0, t - this.refilledAt);
-    this.tokens = Math.min(this.burst, this.tokens + (elapsed / 1000) * this.rate);
-    this.refilledAt = t;
-    if (this.tokens < 1) return false;
-    this.tokens -= 1;
+    const elapsed = Math.max(0, t - this.refilledAt[source]);
+    this.tokens[source] = Math.min(this.burst, this.tokens[source] + (elapsed / 1000) * this.rate);
+    this.refilledAt[source] = t;
+    if (this.tokens[source] < 1) return false;
+    this.tokens[source] -= 1;
     return true;
   }
 }

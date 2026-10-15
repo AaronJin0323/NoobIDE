@@ -225,4 +225,9 @@ export const en: Record<DiagnosticsMessageKey, string> = {
   'crossOrigin.check.crossorigin':
     'If that website supports CORS, you can also add the crossorigin attribute to the <script> to see the error details.',
   'crossOrigin.check.console': 'Look in the console for other, more specific errors at the same time.',
+  'crossOrigin.external.title': 'A script from another website reported an error: {url}',
+  'crossOrigin.external.explanation':
+    'The browser reported this error inside a script loaded from another website ({url}), not in a file of your project, so NoobIDE cannot take you to a line in your code. The page itself only receives "Script error." for it: browsers hide the details of errors in scripts from other websites.',
+  'crossOrigin.external.check.calls':
+    'Check the lines of your own code that use this library just before the error: the values you pass to it, and whether the page is ready (for example, the element exists).',
 };
