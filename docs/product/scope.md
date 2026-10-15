@@ -67,8 +67,10 @@ Every capability above is claimed only after a test or validation scenario prove
 | Windows arm64     | —            | Not shipped in v1     | —             | —                         | Assess later (H.4)                      |
 | Intel Mac / Linux | —            | Not shipped in v1     | —             | —                         | —                                       |
 
-Minimums are chosen together with the pinned Electron version in S02 and may not be lower than what that Electron
-release supports. They are recorded in `docs/decisions/0003-platform-support.md` (S01.4) and in the release notes.
+Minimums are chosen together with the pinned Electron version (44.x, decision 0004) and may not be lower than what that
+Electron release supports. They are still open (owner task H.1); once chosen they will be recorded in
+`docs/decisions/0003-platform-support.md` (S01.4, not written yet) and in the release notes
+([template](../release/release-notes-template.md)).
 Rosetta does not count as Mac support ([PLAN §11](../../PLAN.md)).
 
 ## How we know v1 is done

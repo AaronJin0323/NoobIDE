@@ -22,7 +22,6 @@ export const zhCN = {
   'rail.files': '文件',
   'rail.problems': '问题',
   'files.empty': '还没有打开文件夹。',
-  'files.emptyHint': '打开文件夹和新建项目会在后续版本加入。',
   'editor.loading': '正在加载编辑器…',
   'editor.welcomeTab': '示例.html',
   'editor.sampleBadge': '示例 · 未保存到磁盘',
