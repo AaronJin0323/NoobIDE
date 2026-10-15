@@ -33,6 +33,8 @@ export interface ChatPanelActions {
   removeChip(id: string): void;
   addCurrentFile(): boolean;
   addSelection(): boolean;
+  /** S38.2: adds a Preview chip (snapshot of the running preview). */
+  addPreview(): Promise<boolean>;
   send(): Promise<void>;
   stop(): Promise<void>;
   consentGiven(): Promise<void>;
@@ -86,6 +88,49 @@ function turnStatusKey(turn: ChatTurn): MessageKey | null {
     case 'error':
       return null;
   }
+}
+
+/**
+ * S38.2: what a Preview chip will send — the exact text (as plain text: page content is never rendered as HTML) and
+ * the screenshot thumbnail. A native disclosure, so it opens with the keyboard (Tab, then Enter or Space).
+ */
+function PreviewChipDetails({
+  text,
+  thumbnail,
+  imageSent,
+  t,
+}: {
+  readonly text: string;
+  readonly thumbnail: string | null;
+  readonly imageSent: boolean;
+  readonly t: Translate;
+}) {
+  return (
+    <details className="ai-chip-preview" data-testid="ai-preview-details">
+      <summary>{t('ai.chat.context.previewShow')}</summary>
+      <p className="ai-hint">{t('ai.chat.context.previewTextLabel')}</p>
+      <pre className="ai-preview-text" data-testid="ai-preview-text" tabIndex={0}>
+        {text}
+      </pre>
+      {thumbnail ? (
+        <>
+          <img
+            className="ai-preview-thumbnail"
+            data-testid="ai-preview-thumbnail"
+            src={thumbnail}
+            alt={t('ai.chat.context.previewImageAlt')}
+          />
+          <p className="ai-hint" data-testid="ai-preview-image-note" data-sent={imageSent}>
+            {t(imageSent ? 'ai.chat.context.previewImageSent' : 'ai.chat.context.previewImageNotSent')}
+          </p>
+        </>
+      ) : (
+        <p className="ai-hint" data-testid="ai-preview-image-note" data-sent={false}>
+          {t('ai.chat.context.previewNoImage')}
+        </p>
+      )}
+    </details>
+  );
 }
 
 /** The panel with its translation passed in (unit-tested with renderToStaticMarkup). */
@@ -318,6 +363,14 @@ export function ChatPanelView({
                   return (
                     <li key={chip.id} className="ai-chip" data-testid="ai-chip" data-kind={chip.item.kind}>
                       <span className="ai-chip-label">{label}</span>
+                      {chip.preview && (
+                        <PreviewChipDetails
+                          text={chip.item.text ?? ''}
+                          thumbnail={chip.preview.thumbnail}
+                          imageSent={chip.preview.imagesAccepted[draft.kind]}
+                          t={t}
+                        />
+                      )}
                       <button
                         type="button"
                         className="ai-chip-remove"
@@ -354,6 +407,14 @@ export function ChatPanelView({
                   onClick={() => void actions.addSelection()}
                 >
                   {t('ai.chat.context.addSelection')}
+                </button>
+                <button
+                  type="button"
+                  className="quiet-button"
+                  data-testid="ai-add-preview"
+                  onClick={() => void actions.addPreview()}
+                >
+                  {t('ai.chat.context.addPreview')}
                 </button>
               </div>
             )}

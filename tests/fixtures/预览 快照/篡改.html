@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>篡改</title>
+  </head>
+  <body>
+    <h1>真正的标题</h1>
+    <button id="real">真正的按钮</button>
+    <script>
+      // S38.1 hostile page: tries to change what the snapshot reads, and to notice it.
+      const fake = () => 'HACKED';
+      Element.prototype.getAttribute = fake;
+      Element.prototype.hasAttribute = () => true;
+      Object.defineProperty(Node.prototype, 'nodeValue', { get: fake });
+      Object.defineProperty(Element.prototype, 'localName', { get: () => 'h1' });
+      Object.defineProperty(Element.prototype, 'firstElementChild', { get: () => null });
+      document.createTreeWalker = () => {
+        throw new Error('HACKED');
+      };
+      performance.now = () => 0;
+      String.prototype.replace = fake;
+      JSON.stringify = fake;
+      Error.prepareStackTrace = () => 'HACKED';
+      window.__seen = [];
+      new MutationObserver((records) => window.__seen.push(records.length)).observe(document, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        characterData: true,
+      });
+    </script>
+  </body>
+</html>

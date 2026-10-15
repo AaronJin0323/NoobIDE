@@ -350,6 +350,7 @@ describe('past chats UI (S39.1)', () => {
       setKind: noop,
       removeChip: noop,
       addCurrentFile: () => true,
+      addPreview: async () => true,
       addSelection: () => true,
       send: async () => undefined,
       stop: async () => undefined,

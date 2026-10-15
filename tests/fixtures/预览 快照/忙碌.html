@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>忙碌</title>
+  </head>
+  <body>
+    <h1>一会儿就会卡住</h1>
+    <script>
+      // S38.1 hostile page: loads normally, then its main thread is busy for 8 seconds.
+      setTimeout(() => {
+        const end = Date.now() + 8000;
+        while (Date.now() < end) {}
+      }, 300);
+    </script>
+  </body>
+</html>

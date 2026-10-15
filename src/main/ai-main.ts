@@ -12,7 +12,7 @@ import {
 } from '../ai/fake-provider';
 import { createTestEncryptor, KeyStore, type KeyEncryptor } from '../ai/keys';
 import { realProviderFactory } from '../ai/providers/index';
-import { AiService, type AiLog } from '../ai/service';
+import { AiService, type AiLog, type AiServiceDeps } from '../ai/service';
 import { createAgentRunner } from '../ai/agent/runner';
 import { createProjectPorts, type ProjectPortsDeps } from '../ai/agent/ports';
 import { ScriptedModel } from '../ai/agent/scripted-model';
@@ -39,7 +39,7 @@ export interface AiMainOptions {
   readonly recent?: Pick<RecentProjects, 'rootOf'>;
   /** S34 agent tools: runtime problems (problemsBridge.capture) and the preview (PreviewManager). */
   readonly problems?: ProjectPortsDeps['problems'];
-  readonly preview?: ProjectPortsDeps['preview'];
+  readonly preview?: ProjectPortsDeps['preview'] & NonNullable<AiServiceDeps['preview']>;
   /** Electron safeStorage. */
   readonly safeStorage: KeyEncryptor;
   readonly logger: RecoveryLogger;
@@ -137,10 +137,11 @@ export function setupAi(options: AiMainOptions): AiMain {
     },
     // S34: the agent loop over main's existing services (no new file-system path).
     agentRunner: createAgentRunner({
-      projectPorts: (projectId) =>
+      projectPorts: (projectId, owner) =>
         createProjectPorts({
           projects,
           projectId,
+          ...(owner !== undefined ? { owner } : {}),
           ...(options.problems ? { problems: options.problems } : {}),
           ...(options.preview ? { preview: options.preview } : {}),
         }),
@@ -149,6 +150,7 @@ export function setupAi(options: AiMainOptions): AiMain {
     ...(fake ? { agentModel: () => new ScriptedModel(fakeAgentScript(fakeAgentScriptName)) } : {}),
     log: options.log,
     usage, // S39.2
+    ...(options.preview ? { preview: options.preview } : {}), // S38.2: Preview chip snapshots
   });
   registerAiIpcHandlers(options.ipcMain, { allowedOrigin: options.allowedOrigin, service });
   registerAiHistoryIpcHandlers(options.ipcMain, {

@@ -10,10 +10,12 @@ import { cutOffNote, errorMessage, stepSummary, type AgentLocale, type StepKey }
 import {
   ModelPortError,
   type AgentContentBlock,
+  type AgentImage,
   type AgentMessage,
   type ModelPort,
   type ModelStopReason,
 } from './model-port';
+import { neutralizeData } from '../prompts';
 import { agentSystemPrompt } from './prompt';
 import { validateToolInput } from './tool-schema';
 import {
@@ -82,6 +84,8 @@ export interface AgentLoopOptions {
   readonly newId: () => string;
   /** Random per run; marks data frames in tool results. */
   readonly nonce: string;
+  /** S38.2: screenshots of attached Preview items (sent only when the model accepts images). */
+  readonly contextImages?: readonly AgentImage[];
   readonly now?: () => number;
 }
 
@@ -111,9 +115,12 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
   const usage = { inputTokens: 0, outputTokens: 0 };
   let workedMs = 0;
   let textEmitted = false;
+  /** S38.2: screenshots this turn may still send. */
+  const screenshots = { left: LIMITS.screenshots };
 
   try {
-    const first = await firstUserMessage(request, ports, options.nonce);
+    const images = model.acceptsImages ? (options.contextImages ?? []) : [];
+    const first = await firstUserMessage(request, ports, options.nonce, images);
     if (first === null) return fail('context-too-large');
     const messages: AgentMessage[] = [...historyMessages(request), first];
     const system = agentSystemPrompt(locale);
@@ -252,7 +259,13 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
         role: 'user',
         content: calls.map((c) => {
           const r = results.get(c.id) ?? { isError: true, content: 'The tool was not run.' };
-          return { type: 'tool_result', toolUseId: c.id, content: r.content, isError: r.isError };
+          return {
+            type: 'tool_result',
+            toolUseId: c.id,
+            content: r.content,
+            isError: r.isError,
+            ...(r.images && r.images.length > 0 && model.acceptsImages ? { images: r.images } : {}),
+          };
         }),
       });
     }
@@ -281,7 +294,13 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
     const input = c.input as Record<string, unknown>;
     let outcome: ToolOutcome;
     try {
-      outcome = await runReadTool(c.name, input, { ports, nonce: options.nonce, signal });
+      outcome = await runReadTool(c.name, input, {
+        ports,
+        nonce: options.nonce,
+        signal,
+        acceptsImages: model.acceptsImages === true,
+        screenshots,
+      });
     } catch {
       outcome = { isError: true, content: 'The tool failed unexpectedly.' };
     }
@@ -343,6 +362,7 @@ async function firstUserMessage(
   request: AgentAiRequest,
   ports: AgentProjectPorts,
   nonce: string,
+  images: readonly AgentImage[],
 ): Promise<AgentMessage | null> {
   const blocks: AgentContentBlock[] = [];
   let size = 0;
@@ -355,8 +375,11 @@ async function firstUserMessage(
     if (item.relPath) attributes.push(`path=${JSON.stringify(item.relPath)}`);
     if (item.startLine) attributes.push(`lines="${item.startLine}-${item.endLine ?? item.startLine}"`);
     if (item.label) attributes.push(`label=${JSON.stringify(item.label.slice(0, 200))}`);
-    blocks.push({ type: 'text', text: frameData(nonce, attributes.join(' '), text) });
+    // Page text (S38.2) can be anything a webpage shows: it cannot close the chat's framing tags either.
+    const body = item.kind === 'preview' ? neutralizeData(text) : text;
+    blocks.push({ type: 'text', text: frameData(nonce, attributes.join(' '), body) });
   }
+  for (const image of images) blocks.push({ type: 'image', mediaType: image.mediaType, data: image.data });
   blocks.push({ type: 'text', text: request.prompt });
   return { role: 'user', content: blocks };
 }

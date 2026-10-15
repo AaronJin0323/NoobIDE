@@ -186,6 +186,7 @@ const api: NoobideApi = {
     request: (request) => ipcRenderer.invoke(AI_CHANNELS.request, request),
     cancel: (request) => ipcRenderer.invoke(AI_CHANNELS.cancel, request),
     resolveProposal: (decision) => ipcRenderer.invoke(AI_CHANNELS.resolveProposal, decision),
+    previewSnapshot: (request) => ipcRenderer.invoke(AI_CHANNELS.previewSnapshot, request), // S38.2
     onEvent: (listener) => {
       const wrapped = (_event: unknown, payload: AiEvent) => listener(payload);
       ipcRenderer.on(AI_EVENT_CHANNEL, wrapped);

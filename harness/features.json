@@ -3103,8 +3103,8 @@
       "depends_on": [
         "S36.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/preview-snapshot.spec.ts (6 e2e: isolation facts identical after 21 snapshots, tampered prototypes, 150k-element and 200k-element pages bounded <1s with main round trip <5ms, busy and endless-loop pages not-available within budget, Stop/Start recover) + src/preview/page-snapshot.test.ts (12) + preview/preview-isolation/preview-manager e2e green; decision 0026; independent subagent review fixed (d795f2d); verify green @ 3b184ee"
     },
     {
       "id": "S38.2",
@@ -3121,8 +3121,8 @@
       "depends_on": [
         "S38.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/ai-agent-preview.test.ts (6: dead-button debug via get_console 脚本.js:3 -> propose_edit, prompt injection cannot approve/reach tools, screenshot fallback + limit, owner check, Anthropic/OpenAI image shapes) + tests/integration/ai-preview.test.ts (6: chip text/screenshot, consent, framing/neutralize, owner, text-only model, preview-expired) + src/renderer/ai/chat-preview.test.ts (5, zh-CN+en, keyboard disclosure) + src/ai/preview-context.test.ts (6) + tests/e2e/ai-preview.spec.ts (3, keyboard, consent, image sent); independent subagent review fixed (3b184ee); verify green @ 3b184ee"
     },
     {
       "id": "S39.1",

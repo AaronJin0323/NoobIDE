@@ -141,6 +141,7 @@ describe('token use on every answer (S39.2)', () => {
       setKind: noop,
       removeChip: noop,
       addCurrentFile: () => true,
+      addPreview: async () => true,
       addSelection: () => true,
       send: async () => undefined,
       stop: async () => undefined,

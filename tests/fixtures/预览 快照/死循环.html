@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>死循环</title>
+  </head>
+  <body>
+    <h1>加载后就永远卡住</h1>
+    <script>
+      // S38.1 hostile page: an endless loop that starts after the page has loaded.
+      setTimeout(() => {
+        while (true) {}
+      }, 300);
+    </script>
+  </body>
+</html>

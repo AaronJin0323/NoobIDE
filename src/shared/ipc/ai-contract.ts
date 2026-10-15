@@ -33,6 +33,8 @@ export const AI_CHANNELS = {
   request: 'ai:request',
   cancel: 'ai:cancel',
   resolveProposal: 'ai:resolve-proposal',
+  /** S38.2: a snapshot of the project's preview for the chat's Preview chip (shown first; sent only with the turn). */
+  previewSnapshot: 'ai:preview-snapshot',
 } as const;
 
 /** Main → workbench stream of events for running requests. */
@@ -71,7 +73,8 @@ export interface AiModelInfo {
 
 /** A file or excerpt the user saw in the context list before sending. Paths are project-relative. */
 export interface AiContextItem {
-  readonly kind: 'file' | 'selection' | 'problem' | 'console';
+  /** S38.2 'preview': what the preview shows (path, title, outline, recent errors), from `previewSnapshot`. */
+  readonly kind: 'file' | 'selection' | 'problem' | 'console' | 'preview';
   readonly relPath?: string;
   /** 1-based inclusive line range for selections and excerpts. */
   readonly startLine?: number;
@@ -80,7 +83,29 @@ export interface AiContextItem {
   readonly text?: string;
   /** Short label shown in the context list (e.g. a problem's title). */
   readonly label?: string;
+  /**
+   * S38.2, 'preview' only: the snapshot whose screenshot goes with the text (main keeps the image of the snapshot it
+   * showed this window; the renderer never sends image bytes).
+   */
+  readonly snapshotId?: string;
 }
+
+/**
+ * S38.2: what the chat's Preview chip shows — exactly the text that will be sent, and the screenshot (a PNG data URL
+ * for the thumbnail) when one could be taken. Page content is untrusted data: it is shown as text, never as HTML.
+ */
+export interface AiPreviewSnapshot {
+  readonly snapshotId: string;
+  /** Path of the shown page inside the project ('' = its index page). */
+  readonly path: string;
+  /** The context text sent with the question: path, title, outline and recent errors. */
+  readonly text: string;
+  readonly screenshot: { readonly dataUrl: string; readonly width: number; readonly height: number } | null;
+  /** Whether the current chat / agent model can read images; otherwise only the text is sent (the chip says so). */
+  readonly imagesAccepted: { readonly chat: boolean; readonly agent: boolean };
+}
+
+export type AiPreviewSnapshotError = 'disabled' | 'unknown-project' | 'not-running' | 'not-available';
 
 export interface AiChatMessage {
   readonly role: 'user' | 'assistant';
@@ -152,7 +177,9 @@ export type AiErrorCode =
   /** S34: an agent turn reached its step, token or wall-time budget and stopped (accepted changes are kept). */
   | 'budget-exhausted'
   /** S39.2: today's optional token budget (Settings → AI) is used up; new requests wait until tomorrow. */
-  | 'budget-reached';
+  | 'budget-reached'
+  /** S38.2: a Preview chip's screenshot is no longer kept (too old, or newer snapshots replaced it): add it again. */
+  | 'preview-expired';
 
 export type AiEvent =
   | { readonly requestId: string; readonly type: 'text'; readonly text: string }
@@ -201,5 +228,11 @@ export interface AiApi {
   cancel(request: { readonly requestId: string }): Promise<IpcResult<null, never>>;
   /** The workbench reports what happened to a proposal; the agent continues with that outcome. */
   resolveProposal(decision: AiProposalDecision): Promise<IpcResult<null, 'unknown-request'>>;
+  /** S38.2: takes a snapshot of the project's running preview for the Preview chip. Nothing is sent anywhere. */
+  previewSnapshot(request: {
+    readonly projectId: string;
+    /** Language of the text's labels (the same text is shown and sent). */
+    readonly locale: 'zh-CN' | 'en';
+  }): Promise<IpcResult<AiPreviewSnapshot, AiPreviewSnapshotError>>;
   onEvent(listener: (event: AiEvent) => void): () => void;
 }

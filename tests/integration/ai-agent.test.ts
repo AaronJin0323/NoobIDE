@@ -90,7 +90,7 @@ function start(
   const model = new ScriptedModel(script);
   const controller = new AbortController();
   let reloads = 0;
-  const status: PreviewStatus = { state: 'running', projectId };
+  const status: PreviewStatus = { state: 'running', projectId, url: 'http://127.0.0.1:1/' };
   const runner = createAgentRunner({
     projectPorts: (id) =>
       createProjectPorts({
@@ -133,6 +133,7 @@ function start(
             return status;
           },
           recentRecords: () => options.console ?? [],
+          pageSnapshot: async () => ({ ok: false, code: 'not-available', message: 'no page in this test' }),
         },
       }),
     newId: (() => {
@@ -317,7 +318,8 @@ describe('agent loop: read tools, proposals and decisions (S34.1)', () => {
     );
     await h.run.finished;
     const results = lastToolResults(h.model.requests[1] as never);
-    expect(results[0]?.content).toContain('[error] console (http://127.0.0.1:1/app.js:2): boom');
+    // S38.2: records name the project file and line.
+    expect(results[0]?.content).toContain('[error] console app.js:2: boom');
     expect(results[1]?.content).toContain('reloading');
     expect(h.previewReloads()).toBe(1);
     expect(results[2]?.content).toContain('app.js:1: const title = "hello";');

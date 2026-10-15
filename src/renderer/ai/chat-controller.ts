@@ -191,8 +191,8 @@ export class AiChatController {
   setKind(kind: TurnKind): void {
     this.dispatch({ type: 'setKind', projectKey: this.key, kind });
   }
-  private chip(item: AiContextItem): ChatChip {
-    return { id: this.nextId('chip'), item };
+  private chip(item: AiContextItem, preview?: ChatChip['preview']): ChatChip {
+    return { id: this.nextId('chip'), item, ...(preview ? { preview } : {}) };
   }
   addChip(item: AiContextItem): void {
     this.dispatch({ type: 'addChip', projectKey: this.key, chip: this.chip(item) });
@@ -218,6 +218,41 @@ export class AiChatController {
       return false;
     }
     this.addChip(selectionItem(selection));
+    return true;
+  }
+  /**
+   * S38.2 "Add preview": asks main for a snapshot of the project's running preview and shows it as a chip with
+   * exactly the text (and the screenshot) that will be sent. Nothing is sent until the user sends; sending needs the
+   * project's consent like code. False (with a notice) when the preview is not running or not answering.
+   */
+  async addPreview(): Promise<boolean> {
+    const projectId = this.host.projectId();
+    if (!this.api || !projectId) return false;
+    const key = this.key;
+    let result: Awaited<ReturnType<AiApi['previewSnapshot']>>;
+    try {
+      result = await this.api.previewSnapshot({ projectId, locale: this.host.locale() });
+    } catch {
+      result = { ok: false, code: 'not-available', message: '' };
+    }
+    if (this.key !== key) return false; // the project changed meanwhile
+    if (!result.ok) {
+      this.dispatch({
+        type: 'notice',
+        notice:
+          result.code === 'not-available' ? 'ai.chat.context.previewUnavailable' : 'ai.chat.context.previewNotRunning',
+      });
+      return false;
+    }
+    const snapshot = result.value;
+    this.dispatch({
+      type: 'addChip',
+      projectKey: key,
+      chip: this.chip(
+        { kind: 'preview', label: snapshot.path, text: snapshot.text, snapshotId: snapshot.snapshotId },
+        { thumbnail: snapshot.screenshot?.dataUrl ?? null, imagesAccepted: snapshot.imagesAccepted },
+      ),
+    });
     return true;
   }
   newConversation(): void {

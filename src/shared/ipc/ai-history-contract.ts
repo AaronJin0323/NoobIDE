@@ -28,7 +28,7 @@ export const AI_HISTORY_CHANNELS = {
 
 /** A context item as remembered in a saved chat: what it named, without the code it carried. */
 export interface AiSavedContextItem {
-  readonly kind: 'file' | 'selection' | 'problem' | 'console';
+  readonly kind: 'file' | 'selection' | 'problem' | 'console' | 'preview'; // S38.2 preview: the chip's name only
   readonly relPath?: string;
   readonly startLine?: number;
   readonly endLine?: number;

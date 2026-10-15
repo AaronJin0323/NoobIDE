@@ -26,11 +26,18 @@ export type TurnScript = ScriptedTurn | ((request: ModelTurnRequest, call: numbe
 
 export class ScriptedModel implements ModelPort {
   readonly provider = 'scripted';
+  /** S38.2: whether the scripted model "reads" images (default true). */
+  readonly acceptsImages: boolean;
   /** Every request, as the loop sent it (messages are snapshotted). */
   readonly requests: ModelTurnRequest[] = [];
   private call = 0;
 
-  constructor(private readonly script: readonly TurnScript[]) {}
+  constructor(
+    private readonly script: readonly TurnScript[],
+    options: { readonly acceptsImages?: boolean } = {},
+  ) {
+    this.acceptsImages = options.acceptsImages ?? true;
+  }
 
   async *streamTurn(request: ModelTurnRequest): AsyncIterable<ModelStreamEvent> {
     this.requests.push({ ...request, messages: structuredClone(request.messages) });

@@ -53,9 +53,19 @@ export type AgentContentBlock =
       readonly toolUseId: string;
       readonly content: string;
       readonly isError: boolean;
+      /** S38.2: a screenshot that belongs to the result (only sent to a port that accepts images). */
+      readonly images?: readonly AgentImage[];
     }
+  /** S38.2: an image in a user message (a preview screenshot the user attached). */
+  | ({ readonly type: 'image' } & AgentImage)
   /** Opaque provider block (thinking, reasoning ids …), returned to the same provider unchanged. */
   | { readonly type: 'provider'; readonly provider: string; readonly data: unknown };
+
+/** A base64 PNG (a preview screenshot). Page pixels are data like page text. */
+export interface AgentImage {
+  readonly mediaType: 'image/png';
+  readonly data: string;
+}
 
 export interface AgentMessage {
   readonly role: 'user' | 'assistant';
@@ -88,6 +98,8 @@ export type ModelStreamEvent =
 export interface ModelPort {
   /** Provider id, used only to label opaque blocks. */
   readonly provider: string;
+  /** S38.2: the model reads images (tool results and user messages may carry them); otherwise text only. */
+  readonly acceptsImages?: boolean;
   streamTurn(request: ModelTurnRequest): AsyncIterable<ModelStreamEvent>;
 }
 

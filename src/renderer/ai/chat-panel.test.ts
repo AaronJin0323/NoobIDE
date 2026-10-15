@@ -17,6 +17,7 @@ const actions: ChatPanelActions = {
   removeChip: noop,
   addCurrentFile: () => true,
   addSelection: () => true,
+  addPreview: async () => true,
   send: async () => undefined,
   stop: async () => undefined,
   consentGiven: async () => undefined,

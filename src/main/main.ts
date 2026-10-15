@@ -21,6 +21,7 @@ import { installCloseGuard, type CloseGuard } from './close-guard';
 import { ProjectWatchHub } from './project-watch';
 import { ProjectService } from '../workspace/project-service';
 import { PreviewManager } from '../preview/preview-manager';
+import { formatOutline } from '../preview/page-snapshot'; // S38.1 test hook
 import { defaultEntryPath } from '../preview/entry-pages';
 import { DISABLED_CHROMIUM_FEATURES } from '../preview/preview-options';
 import { PreviewStore } from './preview-store'; // S14.4 trust, S14.2 one-time notes (app data)
@@ -126,6 +127,20 @@ function start(): void {
     blockedRequests,
     preview: () => preview.debugInfo(),
     problems: () => problems.debugInfo(), // S16.2–S16.6
+    // S38.1: one page snapshot of the running preview (sizes and the outline of the test's own fixture page).
+    previewSnapshot: async (screenshot: boolean) => {
+      const projectId = preview.getStatus().projectId;
+      if (projectId === null) return { ok: false, code: 'not-running' };
+      const result = await preview.pageSnapshot(projectId, { screenshot });
+      if (!result.ok) return { ok: false, code: result.code };
+      const { outline, screenshot: image, ...rest } = result.value;
+      return {
+        ok: true,
+        ...rest,
+        outline: outline ? { ...formatOutline(outline), items: outline.items.length } : null,
+        screenshot: image ? { width: image.width, height: image.height, bytes: image.png.length } : null,
+      };
+    },
   };
 
   // S24.2: the native menu bar, created when the app is ready (it needs the settings' interface language).
@@ -410,7 +425,13 @@ function start(): void {
     Object.assign((globalThis as { __noobideTestHooks?: object }).__noobideTestHooks ?? {}, {
       // Fake provider only: what it was asked (purpose, model, provider). Never set in a normal run.
       aiRequests: () =>
-        ai.fake?.requests.map((r) => ({ provider: r.provider, purpose: r.purpose, model: r.model })) ?? null,
+        ai.fake?.requests.map((r) => ({
+          provider: r.provider,
+          purpose: r.purpose,
+          model: r.model,
+          // S38.2: how many images the request carried (counts only).
+          images: r.messages.reduce((n, m) => n + (m.role === 'user' ? (m.images?.length ?? 0) : 0), 0),
+        })) ?? null,
     });
     // --- end S31 ---
     // S23: onboarding walkthrough progress

@@ -22,6 +22,7 @@ export const AI_ERROR_CODES: readonly AiErrorCode[] = [
   'unknown-project',
   'budget-exhausted',
   'budget-reached',
+  'preview-expired',
 ];
 
 const ERROR_KEYS: Record<AiErrorCode, MessageKey> = {
@@ -38,6 +39,7 @@ const ERROR_KEYS: Record<AiErrorCode, MessageKey> = {
   'unknown-project': 'ai.error.unknown-project',
   'budget-exhausted': 'ai.error.budget-exhausted', // S34
   'budget-reached': 'ai.error.budget-reached', // S39.2
+  'preview-expired': 'ai.error.preview-expired', // S38.2
 };
 
 /** The plain-language explanation of an error code; IPC errors ('invalid-request', …) get the generic text. */
@@ -69,5 +71,9 @@ export function contextLabel(t: Translate, item: AiContextItem): string {
         : fill(t('ai.chat.context.problem'), { label: item.label ?? '' });
     case 'console':
       return item.label ?? t('ai.chat.context.console');
+    case 'preview':
+      return item.label
+        ? fill(t('ai.chat.context.preview'), { path: item.label })
+        : t('ai.chat.context.previewStartPage');
   }
 }

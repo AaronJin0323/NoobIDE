@@ -318,3 +318,29 @@
   color: var(--danger);
   font-size: 12px;
 }
+
+/* S38.2: a Preview chip shows exactly what will be sent. */
+.ai-chip-preview {
+  flex-basis: 100%;
+  min-width: 0;
+}
+.ai-chip-preview summary {
+  cursor: pointer;
+}
+.ai-preview-text {
+  max-height: 12rem;
+  overflow: auto;
+  margin: 0.25rem 0;
+  padding: 0.25rem 0.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.85em;
+  border: 1px solid var(--border, #8884);
+  border-radius: 4px;
+}
+.ai-preview-thumbnail {
+  display: block;
+  max-width: 100%;
+  max-height: 10rem;
+  border: 1px solid var(--border, #8884);
+}

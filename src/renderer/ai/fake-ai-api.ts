@@ -2,7 +2,15 @@
  * A scripted fake of the renderer's AI bridge (`window.noobide.ai`) for unit tests of the chat (S33). Records every
  * call; tests push events with `emit` and decide each request's answer with `nextRequest`.
  */
-import type { AiApi, AiErrorCode, AiEvent, AiRequest, AiStatus } from '../../shared/ipc/ai-contract';
+import type {
+  AiApi,
+  AiErrorCode,
+  AiEvent,
+  AiPreviewSnapshot,
+  AiPreviewSnapshotError,
+  AiRequest,
+  AiStatus,
+} from '../../shared/ipc/ai-contract';
 
 export interface FakeAiApi extends AiApi {
   readonly requests: AiRequest[];
@@ -11,6 +19,9 @@ export interface FakeAiApi extends AiApi {
   status: AiApi['status'];
   current: AiStatus;
   emit(event: AiEvent): void;
+  /** S38.2: what previewSnapshot() answers (default: the preview is not running). */
+  snapshot: AiPreviewSnapshot | AiPreviewSnapshotError;
+  readonly snapshotRequests: { projectId: string; locale: string }[];
   /** The next request() result: an id (default `r<n>`) or an error code. Events to emit before it returns. */
   nextRequest: { error?: AiErrorCode | 'invalid-request'; early?: (requestId: string) => AiEvent[] } | null;
 }
@@ -44,6 +55,14 @@ export function fakeAiApi(status: AiStatus = readyStatus()): FakeAiApi {
     consents: [],
     current: status,
     nextRequest: null,
+    snapshot: 'not-running',
+    snapshotRequests: [],
+    previewSnapshot: async (request) => {
+      api.snapshotRequests.push({ ...request });
+      return typeof api.snapshot === 'string'
+        ? { ok: false, code: api.snapshot, message: `fake ${api.snapshot}` }
+        : { ok: true, value: api.snapshot };
+    },
     emit: (event) => {
       for (const listener of [...listeners]) listener(event);
     },
