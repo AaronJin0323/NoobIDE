@@ -568,6 +568,17 @@
         "S24"
       ],
       "plan_refs": "docs/product/liquid-glass-study.md; docs/decisions/0029-liquid-glass-design-language.md; docs/reviews/interface-assessment-2026-10-14.md"
+    },
+    {
+      "id": "S42",
+      "milestone": "M10",
+      "title": "Inline /ai prompt in the editor",
+      "goal": "Type `/ai <request>` (English or Chinese) on a line in an HTML/CSS/JS file; the AI generates code from the request, the file, nearby code and the file's problems; it is reviewed as a diff, Accept replaces the line as one undo step and saves, Reject changes nothing.",
+      "depends_on": [
+        "S35",
+        "S39"
+      ],
+      "plan_refs": "docs/decisions/0031-inline-ai-prompt.md; docs/decisions/0025-ai-assistant.md; owner request 2026-10-16"
     }
   ],
   "features": [
@@ -3407,6 +3418,60 @@
       ],
       "status": "needs_manual_check",
       "evidence": "steps in harness/MANUAL-CHECKS.md#S40.8"
+    },
+    {
+      "session": "S42",
+      "milestone": "M10",
+      "description": "",
+      "status": "done",
+      "id": "S42.1",
+      "title": "Decision record for inline /ai prompts",
+      "verify": "agent-check",
+      "depends_on": [],
+      "acceptance": [
+        "docs/decisions/0031 decides how `/ai` is detected in HTML/CSS/JS so it never collides with real code, and how a pending prompt is never saved to disk without the user knowing",
+        "It decides the trigger (Enter / keybinding / context menu), the preview (inline diff vs ghost text) and how Accept/Reject interact with undo, autosave, local history and the save pipeline (separate mechanisms; Accept is one undo step)",
+        "It states what context is sent (prompt, file, cursor, nearby code, the file's problems), consent, i18n, keyboard access and that nothing new is logged"
+      ],
+      "evidence": "docs/decisions/0031-inline-ai-prompt.md checked against all 3 criteria (detection+collision rules, never-silent save, trigger, diff preview, undo/autosave/history/save pipeline, context, consent, i18n, a11y, logs)"
+    },
+    {
+      "session": "S42",
+      "milestone": "M10",
+      "description": "",
+      "status": "in_progress",
+      "id": "S42.2",
+      "title": "/ai detection, arming and generate request (rules + main)",
+      "verify": "auto",
+      "depends_on": [
+        "S42.1"
+      ],
+      "acceptance": [
+        "Pure rules: an `/ai <request>` line is recognised (leading indentation, ASCII or full-width space, Chinese text) and look-alikes are not (`/aim`, `x /ai y`, `// /ai`, a bare `/ai`, other languages); only lines the user changed in this editor are armed for plain Enter",
+        "The generate request carries the prompt, the file name and language, up to 200 lines / 12 000 characters of code on each side, and at most 8 of the file's problems nearest the prompt (errors first, none from /ai lines, messages bounded)",
+        "Main: the edit request parser accepts the optional `mode: \"generate\"` and bounded `problems` (exact keys, refuses bad values); the generate system prompt is fixed per locale; problems are framed as data and cannot close their frame; the fake provider has a generate scenario",
+        "Unit tests for all of the above"
+      ],
+      "evidence": ""
+    },
+    {
+      "session": "S42",
+      "milestone": "M10",
+      "description": "",
+      "status": "todo",
+      "id": "S42.3",
+      "title": "/ai prompt in the editor: hint, warning, trigger, review, accept/reject/undo",
+      "verify": "auto",
+      "depends_on": [
+        "S42.2"
+      ],
+      "acceptance": [
+        "An `/ai` line shows an end-of-line hint in words and a translated warning marker that reaches Problems with an explanation (zh-CN default, en), so a pending prompt saved by autosave/Ctrl+S is never silent",
+        "Enter at the end of an armed `/ai` line, Ctrl/Cmd+Enter on any `/ai` line, or the context-menu item opens the inline edit zone over that line and sends the request (consent asked first in a new project); Enter on an unarmed line, Shift+Enter and Enter confirming an IME composition insert a line break as before",
+        "The answer is shown as a diff (the /ai line removed, the code added) with Accept / Reject / Stop reachable by keyboard; Accept replaces the line as one undo step and saves through the save pipeline (local history); Reject/Esc leave the text unchanged; Ctrl/Cmd+Z restores the /ai line",
+        "Playwright e2e with a scripted fake provider: an English and a Chinese prompt, the file's problem reaching the model, Accept, Reject, one-step undo, unarmed Enter not hijacked"
+      ],
+      "evidence": ""
     }
   ]
 }
