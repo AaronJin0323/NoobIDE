@@ -80,8 +80,8 @@ export function configView(file: ConfigFile): AiConfig {
   };
 }
 
-/** Small versioned JSON store with the shared app-data robustness rules. */
-class VersionedJsonStore<T> {
+/** Small versioned JSON store with the shared app-data robustness rules (also used by usage-store.ts, S39.2). */
+export class VersionedJsonStore<T> {
   protected state: T;
   private loaded: Promise<void> | null = null;
   protected readonly queue = new SerialQueue();

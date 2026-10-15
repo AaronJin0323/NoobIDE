@@ -192,6 +192,7 @@ S27.1/S27.3 performance (needs_manual_check), S28.2/S28.3 signing (todo), S28.4 
 | 网页在预览里保存的数据 | `Partitions/` 下以 `noobide-preview-` 开头的文件夹  | 每个项目一份：网页的 localStorage、IndexedDB、Cookie 和缓存                                                              | 预览工具栏 → 高级 → 清除预览数据（只清除当前项目）               |
 | 入门导览进度           | `walkthrough.json`                                  | 导览进行到哪一步                                                                                                         | 退出后删除这个文件                                               |
 | AI 助手                | `ai-keys.json`、`ai-config.json`、`ai-consent.json` | 你的 API 密钥（加密）、AI 开关、服务商和模型、允许发送代码的项目（只保存路径的哈希值）                                   | AI 设置 → 删除密钥 / 撤销允许；或者退出后删除这些文件（见 10.5） |
+| AI 对话和用量          | `ai-chats\`、`ai-usage.json`                        | 保存的 AI 对话，每个项目一个文件夹（用路径的哈希值命名；内容是问题和回答，可能包含代码）；每天的 token 数量和每日上限    | AI 面板 → 历史对话 → 删除；或者退出后删除它们（见 10.5）         |
 
 另外还有 Electron 自己的缓存文件夹（例如 `Cache`、`GPUCache`、`Local Storage`），它们不包含你的项目文件。
 
@@ -313,8 +314,9 @@ token。自动补全在你停顿输入后才发送一个很小的请求，继续
 - AI 设置 → 当前项目里的**撤销允许**：不再发送这个项目的代码。
 
 应用数据文件夹（见 5.2）里和 AI 有关的文件：`ai-keys.json`（加密的密钥）、`ai-config.json`（开关、服务商和模型）、
-`ai-consent.json`（允许发送代码的项目，只保存路径的哈希值）。退出 NoobIDE 后删除它们，就能把 AI 完全恢复到初始状态。对话只在
-NoobIDE 运行期间保留。
+`ai-consent.json`（允许发送代码的项目，只保存路径的哈希值）、`ai-chats\`（保存的对话，每个项目一个文件夹，从不写进项目文件夹；每个项目最多
+50 个对话、20 MB，超出时先删除最旧的）和 `ai-usage.json`（每天每个服务商用了多少 token，以及 AI 设置里的每日上限）。退出 NoobIDE
+后删除它们，就能把 AI 完全恢复到初始状态。撤销某个项目的允许，或者从最近项目列表中移除找不到的项目时，会问你要不要一起删除它的对话。
 
 ### 10.6 离线时
 

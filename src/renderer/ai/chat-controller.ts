@@ -24,6 +24,7 @@ import {
   type ChatMode,
   type ChatState,
   type ChatTurn,
+  type Conversation,
   type TurnKind,
 } from './chat-model';
 
@@ -224,6 +225,14 @@ export class AiChatController {
   }
   selectConversation(id: string): void {
     this.dispatch({ type: 'selectConversation', projectKey: this.key, id });
+  }
+  /** S39.1: shows a reopened saved chat (chat-history.ts builds it). */
+  restoreConversation(conversation: Conversation): void {
+    this.dispatch({ type: 'restoreConversation', conversation });
+  }
+  /** S39.1: a saved chat was deleted; it leaves the in-memory list too. */
+  removeConversation(id: string): void {
+    this.dispatch({ type: 'removeConversation', id });
   }
 
   // ── S33.2 entry points: open the chat with the right context and mode; nothing is sent until the user sends ──

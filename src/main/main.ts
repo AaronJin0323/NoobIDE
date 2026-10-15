@@ -395,6 +395,7 @@ function start(): void {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       userData: appData,
       projects,
+      recent, // S39.1: removing a recent entry can offer to delete its saved chats
       // The keychain is touched only when a key is saved or read (never at startup): src/platform/secure-storage.ts.
       safeStorage: secureStorageFor(safeStorage, platformId()),
       logger,

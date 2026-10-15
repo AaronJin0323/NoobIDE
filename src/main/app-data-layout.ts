@@ -27,6 +27,10 @@ export const APP_DATA_ENTRIES = {
   aiConfig: 'ai-config.json',
   /** Projects allowed to send code to the AI provider (hashed real roots, like preview trust) (S31.3). */
   aiConsent: 'ai-consent.json',
+  /** Saved AI chats: one folder per project (hash of its real root), one file per chat (S39.1). */
+  aiChats: 'ai-chats',
+  /** AI token use per day and provider, and the optional daily budget (S39.2). Token counts only. */
+  aiUsage: 'ai-usage.json',
   /** Unsaved-edit journal for crash recovery (S12): one record per dirty buffer. */
   recovery: 'recovery',
   /** Local history: per-project indexes and content-addressed blobs (S21). */

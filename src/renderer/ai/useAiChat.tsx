@@ -6,8 +6,13 @@ import { aiBridge, aiSettingsAvailable, AI_STATUS_CHANGED_EVENT, openAiSettings 
 import { AiChatController, type AiChatHost, type SelectionContext } from './chat-controller';
 import type { AiChatExtensions, AiConsentRenderer } from './chat-extensions';
 import { aiSurfacesShown } from './chat-model';
-import { ChatPanel } from './ChatPanel';
+import { ChatPanel, type PastChatsSlot } from './ChatPanel';
+import { aiHistoryBridge, ChatHistorySync } from './chat-history';
+import { SavedChatsList } from './SavedChatsList';
 import { ConsentPlaceholder } from './ConsentPlaceholder';
+
+const noSubscribe = () => () => undefined;
+const noState = () => null;
 
 /** What the workbench tells the chat about its editor (read at the moment of use). */
 export interface AiWorkbenchHost {
@@ -63,6 +68,17 @@ export function useAiChat(projectId: string | null, host: AiWorkbenchHost, optio
 
   useEffect(() => controller.start(), [controller]);
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
+
+  // S39.1: conversations of an open project are saved in app data; "Past chats" reopens or deletes them.
+  const historyRef = useRef<ChatHistorySync | null | undefined>(undefined);
+  if (historyRef.current === undefined) {
+    const historyApi = aiHistoryBridge();
+    historyRef.current = historyApi ? new ChatHistorySync(historyApi, controller, () => projectRef.current) : null;
+  }
+  const history = historyRef.current;
+  useEffect(() => history?.start(), [history]);
+  useEffect(() => history?.projectChanged(), [history, projectId]);
+  const historyState = useSyncExternalStore(history?.subscribe ?? noSubscribe, history?.getState ?? noState);
 
   // Status (AI on/off, key, the project's consent): on start, per project, when the window regains focus, and when
   // Settings → AI says it changed.
@@ -128,6 +144,24 @@ export function useAiChat(projectId: string | null, host: AiWorkbenchHost, optio
     [options.consent, api],
   );
 
+  const pastChats: PastChatsSlot | undefined =
+    history && historyState && projectId !== null
+      ? {
+          listOpen: historyState.listOpen,
+          onToggle: () => history.toggleList(),
+          notice: historyState.notice,
+          list: (
+            <SavedChatsList
+              state={historyState}
+              actions={history}
+              activeId={history.savedIdOf(state.active[projectId] ?? null)}
+              locale={locale}
+              t={t}
+            />
+          ),
+        }
+      : undefined;
+
   const panel =
     state.open && api && shown ? (
       <ChatPanel
@@ -137,6 +171,7 @@ export function useAiChat(projectId: string | null, host: AiWorkbenchHost, optio
         consent={consent}
         onOpenSettings={aiSettingsAvailable() ? () => openAiSettings() : undefined}
         extensions={options.extensions}
+        pastChats={pastChats}
       />
     ) : null;
 

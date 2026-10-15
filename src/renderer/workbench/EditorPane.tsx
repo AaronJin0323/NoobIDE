@@ -320,7 +320,13 @@ export function EditorPane(props: EditorPaneProps) {
           {`${t('editor.line')} ${cursor.line}, ${t('editor.column')} ${cursor.column}`}
           {inlineAi && (
             <span className="editor-status-ai" data-testid="inline-ai-state" data-state={inlineAi}>
-              {t(inlineAi === 'on' ? 'ai.inline.status.on' : 'ai.inline.status.off')}
+              {t(
+                inlineAi === 'on'
+                  ? 'ai.inline.status.on'
+                  : inlineAi === 'paused'
+                    ? 'ai.inline.status.paused'
+                    : 'ai.inline.status.off',
+              )}
             </span>
           )}
         </div>

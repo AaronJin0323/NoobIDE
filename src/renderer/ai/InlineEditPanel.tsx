@@ -175,6 +175,14 @@ export function InlineEditPanel({
           : (status ?? '')}
       </p>
       {state.phase === 'review' && diff && <DiffView diff={diff} t={t} />}
+      {state.usage && (state.phase === 'review' || state.phase === 'no-change') && (
+        <p className="inline-edit-usage" data-testid="inline-edit-usage">
+          {fill(t('ai.chat.usage'), {
+            input: state.usage.inputTokens.toLocaleString(),
+            output: state.usage.outputTokens.toLocaleString(),
+          })}
+        </p>
+      )}
       <div className="inline-edit-row">
         {state.phase === 'instruction' && (
           <>

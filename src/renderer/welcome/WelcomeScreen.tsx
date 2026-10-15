@@ -4,6 +4,9 @@ import { useI18n } from '../i18n/I18nProvider';
 import { PlusIcon, SmallFolderIcon, WarningIcon } from '../workbench/icons';
 import { protectedFolderMessage } from '../workbench/file-op-messages';
 import { recentRowView, type RecentProject, type RecentProjectsSource } from './welcome-model';
+import type { AiHistoryApi } from '../../shared/ipc/ai-history-contract';
+import { aiHistoryBridge } from '../ai/chat-history';
+import { fill } from '../recovery/format';
 import './welcome.css';
 
 interface WelcomeScreenProps {
@@ -13,6 +16,8 @@ interface WelcomeScreenProps {
   /** The recent-projects store (S13.3), when this build has one; otherwise the list is not shown. */
   recent: RecentProjectsSource | undefined;
   onOpenRecent: (project: OpenedProject) => void;
+  /** S39.1: saved AI chats of a recent entry (removing it offers to delete them). Default: the preload bridge. */
+  chats?: Pick<AiHistoryApi, 'countRecentChats' | 'deleteRecentChats'> | undefined;
 }
 
 /**
@@ -21,11 +26,19 @@ interface WelcomeScreenProps {
  * marked with a warning icon and the text "folder not found", and can only be removed from the list — nothing on
  * disk is ever deleted from here.
  */
-export function WelcomeScreen({ onCreate, onOpenFolder, recent, onOpenRecent }: WelcomeScreenProps) {
+export function WelcomeScreen({
+  onCreate,
+  onOpenFolder,
+  recent,
+  onOpenRecent,
+  chats = aiHistoryBridge(),
+}: WelcomeScreenProps) {
   const { t } = useI18n();
   const [projects, setProjects] = useState<readonly RecentProject[] | null>(null);
   const [failed, setFailed] = useState<{ readonly id: string; readonly protectedFolder: boolean } | null>(null);
   const createRef = useRef<HTMLButtonElement>(null);
+  // S39.1: the entry being removed has saved AI chats: ask whether to delete them too.
+  const [askChats, setAskChats] = useState<{ readonly id: string; readonly count: number } | null>(null);
 
   const reload = useCallback(() => {
     if (!recent) return;
@@ -50,9 +63,17 @@ export function WelcomeScreen({ onCreate, onOpenFolder, recent, onOpenRecent }: 
     }
   };
 
-  const remove = async (project: RecentProject) => {
-    await recent?.remove(project.id).catch(() => undefined);
+  const removeNow = async (id: string, deleteChats: boolean) => {
+    setAskChats(null);
+    if (deleteChats) await chats?.deleteRecentChats({ id }).catch(() => undefined);
+    await recent?.remove(id).catch(() => undefined);
     reload();
+  };
+
+  const remove = async (project: RecentProject) => {
+    const counted = chats ? await chats.countRecentChats({ id: project.id }).catch(() => null) : null;
+    if (counted?.ok && counted.value.count > 0) setAskChats({ id: project.id, count: counted.value.count });
+    else await removeNow(project.id, false);
   };
 
   return (
@@ -112,6 +133,32 @@ export function WelcomeScreen({ onCreate, onOpenFolder, recent, onOpenRecent }: 
                       <small className="welcome-recent-error" role="alert">
                         {failed.protectedFolder ? protectedFolderMessage(t) : t('welcome.recentOpenFailed')}
                       </small>
+                    )}
+                    {askChats?.id === project.id && (
+                      <span className="welcome-recent-chats" role="group" data-testid="welcome-recent-chats">
+                        <small>{fill(t('welcome.recentChats.ask'), { name: project.name, n: askChats.count })}</small>
+                        <span className="welcome-actions">
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            data-testid="welcome-recent-chats-delete"
+                            onClick={() => void removeNow(project.id, true)}
+                          >
+                            {t('welcome.recentChats.delete')}
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            data-testid="welcome-recent-chats-keep"
+                            onClick={() => void removeNow(project.id, false)}
+                          >
+                            {t('welcome.recentChats.keep')}
+                          </button>
+                          <button type="button" className="quiet-button" onClick={() => setAskChats(null)}>
+                            {t('welcome.recentChats.cancel')}
+                          </button>
+                        </span>
+                      </span>
                     )}
                   </span>
                   <button

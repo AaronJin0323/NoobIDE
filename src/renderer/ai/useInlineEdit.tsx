@@ -147,7 +147,13 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
     if (event.type === 'text') running.text += event.text;
     else if (event.type === 'done') {
       runningRef.current = null;
-      dispatch({ type: 'answer', original: s.original, text: running.text, eol: s.zone.eol });
+      dispatch({
+        type: 'answer',
+        original: s.original,
+        text: running.text,
+        eol: s.zone.eol,
+        ...(event.usage ? { usage: event.usage } : {}), // S39.2
+      });
     } else if (event.type === 'error') {
       runningRef.current = null;
       if (event.code === 'cancelled') dispatch({ type: 'cancelled' });

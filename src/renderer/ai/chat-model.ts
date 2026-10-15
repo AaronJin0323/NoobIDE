@@ -12,6 +12,7 @@ import type {
   AiProviderId,
   AiStatus,
 } from '../../shared/ipc/ai-contract';
+import type { AiSavedChange } from '../../shared/ipc/ai-history-contract';
 
 /** Key of a project's conversations; chats without an open project use ''. */
 export type ProjectKey = string;
@@ -45,7 +46,9 @@ export type TurnPart =
       readonly proposalId: string;
       readonly changes: readonly AiFileChange[];
       readonly reason: string;
-    };
+    }
+  /** S39.1: a proposal of a reopened saved chat: what was proposed, no longer reviewable (no contents kept). */
+  | { readonly kind: 'saved-proposal'; readonly reason: string; readonly changes: readonly AiSavedChange[] };
 
 export type TurnStatus = 'sending' | 'streaming' | 'done' | 'error' | 'cancelled';
 
@@ -153,7 +156,11 @@ export type ChatAction =
   | { readonly type: 'stopped'; readonly turnId: string }
   | { readonly type: 'event'; readonly event: AiEvent }
   | { readonly type: 'consent'; readonly projectKey: ProjectKey | null }
-  | { readonly type: 'notice'; readonly notice: string | null };
+  | { readonly type: 'notice'; readonly notice: string | null }
+  /** S39.1: a saved chat was reopened: it joins the list (once) and is shown. */
+  | { readonly type: 'restoreConversation'; readonly conversation: Conversation }
+  /** S39.1: a saved chat was deleted: it leaves the list (a running one is kept). */
+  | { readonly type: 'removeConversation'; readonly id: string };
 
 const TITLE_CHARS = 40;
 export function titleOf(prompt: string): string {
@@ -368,5 +375,23 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, consentFor: action.projectKey };
     case 'notice':
       return { ...state, notice: action.notice };
+    case 'restoreConversation': {
+      const { conversation } = action;
+      const exists = state.conversations.some((c) => c.id === conversation.id);
+      return {
+        ...state,
+        conversations: exists ? state.conversations : [...state.conversations, conversation],
+        active: { ...state.active, [conversation.projectKey]: conversation.id },
+        notice: null,
+        focusSeq: state.focusSeq + 1,
+      };
+    }
+    case 'removeConversation': {
+      const target = state.conversations.find((c) => c.id === action.id);
+      if (!target || runningTurn(target)) return state;
+      const active =
+        state.active[target.projectKey] === action.id ? { ...state.active, [target.projectKey]: null } : state.active;
+      return { ...state, conversations: state.conversations.filter((c) => c.id !== action.id), active };
+    }
   }
 }

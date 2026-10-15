@@ -115,3 +115,18 @@ part of the decision.
 - **Live smoke test.** `npm run test:ai-live` (`tests/live/`, `vitest.live.config.ts`) runs the real service and agent
   runner against the real providers only when `NOOBIDE_AI_LIVE_ANTHROPIC_KEY` / `NOOBIDE_AI_LIVE_OPENAI_KEY` are set;
   it is not part of `npm test`, `verify` or CI.
+
+## Amendment — S39 saved chats and token usage (2026-10-15)
+
+- **Saved chats.** Conversations of an open project are saved when each turn ends, in app data only:
+  `ai-chats/<projectKey(realRoot)>/<chatId>.json` (the hash local history and the session store use; never in the
+  project folder). Saved: questions, answers, steps, the names/lines of context items (not the code they carried), and
+  the kind and path of proposed changes (not their contents). Atomic writes; at most 50 chats / 20 MB per project and
+  2 MB per chat (oldest chats, and a long chat's oldest turns, are dropped first); damaged files are moved aside
+  (`.corrupt`) and counted, files from a newer NoobIDE are skipped untouched. Chats without a project are not saved.
+  Revoking a project's consent, or removing a recent entry, offers to delete its chats. Contract:
+  `src/shared/ipc/ai-history-contract.ts` (`window.noobide.aiHistory`), same sender and payload checks as `ai:*`.
+- **Usage.** Tokens per local day and provider in `ai-usage.json` (counts only). Chat, edit and inline requests count
+  their reported usage; agent turns count each model call as it ends. The optional daily budget (off by default)
+  makes the service refuse new requests with `budget-reached` (explained in zh-CN/en); running requests finish;
+  inline suggestions pause and the editor's status line says so; non-AI features are never affected.
