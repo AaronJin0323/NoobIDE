@@ -3,6 +3,57 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 13 — 2026-10-15 — AI v2: Windows proof (S37), preview-aware AI (S38), chat history + usage (S39)
+
+**Agent:** Claude (Opus 5.5) as lead on the Windows x64 dev machine, four parallel subagents in git worktrees
+(node_modules junctioned to the main checkout; e2e per agent limited to its own specs), each branch reviewed and
+merged by the lead.
+
+**Owner decisions this session**
+
+- Next AI work: S37 (prove M9 on Windows), S38 (preview-aware AI), S39 (chat history + usage). New milestone M10.
+  "More providers (OpenAI-compatible / CN endpoints)" was offered and not chosen for now.
+
+**Done**
+
+- S07.5 — watcher replay check flaked on Windows (1 in 4 full runs): NTFS ctime can read ~1 ms after a later
+  `Date.now()`; `predatesSnapshot` now allows 2 ms (`CLOCK_SKEW_TOLERANCE_MS`, measured in the comment).
+- S37.1 — five AI e2e specs green on Windows x64; fixes: Monaco's own "Canceled" rejections were unhandled when typing
+  during the inline-completions debounce (product: `src/renderer/editor/monaco-cancellation.ts`, only exact
+  CancellationErrors are swallowed); copy-code test normalises the Windows clipboard's CRLF; agent restart test waits
+  for the project to reopen. New `tests/e2e/ai-keychain.spec.ts` (Windows only): key stored through real DPAPI
+  safeStorage (`v10` ciphertext, no plaintext) survives a restart and decrypts. G9.md has the Windows addendum.
+- S38.1/S38.2 — `src/preview/page-snapshot.ts`: bounded page outline (isolated world over the page guard's CDP
+  session) + capped PNG (capturePage) from main only; agent tools `get_page_outline` / `get_page_screenshot`,
+  `get_console` names project `file:line`; chat "Preview" chip (shows exactly what is sent, needs consent). Decision 0026. Also fixed: preview watchdog ping lost across a document swap kept the preview "unresponsive".
+- S39.1/S39.2 — saved chats per project in app data (`ai-chats/<projectKey>/<uuid>.json`, atomic, caps, corrupt files
+  set aside; context names/lines only, never the code), past-chats list, delete offers on revoke / recent removal;
+  token use per answer, today's totals in Settings → AI, optional daily budget (`budget-reached`). Decision 0025
+  amended; install docs updated. Merge with S38: saved chats accept the `preview` context kind (path label only).
+
+**Evidence:** `npm run verify` green on main after every merge. Merged main `cbf9029`: AI + preview e2e
+(ai-settings, ai-inline, ai-chat, ai-edit, ai-agent, ai-keychain, ai-history, ai-preview, preview-snapshot,
+preview-isolation, preview-manager, preview) **64 passed / 0 failed** on Windows x64. S07.5: 20 consecutive full
+vitest runs green. S38 had an independent reviewer subagent per feature; findings fixed (`d795f2d`, `3b184ee`).
+
+**Problems / risks:** full Windows e2e suite not run this session (only the 12 affected specs) — G9 condition 2 (CI
+green on both jobs) still open. Timing-sensitive under load: `tests/integration/history-triggers.test.ts` (2/4 runs
+failed while 4 agents loaded the machine), `preview-manager.spec` S14.2 (once). The "preview restored at startup
+stays Starting" bug from Session 12 is still open. Cancelled chats before a usage event are not counted.
+package-lock.json not regenerated (no dependency changes).
+
+**Owner action needed:** push and check CI on both jobs; `npm run test:ai-live` with your keys (S36.1); edit PLAN
+§4/§7 for AI; decide AudioWorklet; manual checks listed in Session 12; H.1, H.2.
+
+**Next up**
+
+1. Full `npm run test:e2e` on Windows and the next CI run; fix what fails (G9 condition 2).
+2. The preview "Starting forever" bug from Session 12 (resume the page from main after navigation + regression e2e).
+3. Stabilise `history-triggers.test.ts` under load.
+
+**Ideas / backlog candidates:** OpenAI-compatible / CN providers (DeepSeek, Qwen, Moonshot, Ollama) with a vetted
+allowlist — needs a decision record and security review because it reopens the egress lock.
+
 ## Session 12 — 2026-10-15 — AI assistant (M9), console limiter redesign, Windows CI fixes — paused for Windows
 
 **Agent:** Claude (Opus 5.5) as lead on the Apple Silicon Mac with parallel subagents in git worktrees. Owner paused
