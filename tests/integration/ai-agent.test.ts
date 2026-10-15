@@ -7,6 +7,7 @@ import { createProjectPorts } from '../../src/ai/agent/ports';
 import { createAgentRunner, type AgentRun } from '../../src/ai/agent/runner';
 import { ScriptedModel, lastToolResults, type TurnScript } from '../../src/ai/agent/scripted-model';
 import type { AgentBudgets } from '../../src/ai/agent/loop';
+import { fakeAgentScript } from '../../src/ai/agent/fake-scripts';
 import type { AiEvent, AiProposalDecision, AiRequest } from '../../src/shared/ipc/ai-contract';
 import type { PreviewLogEntry, PreviewStatus } from '../../src/shared/ipc/preview-contract';
 
@@ -652,6 +653,22 @@ describe('budgets, refusal and Stop (S34.1)', () => {
     expect(decide({})).toBe(true);
     expect(decide({})).toBe(false); // already resolved
     await h.run.finished;
+    expect(terminal(h.events)).toMatchObject([{ type: 'done' }]);
+  });
+});
+
+describe('fake provider agent script (e2e support)', () => {
+  it('edit-and-create proposes one edit and one new file against the e2e project shape', async () => {
+    await writeFile(path.join(root, 'style.css'), 'h1 {\n  color: red;\n}\n');
+    const h = start(fakeAgentScript('edit-and-create'), {
+      decide: () => [{ accepted: true, applied: true }, { accepted: false }],
+    });
+    await h.run.finished;
+    const proposal = h.events.find((e) => e.type === 'proposal');
+    expect(proposal?.type === 'proposal' && proposal.changes.map((c) => `${c.kind} ${c.relPath}`)).toEqual([
+      'edit style.css',
+      'create about.html',
+    ]);
     expect(terminal(h.events)).toMatchObject([{ type: 'done' }]);
   });
 });

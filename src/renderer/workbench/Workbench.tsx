@@ -83,6 +83,11 @@ import { Splitter } from './Splitter';
 import { persistedLayout } from './layout';
 import { EDITOR_SHARE, FILES_WIDTH, MAX_SESSION_TABS } from '../../shared/session';
 import { AboutDialog, useAboutRequests } from './AboutDialog'; // S28.1
+// S34.2: AI agent (proposals reviewed as diffs, applied through the save pipeline)
+import { AgentRegion } from '../ai/AgentRegion';
+import type { AgentApplyHost } from '../ai/agent-apply';
+import type { AiApi } from '../../shared/ipc/ai-contract';
+import type { NoobideApi } from '../../shared/ipc/contract';
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -109,6 +114,9 @@ export function Workbench() {
   // S21.3: the local-history window, opened for a file (the active tab) or for the whole project.
   const [historyFor, setHistoryFor] = useState<{ relPath: string | null } | null>(null);
   const aboutOpen = useAboutRequests(); // S28.1: opened by openAbout() (menus: S24)
+  // S34.2: the AI agent panel (only when the AI bridge of S31 is present)
+  const aiApi = (bridge as (NoobideApi & { readonly ai?: AiApi }) | undefined)?.ai;
+  const [agentOpen, setAgentOpen] = useState(false);
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
 
@@ -556,6 +564,40 @@ export function Workbench() {
     [bridge, fileOps, t],
   );
 
+  // --- S34.2: how the agent's accepted changes reach the files: open tabs through their editor model and saver
+  // (one undo step, journaled, atomic save + history), everything else through the workspace APIs and file-op hooks.
+  const agentProject = doc.project;
+  const agentHost = useMemo<AgentApplyHost | null>(() => {
+    if (!bridge || !agentProject) return null;
+    return {
+      projectId: agentProject.projectId,
+      workspace: bridge.workspace,
+      history: bridge.history,
+      fileOps,
+      openTab: (relPath) => {
+        const saver = saverOf(relPath);
+        const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
+        if (!saver || !tab) return undefined;
+        const blocked =
+          saver.state.conflict || saver.state.deleted || lockedRef.current.some((p) => isSameOrBelow(relPath, p));
+        return { text: saver.text, readOnly: Boolean(tab.content.readOnly), blocked: Boolean(blocked) };
+      },
+      replaceOpenText: async (relPath, text) => {
+        const saver = saverOf(relPath);
+        const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
+        if (!saver || !tab) return { code: 'changed-since' };
+        dispatch({ type: 'activate', relPath }); // the user sees the change land in the editor
+        const applied = await editorModels().then((m) => m.replaceModelText(tab.uri, text));
+        if (applied === null || saver !== saverOf(relPath)) return { code: 'write-failed', detail: 'editor' };
+        // The editor reports the edit only for the model it shows; a background tab's edit is recorded here.
+        if (saver.text !== applied) recordEdit(relPath, applied);
+        return (await saver.save()) ? null : { code: 'save-failed' };
+      },
+      openFile: (relPath) => void openFile(relPath),
+    };
+  }, [bridge, agentProject, fileOps, openFile, recordEdit]);
+  // --- end S34.2 ---
+
   // --- S12: restore after an abnormal termination (RecoveryDialog) ---
   const adoptProject = useCallback(
     async (project: OpenedProject) => {
@@ -775,7 +817,7 @@ export function Workbench() {
   const commandContext: CommandContext = {
     hasProject: doc.project !== null,
     hasActiveTab: doc.active !== null,
-    modalOpen: wizardOpen || historyFor !== null || aboutOpen.open || glossaryFor !== null,
+    modalOpen: wizardOpen || historyFor !== null || aboutOpen.open || glossaryFor !== null || agentOpen,
     theme: theme.choice, // S24.4
   };
   const commandHandlers: CommandHandlers = {
@@ -914,6 +956,7 @@ export function Workbench() {
       >
         <Rail
           onShowHistory={project && bridge?.history ? () => setHistoryFor({ relPath: doc.active }) : undefined}
+          onShowAgent={project && aiApi ? () => setAgentOpen(true) : undefined}
           filesVisible={visible.files}
           problemsOpen={visible.problemsPanel}
           onToggleFiles={() => dispatchLayout({ type: 'toggleFiles', narrow })}
@@ -1001,7 +1044,12 @@ export function Workbench() {
         <PreviewPane
           hidden={!visible.preview}
           covered={
-            (narrow && visible.files) || wizardOpen || historyFor !== null || aboutOpen.open || glossaryFor !== null
+            (narrow && visible.files) ||
+            wizardOpen ||
+            historyFor !== null ||
+            aboutOpen.open ||
+            glossaryFor !== null ||
+            agentOpen
           }
           projectId={project?.projectId ?? null}
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
@@ -1067,6 +1115,16 @@ export function Workbench() {
           onRestore={restoreVersion}
           onRestoredDeleted={(relPath) => void openFile(relPath)}
           onClose={() => setHistoryFor(null)}
+        />
+      )}
+      {/* S34.2: AI agent (kept mounted while hidden so a running turn keeps its state; one per project) */}
+      {project && aiApi && (
+        <AgentRegion
+          key={project.projectId}
+          api={aiApi}
+          host={agentHost}
+          open={agentOpen}
+          onClose={() => setAgentOpen(false)}
         />
       )}
       {/* S23.4: terminology glossary */}
