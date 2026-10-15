@@ -9,6 +9,7 @@ import { aiInlineEn } from './ai-inline'; // S32.1
 import { aiEditEn } from './ai-edit'; // S35
 import { aiHistoryEn } from './ai-history'; // S39
 import { paletteEn } from './palette'; // S40
+import { annotationsEn } from './annotations'; // S41.5
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -306,6 +307,7 @@ export const en: Record<MessageKey, string> = {
   ...aiEditEn, // S35 AI inline edit and Fix with AI
   ...aiHistoryEn, // S39 saved AI chats and token usage
   ...paletteEn, // S40 command palette
+  ...annotationsEn, // S41.5 preview annotations strip
   // --- S18.3 formatting ---
   'format.button': 'Format',
   'format.title': 'Format the code: indentation and line breaks ({shortcut})',

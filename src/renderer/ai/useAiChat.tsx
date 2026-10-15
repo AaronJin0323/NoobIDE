@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { ProblemRecord } from '../../shared/problem';
+import type { Annotation } from '../../shared/ipc/annotations-contract';
+import { fill } from '../recovery/format';
 import { setEditorContextActions, type EditorSelection } from '../editor/editor-handle';
 import { useI18n } from '../i18n/I18nProvider';
 import { aiBridge, aiSettingsAvailable, AI_STATUS_CHANGED_EVENT, openAiSettings } from './ai-bridge';
@@ -126,6 +128,33 @@ export function useAiChat(projectId: string | null, host: AiWorkbenchHost, optio
     [controller, t],
   );
 
+  // S41.6: "Ask AI" on preview annotations: main builds each chip's text (note, element, file and lines with
+  // excerpts); the chat opens in agent mode with those chips and nothing is sent until the user sends.
+  const askAboutAnnotations = useCallback(
+    async (annotations: readonly Annotation[]) => {
+      const projectId = projectRef.current;
+      const bridge = window.noobide?.annotations;
+      if (!projectId || !bridge || annotations.length === 0) return;
+      let result: Awaited<ReturnType<typeof bridge.context>>;
+      try {
+        result = await bridge.context({ projectId, ids: annotations.map((a) => a.id), locale: localeRef.current });
+      } catch {
+        result = { ok: false, code: 'not-found', message: '' };
+      }
+      if (!result.ok) {
+        controller.annotationsFailed();
+        return;
+      }
+      const [first] = annotations;
+      const prompt =
+        annotations.length === 1 && first?.note
+          ? fill(t('ai.prompt.annotation'), { note: first.note })
+          : t('ai.prompt.annotations');
+      controller.askAboutAnnotations(result.value, prompt);
+    },
+    [controller, t],
+  );
+
   // S33.2: "Ask AI to explain this code" in the code editor's context menu while AI is offered.
   useEffect(() => {
     if (!shown) {
@@ -185,5 +214,6 @@ export function useAiChat(projectId: string | null, host: AiWorkbenchHost, optio
     toggle: useCallback(() => controller.toggle(), [controller]),
     explainSelection,
     askAboutProblem,
+    askAboutAnnotations, // S41.6
   };
 }

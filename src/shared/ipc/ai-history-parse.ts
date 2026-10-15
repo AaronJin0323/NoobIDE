@@ -56,7 +56,7 @@ const count = (v: unknown): v is number =>
 const time = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 8.64e15;
 export const isChatId = (v: unknown): v is string => typeof v === 'string' && CHAT_ID.test(v);
 
-const CONTEXT_KINDS = ['file', 'selection', 'problem', 'console', 'preview'] as const;
+const CONTEXT_KINDS = ['file', 'selection', 'problem', 'console', 'preview', 'annotation'] as const;
 const CHANGE_KINDS = ['edit', 'create', 'rename', 'delete'] as const;
 const TURN_KINDS = ['chat', 'agent'] as const;
 const MODES = ['chat', 'explain-code', 'explain-problem'] as const;

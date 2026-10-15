@@ -73,8 +73,12 @@ export interface AiModelInfo {
 
 /** A file or excerpt the user saw in the context list before sending. Paths are project-relative. */
 export interface AiContextItem {
-  /** S38.2 'preview': what the preview shows (path, title, outline, recent errors), from `previewSnapshot`. */
-  readonly kind: 'file' | 'selection' | 'problem' | 'console' | 'preview';
+  /**
+   * S38.2 'preview': what the preview shows (path, title, outline, recent errors), from `previewSnapshot`.
+   * S41.6 'annotation': a preview annotation (the note, the element, its HTML/CSS location with excerpts), the text
+   * main built for it (`annotations.context`); relPath/startLine/endLine name its main location.
+   */
+  readonly kind: 'file' | 'selection' | 'problem' | 'console' | 'preview' | 'annotation';
   readonly relPath?: string;
   /** 1-based inclusive line range for selections and excerpts. */
   readonly startLine?: number;

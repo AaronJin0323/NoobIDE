@@ -144,7 +144,7 @@ function parseHistory(raw: unknown): AiChatMessage[] | null {
   return out;
 }
 
-const CONTEXT_KINDS = ['file', 'selection', 'problem', 'console', 'preview'] as const;
+const CONTEXT_KINDS = ['file', 'selection', 'problem', 'console', 'preview', 'annotation'] as const;
 
 function parseContext(raw: unknown): AiContextItem[] | null {
   if (!Array.isArray(raw) || raw.length > AI_LIMITS.contextItems) return null;
@@ -158,6 +158,8 @@ function parseContext(raw: unknown): AiContextItem[] | null {
     if (!CONTEXT_KINDS.includes(item.kind as 'file')) return null;
     // S38.2: a preview item carries the text the user saw and names the snapshot whose screenshot goes with it.
     if (item.kind === 'preview' && (typeof item.text !== 'string' || item.relPath !== undefined)) return null;
+    // S41.6: an annotation item carries the text the user saw (main built it); it is never re-read from disk.
+    if (item.kind === 'annotation' && typeof item.text !== 'string') return null;
     if (
       item.snapshotId !== undefined &&
       (item.kind !== 'preview' || !str(item.snapshotId, 64) || !REQUEST_ID.test(item.snapshotId))
