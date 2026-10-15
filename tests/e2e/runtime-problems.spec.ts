@@ -71,7 +71,19 @@ let runtimeRoot = '';
 test('syntax errors, exceptions, rejections, console errors and module failures map to project files (S16.2)', async () => {
   runtimeRoot = await project('预览 运行时');
   await startPreview(runtimeRoot);
-  await expect.poll(async () => (await listed()).length, { timeout: 20_000 }).toBe(13); // 8 runtime + console, 5 resource
+  try {
+    await expect.poll(async () => (await listed()).length, { timeout: 20_000 }).toBe(13); // 8 runtime + console, 5 resource
+  } catch (error) {
+    // Seen once on the Windows runner (11 of 13: the <img> and the missing module's 404 never arrived): show what the
+    // page itself saw of every request next to what was recorded, so the next run says where they were lost.
+    const seen = await evalInPreview<unknown>(
+      app,
+      `performance.getEntriesByType('resource').map((e) => [decodeURI(e.name), e.initiatorType, e.responseStatus, Math.round(e.duration)])`,
+    ).catch((e: unknown) => String(e));
+    const recorded = (await listed()).map((r) => [r.source, r.resource?.requestedPath ?? r.originalMessage]);
+    console.log(`runtime problems: page saw ${JSON.stringify(seen)}; recorded ${JSON.stringify(recorded)}`);
+    throw error;
+  }
   const records = await listed();
   const projectId = records[0]?.projectId;
   expect(projectId).toMatch(/^[0-9a-f-]{36}$/);

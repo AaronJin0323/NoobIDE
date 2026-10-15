@@ -2,13 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { SerialQueue, writeFileAtomic, type RecoveryLogger } from '../recovery/atomic-file';
-import { backupFile, readJsonFile } from './json-file';
+import { backupFile, readJsonFile, schemaVersionOf } from './json-file';
 
 /**
  * Recent projects (S13.3), kept in app data (`recent-projects.json`, versioned like settings). Each entry has an
  * opaque id; the renderer opens or removes projects by that id only, main keeps the real root path. Removing an entry
  * only edits this list — nothing on disk is ever touched. A folder that no longer exists is reported as unavailable
- * (`available: false`) instead of being dropped silently, so the user sees what happened to it.
+ * (`available: false`) instead of being dropped silently, so the user sees what happened to it. A list written by a
+ * newer NoobIDE (S28.4 downgrade) is shown but never written.
  */
 export const RECENT_VERSION = 1;
 export const MAX_RECENT = 12;
@@ -40,9 +41,10 @@ export interface RecentProjectsOptions {
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function parseEntries(value: unknown): RecentEntry[] | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-  const { version, projects } = value as { version?: unknown; projects?: unknown };
-  if (version !== RECENT_VERSION || !Array.isArray(projects)) return null;
+  if (schemaVersionOf(value, RECENT_VERSION).kind === 'invalid') return null;
+  // An older or a newer (S28.4) file is read the same way: every well-formed entry is kept.
+  const { projects } = value as { projects?: unknown };
+  if (!Array.isArray(projects)) return null;
   const out: RecentEntry[] = [];
   for (const p of projects) {
     if (typeof p !== 'object' || p === null) continue;
@@ -76,6 +78,11 @@ export class RecentProjects {
       const parsed = read.kind === 'parsed' ? parseEntries(read.value) : null;
       if (parsed) {
         this.entries = parsed;
+        if (read.kind === 'parsed' && schemaVersionOf(read.value, RECENT_VERSION).kind === 'newer') {
+          // S28.4 downgrade: written by a newer NoobIDE — use it, never write it (changes last until quit).
+          this.writable = false;
+          this.options.log?.('recent-newer-version', { readOnly: true });
+        }
         return;
       }
       // Unusable list: keep it as a backup (never overwritten) and start empty.

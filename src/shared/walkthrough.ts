@@ -84,11 +84,14 @@ export function orderSteps(steps: readonly WalkthroughStepId[]): WalkthroughStep
 }
 
 /**
- * Lenient load of a stored file: every invalid or missing field takes its default. A file from a newer NoobIDE or
- * not an object at all gives the defaults.
+ * Lenient load of a stored file: every invalid or missing field takes its default. Not an object at all, or a version
+ * that is not a non-negative integer, gives the defaults. S28.4: a file from an older or a newer NoobIDE is read field
+ * by field too (the store never writes a newer one).
  */
 export function loadWalkthroughState(raw: unknown): WalkthroughState {
-  if (!isRecord(raw) || raw.version !== WALKTHROUGH_VERSION) return DEFAULT_WALKTHROUGH;
+  if (!isRecord(raw)) return DEFAULT_WALKTHROUGH;
+  const v = raw.version === undefined ? 0 : raw.version;
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) return DEFAULT_WALKTHROUGH;
   const pick = <K extends keyof WalkthroughState>(key: K, valid: (value: unknown) => boolean): WalkthroughState[K] =>
     (valid(raw[key]) ? raw[key] : DEFAULT_WALKTHROUGH[key]) as WalkthroughState[K];
   return {

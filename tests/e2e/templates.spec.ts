@@ -116,7 +116,9 @@ for (const id of ['personal-intro', 'product-showcase', 'button-counter']) {
       },
       path.join(project, t!.entry),
     );
-    await page.waitForLoadState('load');
+    // Playwright learns about the navigation from its own protocol events, which can trail main's loadFile (seen on
+    // the Windows runner): wait until it has the template's document, or evaluate() runs in the old about:blank.
+    await page.waitForURL((url) => url.protocol === 'file:', { waitUntil: 'load' });
 
     // Images decoded, stylesheet applied (body background differs from the browser default).
     const state = await page.evaluate(() => ({

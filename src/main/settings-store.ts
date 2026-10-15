@@ -1,6 +1,7 @@
 import { SerialQueue, writeFileAtomic, type RecoveryLogger } from '../recovery/atomic-file';
 import {
   DEFAULT_SETTINGS,
+  readNewerSettings,
   SETTINGS_MIGRATIONS,
   SETTINGS_VERSION,
   upgradeSettings,
@@ -31,8 +32,9 @@ export interface SettingsState {
 
 /**
  * Versioned app settings in app data (S13.1). `load` reads, migrates and validates the file; a corrupt file (not JSON,
- * not an object, a broken version) or one written by a newer NoobIDE is moved aside to a timestamped backup and the
- * defaults are written in its place. Updates are serialized and written atomically. Settings never hold secrets or
+ * not an object, a broken version) is moved aside to a timestamped backup and the defaults are written in its place.
+ * A file written by a newer NoobIDE (S28.4 downgrade) is read as far as this version understands it and is never
+ * written: the store then works in memory only. Updates are serialized and written atomically. Settings never hold secrets or
  * file contents; the log gets event names and codes only.
  */
 export class SettingsStore {
@@ -98,9 +100,17 @@ export class SettingsStore {
       }
       return this.state;
     }
+    if (upgraded.reason === 'newer-version' && read.kind === 'parsed') {
+      // S28.4 downgrade: use what this version understands, but never write, move or delete the newer file — the
+      // newer NoobIDE must find it intact after the next upgrade. Changes made now last until the app quits.
+      this.writable = false;
+      this.log('settings-newer-version', { readOnly: true });
+      this.state = { settings: readNewerSettings(read.value), notice: 'newer-version', backupPath: null };
+      return this.state;
+    }
     // Unusable: keep the user's file as a backup, never overwrite it, then start from the defaults.
-    const notice: SettingsNotice = upgraded.reason === 'newer-version' ? 'newer-version' : 'corrupt';
-    const backupPath = await backupFile(file, notice === 'newer-version' ? 'newer' : 'corrupt', this.now());
+    const notice: SettingsNotice = 'corrupt';
+    const backupPath = await backupFile(file, 'corrupt', this.now());
     this.log('settings-reset', { reason: upgraded.reason, backedUp: backupPath !== null });
     this.state = { settings: DEFAULT_SETTINGS, notice, backupPath };
     if (backupPath === null) this.writable = false;

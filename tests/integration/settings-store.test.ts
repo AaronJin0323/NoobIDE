@@ -7,7 +7,8 @@ import { DEFAULT_SETTINGS, SETTINGS_VERSION } from '../../src/shared/settings';
 
 /**
  * S13.1 on a real file system: settings in an app-data folder whose path has Chinese characters and spaces. Corrupt
- * or newer files are backed up (never overwritten) and the defaults take over; migrations are written back.
+ * files are backed up (never overwritten) and the defaults take over; migrations are written back. Newer files
+ * (S28.4 downgrade) are read but never written.
  */
 let tmp: string;
 let dir: string;
@@ -65,12 +66,21 @@ describe('settings store (S13.1)', () => {
     expect((await readdir(dir)).sort()).toEqual(['settings.corrupt-2026-10-14T12-00-00-000Z.json', 'settings.json']);
   });
 
-  it('a file from a newer NoobIDE is kept as a backup, not overwritten', async () => {
-    const newer = JSON.stringify({ version: SETTINGS_VERSION + 1, locale: 'en', fancy: true });
+  it('S28.4: a file from a newer NoobIDE is used as far as understood and never written, moved or backed up', async () => {
+    const newer = JSON.stringify({ version: SETTINGS_VERSION + 1, locale: 'en', editorFontSize: 99, fancy: true });
     await writeFile(file, newer);
-    const state = await new SettingsStore({ file, now: fixedNow }).load();
-    expect(state.notice).toBe('newer-version');
-    expect(await readFile(path.join(dir, 'settings.newer-2026-10-14T12-00-00-000Z.json'), 'utf8')).toBe(newer);
+    const store = new SettingsStore({ file, now: fixedNow, log });
+    const state = await store.load();
+    expect(state).toEqual({
+      settings: { ...DEFAULT_SETTINGS, locale: 'en' },
+      notice: 'newer-version',
+      backupPath: null,
+    });
+    expect(events).toContain('settings-newer-version');
+    // A change in the older version lasts until quit; the newer file stays byte for byte.
+    expect(await store.update({ theme: 'dark' })).toMatchObject({ locale: 'en', theme: 'dark' });
+    expect(await readFile(file, 'utf8')).toBe(newer);
+    expect(await readdir(dir)).toEqual(['settings.json']);
   });
 
   it('migrates an unversioned (version 0) file and writes the result back', async () => {

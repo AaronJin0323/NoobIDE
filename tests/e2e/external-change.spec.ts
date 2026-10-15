@@ -2,7 +2,16 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
-import { collectConsoleErrors, makeProject, openFile, openProject, tabOf, typeAtEnd } from './project';
+import {
+  collectConsoleErrors,
+  documentText,
+  focusEditor,
+  makeProject,
+  openFile,
+  openProject,
+  tabOf,
+  typeAtEnd,
+} from './project';
 import { DOC_END, DOC_START } from './keys';
 
 /**
@@ -20,12 +29,14 @@ let consoleErrors: string[];
 
 const status = () => page.getByTestId('save-status');
 const lines = () => page.locator('.monaco-editor .view-lines').first();
+/** The whole open document, however little of it fits in the window. */
+const editorText = () => documentText(page.locator('.monaco-editor').first());
 const file = (relPath: string) => path.join(root, ...relPath.split('/'));
 const disk = (relPath: string) => readFile(file(relPath), 'utf8');
 
 /** Banners make the editor shorter; bring the last line into view before reading the visible lines. */
 async function showEnd() {
-  await lines().click();
+  await focusEditor(page);
   await page.keyboard.press(DOC_END);
 }
 
@@ -75,7 +86,7 @@ test('a clean buffer reloads silently with a notice and keeps the cursor (S11.1)
 
   await expect(page.getByTestId('disk-reloaded')).toBeVisible();
   await expect(page.getByTestId('disk-reloaded')).toContainText('lines.txt');
-  await expect(lines()).toContainText('CHANGED ELSEWHERE');
+  await expect.poll(editorText).toContain('CHANGED ELSEWHERE');
   await expect(page.getByTestId('cursor-position')).toHaveText(cursorBefore ?? '');
   await expect(tabOf(page, 'lines.txt')).not.toContainText('未保存');
   // Reloading never writes: the other program's bytes stay exactly as they were.
@@ -101,20 +112,22 @@ test('unsaved edits + an external change → conflict with a Monaco diff; "use d
   await page.waitForTimeout(2000);
   expect(await disk('index.html')).toBe('<p>THEIRS-ONE</p>\n');
   await showEnd();
-  await expect(lines()).toContainText('MINE-ONE');
+  await expect.poll(editorText).toContain('MINE-ONE');
 
   await banner.getByTestId('conflict-compare').click();
   const diff = page.getByTestId('conflict-diff');
   await expect(diff.locator('.monaco-diff-editor')).toBeVisible();
-  await expect(diff.locator('.monaco-diff-editor')).toContainText('THEIRS-ONE');
-  await expect(diff.locator('.monaco-diff-editor')).toContainText('MINE-ONE');
+  // Both sides, however little of them fits: the diff editor scrolls its sides together.
+  const diffText = () => documentText(diff.locator('.monaco-diff-editor'));
+  await expect.poll(diffText).toContain('THEIRS-ONE');
+  await expect.poll(diffText).toContain('MINE-ONE');
   await expect(page.getByTestId('conflict-summary')).toContainText('新增');
 
   await banner.getByTestId('conflict-take-disk').click();
   await expect(page.getByTestId('conflict-banner')).toHaveCount(0);
   await expect(page.getByTestId('conflict-diff')).toHaveCount(0);
-  await expect(lines()).toContainText('THEIRS-ONE');
-  await expect(lines()).not.toContainText('MINE-ONE');
+  await expect.poll(editorText).toContain('THEIRS-ONE');
+  await expect.poll(editorText).not.toContain('MINE-ONE');
   // Nothing unsaved is left (the file was saved earlier in this run, so the status reads "saved").
   await expect(status()).toHaveAttribute('data-state', /^(clean|saved)$/);
   await page.waitForTimeout(1500);
@@ -151,7 +164,7 @@ test('deleting a conflicted file closes its comparison and lets the user save th
   await expect(conflict).toHaveCount(0);
   await expect(page.getByTestId('conflict-diff')).toHaveCount(0);
   await showEnd();
-  await expect(lines()).toContainText('CONFLICT-THEN-DELETED');
+  await expect.poll(editorText).toContain('CONFLICT-THEN-DELETED');
   await page.waitForTimeout(1500);
   await expect(readFile(file('index.html'))).rejects.toThrow();
 
@@ -175,8 +188,8 @@ test('a new disk version replaces the comparison while the retained edits still 
   expect(await disk('index.html')).toBe('<p>LATEST-COMPARISON</p>\n');
   await banner.getByTestId('conflict-take-disk').click();
   await expect(diff).toHaveCount(0);
-  await expect(lines()).toContainText('LATEST-COMPARISON');
-  await expect(lines()).not.toContainText('RETAIN-UNTIL-CHOICE');
+  await expect.poll(editorText).toContain('LATEST-COMPARISON');
+  await expect.poll(editorText).not.toContain('RETAIN-UNTIL-CHOICE');
   await expect(status()).toHaveAttribute('data-state', /^(clean|saved)$/);
 });
 
@@ -193,7 +206,7 @@ test('a file deleted on disk keeps its text, is marked deleted and can be saved 
   await expect(status()).toHaveAttribute('data-state', 'deleted');
   await expect(tabOf(page, 'style.css')).toContainText('已删除');
   await showEnd();
-  await expect(lines()).toContainText('UNSAVED');
+  await expect.poll(editorText).toContain('UNSAVED');
   // Autosave stops: nothing re-creates the file behind the user's back.
   await page.waitForTimeout(2000);
   await expect(readFile(file('style.css'))).rejects.toThrow();
@@ -219,7 +232,7 @@ test('failed re-creation explains the missing folder and succeeds after the fold
   await banner.getByTestId('deleted-resave').click();
   await expect(banner.getByTestId('deleted-error')).toBeVisible();
   await expect(status()).toHaveAttribute('data-state', 'deleted');
-  await expect(lines()).toContainText('RECREATE-CONTENT');
+  await expect.poll(editorText).toContain('RECREATE-CONTENT');
   await mkdir(file('恢复 文件夹'));
   await banner.getByTestId('deleted-resave').click();
   await expect.poll(() => disk('恢复 文件夹/retry.txt').catch(() => '')).toContain('RECREATE-CONTENT');
@@ -236,7 +249,7 @@ test('a deleted file reappearing with different text requires a choice and keeps
   await expect(banner).toBeVisible();
   await expect(page.getByTestId('deleted-banner')).toHaveCount(0);
   await showEnd();
-  await expect(lines()).toContainText('REAPPEARED-KEEP-MINE');
+  await expect.poll(editorText).toContain('REAPPEARED-KEEP-MINE');
   await page.waitForTimeout(1500);
   expect(await disk('index.html')).toBe('<p>RESTORED-BY-ANOTHER-EDITOR</p>\n');
   await banner.getByTestId('conflict-keep-mine').click();

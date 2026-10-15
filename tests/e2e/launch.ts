@@ -51,9 +51,20 @@ export async function launchApp(
     tempUserDataDirs.push(userDataDir);
   }
   const args = [`--user-data-dir=${userDataDir}`, ...(options.args ?? []), ...electronArgs()];
-  return electron.launch({
+  const app = await electron.launch({
     args,
     cwd: repoRoot,
     env: { ...process.env, ...env } as Record<string, string>,
   });
+  const size = /^(\d+)x(\d+)$/.exec(process.env.NOOBIDE_E2E_WINDOW ?? '');
+  if (size) {
+    // Reproduces a smaller screen (the Windows CI runner's display is 1024×768, so its window is much shorter than
+    // the 1280×800 default): e.g. NOOBIDE_E2E_WINDOW=1024x600 sets the first window's content size.
+    await app.firstWindow();
+    await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]?.setContentSize(w, h), [
+      Number(size[1]),
+      Number(size[2]),
+    ] as const);
+  }
+  return app;
 }

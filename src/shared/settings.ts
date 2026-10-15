@@ -93,6 +93,12 @@ export function upgradeSettings(
   } catch {
     return { ok: false, reason: 'migration-failed' };
   }
+  const { settings, resetFields } = pickSettings(raw);
+  return { ok: true, settings, migratedFrom: version === targetVersion ? null : version, resetFields };
+}
+
+/** Every known field that is valid; an invalid or missing one takes its default. Unknown fields are ignored. */
+function pickSettings(raw: Raw): { settings: AppSettings; resetFields: string[] } {
   const resetFields: string[] = [];
   const pick = <K extends keyof SettingsPatch>(key: K, valid: (value: unknown) => boolean): AppSettings[K] => {
     if (Object.hasOwn(raw, key) && valid(raw[key])) return raw[key] as AppSettings[K];
@@ -106,7 +112,15 @@ export function upgradeSettings(
     editorFontSize: pick('editorFontSize', isFontSize),
     restoreSession: pick('restoreSession', (v) => typeof v === 'boolean'),
   };
-  return { ok: true, settings, migratedFrom: version === targetVersion ? null : version, resetFields };
+  return { settings, resetFields };
+}
+
+/**
+ * S28.4 downgrade: a settings file written by a newer NoobIDE (`upgradeSettings` says `newer-version`). The fields
+ * this version knows are used as far as they are valid; the file itself is left alone (the store does not write it).
+ */
+export function readNewerSettings(parsed: unknown): AppSettings {
+  return isRecord(parsed) ? pickSettings(parsed).settings : DEFAULT_SETTINGS;
 }
 
 export function isSettingsLocale(value: unknown): value is SettingsLocale {
