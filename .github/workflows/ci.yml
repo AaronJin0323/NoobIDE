@@ -1,0 +1,86 @@
+# S06.1 — CI build matrix (docs/decisions/0021-ci-matrix-and-arch-inspection.md).
+# Each target is built and tested on its own OS (PLAN §5: no cross-packaging): Windows x64 on windows-latest,
+# Apple Silicon on macos-14 (arm64 runner). Every action is pinned to a full commit SHA; the comment names the tag.
+# tests/integration/ci-workflow.test.ts checks this file's structure (matrix, steps, pinning, permissions).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: the workflow only reads the repository. Artifacts upload with the run's own token scope.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows-x64
+            os: windows-latest
+            arch: x64
+          - target: macos-arm64
+            os: macos-14
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          architecture: ${{ matrix.arch }}
+          cache: npm
+
+      - name: Check runner architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: node -e "console.log(process.platform, process.arch); if (process.arch !== process.env.EXPECTED_ARCH) process.exit(1)"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify (harness, typecheck, lint, format, unit and integration tests)
+        run: npm run verify
+
+      # No xvfb: Windows and macOS runners have a desktop session, and Playwright drives the Electron binary from
+      # node_modules, so no browser download is needed (scripts/e2e.mjs).
+      - name: End-to-end tests (Playwright + Electron)
+        run: npm run test:e2e
+
+      - name: Make installers
+        run: npm run make
+
+      - name: Inspect binary architectures
+        run: node scripts/inspect-arch.mjs
+
+      - name: Upload installers
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: noobide-${{ matrix.target }}
+          path: out/make/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload e2e results on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-results-${{ matrix.target }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
