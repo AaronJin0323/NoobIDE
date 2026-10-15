@@ -10,6 +10,7 @@ import { ProjectWatcher, type WatchFn } from '../../src/workspace/watcher';
 import { ProjectWatchHub, type EventTarget } from '../../src/main/project-watch';
 import { PreviewServer } from '../../src/preview/static-server';
 import { ServerRegistry } from '../../src/preview/server-registry';
+import { PreviewProxy } from '../../src/preview/preview-proxy';
 import { WakeRecovery, type WakePreview, type WakeRecoveryDeps } from '../../src/main/wake-recovery';
 import { wakeSignals } from '../../src/platform/power-events';
 
@@ -108,6 +109,28 @@ describe('watcher after sleep', () => {
   });
 });
 
+describe('watcher resync that fails', () => {
+  it('reports a rescan and schedules a restart instead of staying detached', async () => {
+    const os = deadAfterSleepWatch();
+    let failNext = false;
+    const watch: WatchFn = (r, onChange) => {
+      if (failNext) {
+        failNext = false;
+        throw new Error('watch handle limit');
+      }
+      return os.watch(r, onChange);
+    };
+    const events: WatchEvent[] = [];
+    const watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { watch, restartDelaysMs: [20] });
+    await watcher.start();
+    failNext = true;
+    await watcher.resync(); // attach throws inside attach(): it schedules the restart itself
+    await until(() => os.attached.filter((h) => !h.closed).length === 1);
+    expect(events.filter((e) => e.type === 'rescan').length).toBeGreaterThanOrEqual(1);
+    watcher.close();
+  });
+});
+
 describe('static server after sleep', () => {
   it('answers while listening and stops answering once its socket died', async () => {
     const server = await PreviewServer.start(root);
@@ -149,6 +172,13 @@ describe('static server after sleep', () => {
     });
     expect(status).toBe(403);
     await server.close();
+  });
+
+  it('the network proxy answers while listening and not after its socket died', async () => {
+    const proxy = await PreviewProxy.start({ serverHost: '127.0.0.1', serverPort: 1, resolve: async () => [] });
+    expect(await proxy.answers(1_000)).toBe(true);
+    await proxy.close();
+    expect(await proxy.answers(1_000)).toBe(false);
   });
 
   it('a restarted server gets the same port when it is free, else a new one', async () => {

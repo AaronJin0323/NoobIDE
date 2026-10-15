@@ -156,7 +156,9 @@ export class ProjectWatcher {
         this.emit([{ type: 'rescan' }]);
       })
       .catch(() => {
-        if (!this.closed) this.emit([{ type: 'rescan' }]);
+        if (this.closed) return;
+        this.emit([{ type: 'rescan' }]);
+        if (!this.watcher) this.scheduleRestart(); // never left without a watch
       });
     return this.flushing;
   }

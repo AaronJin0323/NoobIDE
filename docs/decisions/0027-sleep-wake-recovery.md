@@ -39,7 +39,8 @@ jump within 10 s of a recovery is the same wake, overlapping signals join the re
    (a dirty buffer is never replaced).
 2. **Watchdog:** the preview's outstanding ping is forgotten, so the sleep is not counted as the page's answer time.
 3. **Server:** `PreviewServer.answers()` sends `HEAD /.noobide-health` without the ownership secret: the request checks
-   answer 403 before any file is touched, and the secret never leaves the process. No answer within 3 s → the preview
+   answer 403 before any file is touched, and the secret never leaves the process. The session's network proxy
+   (decision 0015) gets a TCP connect check, since all page traffic goes through it. No answer within 3 s → the preview
    restarts (`PreviewManager.restartAfterWake('server')`: Stop + Start in the same window). The registry tries the
    previous port first, so the page normally keeps its origin and storage; otherwise the new URL is loaded.
 4. **Page:** a trivial `executeJavaScript('0')` with a 3 s timeout. Not answering, and the page was starting, running or
@@ -48,7 +49,8 @@ jump within 10 s of a recovery is the same wake, overlapping signals join the re
 5. A restart adds one localised console notice (`restarted-after-sleep`, zh-CN and en, as text). One content-free log
    line `wake-recovery {trigger, watcher, server, page}` goes to the app log.
 
-The restart goes through the ordinary Stop/Start path: the new view gets the same isolation (no preload, sandbox,
+A Stop, project switch or Start by the user while the restart is stopping wins: the restart then does not start
+again. The restart goes through the ordinary Stop/Start path: the new view gets the same isolation (no preload, sandbox,
 context isolation, per-project partition, the proxy and request policy). Editor buffers, autosave and the recovery
 journal are in the renderer and app data; recovery never calls them, never reads project file contents and never
 writes into a project.

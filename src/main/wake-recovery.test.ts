@@ -223,6 +223,52 @@ describe('WakeRecovery', () => {
     expect(t.preview.calls.some((c) => c.startsWith('restart'))).toBe(false);
   });
 
+  it('a suspend that was not followed by a sleep expires: later ordinary ticks decide what "before" means', async () => {
+    const t = setup();
+    const { intervalMs, gapMs } = wakeSignals('win32').drift;
+    t.power.emit('suspend'); // page running
+    t.preview.subject = { projectId: 'p1', state: 'unresponsive' }; // the user's own loop, much later
+    for (let elapsed = 0; elapsed <= gapMs + intervalMs; elapsed += intervalMs) {
+      t.advance(intervalMs);
+      t.tick();
+    }
+    t.preview.page = false;
+    t.power.emit('unlock-screen');
+    expect(await settled(t.recovery)).toMatchObject({ page: 'left-alone' });
+  });
+
+  it('a late resume after the drift check already recovered from the same wake is not a second recovery', async () => {
+    const t = setup();
+    const { intervalMs } = wakeSignals('win32').drift;
+    t.advance(intervalMs + 5 * 60_000);
+    t.tick();
+    expect(await settled(t.recovery)).toMatchObject({ trigger: 'clock-jump' });
+    t.advance(1_000);
+    t.power.emit('resume');
+    await settled(t.recovery);
+    expect(t.resyncs).toHaveLength(1);
+  });
+
+  it('after dispose a recovery waiting for its settle pause touches nothing', async () => {
+    let settle: () => void = () => undefined;
+    const t = setup({
+      timers: {
+        setInterval: () => 1,
+        clearInterval: () => undefined,
+        setTimeout: (callback) => {
+          settle = callback;
+          return 1;
+        },
+      },
+    });
+    t.power.emit('resume');
+    t.recovery.dispose();
+    settle();
+    await settled(t.recovery);
+    expect(t.resyncs).toHaveLength(0);
+    expect(t.preview.calls.filter((c) => c !== 'forget-ping')).toEqual([]);
+  });
+
   it('dispose removes the power listeners and the drift timer', () => {
     const t = setup();
     expect(t.power.listenerCount('resume')).toBe(1);

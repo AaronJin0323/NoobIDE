@@ -575,10 +575,15 @@ export class PreviewManager {
     if (this.live) this.live.ping = null;
   }
 
-  /** Whether the preview's loopback server still answers HTTP (static-server.ts `answers`). */
+  /**
+   * Whether the preview's loopback server still answers HTTP (static-server.ts `answers`) and the session's network
+   * proxy still accepts connections (all page traffic goes through it, decision 0015).
+   */
   async serverAnswers(timeoutMs: number): Promise<boolean> {
     const live = this.live;
-    return live ? live.server.answers(timeoutMs) : false;
+    if (!live) return false;
+    const [server, proxy] = await Promise.all([live.server.answers(timeoutMs), live.proxy.answers(timeoutMs)]);
+    return server && proxy;
   }
 
   /** Whether the page's main thread runs a trivial script within `timeoutMs` (false when crashed or hung). */
@@ -614,9 +619,18 @@ export class PreviewManager {
     const live = this.live;
     if (!live || live.window.isDestroyed()) return false;
     const { projectId, window } = live;
-    await this.stop({ announce: false });
+    const stopping = this.stop({ announce: false });
+    const ticket = this.generation; // stop() counted itself synchronously
+    await stopping;
+    // The user pressed Stop, or a project switch or another Start came in while stopping: theirs wins.
+    if (this.generation !== ticket || this.live !== null || window.isDestroyed()) {
+      // Our stop was silent: make sure the workbench does not keep showing the old page as running.
+      if (this.status.state === 'stopped' && !window.isDestroyed()) this.setStatus(window, this.status);
+      return false;
+    }
     const result = await this.start(projectId, window);
-    if (!result.ok || this.live?.projectId !== projectId) return false;
+    const started = this.live as LivePreview | null; // (TS narrowed `live` above; start() set it)
+    if (!result.ok || started?.projectId !== projectId) return false;
     this.pushLog({
       source: 'page-load',
       level: 'info',

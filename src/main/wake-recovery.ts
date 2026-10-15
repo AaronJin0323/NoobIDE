@@ -95,6 +95,8 @@ export class WakeRecovery {
   private lastSeenState: PreviewState | null = null;
   private running: Promise<WakeReport> | null = null;
   private lastReport: WakeReport | null = null;
+  private disposed = false;
+  private suspendedAt = 0;
 
   constructor(private readonly deps: WakeRecoveryDeps) {
     this.now = deps.now ?? Date.now;
@@ -106,8 +108,10 @@ export class WakeRecovery {
 
   install(): void {
     if (this.drift !== null) return;
+    this.disposed = false;
     this.listen('suspend', () => {
       this.stateAtSuspend = this.deps.preview.wakeSubject()?.state ?? null;
+      this.suspendedAt = this.now();
       this.deps.log?.('power-suspend', {});
     });
     for (const event of this.deps.signals.wakeEvents) this.listen(event, () => void this.recover(event));
@@ -116,6 +120,7 @@ export class WakeRecovery {
   }
 
   dispose(): void {
+    this.disposed = true; // a recovery waiting for its settle pause stops there
     for (const [event, listener] of this.listeners) this.deps.power.removeListener(event, listener);
     this.listeners.length = 0;
     if (this.drift !== null) this.timers.clearInterval(this.drift);
@@ -133,9 +138,10 @@ export class WakeRecovery {
    */
   recover(trigger: WakeTrigger): Promise<WakeReport | null> {
     if (this.running) return this.running;
-    if (trigger !== 'resume' && this.lastReport && this.now() - this.lastReport.at < this.minGapMs) {
-      return Promise.resolve(null);
-    }
+    if (this.disposed) return Promise.resolve(null);
+    const recent = this.lastReport !== null && this.now() - this.lastReport.at < this.minGapMs;
+    // A resume always runs (a real sleep), unless the drift check already recovered from this very wake.
+    if (recent && (trigger !== 'resume' || this.lastReport?.trigger === 'clock-jump')) return Promise.resolve(null);
     const before = this.stateAtSuspend !== undefined ? this.stateAtSuspend : this.lastSeenState;
     this.stateAtSuspend = undefined;
     const run = this.run(trigger, before).finally(() => {
@@ -160,7 +166,11 @@ export class WakeRecovery {
       void this.recover('clock-jump');
       return;
     }
-    if (!this.running) this.lastSeenState = this.deps.preview.wakeSubject()?.state ?? null;
+    if (!this.running) {
+      this.lastSeenState = this.deps.preview.wakeSubject()?.state ?? null;
+      // Ordinary ticks long after a suspend: the sleep did not happen (or was aborted); the samples take over.
+      if (now - this.suspendedAt > this.deps.signals.drift.gapMs) this.stateAtSuspend = undefined;
+    }
   }
 
   private async run(trigger: WakeTrigger, before: PreviewState | null): Promise<WakeReport> {
@@ -168,6 +178,9 @@ export class WakeRecovery {
     // The watchdog must not count the sleep as the page's time to answer.
     preview.forgetStalePing();
     if (this.settleMs > 0) await new Promise<void>((resolve) => void this.timers.setTimeout(resolve, this.settleMs));
+    if (this.disposed) {
+      return { trigger, watcher: 'none', server: 'none', page: 'none', at: this.now() };
+    }
     preview.forgetStalePing();
 
     let watcher: WakeReport['watcher'] = 'none';
