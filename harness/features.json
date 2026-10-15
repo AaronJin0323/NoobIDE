@@ -3463,8 +3463,8 @@
       "depends_on": [
         "S41.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/preview/source-locate.test.ts (14: ancestry exact over lines, flattened html/head/body, comments/raw text/void, implied p/li/td + CRLF, id + tag/class/text approximate, script-created none, entities/quoted >, CSS by selector/occurrence/@media/quotes, <style> blocks) + src/preview/annotation-source.test.ts (3: Chinese+space paths, root/dotfile guard, index page + not-found) @ fe9ff03"
     },
     {
       "id": "S41.3",
@@ -3482,7 +3482,7 @@
       "depends_on": [
         "S41.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

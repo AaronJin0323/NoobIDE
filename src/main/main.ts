@@ -1,4 +1,5 @@
 /// <reference types="@electron-forge/plugin-vite/forge-vite-env" />
+import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -69,6 +70,8 @@ import { setupAi } from './ai-main'; // S31 AI assistant (decision 0025)
 import { secureStorageFor } from '../platform/secure-storage';
 import { WakeRecovery } from './wake-recovery'; // S25.1/S25.2
 import { wakeSignals } from '../platform/power-events';
+import { AnnotationStore } from './annotation-store'; // S41.4 preview annotations (decision 0030)
+import { registerAnnotationsIpcHandlers } from './annotations-ipc';
 
 // Windows installer events: create/remove shortcuts and quit without opening a window (S02.7, S28.4: also quits
 // when Update.exe is missing or hangs). App data and projects are never touched by these events.
@@ -140,6 +143,7 @@ function start(): void {
     blockedRequests,
     preview: () => preview.debugInfo(),
     problems: () => problems.debugInfo(), // S16.2–S16.6
+    annotationPicking: () => preview.annotationPicking(), // S41.3: inspect mode is on
     // S38.1: one page snapshot of the running preview (sizes and the outline of the test's own fixture page).
     previewSnapshot: async (screenshot: boolean) => {
       const projectId = preview.getStatus().projectId;
@@ -382,6 +386,14 @@ function start(): void {
       },
     });
     registerProblemsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, bridge: problems }); // S16.2
+    // S41.4: preview annotations, kept per project in app data (never in the project folder).
+    registerAnnotationsIpcHandlers(ipcMain, {
+      allowedOrigin: devOrigin ?? APP_ORIGIN,
+      store: new AnnotationStore({ dir: appDataPath(appData, 'annotations'), newId: randomUUID, log: logger }),
+      preview,
+      rootOf: (projectId) => openProjects.rootOf(projectId),
+      newId: randomUUID,
+    });
     // --- S13 app data (all in app.getPath('userData'), never inside a project) ---
     const settings = new SettingsStore({ file: appDataPath(appData, 'settings'), log: logger });
     // --- S24.2: native menus, translated with the interface language and enabled from the command context ---
