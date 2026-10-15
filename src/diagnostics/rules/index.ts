@@ -45,3 +45,4 @@ export function explainRecord(record: ProblemRecord, ctx: RuleContext = {}): Pro
 }
 
 export type { Rule, RuleContext, RuleOutput, DeclaredName } from './types';
+export { undefinedName, UNDEFINED_NAME_RULE_ID } from './undefined-name';

@@ -2087,7 +2087,7 @@
       "depends_on": [
         "S22.2"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
@@ -2108,7 +2108,7 @@
         "S22.2",
         "S22.4"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

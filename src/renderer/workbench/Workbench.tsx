@@ -45,9 +45,12 @@ import { useStaticProblems } from '../problems/useStaticProblems';
 // S17.1: runtime / resource problems (main's store when present, else the preview's events) and the panel view.
 import { useRuntimeProblems } from '../problems/useRuntimeProblems';
 import { buildView } from '../problems/problems-view';
-// S17.2: go to code + original error in the problem details.
-import { ProblemCard } from '../problems/ProblemCard';
-import { explain } from '../../diagnostics/rules';
+// S17.2 / S22.4: the problem card (go to code, original error, explanation and checks).
+import { ProblemDetails } from '../problems/ProblemDetails';
+// S22.5: one-click fix of a misspelled name.
+import { FixCard } from '../problems/FixCard';
+import { createFixHost } from '../problems/fix-host';
+import { useProblemFix } from '../problems/useProblemFix';
 import { requestReveal } from '../editor/editor-handle';
 // S23: onboarding walkthrough, final task and glossary
 import { useWalkthrough } from '../walkthrough/useWalkthrough';
@@ -678,6 +681,36 @@ export function Workbench() {
   }, [pendingGoTo, doc.docError]);
   // --- end S17.2 ---
 
+  // --- S22.4/S22.5: problem card explained with the facts of its location; one-click fix of a misspelled name, as
+  // an ordinary editor edit saved through the file's own save pipeline (problems/fix-host.ts). ---
+  const fixHost = useMemo(
+    () =>
+      createFixHost({
+        async showFile(relPath) {
+          const project = docRef.current.project;
+          if (!project) return null;
+          await openFile(relPath);
+          if (docRef.current.project?.projectId !== project.projectId) return null;
+          dispatch({ type: 'activate', relPath });
+          const tab = await eventually(() => docRef.current.tabs.find((open) => open.relPath === relPath));
+          return tab ? { uri: tab.uri, readOnly: Boolean(tab.content.readOnly) } : null;
+        },
+        saverOf: (relPath) => saverOf(relPath),
+        uriOf: (relPath) => docRef.current.tabs.find((tab) => tab.relPath === relPath)?.uri,
+        savedFiles: savedFiles.current,
+      }),
+    [openFile],
+  );
+  const problemFix = useProblemFix(fixHost, runtimeProblems.records);
+  // A fix belongs to its project: another project starts without one.
+  const clearFix = problemFix.clear;
+  useEffect(() => clearFix(), [doc.project?.projectId, clearFix]);
+  const uriOfFile = useCallback(
+    (relPath: string) => docRef.current.tabs.find((tab) => tab.relPath === relPath)?.uri,
+    [],
+  );
+  // --- end S22.4/S22.5 ---
+
   // Closing the window or quitting: main asks first; we answer after every file is saved (S10.6).
   useEffect(() => {
     if (!bridge) return;
@@ -955,7 +988,20 @@ export function Workbench() {
         projectOpen={project !== null}
         view={problemsView}
         onClearResolved={runtimeProblems.clearResolved}
-        renderDetails={(record) => <ProblemCard record={record} explanation={explain(record)} onGoTo={goTo} />}
+        renderDetails={(record) => (
+          <ProblemDetails
+            record={record}
+            uriOf={uriOfFile}
+            onGoTo={goTo}
+            onFix={problemFix.apply}
+            fixBusy={problemFix.fix?.phase === 'applying' || problemFix.fix?.phase === 'undoing'}
+          />
+        )}
+        fixCard={
+          problemFix.fix && (
+            <FixCard fix={problemFix.fix} serial={problemFix.serial} actions={problemFix} onGoTo={goTo} />
+          )
+        }
       />
       {/* S13.1: the settings file was unusable and was backed up */}
       {settingsNotice && <SettingsNotice snapshot={settingsNotice} onDismiss={() => setSettingsNotice(null)} />}

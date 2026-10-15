@@ -1259,6 +1259,48 @@ button {
   font-size: 12px;
 }
 
+/* ── S22.4: problem card (PLAN §9) · S22.5: one-click fix result ── */
+.problem-card-head,
+.problem-card-text,
+.problem-card-heading {
+  margin: 0;
+}
+.problem-card-tag {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  color: var(--muted);
+  font-size: 12px;
+}
+.problem-card-location {
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+.problem-card-heading {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.problem-card-list ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
+}
+.problem-fix-card {
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-control);
+}
+.problem-fix-card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.problem-fix-status {
+  margin: 0;
+  font-weight: 600;
+}
+
 /* ── S17.3: console view (filter, clear, page-load attribution) ── */
 .preview-console-toolbar {
   position: sticky;
