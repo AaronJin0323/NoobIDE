@@ -8,7 +8,8 @@ import { SmallFolderIcon } from './icons';
 export function SessionNotice({ rootPath, onDismiss }: { rootPath: string; onDismiss(): void }) {
   const { t } = useI18n();
   return (
-    <div className="inline-alert save-alert app-notice" role="status" data-testid="session-restored">
+    // Information, not a failure: the neutral accent style (the heading says what happened; colour is not the cue).
+    <div className="inline-alert info-alert app-notice" role="status" data-testid="session-restored">
       <SmallFolderIcon />
       <div className="save-alert-body">
         <strong>{t('session.restored')}</strong>

@@ -100,6 +100,9 @@ test('reopening restores the project, its tabs, the active tab and the layout si
   await start();
   await expect(page.getByTestId('project-path')).toHaveText(project.root);
   await expect(page.getByTestId('session-restored')).toBeVisible();
+  // Informational, not styled like a failed save.
+  await expect(page.getByTestId('session-restored')).toHaveClass(/\binfo-alert\b/);
+  await expect(page.getByTestId('session-restored')).not.toHaveClass(/\bsave-alert\b/);
   await expect(page.getByTestId('session-restored-path')).toHaveText(project.root);
   await expect(page.locator('[data-testid="tab"]')).toHaveCount(3);
   expect(

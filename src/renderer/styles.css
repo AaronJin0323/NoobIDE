@@ -708,6 +708,13 @@ button {
 .save-alert > svg {
   color: var(--danger);
 }
+/* An informational notice (e.g. "reopened your last project"): neither a warning nor an error. */
+.info-alert {
+  background: var(--accent-soft);
+}
+.info-alert > svg {
+  color: var(--accent-text);
+}
 .alert-detail {
   display: block;
   margin-top: 2px;
