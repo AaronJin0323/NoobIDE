@@ -38,6 +38,16 @@ describe('installers (S28.1)', () => {
     expect(maker('squirrel')?.configOrConfigFetcher).toMatchObject({ setupExe: 'NoobIDE-Setup.exe' });
   });
 
+  it('gives Squirrel the nuspec fields it requires and the product name for Setup.exe', () => {
+    // nuget pack fails with "Authors is required." without them (package.json has no "author"), and Squirrel stamps
+    // the nuspec description into Setup.exe's ProductName / FileDescription (found by `npm run make` on Windows).
+    const squirrel = maker('squirrel')?.configOrConfigFetcher ?? {};
+    expect(squirrel.authors).toEqual(expect.any(String));
+    expect((squirrel.authors as string).trim()).not.toBe('');
+    expect((squirrel.authors as string).includes('@')).toBe(false);
+    expect(squirrel.description).toBe('NoobIDE');
+  });
+
   it('every icon the makers and the packager reference is bundled in the repository', () => {
     const icon = forgeConfig.packagerConfig?.icon;
     expect(icon).toBe('resources/icons/icon');
