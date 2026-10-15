@@ -12,6 +12,7 @@
 import type { AiEditProblem } from '../../shared/ipc/ai-contract';
 import type { ProblemRecord, ProblemSeverity } from '../../shared/problem';
 import { AI_PROMPT_PENDING_CODE } from '../../diagnostics/rules/ai-prompt';
+import type { AiAvailability } from './chat-model';
 import { editContext, type EditRequest } from './inline-edit-model';
 
 export const AI_PROMPT_LANGUAGES: ReadonlySet<string> = new Set(['html', 'css', 'javascript']);
@@ -45,6 +46,35 @@ export function parsePromptLine(text: string): PromptLine | null {
 }
 
 export const isPromptLanguage = (languageId: string): boolean => AI_PROMPT_LANGUAGES.has(languageId);
+
+/**
+ * `/ai` prompts are live (hints, warning markers, Enter / Ctrl+Enter / context menu) only when the AI can answer:
+ * AI is on and a key is stored (decision 0031). Without a key (a fresh install) or with AI off, an `/ai` line is
+ * ordinary text: Enter inserts a line break, nothing is underlined.
+ */
+export const promptsEnabled = (availability: AiAvailability): boolean => availability.kind === 'ready';
+
+/**
+ * Whether a model gets the pending-prompt warning markers: prompts are enabled, the model is a project file (the
+ * welcome sample and probes are in-memory models) of a prompt language, and its tab can be edited (on a read-only tab
+ * nothing can run the prompt, so a warning that says "press Ctrl+Enter" would be wrong).
+ */
+export function promptMarkersWanted(input: {
+  readonly enabled: boolean;
+  readonly languageId: string;
+  readonly scheme: string;
+  readonly editable: boolean;
+}): boolean {
+  return input.enabled && input.editable && input.scheme === 'file' && isPromptLanguage(input.languageId);
+}
+
+/**
+ * What "Fix with AI" on a problem does: NoobIDE's own pending-prompt warning runs the `/ai` prompt on its line (the
+ * generate request the prompt asks for), every other problem opens the S35.2 fix review around its line.
+ */
+export function fixWithAiRoute(record: Pick<ProblemRecord, 'code' | 'source'>): 'run-prompt' | 'fix' {
+  return record.source === 'static' && record.code === AI_PROMPT_PENDING_CODE ? 'run-prompt' : 'fix';
+}
 
 /** Lines (1-based) of every `/ai` line in a text. */
 export function promptLinesOf(text: string): number[] {

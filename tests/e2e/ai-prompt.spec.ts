@@ -148,7 +148,27 @@ test('a Chinese /ai prompt: hint and warning, Enter, consent, diff with the prob
   expect(await editorText()).not.toContain('<button id="add">');
 });
 
-test('Ctrl/Cmd+Enter runs the prompt too; Reject and Esc leave the /ai line as it was', async () => {
+test('"Fix with AI" on the pending warning runs the prompt; Ctrl/Cmd+Enter too; Reject and Esc leave the line', async () => {
+  // The warning's "Fix with AI" runs the /ai request (generate mode), not a fix request about the line: the scripted
+  // Chinese turn only answers the generate system prompt, so the button in the diff proves the mode.
+  await expect.poll(staticProblems, { timeout: 15_000 }).toContain('index.html:6:ai-prompt-pending');
+  await page.getByTestId('problems-toggle').click();
+  const row = page.getByTestId('problem-row').filter({ hasText: 'index.html:6' });
+  await expect(row.first()).toBeVisible({ timeout: 15_000 });
+  const summary = row.first().getByTestId('problem-summary');
+  if ((await summary.getAttribute('aria-expanded')) !== 'true') await summary.click();
+  await row.first().getByTestId('problem-card').getByTestId('problem-fix-ai').click();
+  await expect(zone().getByTestId('inline-edit-target')).toHaveText('AI 写的代码会替换 index.html 第 6 行的 /ai 要求');
+  await expect(zone().getByTestId('inline-edit-prompt')).toHaveText(`你的要求：${ZH_PROMPT}`);
+  await expect(zone()).toHaveAttribute('data-phase', 'review', { timeout: 30_000 });
+  await expect(zone().getByTestId('inline-edit-diff').locator('[data-kind="added"]').first()).toContainText(
+    '<button id="add">加一</button>',
+  );
+  await zone().getByTestId('inline-edit-reject').click();
+  await expect(zone()).toHaveCount(0);
+  expect(await editorText()).toContain(`/ai ${ZH_PROMPT}`);
+  await page.getByTestId('problems-toggle').click();
+
   await lineEnd(6);
   await page.keyboard.press(`${mod}+Enter`);
   await expect(zone()).toHaveAttribute('data-phase', 'review', { timeout: 30_000 });
@@ -236,8 +256,24 @@ test('en: an English prompt from the context menu, labels in English, Accept and
     await openFile(page, 'style.css');
     await lineEnd(3);
     await page.keyboard.press('Enter');
+    // Suggestions stay out of a prompt line: `.` and spaces open no CSS / project-class list, so plain Enter (no
+    // Escape first) runs the request.
+    await page.keyboard.type('/ai center .box', { delay: 60 }); // as fast as a person: suggestions get time to open
+    await expect.poll(hints).toMatch(/let AI write it/);
+    await page.keyboard.press('Enter');
+    await expect(zone().getByTestId('inline-edit-target')).toHaveText(
+      'The AI code replaces the /ai request on line 4 of style.css',
+    );
+    await expect(zone()).toHaveAttribute('data-phase', 'review', { timeout: 30_000 });
+    await page.keyboard.press('Escape'); // = Reject
+    await expect(zone()).toHaveCount(0);
+    await expect(page.locator('.monaco-editor .suggest-widget.visible')).toHaveCount(0);
+
+    // The same line, rewritten (typed again, so still armed).
+    await lineEnd(4);
+    await page.keyboard.press('Shift+Home');
     await page.keyboard.type('/ai center this heading');
-    await page.keyboard.press('Escape'); // closes a CSS suggestion list, if one opened
+    await expect.poll(editorText).toContain('/ai center this heading');
     await expect.poll(hints).toMatch(/let AI write it/);
 
     // A right click on the prompt line puts the cursor there and opens the editor's menu.
@@ -264,6 +300,30 @@ test('en: an English prompt from the context menu, labels in English, Accept and
   } finally {
     await page.getByTestId('switch-language').click(); // back to zh-CN
   }
+});
+
+test('without an AI key an /ai line is ordinary text: Enter breaks the line, no hint, no warning, no zone', async () => {
+  await page.evaluate(async () => {
+    const ai = (window.noobide as unknown as { ai: { clearKey(r: { provider: string }): Promise<unknown> } }).ai;
+    await ai.clearKey({ provider: 'anthropic' });
+    window.dispatchEvent(new Event('noobide:ai-status-changed'));
+  });
+  await openFile(page, 'index.html');
+  await expect.poll(hints).toBe('');
+  await lineEnd(5);
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('/ai 把标题居中');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('x');
+  // Enter was a plain line break: the `x` is on a line of its own.
+  const viewLines = page.locator('.monaco-editor .view-line');
+  await expect(viewLines.filter({ hasText: '/ai 把标题居中' })).toHaveCount(1);
+  expect(await viewLines.filter({ hasText: '/ai 把标题居中' }).textContent()).not.toContain('x');
+  await expect(page.getByText('行 7, 列 4')).toBeVisible(); // the cursor after `  x`, one line below the /ai line
+  await expect(zone()).toHaveCount(0);
+  expect(await hints()).toBe('');
+  await page.waitForTimeout(1000);
+  expect((await staticProblems()).filter((p) => p.endsWith(':ai-prompt-pending'))).toEqual([]);
 });
 
 test('no console errors', () => {

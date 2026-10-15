@@ -13,7 +13,15 @@ import { useAiStatus } from './ai-status';
 import { availabilityOf, aiSurfacesShown } from './chat-model';
 import { providerName } from './chat-text';
 import { InlineEditPanel, type InlineEditPanelActions } from './InlineEditPanel';
-import { buildGenerateRequest, fitIndent, parsePromptLine, promptLinesOf, promptProblems } from './ai-prompt-model';
+import {
+  buildGenerateRequest,
+  fitIndent,
+  fixWithAiRoute,
+  parsePromptLine,
+  promptLinesOf,
+  promptProblems,
+  promptsEnabled,
+} from './ai-prompt-model';
 import {
   buildEditRequest,
   fixInstruction,
@@ -30,6 +38,8 @@ export interface InlineEditHost {
   relPathOf(uri: string): string | undefined;
   /** The tab cannot be edited (read-only, another encoding). */
   readOnly(relPath: string): boolean;
+  /** S42.3: model URIs of the open tabs that cannot be edited (no pending `/ai` warning there). */
+  readOnlyUris?(): readonly string[];
   /**
    * The applied text reaches the file's save pipeline (recorded like a typed edit when the editor's own change
    * listener did not) and is saved: atomic write, local history.
@@ -97,6 +107,7 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
     [api, status],
   );
   const shown = aiSurfacesShown(availability);
+  const promptsOn = promptsEnabled(availability);
 
   const [session, setSession] = useState<Session | null>(null);
   const [state, dispatch] = useReducer(inlineEditReducer, initialEditState('instruction'));
@@ -332,19 +343,6 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
     if (zone) openSession(zone, relPath);
   }, [openSession]);
 
-  /** S35.2 "Fix with AI": the lines around the reported line of the reported file, with the original error. */
-  const fixProblem = useCallback(
-    async (record: ProblemRecord, title: string) => {
-      if (!record.file || record.line === undefined) return;
-      const uri = await hostRef.current.showFile(record.file);
-      const access = activeEditor();
-      if (!uri || !access?.openEditZone || access.shownUri() !== uri) return;
-      const zone = access.openEditZone(fixLinesOf(Number.MAX_SAFE_INTEGER, record.line));
-      if (zone) openSession(zone, record.file, { record, title });
-    },
-    [openSession],
-  );
-
   /**
    * S42.3: an inline `/ai` prompt on `line` of the file on screen (Enter, Ctrl/Cmd+Enter or the context menu): the
    * zone opens over that line with the request, and it is sent at once (after consent in a new project).
@@ -373,11 +371,32 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
     [openSession, projectId],
   );
 
-  // S42.3: the editor's `/ai` support follows AI being shown and the locale.
+  /**
+   * S35.2 "Fix with AI": the lines around the reported line of the reported file, with the original error. On the
+   * S42.3 pending-prompt warning it runs that `/ai` prompt instead (fixWithAiRoute): a fix request would ask the AI to
+   * "fix" the user's own request.
+   */
+  const fixProblem = useCallback(
+    async (record: ProblemRecord, title: string) => {
+      if (!record.file || record.line === undefined) return;
+      const uri = await hostRef.current.showFile(record.file);
+      const access = activeEditor();
+      if (!uri || !access?.openEditZone || access.shownUri() !== uri) return;
+      if (fixWithAiRoute(record) === 'run-prompt') {
+        runPrompt(uri, record.line);
+        return;
+      }
+      const zone = access.openEditZone(fixLinesOf(Number.MAX_SAFE_INTEGER, record.line));
+      if (zone) openSession(zone, record.file, { record, title });
+    },
+    [openSession, runPrompt],
+  );
+
+  // S42.3: the editor's `/ai` support follows AI being ready (a key stored, AI on) and the locale.
   useEffect(() => {
     const shortcut = shortcutLabel(rendererPlatform(), 'Enter');
     setAiPromptHooks({
-      enabled: shown && projectId !== null,
+      enabled: promptsOn && projectId !== null,
       texts: {
         hintRun: fill(t('aiPrompt.hint.run'), { shortcut }),
         hintShortcut: fill(t('aiPrompt.hint.shortcut'), { shortcut }),
@@ -386,9 +405,10 @@ export function useInlineEdit(projectId: string | null, host: InlineEditHost, op
         menu: t('aiPrompt.menu'),
       },
       run: runPrompt,
+      readOnlyUris: () => hostRef.current.readOnlyUris?.() ?? [],
     });
     return () => setAiPromptHooks(null);
-  }, [shown, projectId, t, runPrompt]);
+  }, [promptsOn, projectId, t, runPrompt]);
 
   // AI switched off, or another project: the session ends without changing anything.
   useEffect(() => {

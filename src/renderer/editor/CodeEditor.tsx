@@ -21,7 +21,7 @@ import { createEditZone } from '../ai/edit-zone-monaco';
 // S43: detected indentation and context-aware suggestions (decision 0032).
 import { attachSmartEditing } from './smart-monaco';
 // S42.3: inline `/ai` prompt lines (hint, warning, Enter / Ctrl+Enter / context menu).
-import { attachAiPrompts } from '../ai/ai-prompt-monaco';
+import { attachAiPrompts, refreshAiPromptMarkers } from '../ai/ai-prompt-monaco';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -235,6 +235,7 @@ export function CodeEditor({
   const readOnly = file.readOnly ?? false;
   useEffect(() => {
     editorRef.current?.updateOptions({ readOnly });
+    refreshAiPromptMarkers(); // S42.3: no pending /ai warning on a read-only tab
   }, [readOnly, uri]);
   useEffect(() => {
     const editor = editorRef.current;
