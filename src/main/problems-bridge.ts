@@ -38,12 +38,12 @@ export class ProblemsBridge implements PreviewCaptureHook {
     this.capture.sessionStarted(session);
   }
 
-  navigationStarted(): void {
-    this.capture.navigationStarted();
+  navigationStarted(generation: number): void {
+    this.capture.navigationStarted(generation);
   }
 
-  navigationCommitted(): void {
-    this.capture.navigationCommitted();
+  navigationCommitted(generation: number): void {
+    this.capture.navigationCommitted(generation);
   }
 
   entry(entry: PreviewLogEntry): void {

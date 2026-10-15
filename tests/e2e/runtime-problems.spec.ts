@@ -5,7 +5,7 @@ import { partitionForProject } from '../../src/preview/preview-options';
 import type { ProblemRecord, ProblemSource } from '../../src/shared/problem';
 import { launchApp } from './launch';
 import { collectConsoleErrors } from './project';
-import { copyFixture, evalInPreview, openProject, waitForPreviewState } from './preview-helpers';
+import { copyFixture, evalInPreview, openProject, previewInfo, waitForPreviewState } from './preview-helpers';
 
 /**
  * S16.2–S16.6 end to end: the runtime capture adapter in main turns what the real sandboxed preview reports into
@@ -180,6 +180,9 @@ test('a refresh starts a new generation; problems that did not happen again are 
   await expect.poll(async () => byMessage(await listed(), "Unexpected token ';'")?.count, { timeout: 20_000 }).toBe(2);
   const after = await snapshot();
   expect(after.current?.sessionId).toBe(before.current?.sessionId);
+  // One counter: problem records are numbered by the preview's own page-load generation (status pill, S14.1), the
+  // same number the one-click fix counts loads with (S22.5).
+  expect(after.current?.generation).toBe((await previewInfo(app)).status.generation);
 
   const records = await listed();
   const fixed = byMessage(records, 'Cannot set properties of null');

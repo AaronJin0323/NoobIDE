@@ -58,8 +58,10 @@ export interface PreviewCaptureHook {
     /** The workbench that started the preview (receives change notifications). */
     target: { isDestroyed(): boolean; send(channel: string, ...args: never[]): void },
   ): void;
-  navigationStarted(): void;
-  navigationCommitted(): void;
+  /** A main-frame page load began; `generation` is its `PreviewStatus.generation` (the one load counter). */
+  navigationStarted(generation: number): void;
+  /** The document of page load `generation` committed. */
+  navigationCommitted(generation: number): void;
   entry(entry: PreviewLogEntry): void;
   sessionEnded(): void;
 }
@@ -101,6 +103,8 @@ interface LivePreview {
   pageGuarded: boolean;
   ping: { readonly id: number; readonly startedAt: number } | null;
   pingCounter: number;
+  /** S16.3: generation (PreviewStatus.generation) of the main-frame load in flight or last started. */
+  loadGeneration: number | null;
 }
 
 const RECENT_RECORDS = 100;
@@ -318,6 +322,7 @@ export class PreviewManager {
       pageGuarded,
       ping: null,
       pingCounter: 0,
+      loadGeneration: null,
     };
     this.live = live;
     this.startingWindow = null;
@@ -743,13 +748,17 @@ export class PreviewManager {
 
     contents.on('did-start-navigation', (event) => {
       if (!isCurrent() || !event.isMainFrame || event.isSameDocument) return;
-      this.deps.capture?.navigationStarted(); // S16.3: a new page load (generation) is on its way
       live.ping = null; // A ping sent to the previous document may never be answered.
       this.update(live, { type: 'navigate' });
+      // S16.3: a new page load is on its way. Its generation is the state machine's (a Start or refresh already
+      // counted it; a navigation the page makes by itself was counted just now), so problem records, the status and
+      // the one-click fix's load counting share one counter.
+      live.loadGeneration = this.machine.generation;
+      this.deps.capture?.navigationStarted(live.loadGeneration);
     });
-    // S16.3: the new document committed; from now on the page's records belong to the new generation.
+    // S16.3: the new document committed; from now on the page's records belong to its generation.
     contents.on('did-navigate', () => {
-      if (isCurrent()) this.deps.capture?.navigationCommitted();
+      if (isCurrent()) this.deps.capture?.navigationCommitted(live.loadGeneration ?? this.machine.generation);
     });
     contents.on('did-stop-loading', () => {
       if (!isCurrent()) return;

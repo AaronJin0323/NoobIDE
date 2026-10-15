@@ -106,9 +106,12 @@ function setup() {
   const advance = (ms: number) => {
     clock += ms;
   };
+  // The preview's page-load generation (PreviewStatus.generation), as the PreviewManager passes it.
+  let generation = 0;
   const load = () => {
-    capture.navigationStarted();
-    capture.navigationCommitted();
+    generation += 1;
+    capture.navigationStarted(generation);
+    capture.navigationCommitted(generation);
   };
   capture.sessionStarted({ projectId: PROJECT, origin: ORIGIN });
   load();
@@ -216,8 +219,8 @@ describe('RuntimeCapture: mapping (S16.2)', () => {
     capture.entry(RAW[2] as PreviewLogEntry);
     expect(capture.list()).toEqual([]);
     capture.sessionStarted({ projectId: PROJECT, origin: ORIGIN });
-    capture.navigationStarted();
-    capture.navigationCommitted();
+    capture.navigationStarted(1);
+    capture.navigationCommitted(1);
     capture.entry({ source: 'page-load', level: 'warning', message: 'navigation blocked', url: 'https://x', at: 1 });
     expect(capture.list()).toEqual([]);
     capture.sessionEnded();
@@ -276,7 +279,7 @@ describe('RuntimeCapture: refresh attribution (S16.3)', () => {
 
   it('events the old page sends while the next load is in flight belong to the older generation', () => {
     const { capture } = setup();
-    capture.navigationStarted(); // refresh requested, new document not committed yet
+    capture.navigationStarted(2); // refresh requested, new document not committed yet
     capture.entry({ source: 'console', level: 'error', message: '卸载时的错误', url: url('a.js'), line: 1, at: 2 });
     // …except the new document's own request, which is part of the load in flight.
     capture.entry({
@@ -288,18 +291,34 @@ describe('RuntimeCapture: refresh attribution (S16.3)', () => {
       resourceType: 'mainFrame',
       at: 3,
     });
-    capture.navigationCommitted();
+    capture.navigationCommitted(2);
     const records = capture.list();
     expect(byMessage(records, '卸载时的错误')).toMatchObject({ preview: { generation: 1 }, stale: true });
     expect(byMessage(records, 'mainFrame')).toMatchObject({ preview: { generation: 2 } });
     expect(byMessage(records, 'mainFrame')?.stale).toBeUndefined();
   });
 
+  it('uses the preview’s own generation numbers (PreviewStatus.generation), not a counter of its own', () => {
+    const capture = new RuntimeCapture();
+    capture.sessionStarted({ projectId: PROJECT, origin: ORIGIN });
+    expect(capture.current()).toBeNull(); // nothing committed yet in this session
+    capture.navigationStarted(5); // e.g. the fifth page load of this app run
+    capture.navigationCommitted(5);
+    capture.entry(thrown);
+    expect(capture.current()?.generation).toBe(5);
+    expect(capture.list()[0]?.preview?.generation).toBe(5);
+    capture.navigationStarted(6);
+    capture.navigationCommitted(6);
+    expect(capture.current()?.generation).toBe(6);
+    expect(capture.list()[0]?.stale).toBe(true);
+  });
+
   it('a new preview session (Stop, Start) makes earlier problems stale even at the same generation number', () => {
-    const { capture, load } = setup();
+    const { capture } = setup();
     capture.entry(thrown);
     capture.sessionStarted({ projectId: PROJECT, origin: ORIGIN });
-    load();
+    capture.navigationStarted(1);
+    capture.navigationCommitted(1);
     expect(capture.current()?.generation).toBe(1);
     expect(capture.list()[0]?.stale).toBe(true);
   });
@@ -363,8 +382,8 @@ describe('RuntimeCapture: volume (S16.5)', () => {
     let clock = 0;
     const capture = new RuntimeCapture({ now: () => clock, store: { capacity: { console: 300 } } });
     capture.sessionStarted({ projectId: PROJECT, origin: ORIGIN });
-    capture.navigationStarted();
-    capture.navigationCommitted();
+    capture.navigationStarted(1);
+    capture.navigationCommitted(1);
     capture.entry(RAW[3] as PreviewLogEntry); // a real error first
     for (let i = 0; i < 20_000; i++) {
       clock += 1; // 20 s of 1000 messages per second
