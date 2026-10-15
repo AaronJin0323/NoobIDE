@@ -1,6 +1,6 @@
 /**
  * Messages of Settings → AI and the AI consent prompt (S31.4, decision 0025). Kept in their own file and spread into
- * zh-CN.ts / en.ts. The AI error explanations (`ai.error.*`) are shared by every AI surface (S32–S35).
+ * zh-CN.ts / en.ts. Provider names, the consent title/allow and the AI error explanations (`ai.error.*`) come from ai-chat.ts (S33).
  */
 export const aiSettingsZhCN = {
   'command.aiSettings': 'AI 设置…',
@@ -12,8 +12,6 @@ export const aiSettingsZhCN = {
   'ai.settings.enabled.off': 'AI 已关闭：编辑器里不会出现任何 AI 功能。',
   'ai.settings.enabled.noKey': '保存一个 API 密钥后 AI 才能使用。',
   'ai.settings.provider': '服务商',
-  'ai.provider.anthropic': 'Anthropic（Claude）',
-  'ai.provider.openai': 'OpenAI（GPT）',
   'ai.settings.key': 'API 密钥',
   'ai.settings.key.placeholder': '粘贴你的 API 密钥',
   'ai.settings.key.hint': '密钥加密保存在这台电脑的系统钥匙串里，保存后不会再显示，也不会写进项目文件夹或日志。',
@@ -57,22 +55,8 @@ export const aiSettingsZhCN = {
   'ai.settings.consent.revoke': '撤销允许',
   'ai.settings.consent.noProject': '打开一个项目后可以在这里管理它的 AI 权限。',
   'ai.settings.close': '关闭',
-  'ai.consent.title': '允许 AI 读取这个项目吗？',
   'ai.consent.body':
     '使用 AI 时，这个项目的代码（你看到的文件、选中的内容和问题）会发送给 {provider}，由它生成回答。只会发送这个项目的内容，你可以随时在 AI 设置里撤销。',
-  'ai.consent.allow': '允许',
-  'ai.consent.deny': '暂不允许',
-  'ai.error.disabled': 'AI 已关闭。可以在 AI 设置里打开。',
-  'ai.error.no-key': '还没有 API 密钥。请在 AI 设置里保存一个。',
-  'ai.error.no-consent': '还没有允许这个项目使用 AI。',
-  'ai.error.unauthorized': '服务商拒绝了 API 密钥。请在 AI 设置里检查密钥。',
-  'ai.error.rate-limited': '请求太频繁或额度已用完，请稍后再试。',
-  'ai.error.offline': '连不上 AI 服务商，请检查网络。其他功能照常可用。',
-  'ai.error.context-too-large': '发送的内容太多了：请少选一些文件或内容再试。',
-  'ai.error.refused': '模型拒绝回答这个请求。换一种说法再试试。',
-  'ai.error.cancelled': '已停止。',
-  'ai.error.provider-error': 'AI 服务商出错了，请稍后再试。',
-  'ai.error.unknown-project': '这个项目已经关闭了。',
 };
 
 export const aiSettingsEn: Record<keyof typeof aiSettingsZhCN, string> = {
@@ -85,8 +69,6 @@ export const aiSettingsEn: Record<keyof typeof aiSettingsZhCN, string> = {
   'ai.settings.enabled.off': 'AI is off: no AI features appear in the editor.',
   'ai.settings.enabled.noKey': 'AI works once an API key is saved.',
   'ai.settings.provider': 'Provider',
-  'ai.provider.anthropic': 'Anthropic (Claude)',
-  'ai.provider.openai': 'OpenAI (GPT)',
   'ai.settings.key': 'API key',
   'ai.settings.key.placeholder': 'Paste your API key',
   'ai.settings.key.hint':
@@ -134,20 +116,6 @@ export const aiSettingsEn: Record<keyof typeof aiSettingsZhCN, string> = {
   'ai.settings.consent.revoke': 'Revoke',
   'ai.settings.consent.noProject': 'Open a project to manage its AI permission here.',
   'ai.settings.close': 'Close',
-  'ai.consent.title': 'Let AI read this project?',
   'ai.consent.body':
     'When you use AI, code from this project (the files you see, your selection and problems) is sent to {provider} to write the answer. Only this project’s content is sent, and you can revoke this any time in AI settings.',
-  'ai.consent.allow': 'Allow',
-  'ai.consent.deny': 'Not now',
-  'ai.error.disabled': 'AI is off. You can turn it on in AI settings.',
-  'ai.error.no-key': 'No API key yet. Save one in AI settings.',
-  'ai.error.no-consent': 'This project has not been allowed to use AI yet.',
-  'ai.error.unauthorized': 'The provider rejected the API key. Check the key in AI settings.',
-  'ai.error.rate-limited': 'Too many requests or no credit left. Try again later.',
-  'ai.error.offline': 'Cannot reach the AI provider. Check your connection; everything else works offline.',
-  'ai.error.context-too-large': 'Too much content to send: select fewer files or less text and try again.',
-  'ai.error.refused': 'The model declined this request. Try asking in a different way.',
-  'ai.error.cancelled': 'Stopped.',
-  'ai.error.provider-error': 'The AI provider had a problem. Try again later.',
-  'ai.error.unknown-project': 'This project is closed.',
 };

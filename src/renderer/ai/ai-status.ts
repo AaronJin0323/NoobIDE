@@ -10,6 +10,7 @@ import type {
   AiTestError,
 } from '../../shared/ipc/ai-contract';
 import type { MessageKey } from '../i18n/index';
+import { AI_STATUS_CHANGED_EVENT } from './ai-bridge';
 
 /**
  * Shared renderer state of the AI assistant (S31.4), for Settings → AI and every AI surface (S32–S35):
@@ -23,15 +24,11 @@ import type { MessageKey } from '../i18n/index';
  *
  * The API key never passes through here: status only says which providers have one.
  */
-export const AI_STATUS_CHANGED_EVENT = 'noobide:ai-status-changed';
-export const OPEN_AI_SETTINGS_EVENT = 'noobide:open-ai-settings';
+export { AI_STATUS_CHANGED_EVENT, OPEN_AI_SETTINGS_EVENT, openAiSettings } from './ai-bridge';
 
+/** Settings or consent changed: every AI surface re-reads the status (the S33 chat panel listens too). */
 export function notifyAiStatusChanged(target: EventTarget = window): void {
   target.dispatchEvent(new Event(AI_STATUS_CHANGED_EVENT));
-}
-
-export function openAiSettings(target: EventTarget = window): void {
-  target.dispatchEvent(new Event(OPEN_AI_SETTINGS_EVENT));
 }
 
 export function aiAvailable(status: AiStatus | null): boolean {

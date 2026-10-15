@@ -1,27 +1,33 @@
 import { useId, useState } from 'react';
-import type { AiApi, AiProviderId } from '../../shared/ipc/ai-contract';
+import type { AiApi } from '../../shared/ipc/ai-contract';
 import { useI18n } from '../i18n/I18nProvider';
 import { fill } from '../recovery/format';
-import { notifyAiStatusChanged, PROVIDER_LABEL } from './ai-status';
+import { notifyAiStatusChanged } from './ai-status';
+import type { AiConsentProps, AiConsentRenderer } from './chat-extensions';
 import './ai.css';
 
 /**
  * The one-time AI consent for a project (S31.4, decision 0025): "Code from this project will be sent to <provider>".
- * Reusable by every AI surface (chat panel S33, inline completions S32, agent S34): render it where the AI request
- * would start; it stores the answer in main (`setConsent`, revocable in Settings → AI) and reports it. Not a modal:
- * it sits inline in the panel, its buttons are ordinary keyboard-reachable buttons, and the decision is text.
+ * Reusable by every AI surface — it implements the chat panel's `AiConsentRenderer` slot (S33, chat-extensions.ts)
+ * and is used by Settings → AI, inline completions (S32) and the agent (S34). It stores the answer in main
+ * (`ai.setConsent`, revocable in Settings → AI), announces the change (`noobide:ai-status-changed`) and reports it.
+ * Not a modal: it sits inline where the request would start; its buttons are ordinary keyboard-reachable buttons and
+ * the outcome is said in words.
  */
-export interface AiConsentPromptProps {
+export interface AiConsentPromptProps extends AiConsentProps {
   readonly api: Pick<AiApi, 'setConsent'>;
-  readonly projectId: string;
-  readonly provider: AiProviderId;
-  /** Called after the decision was stored (allowed) or declined (nothing stored). */
-  readonly onResolved: (allowed: boolean) => void;
   /** Focus the Allow button on mount (when the prompt replaces what the user just clicked). */
   readonly autoFocus?: boolean;
 }
 
-export function AiConsentPrompt({ api, projectId, provider, onResolved, autoFocus }: AiConsentPromptProps) {
+export function AiConsentPrompt({
+  api,
+  projectId,
+  providerName,
+  onAllowed,
+  onDeclined,
+  autoFocus,
+}: AiConsentPromptProps) {
   const { t } = useI18n();
   const titleId = useId();
   const [busy, setBusy] = useState(false);
@@ -30,28 +36,34 @@ export function AiConsentPrompt({ api, projectId, provider, onResolved, autoFocu
   const allow = async () => {
     setBusy(true);
     setFailed(false);
-    const result = await api.setConsent({ projectId, allowed: true });
-    setBusy(false);
-    if (!result.ok) {
+    try {
+      const result = await api.setConsent({ projectId, allowed: true });
+      if (!result.ok) {
+        setFailed(true);
+        return;
+      }
+    } catch {
       setFailed(true);
       return;
+    } finally {
+      setBusy(false);
     }
     notifyAiStatusChanged();
-    onResolved(true);
+    onAllowed();
   };
 
   return (
-    <section className="ai-consent" role="group" aria-labelledby={titleId} data-testid="ai-consent">
-      <h3 className="ai-consent-title" id={titleId}>
+    <section className="ais-consent" role="group" aria-labelledby={titleId} data-testid="ai-consent">
+      <h3 className="ais-consent-title" id={titleId}>
         {t('ai.consent.title')}
       </h3>
-      <p className="ai-consent-body">{fill(t('ai.consent.body'), { provider: t(PROVIDER_LABEL[provider]) })}</p>
+      <p className="ais-consent-body">{fill(t('ai.consent.body'), { provider: providerName })}</p>
       {failed && (
-        <p className="ai-message ai-message-error" role="alert">
-          {t('ai.error.unknown-project')}
+        <p className="ais-message ais-message-error" role="alert">
+          {t('ai.consent.failed')}
         </p>
       )}
-      <div className="ai-row">
+      <div className="ais-row">
         <button
           type="button"
           className="primary-button dialog-button"
@@ -67,11 +79,16 @@ export function AiConsentPrompt({ api, projectId, provider, onResolved, autoFocu
           className="secondary-button"
           disabled={busy}
           data-testid="ai-consent-deny"
-          onClick={() => onResolved(false)}
+          onClick={onDeclined}
         >
-          {t('ai.consent.deny')}
+          {t('ai.consent.notNow')}
         </button>
       </div>
     </section>
   );
+}
+
+/** The chat panel's consent slot (`useAiChat(…, { consent })`), backed by this component. */
+export function aiConsentRenderer(api: Pick<AiApi, 'setConsent'>): AiConsentRenderer {
+  return (props) => <AiConsentPrompt key={props.projectId} api={api} {...props} autoFocus />;
 }

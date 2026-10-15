@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import type { IpcMain } from 'electron';
 import { AiConfigStore, AiConsentStore } from '../ai/config-store';
-import { createFakeProviders, parseFakeScript, type FakeProviderHub } from '../ai/fake-provider';
+import {
+  BUILTIN_FAKE_SCRIPT,
+  createFakeProviders,
+  parseFakeScript,
+  withBuiltin,
+  type FakeProviderHub,
+} from '../ai/fake-provider';
 import { createTestEncryptor, KeyStore, type KeyEncryptor } from '../ai/keys';
 import { realProviderFactory } from '../ai/providers/index';
 import { AiService, type AgentRunner, type AiLog } from '../ai/service';
@@ -25,7 +31,7 @@ export interface AiMainOptions {
   readonly safeStorage: KeyEncryptor;
   readonly logger: RecoveryLogger;
   readonly log: AiLog;
-  /** Path of the fake provider script (process.env.NOOBIDE_AI_FAKE), if any. */
+  /** process.env.NOOBIDE_AI_FAKE: '1' for the built-in fake scenarios, or the path of a fake script file. */
   readonly fakeScript?: string | undefined;
   /** S34: the agent loop. */
   readonly agentRunner?: AgentRunner;
@@ -42,7 +48,11 @@ export function setupAi(options: AiMainOptions): AiMain {
   let fake: FakeProviderHub | null = null;
   if (options.fakeScript) {
     try {
-      fake = createFakeProviders(parseFakeScript(JSON.parse(readFileSync(options.fakeScript, 'utf8')) as unknown));
+      fake = createFakeProviders(
+        options.fakeScript === '1'
+          ? BUILTIN_FAKE_SCRIPT
+          : withBuiltin(parseFakeScript(JSON.parse(readFileSync(options.fakeScript, 'utf8')) as unknown)),
+      );
     } catch (e) {
       options.log('error', 'ai-fake-script-invalid', { reason: e instanceof Error ? e.name : 'unknown' });
       fake = createFakeProviders(parseFakeScript({}));

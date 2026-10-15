@@ -14,11 +14,11 @@ import type { MessageKey } from '../i18n/index';
 import { fill } from '../recovery/format';
 import { useModalKeys } from '../workbench/focus-trap';
 import { AiConsentPrompt } from './AiConsentPrompt';
+import { onOpenAiSettings } from './ai-bridge';
 import {
   keyErrorKey,
   modelChoices,
   notifyAiStatusChanged,
-  OPEN_AI_SETTINGS_EVENT,
   PROVIDER_LABEL,
   PURPOSE_LABEL,
   PURPOSE_ORDER,
@@ -30,14 +30,15 @@ import './ai.css';
 export function useAiSettingsRequests(): { open: boolean; close: () => void } {
   const [open, setOpen] = useState(false);
   const opener = useRef<Element | null>(null);
-  useEffect(() => {
-    const onOpen = () => {
-      opener.current = document.activeElement;
-      setOpen(true);
-    };
-    window.addEventListener(OPEN_AI_SETTINGS_EVENT, onOpen);
-    return () => window.removeEventListener(OPEN_AI_SETTINGS_EVENT, onOpen);
-  }, []);
+  useEffect(
+    () =>
+      // Registered through the bridge so the chat panel's "Open AI settings" becomes a button (S33).
+      onOpenAiSettings(() => {
+        opener.current = document.activeElement;
+        setOpen(true);
+      }),
+    [],
+  );
   const close = useCallback(() => {
     setOpen(false);
     if (opener.current instanceof HTMLElement) opener.current.focus();
@@ -107,6 +108,8 @@ export function AiSettingsDialog({
   }, [keyStored, provider, models, loadModels]);
 
   const saveConfig = async (config: AiConfig) => {
+    // Shown at once (controlled inputs), then confirmed by main.
+    setStatus((current) => (current ? { ...current, config } : current));
     const result = await api.setConfig({ config });
     if (result.ok) {
       setStatus((current) => (current ? { ...current, config: result.value } : current));
@@ -118,13 +121,17 @@ export function AiSettingsDialog({
   const saveKey = async () => {
     const key = keyDraft;
     setKeyDraft('');
+    setKeyMessage(null);
     setTestMessage(null);
     setBusy(true);
     const result = await api.setKey({ provider, key });
     setBusy(false);
-    setKeyMessage(result.ok ? { tone: 'ok', key: 'ai.settings.key.saved' } : { tone: 'error', key: keyErrorKey(result.code) });
+    setKeyMessage(
+      result.ok ? { tone: 'ok', key: 'ai.settings.key.saved' } : { tone: 'error', key: keyErrorKey(result.code) },
+    );
     await refresh();
     notifyAiStatusChanged();
+    if (result.ok) void loadModels(provider);
   };
 
   const removeKey = async () => {
@@ -132,7 +139,9 @@ export function AiSettingsDialog({
     const result = await api.clearKey({ provider });
     setBusy(false);
     setTestMessage(null);
-    setKeyMessage(result.ok ? { tone: 'ok', key: 'ai.settings.key.removed' } : { tone: 'error', key: keyErrorKey(result.code) });
+    setKeyMessage(
+      result.ok ? { tone: 'ok', key: 'ai.settings.key.removed' } : { tone: 'error', key: keyErrorKey(result.code) },
+    );
     setModels((current) => {
       const next = { ...current };
       delete next[provider];
@@ -147,7 +156,9 @@ export function AiSettingsDialog({
     setTestMessage({ tone: 'ok', key: 'ai.settings.testing' });
     const result = await api.testKey({ provider });
     setBusy(false);
-    setTestMessage(result.ok ? { tone: 'ok', key: 'ai.settings.test.ok' } : { tone: 'error', key: testErrorKey(result.code) });
+    setTestMessage(
+      result.ok ? { tone: 'ok', key: 'ai.settings.test.ok' } : { tone: 'error', key: testErrorKey(result.code) },
+    );
   };
 
   const revokeConsent = async () => {
@@ -180,14 +191,14 @@ export function AiSettingsDialog({
         <div className="dialog-body ai-settings-body">
           <p className="dialog-hint">{t('ai.settings.intro')}</p>
           {status && !status.secureStorage && (
-            <p className="ai-message ai-message-error" role="alert" data-testid="ai-no-secure-storage">
+            <p className="ais-message ais-message-error" role="alert" data-testid="ai-no-secure-storage">
               {t('ai.settings.noSecureStorage')}
             </p>
           )}
 
           {config && (
             <>
-              <label className="ai-check">
+              <label className="ais-check">
                 <input
                   type="checkbox"
                   checked={config.enabled}
@@ -204,10 +215,10 @@ export function AiSettingsDialog({
                     : t('ai.settings.enabled.noKey')}
               </p>
 
-              <fieldset className="ai-fieldset">
+              <fieldset className="ais-fieldset">
                 <legend>{t('ai.settings.provider')}</legend>
                 {AI_PROVIDERS.map((id) => (
-                  <label key={id} className="ai-check">
+                  <label key={id} className="ais-check">
                     <input
                       type="radio"
                       name="ai-provider"
@@ -228,15 +239,15 @@ export function AiSettingsDialog({
                 ))}
               </fieldset>
 
-              <div className="ai-section">
-                <label className="ai-label" htmlFor={keyId}>
+              <div className="ais-section">
+                <label className="ais-label" htmlFor={keyId}>
                   {t('ai.settings.key')}
                 </label>
-                <p className="ai-key-state" role="status" data-testid="ai-key-state">
+                <p className="ais-key-state" role="status" data-testid="ai-key-state">
                   {keyStored ? `✓ ${t('ai.settings.key.stored')}` : t('ai.settings.key.missing')}
                 </p>
                 <form
-                  className="ai-row"
+                  className="ais-row"
                   onSubmit={(event) => {
                     event.preventDefault();
                     if (keyDraft.trim()) void saveKey();
@@ -244,7 +255,7 @@ export function AiSettingsDialog({
                 >
                   <input
                     id={keyId}
-                    className="ai-input"
+                    className="ais-input"
                     type="password"
                     autoComplete="off"
                     spellCheck={false}
@@ -266,14 +277,14 @@ export function AiSettingsDialog({
                 <p className="dialog-hint">{t('ai.settings.key.hint')}</p>
                 {keyMessage && (
                   <p
-                    className={`ai-message ai-message-${keyMessage.tone}`}
+                    className={`ais-message ai-message-${keyMessage.tone}`}
                     role={keyMessage.tone === 'error' ? 'alert' : 'status'}
                     data-testid="ai-key-message"
                   >
                     {t(keyMessage.key)}
                   </p>
                 )}
-                <div className="ai-row">
+                <div className="ais-row">
                   <button
                     type="button"
                     className="secondary-button"
@@ -295,7 +306,7 @@ export function AiSettingsDialog({
                 </div>
                 {testMessage && (
                   <p
-                    className={`ai-message ai-message-${testMessage.tone}`}
+                    className={`ais-message ai-message-${testMessage.tone}`}
                     role={testMessage.tone === 'error' ? 'alert' : 'status'}
                     data-testid="ai-test-message"
                   >
@@ -306,14 +317,14 @@ export function AiSettingsDialog({
                 )}
               </div>
 
-              <fieldset className="ai-fieldset" disabled={!keyStored}>
+              <fieldset className="ais-fieldset" disabled={!keyStored}>
                 <legend>{t('ai.settings.models')}</legend>
                 <p className="dialog-hint">{t('ai.settings.models.hint')}</p>
                 {PURPOSE_ORDER.map((purpose) => (
-                  <label key={purpose} className="ai-model-row">
+                  <label key={purpose} className="ais-model-row">
                     <span>{t(PURPOSE_LABEL[purpose])}</span>
                     <select
-                      className="ai-select"
+                      className="ais-select"
                       value={config.models[purpose]}
                       data-testid={`ai-model-${purpose}`}
                       onChange={(event) =>
@@ -329,7 +340,7 @@ export function AiSettingsDialog({
                     </select>
                   </label>
                 ))}
-                <div className="ai-row">
+                <div className="ais-row">
                   <button
                     type="button"
                     className="secondary-button"
@@ -347,7 +358,7 @@ export function AiSettingsDialog({
                 </div>
               </fieldset>
 
-              <label className="ai-check">
+              <label className="ais-check">
                 <input
                   type="checkbox"
                   checked={config.inlineCompletions}
@@ -357,13 +368,13 @@ export function AiSettingsDialog({
                 <span>{t('ai.settings.inline')}</span>
               </label>
 
-              <div className="ai-section" data-testid="ai-consent-section">
-                <h3 className="ai-label">{t('ai.settings.consent')}</h3>
+              <div className="ais-section" data-testid="ai-consent-section">
+                <h3 className="ais-label">{t('ai.settings.consent')}</h3>
                 {projectId === null ? (
                   <p className="dialog-hint">{t('ai.settings.consent.noProject')}</p>
                 ) : status.projectConsent ? (
-                  <div className="ai-row">
-                    <p className="ai-key-state" role="status" data-testid="ai-consent-state">
+                  <div className="ais-row">
+                    <p className="ais-key-state" role="status" data-testid="ai-consent-state">
                       {`✓ ${t('ai.settings.consent.allowed')}`}
                     </p>
                     <button
@@ -383,8 +394,9 @@ export function AiSettingsDialog({
                     <AiConsentPrompt
                       api={api}
                       projectId={projectId}
-                      provider={provider}
-                      onResolved={() => void refresh()}
+                      providerName={t(PROVIDER_LABEL[provider])}
+                      onAllowed={() => void refresh()}
+                      onDeclined={() => undefined}
                     />
                   </>
                 )}

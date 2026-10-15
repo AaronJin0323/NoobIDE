@@ -23,6 +23,46 @@ export interface EditorAccess {
   formatDocument(): Promise<void>;
   /** Moves the cursor to the target (which must be the shown file) and scrolls it into view. */
   reveal(target: RevealTarget): void;
+  /** S33.2: the non-empty selection in the file on screen (its first selection), or null. */
+  selection?(): EditorSelection | null;
+}
+
+/** S33.2: a selection in the editor, for AI context ("Explain this code"). */
+export interface EditorSelection {
+  /** The workbench's model URI string of the file. */
+  readonly uri: string;
+  /** 1-based, inclusive. */
+  readonly startLine: number;
+  readonly endLine: number;
+  readonly text: string;
+}
+
+/**
+ * S33.2: actions the workbench adds to the code editor's context menu (e.g. "Ask AI to explain this code"). The
+ * editor (re)registers them whenever the list changes; `run` gets the selection at the moment of the click.
+ */
+export interface EditorContextAction {
+  readonly id: string;
+  /** Already translated. */
+  readonly label: string;
+  /** Only offered while text is selected. */
+  readonly needsSelection: boolean;
+  readonly run: (selection: EditorSelection | null) => void;
+}
+
+let contextActions: readonly EditorContextAction[] = [];
+const contextListeners = new Set<(actions: readonly EditorContextAction[]) => void>();
+
+export function setEditorContextActions(actions: readonly EditorContextAction[]): void {
+  contextActions = actions;
+  for (const listener of [...contextListeners]) listener(actions);
+}
+
+/** For the editor: called now with the current actions and again on every change. Returns the unsubscribe function. */
+export function subscribeEditorContextActions(listener: (actions: readonly EditorContextAction[]) => void): () => void {
+  contextListeners.add(listener);
+  listener(contextActions);
+  return () => contextListeners.delete(listener);
 }
 
 let active: EditorAccess | null = null;

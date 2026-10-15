@@ -32,12 +32,16 @@ import {
  *       "steps": [ { "type": "text", "text": "Hi " }, { "type": "delay", "ms": 200 },
  *                  { "type": "tool-call", "name": "read_file", "input": { "relPath": "index.html" } },
  *                  { "type": "error", "code": "rate-limited" } ],
+ *       "systemMatch": "Simplified Chinese",  // optional: only when the system prompt contains this
  *       "stop": "end",                     // default: 'tool-use' when the turn made tool calls, else 'end'
  *       "usage": { "inputTokens": 10, "outputTokens": 5 } }
  *   ],
  *   "defaultTurn": { "steps": [ { "type": "text", "text": "OK" } ] }
  * }
  * ```
+ *
+ * `NOOBIDE_AI_FAKE=1` (instead of a file path) uses BUILTIN_FAKE_SCRIPT below; a script file can add
+ * `"includeBuiltin": true` to append the built-in turns after its own.
  *
  * A turn is chosen as the first unused one whose `match` occurs in the last user text (or last tool result) and
  * whose `purpose` fits; `repeat: true` turns are never used up. Without a match the `defaultTurn` (or a short
@@ -51,6 +55,8 @@ export type FakeStep =
 
 export interface FakeTurn {
   readonly match?: string;
+  /** Substring of the request's system prompt (e.g. 'Simplified Chinese' picks zh-CN answers). */
+  readonly systemMatch?: string;
   readonly purpose?: AiPurpose;
   readonly repeat?: boolean;
   readonly steps: readonly FakeStep[];
@@ -63,6 +69,8 @@ export interface FakeScript {
   readonly rejectKeys?: readonly string[];
   readonly testError?: ProviderErrorCode;
   readonly secureStorage?: boolean;
+  /** Append BUILTIN_FAKE_SCRIPT's turns (and its default turn when none is given). */
+  readonly includeBuiltin?: boolean;
   readonly turns?: readonly FakeTurn[];
   readonly defaultTurn?: FakeTurn;
 }
@@ -119,6 +127,7 @@ function parseTurn(raw: unknown): FakeTurn | null {
   return {
     steps: steps as FakeStep[],
     ...(typeof raw.match === 'string' ? { match: raw.match } : {}),
+    ...(typeof raw.systemMatch === 'string' ? { systemMatch: raw.systemMatch } : {}),
     ...(AI_PURPOSES.includes(raw.purpose as AiPurpose) ? { purpose: raw.purpose as AiPurpose } : {}),
     ...(raw.repeat === true ? { repeat: true } : {}),
     ...(STOPS.includes(raw.stop as ProviderStopReason) ? { stop: raw.stop as ProviderStopReason } : {}),
@@ -147,6 +156,60 @@ export function parseFakeScript(raw: unknown): FakeScript {
       : {}),
     ...(isCode(raw.testError) ? { testError: raw.testError } : {}),
     ...(typeof raw.secureStorage === 'boolean' ? { secureStorage: raw.secureStorage } : {}),
+    ...(raw.includeBuiltin === true ? { includeBuiltin: true } : {}),
+  };
+}
+
+/**
+ * Built-in scenarios (`NOOBIDE_AI_FAKE=1`), shared by the AI e2e suites (S31–S35):
+ * - a prompt containing `[[slow]]` streams a first part, then waits until cancelled (Stop);
+ * - `[[offline]]` / `[[rate-limited]]` / `[[unauthorized]]` / `[[refused]]` end with that error (refusal: stop reason);
+ * - anything else gets a short Markdown answer with an ```html block, in Chinese when the system prompt asks for
+ *   Simplified Chinese and in English otherwise, then 'done' with usage.
+ */
+export const BUILTIN_FAKE_SCRIPT: FakeScript = parseFakeScript({
+  turns: [
+    {
+      match: '[[slow]]',
+      repeat: true,
+      steps: [
+        { type: 'text', text: 'Part one. ' },
+        { type: 'delay', ms: 600_000 },
+        { type: 'text', text: 'never' },
+      ],
+    },
+    { match: '[[offline]]', repeat: true, steps: [{ type: 'error', code: 'offline' }] },
+    { match: '[[rate-limited]]', repeat: true, steps: [{ type: 'error', code: 'rate-limited' }] },
+    { match: '[[unauthorized]]', repeat: true, steps: [{ type: 'error', code: 'unauthorized' }] },
+    { match: '[[refused]]', repeat: true, steps: [{ type: 'text', text: '…' }], stop: 'refusal' },
+    {
+      systemMatch: 'Simplified Chinese',
+      repeat: true,
+      steps: [
+        { type: 'text', text: '这是一个**示例回答**。下面是一段 HTML：\n\n' },
+        { type: 'text', text: '```html\n<h1>你好，世界</h1>\n<p>欢迎来到我的网页。</p>\n```\n\n' },
+        { type: 'text', text: '把它放进 `<body>` 里就可以看到效果。' },
+      ],
+      usage: { inputTokens: 120, outputTokens: 48 },
+    },
+  ],
+  defaultTurn: {
+    steps: [
+      { type: 'text', text: 'This is a **sample answer**. Here is some HTML:\n\n' },
+      { type: 'text', text: '```html\n<h1>Hello, world</h1>\n<p>Welcome to my page.</p>\n```\n\n' },
+      { type: 'text', text: 'Put it inside `<body>` to see it.' },
+    ],
+    usage: { inputTokens: 120, outputTokens: 48 },
+  },
+});
+
+/** Resolves `includeBuiltin`. */
+export function withBuiltin(script: FakeScript): FakeScript {
+  if (!script.includeBuiltin) return script;
+  return {
+    ...script,
+    turns: [...(script.turns ?? []), ...(BUILTIN_FAKE_SCRIPT.turns ?? [])],
+    ...(script.defaultTurn || !BUILTIN_FAKE_SCRIPT.defaultTurn ? {} : { defaultTurn: BUILTIN_FAKE_SCRIPT.defaultTurn }),
   };
 }
 
@@ -195,11 +258,12 @@ export function createFakeProviders(script: FakeScript): FakeProviderHub {
   const requests: FakeRequestRecord[] = [];
   let callCounter = 0;
 
-  const pickTurn = (purpose: AiPurpose, input: string): FakeTurn => {
+  const pickTurn = (purpose: AiPurpose, input: string, system: string): FakeTurn => {
     const turn = (script.turns ?? []).find(
       (t) =>
         (t.repeat || !used.has(t)) &&
         (t.purpose === undefined || t.purpose === purpose) &&
+        (t.systemMatch === undefined || system.includes(t.systemMatch)) &&
         (t.match === undefined || input.includes(t.match)),
     );
     if (turn) {
@@ -237,7 +301,7 @@ export function createFakeProviders(script: FakeScript): FakeProviderHub {
         });
         return (async function* run(): AsyncGenerator<ProviderEvent> {
           check(request.signal);
-          const turn = pickTurn(request.purpose, lastInputText(request.messages));
+          const turn = pickTurn(request.purpose, lastInputText(request.messages), request.system);
           let text = '';
           const calls: ProviderToolCall[] = [];
           for (const step of turn.steps) {

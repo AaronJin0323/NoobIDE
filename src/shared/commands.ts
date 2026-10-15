@@ -53,6 +53,9 @@ export const COMMAND_IDS = [
   'preview-clear-data',
   // S31.4 Settings → AI
   'ai-settings',
+  // S33 AI chat and explain (handlers exist only while AI is offered: no bridge or AI off → no command)
+  'ai-toggle-chat',
+  'ai-explain-code',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -154,6 +157,15 @@ export const COMMANDS: readonly CommandDefinition[] = [
   { id: 'preview-clear-data', label: 'command.preview.clearData', when: (c) => c.hasProject && !c.modalOpen },
   // S31.4: Settings → AI (provider, key, models, on/off). Also in the Help menu.
   { id: 'ai-settings', label: 'command.aiSettings', when: noModal },
+  // S33: the AI chat panel and "Explain this code" on the selection. Not in the native menus: the renderer offers them
+  // only while AI is available (decision 0025: AI off removes every AI surface).
+  {
+    id: 'ai-toggle-chat',
+    label: 'command.ai.toggleChat',
+    keys: { all: { key: 'a', primary: true, shift: true } },
+    when: noModal,
+  },
+  { id: 'ai-explain-code', label: 'command.ai.explainCode', when: (c) => c.hasActiveTab && !c.modalOpen },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));
@@ -195,6 +207,9 @@ export function commandForKeyStroke(platform: PlatformId, stroke: KeyStroke): Co
 export const APP_MENU_COMMANDS: readonly (CommandId | '-')[] = [
   'close-project',
   'show-history',
+  '-',
+  'ai-toggle-chat', // S33
+  'ai-explain-code',
   '-',
   'theme-system',
   'theme-light',

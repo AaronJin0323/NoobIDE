@@ -4,7 +4,13 @@ import { models } from './editor-models';
 import { MONACO_THEME_NAME } from '../theme/monaco-theme';
 import { useColorScheme } from '../theme/ThemeProvider';
 // S17.2 / S18.3: Monaco-free handle for the workbench (format, go to code).
-import { registerEditor, takePendingReveal, type RevealTarget } from './editor-handle';
+import {
+  registerEditor,
+  subscribeEditorContextActions,
+  takePendingReveal,
+  type EditorSelection,
+  type RevealTarget,
+} from './editor-handle';
 // Memory (decision 0024): the caret stops blinking after a pause, so an idle focused editor produces no frames.
 import { CaretRest } from './caret-rest';
 
@@ -46,6 +52,21 @@ function revealIn(editor: monaco.editor.IStandaloneCodeEditor, target: RevealTar
   editor.setPosition(position);
   editor.revealPositionInCenter(position);
   if (target.focus) editor.focus();
+}
+
+/** S33.2: the first non-empty selection of the file on screen, with its 1-based line range. */
+function selectionIn(editor: monaco.editor.IStandaloneCodeEditor, uri: string | null): EditorSelection | null {
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  if (!uri || !model || !selection || selection.isEmpty()) return null;
+  const text = model.getValueInRange(selection);
+  if (!text.trim()) return null;
+  // A selection that ends at the start of a line does not include that line.
+  const endLine =
+    selection.endColumn === 1 && selection.endLineNumber > selection.startLineNumber
+      ? selection.endLineNumber - 1
+      : selection.endLineNumber;
+  return { uri, startLine: selection.startLineNumber, endLine, text };
 }
 
 /**
@@ -139,8 +160,30 @@ export function CodeEditor({
         await editor.getAction('editor.action.formatDocument')?.run();
       },
       reveal: (target) => revealIn(editor, target),
+      selection: () => selectionIn(editor, uriOf()),
     });
     // --- end S17.2 / S18.3 ---
+    // S33.2: context-menu actions of the workbench ("Ask AI to explain this code").
+    let registered: monaco.IDisposable[] = [];
+    const unsubscribeActions = subscribeEditorContextActions((actions) => {
+      for (const action of registered) action.dispose();
+      registered = actions.map((action, i) =>
+        editor.addAction({
+          id: `noobide.${action.id}`,
+          label: action.label,
+          contextMenuGroupId: '1_noobide',
+          contextMenuOrder: i + 1,
+          ...(action.needsSelection ? { precondition: 'editorHasSelection' } : {}),
+          run: () => action.run(selectionIn(editor, uriOf())),
+        }),
+      );
+    });
+    subscriptions.push({
+      dispose: () => {
+        unsubscribeActions();
+        for (const action of registered) action.dispose();
+      },
+    });
     return () => {
       registerEditor(null);
       editorRef.current = null;

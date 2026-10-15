@@ -2887,7 +2887,7 @@
       "depends_on": [
         "S31.3"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
@@ -2905,7 +2905,7 @@
       "depends_on": [
         "S33.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
