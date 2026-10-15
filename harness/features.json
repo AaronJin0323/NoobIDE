@@ -2941,8 +2941,8 @@
       "depends_on": [
         "S34.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "in_progress",
+      "evidence": "ProposalReview in S33 chat extension; agent-apply/agent-decisions unit tests; e2e tests/e2e/ai-agent.spec.ts fixme until S31; undo group is renderer-memory (see report)"
     },
     {
       "id": "S35.1",
