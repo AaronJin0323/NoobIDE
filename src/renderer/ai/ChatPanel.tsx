@@ -363,6 +363,15 @@ export function ChatPanelView({
                   return (
                     <li key={chip.id} className="ai-chip" data-testid="ai-chip" data-kind={chip.item.kind}>
                       <span className="ai-chip-label">{label}</span>
+                      {chip.item.kind === 'annotation' && (
+                        <details className="ai-chip-preview" data-testid="ai-annotation-details">
+                          <summary>{t('ai.chat.context.previewShow')}</summary>
+                          <p className="ai-hint">{t('ai.chat.context.annotationTextLabel')}</p>
+                          <pre className="ai-preview-text" data-testid="ai-annotation-text" tabIndex={0}>
+                            {chip.item.text ?? ''}
+                          </pre>
+                        </details>
+                      )}
                       {chip.preview && (
                         <PreviewChipDetails
                           text={chip.item.text ?? ''}

@@ -1251,6 +1251,7 @@ export function Workbench() {
           }
           projectId={project?.projectId ?? null}
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
+          onAskAi={ai.shown ? (annotations) => void ai.askAboutAnnotations(annotations) : undefined} // S41.6
           autoStartProjectId={autoPreview}
           onRenamePage={renamePage}
         />

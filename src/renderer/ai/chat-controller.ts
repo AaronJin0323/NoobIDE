@@ -10,6 +10,7 @@
  * - Events of other requests on the shared event channel (inline completions, edits) are ignored.
  */
 import type { AiApi, AiChatMessage, AiContextItem, AiEvent, AiRequest } from '../../shared/ipc/ai-contract';
+import type { AnnotationContext } from '../../shared/ipc/annotations-contract';
 import {
   INITIAL_CHAT_STATE,
   activeConversation,
@@ -194,6 +195,31 @@ export class AiChatController {
   private chip(item: AiContextItem, preview?: ChatChip['preview']): ChatChip {
     return { id: this.nextId('chip'), item, ...(preview ? { preview } : {}) };
   }
+  /**
+   * S41.6 "Ask AI" on preview annotations: a fresh agent conversation whose draft holds one Annotation chip per
+   * annotation (the text main built, shown as is) and a suggested prompt. Nothing is sent until the user sends.
+   */
+  askAboutAnnotations(annotations: readonly AnnotationContext[], prompt: string): void {
+    const chips: ChatChip[] = annotations.map((a) => ({
+      id: this.nextId('chip'),
+      item: {
+        kind: 'annotation',
+        text: a.text,
+        label: a.label,
+        ...(a.relPath !== undefined && a.startLine !== undefined && a.endLine !== undefined
+          ? { relPath: a.relPath, startLine: a.startLine, endLine: a.endLine }
+          : {}),
+      },
+      annotation: { ranges: a.ranges },
+    }));
+    this.dispatch({ type: 'startExplain', projectKey: this.key, chips, mode: 'chat', prompt, kind: 'agent' });
+    void this.refreshStatus();
+  }
+  /** S41.6: the annotations could not be read (main said so); shown as the panel's notice. */
+  annotationsFailed(): void {
+    this.dispatch({ type: 'setOpen', open: true });
+    this.dispatch({ type: 'notice', notice: 'ai.chat.context.annotationFailed' });
+  }
   addChip(item: AiContextItem): void {
     this.dispatch({ type: 'addChip', projectKey: this.key, chip: this.chip(item) });
   }
@@ -345,12 +371,14 @@ export class AiChatController {
       locale: this.host.locale(),
     });
     if (!request) return;
+    const annotationRanges = current.chips.flatMap((chip) => chip.annotation?.ranges ?? []);
     const turn: ChatTurn = {
       id: this.nextId('turn'),
       kind: current.kind,
       mode: current.mode,
       prompt,
       context,
+      ...(annotationRanges.length > 0 ? { annotationRanges } : {}),
       requestId: null,
       status: 'sending',
       stopping: false,

@@ -1,5 +1,6 @@
 import { useMemo, useRef, useSyncExternalStore } from 'react';
-import type { AiApi } from '../../shared/ipc/ai-contract';
+import type { AiApi, AiFileChange } from '../../shared/ipc/ai-contract';
+import { placementOf } from './annotation-placement';
 import { useI18n } from '../i18n/I18nProvider';
 import { fill } from '../recovery/format';
 import { WarningIcon } from '../workbench/icons';
@@ -45,6 +46,9 @@ export function AgentProposalCard({ part, turn, store, api, host }: AgentProposa
   return (
     <div className="agent-card" data-testid="agent-card">
       <ProposalReview
+        {...(turn.annotationRanges?.length
+          ? { placement: (change: AiFileChange) => placementOf(change, turn.annotationRanges ?? []) }
+          : {})}
         proposalId={part.proposalId}
         changes={part.changes}
         reason={part.reason}

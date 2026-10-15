@@ -29,6 +29,10 @@ import {
 // S15.3 viewport width; S15.5/S15.6 overlays above the native view.
 import { MOBILE_WIDTH, OVERLAY_SELECTOR, coveredBy, viewRect, type ViewportWidth } from './preview-viewport';
 import { setPreviewCommandTarget } from './preview-commands';
+// S41.5: annotations strip (decision 0030), in the layout flow under the toolbar.
+import type { Annotation } from '../../shared/ipc/annotations-contract';
+import { AnnotationsStrip } from '../annotations/AnnotationsStrip';
+import { pagePathOf } from '../annotations/annotations-model';
 
 interface PreviewPaneProps {
   hidden: boolean;
@@ -47,6 +51,8 @@ interface PreviewPaneProps {
    * project has no page but a file starts like one (`html/home` → `html/home.html`).
    */
   onRenamePage?: (from: string, to: string) => Promise<{ ok: true } | { ok: false; reason: string }>;
+  /** S41.5: "Ask AI" on annotations (absent: the buttons are not shown). */
+  onAskAi?: ((annotations: readonly Annotation[]) => void) | undefined;
 }
 
 /** A short message under the toolbar (role=status): one-time notes, results of toolbar actions. */
@@ -74,6 +80,7 @@ export function PreviewPane({
   projectId,
   saveFailed = false,
   onRenamePage,
+  onAskAi,
 }: PreviewPaneProps) {
   const { t } = useI18n();
   const bridge = window.noobide?.preview;
@@ -218,7 +225,10 @@ export function PreviewPane({
 
   // No .html page at all: the page would only be the server's "404 Not Found" — the stage explains instead.
   const noPage = projectId !== null && options !== null && options.pages.length === 0 && !options.truncated;
-  const showView = !covered && !overlaid && !noPage && viewVisible(status, !hidden);
+  // S41.5: while a region is drawn, the frozen picture of the page replaces the native view.
+  const annotations = window.noobide?.annotations;
+  const [drawing, setDrawing] = useState(false);
+  const showView = !covered && !drawing && !overlaid && !noPage && viewVisible(status, !hidden);
 
   // Keep the native view exactly over the stage: size changes (ResizeObserver), window resizes and layout changes
   // that move the stage without resizing it (checked after every render).
@@ -549,6 +559,17 @@ export function PreviewPane({
             {t('preview.viewport.note')}
           </span>
         </div>
+      )}
+      {projectId !== null && annotations && (
+        <AnnotationsStrip
+          api={annotations}
+          projectId={projectId}
+          running={status.projectId === projectId && status.state === 'running'}
+          pagePath={status.projectId === projectId ? pagePathOf(status.url) : null}
+          reloadKey={status.generation ?? 0}
+          onCoverChange={setDrawing}
+          onAskAi={onAskAi}
+        />
       )}
       {notices.length > 0 && (
         <div className="preview-notices" role="status" data-testid="preview-notices">

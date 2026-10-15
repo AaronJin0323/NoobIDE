@@ -7,6 +7,7 @@
  * it in the native folder dialog and hands back an opaque `projectId`; every file request is that id plus a portable
  * relative path, which main resolves and re-checks inside the root (realpath).
  */
+import type { AnnotationsApi } from './annotations-contract';
 import type { PlatformId } from '../../platform/labels';
 import type { Result } from '../result';
 // S04 preview: types live in preview-contract.ts; only the API field is added here.
@@ -424,6 +425,8 @@ export interface NoobideApi {
   readonly ai?: AiApi;
   /** S39: saved chats per project (app data) and token usage with the optional daily budget. */
   readonly aiHistory?: AiHistoryApi;
+  /** S41: preview annotations (annotations-contract.ts, decision 0030). */
+  readonly annotations?: AnnotationsApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */
