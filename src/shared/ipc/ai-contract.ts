@@ -146,7 +146,9 @@ export type AiErrorCode =
   | 'refused'
   | 'cancelled'
   | 'provider-error'
-  | 'unknown-project';
+  | 'unknown-project'
+  /** S34: an agent turn reached its step, token or wall-time budget and stopped (accepted changes are kept). */
+  | 'budget-exhausted';
 
 export type AiEvent =
   | { readonly requestId: string; readonly type: 'text'; readonly text: string }

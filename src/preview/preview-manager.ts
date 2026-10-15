@@ -536,6 +536,11 @@ export class PreviewManager {
     this.applyBounds();
   }
 
+  /** S34: the running preview's most recent page records (memory only), for the AI agent's get_console tool. */
+  recentRecords(): readonly PreviewLogEntry[] {
+    return [...this.recent];
+  }
+
   /** Read-only snapshot for the e2e suite. No page content, no file paths. */
   debugInfo() {
     const live = this.live;
