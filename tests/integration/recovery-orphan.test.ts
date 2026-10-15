@@ -5,7 +5,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerRecoveryHandlers } from '../../src/main/recovery-ipc';
 import { RecoveryJournal } from '../../src/recovery/journal';
-import { projectKey } from '../../src/recovery/keys';
+import { fileKey, projectKey } from '../../src/recovery/keys';
 import { CHANNELS } from '../../src/shared/ipc/contract';
 import { ProjectService } from '../../src/workspace/project-service';
 
@@ -253,6 +253,29 @@ describe('journal re-target (decision 0033)', () => {
     const b = await journal.readPending(projectKey(newRoot), BUF_B);
     expect(b).toMatchObject({ ok: true, value: { revision: 7, relPath: '子 文件夹/页面 二.html', rootPath: newRoot } });
     expect(await journal.readPending(projectKey(oldRoot), BUF_A)).toMatchObject({ ok: false, code: 'not-found' });
+  });
+
+  it('never replaces a record it cannot read and never grows a copy past the entry limit (review)', async () => {
+    await rename(oldRoot, newRoot);
+    // A record of buffer A for the new folder written by a newer NoobIDE (S28.4): left alone, the old copy stays.
+    const newerRel = path.join(projectKey(newRoot), `${fileKey('index.html')}-${BUF_A}.json`);
+    await mkdir(path.join(journalDir, projectKey(newRoot)), { recursive: true });
+    await writeFile(path.join(journalDir, newerRel), JSON.stringify({ format: 'noobide-recovery', v: 99 }));
+    const journal = new RecoveryJournal({ dir: journalDir });
+    expect(await journal.retarget(projectKey(oldRoot), newRoot)).toEqual({ ok: true, value: { moved: 1 } });
+    expect(JSON.parse(await readFile(path.join(journalDir, newerRel), 'utf8'))).toEqual({
+      format: 'noobide-recovery',
+      v: 99,
+    });
+    expect(await journal.readPending(projectKey(oldRoot), BUF_A)).toMatchObject({ ok: true, value: { text: UNSAVED } });
+
+    // A longer root that would push the record over maxEntryBytes: the old, readable copy is kept.
+    const longRoot = path.join(tmp, 'x'.repeat(120));
+    const bytes = (await readFile(path.join(journalDir, projectKey(oldRoot), `${fileKey('index.html')}-${BUF_A}.json`)))
+      .length;
+    const tight = new RecoveryJournal({ dir: journalDir, limits: { maxEntryBytes: bytes + 10 } });
+    expect(await tight.retarget(projectKey(oldRoot), longRoot)).toEqual({ ok: true, value: { moved: 0 } });
+    expect(await tight.readPending(projectKey(oldRoot), BUF_A)).toMatchObject({ ok: true, value: { text: UNSAVED } });
   });
 
   it('re-targeting to the same folder changes nothing; unknown keys are not found', async () => {

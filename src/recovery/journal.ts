@@ -318,9 +318,17 @@ export class RecoveryJournal {
         if (this.ownBuffers.has(old.bufferId)) continue;
         const newRel = path.join(newKey, `${fileKey(old.relPath)}-${old.bufferId}.json`);
         const existing = await this.readRecord(newRel);
+        // A record at the new place that cannot be read right now (locked, over a limit, from a newer NoobIDE) is
+        // never replaced: the old copy stays where it is (S26.1, S28.4).
+        if (!existing.ok && existing.code !== 'not-found' && !QUARANTINED_REASONS.has(existing.code)) continue;
         if (!existing.ok || existing.value.record.revision < old.revision) {
           const record: EntryRecord = { ...old, rootPath: newRoot };
           const data = Buffer.from(JSON.stringify(record), 'utf8');
+          // A longer root path can push a record over the entry limit: keep the old, readable copy instead.
+          if (data.length > this.limits.maxEntryBytes) {
+            this.log('recovery.retarget-skipped', { reason: 'too-large', bytes: data.length });
+            continue;
+          }
           try {
             await writeFileAtomic(path.join(this.dir, newRel), data);
           } catch (e) {
@@ -329,8 +337,8 @@ export class RecoveryJournal {
           }
           sizes.set(newRel, data.length);
         }
-        await this.remove(rel);
-        moved += 1;
+        // A locked old record stays (counted where it is); it is offered again next start, nothing is lost.
+        if (await this.remove(rel)) moved += 1;
       }
       this.log('recovery.retargeted', { moved });
       return ok({ moved });
