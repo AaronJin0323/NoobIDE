@@ -2,6 +2,7 @@ import type { MessageKey } from './zh-CN';
 import { welcomeHistoryEn } from './welcome-history';
 import { commandsEn } from './commands'; // S24
 import { previewToolbarEn } from './preview-toolbar'; // S14/S15.4
+import { aiSettingsEn } from './ai-settings'; // S31.4
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -292,6 +293,7 @@ export const en: Record<MessageKey, string> = {
   ...welcomeHistoryEn,
   ...commandsEn, // S24
   ...previewToolbarEn, // S14/S15.4 preview manager and toolbar
+  ...aiSettingsEn, // S31.4 Settings → AI, consent prompt, AI error explanations
   // --- S18.3 formatting ---
   'format.button': 'Format',
   'format.title': 'Format the code: indentation and line breaks ({shortcut})',

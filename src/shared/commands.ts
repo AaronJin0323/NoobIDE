@@ -51,6 +51,8 @@ export const COMMAND_IDS = [
   'preview-open-external',
   'preview-devtools',
   'preview-clear-data',
+  // S31.4 Settings → AI
+  'ai-settings',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -150,6 +152,8 @@ export const COMMANDS: readonly CommandDefinition[] = [
   { id: 'preview-open-external', label: 'command.preview.openExternal', when: (c) => c.hasProject && !c.modalOpen },
   { id: 'preview-devtools', label: 'command.preview.devTools', when: (c) => c.hasProject && !c.modalOpen },
   { id: 'preview-clear-data', label: 'command.preview.clearData', when: (c) => c.hasProject && !c.modalOpen },
+  // S31.4: Settings → AI (provider, key, models, on/off). Also in the Help menu.
+  { id: 'ai-settings', label: 'command.aiSettings', when: noModal },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));
@@ -199,6 +203,8 @@ export const APP_MENU_COMMANDS: readonly (CommandId | '-')[] = [
   'help-walkthrough',
   'help-glossary',
   'open-logs',
+  '-',
+  'ai-settings', // S31.4
 ];
 
 /** Whether the command is a choice (radio item), and if so whether it is the current one; null otherwise. */

@@ -1,0 +1,88 @@
+/* S31.4 Settings → AI and the AI consent prompt. States are always written out, never colour alone. */
+.ai-settings {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+.ai-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ai-section,
+.ai-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+.ai-fieldset legend,
+.ai-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.ai-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ai-input,
+.ai-select {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  color: var(--text);
+  font: inherit;
+}
+.ai-model-row {
+  display: grid;
+  grid-template-columns: 9em 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.ai-key-state {
+  margin: 0;
+  font-weight: 600;
+}
+.ai-message {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+}
+.ai-message-error {
+  border-left: 3px solid var(--danger, #c62828);
+}
+.ai-message-ok {
+  border-left: 3px solid var(--accent);
+}
+.ai-consent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--raised);
+}
+.ai-consent-title {
+  margin: 0;
+  font-size: 14px;
+}
+.ai-consent-body {
+  margin: 0;
+}

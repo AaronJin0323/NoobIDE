@@ -154,14 +154,20 @@ export class AiConfigStore extends VersionedJsonStore<ConfigFile> {
     return (await this.read()).models[provider];
   }
 
-  /** Applies the renderer's config; its models belong to the provider it names. */
+  /**
+   * Applies the renderer's config. Its models are those of the active provider; when the change switches provider,
+   * the models it carries were the old provider's view, so each provider keeps its own stored choices.
+   */
   async set(config: AiConfig): Promise<AiConfig> {
     const next = await this.change((state) => ({
       ...state,
       enabled: config.enabled,
       provider: config.provider,
       inlineCompletions: config.inlineCompletions,
-      models: config.provider ? { ...state.models, [config.provider]: { ...config.models } } : state.models,
+      models:
+        config.provider && config.provider === (state.provider ?? 'anthropic')
+          ? { ...state.models, [config.provider]: { ...config.models } }
+          : state.models,
     }));
     return configView(next);
   }
