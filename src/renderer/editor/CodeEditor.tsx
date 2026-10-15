@@ -13,6 +13,9 @@ import {
 } from './editor-handle';
 // Memory (decision 0024): the caret stops blinking after a pause, so an idle focused editor produces no frames.
 import { CaretRest } from './caret-rest';
+// S32.1: AI ghost-text suggestions for the file on screen (rules in src/renderer/ai/inline-*.ts).
+import { attachInlineAi } from '../ai/inline-monaco';
+import type { InlineTarget } from '../ai/inline-context';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -24,6 +27,11 @@ export interface EditorFile {
   readonly eol?: '\n' | '\r\n' | undefined;
   /** S07.4: a file in another encoding is shown but cannot be edited (saving would re-encode it). */
   readonly readOnly?: boolean | undefined;
+  /** S32.1: the project file this is (absent for the welcome sample), for AI suggestions. */
+  readonly projectId?: string | undefined;
+  readonly relPath?: string | undefined;
+  /** S07.4: label of a non-UTF-8 encoding; such files get no AI suggestions. */
+  readonly encoding?: string | undefined;
 }
 
 interface CodeEditorProps {
@@ -98,6 +106,12 @@ export function CodeEditor({
   // The registry key of the model on screen. Monaco's Uri.toString() re-encodes file URIs (e.g. `c%3A` for `C:`),
   // so the workbench's own URI string is kept instead of being read back from the model.
   const shown = useRef<{ uri: string; model: monaco.editor.ITextModel } | null>(null);
+  // S32.1: what the AI suggestions may know about the file on screen (null: not a project file).
+  const inlineTarget = useRef<InlineTarget | null>(null);
+  inlineTarget.current =
+    file.projectId !== undefined && file.relPath !== undefined
+      ? { projectId: file.projectId, relPath: file.relPath, readOnly: file.readOnly ?? false, encoding: file.encoding }
+      : null;
 
   useEffect(() => {
     if (!host.current) return;
@@ -116,6 +130,8 @@ export function CodeEditor({
       tabSize: 2,
       folding: true,
       showFoldingControls: 'always',
+      // S32.1: Monaco's hover toolbar has untranslated labels; Tab / Esc / Ctrl+→ (⌘→) work without it.
+      inlineSuggest: { enabled: true, showToolbar: 'never' },
     });
     const caret = new CaretRest({
       setBlinking: (blinking) => editor.updateOptions({ cursorBlinking: blinking ? 'blink' : 'solid' }),
@@ -150,6 +166,7 @@ export function CodeEditor({
       editor.onMouseDown(() => caret.activity()),
       editor.onDidFocusEditorText(() => caret.activity()),
       { dispose: () => caret.dispose() },
+      attachInlineAi(editor, () => (uriOf() ? inlineTarget.current : null)),
     ];
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => callbacks.current.onSave?.());
     editorRef.current = editor;

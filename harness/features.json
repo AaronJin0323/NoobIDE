@@ -2869,8 +2869,8 @@
       "depends_on": [
         "S31.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "in_progress",
+      "evidence": "Renderer side done: src/renderer/ai/inline-*.ts (49 unit tests, fake bridge), Monaco wiring in CodeEditor, toggle-inline-ai command. Remaining (needs S31 on main): adapt tests/e2e/ai-inline.spec.ts FAKE_SCRIPT/enableAi to S31's fake provider, set FIXME_UNTIL_S31=false, npm run test:e2e -- ai-inline green, then mark done."
     },
     {
       "id": "S33.1",

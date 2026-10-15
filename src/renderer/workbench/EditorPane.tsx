@@ -17,6 +17,7 @@ import { activeEditor } from '../editor/editor-handle';
 import { withShortcut } from '../commands/useCommands'; // S24.1
 import { formatShortcutLabel, protectedFolderKey, type PlatformId } from '../../platform/labels';
 import { rendererPlatform } from './file-op-messages';
+import { useInlineAiState } from '../ai/useInlineAiState'; // S32.1
 
 const FORMATTABLE = new Set(['html', 'css', 'javascript']);
 
@@ -96,6 +97,7 @@ export function EditorPane(props: EditorPaneProps) {
   const { t } = useI18n();
   const [cursor, setCursor] = useState<{ line: number; column: number } | null>(null);
   const { project, docError, tabs } = state;
+  const inlineAi = useInlineAiState(project?.projectId ?? null); // S32.1
   const tab = activeTab(state);
   // S11: a conflict or a deleted file explains itself in the disk banner instead of the generic save error.
   const diskState = tab !== null && (tab.save.conflict || tab.save.deleted);
@@ -116,6 +118,10 @@ export function EditorPane(props: EditorPaneProps) {
         initialValue: tab.content.text,
         eol: tab.content.eol,
         readOnly: (tab.content.readOnly ?? false) || props.lockedPaths.some((path) => isSameOrBelow(tab.relPath, path)),
+        // S32.1: AI suggestions need to know which project file this is.
+        projectId: project?.projectId,
+        relPath: tab.relPath,
+        encoding: tab.content.encoding,
       }
     : !project
       ? { uri: 'inmemory://noobide/welcome.html', language: 'html', initialValue: SAMPLE_HTML }
@@ -312,6 +318,11 @@ export function EditorPane(props: EditorPaneProps) {
       {editorFile && cursor && (
         <div className="editor-status" data-testid="cursor-position">
           {`${t('editor.line')} ${cursor.line}, ${t('editor.column')} ${cursor.column}`}
+          {inlineAi && (
+            <span className="editor-status-ai" data-testid="inline-ai-state" data-state={inlineAi}>
+              {t(inlineAi === 'on' ? 'ai.inline.status.on' : 'ai.inline.status.off')}
+            </span>
+          )}
         </div>
       )}
     </main>

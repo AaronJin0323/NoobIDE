@@ -88,6 +88,8 @@ import { Splitter } from './Splitter';
 import { persistedLayout } from './layout';
 import { EDITOR_SHARE, FILES_WIDTH, MAX_SESSION_TABS } from '../../shared/session';
 import { AboutDialog, useAboutRequests } from './AboutDialog'; // S28.1
+import { aiBridge } from '../ai/inline-status'; // S32.1
+import { toggleInlineAi } from '../ai/useInlineAiState'; // S32.1
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -833,6 +835,8 @@ export function Workbench() {
     // S33: AI chat and "Explain this code" (only while AI is offered)
     'ai-toggle-chat': ai.shown ? ai.toggle : undefined,
     'ai-explain-code': ai.shown ? () => ai.explainSelection() : undefined,
+    // S32.1: AI ghost-text suggestions on / off (offered only when the AI bridge exists)
+    'toggle-inline-ai': aiBridge() ? () => toggleInlineAi(docRef.current.project?.projectId ?? null) : undefined,
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
   };
   const commands = useCommands(platform, commandContext, commandHandlers);

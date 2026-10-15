@@ -4,6 +4,7 @@ import { commandsEn } from './commands'; // S24
 import { previewToolbarEn } from './preview-toolbar'; // S14/S15.4
 import { aiSettingsEn } from './ai-settings'; // S31.4
 import { aiChatEn } from './ai-chat'; // S33
+import { aiInlineEn } from './ai-inline'; // S32.1
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -296,6 +297,7 @@ export const en: Record<MessageKey, string> = {
   ...previewToolbarEn, // S14/S15.4 preview manager and toolbar
   ...aiSettingsEn, // S31.4 Settings → AI, consent prompt, AI error explanations
   ...aiChatEn, // S33 AI chat and explain
+  ...aiInlineEn, // S32.1 AI ghost-text suggestions
   // --- S18.3 formatting ---
   'format.button': 'Format',
   'format.title': 'Format the code: indentation and line breaks ({shortcut})',
