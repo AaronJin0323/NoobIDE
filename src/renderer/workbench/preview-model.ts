@@ -134,3 +134,67 @@ export function olderCount(view: LogView): number {
   return view.entries.filter((entry) => entry.generation !== view.generation).length;
 }
 // --- end S17.3 ---
+
+// --- S14.2–S14.4, S15.4: preview toolbar ---
+
+export interface ToolbarActions extends PreviewActions {
+  /** A page is being served: it can be opened in the default browser. */
+  readonly openExternal: boolean;
+  /** There is a page (also a failed load or a hung one) whose developer tools can open. */
+  readonly devTools: boolean;
+  readonly clearData: boolean;
+}
+
+export function toolbarFor(status: PreviewStatus, hasProject: boolean): ToolbarActions {
+  const served = status.state === 'running' || status.state === 'refreshing' || status.state === 'starting';
+  const loadFailed = status.state === 'failed' && status.failure === 'load-failed';
+  return {
+    ...actionsFor(status, hasProject),
+    openExternal: hasProject && (served || loadFailed),
+    devTools: hasProject && (served || loadFailed || status.state === 'unresponsive'),
+    clearData: hasProject,
+  };
+}
+
+/**
+ * The state pill: always text (never colour alone). A failed save (S10.5) or, in manual refresh mode, a save the
+ * page does not show yet (S14.2) take precedence over the plain state while a page is shown.
+ */
+export function pillFor(
+  status: PreviewStatus,
+  saveFailed: boolean,
+): { readonly label: MessageKey; readonly detail: MessageKey | null; readonly warning: boolean } {
+  if (previewNotUpdated(status, saveFailed)) {
+    return { label: 'preview.notUpdated', detail: 'preview.notUpdatedDetail', warning: true };
+  }
+  if (status.outdated === true && status.state !== 'stopped') {
+    return { label: 'preview.outdated', detail: 'preview.outdatedDetail', warning: true };
+  }
+  return {
+    label: stateLabelKey(status.state),
+    detail: null,
+    warning: status.state === 'unresponsive' || status.state === 'failed',
+  };
+}
+
+/** S14.3: the value the entry picker shows: the configured entry, else index.html when the project has one. */
+export function entryChoice(pages: readonly string[], entry: string | null): string {
+  if (entry !== null && pages.includes(entry)) return entry;
+  return pages.find((page) => page.toLowerCase() === 'index.html') ?? '';
+}
+
+/** S14.3: what to store for a picked page — null (the default) for the top-level index.html. */
+export function entryToStore(page: string): string | null {
+  return page.toLowerCase() === 'index.html' ? null : page;
+}
+
+/** S14.2: key presses in the code editor that count as typing (not shortcuts or bare modifiers). */
+export function isTypingKey(event: {
+  readonly key: string;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+}): boolean {
+  if (event.ctrlKey || event.metaKey) return false; // ⌘S, Ctrl+Z… are commands, not typing
+  return !['Shift', 'Control', 'Meta', 'Alt', 'AltGraph', 'CapsLock', 'Escape'].includes(event.key);
+}
+// --- end S14 / S15.4 ---

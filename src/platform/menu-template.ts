@@ -149,6 +149,11 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       command('toggle-files'),
       command('toggle-problems'),
       SEPARATOR,
+      // S15.4: preview actions (developer tools and clearing data stay in the preview pane's Advanced menu)
+      command('preview-refresh'),
+      command('preview-stop'),
+      command('preview-open-external'),
+      SEPARATOR,
       command('zoom-in'),
       command('zoom-out'),
       command('zoom-reset'),

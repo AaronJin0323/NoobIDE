@@ -6,7 +6,7 @@ import { repoRoot, tempRoot } from './launch';
 /** Shared steps for the preview e2e specs (S04, S05). */
 
 export interface PreviewInfo {
-  status: { state: string; projectId: string | null; failure?: string; url?: string };
+  status: { state: string; projectId: string | null; failure?: string; url?: string; generation?: number };
   origin: string | null;
   partition: string | null;
   previewPid: number | null;

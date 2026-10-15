@@ -88,9 +88,11 @@ async function drag(testId: string, dx: number) {
 }
 
 async function startPreview() {
-  const startButton = page.getByTestId('preview-start');
-  await expect(startButton.or(page.locator('[data-testid="preview-state"][data-state="running"]'))).toBeVisible();
-  if ((await startButton.count()) > 0) await startButton.click();
+  // S14.4: a trusted project starts by itself (after a restart); otherwise the user presses Start once.
+  const state = page.getByTestId('preview-state');
+  await expect.poll(() => state.getAttribute('data-state'), { timeout: 20_000 }).toMatch(/stopped|starting|running/);
+  await page.waitForTimeout(300);
+  if ((await state.getAttribute('data-state')) === 'stopped') await page.getByTestId('preview-start').first().click();
   await waitForPreviewState(page, 'running');
 }
 

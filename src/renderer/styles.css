@@ -1267,6 +1267,74 @@ button {
   font-size: 12px;
 }
 
+/* ── S14 / S15.4: preview toolbar, Advanced panel and notices (all in the layout flow: the native preview view
+   sits over the stage only, so nothing here can be covered by it) ── */
+.preview-toolbar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+.preview-toolbar .quiet-button:disabled,
+.preview-advanced .quiet-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.preview-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.preview-select {
+  max-width: 14em;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+.preview-advanced {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--raised);
+  font-size: 12px;
+}
+.preview-advanced-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.preview-advanced-detail {
+  color: var(--muted);
+}
+.preview-notices {
+  flex: none;
+  margin: 6px 10px 0;
+}
+.preview-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  padding: 4px 4px 4px 10px;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  font-size: 12px;
+}
+.preview-notice > span {
+  flex: 1;
+}
+
 /* ── S22.4: problem card (PLAN §9) · S22.5: one-click fix result ── */
 .problem-card-head,
 .problem-card-text,
