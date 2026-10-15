@@ -43,14 +43,17 @@ process.once('exit', () => {
  */
 export async function launchApp(
   env: Record<string, string> = {},
-  options: { userDataDir?: string } = {},
+  options: {
+    userDataDir?: string;
+    /** Extra Chromium switches, e.g. --force-device-scale-factor (S15.6). */ args?: string[];
+  } = {},
 ): Promise<ElectronApplication> {
   let userDataDir = options.userDataDir;
   if (!userDataDir) {
     userDataDir = mkdtempSync(path.join(tempRoot(), 'noobide-e2e-userdata-'));
     tempUserDataDirs.push(userDataDir);
   }
-  const args = [`--user-data-dir=${userDataDir}`, ...electronArgs()];
+  const args = [`--user-data-dir=${userDataDir}`, ...(options.args ?? []), ...electronArgs()];
   return electron.launch({
     args,
     cwd: repoRoot,

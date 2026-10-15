@@ -23,6 +23,7 @@ beforeEach(() => {
     stop: vi.fn(async () => ({ state: 'stopped' as const, projectId: null })),
     reload: vi.fn(() => ({ state: 'refreshing' as const, projectId: ID })),
     setBounds: vi.fn(),
+    focusPage: vi.fn(),
   };
   registerPreviewIpcHandlers({ handle: (channel: string, h: Handler) => void handlers.set(channel, h) } as never, {
     allowedOrigin: ORIGIN,
@@ -61,6 +62,9 @@ describe('preview IPC (S04.3)', () => {
     const bounds = { x: 10, y: 20.5, width: 300, height: 200, visible: true };
     expect(await call(PREVIEW_CHANNELS.setBounds, workbench, bounds)).toEqual({ ok: true, value: null });
     expect(preview.setBounds).toHaveBeenCalledWith(bounds);
+    // S15.5/S15.6: keyboard focus handoff into the page.
+    expect(await call(PREVIEW_CHANNELS.focus, workbench)).toEqual({ ok: true, value: null });
+    expect(preview.focusPage).toHaveBeenCalledTimes(1);
   });
 
   it('rejects malformed payloads without touching the preview', async () => {
@@ -72,6 +76,8 @@ describe('preview IPC (S04.3)', () => {
     expect(await call(PREVIEW_CHANNELS.setBounds, workbench, { x: 1 })).toMatchObject({ code: 'invalid-request' });
     expect(preview.start).not.toHaveBeenCalled();
     expect(preview.setBounds).not.toHaveBeenCalled();
+    expect(await call(PREVIEW_CHANNELS.focus, workbench, { steal: true })).toMatchObject({ code: 'invalid-request' });
+    expect(preview.focusPage).not.toHaveBeenCalled();
   });
 });
 

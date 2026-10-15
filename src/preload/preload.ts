@@ -51,6 +51,7 @@ const api: NoobideApi = {
     stop: () => ipcRenderer.invoke(PREVIEW_CHANNELS.stop),
     reload: () => ipcRenderer.invoke(PREVIEW_CHANNELS.reload),
     setBounds: (bounds) => ipcRenderer.invoke(PREVIEW_CHANNELS.setBounds, bounds),
+    focus: () => ipcRenderer.invoke(PREVIEW_CHANNELS.focus),
     onEvent: (listener) => {
       const wrapped = (_event: unknown, payload: PreviewEvent) => listener(payload);
       ipcRenderer.on(PREVIEW_EVENT_CHANNEL, wrapped);

@@ -32,8 +32,12 @@ export function Splitter({ label, testId, value, aria, step, dragValue, onChange
     const current = drag.current;
     if (current) onChange(dragValue(current.startValue, event.clientX - current.startX));
   };
-  const endDrag = () => {
+  // S15.1: the release position is applied too. Move events can be coalesced or still queued when the button is
+  // released, and without this the divider stopped short of where it was let go (the persisted size was then off).
+  const endDrag = (event: PointerEvent<HTMLDivElement>) => {
+    const current = drag.current;
     drag.current = null;
+    if (current && event.type === 'pointerup') onChange(dragValue(current.startValue, event.clientX - current.startX));
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const big = event.shiftKey ? 4 : 1;

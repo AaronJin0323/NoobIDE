@@ -24,6 +24,7 @@ export interface PreviewIpcDeps {
     stop(): Promise<PreviewStatus>;
     reload(): PreviewStatus;
     setBounds(bounds: PreviewBounds): void;
+    focusPage(): void;
   };
 }
 
@@ -54,6 +55,10 @@ export function registerPreviewIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: P
   handle(PREVIEW_CHANNELS.reload, parseNoPayload, async () => ({ ok: true, value: deps.preview.reload() }));
   handle(PREVIEW_CHANNELS.setBounds, parsePreviewBounds, async (bounds) => {
     deps.preview.setBounds(bounds);
+    return { ok: true, value: null };
+  });
+  handle(PREVIEW_CHANNELS.focus, parseNoPayload, async () => {
+    deps.preview.focusPage();
     return { ok: true, value: null };
   });
 }
