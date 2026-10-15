@@ -13,6 +13,7 @@ describe('the missing-page page of the preview server', () => {
     expect(shownRequestPath('/%E9%A1%B5%E9%9D%A2/%E5%85%B3%E4%BA%8E%20%E6%88%91.html')).toBe('页面/关于 我.html');
     expect(shownRequestPath('/bad%E0%A4%A.html')).toBe('bad%E0%A4%A.html'); // invalid encoding: as sent
     expect(shownRequestPath('/a%0Ab%00c.html')).toBe('abc.html');
+    expect(shownRequestPath('/a%E2%80%AEb%E2%81%A6c.html')).toBe('abc.html'); // bidi overrides
     const long = shownRequestPath(`/${'x'.repeat(500)}.html`);
     expect(long).toHaveLength(MAX_SHOWN_PATH + 1);
     expect(long.endsWith('…')).toBe(true);

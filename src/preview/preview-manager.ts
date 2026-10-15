@@ -140,6 +140,8 @@ interface LivePreview {
   readonly entryUrl: string;
   /** The page showing is the server's 404 (a link to a page that does not exist). */
   pageMissing: boolean;
+  /** Counts loads the manager asks for; a load decided before an await is dropped when a newer one was asked for. */
+  navSeq: number;
 }
 
 /** One flood guard decision: a stop sent, or its answer. `ms` is main's time since the counting window began. */
@@ -412,6 +414,7 @@ export class PreviewManager {
       picker: new ElementPicker(view.webContents),
       entryUrl: `${server.origin}/${entryPath}`,
       pageMissing: false,
+      navSeq: 0,
     };
     this.live = live;
     this.startingWindow = null;
@@ -489,7 +492,8 @@ export class PreviewManager {
     this.update(live, { type: 'refresh' });
     if (this.machine === before) return this.status;
     this.focusGuard.loadStarted(!live.window.isDestroyed() && live.window.webContents.isFocused(), Date.now());
-    if (options.afterSave && live.pageMissing) void this.leaveMissingPage(live);
+    const seq = ++live.navSeq;
+    if (options.afterSave && live.pageMissing) void this.leaveMissingPage(live, seq);
     else live.view.webContents.reloadIgnoringCache();
     return this.status;
   }
@@ -506,21 +510,26 @@ export class PreviewManager {
     }
     this.reloadPending = false; // the entry page is loaded fresh anyway
     this.focusGuard.loadStarted(!live.window.isDestroyed() && live.window.webContents.isFocused(), Date.now());
+    const seq = ++live.navSeq;
     const target = await this.entryUrlOf(live);
     if (this.live !== live || live.view.webContents.isDestroyed()) return err('not-running', 'stopped meanwhile');
+    if (live.navSeq !== seq) return ok(this.status); // a newer load was asked for meanwhile
     live.view.webContents.loadURL(target).catch(() => undefined); // failures arrive as did-fail-load
     return ok(this.status);
   }
 
   /** The entry page now (the setting may have changed since the preview started). */
   private async entryUrlOf(live: LivePreview): Promise<string> {
-    const read = this.deps.entryPathOf?.(live.projectId).catch(() => null) ?? Promise.resolve(null);
+    // Promise.resolve().then: a dependency that throws synchronously is a failed read too, never a stuck load.
+    const read = Promise.resolve()
+      .then(() => this.deps.entryPathOf?.(live.projectId) ?? null)
+      .catch(() => null);
     const entryPath = await withTimeout(read, 2_000, null);
     return entryPath === null ? live.entryUrl : `${live.server.origin}/${entryPath}`;
   }
 
   /** After a save on a missing page: load that page if its file exists now, else the entry page. */
-  private async leaveMissingPage(live: LivePreview): Promise<void> {
+  private async leaveMissingPage(live: LivePreview, seq: number): Promise<void> {
     const contents = live.view.webContents;
     let target: string | null = null;
     try {
@@ -534,7 +543,7 @@ export class PreviewManager {
       // not a page of the server: go to the entry page
     }
     target ??= await this.entryUrlOf(live);
-    if (this.live !== live || contents.isDestroyed()) return;
+    if (this.live !== live || contents.isDestroyed() || live.navSeq !== seq) return;
     contents.loadURL(target).catch(() => undefined); // failures arrive as did-fail-load
   }
 
