@@ -544,3 +544,34 @@ data in `%APPDATA%\NoobIDE`, and never touches project folders. The macOS half o
   recorded so the tester instructions in `docs/reviews/G3.md` can be corrected.
 - **Result:** _(owner fills in: machines, OS versions, date, messages seen, pass/fail per step)_
 - **Close with:** `node harness/session.mjs set S17.4 done --evidence "docs/reviews/G3.md + manual: <Mac> macOS <ver> and Windows <ver> installs from CI run <url>, <date>"`
+
+### S36.1 — AI live smoke test against the real providers (`npm run test:ai-live`)
+
+The security-review half of S36.1 is done (findings and fixes: decision 0025 amendment, `docs/reviews/G9.md`). The
+live half needs the owner's own API keys; agents have none. The test drives the real AiService and agent runner
+through the real SDKs against `api.anthropic.com` / `api.openai.com` with cheap settings (low effort, small output
+budgets) and never writes into a project (it rejects the agent's proposal). It is not part of `verify` or CI. Expected
+cost: a few cents per provider.
+
+- **Platform:** any dev machine (macOS arm64 or Windows x64) with network access
+- **Build:** the commit that set S36.1 to `needs_manual_check` (or later)
+- **Steps:**
+  1. `npm install`, then `npm run test:ai-live` **without** keys. Expected: `Test Files 1 skipped`, `Tests 10 skipped`,
+     exit code 0 (no network use).
+  2. Anthropic (default models of decision 0025: `claude-opus-5-5`, inline `claude-haiku-5-5`):
+     - macOS: `NOOBIDE_AI_LIVE_ANTHROPIC_KEY=sk-ant-… npm run test:ai-live`
+     - Windows PowerShell: `$env:NOOBIDE_AI_LIVE_ANTHROPIC_KEY="sk-ant-…"; npm run test:ai-live; Remove-Item Env:NOOBIDE_AI_LIVE_ANTHROPIC_KEY`
+  3. OpenAI (defaults picked from the account's model list): the same with `NOOBIDE_AI_LIVE_OPENAI_KEY=sk-…`. Both
+     variables may be set together; each provider runs only when its key is set.
+  4. Check the four printed outputs per provider (blocks `===== [provider] … =====`):
+     - **chat**: a sensible one- or two-sentence description of the sample page (a heading "Hello" and a "Go" button);
+     - **inline completion**: plausible JavaScript to put inside the `click` handler (no Markdown fence, no repeated
+       prefix);
+     - **inline edit**: the CSS rule with the heading colour changed to blue and nothing else changed;
+     - **agent turn**: steps such as `read_file`/`list_files`, then a proposal creating `about.html` and/or editing
+       `index.html` with a link, with a one-sentence reason.
+- **Expected:** `Tests 5 passed` per provider with a key (key test, chat, inline, edit, agent proposal), the printed
+  outputs look right to you, and the key does not appear in the output (the test also asserts it is absent from the
+  events and the app log).
+- **Result:** _(owner fills in: providers run, models, pass/fail, cost seen in the provider console, date)_
+- **Close with:** `node harness/session.mjs set S36.1 done --evidence "review: docs/reviews/G9.md + live: npm run test:ai-live <providers>, <date>, 10/10 passed"`

@@ -51,6 +51,7 @@ export interface OpenAiProviderOptions {
 export function createOpenAiClient(apiKey: string, transport?: typeof fetch): OpenAI {
   return new OpenAI({
     apiKey,
+    adminAPIKey: null,
     organization: null,
     project: null,
     baseURL: `${PROVIDER_ORIGINS.openai}/v1`,

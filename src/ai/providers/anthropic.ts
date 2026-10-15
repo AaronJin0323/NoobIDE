@@ -75,6 +75,8 @@ export function createAnthropicClient(apiKey: string, transport?: typeof fetch):
     timeout: 10 * 60 * 1000,
     logLevel: 'off',
     logger: SILENT_LOGGER,
+    // No spans (the SDK can read a trace content mode from ANTHROPIC_OPEN_TELEMETRY_*).
+    openTelemetry: false,
     fetch: guardedFetch(PROVIDER_ORIGINS.anthropic, 'ANTHROPIC_CUSTOM_HEADERS', transport),
   });
 }

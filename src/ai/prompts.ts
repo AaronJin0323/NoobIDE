@@ -75,7 +75,7 @@ function attr(value: string): string {
 }
 
 /** The tags that frame project data in the messages below. */
-const DATA_TAGS = /<\/(context|file|selection|problem|console|prefix|suffix|before|after)\b/gi;
+const DATA_TAGS = /<\s*\/\s*(context|file|selection|problem|console|prefix|suffix|before|after)\b/gi;
 
 /**
  * Project data can never close the frame it sits in (S36.1 security review): a file containing `</file></context>`

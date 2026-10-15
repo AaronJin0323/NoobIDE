@@ -23,12 +23,17 @@ const ENV = {
 interface Sent {
   url: string;
   headers: Headers;
+  redirect: RequestRedirect | undefined;
 }
 
 function recorder(body: unknown) {
   const sent: Sent[] = [];
   const transport = (async (input: string | URL | Request, init?: RequestInit) => {
-    sent.push({ url: String(input instanceof Request ? input.url : input), headers: new Headers(init?.headers) });
+    sent.push({
+      url: String(input instanceof Request ? input.url : input),
+      headers: new Headers(init?.headers),
+      redirect: init?.redirect,
+    });
     return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
   return { sent, transport };
@@ -68,6 +73,7 @@ describe('provider egress', () => {
       expect(request.headers.get('x-api-key')).toBe('sk-ant-key');
       expect(request.headers.get('x-exfil')).toBeNull();
       expect(request.headers.get('x-other')).toBeNull();
+      expect(request.redirect).toBe('error');
     }
     for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
   });

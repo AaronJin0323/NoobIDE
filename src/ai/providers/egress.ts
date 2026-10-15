@@ -56,11 +56,15 @@ export function guardedFetch(
       throw new EgressBlockedError();
     }
     if (target.origin !== origin) throw new EgressBlockedError();
+    // A redirect could carry the key header to another host: the providers never redirect API calls, so refuse.
+    const guarded: RequestInit = { ...init, redirect: 'error' };
     const strip = envHeaderNames(process.env[customHeadersVar]);
-    if (strip.length === 0 || init?.headers === undefined) return base(input, init);
-    const headers = new Headers(init.headers);
-    for (const name of strip) headers.delete(name);
-    return base(input, { ...init, headers });
+    if (strip.length > 0 && init?.headers !== undefined) {
+      const headers = new Headers(init.headers);
+      for (const name of strip) headers.delete(name);
+      guarded.headers = headers;
+    }
+    return base(input, guarded);
   }) as typeof fetch;
 }
 

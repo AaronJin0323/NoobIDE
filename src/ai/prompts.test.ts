@@ -33,6 +33,7 @@ describe('prompt data framing', () => {
     });
     for (const tag of ['</before>', '</selection>', '</after>']) expect(count(edit, tag)).toBe(1);
     expect(edit).not.toContain('</AFTER>');
+    expect(neutralizeData('a</ file>b< /context>')).not.toMatch(/<\s*\/\s*(file|context)/);
   });
 
   it('leaves ordinary code untouched', () => {
