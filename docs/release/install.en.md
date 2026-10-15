@@ -20,6 +20,8 @@ together with a done feature that proves it (AGENTS.md, PLAN §4/§9); anything 
 > - Upgrades keep your settings, recent projects and local history: tested with packaged builds on a Mac; the Windows
 >   installer upgrade and uninstall still need a check on a real Windows computer (marked "Windows: being verified").
 > - The minimum supported OS versions are not decided yet (owner task H.1).
+> - The optional AI assistant (section 10) is tested against a simulated provider; a check with real Anthropic and
+>   OpenAI keys is still pending.
 
 ## 1. System requirements
 
@@ -168,8 +170,10 @@ Only features proven by automated tests or validation scenarios are listed.
 - When the system protects folders such as Documents or Desktop and access is denied, the cause and the fix are
   explained.
 - Works without a network connection (section 7).
+- Optional AI assistant with your own Anthropic or OpenAI key: completions, explanations, edits and project changes
+  you review as diffs (section 10).
 
-<!-- S24.1, S24.3, S13.6, S25.3, S27.2 -->
+<!-- S24.1, S24.3, S13.6, S25.3, S27.2; AI: S31–S35 (section 10) -->
 
 **Not verified yet, not promised:** Chinese input methods on real devices, different display scaling and multiple
 monitors, recovery after sleep and wake, final confirmation of each platform's menu and window conventions,
@@ -215,6 +219,7 @@ What it contains:
 | Preview trust and notes | `preview.json`                                            | Which projects may preview without asking (stored as a hash of the path, not the path text), and notes already shown                               | Quit and delete the file (opened folders then ask for Start preview again)            |
 | Data your pages saved   | folders starting with `noobide-preview-` in `Partitions/` | One per project: the page's localStorage, IndexedDB, cookies and cache                                                                             | Preview toolbar → Advanced → Clear preview data (current project only)                |
 | Walkthrough progress    | `walkthrough.json`                                        | How far the walkthrough has got                                                                                                                    | Quit and delete the file                                                              |
+| AI assistant            | `ai-keys.json`, `ai-config.json`, `ai-consent.json`       | Your API key (encrypted), AI on/off, provider and models, projects allowed to send code (as a hash of the path)                                    | AI Settings → Remove key / Revoke; or quit and delete the files (section 10.5)        |
 
 There are also Electron's own cache folders (for example `Cache`, `GPUCache`, `Local Storage`); they hold none of your
 project files.
@@ -264,6 +269,8 @@ Without a network connection all of this works: creating a project from a templa
 refresh, code checks and error explanations (including problem cards). The editor, fonts and language features are
 bundled with the app. In the offline test NoobIDE itself tried to reach nothing outside the computer.
 
+The optional AI assistant (section 10) needs a network connection; offline it says so and nothing else changes.
+
 Only what **your webpage itself** requests from the internet needs a network — for example a library from a CDN, an
 external image or a fetch to an internet address. Offline, those requests fail, and the Problems panel shows and
 explains them.
@@ -293,3 +300,80 @@ harness/MANUAL-CHECKS.md#S28.4. -->
   system and app versions.
 - Include the NoobIDE version (from "About NoobIDE"), the system version, the computer model, what you did and what
   you saw.
+
+## 10. The AI assistant (optional)
+
+NoobIDE can use an AI model to complete code while you type, explain code and errors, change a selection on request,
+and propose changes to your project. AI is **optional**: without a key, with AI switched off or without a network
+connection, everything else in this guide works exactly the same.
+
+### 10.1 Getting a key
+
+NoobIDE has no account of its own. It connects with **your own API key** from one of two providers:
+
+- **Anthropic (Claude):** sign in at <https://console.anthropic.com>, add a payment method or credit under Billing,
+  then create a key under API keys (it starts with `sk-ant-`).
+- **OpenAI:** sign in at <https://platform.openai.com>, add credit under Billing, then create a key under API keys
+  (it starts with `sk-`).
+
+Then in NoobIDE: Help → **AI Settings…** (or the command list). Choose the provider, paste the key, click **Save
+key**, then **Test connection**. A key is shown only while you paste it; after saving it is never shown again.
+
+### 10.2 Cost
+
+**Usage is billed to your key's account** by Anthropic or OpenAI, at their prices; NoobIDE charges nothing. Answers in
+the AI assistant panel show how many tokens they used. Inline completions send a small request after you pause typing
+and are cancelled when you keep typing. To limit cost, set a monthly limit in the provider's console, choose a smaller
+model per use in AI Settings → Models (completions default to a small, fast model), or switch completions off.
+
+### 10.3 What is sent, and when you are asked
+
+The first time you use AI in a project, NoobIDE asks once whether this project's code may be sent to the provider.
+Nothing from the project is sent before you allow it, and you can **revoke** it any time in AI Settings → This
+project. NoobIDE remembers the answer per project in its app-data folder (section 10.5), not in the project.
+
+| What you use                                                              | What is sent                                                                                                                                                                  |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Completions (grey text while typing)                                      | Up to 4,000 characters before and 1,000 after the cursor of the current file. Not for files over 200,000 characters                                                           |
+| AI assistant panel: questions, "Explain this code", "Ask AI" on a problem | Your question, the earlier messages of that conversation, and the context items listed above the input box (files, selection, problem). You can remove an item before sending |
+| Edit with AI (Ctrl+I / ⌘I) and "Fix with AI"                              | Your instruction, the selected code with a few surrounding lines, or the problem and its file                                                                                 |
+| "Change the project" (agent)                                              | Your request and the project files the assistant opens with its read tools (list, read, search), current problems and the preview console                                     |
+
+The assistant **cannot** read files outside the project, hidden files (names starting with `.`, such as `.env`),
+`.noobide` or `node_modules`, and it cannot run commands. Everything it wants to change is shown as a **diff that you
+accept or reject** change by change; accepted changes are saved like your own edits (with local history, so a whole
+turn can be undone from History). Text inside your files or the page console is treated as data, never as
+instructions to the assistant.
+
+### 10.4 Where the key is stored
+
+The key is encrypted with your operating system's secure storage (macOS Keychain, Windows data protection) and kept
+in `ai-keys.json` in the app-data folder. It stays in NoobIDE's background process: it is never shown in the window
+again, never written to a log and never written into a project folder. If secure storage is not available, NoobIDE
+does **not** save the key and AI stays off, with an explanation. **Remove key** in AI Settings deletes it.
+
+### 10.5 Turning AI off
+
+- AI Settings → switch off **Turn on AI features**: every AI button, panel and completion disappears.
+- Switch off **Show AI completions while typing** to keep the panel but stop completions.
+- **Revoke** in AI Settings → This project stops sending that project's code.
+
+AI files in the app-data folder (section 5.2): `ai-keys.json` (encrypted key), `ai-config.json` (on/off, provider,
+models), `ai-consent.json` (allowed projects, stored as a hash of the path). Quit NoobIDE and delete them to reset AI
+completely. Conversations are kept only while NoobIDE runs.
+
+### 10.6 Offline
+
+Without a network connection the AI features cannot reach the provider: the panel and the edit box say so, and
+completions simply do not appear. Nothing else changes. NoobIDE connects only to `api.anthropic.com` or
+`api.openai.com`, and only when you use an AI feature or test a key.
+
+**Status:** all AI features are tested automatically against a simulated provider. A run against the real Anthropic
+and OpenAI services with real keys is still pending (owner check S36.1); until it has passed, treat the AI assistant
+as a preview.
+
+<!-- S31.1–S31.4 (providers, keys, consent, settings: tests/e2e/ai-settings.spec.ts, tests/integration/ai-service.test.ts),
+S32.1 (tests/e2e/ai-inline.spec.ts; bounds src/renderer/ai/inline-context.ts), S33.1/S33.2 (tests/e2e/ai-chat.spec.ts),
+S34.1/S34.2 (tests/integration/ai-agent.test.ts, tests/e2e/ai-agent.spec.ts; hidden-file rule src/ai/agent/tools.ts),
+S35.1/S35.2 (tests/e2e/ai-edit.spec.ts). Files: src/main/app-data-layout.ts. Decision 0025. Live provider run:
+npm run test:ai-live, harness/MANUAL-CHECKS.md#S36.1. -->
