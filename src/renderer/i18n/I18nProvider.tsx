@@ -58,3 +58,10 @@ export function useI18n(): I18nValue {
   if (!value) throw new Error('useI18n must be used inside <I18nProvider>');
   return value;
 }
+
+/** S35: re-provides the workbench's value in a separate React root (the inline edit zone inside the code editor). */
+export function I18nValueProvider({ value, children }: { value: I18nValue; children?: ReactNode }) {
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+}
+
+export type { I18nValue };

@@ -2958,7 +2958,7 @@
       "depends_on": [
         "S34.2"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
@@ -2975,7 +2975,7 @@
       "depends_on": [
         "S35.1"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
