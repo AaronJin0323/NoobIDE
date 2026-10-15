@@ -138,18 +138,28 @@ export class PreviewManager {
    * `generation`; the older one then cleans up at its next check.
    */
   start(projectId: string, window: BrowserWindow): Promise<Result<PreviewStatus, PreviewStartError>> {
-    const run = this.startQueue.then(() => this.startNow(projectId, window));
-    this.startQueue = run.catch(() => undefined);
     this.generation += 1; // invalidate a start that is still in progress
+    // A Stop (or a newer Start) while this one waits in the queue cancels it before it begins.
+    const ticket = this.generation;
+    const run = this.startQueue.then(() =>
+      this.generation === ticket ? this.startNow(projectId, window, ticket) : ok(this.status),
+    );
+    this.startQueue = run.catch(() => undefined);
     return run;
   }
 
-  private async startNow(projectId: string, window: BrowserWindow): Promise<Result<PreviewStatus, PreviewStartError>> {
+  private async startNow(
+    projectId: string,
+    window: BrowserWindow,
+    ticket: number,
+  ): Promise<Result<PreviewStatus, PreviewStartError>> {
     const root = this.deps.rootOf(projectId);
     if (root === undefined) return err('unknown-project', 'project is not open');
     if (window.isDestroyed()) return err('no-window', 'window is gone');
-    await this.stop({ announce: false });
-    const generation = ++this.generation;
+    await this.stop({ announce: false }); // bumps generation once
+    // Another Start or a Stop arrived while the old preview was stopping: this start is no longer wanted.
+    if (this.generation !== ticket + 1) return ok(this.status);
+    const generation = this.generation;
     this.startingWindow = window;
     this.reloadPending = false;
     this.setStatus(window, { state: 'starting', projectId });
@@ -166,7 +176,12 @@ export class PreviewManager {
     }
     // S13.2: the configured entry page ('' = the server's index.html); a broken config never blocks the preview.
     // Read while this start is current; the generation check below catches a Stop that arrived meanwhile.
-    const entryPath = (await this.deps.entryPathOf?.(projectId).catch(() => '')) ?? '';
+    // Bounded: starts are serialised, so one that never settles would block every later Start.
+    const entryPath = await withTimeout(
+      this.deps.entryPathOf?.(projectId).catch(() => '') ?? Promise.resolve(''),
+      5_000,
+      '',
+    );
     if (generation !== this.generation || window.isDestroyed()) {
       await server.close();
       return ok(this.status);
@@ -731,6 +746,16 @@ async function guardChildTarget(dbg: Electron.Debugger, sessionId: string, type:
   } finally {
     await dbg.sendCommand('Runtime.runIfWaitingForDebugger', {}, sessionId).catch(() => undefined);
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => {
+      timer = setTimeout(() => resolve(fallback), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 function urlOriginOf(url: string): string | null {

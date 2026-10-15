@@ -520,10 +520,26 @@ test('alert, confirm, prompt, print and beforeunload cannot block the IDE, refre
   await evalInPreview<number>(app, arm);
   // The IDE takes input (typing autosaves, and the save refreshes the page despite its beforeunload handler).
   expect(await typeAndMeasure('对话框之后')).toBeLessThan(3_000);
+  const projectId = (await previewInfo(app)).status.projectId;
   const stoppedAt = Date.now();
   await page.getByTestId('preview-stop').click();
   await waitForPreviewState(page, 'stopped');
   expect(Date.now() - stoppedAt).toBeLessThan(5_000);
+
+  // Starts are serialised (each reconfigures the project's session); Start, Start, Stop in a row must end stopped.
+  await page.evaluate(async (id) => {
+    const preview = (
+      window as unknown as {
+        noobide: { preview: { start(r: { projectId: string }): Promise<unknown>; stop(): Promise<unknown> } };
+      }
+    ).noobide.preview;
+    await Promise.all([preview.start({ projectId: id }), preview.start({ projectId: id }), preview.stop()]);
+  }, projectId ?? '');
+  await page.waitForTimeout(1_000);
+  const after = await previewInfo(app);
+  expect(after.status.state).toBe('stopped');
+  expect(after.previewWebContentsId).toBeNull();
+  await waitForPreviewState(page, 'stopped');
 });
 
 test('no workbench console errors during the isolation run', async () => {

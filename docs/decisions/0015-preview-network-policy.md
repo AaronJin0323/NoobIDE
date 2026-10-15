@@ -88,6 +88,8 @@ resources (a CDN), so the public internet must stay reachable; only this machine
 - Other local programs can connect to the proxy, but it only offers what they already have (public internet) with
   fewer rights; Chromium cannot authenticate to SOCKS5 proxies, so no secret is used.
 - Residual: a page can still make Chromium perform DNS _lookups_ for arbitrary names (prefetch); it cannot connect.
+- Every non-internal interface's network is refused; a VPN or tunnel interface with a very broad prefix would
+  therefore refuse much of the internet (fails closed: an availability, not a safety, risk).
 - Residual: the router's public (WAN) address is not known to the IDE; a router that hairpins connections to it
   would expose services that are port-forwarded to the internet anyway.
 - Verified on macOS arm64 by `tests/integration/preview-proxy.test.ts` (rebinding name, LAN name, mixed answers,
