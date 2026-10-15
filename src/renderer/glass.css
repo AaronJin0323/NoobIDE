@@ -467,7 +467,10 @@
 .dialog-backdrop,
 .recovery-backdrop {
   background: var(--scrim);
-  animation: glass-fade var(--dur-fast) var(--ease-out) both;
+  /* The scrim fades in by its colour, never by opacity: an opacity animation (kept by its fill mode) makes the
+     backdrop a backdrop root, and the sheet's backdrop-filter then blurs only the scrim - the code behind the dialog
+     would show through sharp. */
+  animation: scrim-fade var(--dur-fast) var(--ease-out) both;
 }
 .dialog,
 .recovery-dialog {
@@ -582,7 +585,7 @@
   align-items: flex-start;
   padding: 72px 16px 16px;
   background: var(--scrim);
-  animation: glass-fade var(--dur-fast) var(--ease-out) both;
+  animation: scrim-fade var(--dur-fast) var(--ease-out) both; /* colour, not opacity: see .dialog-backdrop */
 }
 .palette {
   display: flex;
@@ -702,6 +705,12 @@
 @keyframes glass-fade {
   from {
     opacity: 0;
+  }
+}
+/* Backdrops: a colour fade keeps them from becoming a backdrop root for the sheet's blur (see .dialog-backdrop). */
+@keyframes scrim-fade {
+  from {
+    background-color: transparent;
   }
 }
 /* Reduce Motion: no movement or scaling, only a short dissolve. */

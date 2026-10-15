@@ -302,6 +302,83 @@ async function runMaterialChecks(cdp: CDPSession): Promise<void> {
   }
 }
 
+/**
+ * How much sharp detail the window shows inside `rect` (CSS px): the mean luminance step between horizontally adjacent
+ * pixels, captured by main (what the user sees, compositing included).
+ */
+async function sharpness(rect: { x: number; y: number; width: number; height: number }): Promise<number> {
+  return app.evaluate(async ({ BrowserWindow }, r) => {
+    const win = BrowserWindow.getAllWindows()[0]!;
+    const image = await win.webContents.capturePage({
+      x: Math.round(r.x),
+      y: Math.round(r.y),
+      width: Math.round(r.width),
+      height: Math.round(r.height),
+    });
+    const { width, height } = image.getSize();
+    const bitmap = image.toBitmap(); // BGRA
+    const stride = bitmap.length / height;
+    let sum = 0;
+    let count = 0;
+    for (let y = 0; y < height; y += 1) {
+      let previous = -1;
+      for (let x = 0; x < width; x += 1) {
+        const i = y * stride + x * 4;
+        const l = 0.0722 * bitmap[i]! + 0.7152 * bitmap[i + 1]! + 0.2126 * bitmap[i + 2]!;
+        if (previous >= 0) {
+          sum += Math.abs(l - previous);
+          count += 1;
+        }
+        previous = l;
+      }
+    }
+    return count === 0 ? 0 : sum / count;
+  }, rect);
+}
+
+test('a dialog sheet is frosted: the code behind it does not show through sharp (both themes)', async () => {
+  const cdp: CDPSession = await page.context().newCDPSession(page);
+  try {
+    for (const scheme of ['light', 'dark'] as const) {
+      await setSchemeWithGlass(cdp, scheme);
+      // The code lines (sharp text) at the top of the editor.
+      const lines = await page.locator('.monaco-editor .view-lines').boundingBox();
+      if (!lines) throw new Error('no editor lines');
+      const area = { x: lines.x + 8, y: lines.y + 4, width: Math.min(260, lines.width - 16), height: 90 };
+      const behind = await sharpness(area);
+      expect(behind, `${scheme}: the code itself has detail`).toBeGreaterThan(2);
+      // An empty sheet with the real dialog classes, exactly over that code.
+      await page.evaluate((a) => {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'dialog-backdrop';
+        backdrop.id = 'frost-test';
+        const sheet = document.createElement('div');
+        sheet.className = 'dialog';
+        Object.assign(sheet.style, {
+          position: 'fixed',
+          left: `${a.x - 30}px`,
+          top: `${a.y - 30}px`,
+          width: `${a.width + 60}px`,
+          height: `${a.height + 60}px`,
+        });
+        backdrop.append(sheet);
+        document.body.append(backdrop);
+      }, area);
+      await page.waitForTimeout(700); // the scrim and the sheet finish their entrance
+      const through = await sharpness(area);
+      await page.evaluate(() => document.getElementById('frost-test')?.remove());
+      // Measured on Windows at 150 %: a see-through sheet (the blur sampling only the scrim) keeps about a tenth of the
+      // detail (0.11); a frosted one almost none (0.002).
+      expect(through / behind, `${scheme}: detail left behind the sheet (${through} of ${behind})`).toBeLessThan(0.03);
+    }
+  } finally {
+    await page.evaluate(() => document.getElementById('frost-test')?.remove());
+    await cdp.send('Emulation.setEmulatedMedia', { features: [] });
+    await cdp.detach();
+    await page.emulateMedia({ colorScheme: null });
+  }
+});
+
 test('reduced transparency makes every material solid', async () => {
   const cdp: CDPSession = await page.context().newCDPSession(page);
   const supported = { value: false };
