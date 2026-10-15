@@ -268,6 +268,8 @@ describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
       return { on: () => undefined, close: () => undefined };
     };
     // Files written just before the watcher starts, as when a project is opened right after it was created.
+    // (S07.5: on Windows the file's ctime can read ~1 ms later than a Date.now() taken after the write, which made
+    // this flaky; ProjectWatcher.predatesSnapshot tolerates that clock skew.)
     await writeFile(p('index.html'), '<p>旧</p>\n');
     events = [];
     watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { debounceMs: 20, watch });

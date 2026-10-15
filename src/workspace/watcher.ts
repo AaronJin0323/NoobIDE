@@ -64,6 +64,9 @@ const defaultWatch: WatchFn = (root, onChange) =>
 
 type Kind = 'file' | 'directory';
 
+/** Allowed ctime-vs-Date.now() clock disagreement when deciding whether a raw event is a replay (see predatesSnapshot). */
+const CLOCK_SKEW_TOLERANCE_MS = 2;
+
 export class ProjectWatcher {
   private watcher: ReturnType<WatchFn> | null = null;
   /** Snapshot: children (exact name → kind) per folder relPath; `''` is the root. */
@@ -334,9 +337,12 @@ export class ProjectWatcher {
   private async predatesSnapshot(relPath: string): Promise<boolean> {
     try {
       const info = await stat(path.join(this.root, ...relPath.split('/')));
-      // Date.now() is truncated to whole ms while ctime has sub-ms precision: a write finished just before the
-      // snapshot started can carry a ctime inside that same millisecond, so compare at millisecond resolution.
-      return Math.floor(info.ctimeMs) <= this.snapshotStartedAt;
+      // Date.now() and file timestamps come from different clocks. On Windows the NTFS ctime of a write that
+      // finished just before the snapshot can read up to ~1 ms *later* than Date.now() taken afterwards (measured:
+      // +1 ms in ~5% of writes, also under CPU load); elsewhere the sub-ms truncation alone gives the same shape.
+      // Allow a small tolerance so such a write still counts as predating the snapshot. A genuine edit made after
+      // attaching lands well past it (editors and the tests need more than a couple of ms to start the change).
+      return Math.floor(info.ctimeMs) <= this.snapshotStartedAt + CLOCK_SKEW_TOLERANCE_MS;
     } catch {
       return false;
     }
