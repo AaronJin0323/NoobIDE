@@ -3068,8 +3068,8 @@
       "depends_on": [
         "S07.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Cause: NTFS ctime vs Date.now() clock skew (measured ctime up to +1ms ahead in ~5% of writes, also under CPU load) in ProjectWatcher.predatesSnapshot; fixed with 2ms tolerance (real-change assertion unchanged). 20/20 consecutive full 'npx vitest run --reporter=dot' green (1989 passed) + verify green"
     },
     {
       "id": "S37.1",
