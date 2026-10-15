@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PreviewLogEntry } from '../shared/ipc/preview-contract';
 import { LogBuffer, MAX_LOG_URL_LENGTH, sanitizeLogUrl } from './log-buffer';
 import {
+  CHROMIUM_SWITCHES,
   DISABLED_CHROMIUM_FEATURES,
   REQUIRED_PREVIEW_PREFERENCES,
   createPreviewWebPreferences,
@@ -26,6 +27,10 @@ describe('preview webPreferences (S04.3)', () => {
 
   it('keeps sandboxed iframes in the page process, where the console limit reaches them (decision 0016)', () => {
     expect(DISABLED_CHROMIUM_FEATURES.split(',')).toContain('IsolateSandboxedIframes');
+  });
+
+  it('keeps renderer processes at their launch priority, so a new view is not starved before it is shown (S05.8)', () => {
+    expect(CHROMIUM_SWITCHES).toContain('disable-renderer-backgrounding');
   });
 
   it('reports every weakened value, a preload and a missing partition', () => {

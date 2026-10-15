@@ -36,7 +36,7 @@ import { ProjectService } from '../workspace/project-service';
 import { PreviewManager } from '../preview/preview-manager';
 import { formatOutline } from '../preview/page-snapshot'; // S38.1 test hook
 import { defaultEntryPath } from '../preview/entry-pages';
-import { DISABLED_CHROMIUM_FEATURES } from '../preview/preview-options';
+import { CHROMIUM_SWITCHES, DISABLED_CHROMIUM_FEATURES } from '../preview/preview-options';
 import { PreviewStore } from './preview-store'; // S14.4 trust, S14.2 one-time notes (app data)
 import { readPreviewOptions, refreshModeOf, writeRefreshMode } from '../preview/project-options'; // S14.2/S14.3
 import { err, ok } from '../shared/result';
@@ -91,6 +91,8 @@ function start(): void {
   registerAppSchemePrivileges(protocol);
   // Decision 0016: every frame of the preview must get the console limit before its scripts run.
   app.commandLine.appendSwitch('disable-features', DISABLED_CHROMIUM_FEATURES);
+  // S05.8: a preview's renderer keeps its priority while its page guard is installed (preview-options.ts).
+  for (const name of CHROMIUM_SWITCHES) app.commandLine.appendSwitch(name);
 
   const devServerUrl =
     typeof MAIN_WINDOW_VITE_DEV_SERVER_URL === 'string' ? MAIN_WINDOW_VITE_DEV_SERVER_URL : undefined;

@@ -163,13 +163,22 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   const point = { x: Math.round(box.x + 40), y: Math.round(box.y + 10) };
 
   // S05.7: the main (browser UI) thread's longest stall over the whole flood, from a 10 ms timer in main.
+  // Stalls over 50 ms are kept with their time since the start click, so a failure shows when main stalled.
   await app.evaluate(() => {
-    const lag = { max: 0, timer: undefined as ReturnType<typeof setInterval> | undefined };
+    const t0 = performance.now();
+    const lag = {
+      max: 0,
+      startedAt: Date.now(),
+      stalls: [] as [number, number][],
+      timer: undefined as ReturnType<typeof setInterval> | undefined,
+    };
     (globalThis as unknown as { __mainLag: typeof lag }).__mainLag = lag;
     let last = performance.now();
     lag.timer = setInterval(() => {
       const now = performance.now();
-      lag.max = Math.max(lag.max, now - last - 10);
+      const stall = now - last - 10;
+      lag.max = Math.max(lag.max, stall);
+      if (stall > 50 && lag.stalls.length < 50) lag.stalls.push([Math.round(last - t0), Math.round(stall)]);
       last = now;
     }, 10);
   });
@@ -202,11 +211,19 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
     .poll(() => evalInPreview<string>(app, 'document.body.dataset.count ?? ""'), { timeout: 30_000 })
     .not.toBe('');
   const logged = Number(await evalInPreview<string>(app, 'document.body.dataset.count'));
-  const mainStall = await app.evaluate(() => {
-    const lag = (globalThis as unknown as { __mainLag: { max: number; timer: ReturnType<typeof setInterval> } })
-      .__mainLag;
+  const { mainStall, stalls, startedAt } = await app.evaluate(() => {
+    const lag = (
+      globalThis as unknown as {
+        __mainLag: {
+          max: number;
+          startedAt: number;
+          stalls: [number, number][];
+          timer: ReturnType<typeof setInterval>;
+        };
+      }
+    ).__mainLag;
     clearInterval(lag.timer);
-    return Math.round(lag.max);
+    return { mainStall: Math.round(lag.max), stalls: lag.stalls, startedAt: lag.startedAt };
   });
   const probe = await page.evaluate(
     () => (window as unknown as { __probe: { inputs: number[]; maxTimerLag: number } }).__probe,
@@ -215,7 +232,11 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   console.log(
     `console flood: ${logged} messages in 6 s; keystroke latency ms ${JSON.stringify(latencies)}; ` +
       `workbench max timer lag ${Math.round(probe.maxTimerLag)} ms; main max timer lag ${sent.mainLag} ms; ` +
-      `longest main-thread stall during the flood ${mainStall} ms`,
+      `longest main-thread stall during the flood ${mainStall} ms; stalls over 50 ms [ms after Start, ms] ${JSON.stringify(stalls)}; keystrokes sent at ${JSON.stringify(sent.sends.map((t) => t - startedAt))}`,
+  );
+  const floodInfo = (await previewInfo(app)) as unknown as { floodTrace?: unknown; guardTrace?: unknown };
+  console.log(
+    `console flood: main flood guard ${JSON.stringify(floodInfo.floodTrace)}; page guard ${JSON.stringify(floodInfo.guardTrace)}`,
   );
   // All 20 keystrokes typed during the flood reached the editor, each quickly.
   expect(probe.inputs.length).toBe(20);
@@ -491,7 +512,10 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
     /page|worker$|sandboxed|^200 iframes|^20 workers|in a loop/.test(n),
   )) {
     const run = await measureMainStall(app, previewId, code, { costMs: 0.6 });
-    console.log(`${name} (main 0.6 ms per message): ${run.messages} messages; longest main stall ${run.max} ms`);
+    console.log(
+      `${name} (main 0.6 ms per message): ${run.messages} messages; longest main stall ${run.max} ms; ` +
+        `most messages between two 10 ms ticks ${run.batch}`,
+    );
     expect(run.result, name).toBe('finished');
     expect(run.max, name).toBeLessThan(stallBudget(name));
   }
@@ -531,14 +555,17 @@ async function measureMainStall(
   previewId: number,
   code: string,
   options: { costMs?: number; isolatedWorld?: boolean } = {},
-): Promise<{ max: number; result: string; ms: number; messages: number }> {
+): Promise<{ max: number; result: string; ms: number; messages: number; batch: number }> {
   return app.evaluate(
     async ({ webContents }, { id, js, costMs, isolatedWorld }) => {
       const wc = webContents.fromId(id);
-      if (!wc) return { max: 0, result: 'no preview', ms: 0, messages: 0 };
+      if (!wc) return { max: 0, result: 'no preview', ms: 0, messages: 0, batch: 0 };
       let messages = 0;
+      let sinceTick = 0;
+      let batch = 0;
       const onMessage = () => {
         messages += 1;
+        sinceTick += 1;
         if (costMs > 0) {
           const until = performance.now() + costMs;
           while (performance.now() < until) {
@@ -553,6 +580,8 @@ async function measureMainStall(
         const now = performance.now();
         max = Math.max(max, now - last - 10);
         last = now;
+        batch = Math.max(batch, sinceTick);
+        sinceTick = 0;
       }, 10);
       const evaluate = async (): Promise<string> => {
         if (!isolatedWorld) return String(await wc.executeJavaScript(js));
@@ -578,7 +607,7 @@ async function measureMainStall(
       await new Promise((r) => setTimeout(r, 1_000)); // whatever main still had queued
       clearInterval(timer);
       wc.off('console-message', onMessage);
-      return { max: Math.round(max), result, ms, messages };
+      return { max: Math.round(max), result, ms, messages, batch };
     },
     { id: previewId, js: code, costMs: options.costMs ?? 0, isolatedWorld: options.isolatedWorld ?? false },
   );
