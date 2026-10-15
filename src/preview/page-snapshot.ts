@@ -261,7 +261,7 @@ export function formatOutline(
         line = `h${item.level} ${quote(item.text)}`;
         break;
       case 'link':
-        line = `link ${quote(item.text)} -> ${item.href || '(no href)'}`;
+        line = `link ${quote(item.text)} -> ${item.href ? quote(item.href) : '(no href)'}`;
         break;
       case 'button':
         line = `button ${quote(item.text)}${item.id ? ` id=${quote(item.id)}` : ''}`;
@@ -278,7 +278,7 @@ export function formatOutline(
           .join(' ');
         break;
       case 'image':
-        line = `image alt=${quote(item.alt)} src=${item.src || '(none)'}`;
+        line = `image alt=${quote(item.alt)} src=${item.src ? quote(item.src) : '(none)'}`;
         break;
     }
     line += hidden;
@@ -329,7 +329,7 @@ interface NativeImageLike {
   isEmpty(): boolean;
   getSize(): { width: number; height: number };
   resize(options: { width: number; height: number; quality?: 'good' | 'better' | 'best' }): NativeImageLike;
-  toPNG(): Buffer;
+  toPNG(options?: { scaleFactor?: number }): Buffer;
 }
 
 export interface SnapshotContents {
@@ -355,6 +355,27 @@ function withBudget<T>(work: Promise<T>, ms: number): Promise<Timed<T>> {
   ]).finally(() => clearTimeout(timer));
 }
 
+/**
+ * Work still running in a preview's renderer or compositor, by kind. A budget only stops main from WAITING: a timed-out
+ * outline script stays queued behind a busy page, and a capture may still complete. While one is pending, the next
+ * snapshot does not queue another (it is "busy" at once), so a caller that retries cannot pile work up in the page.
+ */
+const outlinePending = new WeakSet<object>();
+const capturePending = new WeakSet<object>();
+
+function tracked<T>(set: WeakSet<object>, key: object, work: Promise<T>): Promise<T> {
+  set.add(key);
+  const clear = () => set.delete(key);
+  work.then(clear, clear);
+  return work;
+}
+
+/** Width and height in a PNG's IHDR chunk (the real pixel size), or null when the bytes are not a PNG. */
+export function pngSize(png: Buffer): { width: number; height: number } | null {
+  if (png.length < 24 || png.readUInt32BE(0) !== 0x89504e47 || png.toString('latin1', 12, 16) !== 'IHDR') return null;
+  return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
+}
+
 /** The main frame's protocol id (for a page target it is the target id). */
 async function mainFrameId(dbg: DebuggerLike): Promise<string | null> {
   try {
@@ -374,6 +395,7 @@ export async function captureOutline(
 ): Promise<Timed<PageOutline>> {
   const dbg = contents.debugger;
   if (contents.isDestroyed() || !dbg.isAttached()) return { ok: false, reason: 'no-protocol' };
+  if (outlinePending.has(contents)) return { ok: false, reason: 'busy' };
   const work = (async () => {
     const frameId = await mainFrameId(dbg);
     if (!frameId) throw new Error('no main frame');
@@ -399,7 +421,7 @@ export async function captureOutline(
     if (!outline) throw new Error('unexpected outline');
     return outline;
   })();
-  return withBudget(work, limits.outlineTimeoutMs);
+  return withBudget(tracked(outlinePending, contents, work), limits.outlineTimeoutMs);
 }
 
 /** A PNG of what the view shows, scaled down and size-checked; nothing when the view shows nothing. */
@@ -408,18 +430,38 @@ export async function captureScreenshot(
   limits: SnapshotLimits = SNAPSHOT_LIMITS,
 ): Promise<Timed<PageScreenshot>> {
   if (contents.isDestroyed()) return { ok: false, reason: 'failed' };
-  const captured = await withBudget(contents.capturePage(), limits.screenshotTimeoutMs);
+  if (capturePending.has(contents)) return { ok: false, reason: 'busy' };
+  const captured = await withBudget(
+    tracked(capturePending, contents, contents.capturePage()),
+    limits.screenshotTimeoutMs,
+  );
   if (!captured.ok) return captured;
   const image = captured.value;
   if (image.isEmpty()) return { ok: false, reason: 'hidden' };
   const size = image.getSize();
   if (size.width < 1 || size.height < 1) return { ok: false, reason: 'hidden' };
-  const target = scaledSize(size.width, size.height, limits.screenshotMaxSide);
-  const scaled =
+  // getSize() is in DIPs; on a HiDPI display the bitmap has more pixels. The PNG's own header is the truth: the
+  // longest side is checked there and scaled down once more if the representation was larger than its DIP size.
+  // The scaling and encoding run in main (synchronous, bounded by the window's pixel count: a few ms to ~50 ms for
+  // a full 5K window), outside any page influence.
+  let target = scaledSize(size.width, size.height, limits.screenshotMaxSide);
+  let scaled =
     target.width === size.width && target.height === size.height ? image : image.resize({ ...target, quality: 'good' });
-  const png = scaled.toPNG();
+  let png = scaled.toPNG({ scaleFactor: 1 });
+  let real = pngSize(png);
+  if (real && Math.max(real.width, real.height) > limits.screenshotMaxSide) {
+    const ratio = limits.screenshotMaxSide / Math.max(real.width, real.height);
+    target = {
+      width: Math.max(1, Math.floor(target.width * ratio)),
+      height: Math.max(1, Math.floor(target.height * ratio)),
+    };
+    scaled = scaled.resize({ ...target, quality: 'good' });
+    png = scaled.toPNG({ scaleFactor: 1 });
+    real = pngSize(png);
+  }
+  if (!real || Math.max(real.width, real.height) > limits.screenshotMaxSide) return { ok: false, reason: 'too-large' };
   if (png.length > limits.screenshotMaxBytes) return { ok: false, reason: 'too-large' };
-  return { ok: true, value: { png, ...target } };
+  return { ok: true, value: { png, width: real.width, height: real.height } };
 }
 
 /** Takes one snapshot of `contents` (outline and, if asked, screenshot in parallel). */

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>很多 div</title>
+  </head>
+  <body>
+    <script>
+      // S38.1 hostile page: 200 000 plain elements before the first heading (the outline's visit limit, not its
+      // item limit, ends the walk), with styles that make layout and style work costly.
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < 200000; i += 1) {
+        const d = document.createElement('div');
+        d.style.cssText = 'display:inline-block;filter:blur(0px);transform:rotate(' + (i % 360) + 'deg)';
+        d.textContent = 'd';
+        frag.append(d);
+      }
+      const h = document.createElement('h1');
+      h.textContent = '最后的标题';
+      frag.append(h);
+      document.body.append(frag);
+    </script>
+  </body>
+</html>

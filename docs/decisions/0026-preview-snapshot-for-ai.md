@@ -41,7 +41,12 @@ text as untrusted data (it can contain prompt-injection text).
   inside the project, title (≤ 200 chars), outline (headings, links, buttons, form fields with labels, images with
   alt; hidden ones marked), optional PNG. One snapshot at a time per preview (callers share it). Nothing is asked of the
   page when the preview is not `running`/`refreshing`, or when the watchdog's ping has been unanswered for 500 ms (the
-  page's main thread is busy): the answer is "not available" at once. Otherwise each part has its time budget. No new
+  page's main thread is busy): the answer is "not available" at once. Otherwise each part has its time budget. A
+  budget only ends main's wait: while an earlier outline evaluation or capture of the same view is still pending (queued
+  behind a busy page), the next snapshot does not queue another one ("busy" at once), so retries cannot pile work up in
+  the page. A snapshot that spans a navigation is discarded. The screenshot's size is checked in the PNG header (HiDPI
+  bitmaps have more pixels than their DIP size); scaling and encoding run synchronously in main, bounded by the
+  window's pixel count. No new
   permission, preload, IPC into the preview, network, or page-world script; the page guard's session is reused (the
   flood guard's `Runtime.terminateExecution` may end a running outline script: that snapshot is then "not available").
 - AI side (S38.2): agent read-only tools `get_page_outline` and `get_page_screenshot`; `get_console` names project files

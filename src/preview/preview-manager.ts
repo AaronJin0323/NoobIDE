@@ -193,6 +193,7 @@ export class PreviewManager {
   /** S38.1: the page snapshot in flight (at most one; callers share it). */
   private snapshotting: {
     readonly live: LivePreview;
+    readonly generation: number | null;
     readonly screenshot: boolean;
     readonly result: Promise<Result<PageSnapshot, 'not-running' | 'not-available'>>;
   } | null = null;
@@ -587,19 +588,26 @@ export class PreviewManager {
     // The watchdog's ping has been waiting for a while: the page's main thread is busy (a long or endless loop).
     // Nothing is asked of it then; the outline could not run anyway and a capture would only queue behind the loop.
     if (live.ping && Date.now() - live.ping.startedAt >= SNAPSHOT_BUSY_MS) return err('not-available', 'page is busy');
+    const generation = live.loadGeneration;
     const pending = this.snapshotting;
-    if (pending && pending.live === live && (pending.screenshot || !options.screenshot)) return pending.result;
+    if (pending && pending.live === live && pending.generation === generation) {
+      // The same page is being captured: share it, or (screenshot wanted, not being taken) take ours after it.
+      if (pending.screenshot || !options.screenshot) return pending.result;
+      await pending.result;
+      if (this.live !== live || live.loadGeneration !== generation) return err('not-available', 'the page changed');
+    }
+    const visible = live.view.getVisible();
     const result = takeSnapshot(live.view.webContents, {
       origin: live.server.origin,
-      screenshot: options.screenshot && live.view.getVisible(),
+      screenshot: options.screenshot && visible,
     }).then((snapshot): Result<PageSnapshot, 'not-running' | 'not-available'> => {
       if (this.live !== live) return err('not-running', 'the preview stopped');
-      if (options.screenshot && !live.view.getVisible() && !snapshot.screenshotUnavailable) {
-        return ok({ ...snapshot, screenshotUnavailable: 'hidden' });
-      }
+      // A navigation meanwhile: the snapshot would mix two pages.
+      if (live.loadGeneration !== generation) return err('not-available', 'the page changed');
+      if (options.screenshot && !visible) return ok({ ...snapshot, screenshotUnavailable: 'hidden' });
       return ok(snapshot);
     });
-    const entry = { live, screenshot: options.screenshot, result };
+    const entry = { live, generation, screenshot: options.screenshot && visible, result };
     this.snapshotting = entry;
     void result.finally(() => {
       if (this.snapshotting === entry) this.snapshotting = null;

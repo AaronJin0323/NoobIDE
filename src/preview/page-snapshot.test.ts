@@ -7,6 +7,7 @@ import {
   formatOutline,
   outlineScript,
   pagePathOf,
+  pngSize,
   parseOutline,
   scaledSize,
   takeSnapshot,
@@ -15,21 +16,37 @@ import {
 
 const FAST = { ...SNAPSHOT_LIMITS, outlineTimeoutMs: 50, screenshotTimeoutMs: 50 };
 
-function fakeImage(width: number, height: number, bytes = 1000) {
-  const image = {
+/** A buffer with a PNG signature and IHDR of the given size, padded to `bytes`. */
+function fakePng(width: number, height: number, bytes = 1000): Buffer {
+  const png = Buffer.alloc(Math.max(bytes, 24));
+  png.writeUInt32BE(0x89504e47, 0);
+  png.write('IHDR', 12, 'latin1');
+  png.writeUInt32BE(width, 16);
+  png.writeUInt32BE(height, 20);
+  return png;
+}
+
+/** `density` > 1: a HiDPI capture whose bitmap has more pixels than its DIP size. */
+function fakeImage(width: number, height: number, bytes = 1000, density = 1): NativeImageFake {
+  return {
     isEmpty: () => width === 0,
     getSize: () => ({ width, height }),
-    resize: (o: { width: number; height: number }) => fakeImage(o.width, o.height, bytes),
-    toPNG: () => Buffer.alloc(bytes),
+    resize: (o: { width: number; height: number }) => fakeImage(o.width, o.height, bytes, density),
+    toPNG: () => fakePng(width * density, height * density, bytes),
   };
-  return image;
+}
+interface NativeImageFake {
+  isEmpty(): boolean;
+  getSize(): { width: number; height: number };
+  resize(o: { width: number; height: number }): NativeImageFake;
+  toPNG(): Buffer;
 }
 
 function fakeContents(
   options: {
     attached?: boolean;
     answer?: (method: string, params?: object) => Promise<unknown>;
-    image?: () => Promise<ReturnType<typeof fakeImage>>;
+    image?: () => Promise<NativeImageFake>;
     url?: string;
     title?: string;
   } = {},
@@ -130,7 +147,7 @@ describe('formatOutline', () => {
       'h1 "欢迎"',
       'button "Send" id="send"',
       'field input[type=email] name="email" label="Your email"',
-      'image alt="" src=a.png (hidden)',
+      'image alt="" src="a.png" (hidden)',
     ]);
     const huge = formatOutline({
       items: Array.from({ length: 300 }, () => ({ kind: 'heading' as const, level: 1, text: 'y'.repeat(160) })),
@@ -184,6 +201,11 @@ describe('captureOutline', () => {
     const hung = await captureOutline(fakeContents({ answer: () => new Promise(() => undefined) }), FAST);
     expect(hung).toEqual({ ok: false, reason: 'timeout' });
     expect(Date.now() - started).toBeLessThan(1_000);
+    const queued = fakeContents({ answer: () => new Promise(() => undefined) });
+    await captureOutline(queued, FAST);
+    // The timed-out evaluation is still queued in the page: a retry does not queue another one.
+    expect(await captureOutline(queued, FAST)).toEqual({ ok: false, reason: 'busy' });
+    expect(queued.calls).toHaveLength(1);
   });
 
   it('refuses a script exception', async () => {
@@ -213,6 +235,24 @@ describe('captureScreenshot', () => {
     expect(await captureScreenshot(heavy)).toEqual({ ok: false, reason: 'too-large' });
     const hung = fakeContents({ image: () => new Promise(() => undefined) });
     expect(await captureScreenshot(hung, FAST)).toEqual({ ok: false, reason: 'timeout' });
+    // The same capture is still pending: no second capture is queued behind it.
+    expect(await captureScreenshot(hung, FAST)).toEqual({ ok: false, reason: 'busy' });
+  });
+
+  it('checks the real pixel size of a HiDPI capture and scales it down to the limit', async () => {
+    const retina = await captureScreenshot(
+      fakeContents({ image: () => Promise.resolve(fakeImage(1600, 1000, 1000, 2)) }),
+    );
+    expect(retina.ok && { width: retina.value.width, height: retina.value.height }).toEqual({
+      width: 1024,
+      height: 640,
+    });
+    expect(retina.ok && pngSize(retina.value.png)).toEqual({ width: 1024, height: 640 });
+    expect(
+      await captureScreenshot(
+        fakeContents({ image: () => Promise.resolve({ ...fakeImage(10, 10), toPNG: () => Buffer.alloc(30) }) }),
+      ),
+    ).toEqual({ ok: false, reason: 'too-large' });
   });
 });
 
