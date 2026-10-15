@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { SECRET_ROUTES, verifyWindowsFile, findSigntool } from '../../scripts/verify-signing.mjs';
+import { checkReleaseTag } from '../../scripts/check-release-tag.mjs';
 
 const ROOT = path.resolve(__dirname, '../..');
 const text = readFileSync(path.join(ROOT, '.github/workflows/release.yml'), 'utf8');
@@ -98,6 +99,8 @@ describe('release.yml', () => {
 
   it('orders verify → signing status → import/prepare → make → arch → verify signatures → upload → cleanup', () => {
     const order = [
+      'Checkout',
+      'Check tag matches package.json version',
       'Install dependencies',
       'Verify (harness, typecheck, lint, format, unit and integration tests)',
       'Signing status',
@@ -113,6 +116,40 @@ describe('release.yml', () => {
     expect(idx.every((i) => i >= 0)).toBe(true);
     expect([...idx].sort((a, b) => a - b)).toEqual(idx);
     expect(steps.at(-1)?.name).toBe('Remove signing material');
+  });
+
+  it('checks the tag against package.json version right after checkout, before anything is built', () => {
+    const s = step('Check tag matches package.json version');
+    expect(steps.indexOf(s)).toBe(steps.findIndex((x) => x.name === 'Checkout') + 1);
+    expect(steps.indexOf(s)).toBeLessThan(steps.findIndex((x) => x.name === 'Make installers'));
+    expect(s.if).toBeUndefined();
+    expect(s.run).toBe('node scripts/check-release-tag.mjs');
+    // The ref reaches the script only through env, never interpolated into the run line.
+    expect(s.env).toEqual({ REF_TYPE: '${{ github.ref_type }}', REF_NAME: '${{ github.ref_name }}' });
+  });
+
+  it('the tag check passes only for v + package.json version on tag builds', () => {
+    const { version } = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { version: string };
+    expect(checkReleaseTag({ refType: 'tag', refName: `v${version}`, version }).ok).toBe(true);
+    expect(checkReleaseTag({ refType: 'tag', refName: 'v1.0.0', version: '0.0.0' }).ok).toBe(false);
+    expect(checkReleaseTag({ refType: 'tag', refName: '1.0.0', version: '1.0.0' }).ok).toBe(false);
+    expect(checkReleaseTag({ refType: 'tag', refName: 'v1.0.0-rc', version: '1.0.0' }).ok).toBe(false);
+    expect(checkReleaseTag({ refType: 'tag', refName: 'v1.0.0', version: '' }).ok).toBe(false);
+    // A manual dry run on a branch (docs/release/signing.md) is not a release build.
+    expect(checkReleaseTag({ refType: 'branch', refName: 'main', version: '0.0.0' }).ok).toBe(true);
+    // The CLI as the workflow runs it.
+    const run = (env: Record<string, string>) =>
+      spawnSync(process.execPath, [path.join(ROOT, 'scripts/check-release-tag.mjs')], {
+        env: { ...process.env, ...env },
+        encoding: 'utf8',
+      });
+    const bad = run({ REF_TYPE: 'tag', REF_NAME: 'v999.0.0' });
+    expect(bad.status).toBe(1);
+    expect(bad.stdout).toMatch(/::error::check-release-tag: tag "v999\.0\.0" does not match/);
+    expect(run({ REF_TYPE: 'tag', REF_NAME: `v${version}` }).status).toBe(0);
+    const dispatch = run({ REF_TYPE: 'branch', REF_NAME: 'main' });
+    expect(dispatch.status).toBe(0);
+    expect(dispatch.stdout).toMatch(/^::notice::/);
   });
 
   it('signing status sees only booleans for every secret of every route', () => {
