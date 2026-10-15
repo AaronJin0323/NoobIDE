@@ -100,6 +100,40 @@ async function paletteStyle() {
   return style;
 }
 
+/**
+ * Whether the OS itself asks for solid materials (macOS "Reduce transparency" / "Increase contrast"). glass.css
+ * honours both, so the app is right to draw solid chrome then; GitHub's macos-14 runner image ships with Reduce
+ * transparency turned on. Read before any emulation of these features.
+ */
+const systemAsksForSolid = () =>
+  page.evaluate(
+    () =>
+      matchMedia('(prefers-reduced-transparency: reduce)').matches || matchMedia('(prefers-contrast: more)').matches,
+  );
+
+/** The computed colour a solid chrome fill must have in the current theme (`--glass-chrome-solid`, resolved). */
+const solidChrome = () =>
+  page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.style.background = 'var(--glass-chrome-solid)';
+    document.body.append(probe);
+    const color = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return color;
+  });
+
+/** Pins the colour scheme and the default (glass) material preferences, whatever the OS is set to. */
+async function setSchemeWithGlass(cdp: CDPSession, scheme: 'light' | 'dark'): Promise<void> {
+  await cdp.send('Emulation.setEmulatedMedia', {
+    features: [
+      { name: 'prefers-color-scheme', value: scheme },
+      { name: 'prefers-reduced-transparency', value: 'no-preference' },
+      { name: 'prefers-contrast', value: 'no-preference' },
+    ],
+  });
+  await expect(html()).toHaveAttribute('data-theme', scheme);
+}
+
 test('the palette opens from the keyboard, searches, moves with the arrows and runs the chosen command', async () => {
   await setScheme('dark');
   await focusEditor(page);
@@ -205,8 +239,34 @@ test('the native View menu opens the palette', async () => {
 });
 
 test('materials: content never under blur, overlays blur, chrome is translucent — in both themes', async () => {
+  const systemSolid = await systemAsksForSolid();
+  if (systemSolid) {
+    // The OS asks for solid materials: the app must honour it, in both themes, before we emulate the default.
+    test.info().annotations.push({ type: 'system materials', description: 'OS asks for solid materials' });
+    for (const scheme of ['light', 'dark'] as const) {
+      await setScheme(scheme);
+      const rail = await styleOf('.rail');
+      expect(rail.backdropFilter, scheme).toBe('none');
+      expect(rail.background, `${scheme} system-solid rail`).toBe(await solidChrome());
+      expect(alphaOf(rail.background), `${scheme} rail ${rail.background}`).toBe(1);
+      expect((await paletteStyle()).backdropFilter, scheme).toBe('none');
+    }
+  }
+  const cdp: CDPSession = await page.context().newCDPSession(page);
+  try {
+    await runMaterialChecks(cdp);
+  } finally {
+    await cdp.send('Emulation.setEmulatedMedia', { features: [] });
+    await cdp.detach();
+    await page.emulateMedia({ colorScheme: null });
+  }
+});
+
+/** The default-preference material checks, with the OS material preferences pinned to "no preference". */
+async function runMaterialChecks(cdp: CDPSession): Promise<void> {
   for (const scheme of ['light', 'dark'] as const) {
-    await setScheme(scheme);
+    await setSchemeWithGlass(cdp, scheme);
+    expect(await systemAsksForSolid(), `${scheme}: emulation pins no-preference`).toBe(false);
     // Nothing floating: no element over the editor or the preview stage has a backdrop-filter.
     const blurred = await page.evaluate(() => {
       const regions = ['[data-testid="region-editor"]', '[data-testid="preview-stage"]']
@@ -240,8 +300,7 @@ test('materials: content never under blur, overlays blur, chrome is translucent 
     expect(sheet.backdropFilter, scheme).toContain('blur');
     expect(alphaOf(sheet.background), `${scheme} palette ${sheet.background}`).toBeLessThan(1);
   }
-  await page.emulateMedia({ colorScheme: null });
-});
+}
 
 test('reduced transparency makes every material solid', async () => {
   const cdp: CDPSession = await page.context().newCDPSession(page);
@@ -276,8 +335,13 @@ test('reduced transparency makes every material solid', async () => {
       type: 'prefers-reduced-transparency',
       description: supported.value ? 'supported by this Chromium' : 'not supported; data-transparency used',
     });
-    // The app's own switch works on its own as well, without the media feature.
-    await cdp.send('Emulation.setEmulatedMedia', { features: [] });
+    // The app's own switch works on its own as well, without the media feature (pinned off: the OS may set it).
+    await cdp.send('Emulation.setEmulatedMedia', {
+      features: [
+        { name: 'prefers-reduced-transparency', value: 'no-preference' },
+        { name: 'prefers-contrast', value: 'no-preference' },
+      ],
+    });
     await page.evaluate(() => {
       document.documentElement.dataset.transparency = 'reduce';
     });
@@ -292,8 +356,10 @@ test('reduced transparency makes every material solid', async () => {
     await cdp.detach();
     await page.emulateMedia({ colorScheme: null });
   }
-  // Back to glass.
-  expect(alphaOf((await styleOf('.rail')).background)).toBeLessThan(1);
+  // Back to what the OS asks for: glass, or solid when the system itself reduces transparency (macOS CI runner).
+  const rail = (await styleOf('.rail')).background;
+  if (await systemAsksForSolid()) expect(alphaOf(rail), `system-solid rail ${rail}`).toBe(1);
+  else expect(alphaOf(rail), `rail ${rail}`).toBeLessThan(1);
 });
 
 test('reduced motion swaps the menu pop for a cross-fade', async () => {

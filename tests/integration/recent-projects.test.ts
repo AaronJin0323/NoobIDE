@@ -95,4 +95,11 @@ describe('recent projects (S13.3)', () => {
     );
     expect((await new RecentProjects({ file }).list()).map((p) => p.path)).toEqual([projectB]);
   });
+
+  it('flush resolves only once a touch that was not awaited is on disk (quit drains the list)', async () => {
+    const recent = new RecentProjects({ file, now });
+    void recent.touch(projectA);
+    await recent.flush();
+    expect(await readFile(file, 'utf8')).toContain(JSON.stringify(projectA).slice(1, -1));
+  });
 });

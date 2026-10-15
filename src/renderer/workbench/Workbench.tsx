@@ -1073,13 +1073,14 @@ export function Workbench() {
     });
   }, [bridge, adoptProject]);
 
-  const restoringTabs = useRef(false);
   const projectIdForTabs = doc.project?.projectId;
+  /** The project whose last-session tabs have been looked up (and reopened): only then are its tabs saved. State, not
+   *  a ref, so a tab the user opened while the lookup was in flight is saved as soon as it finishes. */
+  const [tabsRestoredFor, setTabsRestoredFor] = useState<string | null>(null);
   useEffect(() => {
     const api = bridge?.session;
     if (!api || !projectIdForTabs) return undefined;
     let cancelled = false;
-    restoringTabs.current = true;
     void api
       .tabs({ projectId: projectIdForTabs })
       .then(async (result) => {
@@ -1093,11 +1094,10 @@ export function Workbench() {
         if (!cancelled && active && savers.current.has(active)) dispatch({ type: 'restoreActive', relPath: active });
       })
       .finally(() => {
-        if (!cancelled) restoringTabs.current = false;
+        if (!cancelled) setTabsRestoredFor(projectIdForTabs);
       });
     return () => {
       cancelled = true;
-      restoringTabs.current = false;
     };
   }, [bridge, projectIdForTabs, openFile]);
 
@@ -1106,14 +1106,14 @@ export function Workbench() {
   const activeTabPath = doc.active !== null && tabPaths.includes(doc.active) ? doc.active : null;
   useEffect(() => {
     const api = bridge?.session;
-    if (!api || !projectIdForTabs || restoringTabs.current) return undefined;
+    if (!api || !projectIdForTabs || tabsRestoredFor !== projectIdForTabs) return undefined;
     const tabs = tabsKey === '' ? [] : tabsKey.split('\n');
     const timer = setTimeout(
       () => void api.saveTabs({ projectId: projectIdForTabs, tabs, active: activeTabPath }),
       300,
     );
     return () => clearTimeout(timer);
-  }, [bridge, projectIdForTabs, tabsKey, activeTabPath]);
+  }, [bridge, projectIdForTabs, tabsKey, activeTabPath, tabsRestoredFor]);
 
   const layoutKey = JSON.stringify(persistedLayout(layout));
   useEffect(() => {

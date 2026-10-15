@@ -449,6 +449,30 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
       : name.startsWith('workers started and ended')
         ? workerWindows * MAX_GUARDED_SCOPES * (WORKER_CONSOLE_BURST + 2)
         : allowed;
+  // Creating and removing 200 iframes in one burst costs main (Chromium's browser UI thread) per-frame work that has
+  // nothing to do with the console: frame bookkeeping and the DevTools Page events of every frame for the page guard's
+  // session and Playwright's. On a 4-vCPU Windows CI runner that alone measured ~0.5 s. The console budget applies on
+  // top of a calibrated baseline: the same frames and the same busy loop, no console output.
+  const framesOnly = await measureMainStall(
+    app,
+    previewId,
+    `(() => {
+      const logs = [];
+      for (let k = 0; k < 200; k += 1) {
+        const f = document.createElement('iframe');
+        f.style.display = 'none';
+        document.body.append(f);
+        logs.push(f.contentWindow.console.log);
+      }
+      ${loop('void logs.length')}
+      document.querySelectorAll('iframe').forEach((f) => f.remove());
+      return 'finished';
+    })()`,
+  );
+  console.log(`200 iframes without console output (baseline): longest main stall ${framesOnly.max} ms`);
+  expect(framesOnly.result).toBe('finished');
+  expect(framesOnly.max).toBeLessThan(1_500); // frame lifecycle alone stays bounded too
+  const stallBudget = (name: string) => 200 + (name.startsWith('200 iframes') ? framesOnly.max : 0);
   for (const [name, code] of bypasses) {
     const run = await measureMainStall(app, previewId, code);
     console.log(
@@ -456,7 +480,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
     );
     expect(run.result, name).toBe('finished');
     expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name));
-    expect(run.max, name).toBeLessThan(200);
+    expect(run.max, name).toBeLessThan(stallBudget(name));
   }
   // Nothing needed stopping.
   await expect(page.locator('.preview-console-line[data-notice="console-flood-stopped"]')).toHaveCount(0);
@@ -469,7 +493,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
     const run = await measureMainStall(app, previewId, code, { costMs: 0.6 });
     console.log(`${name} (main 0.6 ms per message): ${run.messages} messages; longest main stall ${run.max} ms`);
     expect(run.result, name).toBe('finished');
-    expect(run.max, name).toBeLessThan(200);
+    expect(run.max, name).toBeLessThan(stallBudget(name));
   }
 
   // Defence in depth (decision 0016, first amendment): output the limiter cannot see — here a DevTools isolated

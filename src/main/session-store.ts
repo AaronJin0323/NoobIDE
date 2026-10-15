@@ -145,6 +145,11 @@ export class SessionStore {
     });
   }
 
+  /** Resolves once every change queued so far is written (or has failed); used before quitting. */
+  flush(): Promise<void> {
+    return this.queue.run(async () => undefined);
+  }
+
   private async persist(): Promise<void> {
     if (!this.writable) return;
     try {

@@ -190,8 +190,14 @@ test('a page that tampers with DOM prototypes cannot change the outline or notic
 
 test('a huge DOM gives a bounded snapshot within the time budget and main keeps answering (S38.1)', async () => {
   await showPage('巨大.html', 60_000);
+  // Its first layout (150 000 elements, a 2 MB text node) keeps the page's main thread busy for a moment; meanwhile
+  // a snapshot is "not available" at once by design (watchdog ping unanswered for SNAPSHOT_BUSY_MS, see the busy-page
+  // test). Wait until the page answers, as the 200 000-element test does, then measure.
+  await expect.poll(async () => (await snapshot(false)).ok, { timeout: 30_000 }).toBe(true);
   const { result: snap, elapsed, slowest } = await measuringMain(() => snapshot());
-  console.log(`huge DOM snapshot: ${elapsed} ms (slowest main round trip ${slowest} ms)`);
+  console.log(
+    `huge DOM snapshot: ${elapsed} ms (${snap.ok ? 'ok' : snap.code}; slowest main round trip ${slowest} ms)`,
+  );
   expect(snap.ok).toBe(true);
   expect(elapsed).toBeLessThan(4_000);
   expect(slowest).toBeLessThan(500);

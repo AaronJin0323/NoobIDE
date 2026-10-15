@@ -146,14 +146,34 @@ JS/CSS files so the prompt line is valid code while pending.
 - Fix: the fake returns `projects.rootOf(projectId)`. Reproduced locally with TMP set to a junction: old test fails
   with the CI assertion, fixed test passes. `npm run verify` green.
 
+- Then CI's e2e step ran for the first time in weeks (verify had always stopped it) and failed 2 (macOS) + 5
+  (Windows) specs. Four read-only diagnosis subagents and an independent reviewer; fixes:
+  - **product:** quit waits (≤ 3 s) for queued recent-list and session writes (`RecentProjects.flush`,
+    `SessionStore.flush`, `will-quit` in main.ts): a project opened just before quitting was missing from the recent
+    list / session restore (recent-projects.spec S13.3 on the Windows runner).
+  - **product:** session tabs are saved once the restore lookup finished (state `tabsRestoredFor`, was a ref): a file
+    opened while the lookup was in flight was never saved, so the next start reopened the project with no tabs
+    (recovery.spec S12.2).
+  - tests: glass.spec honours the macOS runner's _Reduce transparency_ (asserts the solid fallback, then pins
+    no-preference and asserts glass); preview-snapshot waits for the huge page's first layout like its sibling;
+    preview-isolation's 200-iframe case gets a measured frames-only baseline under its 200 ms console budget;
+    preview-helpers `openProject` waits for either open button (`count()` raced the first render).
+  - Integration tests for both `flush()`s. Local: full e2e 280 passed; the affected specs 9/9; verify green.
+
 **Problems / notes**
 
+- **Still open: preview-restore.spec (S05.8) on the 3-core macOS runner** — restart 2 of 5:
+  `{"firstDocumentMs":1030,"firstDocumentAttempts":2,"commandsMs":45089,"outcome":"commands-timeout"}`: the first
+  document "loaded" on the 2nd attempt, then no CDP command answered for 45 s, so that page ran unguarded. Tried and
+  **reverted**: treating a resolved `loadURL` as not shown while `isLoadingMainFrame()` is true — on the dev machine
+  under load it stayed true for 28 of 29 resolved attempts → `no-first-document` (worse). The signal is not usable; the
+  real cause is not known yet.
 - Run 38723694371 also had a one-off `watcher.test.ts` "mass delete … never blocks" timing failure on Windows; it did
   not recur in later runs. Watch for it.
 
 **Next up**
 
-- Confirm the next CI run on main is green (then G1/G3 reviews can cite a green CI run again).
+- Confirm the next CI run on main; S05.8 on the macOS runner needs its own investigation (see above).
 
 ## Session 17 — 2026-10-16 — Preview annotations for the AI assistant (S41, milestone M12)
 

@@ -257,6 +257,16 @@ function start(): void {
     // project stops its watcher, preview and server. ---
     const recent = new RecentProjects({ file: appDataPath(appData, 'recentProjects'), log: logger });
     const sessionStore = new SessionStore({ file: appDataPath(appData, 'session'), log: logger }); // S13.4
+    // A project opened (or a tab changed) right before quitting is still remembered: the quit waits briefly for the
+    // recent list and session writes already queued. app.exit afterwards, as the quit events have already run once.
+    let appDataFlushed = false;
+    app.on('will-quit', (event) => {
+      if (appDataFlushed) return;
+      appDataFlushed = true;
+      event.preventDefault();
+      const cap = new Promise<void>((resolve) => setTimeout(resolve, 3_000));
+      void Promise.race([Promise.allSettled([recent.flush(), sessionStore.flush()]), cap]).then(() => app.exit(0));
+    });
     const projectOpened = (projectId: string, root: string, sender: WebContents) => {
       watchHub.watch(projectId, root, sender);
       void recent.touch(root);

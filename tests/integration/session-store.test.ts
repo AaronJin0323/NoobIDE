@@ -89,4 +89,12 @@ describe('restore decision (S13.4)', () => {
       reason: 'missing',
     });
   });
+
+  it('flush resolves only once writes that were not awaited are on disk (quit drains the session)', async () => {
+    const store = new SessionStore({ file });
+    void store.projectOpened(project);
+    void store.saveTabs(project, { tabs: ['index.html'], active: 'index.html' });
+    await store.flush();
+    expect(await new SessionStore({ file }).tabsOf(project)).toEqual({ tabs: ['index.html'], active: 'index.html' });
+  });
 });
