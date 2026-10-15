@@ -2215,8 +2215,8 @@
       "depends_on": [
         "S21.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Cause: (product) the before-save capture re-read the file racing HISTORY_CAPTURE_TIMEOUT_MS, so load could drop the before-save version — the save now hands the hook the bytes it already read and hash-checked; (test) vitest 5 s default timeout + elapsed-ms bounds replaced by structural checks (fake timers, never-resolving store). 20/20 'npx vitest run tests/integration/history-triggers.test.ts' with 64 busy workers on 32 cores (before: 10 of 18 failed); 13 tests; src/recovery+src/workspace+tests/integration 650 passed"
     },
     {
       "id": "S22.1",

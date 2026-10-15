@@ -2,7 +2,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SnapshotStore } from '../../src/recovery/history';
 import { HistoryTriggers, type SaveHistoryHook } from '../../src/recovery/history-triggers';
 import { HISTORY_CAPTURE_TIMEOUT_MS, ProjectService } from '../../src/workspace/project-service';
@@ -71,7 +71,12 @@ afterEach(async () => {
 
 const save = (relPath: string, text: string) => service.write({ projectId, relPath, text, bom: false });
 
-describe('snapshots around save batches (S21.2)', () => {
+// S21.5: these tests do real, fsynced saves and snapshot writes. A save plus its snapshots takes ~20 ms on an idle
+// machine but 1-2 s with the CPU saturated, so a burst of 6-8 saves outlasts vitest's 5 s default. The timeout is only
+// a hang guard; every behaviour check below is independent of machine speed.
+const REAL_IO = { timeout: 60_000 };
+
+describe('snapshots around save batches (S21.2)', REAL_IO, () => {
   it('a save keeps the version before and after it; identical content is not duplicated', async () => {
     const original = await readFile(path.join(root, NESTED), 'utf8');
     expect(await save(NESTED, '<p>第一次保存</p>')).toMatchObject({ ok: true });
@@ -143,31 +148,76 @@ describe('snapshots around save batches (S21.2)', () => {
     expect(await readFile(path.join(root, 'style.css'), 'utf8')).toBe('p{}');
   });
 
-  it('a hanging capture delays the save by at most the timeout; storing snapshots is never awaited', async () => {
-    let recorded = 0;
+  // S21.5: proven structurally (a capture that never answers, a controlled clock, a store that never finishes) rather
+  // than by elapsed milliseconds, which a loaded machine stretches arbitrarily.
+  it('a hanging capture delays the save by exactly the timeout, never forever', async () => {
+    let captureCalled!: () => void;
+    const reachedCapture = new Promise<void>((resolve) => (captureCalled = resolve));
+    const recorded: [Uint8Array | null, Uint8Array | null][] = [];
     const hanging: SaveHistoryHook = {
-      captureBeforeSave: () => new Promise<Uint8Array | null>(() => undefined),
-      recordSave: () => {
-        recorded += 1;
+      captureBeforeSave: () => {
+        captureCalled();
+        return new Promise<Uint8Array | null>(() => undefined);
+      },
+      recordSave: (_root, _rel, before, after) => {
+        recorded.push([before, after]);
       },
     };
     const { s, id } = await openWith({ history: hanging });
-    const started = Date.now();
-    expect(await s.write({ projectId: id, relPath: 'style.css', text: 'a{}', bom: false })).toMatchObject({ ok: true });
-    expect(Date.now() - started).toBeLessThan(HISTORY_CAPTURE_TIMEOUT_MS + 700);
-    expect(recorded).toBe(1);
+    // Only the timer is faked; file I/O and setImmediate stay real, so "still pending" below means "waiting on the
+    // capture", not "waiting on the disk".
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      let settled = false;
+      const saving = s.write({ projectId: id, relPath: 'style.css', text: 'a{}', bom: false });
+      void saving.finally(() => (settled = true));
+      await reachedCapture;
+      const turn = () => new Promise<void>((resolve) => setImmediate(resolve));
+      for (let i = 0; i < 5; i += 1) await turn();
+      expect(settled).toBe(false); // the save waits for the capture …
+      vi.advanceTimersByTime(HISTORY_CAPTURE_TIMEOUT_MS - 1);
+      for (let i = 0; i < 5; i += 1) await turn();
+      expect(settled).toBe(false); // … up to the timeout …
+      vi.advanceTimersByTime(1);
+      vi.useRealTimers(); // the rest of the save (Windows rename retries) runs on real timers
+      expect(await saving).toMatchObject({ ok: true }); // … and then goes ahead without the before-save version
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(await readFile(path.join(root, 'style.css'), 'utf8')).toBe('a{}');
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0]?.[0]).toBeNull();
+    expect(decode(recorded[0]?.[1] ?? new Uint8Array())).toBe('a{}');
+  });
 
-    // A store that takes 2 s per snapshot does not slow the save down.
-    const slowStore = {
+  it('storing snapshots is never awaited by the save: a store that never finishes does not hold it up', async () => {
+    let snapshotCalls = 0;
+    const stuckStore = {
       limits: store.limits,
-      snapshot: () => new Promise<never>(() => undefined),
+      snapshot: () => {
+        snapshotCalls += 1;
+        return new Promise<never>(() => undefined);
+      },
     } as unknown as SnapshotStore;
-    const slow = await openWith({ history: new HistoryTriggers(slowStore) });
-    const t0 = Date.now();
-    expect(await slow.s.write({ projectId: slow.id, relPath: 'style.css', text: 'b{}', bom: false })).toMatchObject({
+    const stuck = await openWith({ history: new HistoryTriggers(stuckStore) });
+    expect(await stuck.s.write({ projectId: stuck.id, relPath: 'style.css', text: 'b{}', bom: false })).toMatchObject({
       ok: true,
     });
-    expect(Date.now() - t0).toBeLessThan(500);
+    expect(snapshotCalls).toBe(2); // before-save and after-save were handed to the store, which never answers
+    expect(await readFile(path.join(root, 'style.css'), 'utf8')).toBe('b{}');
+  });
+
+  it('the before-save version is the bytes the save already read: no second disk read that load could time out', async () => {
+    const bytes = new TextEncoder().encode('<p>已读取</p>');
+    // A path that does not exist: the version can only come from the bytes handed over, never from disk.
+    const missing = path.join(root, 'gone.html');
+    expect(await triggers.captureBeforeSave(missing, bytes)).toBe(bytes);
+    const small = new HistoryTriggers(
+      new SnapshotStore({ dir: path.join(tmp, 'small'), limits: { maxSnapshotBytes: 10 } }),
+      log,
+    );
+    expect(await small.captureBeforeSave(missing, bytes)).toBeNull(); // over the size limit: skipped and logged
+    expect(logs.some((l) => l.startsWith('history.snapshot-skipped'))).toBe(true);
   });
 
   it('a broken history store never fails the save', async () => {
@@ -185,7 +235,7 @@ describe('snapshots around save batches (S21.2)', () => {
   });
 });
 
-describe('snapshots before format, delete and restore (S21.2)', () => {
+describe('snapshots before format, delete and restore (S21.2)', REAL_IO, () => {
   it('before format and before restore keep the current disk content', async () => {
     const file = path.join(root, 'style.css');
     const original = await readFile(file, 'utf8');

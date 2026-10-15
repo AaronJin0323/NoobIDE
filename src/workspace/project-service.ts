@@ -47,7 +47,11 @@ import { decodeForDisplay, decodeText, encodeText, hasMixedEol } from './text-co
 /** Listing limits until the lazy tree model (S07) replaces this flat list. */
 export const LIST_LIMITS = { maxFiles: 2000, maxDepth: 8 } as const;
 
-/** S21.2: longest a save waits for local history to read the version it is about to replace. */
+/**
+ * S21.2: longest a save waits for the local-history hook to accept the version it is about to replace. The save hands
+ * over bytes it already read (S21.5), so the real hook answers at once even on a loaded machine; the timeout only
+ * guards against a hook that hangs.
+ */
 export const HISTORY_CAPTURE_TIMEOUT_MS = 1000;
 
 interface Project {
@@ -247,7 +251,7 @@ export class ProjectService {
           if (expectedHash !== undefined && sha256(onDisk) !== expectedHash) {
             return err('changed-on-disk', 'the file was changed outside NoobIDE');
           }
-          before = await this.captureBeforeSave(target.value); // S21.2
+          before = await this.captureBeforeSave(target.value, onDisk); // S21.2, S21.5: no second read
           const checkedHash = sha256(onDisk);
           await this.replaceFile(target.value, data, {
             ...this.options.atomic,
@@ -338,16 +342,17 @@ export class ProjectService {
     }
   }
 
-  // --- S21.2: local history around saves. Only reading the old bytes precedes the replace (bounded by a timeout);
-  // storing snapshots is queued, not awaited. A throwing, slow or hanging hook never fails or delays a save. ---
-  private async captureBeforeSave(absPath: string): Promise<Uint8Array | null> {
+  // --- S21.2: local history around saves. Only handing the hook the old bytes (already read by the save, S21.5)
+  // precedes the replace, bounded by a timeout against a misbehaving hook; storing snapshots is queued, not awaited.
+  // A throwing, slow or hanging hook never fails a save nor delays it beyond the timeout. ---
+  private async captureBeforeSave(absPath: string, current: Uint8Array): Promise<Uint8Array | null> {
     if (!this.history) return null;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const timeout = new Promise<null>((resolve) => {
         timer = setTimeout(() => resolve(null), HISTORY_CAPTURE_TIMEOUT_MS);
       });
-      return await Promise.race([this.history.captureBeforeSave(absPath), timeout]);
+      return await Promise.race([this.history.captureBeforeSave(absPath, current), timeout]);
     } catch {
       return null;
     } finally {

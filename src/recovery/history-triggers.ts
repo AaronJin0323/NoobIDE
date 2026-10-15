@@ -10,17 +10,22 @@ import type { SnapshotReason, SnapshotStore } from './history';
  * When local history takes snapshots (S21.2, PLAN §7: "retaining necessary versions around coalesced save batches
  * and before formatting, deletion, and restoration"). Main process only.
  *
- * - Save: the save path only *reads* the file's current bytes before replacing it (`captureBeforeSave`, the one
- *   step that must precede the write, bounded by the caller's timeout). Storing the before/after versions is queued
- *   (`recordSave`) and never awaited by the save, so history work cannot slow down or fail a save.
+ * - Save: before replacing a file the save path hands over the bytes it already read and verified
+ *   (`captureBeforeSave`, the one step that must precede the write, bounded by the caller's timeout; it does no disk
+ *   I/O, so a loaded machine cannot make it time out). Storing the before/after versions is queued (`recordSave`)
+ *   and never awaited by the save, so history work cannot slow down or fail a save.
  * - Format, delete, restore: the current disk content is stored before the operation changes or removes it; these
  *   calls are awaited by their callers because the content is gone afterwards.
  *
  * Every trigger catches its own failures (logged without content).
  */
 export interface SaveHistoryHook {
-  /** Current bytes of the file about to be replaced; `null` when there is nothing to keep. */
-  captureBeforeSave(absPath: string): Promise<Uint8Array | null>;
+  /**
+   * The version of the file about to be replaced that history should keep, given `current` — the bytes the save just
+   * read from disk and checked (the replace only proceeds while the file still has exactly these bytes); `null` when
+   * there is nothing to keep.
+   */
+  captureBeforeSave(absPath: string, current: Uint8Array): Promise<Uint8Array | null>;
   /** Queues the versions around one save batch. `after` is `null` when the save failed. Returns immediately. */
   recordSave(rootPath: string, relPath: string, before: Uint8Array | null, after: Uint8Array | null): void;
 }
@@ -36,8 +41,14 @@ export class HistoryTriggers implements SaveHistoryHook {
     private readonly log: RecoveryLogger = silentLogger,
   ) {}
 
-  async captureBeforeSave(absPath: string): Promise<Uint8Array | null> {
-    return this.readSnapshotable(absPath, 'before-save');
+  async captureBeforeSave(_absPath: string, current: Uint8Array): Promise<Uint8Array | null> {
+    // S21.5: the save already read (and hash-checked) these bytes; re-reading the file here cost a second disk read
+    // that, on a loaded machine, could outlast the save's capture timeout and silently drop the before-save version.
+    if (current.length > this.store.limits.maxSnapshotBytes) {
+      this.log('history.snapshot-skipped', { reason: 'too-large', bytes: current.length });
+      return null;
+    }
+    return current;
   }
 
   recordSave(rootPath: string, relPath: string, before: Uint8Array | null, after: Uint8Array | null): void {
