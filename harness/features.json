@@ -1583,6 +1583,25 @@
       "evidence": "src/preview/server-registry.ts (one lease-counted server per project, owner {projectId, windowId}) + test (9) + tests/integration/preview-lifecycle.test.ts (5, real servers: switch/close close the port, other window cannot acquire or release); IPC not-owner for stop/reload/bounds/clear/external/devtools (src/main/preview-ipc.test.ts); e2e preview-manager.spec S14.6 test (switch and close shut servers, not-owner for another project). Independent subagent review: approve with nits; all fixed (lease race, not-owner status, release on attach failure, cookie Max-Age, releaseWindow wired). Full e2e 205/205 macOS arm64 @ e9c6466"
     },
     {
+      "id": "S14.7",
+      "session": "S14",
+      "milestone": "M3",
+      "title": "A project without a page is explained, not a 404",
+      "description": "Owner-reported: a page saved as html/home (no .html ending) previewed as a bare 404 Not Found.",
+      "acceptance": [
+        "A project whose pages are not named index.html previews its first page (picker order) instead of 404, and the entry picker shows that page",
+        "A project with no .html page shows an explanation in the preview stage (zh-CN + en) instead of the 404 page",
+        "Files that start like an HTML document but lack the .html ending (no extension or a typo such as .hmtl) are listed with a \"rename to … .html\" button; nothing is renamed until the user clicks, an existing name is never replaced, and an open tab follows the rename",
+        "After the rename a running preview opens the renamed page"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S14.3"
+      ],
+      "status": "done",
+      "evidence": "src/preview/entry-pages.ts defaultEntryPath + tests/integration/entry-pages.test.ts (3) + e2e project-config.spec 'a folder without index.html previews its first page' (fails without the fix); src/preview/misnamed-pages.ts (+ unit 4) via readPreviewOptions.misnamed (tests/integration/preview-options.test.ts 2: DESN6006-shaped fixture, nothing on disk changes); PreviewPane no-page state + Workbench renamePage through fileOps/renameEntry; e2e tests/e2e/preview-no-page.spec.ts (2, 10/10 repeated): explanation instead of 404 with the view hidden, rename on click, tab follows, running preview reopens html/home.html. verify green; full e2e 212 passed (S15.1 drag intermittent unrelated) macOS arm64"
+    },
+    {
       "id": "S15.1",
       "session": "S15",
       "milestone": "M3",

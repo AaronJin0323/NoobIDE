@@ -74,6 +74,11 @@ export interface PreviewProjectOptions {
   readonly refresh: RefreshMode;
   /** `.noobide/project.json` could not be read; settings cannot be changed until the user fixes or deletes it. */
   readonly configLocked: boolean;
+  /**
+   * Only when the project has no page: files that start like an HTML document but whose name does not end in
+   * `.html` (`html/home`, `page.hmtl`), with the name a rename would give them. Never renamed without the user.
+   */
+  readonly misnamed?: readonly { readonly path: string; readonly suggested: string }[];
 }
 
 /** A raw record from the preview page (console, uncaught error, failed request). Diagnostics rules interpret it. */

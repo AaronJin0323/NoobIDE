@@ -1,3 +1,4 @@
+import { findMisnamedPages } from './misnamed-pages';
 import type { PreviewProjectOptions, RefreshMode, SetRefreshModeError } from '../shared/ipc/preview-contract';
 import { err, ok, type Result } from '../shared/result';
 import {
@@ -38,6 +39,8 @@ export async function readPreviewOptions(root: string): Promise<PreviewProjectOp
     entry,
     refresh: refreshModeOf(config),
     configLocked: read.kind === 'invalid' || read.kind === 'unreadable',
+    // A project without any page previews as 404: look for a page saved without its .html ending.
+    ...(listing.pages.length === 0 && !listing.truncated ? { misnamed: await findMisnamedPages(root) } : {}),
   };
 }
 

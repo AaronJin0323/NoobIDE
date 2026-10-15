@@ -42,6 +42,11 @@ interface PreviewPaneProps {
    * is offered an automatic start, which main allows for trusted folders (templates are trusted when created).
    */
   autoStartProjectId?: string | null;
+  /**
+   * Renames a project file the way the Files panel does (open tabs follow, nothing is overwritten). Offered when the
+   * project has no page but a file starts like one (`html/home` → `html/home.html`).
+   */
+  onRenamePage?: (from: string, to: string) => Promise<{ ok: true } | { ok: false; reason: string }>;
 }
 
 /** A short message under the toolbar (role=status): one-time notes, results of toolbar actions. */
@@ -63,7 +68,13 @@ const TYPING_THROTTLE_MS = 150;
  * Stop, Open in browser, the entry page, automatic refresh, and under Advanced the developer tools and Clear preview
  * data. Every overlay is part of the layout flow, so the native view can never cover it.
  */
-export function PreviewPane({ hidden, covered = false, projectId, saveFailed = false }: PreviewPaneProps) {
+export function PreviewPane({
+  hidden,
+  covered = false,
+  projectId,
+  saveFailed = false,
+  onRenamePage,
+}: PreviewPaneProps) {
   const { t } = useI18n();
   const bridge = window.noobide?.preview;
   const projectConfig = window.noobide?.projectConfig;
@@ -76,6 +87,8 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
   const [notesSeen, setNotesSeen] = useState<readonly PreviewNoteId[] | null>(null);
   /** Refreshes seen since mount (a fast reload can pass 'refreshing' within one render batch). */
   const [refreshes, setRefreshes] = useState(0);
+  /** Result of a "rename to … .html" offered by the no-page state, as text (announced politely). */
+  const [renameNote, setRenameNote] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const advancedId = useId();
   const entryId = useId();
@@ -178,6 +191,7 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
   }, [bridge, projectId]);
   useEffect(() => {
     setOptions(null);
+    setRenameNote(null);
     setNotices((list) => list.filter((n) => n.note !== undefined));
     setAdvancedOpen(false);
     loadOptions();
@@ -202,7 +216,9 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
     if (!projectId) autoTried.current = null;
   }, [projectId]);
 
-  const showView = !covered && !overlaid && viewVisible(status, !hidden);
+  // No .html page at all: the page would only be the server's "404 Not Found" — the stage explains instead.
+  const noPage = projectId !== null && options !== null && options.pages.length === 0 && !options.truncated;
+  const showView = !covered && !overlaid && !noPage && viewVisible(status, !hidden);
 
   // Keep the native view exactly over the stage: size changes (ResizeObserver), window resizes and layout changes
   // that move the stage without resizing it (checked after every render).
@@ -275,6 +291,25 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
   }, [bridge, live]);
 
   // --- toolbar actions (also the S15.4 commands) ---
+  const renamePage = (from: string, to: string) => {
+    if (!onRenamePage || !projectId) return;
+    const name = to.split('/').pop() ?? to;
+    const asked = projectId;
+    setRenameNote(null);
+    void onRenamePage(from, to).then((result) => {
+      if (asked !== projectId) return;
+      if (!result.ok) {
+        setRenameNote(t('preview.noPage.renameFailed').replace('{reason}', result.reason));
+        return;
+      }
+      setRenameNote(t('preview.noPage.renamed').replace('{name}', name));
+      loadOptions();
+      // A running preview opened "/" (404): start it again so it opens the renamed page.
+      if (bridge && status.state !== 'stopped' && status.projectId === projectId) {
+        void bridge.start({ projectId, trigger: 'user' });
+      }
+    });
+  };
   const start = () => {
     if (!bridge || !projectId) return;
     setLog(EMPTY_LOG);
@@ -545,7 +580,36 @@ export function PreviewPane({ hidden, covered = false, projectId, saveFailed = f
           void bridge?.focus();
         }}
       >
-        {consent ? (
+        {noPage ? (
+          <div className="empty-state" data-testid="preview-no-page">
+            <span className="empty-icon">
+              <WarningIcon size={22} />
+            </span>
+            <p className="empty-title">{t('preview.noPage.title')}</p>
+            <p className="empty-detail">{t('preview.noPage.detail')}</p>
+            {(options?.misnamed ?? []).map((file) => (
+              <div key={file.path} className="no-page-fix" data-testid="preview-misnamed">
+                <p className="empty-detail">{t('preview.noPage.misnamed').replace('{path}', file.path)}</p>
+                {onRenamePage && (
+                  <button
+                    type="button"
+                    className="quiet-button"
+                    data-testid="preview-misnamed-rename"
+                    data-path={file.path}
+                    onClick={() => renamePage(file.path, file.suggested)}
+                  >
+                    {t('preview.noPage.rename').replace('{name}', file.suggested.split('/').pop() ?? file.suggested)}
+                  </button>
+                )}
+              </div>
+            ))}
+            {renameNote && (
+              <p className="empty-detail" role="status" aria-live="polite" data-testid="preview-rename-note">
+                {renameNote}
+              </p>
+            )}
+          </div>
+        ) : consent ? (
           <div className="empty-state" data-testid="preview-consent">
             <span className="empty-icon">
               <MonitorIcon />

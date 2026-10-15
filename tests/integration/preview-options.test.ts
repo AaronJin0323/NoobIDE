@@ -90,3 +90,42 @@ describe('preview project options (S14.2, S14.3)', () => {
     expect(withRefreshMode({ version: 1, preview: { autoRefresh: false } }, 'auto')).toEqual({ version: 1 });
   });
 });
+
+describe('a project with no page (pages saved without .html)', () => {
+  it('lists files that start like a page, with the name a rename would give them; nothing on disk changes', async () => {
+    const site = path.join(tmp, 'DESN 6006');
+    await mkdir(path.join(site, 'html'), { recursive: true });
+    await mkdir(path.join(site, 'styles'));
+    await writeFile(path.join(site, 'html', 'home'), '<!DOCTYPE html>\n<html lang="en"><head></head></html>');
+    await writeFile(path.join(site, 'html', 'about'), ''); // empty: not offered
+    await writeFile(path.join(site, 'html', '联系.hmtl'), '<html><body>联系</body></html>');
+    await writeFile(path.join(site, 'styles', 'main'), 'body { color: red }'); // not a page
+    await writeFile(path.join(site, 'html', 'taken'), '<!doctype html>');
+    await writeFile(path.join(site, 'html', 'taken.HTML.txt'), 'x'); // not HTML; makes no difference
+    const before = (await readdir(path.join(site, 'html'))).sort();
+
+    const options = await readPreviewOptions(site);
+    expect(options.pages).toEqual([]);
+    expect([...(options.misnamed ?? [])].sort((a, b) => a.path.localeCompare(b.path))).toEqual(
+      [
+        { path: 'html/home', suggested: 'html/home.html' },
+        { path: 'html/taken', suggested: 'html/taken.html' },
+        { path: 'html/联系.hmtl', suggested: 'html/联系.html' },
+      ].sort((a, b) => a.path.localeCompare(b.path)),
+    );
+    expect((await readdir(path.join(site, 'html'))).sort()).toEqual(before);
+  });
+
+  it('never suggests a name that is already taken, and says nothing when the project has pages', async () => {
+    const site = path.join(tmp, 'taken');
+    await mkdir(site);
+    await writeFile(path.join(site, 'home'), '<!DOCTYPE html>');
+    await writeFile(path.join(site, 'HOME.HTML.bak'), 'x');
+    await writeFile(path.join(site, 'page'), '<html></html>');
+    await writeFile(path.join(site, 'Page.html'), '<html></html>');
+    const options = await readPreviewOptions(site);
+    expect(options.pages).toEqual(['Page.html']);
+    expect(options.misnamed).toBeUndefined();
+    expect((await readPreviewOptions(root)).misnamed).toBeUndefined();
+  });
+});

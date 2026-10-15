@@ -78,6 +78,7 @@ import { EntryNotice, type EntryNoticeState } from './EntryNotice';
 import { SessionNotice } from './SessionNotice';
 import { TransferNotice } from './TransferNotice'; // S13.5
 import { useI18n } from '../i18n/I18nProvider';
+import { opErrorMessage } from './file-op-messages';
 import { Splitter } from './Splitter';
 import { persistedLayout } from './layout';
 import { EDITOR_SHARE, FILES_WIDTH, MAX_SESSION_TABS } from '../../shared/session';
@@ -531,6 +532,30 @@ export function Workbench() {
     };
   }, [openFile]);
 
+  // The preview's "rename to … .html" for a page saved without its ending: same path as a rename in the Files panel
+  // (unsaved edits saved first, open tabs follow, an existing name is never replaced).
+  const renamePage = useCallback(
+    async (from: string, to: string): Promise<{ ok: true } | { ok: false; reason: string }> => {
+      const projectId = docRef.current.project?.projectId;
+      const name = to.split('/').pop() ?? to;
+      if (!bridge || !projectId) return { ok: false, reason: t('op.generic') };
+      if (!(await fileOps.beforeChange(from))) return { ok: false, reason: t('op.saveFirstFailed') };
+      try {
+        const result = await bridge.workspace.renameEntry({ projectId, from, to });
+        if (!result.ok) {
+          fileOps.cancelled?.(from);
+          return { ok: false, reason: opErrorMessage(t, result.code, result.message, name) };
+        }
+        fileOps.afterChange({ type: 'renamed', from, to });
+        return { ok: true };
+      } catch {
+        fileOps.cancelled?.(from);
+        return { ok: false, reason: t('op.generic') };
+      }
+    },
+    [bridge, fileOps, t],
+  );
+
   // --- S12: restore after an abnormal termination (RecoveryDialog) ---
   const adoptProject = useCallback(
     async (project: OpenedProject) => {
@@ -981,6 +1006,7 @@ export function Workbench() {
           projectId={project?.projectId ?? null}
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
           autoStartProjectId={autoPreview}
+          onRenamePage={renamePage}
         />
       </div>
       {/* S23: walkthrough strip / final task card (in the layout flow: never covers the editor or the preview) */}

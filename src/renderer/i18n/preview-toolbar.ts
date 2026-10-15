@@ -46,6 +46,14 @@ export const previewToolbarZhCN = {
   'preview.consent.title': '这个文件夹的网页还没有运行',
   'preview.consent.detail':
     '这个文件夹是从你的电脑上打开的。为了安全，只有在你点“开始预览”之后才会运行它的网页脚本；NoobIDE 会记住你的选择，下次打开时自动预览。',
+  // ── 项目里没有 .html 网页（预览会显示 404）──
+  'preview.noPage.title': '这个项目里还没有网页文件',
+  'preview.noPage.detail':
+    '预览会打开名字以 .html 结尾的文件，比如 index.html。请新建一个网页文件，或者把已有的网页改成以 .html 结尾。',
+  'preview.noPage.misnamed': '“{path}”看起来是一个网页，但它的名字没有以 .html 结尾。',
+  'preview.noPage.rename': '改名为 {name}',
+  'preview.noPage.renamed': '已改名为“{name}”。',
+  'preview.noPage.renameFailed': '没能改名：{reason}',
 } as const;
 
 export const previewToolbarEn: Record<keyof typeof previewToolbarZhCN, string> = {
@@ -92,4 +100,11 @@ export const previewToolbarEn: Record<keyof typeof previewToolbarZhCN, string> =
   'preview.consent.title': 'This folder’s page has not run yet',
   'preview.consent.detail':
     'This folder was opened from your computer. For safety, its page scripts only run after you click “Start preview”; NoobIDE remembers your choice and previews it by itself next time.',
+  'preview.noPage.title': 'This project has no web page yet',
+  'preview.noPage.detail':
+    'The preview opens files whose name ends in .html, such as index.html. Create a page file, or rename your page so its name ends in .html.',
+  'preview.noPage.misnamed': '“{path}” looks like a web page, but its name does not end in .html.',
+  'preview.noPage.rename': 'Rename to {name}',
+  'preview.noPage.renamed': 'Renamed to “{name}”.',
+  'preview.noPage.renameFailed': 'Could not rename: {reason}',
 };
