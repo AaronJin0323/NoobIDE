@@ -20,13 +20,12 @@ import {
 } from '../../shared/ipc/annotations-contract';
 import type { RequestError } from '../../shared/ipc/contract';
 import type { MessageKey } from '../i18n/index';
+import { fill } from '../recovery/format';
 
 export type Translate = (key: MessageKey) => string;
 
-/** Replaces `{name}` placeholders of a message. */
-export function fill(template: string, values: Readonly<Record<string, string | number>>): string {
-  return template.replace(/\{(\w+)\}/g, (whole, name: string) => (name in values ? String(values[name]) : whole));
-}
+// `{name}` placeholders of a message: the shared helper (re-exported for the strip).
+export { fill };
 
 // ── Region drawing ─────────────────────────────────────────────────────────────────────────────────────────────
 
