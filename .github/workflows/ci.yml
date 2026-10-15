@@ -54,6 +54,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # S26.2: the fault-injection suite runs on its own on both jobs so each OS leaves a report (JUnit + summary,
+      # also in the job summary). It fails on any skip not justified for this platform in scripts/faults.mjs.
+      - name: Fault suite (S26.2)
+        run: npm run test:faults
+
+      - name: Upload fault suite report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fault-suite-${{ matrix.target }}
+          path: reports/faults/
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Verify (harness, typecheck, lint, format, unit and integration tests)
         run: npm run verify
 

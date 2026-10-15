@@ -103,6 +103,27 @@ describe('ci.yml', () => {
     for (const s of steps.filter((x) => order.includes(x.run ?? ''))) expect(s.if).toBeUndefined();
   });
 
+  it('runs the fault suite (S26.2) on every matrix job, unconditionally, and uploads its report per target', () => {
+    // One `build` job with a windows-x64 + macos-arm64 matrix (checked above): every step runs on both OSs.
+    const pkg = JSON.parse(readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    expect(pkg.scripts['test:faults']).toBe('node scripts/faults.mjs');
+    const faults = steps.findIndex((s) => s.run === 'npm run test:faults');
+    expect(faults).toBeGreaterThan(steps.findIndex((s) => s.run === 'npm ci'));
+    expect(steps[faults]?.if).toBeUndefined();
+    const upload = steps.findIndex(
+      (s) => s.uses?.startsWith('actions/upload-artifact@') && s.with.path === 'reports/faults/',
+    );
+    expect(upload).toBeGreaterThan(faults);
+    // always(): the report of a failing run is the most useful one.
+    expect(steps[upload]?.if).toBe('always()');
+    expect(steps[upload]?.with).toMatchObject({
+      name: 'fault-suite-${{ matrix.target }}',
+      'if-no-files-found': 'error',
+    });
+  });
+
   it('checks the runner architecture against the matrix before building', () => {
     const check = steps.find((s) => s.name === 'Check runner architecture');
     expect(check?.env.EXPECTED_ARCH).toBe('${{ matrix.arch }}');
