@@ -1,0 +1,222 @@
+# S28.2 / S28.3 — release build with code signing (docs/release/signing.md, docs/decisions/0027-code-signing.md).
+# Same matrix as ci.yml (each target built on its own OS, PLAN §5). Signing is credential-gated: the secrets live only
+# in the GitHub "release" environment; when they are absent every signing step skips with a notice and the build
+# stays unsigned (never a failure). Secrets are passed only to the steps that need them, never echoed: key files go
+# to $RUNNER_TEMP and are removed in the last step. Nothing is published; installers are uploaded as run artifacts.
+# tests/integration/release-workflow.test.ts checks this file's structure.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Azure Artifact Signing client (NuGet, Microsoft-signed; its dlib's Authenticode signature is checked below).
+  ARTIFACT_SIGNING_CLIENT_VERSION: 1.0.128
+
+jobs:
+  release:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    environment: release
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows-x64
+            os: windows-latest
+            arch: x64
+          - target: macos-arm64
+            os: macos-14
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          architecture: ${{ matrix.arch }}
+          cache: npm
+
+      - name: Check runner architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: node -e "console.log(process.platform, process.arch); if (process.arch !== process.env.EXPECTED_ARCH) process.exit(1)"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify (harness, typecheck, lint, format, unit and integration tests)
+        run: npm run verify
+
+      # Only booleans reach this step ("true"/"false"), never a secret value. It fails only on a half-configured
+      # route (some secrets of a route set, others missing), and otherwise logs ENABLED or SKIPPED.
+      - name: Signing status
+        id: signing
+        env:
+          HAS_APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 != '' }}
+          HAS_APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD != '' }}
+          HAS_APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 != '' }}
+          HAS_APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID != '' }}
+          HAS_APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER != '' }}
+          HAS_APPLE_ID: ${{ secrets.APPLE_ID != '' }}
+          HAS_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD != '' }}
+          HAS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
+          HAS_AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID != '' }}
+          HAS_AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID != '' }}
+          HAS_AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET != '' }}
+          HAS_ARTIFACT_SIGNING_ENDPOINT: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT != '' }}
+          HAS_ARTIFACT_SIGNING_ACCOUNT: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT != '' }}
+          HAS_ARTIFACT_SIGNING_PROFILE: ${{ secrets.ARTIFACT_SIGNING_PROFILE != '' }}
+          HAS_WINDOWS_CERTIFICATE_PFX_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_PFX_BASE64 != '' }}
+          HAS_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD != '' }}
+        run: node scripts/verify-signing.mjs --status
+
+      # macOS: import the Developer ID Application certificate into a temporary keychain (random password, removed
+      # at the end) and write the App Store Connect API key, if used, to $RUNNER_TEMP.
+      - name: Import macOS signing certificate
+        if: runner.os == 'macOS' && steps.signing.outputs.enabled == 'true'
+        shell: bash
+        env:
+          P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/noobide-signing.keychain-db"
+          keychain_password="$(openssl rand -base64 32)"
+          echo "::add-mask::$keychain_password"
+          printf '%s' "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/noobide-signing.p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/noobide-signing.p12" -k "$keychain" -f pkcs12 -P "$P12_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/noobide-signing.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          identity="$(security find-identity -v -p codesigning "$keychain" \
+            | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -n 1)"
+          if [ -z "$identity" ]; then
+            echo "::error::The certificate is not a Developer ID Application identity (docs/release/signing.md)"
+            exit 1
+          fi
+          echo "Signing identity found in the temporary keychain"
+          {
+            echo "APPLE_SIGNING_IDENTITY=$identity"
+            echo "APPLE_KEYCHAIN_PATH=$keychain"
+          } >> "$GITHUB_ENV"
+          if [ -n "$API_KEY_P8_BASE64" ]; then
+            printf '%s' "$API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+            chmod 600 "$RUNNER_TEMP/AuthKey.p8"
+            echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+          fi
+
+      # Windows: locate signtool (not on PATH on the runner); then either fetch the Artifact Signing dlib and write
+      # its metadata.json, or write the .pfx to $RUNNER_TEMP.
+      - name: Prepare Windows signing
+        if: runner.os == 'Windows' && steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        env:
+          ROUTE: ${{ steps.signing.outputs.route }}
+          PFX_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_PFX_BASE64 }}
+          SIGNING_ENDPOINT: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
+          SIGNING_ACCOUNT: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+          SIGNING_PROFILE: ${{ secrets.ARTIFACT_SIGNING_PROFILE }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+          $signtool = Get-ChildItem $kits -Directory |
+            Where-Object { $_.Name -match '^10\.\d+\.\d+\.\d+$' } |
+            Sort-Object { [version]$_.Name } -Descending |
+            ForEach-Object { Join-Path $_.FullName 'x64\signtool.exe' } |
+            Where-Object { Test-Path $_ } |
+            Select-Object -First 1
+          if (-not $signtool) { throw 'signtool.exe not found in the Windows SDK' }
+          Write-Host "signtool: $signtool"
+          "SIGNTOOL_PATH=$signtool" >> $env:GITHUB_ENV
+          if ($env:ROUTE -eq 'artifact-signing') {
+            $dir = Join-Path $env:RUNNER_TEMP 'artifact-signing'
+            New-Item -ItemType Directory -Force $dir | Out-Null
+            $pkg = Join-Path $dir 'client.zip'
+            $url = "https://www.nuget.org/api/v2/package/Microsoft.ArtifactSigning.Client/$env:ARTIFACT_SIGNING_CLIENT_VERSION"
+            Invoke-WebRequest $url -OutFile $pkg
+            Write-Host "Artifact Signing client $env:ARTIFACT_SIGNING_CLIENT_VERSION sha256 $((Get-FileHash $pkg -Algorithm SHA256).Hash)"
+            Expand-Archive $pkg -DestinationPath (Join-Path $dir 'client')
+            $dlib = Join-Path $dir 'client\bin\x64\Azure.CodeSigning.Dlib.dll'
+            if (-not (Test-Path $dlib)) { throw 'Azure.CodeSigning.Dlib.dll not found in the client package' }
+            $sig = Get-AuthenticodeSignature $dlib
+            if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+              throw "Azure.CodeSigning.Dlib.dll is not validly signed by Microsoft ($($sig.Status))"
+            }
+            $meta = Join-Path $dir 'metadata.json'
+            @{
+              Endpoint = $env:SIGNING_ENDPOINT
+              CodeSigningAccountName = $env:SIGNING_ACCOUNT
+              CertificateProfileName = $env:SIGNING_PROFILE
+            } | ConvertTo-Json | Set-Content -Encoding utf8 $meta
+            "ARTIFACT_SIGNING_DLIB=$dlib" >> $env:GITHUB_ENV
+            "ARTIFACT_SIGNING_METADATA=$meta" >> $env:GITHUB_ENV
+          } else {
+            $pfx = Join-Path $env:RUNNER_TEMP 'noobide-signing.pfx'
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_BASE64))
+            "WINDOWS_CERTIFICATE_FILE=$pfx" >> $env:GITHUB_ENV
+          }
+
+      # forge.config.ts + signing.config.ts turn the variables into osxSign/osxNotarize (then sign, notarise and
+      # staple the DMG) or windowsSign (app and Setup.exe). Unset secrets arrive as "" and mean "unsigned".
+      - name: Make installers
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: npm run make
+
+      - name: Inspect binary architectures
+        run: node scripts/inspect-arch.mjs
+
+      # spctl -a -vvv -t install + xcrun stapler validate on the DMG; signtool verify /pa /v on Setup.exe and
+      # noobide.exe. Logs one SKIPPED notice when signing is off.
+      - name: Verify signatures
+        env:
+          SIGNING_ENABLED: ${{ steps.signing.outputs.enabled }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: node scripts/verify-signing.mjs
+
+      - name: Upload installers
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: noobide-${{ matrix.target }}-${{ steps.signing.outputs.enabled == 'true' && 'signed' || 'unsigned' }}
+          path: out/make/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ] && [ -f "$RUNNER_TEMP/noobide-signing.keychain-db" ]; then
+            security delete-keychain "$RUNNER_TEMP/noobide-signing.keychain-db"
+          fi
+          rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/noobide-signing.p12" "$RUNNER_TEMP/noobide-signing.pfx"
+          rm -rf "$RUNNER_TEMP/artifact-signing"

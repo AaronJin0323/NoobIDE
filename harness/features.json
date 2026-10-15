@@ -2523,8 +2523,8 @@
       "depends_on": [
         "H.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "pipeline ready, needs H.2 secrets: docs/release/signing.md"
     },
     {
       "id": "S28.3",
@@ -2539,8 +2539,8 @@
       "depends_on": [
         "H.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "blocked",
+      "evidence": "pipeline ready, needs H.2 secrets: docs/release/signing.md"
     },
     {
       "id": "S28.4",

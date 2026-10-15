@@ -15,6 +15,8 @@ Thumbs.db
 *.p12
 *.pfx
 *.cer
+*.p8
+*.keychain-db
 .env
 .env.*
 # Agent git worktrees (parallel sessions) — separate checkouts, never committed here.
