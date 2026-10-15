@@ -6,6 +6,7 @@ import { aiSettingsEn } from './ai-settings'; // S31.4
 import { aiAgentEn } from './ai-agent'; // S34.2
 import { aiChatEn } from './ai-chat'; // S33
 import { aiInlineEn } from './ai-inline'; // S32.1
+import { smartEditEn } from './smart-edit'; // S43
 import { aiEditEn } from './ai-edit'; // S35
 import { aiHistoryEn } from './ai-history'; // S39
 import { paletteEn } from './palette'; // S40
@@ -303,6 +304,7 @@ export const en: Record<MessageKey, string> = {
   ...aiAgentEn, // S34.2 AI agent panel and proposal review
   ...aiChatEn, // S33 AI chat and explain
   ...aiInlineEn, // S32.1 AI ghost-text suggestions
+  ...smartEditEn, // S43 indentation and context-aware suggestions
   ...aiEditEn, // S35 AI inline edit and Fix with AI
   ...aiHistoryEn, // S39 saved AI chats and token usage
   ...paletteEn, // S40 command palette

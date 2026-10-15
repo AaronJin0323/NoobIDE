@@ -43,6 +43,7 @@ async function eventually<T>(get: () => T | undefined, ms = 3000): Promise<T | u
 }
 // S18.4: the project's other JavaScript files feed the JavaScript language service.
 import { useProjectScripts } from '../editor/useProjectScripts';
+import { useProjectIndex } from '../editor/useProjectIndex'; // S43.4
 // S19.1: static problems (language-service markers of the open files).
 import { useStaticProblems } from '../problems/useStaticProblems';
 // S17.1: runtime / resource problems (main's store when present, else the preview's events) and the panel view.
@@ -206,6 +207,7 @@ export function Workbench() {
   );
   // --- end S13.2 ---
   useProjectScripts(bridge, doc.project); // S18.4
+  useProjectIndex(bridge, doc.project); // S43.4
   const staticProblems = useStaticProblems(doc.project?.projectId ?? null, doc.tabs); // S19.1
   const runtimeProblems = useRuntimeProblems(bridge); // S17.1
   const problemsView = useMemo(

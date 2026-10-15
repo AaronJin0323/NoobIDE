@@ -685,3 +685,24 @@ decision 0028). This confirms it on a real sleep, where the OS decides what dies
 - **Expected:** as S25.1. The lock-only case gives at most one `wake-recovery` line with `server: ok`, `page: ok`.
 - **Result:** _(owner fills in: pass/fail per step, the `wake-recovery` log line, macOS version, date)_
 - **Close with:** `node harness/session.mjs set S25.2 done --evidence "manual: macOS <version> arm64, <date>, sleep ≥5 min, steps 1-5 pass"`
+
+### S43.8 — Indentation and project suggestions on Apple Silicon (and a beginner's look on Windows)
+
+- **Platform:** macOS on Apple Silicon (required); Windows 11 x64 optional
+- **Build:** the commit that closed S43.7 (see harness/PROGRESS.md), `npm run package`
+- **Why manual:** the e2e suite ran on Windows x64 only; macOS key handling (⌘V, ⇧⌥F, Tab in menus) and the latency
+  on Apple Silicon are not proven there.
+- **Steps:**
+  1. New project from the 按钮计数器 template. Open `script.js`: the status bar shows 空格：2 · 从文件识别 (or 沿用项目习惯).
+     Type `if (x) {` and Return: the new line is indented by two spaces and the `}` is closed.
+  2. Paste (⌘V) this tab-indented text on a new line: `if (a) {⏎⇥b();⏎}`. Expected: `b();` is indented with two
+     spaces; ⌘Z once shows the tabs again, ⌘Z again removes the paste.
+  3. Click the indentation item (or Tab to it and press Space): a menu opens; choose 使用 Tab，显示宽度 4; the item shows
+     Tab 宽度：4 · 你的选择. Choose 把整个文件改成当前缩进: the file is now tab-indented; ⌘Z undoes it. Choose 重新自动识别.
+  4. On a new line type `document.querySelector('#`: within a moment the list shows the template's ids (e.g.
+     `plus-button`) with `index.html` beside them. In `index.html` type `<img src="` inside `<body>`: the list shows
+     `images/`. Expected: no noticeable delay compared with typing elsewhere.
+  5. With AI set up (Settings → AI), pause after typing `let total =`: grey AI text appears with a small **AI** badge;
+     VoiceOver (⌘F5) reads "AI 建议…" when it focuses the badge's line. Esc removes both.
+- **Result:** _(owner fills in: platform/OS, pass/fail per step, date)_
+- **Close with:** `node harness/session.mjs set S43.8 done --evidence "manual: <platform>, <date>, steps 1–5 pass"`

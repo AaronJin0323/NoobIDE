@@ -142,6 +142,17 @@
         "No blur or backdrop effect sits over the editor or the native preview while people type or watch the page (S27 budgets unaffected)",
         "Every command that applies can be found by searching in Chinese or English and run from the keyboard"
       ]
+    },
+    {
+      "id": "M14",
+      "title": "Smart editing assistance (owner request 2026-10-16)",
+      "plan_refs": "docs/decisions/0032-smart-suggestions.md; PLAN §4 code assistance, §9",
+      "exit_criteria": [
+        "Indentation is detected per file from a fixture set (tabs/2/4, mixed, HTML with script/style, nearly empty, comment-heavy) and drives Enter, auto-close, paste and format",
+        "The status bar shows the indentation and its source and lets the user override it from the keyboard",
+        "Completions suggest the project's ids, classes and file paths in context, offline, within the measured latency budget",
+        "AI ghost-text suggestions carry a visible, accessible AI label; language-service suggestions never look like AI ones"
+      ]
     }
   ],
   "sessions": [
@@ -568,6 +579,17 @@
         "S24"
       ],
       "plan_refs": "docs/product/liquid-glass-study.md; docs/decisions/0029-liquid-glass-design-language.md; docs/reviews/interface-assessment-2026-10-14.md"
+    },
+    {
+      "id": "S43",
+      "milestone": "M14",
+      "title": "Smarter indentation and context-aware suggestions",
+      "goal": "Detect each file's indentation (with project/template fallback and a status-bar override) and apply it to typing, paste and format; suggest project ids, classes, paths and beginner patterns in context; label AI ghost text.",
+      "depends_on": [
+        "S18",
+        "S32"
+      ],
+      "plan_refs": "docs/decisions/0032-smart-suggestions.md; PLAN §4, §9; docs/capabilities.md"
     }
   ],
   "features": [
@@ -3407,6 +3429,143 @@
       ],
       "status": "needs_manual_check",
       "evidence": "steps in harness/MANUAL-CHECKS.md#S40.8"
+    },
+    {
+      "id": "S43.1",
+      "session": "S43",
+      "milestone": "M14",
+      "title": "Indentation detection engine",
+      "description": "",
+      "acceptance": [
+        "Pure detectIndentation(text, language) returns tabs/spaces, width 2/4, confidence and mixed; tests/fixtures/indentation with expected.json covers 2/4/tabs for HTML, CSS, JS, HTML with <script>/<style>, nearly empty and empty files, comment-heavy JS (JSDoc), mixed tabs+spaces, CRLF, Chinese text, <pre> and template literals; every fixture passes",
+        "resolveIndentation applies override > confident guess > project convention > weak guess > template default (2 spaces); projectConvention needs two agreeing files",
+        "reindentPasted rewrites only leading whitespace into the file style and keeps the line ending",
+        "Detection of a 5 000-line file is measured in a unit test"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S43.2",
+      "session": "S43",
+      "milestone": "M14",
+      "title": "Indentation applied in the editor with a status-bar override",
+      "description": "",
+      "acceptance": [
+        "The shown model gets the resolved tabSize/indentSize/insertSpaces (Monaco detectIndentation off); e2e: Enter after { in a tab-indented JS file inserts a tab, in a 4-space file four spaces; auto-closed tags/braces follow the same style",
+        "e2e: pasting tab-indented code into a 2-space file leaves 2-space indentation; one Ctrl+Z returns the pasted text as it was",
+        "e2e: Format document on a 4-space file keeps 4 spaces",
+        "Status bar names style, width and source in text (zh-CN default, en); a keyboard-operable menu sets Spaces 2/4 or Tabs 2/4, detects again or converts the file as one undoable edit; the override survives tab switches"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S43.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S43.3",
+      "session": "S43",
+      "milestone": "M14",
+      "title": "New and nearly empty files follow the project or template convention",
+      "description": "",
+      "acceptance": [
+        "With a project whose HTML/CSS/JS files use 4 spaces, a new empty file gets 4 spaces (source: project); with no evidence it gets 2 spaces (source: default); unit + e2e"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S43.2",
+        "S43.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S43.4",
+      "session": "S43",
+      "milestone": "M14",
+      "title": "Project index of ids, classes and files",
+      "description": "",
+      "acceptance": [
+        "Reads the project's HTML/CSS files (bounded count and size), extracts ids and classes (HTML attributes, CSS selectors incl. <style> blocks; not comments, hex colours or declarations); open editor models win over disk; watcher events update it; unit tests",
+        "Texts stay in memory; nothing is logged"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S43.5",
+      "session": "S43",
+      "milestone": "M14",
+      "title": "Context-aware completions for ids, classes, paths and beginner patterns",
+      "description": "",
+      "acceptance": [
+        "JS (files and HTML <script>): getElementById / querySelector(#, ., bare) / classList.* / getElementsByClassName suggest project ids/classes with the defining file named",
+        "CSS selectors (# and .) suggest ids/classes from the project HTML; HTML class attribute suggests classes from the project CSS",
+        "src / href / url() / import suggest project files relative to the current file, filtered by kind, Chinese names and spaces included",
+        "Localised beginner snippets (click listener, change text, show/hide, toggle class) use a real project id/class when one exists",
+        "Capability cases for each context are added to tests/fixtures/lang-capabilities and pass in the packaged app offline; docs/capabilities.md lists only those"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S43.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S43.6",
+      "session": "S43",
+      "milestone": "M14",
+      "title": "Completion latency budget measured",
+      "description": "",
+      "acceptance": [
+        "Unit-measured provider compute p95 <= 10 ms for 200 HTML/CSS files and 2 000 classes; e2e-measured trigger-to-visible for a project id <= 500 ms; numbers in docs/perf/completion-latency.md"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S43.5"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S43.7",
+      "session": "S43",
+      "milestone": "M14",
+      "title": "AI ghost text carries an AI label",
+      "description": "",
+      "acceptance": [
+        "When an AI ghost-text suggestion is shown, a badge reading AI with a localised accessible name and tooltip appears at the cursor and goes when the suggestion goes; e2e with the fake provider",
+        "Language-service completions never render as ghost text (suggest preview off) and never show the badge; e2e"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S43.5"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S43.8",
+      "session": "S43",
+      "milestone": "M14",
+      "title": "Apple Silicon check of indentation and project suggestions",
+      "description": "",
+      "acceptance": [
+        "On a physical Apple Silicon Mac: Return, ⌘V paste, the status-bar menu, project id/path suggestions and the AI badge behave as in the Windows e2e run, with no noticeable delay (steps in harness/MANUAL-CHECKS.md#S43.8)"
+      ],
+      "verify": "manual-mac",
+      "depends_on": [
+        "S43.7"
+      ],
+      "status": "todo",
+      "evidence": ""
     }
   ]
 }

@@ -21,6 +21,7 @@ import {
 import { fitToLine, postProcessSuggestion } from './inline-postprocess';
 import { InlineRequester } from './inline-requester';
 import { aiBridge, aiStatusCache } from './inline-status';
+import { attachAiBadge, hideAiBadge, showAiBadge } from './inline-badge-monaco'; // S43.7
 
 interface Attached {
   readonly editor: monaco.editor.ICodeEditor;
@@ -29,7 +30,12 @@ interface Attached {
 
 const attached = new Set<Attached>();
 const requester = new InlineRequester(aiBridge, { onStatusError: () => aiStatusCache.invalidate() });
-const counters = { shown: 0, blocked: {} as Partial<Record<InlineBlockReason, number>> };
+const counters = { shown: 0, badges: 0, blocked: {} as Partial<Record<InlineBlockReason, number>> };
+/** S43.7: the editor and cursor a returned suggestion list belongs to, for its badge. */
+const shownAt = new WeakMap<
+  monaco.languages.InlineCompletions,
+  { editor: monaco.editor.ICodeEditor; position: monaco.IPosition }
+>();
 
 /** The document version and cursor offset a request belongs to; any other value makes it stale. */
 function keyOf(model: monaco.editor.ITextModel, position: monaco.IPosition): string {
@@ -101,7 +107,7 @@ const provider: monaco.languages.InlineCompletionsProvider = {
     const text = cleaned === null ? null : fitToLine(cleaned, line.slice(position.column - 1));
     if (text === null) return { items: [] };
     counters.shown += 1;
-    return {
+    const list: monaco.languages.InlineCompletions = {
       items: [
         {
           insertText: text.replace(/\n/g, model.getEOL()),
@@ -109,6 +115,19 @@ const provider: monaco.languages.InlineCompletionsProvider = {
         },
       ],
     };
+    shownAt.set(list, { editor: entry.editor, position });
+    return list;
+  },
+  // S43.7: the "AI" badge follows the suggestion Monaco actually shows.
+  handleItemDidShow(completions) {
+    const at = shownAt.get(completions);
+    if (!at) return;
+    counters.badges += 1;
+    showAiBadge(at.editor, at.position);
+  },
+  handleEndOfLifetime(completions) {
+    const at = shownAt.get(completions);
+    if (at) hideAiBadge(at.editor);
   },
   disposeInlineCompletions() {
     // Nothing is held per list.
@@ -144,6 +163,7 @@ export function attachInlineAi(
     editor.onDidChangeModelContent(stillCurrent),
     editor.onDidChangeCursorPosition(stillCurrent),
     editor.onDidChangeModel(() => requester.cancelAll()),
+    attachAiBadge(editor),
   ];
   return {
     dispose: () => {
@@ -156,7 +176,12 @@ export function attachInlineAi(
 
 /** Read-only counters for the e2e suite (like __noobideEditorTestHooks): numbers and error codes, never text. */
 const inlineTestHooks = {
-  stats: () => ({ ...requester.stats, shown: counters.shown, blocked: { ...counters.blocked } }),
+  stats: () => ({
+    ...requester.stats,
+    shown: counters.shown,
+    badges: counters.badges,
+    blocked: { ...counters.blocked },
+  }),
   /** The opaque id of the project whose file is on screen (for granting consent in the e2e test). */
   projectId: () => [...attached].map((entry) => entry.target()?.projectId).find((id) => id !== undefined) ?? null,
 };

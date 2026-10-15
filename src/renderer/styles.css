@@ -394,6 +394,33 @@ button {
 .editor-status-ai {
   margin-left: 16px;
 }
+/* S43.2: indentation of the file on screen; a button that opens the indentation menu */
+.editor-status-indent {
+  margin-right: 16px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.editor-status-indent:hover {
+  border-color: var(--line);
+  color: var(--text);
+}
+/* S43.7: marks AI ghost text in the editor (text, not colour alone) */
+.ai-ghost-badge {
+  padding: 0 4px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  color: var(--muted);
+  pointer-events: none;
+  white-space: nowrap;
+}
 .alert-actions {
   display: flex;
   flex-wrap: wrap;

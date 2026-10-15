@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- index.html 是"页面结构"：写网页上有什么内容（标题、段落、按钮、图片）。 -->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>按钮计数器</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="counter">
+      <h1>按钮计数器</h1>
+      <p class="hint">点一点下面的按钮，看看数字怎么变化。</p>
+
+      <!-- 数字显示在这里，script.js 会修改它 -->
+      <p id="count" class="count">0</p>
+
+      <div class="buttons">
+        <button id="minus-button" type="button">减 1</button>
+        <button id="plus-button" type="button">加 1</button>
+      </div>
+      <button id="reset-button" class="reset" type="button">归零</button>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>

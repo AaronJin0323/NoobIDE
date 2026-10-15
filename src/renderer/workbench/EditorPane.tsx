@@ -18,6 +18,7 @@ import { withShortcut } from '../commands/useCommands'; // S24.1
 import { formatShortcutLabel, protectedFolderKey, type PlatformId } from '../../platform/labels';
 import { rendererPlatform } from './file-op-messages';
 import { useInlineAiState } from '../ai/useInlineAiState'; // S32.1
+import { IndentStatus } from './IndentStatus'; // S43.2
 
 const FORMATTABLE = new Set(['html', 'css', 'javascript']);
 
@@ -316,8 +317,9 @@ export function EditorPane(props: EditorPaneProps) {
         </div>
       )}
       {editorFile && cursor && (
-        <div className="editor-status" data-testid="cursor-position">
-          {`${t('editor.line')} ${cursor.line}, ${t('editor.column')} ${cursor.column}`}
+        <div className="editor-status">
+          <IndentStatus />
+          <span data-testid="cursor-position">{`${t('editor.line')} ${cursor.line}, ${t('editor.column')} ${cursor.column}`}</span>
           {inlineAi && (
             <span className="editor-status-ai" data-testid="inline-ai-state" data-state={inlineAi}>
               {t(

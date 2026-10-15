@@ -218,6 +218,155 @@
       "kind": "format",
       "text": "function add(a,b){\nreturn a+b\n}\n",
       "expectText": "function add(a, b) {\n  return a + b\n}\n"
+    },
+    {
+      "id": "js-project-id-completion",
+      "language": "javascript",
+      "kind": "completion",
+      "fileName": "script.js",
+      "files": {
+        "index.html": "<!doctype html>\n<html>\n<body>\n  <h1 id=\"page-title\" class=\"headline big\">Hi</h1>\n  <button id=\"plus-button\" class=\"btn\">+</button>\n</body>\n</html>\n"
+      },
+      "text": "const title = document.querySelector('#|');\n",
+      "expect": [
+        "page-title",
+        "plus-button"
+      ]
+    },
+    {
+      "id": "js-project-get-element-by-id-completion",
+      "language": "javascript",
+      "kind": "completion",
+      "fileName": "script.js",
+      "files": {
+        "index.html": "<!doctype html>\n<html>\n<body>\n  <h1 id=\"page-title\" class=\"headline big\">Hi</h1>\n  <button id=\"plus-button\" class=\"btn\">+</button>\n</body>\n</html>\n"
+      },
+      "text": "const button = document.getElementById('|');\n",
+      "expect": [
+        "plus-button"
+      ]
+    },
+    {
+      "id": "js-project-class-completion",
+      "language": "javascript",
+      "kind": "completion",
+      "fileName": "script.js",
+      "files": {
+        "style.css": ".is-active {\n  color: red;\n}\n"
+      },
+      "text": "document.body.classList.add('|');\n",
+      "expect": [
+        "is-active"
+      ]
+    },
+    {
+      "id": "js-html-script-project-id-completion",
+      "language": "html",
+      "kind": "completion",
+      "fileName": "index.html",
+      "files": {
+        "about.html": "<!doctype html>\n<html>\n<body>\n  <h1 id=\"page-title\" class=\"headline big\">Hi</h1>\n  <button id=\"plus-button\" class=\"btn\">+</button>\n</body>\n</html>\n"
+      },
+      "text": "<!doctype html>\n<body>\n  <script>\n    document.querySelector('#|');\n  </script>\n</body>\n",
+      "expect": [
+        "page-title"
+      ]
+    },
+    {
+      "id": "css-project-class-selector-completion",
+      "language": "css",
+      "kind": "completion",
+      "fileName": "style.css",
+      "files": {
+        "index.html": "<!doctype html>\n<html>\n<body>\n  <h1 id=\"page-title\" class=\"headline big\">Hi</h1>\n  <button id=\"plus-button\" class=\"btn\">+</button>\n</body>\n</html>\n"
+      },
+      "text": "h1 {\n  margin: 0;\n}\n.|\n",
+      "expect": [
+        "headline",
+        "btn"
+      ]
+    },
+    {
+      "id": "css-project-id-selector-completion",
+      "language": "css",
+      "kind": "completion",
+      "fileName": "style.css",
+      "files": {
+        "index.html": "<!doctype html>\n<html>\n<body>\n  <h1 id=\"page-title\" class=\"headline big\">Hi</h1>\n  <button id=\"plus-button\" class=\"btn\">+</button>\n</body>\n</html>\n"
+      },
+      "text": "#|\n",
+      "expect": [
+        "#page-title"
+      ]
+    },
+    {
+      "id": "html-class-attribute-project-completion",
+      "language": "html",
+      "kind": "completion",
+      "fileName": "index.html",
+      "files": {
+        "style.css": ".price-tag {\n  color: red;\n}\n"
+      },
+      "text": "<p class=\"|\"></p>\n",
+      "expect": [
+        "price-tag"
+      ]
+    },
+    {
+      "id": "html-src-path-completion",
+      "language": "html",
+      "kind": "completion",
+      "fileName": "index.html",
+      "files": {
+        "logo.png": "",
+        "images/cat.png": "",
+        "notes.txt": ""
+      },
+      "text": "<img src=\"|\">\n",
+      "expect": [
+        "logo.png",
+        "images/"
+      ]
+    },
+    {
+      "id": "html-link-href-path-completion",
+      "language": "html",
+      "kind": "completion",
+      "fileName": "index.html",
+      "files": {
+        "style.css": "p {}\n",
+        "script.js": ""
+      },
+      "text": "<link rel=\"stylesheet\" href=\"|\">\n",
+      "expect": [
+        "style.css"
+      ]
+    },
+    {
+      "id": "js-import-path-completion",
+      "language": "javascript",
+      "kind": "completion",
+      "fileName": "main.js",
+      "files": {
+        "util.mjs": "export const price = 3;\n"
+      },
+      "text": "import { price } from '|';\n",
+      "expect": [
+        "util.mjs"
+      ]
+    },
+    {
+      "id": "js-click-snippet-completion",
+      "language": "javascript",
+      "kind": "completion",
+      "fileName": "script.js",
+      "files": {
+        "index.html": "<!doctype html>\n<html>\n<body>\n  <h1 id=\"page-title\" class=\"headline big\">Hi</h1>\n  <button id=\"plus-button\" class=\"btn\">+</button>\n</body>\n</html>\n"
+      },
+      "text": "const n = 1;\nclick|\n",
+      "expect": [
+        "click"
+      ]
     }
   ]
 }

@@ -65,6 +65,8 @@ const stats = () =>
   );
 const ghost = () => page.locator('.monaco-editor .ghost-text-decoration, .monaco-editor .ghost-text');
 const onDisk = () => readFile(path.join(root, 'ai.js'), 'utf8');
+/** S43.7: the AI label beside a shown suggestion. */
+const badge = () => page.getByTestId('ai-ghost-badge');
 
 async function saveAndExpect(expected: string): Promise<void> {
   await page.keyboard.press('ControlOrMeta+S');
@@ -121,7 +123,12 @@ test('a suggestion appears; Tab inserts exactly it as one undo step', async () =
   await typeOnNewLine('let greeting =');
   await expect(ghost().first()).toBeVisible();
   await expect(page.locator('.monaco-editor .view-lines')).toContainText("let greeting = 'hello world';");
+  // S43.7: the suggestion is labelled as AI, in text and for screen readers.
+  await expect(badge()).toBeVisible();
+  await expect(badge()).toHaveText('AI');
+  await expect(badge()).toHaveAttribute('aria-label', /^AI 建议/);
   await page.keyboard.press('Tab');
+  await expect(badge()).toHaveCount(0);
   await saveAndExpect(`${START}\nlet greeting =${SUGGESTION}`);
   // One undo step takes back the whole suggestion, and only it.
   await page.keyboard.press('ControlOrMeta+Z');
@@ -132,8 +139,10 @@ test('a suggestion appears; Tab inserts exactly it as one undo step', async () =
 test('Esc dismisses the suggestion without changing the text', async () => {
   await typeOnNewLine('let other =');
   await expect(ghost().first()).toBeVisible();
+  await expect(badge()).toBeVisible(); // S43.7
   await page.keyboard.press('Escape');
   await expect(ghost()).toHaveCount(0);
+  await expect(badge()).toHaveCount(0);
   await saveAndExpect(`${START}\nlet greeting =\nlet other =`);
 });
 

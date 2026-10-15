@@ -3,6 +3,59 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 17 — 2026-10-16 — Smarter indentation and context-aware suggestions (S43, M14)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/admiring-shannon-3c0373`
+(node_modules junctioned to the main checkout), started from another session on the owner's request ("a better
+智能推荐: smarter indent detection, smarter context-based code suggestions"). Parallel sessions: S41 preview
+annotations, S42 inline `/ai` prompt — numbering reserved in their shared notes; no `inline-prompt*` file touched.
+Subagents: indentation engine + fixtures, completion-context/symbols/paths engine, an independent reviewer.
+
+**Done** (design: [docs/decisions/0032-smart-suggestions.md](../docs/decisions/0032-smart-suggestions.md))
+
+- New milestone **M14**, session **S43**, features S43.1–S43.8.
+- S43.1 — `src/renderer/editor/indent-detect.ts` (pure): tabs/spaces, width 2/4/8, confidence, mixed; skips blank
+  lines, block/HTML comments, JSDoc `*` lines, `<pre>`/`<textarea>`, template literals; HTML `<script>`/`<style>`
+  scanned with the JS/CSS rules. `resolveIndentation` (override > confident guess > project convention > weak guess >
+  2 spaces), `projectConvention` (≥ 2 agreeing files), `reindentPasted` (leading whitespace only, every line ending
+  kept). 19 fixtures in `tests/fixtures/indentation` + 44 tests; 5 000 lines ≈ 0.3 ms.
+- S43.2 — `smart-monaco.ts` sets each shown model's tabSize/indentSize/insertSpaces (Monaco's `detectIndentation`
+  off), re-indents pastes (own undo step), re-detects weak files after a typing pause. Status bar `IndentStatus.tsx`
+  ("空格：4 · 从文件识别"), a WAI-ARIA menu (Spaces 2/4, Tabs 2/4, detect again, convert file); overrides per file for
+  the app session (`indent-state.ts`). The cursor-position test id now sits on its own span (unchanged text).
+- S43.3 — new/near-empty files follow the project convention, else the templates' 2 spaces.
+- S43.4 — `project-index.ts` (≤ 200 HTML/CSS/JS files, ≤ 256 KB each; names and a guess kept, never the text; open
+  models win; watcher events) + `project-symbols.ts` (ids/classes from HTML attributes and CSS selectors).
+- S43.5 — one completion provider for HTML/CSS/JS (`completion-context.ts`, `path-suggest.ts`): project ids/classes
+  in `querySelector`/`getElementById`/`classList.*`/`getElementsByClassName` (also in an HTML `<script>`), CSS `#`/`.`
+  selectors, HTML `class="`, paths for `src`/`href`/`url()`/`import`, four localised beginner snippets with real
+  ids/classes. Each item names its origin. 11 new capability cases pass in the **packaged app offline**;
+  docs/capabilities.md updated (and its _Not claimed_ list narrowed accordingly).
+- S43.6 — latency: provider p95 0.91 ms (classes) / 0.44 ms (paths) on 200 files + 2 100 classes (unit); in the app
+  `#` → id listed median 7 ms, provider p95 0.20 ms. docs/perf/completion-latency.md.
+- S43.7 — AI ghost text (S32.1) gets an "AI" content-widget badge with a localised accessible name, driven by the
+  provider's `handleItemDidShow` / `handleEndOfLifetime` (`ai/inline-badge-monaco.ts`); hidden on Esc, typing,
+  cursor move, blur. AI default unchanged (on once AI is set up, decision 0025).
+
+**Evidence:** verify green; e2e on Windows x64: `smart-editing.spec.ts` 11/11, and with ai-inline, language
+(packaged offline), tabs, problems, problem-card, offline, editing, a11y, smoke, external-change: 91/91.
+
+**Decisions / problems**
+
+- Playwright typing with 0 ms between keys makes Monaco skip auto-closing a `{` typed right after the previous key
+  (40 ms per key works; not checked whether the build before S43 behaves the same). The spec types at 30 ms per key.
+- A file with < 6 indented lines is a _weak_ guess, so a clearly 4-space project wins over it. Intended (new files
+  follow the project); the status bar shows "沿用项目习惯" and one click changes it.
+- Overrides are not persisted across restarts; persisting a project-wide choice needs a `.noobide/project.json`
+  schema change (idea below).
+
+**Owner actions:** S43.8 manual check on Apple Silicon (harness/MANUAL-CHECKS.md#S43.8).
+
+**Ideas / backlog candidates:** persist the indentation choice per project in `.noobide/project.json`; AI ghost text
+could receive the project's ids/classes as context.
+
+**Next up:** the owner's S43.8 Mac check; otherwise continue M7 release items.
+
 ## Session 16 — 2026-10-16 — Full Windows e2e suite green twice; preview guard on loaded machines (S05.8)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine (Windows 11, 2560×1440 at 150 %, 32 logical cores), in

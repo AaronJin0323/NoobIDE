@@ -58,10 +58,45 @@ even when they are not open. Validated in the workbench on a project whose path 
 If a language worker crashes, hangs or is killed, it is restarted within about 15 seconds; typing is never blocked
 meanwhile (`tests/e2e/language-workbench.spec.ts`).
 
+## Project names and files (S43)
+
+NoobIDE's own suggestions, from the project around the file (decision 0032): ids and classes its HTML and CSS define,
+and its files. They name where they come from (the defining file, "项目文件 / project file", "NoobIDE 片段 / NoobIDE
+snippet"), work offline, and are measured in [perf/completion-latency.md](perf/completion-latency.md). The workbench
+cases on a project with a Chinese path and spaces are in `tests/e2e/smart-editing.spec.ts`.
+
+| Capability                                                         | Example                                                               | Case                                      |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------- | ----------------------------------------- |
+| `querySelector('#` suggests the project's ids                      | `#` → `page-title` (from index.html)                                  | `js-project-id-completion`                |
+| `getElementById('` suggests the project's ids                      | `'` → `plus-button`                                                   | `js-project-get-element-by-id-completion` |
+| `classList.add('` suggests the project's classes                   | `'` → `is-active` (from style.css)                                    | `js-project-class-completion`             |
+| The same inside an HTML page's `<script>`                          | `querySelector('#` → `page-title`                                     | `js-html-script-project-id-completion`    |
+| CSS `.` selectors suggest classes used in the HTML                 | `.` → `headline`, `btn`                                               | `css-project-class-selector-completion`   |
+| CSS `#` selectors suggest ids used in the HTML                     | `#` → `#page-title`                                                   | `css-project-id-selector-completion`      |
+| `class="` suggests classes defined in the project's CSS            | `class="` → `price-tag`                                               | `html-class-attribute-project-completion` |
+| `<img src="` suggests images and folders, relative to the page     | `src="` → `logo.png`, `images/`                                       | `html-src-path-completion`                |
+| `<link href="` suggests style sheets                               | `href="` → `style.css`                                                | `html-link-href-path-completion`          |
+| `import … from '` suggests the project's scripts                   | `from '` → `./util.mjs`                                               | `js-import-path-completion`               |
+| Beginner snippets: click listener, change text, toggle class, hide | `click` → `document.querySelector('#…').addEventListener('click', …)` | `js-click-snippet-completion`             |
+
+## Indentation (S43)
+
+Each file's indentation (tabs or spaces, width 2 or 4) is detected from its content; files with too little evidence
+follow the project (two or more agreeing files), otherwise the templates' 2 spaces. Enter, auto-closed braces and tags,
+paste (re-indented into the file's style, a separate undo step) and Format use it. The status bar shows it and where it
+came from, and its menu changes it. Proven by `tests/fixtures/indentation` (19 files, `indent-detect.test.ts`) and
+`tests/e2e/smart-editing.spec.ts`; it is a heuristic, so the status bar always shows the choice.
+
+## AI suggestions are marked
+
+AI ghost text (S32.1, only when AI is set up) carries an **AI** badge with the accessible name "AI 建议 / AI
+suggestion"; the suggestion list above is never AI (`tests/e2e/ai-inline.spec.ts`, `smart-editing.spec.ts`).
+
 ## Formatting
 
 Format with the **整理格式 / Format** button above the editor or with Shift+Alt+F (Windows) / ⇧⌥F (macOS). Formatting is
-an ordinary edit: Ctrl+Z / ⌘Z undoes it, and autosave writes it.
+an ordinary edit: Ctrl+Z / ⌘Z undoes it, and autosave writes it. It indents with the file's own indentation (see
+Indentation above); the cases below run with 2 spaces.
 
 | Capability                                  | Example                                       | Case          |
 | ------------------------------------------- | --------------------------------------------- | ------------- |
@@ -71,6 +106,7 @@ an ordinary edit: Ctrl+Z / ⌘Z undoes it, and autosave writes it.
 
 ## Not claimed
 
-These are **not** validated and must not be presented as features: completion inside `<script>` and `<style>` blocks
-of an HTML file, CSS class/id completion from the project's HTML, go to definition or rename across files, type
+These are **not** validated and must not be presented as features: the language services' own completion inside
+`<script>` and `<style>` blocks of an HTML file (only the project names above are proven there), class/id completion in
+other contexts than those listed, go to definition or rename across files, type
 checking of JavaScript beyond undefined names, and anything for languages other than HTML, CSS and JavaScript.

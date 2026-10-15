@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <title>待办清单</title>
+        <style>
+            body {
+                font-family: system-ui, sans-serif;
+                margin: 0;
+            }
+            /*
+               这里的注释缩进很随意
+                  不应该影响检测
+            */
+            li.done {
+                text-decoration: line-through;
+            }
+        </style>
+    </head>
+    <body>
+        <ul id="list"></ul>
+        <script>
+            const list = document.querySelector('#list');
+            /**
+             * 添加一条待办
+             * @param {string} text 内容
+             */
+            function addItem(text) {
+                const li = document.createElement('li');
+                li.textContent = text;
+                list.appendChild(li);
+            }
+            addItem('买牛奶');
+        </script>
+    </body>
+</html>

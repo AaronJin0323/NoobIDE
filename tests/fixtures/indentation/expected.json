@@ -1,0 +1,135 @@
+{
+  "html-2-spaces.html": {
+    "language": "html",
+    "insertSpaces": true,
+    "tabSize": 2,
+    "confidence": "high",
+    "mixed": false
+  },
+  "html-4-spaces.html": {
+    "language": "html",
+    "insertSpaces": true,
+    "tabSize": 4,
+    "confidence": "high",
+    "mixed": false
+  },
+  "html-tabs.html": {
+    "language": "html",
+    "insertSpaces": false,
+    "tabSize": 4,
+    "confidence": "high",
+    "mixed": false
+  },
+  "html-embedded-4-spaces.html": {
+    "language": "html",
+    "insertSpaces": true,
+    "tabSize": 4,
+    "confidence": "high",
+    "mixed": false
+  },
+  "html-pre-textarea.html": {
+    "language": "html",
+    "insertSpaces": true,
+    "tabSize": 2,
+    "confidence": "high",
+    "mixed": false
+  },
+  "css-2-spaces.css": {
+    "language": "css",
+    "insertSpaces": true,
+    "tabSize": 2,
+    "confidence": "high",
+    "mixed": false
+  },
+  "css-4-spaces.css": {
+    "language": "css",
+    "insertSpaces": true,
+    "tabSize": 4,
+    "confidence": "high",
+    "mixed": false
+  },
+  "css-tabs.css": {
+    "language": "css",
+    "insertSpaces": false,
+    "tabSize": 4,
+    "confidence": "high",
+    "mixed": false
+  },
+  "js-2-spaces.js": {
+    "language": "javascript",
+    "insertSpaces": true,
+    "tabSize": 2,
+    "confidence": "high",
+    "mixed": false
+  },
+  "js-4-spaces.js": {
+    "language": "javascript",
+    "insertSpaces": true,
+    "tabSize": 4,
+    "confidence": "high",
+    "mixed": false
+  },
+  "js-tabs.js": {
+    "language": "javascript",
+    "insertSpaces": false,
+    "tabSize": 4,
+    "confidence": "high",
+    "mixed": false
+  },
+  "js-mostly-comments.js": {
+    "language": "javascript",
+    "insertSpaces": true,
+    "tabSize": 4,
+    "confidence": "low",
+    "mixed": false
+  },
+  "js-one-line.js": {
+    "language": "javascript",
+    "insertSpaces": true,
+    "tabSize": 2,
+    "confidence": "none",
+    "mixed": false
+  },
+  "empty.js": {
+    "language": "javascript",
+    "insertSpaces": true,
+    "tabSize": 2,
+    "confidence": "none",
+    "mixed": false
+  },
+  "js-mixed-tabs-majority.js": {
+    "language": "javascript",
+    "insertSpaces": false,
+    "tabSize": 4,
+    "confidence": "low",
+    "mixed": true
+  },
+  "crlf-js-4-spaces.js": {
+    "language": "javascript",
+    "insertSpaces": true,
+    "tabSize": 4,
+    "confidence": "high",
+    "mixed": false
+  },
+  "js-chinese-2-spaces.js": {
+    "language": "javascript",
+    "insertSpaces": true,
+    "tabSize": 2,
+    "confidence": "high",
+    "mixed": false
+  },
+  "中文 样式.css": {
+    "language": "css",
+    "insertSpaces": true,
+    "tabSize": 4,
+    "confidence": "high",
+    "mixed": false
+  },
+  "js-template-literal-4-spaces.js": {
+    "language": "javascript",
+    "insertSpaces": true,
+    "tabSize": 4,
+    "confidence": "high",
+    "mixed": false
+  }
+}

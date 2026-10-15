@@ -1,0 +1,15 @@
+/* 中文样式表：标题和段落 */
+.标题 {
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    color: #333;
+}
+
+.段落 {
+    line-height: 1.8;
+    margin: 0 0 12px;
+}
+
+.段落 strong {
+    color: #c00;
+    font-weight: bold;
+}
