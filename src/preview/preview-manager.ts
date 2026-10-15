@@ -28,6 +28,7 @@ import {
   pageGuardSource,
   parseLimiterSummary,
 } from './page-guard';
+import { takeSnapshot, type PageSnapshot } from './page-snapshot';
 import { createPreviewWebPreferences, insecurePreviewPreferences, partitionForProject } from './preview-options';
 import { decidePreviewRequest, isAllowedNavigation } from './request-policy';
 import { PreviewProxy } from './preview-proxy';
@@ -160,6 +161,8 @@ function floodLimitFor(contents: WebContents): number {
   return FLOOD_LIMIT + Math.min(documents, 1_000) + scopes * 2 * (WORKER_CONSOLE_BURST + WORKER_CONSOLE_LIMIT);
 }
 const DEFAULT_WATCHDOG: WatchdogOptions = { intervalMs: 1_000, timeoutMs: 3_000 };
+/** S38.1: a watchdog ping unanswered this long means the page is busy; no snapshot is attempted. */
+const SNAPSHOT_BUSY_MS = 500;
 
 export class PreviewManager {
   private live: LivePreview | null = null;
@@ -187,6 +190,12 @@ export class PreviewManager {
   /** S15.5/S15.6: a start or refresh must not take the keyboard focus away from the workbench. */
   private readonly focusGuard = new FocusGuard();
   private startQueue: Promise<unknown> = Promise.resolve();
+  /** S38.1: the page snapshot in flight (at most one; callers share it). */
+  private snapshotting: {
+    readonly live: LivePreview;
+    readonly screenshot: boolean;
+    readonly result: Promise<Result<PageSnapshot, 'not-running' | 'not-available'>>;
+  } | null = null;
 
   /** S14.2: automatic refresh after a confirmed save and a typing pause. */
   private readonly refresher: RefreshScheduler;
@@ -559,6 +568,45 @@ export class PreviewManager {
     return [...this.recent];
   }
 
+  /**
+   * S38.1 (decision 0026): a bounded snapshot of the page this project's preview shows — path, title, outline and
+   * optionally a screenshot — captured from main only (page-snapshot.ts). Not available while the preview is not
+   * showing a page (stopped, starting, crashed, failed) or not answering (an endless loop): then nothing is asked of
+   * the page at all. One snapshot runs at a time; a second caller shares it. Never logs page content.
+   */
+  async pageSnapshot(
+    projectId: string,
+    options: { readonly screenshot: boolean },
+  ): Promise<Result<PageSnapshot, 'not-running' | 'not-available'>> {
+    const live = this.live;
+    if (!live || live.projectId !== projectId || live.view.webContents.isDestroyed()) {
+      return err('not-running', 'no preview of this project');
+    }
+    const state = this.status.state;
+    if (state !== 'running' && state !== 'refreshing') return err('not-available', `preview is ${state}`);
+    // The watchdog's ping has been waiting for a while: the page's main thread is busy (a long or endless loop).
+    // Nothing is asked of it then; the outline could not run anyway and a capture would only queue behind the loop.
+    if (live.ping && Date.now() - live.ping.startedAt >= SNAPSHOT_BUSY_MS) return err('not-available', 'page is busy');
+    const pending = this.snapshotting;
+    if (pending && pending.live === live && (pending.screenshot || !options.screenshot)) return pending.result;
+    const result = takeSnapshot(live.view.webContents, {
+      origin: live.server.origin,
+      screenshot: options.screenshot && live.view.getVisible(),
+    }).then((snapshot): Result<PageSnapshot, 'not-running' | 'not-available'> => {
+      if (this.live !== live) return err('not-running', 'the preview stopped');
+      if (options.screenshot && !live.view.getVisible() && !snapshot.screenshotUnavailable) {
+        return ok({ ...snapshot, screenshotUnavailable: 'hidden' });
+      }
+      return ok(snapshot);
+    });
+    const entry = { live, screenshot: options.screenshot, result };
+    this.snapshotting = entry;
+    void result.finally(() => {
+      if (this.snapshotting === entry) this.snapshotting = null;
+    });
+    return result;
+  }
+
   /** Read-only snapshot for the e2e suite. No page content, no file paths. */
   debugInfo() {
     const live = this.live;
@@ -897,6 +945,9 @@ export class PreviewManager {
       if (!isCurrent()) return;
       this.permissionNotices.pageLoaded(); // S25.4: a new page explains its own requests again
       live.floodStopped = false;
+      // A ping sent to the previous document after the navigation started is never answered (its frame is gone);
+      // without this the watchdog would wait for it forever and keep a page that answers marked unresponsive.
+      live.ping = null;
       this.deps.capture?.navigationCommitted(live.loadGeneration ?? this.machine.generation);
     });
     contents.on('did-stop-loading', () => {

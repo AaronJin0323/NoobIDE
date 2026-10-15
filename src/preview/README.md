@@ -32,3 +32,6 @@ Other modules (S04, S05, S15, S16 — decisions 0009, 0010, 0019):
 - `request-policy.ts` — what the page may request and where it may navigate (S05.5).
 - `view-sync.ts` — bounds, DPI rounding, overlays and focus between the workbench and the view (S15.1, S15.5).
 - `log-buffer.ts`, `to-problem.ts` — bounded console/log buffer and raw records → problem inputs (S05.3, S16).
+- `page-snapshot.ts` (S38.1, decision 0026) — a bounded snapshot of the shown page for the AI assistant: outline read
+  in an isolated world over the page guard's protocol session, screenshot from `capturePage()`, all from main and
+  within time budgets; nothing is added to the page.
