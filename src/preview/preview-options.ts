@@ -33,6 +33,15 @@ export function createPreviewWebPreferences(partition: string): WebPreferences {
 
 export const PREVIEW_DISABLED_BLINK_FEATURES = 'WebBluetooth';
 
+/**
+ * Chromium features switched off for the whole app (`--disable-features`, set by main before it is ready).
+ * IsolateSandboxedIframes: Chromium would give a sandboxed `srcdoc` iframe its own process and start its scripts
+ * before a DevTools protocol client can install the console limit there (the frame does not wait for the debugger,
+ * decision 0016, second amendment); kept in the page's process it gets the limit like every other frame. The preview
+ * already runs in its own sandboxed process, apart from the IDE, so this costs no isolation from the IDE.
+ */
+export const DISABLED_CHROMIUM_FEATURES = 'IsolateSandboxedIframes';
+
 export const REQUIRED_PREVIEW_PREFERENCES = {
   contextIsolation: true,
   nodeIntegration: false,

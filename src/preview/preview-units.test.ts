@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PreviewLogEntry } from '../shared/ipc/preview-contract';
 import { LogBuffer, MAX_LOG_URL_LENGTH, sanitizeLogUrl } from './log-buffer';
 import {
+  DISABLED_CHROMIUM_FEATURES,
   REQUIRED_PREVIEW_PREFERENCES,
   createPreviewWebPreferences,
   insecurePreviewPreferences,
@@ -21,6 +22,10 @@ describe('preview webPreferences (S04.3)', () => {
     // S25.4: no Web Bluetooth (on macOS it made the system end the whole IDE).
     expect(prefs.disableBlinkFeatures).toBe('WebBluetooth');
     expect(insecurePreviewPreferences({ ...prefs, disableBlinkFeatures: '' })).toEqual(['disableBlinkFeatures']);
+  });
+
+  it('keeps sandboxed iframes in the page process, where the console limit reaches them (decision 0016)', () => {
+    expect(DISABLED_CHROMIUM_FEATURES.split(',')).toContain('IsolateSandboxedIframes');
   });
 
   it('reports every weakened value, a preload and a missing partition', () => {

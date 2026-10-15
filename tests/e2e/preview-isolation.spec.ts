@@ -5,6 +5,13 @@ import { rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import {
+  CONSOLE_BURST,
+  CONSOLE_LIMIT,
+  MAX_GUARDED_SCOPES,
+  WORKER_CONSOLE_BURST,
+  WORKER_CONSOLE_LIMIT,
+} from '../../src/preview/page-guard';
 import { previewEntryToProblem } from '../../src/preview/to-problem';
 import type { PreviewLogEntry } from '../../src/shared/ipc/preview-contract';
 import { launchApp } from './launch';
@@ -251,7 +258,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
         `new Promise((resolve) => {
         const code = 'const end = Date.now() + 3000; let i = 0; while (Date.now() < end) { console.log("工作线程 " + i); i += 1; } postMessage(i);';
         const worker = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
-        worker.onmessage = (e) => resolve(e.data);
+        worker.onmessage = (e) => { worker.terminate(); resolve(e.data); };
       })`,
       );
       await new Promise((r) => setTimeout(r, 300));
@@ -267,62 +274,255 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   // Limited floods (page, then worker) never trip main's guard: nothing was stopped, no notice.
   await expect(page.locator('.preview-console-line[data-notice="console-flood-stopped"]')).toHaveCount(0);
 
-  // Decision 0016 amendment: a page that saved a native console method before exceeding the limit bypasses it.
-  // Main's flood guard then stops the running script (Runtime.terminateExecution), in the page and in workers, so
-  // the flood ends at its source; the longest main stall stays within the same budget.
+  // Decision 0016, second amendment: every console method a page can reach is the guard's limiter, so keeping a
+  // reference to one (before the limit, from a descriptor, through call/apply/bind, a console.context object, a
+  // fresh iframe, a worker, a worklet) never yields an unlimited one. Each of these loops runs to its end without
+  // anything being stopped, only a bounded number of messages reaches main, and main never stalls.
   const previewId = (await previewInfo(app)).previewWebContentsId ?? -1;
-  const pageBypass = await measureMainStall(
+  // Sandboxed iframes stay in the page's process, so the guard is in place before their scripts run.
+  expect(
+    await app.evaluate(({ app: electronApp }) => electronApp.commandLine.getSwitchValue('disable-features')),
+  ).toContain('IsolateSandboxedIframes');
+  const LOOP_MS = 1_500;
+  const loop = (body: string) =>
+    `const end = Date.now() + ${LOOP_MS}; let i = 0; while (Date.now() < end) { ${body}; i += 1; }`;
+  const inWorker = (code: string) =>
+    `new Promise((resolve) => {
+      const w = new Worker(URL.createObjectURL(new Blob([${JSON.stringify(code)}], { type: 'text/javascript' })));
+      // Ended afterwards: a running worker holds one of the MAX_GUARDED_SCOPES slots.
+      w.onmessage = (e) => { w.terminate(); resolve(e.data); };
+      setTimeout(() => resolve('stopped'), ${LOOP_MS + 3_000});
+    })`;
+  const inFrame = (setup: string) =>
+    `new Promise((resolve) => {
+      const f = document.createElement('iframe');
+      ${setup}
+      addEventListener('message', function on(e) { if (e.data === 'finished') { removeEventListener('message', on); f.remove(); resolve('finished'); } });
+      document.body.append(f);
+      setTimeout(() => resolve('stopped'), ${LOOP_MS + 3_000});
+    })`;
+  const bypasses: [string, string][] = [
+    [
+      'saved console.log in the page',
+      `(() => { const log = console.log; ${loop("log('缓存的引用 ' + i)")} return 'finished'; })()`,
+    ],
+    [
+      'descriptor value, call, apply, bind, Reflect.apply',
+      `(() => {
+        const log = Object.getOwnPropertyDescriptor(console, 'log').value;
+        const bound = Function.prototype.bind.call(console.warn, console);
+        ${loop('log.call(console, i); Function.prototype.apply.call(console.error, console, [i]); bound(i); Reflect.apply(console.info, console, [i])')}
+        return 'finished';
+      })()`,
+    ],
+    [
+      'prototype and context tricks',
+      `(() => {
+        const ctx = console.context('x');
+        const proto = Object.getPrototypeOf(console);
+        const log = (proto && proto.log) || ctx.log;
+        ${loop('log(i); ctx.warn(i)')}
+        return 'finished';
+      })()`,
+    ],
+    [
+      'saved console.log of a new iframe (initial about:blank)',
+      `(() => { const f = document.createElement('iframe'); document.body.append(f); const log = f.contentWindow.console.log; ${loop("log('框架 ' + i)")} f.remove(); return 'finished'; })()`,
+    ],
+    [
+      'saved console.log in a sandboxed srcdoc iframe',
+      inFrame(
+        `f.sandbox = 'allow-scripts'; f.srcdoc = ${JSON.stringify(`<script>const log = console.log; ${loop("log('沙箱框架 ' + i)")} parent.postMessage('finished', '*');</script>`)};`,
+      ),
+    ],
+    [
+      'saved console.log in a worker',
+      inWorker(`const log = console.log; ${loop("log('工作线程缓存 ' + i)")} postMessage('finished');`),
+    ],
+    [
+      'saved console.log in a nested worker',
+      inWorker(
+        `const inner = ${JSON.stringify(`const log = console.log; ${loop("log('嵌套 ' + i)")} postMessage('finished');`)};
+        const w = new Worker(URL.createObjectURL(new Blob([inner], { type: 'text/javascript' })));
+        w.onmessage = (e) => postMessage(e.data);`,
+      ),
+    ],
+    [
+      'worklet entry points are gone (paint and audio worklets cannot be limited)',
+      `(() => {
+        if (typeof CSS.paintWorklet !== 'undefined') return 'paint worklet reachable';
+        if ('audioWorklet' in BaseAudioContext.prototype) return 'audio worklet reachable';
+        const f = document.createElement('iframe');
+        document.body.append(f);
+        const reachable = typeof f.contentWindow.CSS.paintWorklet !== 'undefined' || 'audioWorklet' in f.contentWindow.BaseAudioContext.prototype;
+        f.remove();
+        return reachable ? 'reachable in an iframe' : 'finished';
+      })()`,
+    ],
+    [
+      '200 iframes, each with a saved console.log',
+      `(() => {
+        const logs = [];
+        for (let k = 0; k < 200; k += 1) {
+          const f = document.createElement('iframe');
+          f.style.display = 'none';
+          document.body.append(f);
+          logs.push(f.contentWindow.console.log);
+        }
+        ${loop("for (const log of logs) log('多个框架 ' + i)")}
+        document.querySelectorAll('iframe').forEach((f) => f.remove());
+        return 'finished';
+      })()`,
+    ],
+    [
+      'iframes created and removed in a loop, each a saved console.log',
+      `(() => {
+        let frames = 0;
+        ${loop("const f = document.createElement('iframe'); document.body.append(f); const log = f.contentWindow.console.log; for (let k = 0; k < 60; k += 1) log('循环框架 ' + k); f.remove(); frames += 1")}
+        return frames > 100 ? 'finished' : 'only ' + frames + ' frames';
+      })()`,
+    ],
+    [
+      'sandboxed iframes created and removed in a loop',
+      `new Promise((resolve) => {
+        const code = ${JSON.stringify(`<script>const log = console.log; for (let k = 0; k < 60; k += 1) log('沙箱循环 ' + k);</script>`)};
+        const end = Date.now() + ${LOOP_MS};
+        let frames = 0;
+        const next = () => {
+          if (Date.now() >= end) return resolve(frames > 20 ? 'finished' : 'only ' + frames + ' frames');
+          const f = document.createElement('iframe');
+          f.sandbox = 'allow-scripts';
+          f.srcdoc = code;
+          f.onload = () => { f.remove(); frames += 1; next(); };
+          document.body.append(f);
+        };
+        next();
+      })`,
+    ],
+    [
+      'workers started and ended in a loop, each a saved console.log',
+      `new Promise((resolve) => {
+        const code = ${JSON.stringify(`const log = console.log; for (let k = 0; k < 20; k += 1) log('循环线程 ' + k); postMessage('done');`)};
+        const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+        const end = Date.now() + ${LOOP_MS};
+        const all = [];
+        let done = 0;
+        const spawn = () => {
+          if (Date.now() >= end) return;
+          const w = new Worker(url);
+          all.push(w);
+          w.onmessage = () => { done += 1; w.terminate(); spawn(); };
+        };
+        for (let k = 0; k < ${MAX_GUARDED_SCOPES}; k += 1) spawn();
+        setTimeout(() => { all.forEach((w) => w.terminate()); resolve(done > 0 ? 'finished' : 'none ran'); }, ${LOOP_MS + 500});
+      })`,
+    ],
+    [
+      '20 workers at once, each with a saved console.log',
+      `new Promise((resolve) => {
+        const code = ${JSON.stringify(`const log = console.log; ${loop("log('多个线程 ' + i)")} postMessage('done');`)};
+        const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+        const workers = [];
+        let done = 0;
+        for (let k = 0; k < 20; k += 1) {
+          const w = new Worker(url);
+          workers.push(w);
+          w.onmessage = () => { done += 1; };
+        }
+        // At most ${MAX_GUARDED_SCOPES} run; the others never start (decision 0016, second amendment).
+        setTimeout(() => { workers.forEach((w) => w.terminate()); resolve(done === ${MAX_GUARDED_SCOPES} ? 'finished' : 'done: ' + done); }, ${LOOP_MS + 2_000});
+      })`,
+    ],
+    [
+      'reportError and rejected promises',
+      `(() => { const report = reportError; ${loop("report(new Error('报告 ' + i)); if (i % 1000 === 0) Promise.reject(i)")} return 'finished'; })()`,
+    ],
+  ];
+  // What the page's documents (one shared budget, at least one message each) or a set of workers may send in
+  // LOOP_MS, plus summaries (page-guard.ts).
+  const allowed = CONSOLE_BURST + Math.ceil((CONSOLE_LIMIT * LOOP_MS) / 1_000) + 10;
+  // Workers: at most MAX_GUARDED_SCOPES start per second and run at once, each with its own small budget.
+  const workerWindows = Math.ceil((LOOP_MS + 500) / 1_000) + 1;
+  const allowedFor = (name: string) =>
+    name.startsWith('20 workers')
+      ? MAX_GUARDED_SCOPES * (WORKER_CONSOLE_BURST + Math.ceil((WORKER_CONSOLE_LIMIT * LOOP_MS) / 1_000) + 2)
+      : name.startsWith('workers started and ended')
+        ? workerWindows * MAX_GUARDED_SCOPES * (WORKER_CONSOLE_BURST + 2)
+        : allowed;
+  for (const [name, code] of bypasses) {
+    const run = await measureMainStall(app, previewId, code);
+    console.log(
+      `${name}: ${run.result} after ${run.ms} ms; ${run.messages} messages reached main; longest main stall ${run.max} ms`,
+    );
+    expect(run.result, name).toBe('finished');
+    expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name));
+    expect(run.max, name).toBeLessThan(200);
+  }
+  // Nothing needed stopping.
+  await expect(page.locator('.preview-console-line[data-notice="console-flood-stopped"]')).toHaveCount(0);
+
+  // The design does not depend on main being fast: with an artificial 0.6 ms of main-thread work per console
+  // message (what a loaded Windows CI runner measured), the same saved references keep main's stall within budget.
+  for (const [name, code] of bypasses.filter(([n]) =>
+    /page|worker$|sandboxed|^200 iframes|^20 workers|in a loop/.test(n),
+  )) {
+    const run = await measureMainStall(app, previewId, code, { costMs: 0.6 });
+    console.log(`${name} (main 0.6 ms per message): ${run.messages} messages; longest main stall ${run.max} ms`);
+    expect(run.result, name).toBe('finished');
+    expect(run.max, name).toBeLessThan(200);
+  }
+
+  // Defence in depth (decision 0016, first amendment): output the limiter cannot see — here a DevTools isolated
+  // world, which no page can create — still trips main's flood guard, which stops the running script.
+  const backstop = await measureMainStall(
     app,
     previewId,
-    `(() => { const log = console.log; const end = Date.now() + 2000; let i = 0; while (Date.now() < end) { log('缓存的引用 ' + i); i += 1; } return 'finished'; })()`,
+    `(() => { const end = Date.now() + 5000; let i = 0; while (Date.now() < end) { console.log('隔离世界 ' + i); i += 1; } return 'finished'; })()`,
+    { isolatedWorld: true },
   );
   console.log(
-    `cached console.log reference in the page (limiter bypassed): ${pageBypass.result} after ${pageBypass.ms} ms; ` +
-      `longest main stall ${pageBypass.max} ms; guard ${JSON.stringify((await previewInfo(app)).floodTrace)}`,
+    `isolated-world flood (backstop): ${backstop.result} after ${backstop.ms} ms; longest main stall ${backstop.max} ms; ` +
+      `guard ${JSON.stringify((await previewInfo(app)).floodTrace)}`,
   );
-  expect(pageBypass.result).toBe('stopped');
-  expect(pageBypass.ms).toBeLessThan(1_000);
-  expect(pageBypass.max).toBeLessThan(200);
-  // The page itself still works, and the console says why its script stopped (once per page load).
+  expect(backstop.result).toBe('stopped');
+  expect(backstop.ms).toBeLessThan(5_000);
   expect(await evalInPreview<number>(app, '1 + 1')).toBe(2);
   await expect(
     page
       .locator('.preview-console-line[data-notice="console-flood-stopped"]')
       .filter({ hasText: '停止了正在运行的脚本' }),
   ).toHaveCount(1);
-
-  // The same from a dedicated worker: its loop is ended too (it never posts 'finished').
-  const workerBypass = await measureMainStall(
-    app,
-    previewId,
-    `new Promise((resolve) => {
-      const code = 'const log = console.log; const end = Date.now() + 2000; let i = 0; while (Date.now() < end) { log("工作线程缓存 " + i); i += 1; } postMessage("finished");';
-      const w = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
-      w.onmessage = (e) => resolve(e.data);
-      setTimeout(() => resolve('stopped'), 3000);
-    })`,
-  );
-  console.log(
-    `cached console.log reference in a worker (limiter bypassed): ${workerBypass.result}; ` +
-      `longest main stall ${workerBypass.max} ms; guard ${JSON.stringify((await previewInfo(app)).floodTrace)}`,
-  );
-  expect(workerBypass.result).toBe('stopped');
-  expect(workerBypass.max).toBeLessThan(200);
   await page.getByTestId('preview-stop').click();
   await waitForPreviewState(page, 'stopped');
 });
 
 /**
  * Runs `code` in the preview while a 10 ms timer in main records the longest stall; also returns the code's result
- * ('stopped' when its execution was terminated) and how long it ran.
+ * ('stopped' when its execution was terminated), how long it ran and how many console messages of the preview
+ * reached main. `costMs` adds that much main-thread work per message (a slow main); `isolatedWorld` runs the code in
+ * a DevTools isolated world of the page (no page guard there) instead of the page's own world.
  */
 async function measureMainStall(
   app: ElectronApplication,
   previewId: number,
   code: string,
-): Promise<{ max: number; result: string; ms: number }> {
+  options: { costMs?: number; isolatedWorld?: boolean } = {},
+): Promise<{ max: number; result: string; ms: number; messages: number }> {
   return app.evaluate(
-    async ({ webContents }, { id, js }) => {
+    async ({ webContents }, { id, js, costMs, isolatedWorld }) => {
+      const wc = webContents.fromId(id);
+      if (!wc) return { max: 0, result: 'no preview', ms: 0, messages: 0 };
+      let messages = 0;
+      const onMessage = () => {
+        messages += 1;
+        if (costMs > 0) {
+          const until = performance.now() + costMs;
+          while (performance.now() < until) {
+            // a slow main thread
+          }
+        }
+      };
+      wc.on('console-message', onMessage);
       let last = performance.now();
       let max = 0;
       const timer = setInterval(() => {
@@ -330,17 +530,33 @@ async function measureMainStall(
         max = Math.max(max, now - last - 10);
         last = now;
       }, 10);
+      const evaluate = async (): Promise<string> => {
+        if (!isolatedWorld) return String(await wc.executeJavaScript(js));
+        const tree = (await wc.debugger.sendCommand('Page.getFrameTree')) as { frameTree: { frame: { id: string } } };
+        const world = (await wc.debugger.sendCommand('Page.createIsolatedWorld', {
+          frameId: tree.frameTree.frame.id,
+          worldName: 'e2e-backstop',
+        })) as { executionContextId: number };
+        const answer = (await wc.debugger.sendCommand('Runtime.evaluate', {
+          expression: js,
+          contextId: world.executionContextId,
+          returnByValue: true,
+        })) as { result?: { value?: unknown }; exceptionDetails?: unknown };
+        if (answer.exceptionDetails) throw new Error('terminated');
+        return String(answer.result?.value);
+      };
       const started = Date.now();
       const result = await Promise.race([
-        (webContents.fromId(id)?.executeJavaScript(js) ?? Promise.resolve('no preview')).then(String, () => 'stopped'),
-        new Promise<string>((r) => setTimeout(() => r('timeout'), 10_000)),
+        evaluate().then(String, () => 'stopped'),
+        new Promise<string>((r) => setTimeout(() => r('timeout'), 15_000)),
       ]);
       const ms = Date.now() - started;
       await new Promise((r) => setTimeout(r, 1_000)); // whatever main still had queued
       clearInterval(timer);
-      return { max: Math.round(max), result, ms };
+      wc.off('console-message', onMessage);
+      return { max: Math.round(max), result, ms, messages };
     },
-    { id: previewId, js: code },
+    { id: previewId, js: code, costMs: options.costMs ?? 0, isolatedWorld: options.isolatedWorld ?? false },
   );
 }
 
@@ -369,6 +585,21 @@ test('uncaught exception, console error, 404 and module load failure produce raw
   const consoleError = await find((r) => r.source === 'console' && r.message.includes('自定义错误'));
   expect(consoleError).toMatchObject({ level: 'error', line: 1 });
   expect(fileOf(consoleError)).toBe('/js/errors.js');
+
+  // Decision 0016: the console limiter calls the native method for the page, from a stub at the caller's location,
+  // so every way of calling a console method keeps the page's own file and line.
+  const attributed: [string, string, number][] = [
+    ['保存的引用', 'info', 3],
+    ['数组回调', 'info', 4],
+    ['通过 call', 'warning', 5],
+    ['通过 bind', 'info', 6],
+    ['alert: 提示框', 'info', 7],
+  ];
+  for (const [text, level, line] of attributed) {
+    const record = await find((r) => r.source === 'console' && r.message.startsWith(text));
+    expect(record, text).toMatchObject({ level, line });
+    expect(fileOf(record), text).toBe('/js/console.js');
+  }
 
   const exception = await find((r) => r.source === 'exception' && r.message.includes('userNmae'));
   expect(exception).toMatchObject({ level: 'error', line: 3 });
