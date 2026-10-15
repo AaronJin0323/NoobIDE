@@ -17,6 +17,7 @@ import type { RecoveryApi } from './recovery-contract';
 // S13 app data (settings, recent projects, session, logs): types and parsers in app-data-contract.ts.
 import type {
   LogsApi,
+  NoticesApi,
   PortabilityApi,
   ProjectConfigApi,
   ProjectLifecycleApi,
@@ -400,6 +401,8 @@ export interface NoobideApi {
   readonly settings?: SettingsApi;
   /** S13.6: local logs in app data. */
   readonly logs?: LogsApi;
+  /** Third-party license notices shipped with the app (opened from the About dialog). */
+  readonly notices?: NoticesApi;
   /** S13.2: the project's optional `.noobide/project.json` (entry page, preview preferences). */
   readonly projectConfig?: ProjectConfigApi;
   /** S13.3: recent projects (consumed by the welcome screen, src/renderer/welcome/welcome-model.ts). */

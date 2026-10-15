@@ -5,7 +5,7 @@ import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_DATA_CHANNELS } from '../shared/ipc/app-data-contract';
 import { DEFAULT_SETTINGS } from '../shared/settings';
-import { registerAppDataIpcHandlers, type AppDataIpcDeps } from './app-data-ipc';
+import { registerAppDataIpcHandlers, resolveThirdPartyNotices, type AppDataIpcDeps } from './app-data-ipc';
 import { ok } from '../shared/result';
 import { ProjectService } from '../workspace/project-service';
 
@@ -22,6 +22,7 @@ let handlers: Map<string, Handler>;
 let deps: AppDataIpcDeps & {
   settings: { snapshot: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
   openLogsFolder: ReturnType<typeof vi.fn>;
+  openThirdPartyNotices: ReturnType<typeof vi.fn>;
   projects: { rootOf: ReturnType<typeof vi.fn>; open: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> };
   recent: { list: ReturnType<typeof vi.fn>; rootOf: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> };
   projectOpened: ReturnType<typeof vi.fn>;
@@ -43,6 +44,7 @@ beforeEach(() => {
       update: vi.fn(async (patch: object) => ({ ...DEFAULT_SETTINGS, ...patch })),
     },
     openLogsFolder: vi.fn(async () => ''),
+    openThirdPartyNotices: vi.fn(async () => ''),
     projects: {
       rootOf: vi.fn(() => undefined),
       open: vi.fn(async (root: string) =>
@@ -126,6 +128,35 @@ describe('open logs folder (S13.6)', () => {
   it('reports a folder the OS could not open', async () => {
     deps.openLogsFolder.mockResolvedValueOnce('Failed to open');
     expect(await call(APP_DATA_CHANNELS.openLogsFolder, workbench)).toMatchObject({ ok: false, code: 'open-failed' });
+  });
+});
+
+describe('open third-party notices', () => {
+  it('opens the notices file for the workbench only, with no payload', async () => {
+    expect(await call(APP_DATA_CHANNELS.openThirdPartyNotices, workbench)).toEqual({ ok: true, value: null });
+    expect(await call(APP_DATA_CHANNELS.openThirdPartyNotices, workbench, 'C:/Windows/notepad.exe')).toMatchObject({
+      code: 'invalid-request',
+    });
+    for (const event of strangers) {
+      expect(await call(APP_DATA_CHANNELS.openThirdPartyNotices, event)).toMatchObject({ code: 'forbidden-sender' });
+    }
+    expect(deps.openThirdPartyNotices).toHaveBeenCalledTimes(1);
+    deps.openThirdPartyNotices.mockResolvedValueOnce('Failed to open');
+    expect(await call(APP_DATA_CHANNELS.openThirdPartyNotices, workbench)).toMatchObject({
+      ok: false,
+      code: 'open-failed',
+    });
+  });
+
+  it('resolves the file next to app.asar when packaged, in build/ from source', () => {
+    const resourcesPath = path.join('C:', 'Program Files', 'NoobIDE 中文', 'resources');
+    const appPath = path.join('D:', 'NoobIDE');
+    expect(resolveThirdPartyNotices({ isPackaged: true, resourcesPath, appPath })).toBe(
+      path.join(resourcesPath, 'THIRD_PARTY_NOTICES.txt'),
+    );
+    expect(resolveThirdPartyNotices({ isPackaged: false, resourcesPath, appPath })).toBe(
+      path.join(appPath, 'build', 'THIRD_PARTY_NOTICES.txt'),
+    );
   });
 });
 

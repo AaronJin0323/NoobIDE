@@ -46,7 +46,7 @@ import { SnapshotStore } from '../recovery/history';
 import { HistoryTriggers } from '../recovery/history-triggers';
 import { selfTestOffline, selfTestRequested, selfTestUserDataDir, watchSelfTest, withSelfTestQuery } from './self-test';
 // S13 app data: settings, recent projects, session, logs
-import { registerAppDataIpcHandlers } from './app-data-ipc';
+import { registerAppDataIpcHandlers, resolveThirdPartyNotices } from './app-data-ipc';
 import { SettingsStore } from './settings-store';
 import { AppLog } from './app-log';
 import { osInfo } from '../platform/os-info';
@@ -446,6 +446,14 @@ function start(): void {
         },
       },
       openLogsFolder: () => shell.openPath(appLog.dir),
+      openThirdPartyNotices: () =>
+        shell.openPath(
+          resolveThirdPartyNotices({
+            isPackaged: app.isPackaged,
+            resourcesPath: process.resourcesPath,
+            appPath: app.getAppPath(),
+          }),
+        ),
       projects,
       recent,
       projectOpened,

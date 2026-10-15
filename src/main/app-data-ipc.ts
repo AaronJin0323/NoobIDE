@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { parseNoPayload, parseProjectRequest, toIpcResult, type IpcResult } from '../shared/ipc/contract';
 import {
@@ -33,6 +34,8 @@ export interface AppDataIpcDeps {
   readonly settings: Pick<SettingsStore, 'snapshot' | 'update'>;
   /** S13.6: shows the log folder in the file manager; resolves to an error text ('' on success, like shell.openPath). */
   openLogsFolder(): Promise<string>;
+  /** Opens the third-party license notices file; resolves to an error text ('' on success, like shell.openPath). */
+  openThirdPartyNotices(): Promise<string>;
   /** Open projects (S13.2 and later): only a projectId crosses IPC, main knows the root. */
   readonly projects: Pick<ProjectService, 'rootOf' | 'open' | 'close'>;
   /** S13.3: recent projects in app data. */
@@ -48,6 +51,26 @@ export interface AppDataIpcDeps {
   restoreEnabled(): Promise<boolean>;
   /** S13.5: the read-only portability scan (tests inject one; default src/workspace/portability-scan). */
   scanPortability?(root: string): Promise<PortabilityReport>;
+}
+
+export const THIRD_PARTY_NOTICES_FILE = 'THIRD_PARTY_NOTICES.txt';
+
+/**
+ * Where the notices file is: next to app.asar in a packaged app (forge.config.ts extraResource), and in build/ of the
+ * repository when running from source (written by 	hird-party-notices: 17 package(s) -> buildTHIRD_PARTY_NOTICES.txt or any package run).
+ */
+export function resolveThirdPartyNotices({
+  isPackaged,
+  resourcesPath,
+  appPath,
+}: {
+  readonly isPackaged: boolean;
+  readonly resourcesPath: string;
+  readonly appPath: string;
+}): string {
+  return isPackaged
+    ? path.join(resourcesPath, THIRD_PARTY_NOTICES_FILE)
+    : path.join(appPath, 'build', THIRD_PARTY_NOTICES_FILE);
 }
 
 type Run<P> = (payload: P, event: IpcMainInvokeEvent) => Promise<IpcResult<unknown, string>>;
@@ -80,6 +103,12 @@ export function registerAppDataIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: A
   // ── S13.6 local logs ──
   handle(APP_DATA_CHANNELS.openLogsFolder, parseNoPayload, async () => {
     const error = await deps.openLogsFolder();
+    return error === '' ? { ok: true, value: null } : { ok: false, code: 'open-failed', message: 'could not open' };
+  });
+
+  // ── Third-party license notices (About dialog) ──
+  handle(APP_DATA_CHANNELS.openThirdPartyNotices, parseNoPayload, async () => {
+    const error = await deps.openThirdPartyNotices();
     return error === '' ? { ok: true, value: null } : { ok: false, code: 'open-failed', message: 'could not open' };
   });
 

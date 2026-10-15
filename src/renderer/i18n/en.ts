@@ -422,6 +422,8 @@ export const en: Record<MessageKey, string> = {
   'about.version': 'Version {version}',
   'about.runtime': 'Electron {electron} · Chromium {chromium}',
   'about.close': 'Close',
+  'about.notices': 'Third-party licenses',
+  'about.noticesFailed': 'The third-party license file could not be opened.',
   // --- end S28.1 ---
   // --- S23 onboarding walkthrough, final task and glossary ---
   'walkthrough.region': 'Walkthrough',

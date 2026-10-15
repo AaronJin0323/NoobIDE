@@ -400,6 +400,8 @@ export const zhCN = {
   'about.version': '版本 {version}',
   'about.runtime': 'Electron {electron} · Chromium {chromium}',
   'about.close': '关闭',
+  'about.notices': '第三方软件许可',
+  'about.noticesFailed': '无法打开第三方软件许可文件。',
   // --- end S28.1 ---
   // --- S23 onboarding walkthrough, final task and glossary ---
   'walkthrough.region': '入门导览',

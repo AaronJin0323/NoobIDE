@@ -35,6 +35,16 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
   const close = useRef<HTMLButtonElement>(null);
   const versions = aboutVersions(__NOOBIDE_VERSION__, navigator.userAgent);
   useModalKeys(dialog, onClose);
+  // Third-party license notices (<resources>/THIRD_PARTY_NOTICES.txt), opened by main in the OS text viewer.
+  const notices = window.noobide?.notices;
+  const [noticesFailed, setNoticesFailed] = useState(false);
+  const openNotices = useCallback(() => {
+    if (!notices) return;
+    void notices.open().then(
+      (result) => setNoticesFailed(!result.ok),
+      () => setNoticesFailed(true),
+    );
+  }, [notices]);
   useEffect(() => close.current?.focus(), []);
 
   return (
@@ -61,8 +71,23 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
               {fill(t('about.runtime'), { electron: versions.electron, chromium: versions.chromium })}
             </p>
           )}
+          {noticesFailed && (
+            <p className="dialog-hint" role="alert" data-testid="about-notices-error">
+              {t('about.noticesFailed')}
+            </p>
+          )}
         </div>
         <div className="dialog-actions">
+          {notices && (
+            <button
+              type="button"
+              className="quiet-button dialog-button"
+              data-testid="about-notices"
+              onClick={openNotices}
+            >
+              {t('about.notices')}
+            </button>
+          )}
           <button
             type="button"
             className="primary-button dialog-button"
