@@ -5,6 +5,8 @@ import { MONACO_THEME_NAME } from '../theme/monaco-theme';
 import { useColorScheme } from '../theme/ThemeProvider';
 // S17.2 / S18.3: Monaco-free handle for the workbench (format, go to code).
 import { registerEditor, takePendingReveal, type RevealTarget } from './editor-handle';
+// Memory (decision 0024): the caret stops blinking after a pause, so an idle focused editor produces no frames.
+import { CaretRest } from './caret-rest';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -94,6 +96,9 @@ export function CodeEditor({
       folding: true,
       showFoldingControls: 'always',
     });
+    const caret = new CaretRest({
+      setBlinking: (blinking) => editor.updateOptions({ cursorBlinking: blinking ? 'blink' : 'solid' }),
+    });
     const uriOf = () => {
       const current = shown.current;
       return current && editor.getModel() === current.model ? current.uri : null;
@@ -116,9 +121,14 @@ export function CodeEditor({
         const uri = uriOf();
         if (uri) callbacks.current.onComposition?.(uri, false);
       }),
-      editor.onDidChangeCursorPosition((event) =>
-        callbacks.current.onCursor?.(event.position.lineNumber, event.position.column),
-      ),
+      editor.onDidChangeCursorPosition((event) => {
+        caret.activity();
+        callbacks.current.onCursor?.(event.position.lineNumber, event.position.column);
+      }),
+      editor.onKeyDown(() => caret.activity()),
+      editor.onMouseDown(() => caret.activity()),
+      editor.onDidFocusEditorText(() => caret.activity()),
+      { dispose: () => caret.dispose() },
     ];
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => callbacks.current.onSave?.());
     editorRef.current = editor;

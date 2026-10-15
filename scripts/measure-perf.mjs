@@ -7,7 +7,7 @@
 //   node scripts/measure-perf.mjs --write   # also writes docs/perf/<platform>-<arch>.md (e.g. darwin-arm64.md)
 //
 // Options: --runs N (cold starts, default 20), --edits N (save→preview samples, default 20), --memory-runs N
-// (default 3), --idle-ms N (default 10000), --no-packaged (skip the packaged-binary start measurement).
+// (default 3), --idle-ms N (default 30000), --no-packaged (skip the packaged-binary start measurement).
 //
 // What is measured (definitions repeated in the written document):
 //  1. Cold start → editor-interactive (PLAN §11, p95 ≤ 5 s): spawn the app until Monaco is rendered AND a typed
@@ -24,10 +24,12 @@
 //     latency is (timeOrigin + loadEventEnd) − the wall-clock time just before the key press. It therefore includes
 //     the save itself (an upper bound for "completed save → updated page") and the load of all 40 resources.
 //  4. Memory (PLAN §11, ~700 MB budget): sum of app.getAppMetrics() working sets over all processes after an idle
-//     period, no DevTools — (a) no project open, (b) "typical": the default built-in template (personal-intro) open
-//     in the editor with its preview running.
+//     period (30 s), no DevTools — (a) no project open, (b) "typical": the default built-in template (personal-intro)
+//     open in the editor with its preview running. Also the sum of private memory (macOS phys_footprint, Windows
+//     privateBytes): working sets count shared pages once per process, so their sum overstates the real cost
+//     (docs/perf/memory.md). Per-process detail: scripts/measure-memory.mjs.
 // Never prints file contents.
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -46,7 +48,7 @@ function option(name, fallback) {
 const RUNS = option('--runs', 20);
 const EDITS = option('--edits', 20);
 const MEMORY_RUNS = option('--memory-runs', 3);
-const IDLE_MS = option('--idle-ms', 10_000);
+const IDLE_MS = option('--idle-ms', 30_000);
 const WRITE = argv.includes('--write');
 const PACKAGED = !argv.includes('--no-packaged');
 const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
@@ -66,12 +68,39 @@ async function launch(userDataDir) {
   return electron.launch({ args: [...sandboxArgs, `--user-data-dir=${userDataDir}`, '.'], cwd: root });
 }
 
+/** macOS phys_footprint (bytes) per pid: private dirty + compressed + GPU memory attributed to the process. */
+function footprints(pids) {
+  if (process.platform !== 'darwin' || pids.length === 0) return new Map();
+  const out = execFileSync('footprint', ['-f', 'bytes', '--noCategories', ...pids.flatMap((p) => ['-p', String(p)])], {
+    encoding: 'utf8',
+  });
+  return new Map([...out.matchAll(/\[(\d+)\]:.*?Footprint: (\d+) B/g)].map((m) => [Number(m[1]), Number(m[2])]));
+}
+
 async function memoryMb(app) {
   const metrics = await app.evaluate(({ app: electronApp }) =>
-    electronApp.getAppMetrics().map((m) => ({ type: m.type, kb: m.memory.workingSetSize })),
+    electronApp.getAppMetrics().map((m) => ({
+      pid: m.pid,
+      type: m.type,
+      kb: m.memory.workingSetSize,
+      privateKb: m.memory.privateBytes ?? null,
+    })),
   );
   const total = metrics.reduce((sum, m) => sum + m.kb, 0) / 1024;
-  return { totalMb: Math.round(total), processes: metrics.map((m) => `${m.type}:${Math.round(m.kb / 1024)}`) };
+  // Private memory: macOS footprint, Windows privateBytes. Shared pages (the Electron framework, mapped once but
+  // counted in every process's working set) are not in it, so it is the better estimate of what the app costs.
+  const fp = footprints(metrics.map((m) => m.pid));
+  const privateMb = metrics.map((m) =>
+    fp.has(m.pid) ? fp.get(m.pid) / 1048576 : m.privateKb === null ? null : m.privateKb / 1024,
+  );
+  const privateTotal = privateMb.every((v) => v !== null) ? Math.round(privateMb.reduce((a, b) => a + b, 0)) : null;
+  return {
+    totalMb: Math.round(total),
+    privateMb: privateTotal,
+    processes: metrics.map(
+      (m, i) => `${m.type}:${Math.round(m.kb / 1024)}/${privateMb[i] === null ? '?' : Math.round(privateMb[i])}`,
+    ),
+  };
 }
 
 async function editorInteractive(page) {
@@ -303,6 +332,11 @@ try {
     ...stats(idleNoProject.map((m) => m.totalMb)),
   };
   result.memoryTypicalMb = { samples: idleTypical.map((m) => m.totalMb), ...stats(idleTypical.map((m) => m.totalMb)) };
+  const privateOf = (list) => list.map((m) => m.privateMb);
+  if (idleNoProject.every((m) => m.privateMb !== null)) {
+    result.memoryPrivateIdleNoProjectMb = { samples: privateOf(idleNoProject), ...stats(privateOf(idleNoProject)) };
+    result.memoryPrivateTypicalMb = { samples: privateOf(idleTypical), ...stats(privateOf(idleTypical)) };
+  }
   result.memoryBreakdownMb = { noProject: idleNoProject[0]?.processes, typical: idleTypical[0]?.processes };
 } finally {
   rmSync(tmp, { recursive: true, force: true });
@@ -316,6 +350,8 @@ const pw = result.packagedStartToWorkersMs;
 const s = result.saveToPreviewLoadMs;
 const m1 = result.memoryIdleNoProjectMb;
 const m2 = result.memoryTypicalMb;
+const mp1 = result.memoryPrivateIdleNoProjectMb;
+const mp2 = result.memoryPrivateTypicalMb;
 const markdown = `# Performance — ${result.platform} (S27.1)
 
 Generated by \`node scripts/measure-perf.mjs --write\` on ${result.date.slice(0, 10)}. Definitions are in the header of
@@ -333,9 +369,13 @@ ${p ? `| Packaged app start → workbench editor rendered (no keystroke) | ${fmt
 | … same, to DOMContentLoaded | ${fmt(result.saveToPreviewDomContentLoadedMs)} | — | — |
 | Memory, idle, no project (all processes) | ${fmt(m1)} | ~700 MB budget | ${ok(m1.max, 700)} |
 | Memory, typical: ${result.typicalProject} | ${fmt(m2)} | ~700 MB budget | ${ok(m2.max, 700)} |
+${mp1 ? `| … private memory (${process.platform === 'darwin' ? 'phys_footprint' : 'privateBytes'}), idle, no project | ${fmt(mp1)} | — | — |\n| … private memory, typical | ${fmt(mp2)} | — | — |\n` : ''}
+Memory rows: the budget is compared with the sum of working sets after ${IDLE_MS / 1000} s idle (as in S05.6). Working sets
+count shared pages (the Electron framework) once per process; private memory does not, and is the closer estimate of
+what the app costs the machine (docs/perf/memory.md).
 
-Process breakdown of the first memory sample (MB): no project — ${result.memoryBreakdownMb.noProject?.join(', ')};
-typical — ${result.memoryBreakdownMb.typical?.join(', ')}.
+Process breakdown of the first memory sample (MB, working set/private): no project —
+${result.memoryBreakdownMb.noProject?.join(', ')}; typical — ${result.memoryBreakdownMb.typical?.join(', ')}.
 
 Raw samples (ms): cold start ${c.samples.join(', ')}${p ? `; packaged ${p.samples.join(', ')}` : ''}; save → preview
 ${s.samples.join(', ')}.
