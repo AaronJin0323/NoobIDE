@@ -1,4 +1,4 @@
-import { chmod, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
@@ -15,6 +15,7 @@ let page: Page;
 let tmp: string;
 let root: string;
 let consoleErrors: string[];
+let userData: string;
 
 const SCRIPT = "// 点按钮时打个招呼\nconst userName = '林小雨';\nconsole.log(userNmae);\n";
 const FIXED = "// 点按钮时打个招呼\nconst userName = '林小雨';\nconsole.log(userName);\n";
@@ -45,7 +46,9 @@ test.beforeAll(async () => {
     path.join(root, 'index.html'),
     '<!doctype html>\n<html lang="zh-CN">\n  <head>\n    <meta charset="utf-8" />\n    <title>卡片</title>\n  </head>\n  <body>\n    <h1>你好</h1>\n    <script src="script.js"></script>\n  </body>\n</html>\n',
   );
-  app = await launchApp();
+  userData = path.join(tmp, '应用 数据');
+  await mkdir(userData, { recursive: true });
+  app = await launchApp({}, { userDataDir: userData });
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
   await page.locator('.monaco-editor .view-lines').waitFor();
@@ -222,4 +225,74 @@ test('a problem from the running page is resolved only after the preview reloade
 
 test('no console errors during the problem card run', () => {
   expect(consoleErrors).toEqual([]);
+});
+
+/** Texts of the recovery journal records (S12) in this run's app data. */
+async function journalTexts(): Promise<string[]> {
+  const dir = path.join(userData, 'recovery');
+  const out: string[] = [];
+  for (const d of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
+    if (!d.isDirectory() || d.name === 'quarantine') continue;
+    for (const name of await readdir(path.join(dir, d.name))) {
+      if (name.endsWith('.json')) out.push(await readFile(path.join(dir, d.name, name), 'utf8'));
+    }
+  }
+  return out;
+}
+
+/** Forced termination, as in recovery.spec.ts: no quit handlers run. */
+async function kill() {
+  const pid = await app.evaluate(() => process.pid);
+  process.kill(pid, 'SIGKILL');
+  app.process().kill('SIGKILL');
+  await expect
+    .poll(() => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    })
+    .toBe(false);
+}
+
+test('a fix applied to a background tab whose save fails is journaled and survives a forced kill (S22.5, S12)', async () => {
+  const file = path.join(root, 'script.js');
+  if ((await fixCard().count()) > 0) await fixCard().getByTestId('problem-fix-clear').click();
+  if ((await toggle().getAttribute('aria-expanded')) !== 'true') await toggle().click();
+  // Put the mistake back from outside NoobIDE: the open tab reloads it (S11).
+  await writeFile(file, SCRIPT);
+  await openFile(page, 'script.js');
+  await expect(lines()).toContainText('console.log(userNmae);', { timeout: 10_000 });
+  await expect(rowAt('static', 'script.js:3')).toBeVisible({ timeout: 20_000 });
+  await openFile(page, 'index.html'); // script.js is now a background tab
+  await expect(page.locator('[data-testid="tab"][data-path="index.html"] [role="tab"]')).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await chmod(file, 0o444);
+  const row = rowAt('static', 'script.js:3');
+  await expect(row).toBeVisible({ timeout: 20_000 });
+  await expand(row);
+  await row.getByTestId('problem-fix').click();
+  await expect(fixCard()).toHaveAttribute('data-phase', 'save-failed', { timeout: 20_000 });
+  expect(await disk('script.js')).toBe(SCRIPT);
+  // The edit exists only in memory — and in the recovery journal (outside the project).
+  await expect
+    .poll(async () => (await journalTexts()).some((t) => t.includes('console.log(userName);')), { timeout: 5000 })
+    .toBe(true);
+
+  await kill();
+  await chmod(file, 0o644);
+  expect(await disk('script.js')).toBe(SCRIPT);
+  app = await launchApp({}, { userDataDir: userData });
+  page = await app.firstWindow();
+  const dialog = page.getByTestId('recovery-dialog');
+  await expect(dialog).toBeVisible({ timeout: 20_000 });
+  await expect(dialog.getByTestId('recovery-project')).toContainText('script.js');
+  await dialog.getByTestId('recovery-review').click();
+  await expect(dialog.getByTestId('recovery-diff').locator('[data-kind="added"]')).toContainText(
+    'console.log(userName);',
+  );
 });

@@ -5,6 +5,7 @@ import {
   canRecheck,
   canUndo,
   fixActionOf,
+  holdsIdentifier,
   nextPhase,
   reportsSameProblem,
   startFix,
@@ -82,24 +83,24 @@ describe('when a fix counts as resolved (S22.5)', () => {
   });
 
   it('a page problem: also needs a preview reload in which it did not occur again', () => {
-    const fix = saved(runtimeRecord);
+    const fix = { ...saved(runtimeRecord), loadsAtSave: 0 };
     expect(fix.generation).toBe(2);
     // Not reloaded yet: the original record is still current.
-    expect(verdict(fix, false, [runtimeRecord])).toBe('awaiting-refresh');
+    expect(verdict(fix, false, [runtimeRecord], 1)).toBe('awaiting-refresh');
     // Reloaded and not seen again: the record is stale.
-    expect(verdict(fix, false, [{ ...runtimeRecord, stale: true }])).toBe('resolved');
+    expect(verdict(fix, false, [{ ...runtimeRecord, stale: true }], 1)).toBe('resolved');
     // Cleared from the list after the reload.
-    expect(verdict(fix, false, [])).toBe('resolved');
+    expect(verdict(fix, false, [], 1)).toBe('resolved');
     // Reloaded and it happened again (a later page load).
     const again = {
       ...runtimeRecord,
       last: { at: 2, message: runtimeRecord.originalMessage, preview: { sessionId: 's', generation: 3 } },
     };
-    expect(verdict(fix, false, [again])).toBe('still-reported');
+    expect(verdict(fix, false, [again], 1)).toBe('still-reported');
     // The code check still reports it.
-    expect(verdict(fix, true, [{ ...runtimeRecord, stale: true }])).toBe('still-reported');
+    expect(verdict(fix, true, [{ ...runtimeRecord, stale: true }], 1)).toBe('still-reported');
     // No answer from the code check yet.
-    expect(verdict(fix, null, [{ ...runtimeRecord, stale: true }])).toBe('checking');
+    expect(verdict(fix, null, [{ ...runtimeRecord, stale: true }], 1)).toBe('checking');
   });
 
   it('matches the same misspelled name on the same line of the same file only', () => {
@@ -129,5 +130,30 @@ describe('when a fix counts as resolved (S22.5)', () => {
     expect(nextPhase(saved(staticRecord, 'checking'), false, [])).toBe('resolved');
     // A resolved fix that is reported again (e.g. undone in the editor and autosaved) is no longer resolved.
     expect(nextPhase(saved(staticRecord, 'resolved'), true, [])).toBe('still-reported');
+  });
+
+  it('a page problem needs a preview load that started after the save and completed', () => {
+    const fix = { ...saved(runtimeRecord), loadsAtSave: 4 };
+    const stale = [{ ...runtimeRecord, stale: true }];
+    expect(verdict(fix, false, stale, 4)).toBe('awaiting-refresh'); // only loads that started before the save
+    expect(verdict(fix, false, stale, 5)).toBe('resolved');
+    expect(verdict({ ...saved(runtimeRecord) }, false, stale, 9)).toBe('awaiting-refresh'); // save time unknown
+    // A code-check problem does not wait for the preview.
+    expect(verdict(saved(staticRecord), false, [], 0)).toBe('resolved');
+  });
+
+  it('a re-check without an answer is not judged and offers Check again and Undo', () => {
+    const unchecked = saved(staticRecord, 'unchecked');
+    expect(nextPhase(unchecked, false, [])).toBe('unchecked');
+    expect(canRecheck(unchecked)).toBe(true);
+    expect(canUndo(unchecked)).toBe(true);
+  });
+
+  it('the span must hold the name as a whole identifier', () => {
+    expect(holdsIdentifier('console.log(userNmae);', 13, 'userNmae')).toBe(true);
+    expect(holdsIdentifier('console.log(userNmaeList);', 13, 'userNmae')).toBe(false);
+    expect(holdsIdentifier('console.log(xuserNmae);', 14, 'userNmae')).toBe(false);
+    expect(holdsIdentifier('console.log(a.userNmae);', 15, 'userNmae')).toBe(false);
+    expect(holdsIdentifier('console.log(userNmae);', 12, 'userNmae')).toBe(false);
   });
 });

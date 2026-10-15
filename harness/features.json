@@ -2108,8 +2108,8 @@
         "S22.2",
         "S22.4"
       ],
-      "status": "in_progress",
-      "evidence": "Reopened after independent review: background-tab fix bypasses recovery journal (fix-host.ts save -> saver.edit), no identifier-boundary check on span, apply lacks project/saver re-check after awaits. Fixes with P5 agent."
+      "status": "done",
+      "evidence": "Original: fix-model/fix-host/useProblemFix/FixCard + problem-card.spec.ts @ f72596b. Review fixes @ 2e031d8: (1) Workbench recordEdit (saver + recovery journal + disk-notice dismissal) used by fix-host and S21.3 restoreVersion so edits of a model the editor does not show are journaled — fix-host.test 'records the edit for the recovery journal…' + e2e problem-card.spec.ts 'background tab… save fails is journaled and survives a forced kill' (chmod 444, journal record holds the fix, SIGKILL, relaunch offers it with diff; note: on this machine the e2e passes also without the fix because the editor won the switch race — the unit test pins the contract); (2) holdsIdentifier boundary check in replaceSpan/undoSpan (fix-model.test, fix-host.test 'part of a longer name'); (3) saver/URI identity re-checked after every await (fix-host.test 'no longer the tab'); (4) 'unchecked' phase, zh-CN+en, Check again (fix-model.test, fix-card.test); (5) page problems need a preview load started after the save and completed (usePreviewLoads + preview-loads.test, fix-model.test). verify + full e2e (190 passed, 2 skipped) green on macOS arm64."
     },
     {
       "id": "S23.1",

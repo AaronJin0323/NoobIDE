@@ -315,6 +315,8 @@ export const zhCN = {
   'problems.fix.notApplied.readOnly': '没有修改：{file} 是只读的。',
   'problems.fix.notApplied.notOpen': '没有修改：打不开 {file}。',
   'problems.fix.saveFailed': '已在编辑器里把 {from} 改成 {to}，但保存失败：{reason} 修改还在编辑器里，问题还没有解决。',
+  'problems.fix.unchecked':
+    '已把 {from} 改成 {to} 并保存，但没能重新检查（代码检查没有回应，或文件已经关闭）。所以还不能说问题已经解决，可以点“重新检查”再试。',
   'problems.fix.checking': '已把 {from} 改成 {to} 并保存，正在重新检查……',
   'problems.fix.awaitingRefresh':
     '已把 {from} 改成 {to} 并保存，代码检查不再报告这个问题。还要等预览刷新后，确认页面运行时也不再出现。',
