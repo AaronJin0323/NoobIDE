@@ -10,6 +10,8 @@ import type {
   AiTestError,
 } from '../../shared/ipc/ai-contract';
 import type { MessageKey } from '../i18n/index';
+import type { PlatformId } from '../../platform/labels';
+import { rendererPlatform } from '../workbench/file-op-messages';
 import { AI_STATUS_CHANGED_EVENT } from './ai-bridge';
 
 /**
@@ -89,6 +91,22 @@ export function aiErrorKey(code: AiErrorCode | 'forbidden-sender' | 'invalid-req
     default:
       return `ai.error.${code}`;
   }
+}
+
+/**
+ * Fills `{keyStore}` with what protects the API key on this platform (Electron safeStorage: the Keychain on macOS,
+ * Windows Data Protection on Windows), so no text names the macOS Keychain on Windows. Other text is unchanged.
+ */
+export function withKeyStore(
+  text: string,
+  t: (key: MessageKey) => string,
+  platform: PlatformId = rendererPlatform(),
+): string {
+  if (!text.includes('{keyStore}')) return text;
+  const name = t(
+    platform === 'mac' ? 'ai.keyStore.mac' : platform === 'windows' ? 'ai.keyStore.windows' : 'ai.keyStore.other',
+  );
+  return text.replaceAll('{keyStore}', name);
 }
 
 export function keyErrorKey(code: AiKeyError | 'forbidden-sender' | 'invalid-request'): MessageKey {

@@ -5,7 +5,8 @@ import { fill } from '../recovery/format';
 import type { ChatHistoryState } from './chat-history';
 import './ai-history.css';
 
-type Translate = (key: MessageKey) => string;
+/** `count` picks the singular form of a counted message (i18n/plural.ts). */
+type Translate = (key: MessageKey, count?: number) => string;
 
 export interface SavedChatsActions {
   reopen(chatId: string): Promise<void>;
@@ -66,7 +67,7 @@ export function SavedChatsList({
       <p className="ai-hint">{t('ai.history.where')}</p>
       {state.skipped > 0 && (
         <p className="ai-hint" role="status" data-testid="ai-history-skipped">
-          {fill(t('ai.history.skipped'), { n: state.skipped })}
+          {fill(t('ai.history.skipped', state.skipped), { n: state.skipped })}
         </p>
       )}
       {state.chats === null ? (

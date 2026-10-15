@@ -11,7 +11,7 @@ import {
 } from './history-model';
 
 const zh = (key: MessageKey) => translate('zh-CN', key);
-const en = (key: MessageKey) => translate('en', key);
+const en = (key: MessageKey, count?: number) => translate('en', key, count);
 
 describe('local history view model (S21.3, S21.4)', () => {
   it('compares a version with the current content: + lines come back, − lines would be replaced', () => {
@@ -98,7 +98,7 @@ describe('local history view model (S21.3, S21.4)', () => {
     });
     expect(groupUndoText(en, { undone: 1, failed: [{ relPath: 'style.css', reason: 'changed' }] })).toEqual({
       ok: false,
-      text: 'Undid 1 change(s); 1 were not undone: style.css: changed',
+      text: '1 change undone; 1 not undone: style.css: changed',
     });
     expect(groupUndoText(en, { undone: 0, failed: [{ relPath: null, reason: 'x' }] }).text).toBe(
       'This turn is no longer in local history (it may have been cleared).',

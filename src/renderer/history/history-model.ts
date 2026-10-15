@@ -8,7 +8,8 @@ import { diffLines, type LineDiff } from '../recovery/line-diff';
  * Pure view logic of the local-history window (S21.3, S21.4). What is compared with what, which message explains a
  * refusal, how storage is described. The window itself is HistoryDialog.tsx.
  */
-type Translate = (key: MessageKey) => string;
+/** `count` picks the singular form of a counted message (i18n/plural.ts). */
+type Translate = (key: MessageKey, count?: number) => string;
 
 export function reasonKey(reason: HistoryReason): MessageKey {
   return `history.reason.${reason}` as MessageKey;
@@ -94,7 +95,11 @@ export function groupUndoText(
   const reasons = outcome.failed.map((f) => (f.relPath ? `${f.relPath}: ${f.reason}` : f.reason)).join(' ');
   return {
     ok: false,
-    text: fill(t('history.group.undoPartial'), { n: outcome.undone, m: outcome.failed.length, reasons }),
+    text: fill(t('history.group.undoPartial', outcome.undone), {
+      n: outcome.undone,
+      m: outcome.failed.length,
+      reasons,
+    }),
   };
 }
 

@@ -6,7 +6,7 @@ import type {
   AiProposalDecision,
   AiRequest,
 } from '../../shared/ipc/ai-contract';
-import { cutOffNote, errorMessage, stepSummary, type AgentLocale, type StepKey } from './messages';
+import { cutOffNote, errorMessage, failedStepSummary, stepSummary, type AgentLocale, type StepKey } from './messages';
 import {
   ModelPortError,
   type AgentContentBlock,
@@ -307,7 +307,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
     const target = typeof input.path === 'string' ? input.path : typeof input.query === 'string' ? input.query : '';
     const shown = target.length > 80 ? `${target.slice(0, 80)}…` : target;
     const summary = outcome.isError
-      ? stepSummary(loc, 'failed', `${c.name}${shown ? ` ${shown}` : ''}`)
+      ? failedStepSummary(loc, c.name, shown)
       : stepSummary(loc, c.name as StepKey, shown);
     return { outcome, step: { requestId, type: 'step', tool: c.name, summary } };
   }

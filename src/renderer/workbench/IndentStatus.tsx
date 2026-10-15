@@ -23,6 +23,23 @@ const SOURCE_KEY: Record<IndentSource, MessageKey> = {
 const ROW = 34;
 
 /**
+ * The status button's accessible name: everything the button shows, including the mixed tabs/spaces warning, so a
+ * screen reader user hears it too (the visible text alone is overridden by aria-label).
+ */
+export function indentButtonLabel(
+  t: (key: MessageKey) => string,
+  indent: Pick<ShownIndent['indent'], 'insertSpaces' | 'tabSize' | 'source' | 'mixed'>,
+): string {
+  const style = fill(t(indent.insertSpaces ? 'smartEdit.indent.spaces' : 'smartEdit.indent.tabs'), {
+    size: indent.tabSize,
+  });
+  const source = t(SOURCE_KEY[indent.source]);
+  return indent.mixed
+    ? fill(t('smartEdit.indent.buttonMixed'), { style, source, mixed: t('smartEdit.indent.mixed') })
+    : fill(t('smartEdit.indent.button'), { style, source });
+}
+
+/**
  * S43.2: the indentation of the file on screen in the status bar — style, width and where it came from, as text — and
  * a keyboard-operable menu to override it, detect it again or convert the file (decision 0032).
  */
@@ -77,7 +94,7 @@ export function IndentStatus() {
         data-source={indent.source}
         aria-haspopup="menu"
         aria-expanded={menuAt !== null}
-        aria-label={fill(t('smartEdit.indent.button'), { style, source })}
+        aria-label={indentButtonLabel(t, indent)}
         title={indent.mixed ? `${source} · ${t('smartEdit.indent.mixed')}` : source}
         onClick={() => {
           const rect = button.current?.getBoundingClientRect();

@@ -43,6 +43,11 @@ export class LogBuffer {
    * batch — it explains what happened to the page — and bounded by its producers (once per kind and page load).
    */
   pushNotice(entry: PreviewLogEntry): void {
+    // A blocked link is not bounded by its producer (a page can call window.open in a loop): it obeys the cap.
+    if (entry.notice?.kind === 'link-blocked') {
+      this.push(entry);
+      return;
+    }
     this.entries.push(entry);
   }
 

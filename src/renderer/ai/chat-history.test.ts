@@ -337,7 +337,7 @@ describe('past chats UI (S39.1)', () => {
     expect(confirming).toContain('data-testid="ai-history-confirm-delete"');
     expect(confirming).toContain('data-testid="ai-history-cancel-delete"');
     expect(list({ chats: [] }, 'en')).toContain('No saved chats yet.');
-    expect(list({ skipped: 2 }, 'en')).toContain('2 saved chat(s) could not be read');
+    expect(list({ skipped: 2 }, 'en')).toContain('2 saved chats could not be read');
     expect(list({ chats: null }, 'en')).toContain('Loading past chats');
   });
 

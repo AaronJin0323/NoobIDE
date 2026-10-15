@@ -17,7 +17,7 @@ const STEPS = {
     get_page_outline: () => '查看预览里的页面结构',
     get_page_screenshot: () => '给预览截图',
     refused: (t: string) => `没能提出修改（${t}）`,
-    failed: (t: string) => `这一步没有成功（${t}）`,
+    failed: (t: string) => (t ? `这一步没有成功（${t}）` : '这一步没有成功'),
   },
   en: {
     list_files: (t: string) => (t ? `Looked at folder ${t}` : 'Looked at the project files'),
@@ -29,11 +29,22 @@ const STEPS = {
     get_page_outline: () => 'Looked at the page in the preview',
     get_page_screenshot: () => 'Took a screenshot of the preview',
     refused: (t: string) => `Could not propose a change (${t})`,
-    failed: (t: string) => `This step did not work (${t})`,
+    failed: (t: string) => (t ? `This step did not work (${t})` : 'This step did not work'),
   },
 } as const;
 
 export type StepKey = keyof (typeof STEPS)['en'];
+
+const TOOL_STEPS = new Set<string>(Object.keys(STEPS.en).filter((key) => key !== 'refused' && key !== 'failed'));
+
+/**
+ * The summary of a tool call that failed: what was attempted, in words ("Read index.html"), never the tool's id.
+ * An unknown tool only shows its target.
+ */
+export function failedStepSummary(locale: AgentLocale, tool: string, target: string): string {
+  const action = TOOL_STEPS.has(tool) ? stepSummary(locale, tool as StepKey, target) : target;
+  return stepSummary(locale, 'failed', action);
+}
 
 export function stepSummary(locale: AgentLocale, key: StepKey, target: string): string {
   return STEPS[locale][key](target);

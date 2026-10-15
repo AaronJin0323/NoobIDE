@@ -128,7 +128,15 @@ export type PreviewNotice =
   /** Decision 0016 amendment: the page bypassed the console limit; its running script was stopped. */
   | { readonly kind: 'console-flood-stopped' }
   /** S25.1/S25.2: after sleep the preview was restarted because its server or its page had stopped answering. */
-  | { readonly kind: 'restarted-after-sleep'; readonly reason: 'server' | 'page' };
+  | { readonly kind: 'restarted-after-sleep'; readonly reason: 'server' | 'page' }
+  /**
+   * The page tried to leave the project (a link or redirect to another site: `navigate`) or to open a window
+   * (`target="_blank"`, window.open: `new-window`); the preview only shows the project's own pages. Unlike the
+   * other notices a page can repeat this in a loop, so the log buffer keeps it subject to the batch cap.
+   */
+  | { readonly kind: 'link-blocked'; readonly how: 'navigate' | 'new-window' }
+  /** The page could not be loaded; `code` is Chromium's net error code, `message` keeps its raw description. */
+  | { readonly kind: 'load-failed'; readonly code: number };
 
 export type PreviewEvent =
   | { readonly kind: 'status'; readonly status: PreviewStatus }

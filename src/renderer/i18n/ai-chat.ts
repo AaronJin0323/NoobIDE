@@ -75,15 +75,14 @@ export const aiChatZhCN = {
   'ai.chat.copyFailed': '没能复制，请手动选中代码复制。',
   'ai.chat.code': '代码',
   'ai.chat.codeLang': '代码（{lang}）',
-  'ai.chat.step': '{tool}：{summary}',
   'ai.chat.proposal.unsupported': 'AI 想修改 {n} 个文件，但这个版本还不能在这里查看修改。没有改动任何文件。',
   // ── S33.1 可用状态 ──
   'ai.state.loading': '正在检查 AI 设置…',
   'ai.state.unavailable': '这个版本的 NoobIDE 还不能使用 AI。其他功能不受影响。',
   'ai.state.disabled': 'AI 已关闭。可以在“设置 → AI”里重新打开。其他功能不受影响。',
   'ai.state.noKey':
-    '还没有填写 AI 的 API 密钥。在“设置 → AI”里选择 Anthropic 或 OpenAI，粘贴你自己的密钥后就能使用。密钥只保存在这台电脑的系统钥匙串里。',
-  'ai.state.noSecureStorage': 'AI 现在不能使用：这台电脑无法安全地保存密钥（系统钥匙串不可用），所以密钥没有被保存。',
+    '还没有填写 AI 的 API 密钥。在“设置 → AI”里选择 Anthropic 或 OpenAI，粘贴你自己的密钥后就能使用。密钥只保存在这台电脑上，并用{keyStore}加密。',
+  'ai.state.noSecureStorage': 'AI 现在不能使用：这台电脑无法安全地保存密钥（{keyStore}不可用），所以密钥没有被保存。',
   'ai.openSettings': '打开 AI 设置',
   'ai.settingsWhere': '“设置 → AI”在右上角的“更多操作”菜单里。',
   // ── S33.1 同意（S31 的同意组件合并之前的占位实现）──
@@ -196,16 +195,15 @@ export const aiChatEn: Record<keyof typeof aiChatZhCN, string> = {
   'ai.chat.copyFailed': 'Could not copy. Select the code and copy it by hand.',
   'ai.chat.code': 'Code',
   'ai.chat.codeLang': 'Code ({lang})',
-  'ai.chat.step': '{tool}: {summary}',
   'ai.chat.proposal.unsupported':
-    'The AI wants to change {n} file(s), but this version cannot show the changes here. No file was changed.',
+    'The AI wants to change {n} files, but this version cannot show the changes here. No file was changed.',
   'ai.state.loading': 'Checking the AI settings…',
   'ai.state.unavailable': 'This version of NoobIDE cannot use AI. Everything else works as usual.',
   'ai.state.disabled': 'AI is switched off. You can switch it on in Settings → AI. Everything else works as usual.',
   'ai.state.noKey':
-    'No AI API key yet. In Settings → AI, choose Anthropic or OpenAI and paste your own key. The key is kept only in this computer’s system keychain.',
+    'No AI API key yet. In Settings → AI, choose Anthropic or OpenAI and paste your own key. The key is kept only on this computer, encrypted with {keyStore}.',
   'ai.state.noSecureStorage':
-    'AI cannot be used right now: this computer cannot store the key safely (no system keychain), so the key was not saved.',
+    'AI cannot be used right now: this computer cannot store the key safely ({keyStore} is not available), so the key was not saved.',
   'ai.openSettings': 'Open AI settings',
   'ai.settingsWhere': 'Settings → AI is in the “More actions” menu at the top right.',
   'ai.consent.title': 'Allow sending code from this project to the AI?',

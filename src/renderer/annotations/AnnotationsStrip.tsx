@@ -16,6 +16,8 @@ import {
   canSave,
   coversStage,
   fill,
+  focusAfter,
+  focusStateOf,
   regionFractions,
   regionUsable,
   sourceSummary,
@@ -127,12 +129,50 @@ export function AnnotationsStripView({
   const canvasRef = useRef<HTMLDivElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
-  // Focus follows the mode, so a keyboard user lands where the next step is.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+  const deleteQuestionRef = useRef<HTMLDivElement>(null);
+
+  // Focus follows the step, so a keyboard user lands where the next step is, and comes back to the control that
+  // started a step when it ends (never left on <body>).
+  const focusState = focusStateOf(state);
+  const focusBefore = useRef(focusState);
+  const { mode: focusMode, editing: focusEditing, deleting: focusDeleting } = focusState;
   useEffect(() => {
-    if (mode.kind === 'choosing') listboxRef.current?.focus();
-    else if (mode.kind === 'drawing') canvasRef.current?.focus();
-    else if (mode.kind === 'naming') noteRef.current?.focus();
-  }, [mode.kind]);
+    const now = { mode: focusMode, editing: focusEditing, deleting: focusDeleting };
+    const target = focusAfter(focusBefore.current, now);
+    focusBefore.current = now;
+    if (!target) return;
+    const root = rootRef.current;
+    if (target.kind === 'mode') {
+      if (target.mode === 'choosing') listboxRef.current?.focus();
+      else if (target.mode === 'drawing') canvasRef.current?.focus();
+      else noteRef.current?.focus();
+      return;
+    }
+    if (target.kind === 'edit-input') {
+      editRef.current?.focus();
+      return;
+    }
+    if (target.kind === 'delete-question') {
+      deleteQuestionRef.current?.focus();
+      return;
+    }
+    // A step ended: only take the focus back if it was in the strip (or lost with the controls that went away).
+    const active = typeof document === 'undefined' ? null : document.activeElement;
+    if (!root || (active && active !== document.body && !root.contains(active))) return;
+    const control = (testId: string, id?: string) =>
+      [...root.querySelectorAll<HTMLElement>(`[data-testid="${testId}"]`)].find(
+        (el) => id === undefined || el.closest<HTMLElement>('[data-testid="annotation-item"]')?.dataset.id === id,
+      ) ?? null;
+    const back =
+      (target.kind === 'item-control'
+        ? control(target.control === 'edit' ? 'annotation-edit' : 'annotation-delete', target.id)
+        : null) ??
+      control('annotate-menu') ??
+      control('annotations-toggle');
+    back?.focus();
+  }, [focusMode, focusEditing, focusDeleting]);
 
   const onListKey = (event: KeyboardEvent<HTMLUListElement>) => {
     if (mode.kind !== 'choosing') return;
@@ -186,7 +226,7 @@ export function AnnotationsStripView({
 
   const busy = mode.kind !== 'idle';
   return (
-    <div className="annotations" data-testid="annotations-strip">
+    <div className="annotations" data-testid="annotations-strip" ref={rootRef}>
       <div className="annotations-bar">
         <button
           type="button"
@@ -448,6 +488,7 @@ export function AnnotationsStripView({
                   {editing ? (
                     <div className="annotation-edit">
                       <textarea
+                        ref={editRef}
                         className="annotation-note-input"
                         data-testid="annotation-edit-input"
                         aria-label={t('annotations.note.label')}
@@ -492,7 +533,14 @@ export function AnnotationsStripView({
                   </p>
                   <SourceLine source={item.source} t={t} />
                   {deleting ? (
-                    <div className="annotations-actions" role="group" aria-label={t('annotations.delete.question')}>
+                    <div
+                      ref={deleteQuestionRef}
+                      className="annotations-actions"
+                      role="group"
+                      tabIndex={-1}
+                      aria-label={t('annotations.delete.question')}
+                      data-testid="annotation-delete-question"
+                    >
                       <span className="annotations-hint">{t('annotations.delete.question')}</span>
                       <button
                         type="button"

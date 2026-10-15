@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
-import { useModalKeys } from '../workbench/focus-trap';
+import { useModalKeys, useReturnFocus } from '../workbench/focus-trap';
 import { filterGlossary, glossaryId } from './lessons';
 import './walkthrough.css';
 
@@ -22,6 +22,7 @@ export function GlossaryDialog({ initialTerm, onClose }: GlossaryDialogProps) {
   const searchRef = useRef<HTMLInputElement>(null);
   const titleId = useId();
   useModalKeys(dialogRef, onClose);
+  useReturnFocus();
   const entries = filterGlossary(query);
 
   useEffect(() => {

@@ -18,6 +18,27 @@ export function rendererPlatform(): PlatformId {
   return (typeof window === 'undefined' ? undefined : window.noobide?.platform) ?? 'other';
 }
 
+/**
+ * Why writing a file failed (a WriteFileError / FileOpError code), as a plain explanation. Shared by the save
+ * banner, "save a copy", AI proposals and fix cards, so no surface shows the raw code ('permission-denied') itself.
+ */
+export function saveErrorKey(code: string, platform: PlatformId = rendererPlatform()): MessageKey {
+  switch (code) {
+    case 'protected-folder':
+      return protectedFolderKey(platform); // S25.3
+    case 'permission-denied':
+      return 'save.error.permission';
+    case 'busy':
+      return 'save.error.busy';
+    case 'disk-full':
+      return 'save.error.diskFull';
+    case 'not-found':
+      return 'save.error.notFound';
+    default:
+      return 'save.error.generic';
+  }
+}
+
 /** S25.3: the OS privacy protection blocked the folder; says how to allow NoobIDE on this platform. */
 export function protectedFolderMessage(t: Translate, platform: PlatformId = rendererPlatform()): string {
   return t(protectedFolderKey(platform));

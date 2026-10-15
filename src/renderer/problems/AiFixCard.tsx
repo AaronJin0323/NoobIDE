@@ -4,7 +4,7 @@ import { shortcutLabel, type PlatformId } from '../../platform/labels';
 import { useI18n } from '../i18n/I18nProvider';
 import type { Locale, MessageKey } from '../i18n/index';
 import { fill } from '../recovery/format';
-import { saveErrorKey } from '../workbench/EditorPane';
+import { saveErrorKey } from '../workbench/file-op-messages';
 import { rendererPlatform } from '../workbench/file-op-messages';
 import { canRecheckAiFix, type AiFixState } from './ai-fix';
 import { OriginalError, SOURCE_TAG } from './ProblemCard';

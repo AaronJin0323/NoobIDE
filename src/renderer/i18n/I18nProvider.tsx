@@ -3,7 +3,8 @@ import { loadLocale, saveLocale, translate, type Locale, type MessageKey } from 
 
 interface I18nValue {
   locale: Locale;
-  t: (key: MessageKey) => string;
+  /** `count` picks the singular form of a counted message where the locale has one (see translate). */
+  t: (key: MessageKey, count?: number) => string;
   setLocale: (locale: Locale) => void;
 }
 
@@ -47,7 +48,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<I18nValue>(
-    () => ({ locale, setLocale, t: (key: MessageKey) => translate(locale, key) }),
+    () => ({ locale, setLocale, t: (key: MessageKey, count?: number) => translate(locale, key, count) }),
     [locale, setLocale],
   );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

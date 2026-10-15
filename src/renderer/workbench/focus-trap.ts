@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 
 /**
  * Keeps Tab and Shift+Tab inside a modal dialog (accessibility invariant: dialogs trap focus). Only visible, enabled
@@ -58,4 +58,39 @@ export function useModalKeys(ref: RefObject<HTMLElement | null>, onEscape: () =>
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [ref]);
+}
+
+/** The parts of a DOM element focus restoring needs (pure, so it is testable without a DOM). */
+export interface FocusableLike {
+  readonly isConnected: boolean;
+  focus(): void;
+}
+
+/**
+ * Whether a closing dialog gives the focus back to `opener`: only when the opener is still on screen and the focus
+ * was lost with the dialog (it is on <body> or nowhere), never taking it from a control the user moved to.
+ */
+export function shouldReturnFocus(
+  opener: unknown,
+  active: Element | null,
+  body: Element | null,
+): opener is FocusableLike {
+  if (opener === null || typeof opener !== 'object' || opener === body) return false;
+  const candidate = opener as Partial<FocusableLike>;
+  if (typeof candidate.focus !== 'function' || candidate.isConnected !== true) return false;
+  return active === null || active === body || !active.isConnected;
+}
+
+/**
+ * A modal dialog returns the focus to where it was when it opened (the menu entry, the button, the editor) once it
+ * closes, like Settings → AI and About. Remembers the focused element when the dialog first renders.
+ */
+export function useReturnFocus(): void {
+  const [opener] = useState(() => (typeof document === 'undefined' ? null : document.activeElement));
+  useEffect(
+    () => () => {
+      if (shouldReturnFocus(opener, document.activeElement, document.body)) opener.focus();
+    },
+    [opener],
+  );
 }

@@ -3,7 +3,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import { otherLocale, translate, type MessageKey } from '../i18n/index';
 import type { CommandId } from '../../shared/commands';
 import { SearchIcon } from '../workbench/icons';
-import { moveSelection, searchPalette, type PaletteEntry } from './palette-model';
+import { PALETTE_KEYWORDS, keywordList, moveSelection, searchPalette, type PaletteEntry } from './palette-model';
 
 export interface PaletteCommand {
   readonly id: CommandId;
@@ -38,12 +38,18 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
 
   const entries: PaletteEntry[] = useMemo(
     () =>
-      commands.map((command) => ({
-        id: command.id,
-        label: t(command.label),
-        otherLabel: translate(otherLocale(locale), command.label),
-        shortcut: command.shortcut,
-      })),
+      commands.map((command) => {
+        const keywords = PALETTE_KEYWORDS[command.id];
+        return {
+          id: command.id,
+          label: t(command.label),
+          otherLabel: translate(otherLocale(locale), command.label),
+          shortcut: command.shortcut,
+          ...(keywords
+            ? { keywords: [...keywordList(t(keywords)), ...keywordList(translate(otherLocale(locale), keywords))] }
+            : {}),
+        };
+      }),
     [commands, t, locale],
   );
   const matches = useMemo(() => searchPalette(entries, query), [entries, query]);

@@ -5,6 +5,7 @@
  * interface is Chinese (and the other way round), so "save" finds 保存 and 保存 finds Save.
  */
 import type { CommandId } from '../../shared/commands';
+import type { MessageKey } from '../i18n/index';
 
 export interface PaletteEntry {
   readonly id: CommandId;
@@ -14,6 +15,32 @@ export interface PaletteEntry {
   readonly otherLabel: string;
   /** `⌘S` / `Ctrl+S`, or null. */
   readonly shortcut: string | null;
+  /** Other words people use for the command, in both languages ("create" for New project). */
+  readonly keywords?: readonly string[];
+}
+
+/**
+ * Commands that beginners look for with other words than their label: the welcome screen says "Create my first
+ * webpage", so "create" (创建) must find New project. A space-separated list per language, in the i18n tables.
+ */
+export const PALETTE_KEYWORDS: Partial<Record<CommandId, MessageKey>> = {
+  'new-project': 'palette.keywords.newProject',
+};
+
+/** The words of a keyword list (separated by spaces or commas). */
+export function keywordList(text: string): string[] {
+  return text.split(/[\s,，、]+/).filter(Boolean);
+}
+
+/** A keyword matches from its start or inside it (no fuzzy matching: keywords are many and short). */
+function keywordScore(query: string, keywords: readonly string[] | undefined): number | null {
+  let best: number | null = null;
+  for (const word of keywords ?? []) {
+    const text = normalize(word);
+    const value = text.startsWith(query) ? 0 : text.includes(query) ? 1 : null;
+    if (value !== null && (best === null || value < best)) best = value;
+  }
+  return best;
 }
 
 export interface PaletteMatch {
@@ -66,7 +93,12 @@ export function searchPalette(entries: readonly PaletteEntry[], query: string): 
   entries.forEach((entry, order) => {
     const own = score(q, entry.label);
     const other = score(q, entry.otherLabel);
-    if (own === null && other === null) return;
+    if (own === null && other === null) {
+      // Found through a keyword only: ranked after equally good label matches, without the other-language hint.
+      const keyword = keywordScore(q, entry.keywords);
+      if (keyword !== null) ranked.push({ match: { entry, viaOther: false }, rank: keyword + 0.75, order });
+      return;
+    }
     const viaOther = own === null;
     // A match in the interface language wins over an equally good one in the other language.
     const rank = viaOther ? (other as number) + 0.5 : Math.min(own, other === null ? Infinity : other + 0.5);

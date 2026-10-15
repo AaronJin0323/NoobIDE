@@ -4,7 +4,15 @@ import { describe, expect, it } from 'vitest';
 import type { Annotation, AnnotationTarget } from '../../shared/ipc/annotations-contract';
 import { translate, type Locale, type MessageKey } from '../i18n/index';
 import { AnnotationsStripView, type AnnotationsStripOps } from './AnnotationsStrip';
-import { INITIAL_ANNOTATIONS, type AnnotationsState } from './annotations-model';
+import {
+  INITIAL_ANNOTATIONS,
+  annotationsReducer,
+  focusAfter,
+  focusStateOf,
+  type AnnotationsAction,
+  type AnnotationsState,
+  type FocusState,
+} from './annotations-model';
 
 const noop = () => undefined;
 const ops: AnnotationsStripOps = {
@@ -175,5 +183,51 @@ describe('AnnotationsStripView (S41.5)', () => {
   it('delete asks for confirmation inline', () => {
     const html = render({ confirmDelete: 'a' });
     expect(html).toContain('data-testid="annotation-delete-confirm"');
+    // The question is a focusable group (focus moves there, see focusAfter), named by the question itself.
+    expect(html).toMatch(/role="group" tabindex="-1" aria-label="[^"]+" data-testid="annotation-delete-question"/);
+  });
+});
+
+describe('focus in the annotations strip is never lost (focusAfter)', () => {
+  const at = (mode: FocusState['mode'], editing: string | null = null, deleting: string | null = null): FocusState => ({
+    mode,
+    editing,
+    deleting,
+  });
+
+  it('moves into a step that starts', () => {
+    expect(focusAfter(at('idle'), at('idle', 'a'))).toEqual({ kind: 'edit-input' });
+    expect(focusAfter(at('idle'), at('idle', null, 'a'))).toEqual({ kind: 'delete-question' });
+    expect(focusAfter(at('idle', 'a'), at('idle', null, 'a'))).toEqual({ kind: 'delete-question' });
+    expect(focusAfter(at('loading'), at('choosing'))).toEqual({ kind: 'mode', mode: 'choosing' });
+    expect(focusAfter(at('loading'), at('drawing'))).toEqual({ kind: 'mode', mode: 'drawing' });
+    expect(focusAfter(at('loading'), at('naming'))).toEqual({ kind: 'mode', mode: 'naming' });
+  });
+
+  it('returns to the control that started a step when it ends (Save, Cancel, Delete)', () => {
+    expect(focusAfter(at('idle', 'a'), at('idle'))).toEqual({ kind: 'item-control', id: 'a', control: 'edit' });
+    expect(focusAfter(at('idle', null, 'a'), at('idle'))).toEqual({ kind: 'item-control', id: 'a', control: 'delete' });
+    expect(focusAfter(at('naming'), at('idle'))).toEqual({ kind: 'annotate-menu' });
+    expect(focusAfter(at('choosing'), at('idle'))).toEqual({ kind: 'annotate-menu' });
+    expect(focusAfter(at('idle'), at('idle'))).toBeNull();
+    expect(focusAfter(at('naming', 'a'), at('naming', 'a'))).toBeNull();
+  });
+
+  it('follows the reducer: edit, save and delete', () => {
+    let state: AnnotationsState = {
+      ...INITIAL_ANNOTATIONS,
+      projectId: 'p1',
+      loaded: true,
+      items: [item('a', 'found')],
+    };
+    const step = (action: AnnotationsAction) => {
+      const before = focusStateOf(state);
+      state = annotationsReducer(state, action);
+      return focusAfter(before, focusStateOf(state));
+    };
+    expect(step({ type: 'edit-start', id: 'a' })).toEqual({ kind: 'edit-input' });
+    expect(step({ type: 'edit-cancel' })).toEqual({ kind: 'item-control', id: 'a', control: 'edit' });
+    expect(step({ type: 'confirm-delete', id: 'a' })).toEqual({ kind: 'delete-question' });
+    expect(step({ type: 'removed', id: 'a' })).toEqual({ kind: 'item-control', id: 'a', control: 'delete' });
   });
 });

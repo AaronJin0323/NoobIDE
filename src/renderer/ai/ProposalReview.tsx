@@ -7,6 +7,7 @@ import { fill } from '../recovery/format';
 import { diffLines } from '../recovery/line-diff';
 import { WarningIcon } from '../workbench/icons';
 import type { ApplyFailure } from './agent-apply';
+import { saveErrorKey } from '../workbench/file-op-messages';
 import type { ChangeView } from './agent-decisions';
 
 /** What a change shows: its decision state, or `expired` when the turn ended before a decision. */
@@ -40,9 +41,17 @@ const STATE_KEY: Record<ReviewView['state'], MessageKey> = {
   expired: 'agent.state.expired',
 };
 
+/**
+ * Why a change was not applied, in plain words. A failed write is explained by its cause (no permission, disk
+ * full…) like a failed save; the internal error code itself is never shown.
+ */
 export function failureText(t: (key: MessageKey) => string, failure: ApplyFailure | undefined): string {
   const code = failure?.code ?? 'write-failed';
-  return fill(t(`agent.failure.${code}` as MessageKey), { detail: failure?.detail ?? '?' });
+  if (code === 'write-failed') {
+    const reason = failure?.detail ? saveErrorKey(failure.detail) : 'save.error.generic';
+    return reason === 'save.error.generic' ? t('agent.failure.write-failed') : t(reason);
+  }
+  return t(`agent.failure.${code}` as MessageKey);
 }
 
 /** Why one step of an undone turn was skipped (S34.2): "changed since" means since the turn, not since the read. */
@@ -182,7 +191,7 @@ function ChangeBody({ change }: { change: AiFileChange }) {
   return (
     <>
       <p className="dialog-hint agent-diff-summary" data-testid="agent-diff-summary">
-        {`${fill(t('agent.diff.added'), { n: counts.added })} · ${fill(t('agent.diff.removed'), { n: counts.removed })}`}
+        {`${fill(t('agent.diff.added', counts.added), { n: counts.added })} · ${fill(t('agent.diff.removed', counts.removed), { n: counts.removed })}`}
       </p>
       <Suspense fallback={<p className="dialog-hint">{t('agent.diff.loading')}</p>}>
         <ProposalDiff

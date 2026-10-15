@@ -208,18 +208,18 @@ export const en: Record<MessageKey, string> = {
   'recovery.title': 'Unsaved changes from last time were found',
   'recovery.intro':
     'NoobIDE did not close normally last time. These changes were not saved to your files yet, but they are kept safe in the app data. Compare them and restore them.',
-  'recovery.files': '{n} file(s) with unsaved changes',
+  'recovery.files': '{n} files with unsaved changes',
   'recovery.review': 'Open project and review',
   'recovery.later': 'Decide later',
   'recovery.restore': 'Restore into editor',
   'recovery.discard': 'Discard this copy',
   'recovery.compareTitle': 'Compared with the file on disk',
   'recovery.legend': '+ lines are added by the recovered copy, − lines on disk are replaced. Save after restoring.',
-  'recovery.added': '{n} line(s) added',
-  'recovery.removed': '{n} line(s) removed',
+  'recovery.added': '{n} lines added',
+  'recovery.removed': '{n} lines removed',
   'recovery.identical': 'The content is the same as the file on disk.',
   'recovery.tooLarge': 'Too many changes to show line by line.',
-  'recovery.skipped': '… {n} unchanged line(s) …',
+  'recovery.skipped': '… {n} unchanged lines …',
   'recovery.diskMissing':
     'The file on disk is gone or cannot be opened, so the copy cannot be restored into the editor. Its full text is shown below; you can select and copy it.',
   'recovery.openFailed': 'The project folder cannot be opened. It may have been moved or deleted.',
@@ -432,6 +432,22 @@ export const en: Record<MessageKey, string> = {
   'preview.permission.other': 'other',
   'preview.notice.permissionDeniedOther':
     'The page asked for a browser permission (such as locking the mouse pointer or opening another app). The preview denies it by default. To try it, use “Open in browser”.',
+  // Blocked links and failed loads (a plain explanation; the raw error code is secondary detail)
+  'preview.notice.linkBlockedNavigate':
+    'The preview only shows this project’s own pages, so it did not follow this link (it points to another site or to a file on your computer). To try the link, use “{button}” and click it in your browser.',
+  'preview.notice.linkBlockedNewWindow':
+    'The preview does not open new windows or tabs (such as links with target="_blank", or window.open), so this link was not opened. To try it, use “{button}” and click it in your browser.',
+  'preview.notice.loadFailed.server':
+    'The page did not load: the preview could not reach NoobIDE’s local server. Click “Refresh” to try again; if that does not help, stop the preview and start it again.',
+  'preview.notice.loadFailed.timeout':
+    'The page did not load: it took too long to answer. Click “Refresh” to try again.',
+  'preview.notice.loadFailed.notFound':
+    'The page did not load: the file was not found. Check that the file name matches the path in the link.',
+  'preview.notice.loadFailed.offline':
+    'The page did not load: the address could not be found. If it is on the internet, check your connection; the preview itself works offline.',
+  'preview.notice.loadFailed.blocked': 'The page did not load: the preview blocked this address for safety.',
+  'preview.notice.loadFailed.other':
+    'The page did not load. Click “Refresh” to try again; the error code below can help find the cause.',
   // --- end S25.4 ---
   // --- S28.1 About ---
   'about.title': 'About NoobIDE',

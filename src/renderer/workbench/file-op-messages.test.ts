@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { translate, type MessageKey } from '../i18n/index';
-import { fill, nameProblemMessage, opErrorMessage, protectedFolderMessage } from './file-op-messages';
-import { saveErrorKey } from './EditorPane';
+import { fill, nameProblemMessage, opErrorMessage, protectedFolderMessage, saveErrorKey } from './file-op-messages';
 import { documentReducer, INITIAL_DOCUMENT_STATE } from './document-state';
 import { createErrorMessage } from '../welcome/welcome-model';
 

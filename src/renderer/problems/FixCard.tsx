@@ -3,7 +3,7 @@ import { formatMessage, msg } from '../../diagnostics/messages';
 import { shortcutLabel, type PlatformId } from '../../platform/labels';
 import { useI18n } from '../i18n/I18nProvider';
 import type { Locale, MessageKey } from '../i18n/index';
-import { saveErrorKey } from '../workbench/EditorPane';
+import { saveErrorKey } from '../workbench/file-op-messages';
 import { rendererPlatform } from '../workbench/file-op-messages';
 import { canRecheck, canUndo, type FixState } from './fix-model';
 import { OriginalError, SOURCE_TAG } from './ProblemCard';
