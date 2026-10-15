@@ -1593,8 +1593,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/preview-layout.spec.ts S15.1: mouse drag of files|editor and editor|preview dividers (release position applied, Splitter.tsx fix: drags had stopped 20-50 px short), view follows, keyboard step, files panel collapses via rail; after restart collapsed state, files px width and editor share restored exactly; same at forced DPR 1.5 and 2; + session.spec (keyboard) + layout.test.ts; verify green, e2e 201 passed/4 env-skipped macOS arm64 @ 72b956a"
     },
     {
       "id": "S15.2",
@@ -1609,8 +1609,8 @@
       "depends_on": [
         "S15.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "preview-layout.spec S15.2 at 800x600: Code/Preview toggle replaces three columns (no editor splitter); Code hides the WebContentsView, Preview shows it exactly over the full-width stage, files drawer hides it and it returns, back to 1280 restores three columns with view on stage; + shell.spec S30.4 + preview.spec S04.3 @ 72b956a"
     },
     {
       "id": "S15.3",
@@ -1623,8 +1623,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "preview-viewport.ts viewRect + tests; preview-layout.spec S15.3: buttons '桌面宽度'/'手机宽度 375px' (en 'Desktop width'/'Mobile width 375px') in a group labelled 页面宽度, aria-pressed, note '不是手机模拟'/'not phone emulation'; mobile: view 375 px centred, page innerWidth 375; userAgent, maxTouchPoints, devicePixelRatio unchanged; desktop restores full stage @ 72b956a"
     },
     {
       "id": "S15.4",
@@ -1653,8 +1653,8 @@
       "depends_on": [
         "S15.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "steps in harness/MANUAL-CHECKS.md#S15.5; automated parts (edge rounding toViewBounds, overlay hiding, focus handoff, forced DPR 1.5/2) in preview-layout.spec + src/preview/view-sync.test.ts @ 72b956a; decision 0019"
     },
     {
       "id": "S15.6",
@@ -1669,8 +1669,8 @@
       "depends_on": [
         "S15.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "preview-layout.spec on macOS arm64: overlays, DPR 1.5/2, drags pass @ 72b956a; focus handoff + fullscreen passed 8/8 @ b1ac96f, env-skipped (window could not be activated) after review fixes; monitor moves, Retina sharpness, real input in harness/MANUAL-CHECKS.md#S15.6"
     },
     {
       "id": "S16.1",
