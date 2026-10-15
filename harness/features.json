@@ -1017,6 +1017,25 @@
       "evidence": "Decision 0016 second amendment: no native console method reachable by a page, iframe, worker or worklet (page-guard.ts limiter functions; call stubs at the caller's sourceURL/line keep file:line — S05.4 e2e errors.js:1/:3, js/console.js:3-7 for saved ref/forEach/call/bind/alert, flood index.html:18). One budget per page (top document's ledger, empty-start 1/N shares for cross-origin frames, workers 20/50 with <=8 starts/s and <=8 running), errors/reportError/rejections/vibrate limited, paint+audio worklets removed, IsolateSandboxedIframes off, child targets fail closed; terminate backstop kept. e2e preview-isolation.spec.ts on M3 Pro macOS 27.2: bypass and churn cases (saved ref, descriptor/call/apply/bind, context/prototype, iframe, sandboxed iframe, worker, nested worker, 200 iframes, iframe/worker churn, 20 workers, reportError) all finish with <=~400 messages to main (workers <=760), longest main stall 1-50 ms normal, 10-39 ms with 12 cores busy, 2-92 ms with +0.6 ms/message simulated slow main (all <200 asserted). Three adversarial review rounds, findings fixed. verify green; full test:e2e 240 passed, language/upgrade timeouts passed when rerun alone @ 88e8dc5"
     },
     {
+      "id": "S05.8",
+      "session": "S05",
+      "milestone": "M1",
+      "title": "A preview restored at startup always leaves Starting",
+      "description": "Session 12 bug: with the page guard installed through the DevTools protocol, a preview started while the app restores a session could stay in Starting forever (its first navigation held before any request).",
+      "acceptance": [
+        "The cause is identified and explained in a code comment; the fix is in the product (main process), not in a test",
+        "A new e2e restores a session with a running preview WITHOUT Playwright attached to the preview (the app driven only through the main-process inspector) and sees the preview reach Running on every one of at least 5 restarts",
+        "The page guard still runs before the first page script and in auto-attached workers and iframes (existing S05.7 tests stay green)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S05.7",
+        "S14.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
       "id": "S06.1",
       "session": "S06",
       "milestone": "M1",
@@ -1810,6 +1829,23 @@
       "evidence": "tests/e2e/preview-layout.spec.ts 8/8 on macOS arm64 @ 85d6b7b (merged with P3 toolbar): overlays hide the view, Enter/F6/Shift+F6 focus handoff, start/refresh do not keep the focus, hidden page releases focus, native fullscreen in/out, forced DPR 1.5 and 2 with exact persisted sizes; full e2e 213 passed/2 env-skipped. Still manual: monitor moves, Retina sharpness, real mouse/keyboard/IME - harness/MANUAL-CHECKS.md#S15.6"
     },
     {
+      "id": "S15.7",
+      "session": "S15",
+      "milestone": "M3",
+      "title": "Scale-factor layout e2e works on a display scaled to 150 %",
+      "description": "preview-layout.spec \"at scale factor 2\" waited for innerWidth === 1280 forever on the Windows dev machine (display scaled to 150 %): setContentSize(1280, 800) gives 1281×801 there.",
+      "acceptance": [
+        "tests/e2e/preview-layout.spec.ts passes on the Windows dev machine (2560×1440 at 150 %), the reason for any tolerance written next to it",
+        "The persisted divider sizes are still compared exactly"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S15.6"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
       "id": "S16.1",
       "session": "S16",
       "milestone": "M3",
@@ -2164,6 +2200,23 @@
       ],
       "status": "done",
       "evidence": "Controls exist and work: history window storage section with usage vs limit + cleanup policy text, history folder path, Open history folder (shell.openPath, folder created), Clean up now (reports freed bytes), Clear this project's history / Clear all history (confirmation, Escape cancels it), orphaned project histories (ADR 0006) with old path, file count and size + Clear with confirmation, offline drives never treated as orphaned — tests/e2e/history.spec.ts (storage/reveal/cleanup, orphan after renaming a project folder with Chinese+spaces, clear with confirmation, en locale) + tests/integration/history-ipc.test.ts (orphans, clear scopes, cleanup, reveal, offline volume). Documented: docs/product/local-history.md, src/recovery/README.md, ADR 0006 consequences @ 7326ad3"
+    },
+    {
+      "id": "S21.5",
+      "session": "S21",
+      "milestone": "M5",
+      "title": "History trigger integration test is reliable under CPU load",
+      "description": "tests/integration/history-triggers.test.ts failed 2 of 4 runs while four agents loaded the machine (Session 13).",
+      "acceptance": [
+        "The failing assertion and its cause are identified; a product bug is fixed in the product, a wall-clock assumption in the test is replaced by one that does not depend on machine speed (no weakened behaviour check)",
+        "The file passes 20 runs in a row while the CPU is saturated by a load generator on the Windows dev machine"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S21.2"
+      ],
+      "status": "todo",
+      "evidence": ""
     },
     {
       "id": "S22.1",
@@ -3159,6 +3212,24 @@
       ],
       "status": "done",
       "evidence": "src/ai/usage-store.test.ts (day rollover, budget), tests/integration/ai-history.test.ts (chat/inline/edit/agent usage per provider with fake provider usage events; budget refuses new requests with budget-reached, agent turn over budget mid-turn finishes; next local day resets; non-AI save/read unaffected), src/renderer/ai/usage-ui.test.ts (tokens as text on chat/agent/inline edit, Settings usage+budget text zh-CN/en, inline paused), e2e ai-history.spec.ts Settings usage + verify green @ f5b8803"
+    },
+    {
+      "id": "S39.3",
+      "session": "S39",
+      "milestone": "M10",
+      "title": "Smoke e2e lists the S38/S39 bridge surfaces",
+      "description": "smoke.spec S02.2 pins the exact preload API; S38.2 (ai.previewSnapshot) and S39 (aiHistory) added surfaces without updating it, so it failed in the first full Windows e2e run after Session 13.",
+      "acceptance": [
+        "smoke.spec lists ai.previewSnapshot and every aiHistory method by name, and passes",
+        "Each listed surface is in the typed contract (src/shared/ipc) and the preload"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S39.1",
+        "S38.2"
+      ],
+      "status": "done",
+      "evidence": "tests/e2e/smoke.spec.ts S02.2 green on Windows x64 (7/7 with preview-layout run); previewSnapshot in preload.ts:189 + ai-contract.ts, aiHistory in preload.ts:197 + ai-history-contract.ts"
     }
   ]
 }

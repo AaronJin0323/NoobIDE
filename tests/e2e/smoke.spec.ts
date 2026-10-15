@@ -109,6 +109,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       walkthrough: Object.keys(((w.noobide as { walkthrough?: object } | undefined)?.walkthrough ?? {}) as object),
       problems: Object.keys(((w.noobide as { problems?: object } | undefined)?.problems ?? {}) as object),
       ai: Object.keys(((w.noobide as { ai?: object } | undefined)?.ai ?? {}) as object),
+      aiHistory: Object.keys(((w.noobide as { aiHistory?: object } | undefined)?.aiHistory ?? {}) as object),
     };
   });
   expect(probe).toEqual({
@@ -137,6 +138,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'walkthrough',
       'problems', // S16.2: runtime problems of the preview (read-only list + clear resolved)
       'ai', // S31: AI assistant (decision 0025); the key is write-only, never returned
+      'aiHistory', // S39: saved chats (app data, by project id) and token usage
     ],
     apiVersion: 1,
     workspace: [
@@ -202,7 +204,20 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'request',
       'cancel',
       'resolveProposal',
+      'previewSnapshot', // S38.2: what the running preview shows, built in main (decision 0026)
       'onEvent',
+    ],
+    // S39.1/S39.2: saved chats and token use (contract src/shared/ipc/ai-history-contract.ts).
+    aiHistory: [
+      'listChats',
+      'getChat',
+      'saveChat',
+      'deleteChat',
+      'deleteProjectChats',
+      'countRecentChats',
+      'deleteRecentChats',
+      'usage',
+      'setDailyBudget',
     ],
   });
 
