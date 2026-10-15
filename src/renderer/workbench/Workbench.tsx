@@ -88,7 +88,11 @@ import { Splitter } from './Splitter';
 import { persistedLayout } from './layout';
 import { EDITOR_SHARE, FILES_WIDTH, MAX_SESSION_TABS } from '../../shared/session';
 import { AboutDialog, useAboutRequests } from './AboutDialog'; // S28.1
-import { aiBridge } from '../ai/inline-status'; // S32.1
+// S34.2: AI agent (proposals reviewed as diffs, applied through the save pipeline)
+import { sameText, type AgentApplyHost } from '../ai/agent-apply';
+import { AgentDecisionStore } from '../ai/agent-decisions';
+import { agentChatExtensions } from '../ai/AgentProposalCard';
+import { aiBridge } from '../ai/ai-bridge';
 import { toggleInlineAi } from '../ai/useInlineAiState'; // S32.1
 
 /**
@@ -564,6 +568,52 @@ export function Workbench() {
     [bridge, fileOps, t],
   );
 
+  // --- S34.2: how the agent's accepted changes reach the files: open tabs through their editor model and saver
+  // (one undo step, journaled, atomic save + history), everything else through the workspace APIs and file-op hooks.
+  const agentProject = doc.project;
+  const agentHost = useMemo<AgentApplyHost | null>(() => {
+    if (!bridge || !agentProject) return null;
+    return {
+      projectId: agentProject.projectId,
+      workspace: bridge.workspace,
+      history: bridge.history,
+      fileOps,
+      openTab: (relPath) => {
+        const saver = saverOf(relPath);
+        const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
+        if (!saver || !tab) return undefined;
+        const blocked =
+          saver.state.conflict || saver.state.deleted || lockedRef.current.some((p) => isSameOrBelow(relPath, p));
+        return { text: saver.text, readOnly: Boolean(tab.content.readOnly), blocked: Boolean(blocked) };
+      },
+      replaceOpenText: async (relPath, before, text) => {
+        const saver = saverOf(relPath);
+        const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
+        if (!saver || !tab) return { code: 'changed-since' };
+        dispatch({ type: 'activate', relPath }); // the user sees the change land in the editor
+        const models = await editorModels();
+        await models.waitForModel(tab.uri);
+        // Re-checked after the waits: a disk reload (S11), a conflict or typing may have changed the tab meanwhile.
+        if (
+          saver !== saverOf(relPath) ||
+          reloading.current.has(relPath) ||
+          saver.state.conflict ||
+          saver.state.deleted ||
+          !sameText(saver.text, before)
+        ) {
+          return { code: 'changed-since' };
+        }
+        const applied = await models.replaceModelText(tab.uri, text);
+        if (applied === null || saver !== saverOf(relPath)) return { code: 'write-failed', detail: 'editor' };
+        // The editor reports the edit only for the model it shows; a background tab's edit is recorded here.
+        if (saver.text !== applied) recordEdit(relPath, applied);
+        return (await saver.save()) ? null : { code: 'save-failed' };
+      },
+      openFile: (relPath) => void openFile(relPath),
+    };
+  }, [bridge, agentProject, fileOps, openFile, recordEdit]);
+  // --- end S34.2 ---
+
   // --- S12: restore after an abnormal termination (RecoveryDialog) ---
   const adoptProject = useCallback(
     async (project: OpenedProject) => {
@@ -766,9 +816,20 @@ export function Workbench() {
     }),
     [],
   );
+  // S34.2: agent turns in the chat; their proposals are reviewed as diffs and applied through agentHost.
+  const agentHostRef = useRef(agentHost);
+  agentHostRef.current = agentHost;
+  const [agentDecisions] = useState(() => new AgentDecisionStore());
+  const agentExtensions = useMemo(
+    () => agentChatExtensions({ store: agentDecisions, api: aiBridge, host: () => agentHostRef.current }),
+    [agentDecisions],
+  );
   // S31.4: the reusable consent prompt fills the chat's consent slot.
   const aiConsent = useMemo(() => (bridge?.ai ? aiConsentRenderer(bridge.ai) : undefined), [bridge]);
-  const ai = useAiChat(doc.project?.projectId ?? null, aiHost, aiConsent ? { consent: aiConsent } : {});
+  const ai = useAiChat(doc.project?.projectId ?? null, aiHost, {
+    extensions: agentExtensions,
+    ...(aiConsent ? { consent: aiConsent } : {}),
+  });
   // --- end S33 ---
 
   // Closing the window or quitting: main asks first; we answer after every file is saved (S10.6).

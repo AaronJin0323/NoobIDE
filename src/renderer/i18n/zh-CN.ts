@@ -2,6 +2,7 @@ import { welcomeHistoryZhCN } from './welcome-history';
 import { commandsZhCN } from './commands'; // S24
 import { previewToolbarZhCN } from './preview-toolbar'; // S14/S15.4
 import { aiSettingsZhCN } from './ai-settings'; // S31.4
+import { aiAgentZhCN } from './ai-agent'; // S34.2
 import { aiChatZhCN } from './ai-chat'; // S33
 import { aiInlineZhCN } from './ai-inline'; // S32.1
 /**
@@ -279,6 +280,7 @@ export const zhCN = {
   ...commandsZhCN, // S24
   ...previewToolbarZhCN, // S14/S15.4 preview manager and toolbar
   ...aiSettingsZhCN, // S31.4 Settings → AI, consent prompt, AI error explanations
+  ...aiAgentZhCN, // S34.2 AI agent panel and proposal review
   ...aiChatZhCN, // S33 AI chat and explain
   ...aiInlineZhCN, // S32.1 AI ghost-text suggestions
   // --- S18.3 formatting ---

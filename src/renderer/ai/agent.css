@@ -1,0 +1,67 @@
+/* AI agent proposal review in the chat panel (S34.2). Colours only from the theme tokens. */
+.agent-proposal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--raised);
+}
+.agent-proposal-title {
+  margin: 0;
+  font-size: 14px;
+}
+.agent-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.agent-change {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.agent-change-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.agent-change-title {
+  font-family: var(--font-code);
+  font-weight: 600;
+}
+.agent-change-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+.agent-diff-editor {
+  height: 260px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+.agent-change-actions,
+.agent-proposal-actions {
+  display: flex;
+  gap: 8px;
+}
+.agent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.agent-undo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}

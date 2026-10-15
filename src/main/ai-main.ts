@@ -10,7 +10,11 @@ import {
 } from '../ai/fake-provider';
 import { createTestEncryptor, KeyStore, type KeyEncryptor } from '../ai/keys';
 import { realProviderFactory } from '../ai/providers/index';
-import { AiService, type AgentRunner, type AiLog } from '../ai/service';
+import { AiService, type AiLog } from '../ai/service';
+import { createAgentRunner } from '../ai/agent/runner';
+import { createProjectPorts, type ProjectPortsDeps } from '../ai/agent/ports';
+import { ScriptedModel } from '../ai/agent/scripted-model';
+import { fakeAgentScript } from '../ai/agent/fake-scripts';
 import type { RecoveryLogger } from '../recovery/atomic-file';
 import type { ProjectService } from '../workspace/project-service';
 import { registerAiIpcHandlers } from './ai-ipc';
@@ -26,15 +30,18 @@ export interface AiMainOptions {
   readonly ipcMain: Pick<IpcMain, 'handle'>;
   readonly allowedOrigin: string;
   readonly userData: string;
-  readonly projects: Pick<ProjectService, 'rootOf' | 'read'>;
+  readonly projects: Pick<ProjectService, 'rootOf' | 'read' | 'listDir'>;
+  /** S34 agent tools: runtime problems (problemsBridge.capture) and the preview (PreviewManager). */
+  readonly problems?: ProjectPortsDeps['problems'];
+  readonly preview?: ProjectPortsDeps['preview'];
   /** Electron safeStorage. */
   readonly safeStorage: KeyEncryptor;
   readonly logger: RecoveryLogger;
   readonly log: AiLog;
   /** process.env.NOOBIDE_AI_FAKE: '1' (built-in scenarios), a script as inline JSON, or a script file's path. */
   readonly fakeScript?: string | undefined;
-  /** S34: the agent loop. */
-  readonly agentRunner?: AgentRunner;
+  /** NOOBIDE_AI_FAKE_AGENT: the agent script the fake plays (src/ai/agent/fake-scripts.ts). */
+  readonly fakeAgentScript?: string | undefined;
 }
 
 export interface AiMain {
@@ -79,7 +86,18 @@ export function setupAi(options: AiMainOptions): AiMain {
       const read = await projects.read({ projectId, relPath });
       return read.ok ? read.value.text : null;
     },
-    ...(options.agentRunner ? { agentRunner: options.agentRunner } : {}),
+    // S34: the agent loop over main's existing services (no new file-system path).
+    agentRunner: createAgentRunner({
+      projectPorts: (projectId) =>
+        createProjectPorts({
+          projects,
+          projectId,
+          ...(options.problems ? { problems: options.problems } : {}),
+          ...(options.preview ? { preview: options.preview } : {}),
+        }),
+    }),
+    // Fake mode: agent requests play a scripted agent (one ScriptedModel per request).
+    ...(fake ? { agentModel: () => new ScriptedModel(fakeAgentScript(options.fakeAgentScript)) } : {}),
     log: options.log,
   });
   registerAiIpcHandlers(options.ipcMain, { allowedOrigin: options.allowedOrigin, service });

@@ -15,6 +15,9 @@ import {
 import { err, ok, type Result } from '../shared/result';
 import type { AiConfigStore, AiConsentStore } from './config-store';
 import type { KeyStore } from './keys';
+import type { ModelPort } from './agent/model-port';
+import type { AgentRun, AgentRunner } from './agent/runner';
+import { toModelPort } from './providers/model-port-adapter';
 import {
   chatSystemPrompt,
   chatUserMessage,
@@ -49,42 +52,14 @@ import {
  *   technical message (the UI explains each code in the user's language).
  * - The log gets only request id, purpose, provider, model, token counts, duration and result code — never prompts,
  *   code, responses or keys (AGENTS.md).
- * - Agent requests run in an injected `agentRunner` (src/ai/agent, S34); without one they fail with
- *   'provider-error' / 'agent not available'.
+ * - Agent requests run in S34's injected `agentRunner` (src/ai/agent/runner.ts) with a ModelPort over the active
+ *   provider (providers/model-port-adapter.ts, or `agentModel` — the fake's ScriptedModel); the runner emits every
+ *   event of the request including the single terminal one, the service only logs it. Without a runner they fail
+ *   with 'provider-error' / 'agent not available'.
  */
 
-/** Events an agent runner may emit (the service adds the request id and emits done/error itself). */
-export type AgentRunnerEvent =
-  | { readonly type: 'text'; readonly text: string }
-  | { readonly type: 'step'; readonly tool: string; readonly summary: string }
-  | {
-      readonly type: 'proposal';
-      readonly proposalId: string;
-      readonly changes: Extract<AiEvent, { type: 'proposal' }>['changes'];
-      readonly reason: string;
-    };
-
-export interface AgentRunContext {
-  readonly requestId: string;
-  readonly request: Extract<AiRequest, { kind: 'agent' }>;
-  /** Built from the stored key; stream/listModels only. */
-  readonly provider: AiProvider;
-  /** The model chosen for the 'agent' purpose. */
-  readonly model: string;
-  /** Aborted on Stop, on window close and when the wall-time budget runs out. */
-  readonly signal: AbortSignal;
-  emit(event: AgentRunnerEvent): void;
-  /** Resolves when the workbench reports the user's decision on a proposal it emitted; rejects when cancelled. */
-  waitForDecision(proposalId: string): Promise<AiProposalDecision>;
-  /** Text of a project file as main reads it (null when it cannot be read as text). */
-  readFile(relPath: string): Promise<string | null>;
-}
-
-/**
- * Runs one agent turn (S34). Resolve with the token usage when the turn ends; throw a ProviderError (or anything)
- * to fail it. The service emits 'done' / 'error' and logs the outcome.
- */
-export type AgentRunner = (context: AgentRunContext) => Promise<{ readonly usage?: ProviderUsage }>;
+/** S34's runner (src/ai/agent/runner.ts) builds a ModelPort per agent request from the active provider. */
+export type AgentModelFactory = (providerId: AiProviderId, provider: AiProvider, model: string) => ModelPort;
 
 export type AiLog = (
   level: 'info' | 'warn' | 'error',
@@ -102,6 +77,8 @@ export interface AiServiceDeps {
   /** A project file's text, for context items sent without text. */
   readFile(projectId: string, relPath: string): Promise<string | null>;
   readonly agentRunner?: AgentRunner;
+  /** Overrides how the agent's ModelPort is built (fake mode: a ScriptedModel). Default: toModelPort(provider). */
+  readonly agentModel?: AgentModelFactory;
   readonly log?: AiLog;
   readonly now?: () => number;
   /** For tests: shorter budgets. */
@@ -129,9 +106,8 @@ interface Running {
   readonly owner: number;
   readonly kind: AiPurpose;
   readonly controller: AbortController;
-  /** Proposal decisions: waiting resolvers and decisions that arrived first. */
-  readonly waiting: Map<string, { resolve: (d: AiProposalDecision) => void; reject: (e: unknown) => void }>;
-  readonly early: Map<string, AiProposalDecision>;
+  /** The agent run (S34), once started: proposal decisions go to it. */
+  agent: AgentRun | null;
   cancelled: boolean;
   timedOut: boolean;
 }
@@ -257,8 +233,7 @@ export class AiService {
       owner,
       kind: request.kind,
       controller: new AbortController(),
-      waiting: new Map(),
-      early: new Map(),
+      agent: null,
       cancelled: false,
       timedOut: false,
     };
@@ -281,11 +256,7 @@ export class AiService {
   resolveProposal(decision: AiProposalDecision, owner: number): Result<null, 'unknown-request'> {
     const run = this.running.get(decision.requestId);
     if (!run || run.owner !== owner || run.kind !== 'agent') return err('unknown-request', 'no such running request');
-    const waiter = run.waiting.get(decision.proposalId);
-    if (waiter) {
-      run.waiting.delete(decision.proposalId);
-      waiter.resolve(decision);
-    } else run.early.set(decision.proposalId, decision);
+    if (!run.agent?.resolveProposal(decision)) return err('unknown-request', 'not the proposal the agent waits for');
     return ok(null);
   }
 
@@ -298,8 +269,6 @@ export class AiService {
     if (run.cancelled) return;
     run.cancelled = true;
     run.controller.abort();
-    for (const waiter of run.waiting.values()) waiter.reject(new ProviderError('cancelled', 'cancelled'));
-    run.waiting.clear();
   }
 
   private async provider(id: AiProviderId): Promise<AiProvider | null> {
@@ -346,20 +315,20 @@ export class AiService {
       if (request.kind === 'agent') {
         const runner = this.deps.agentRunner;
         if (!runner) throw new ProviderError('provider-error', 'agent not available');
-        const result = await runner({
-          requestId,
-          request,
-          provider,
-          model,
-          signal: run.controller.signal,
-          emit: (event) => {
-            if (!run.controller.signal.aborted) send({ ...event, requestId } as AiEvent);
+        const port = this.deps.agentModel?.(providerId, provider, model) ?? toModelPort(provider, model);
+        const agentRun = runner(
+          { requestId, request, model: port },
+          (event) => {
+            // The runner emits exactly one terminal event itself; the service only records it for the log.
+            if (event.type === 'done' && event.usage) usage = event.usage;
+            if (event.type === 'error') code = event.code;
+            send(event);
           },
-          waitForDecision: (proposalId) => this.waitForDecision(run, proposalId),
-          readFile: (relPath) => this.deps.readFile(request.projectId, relPath),
-        });
-        if (run.controller.signal.aborted) throw new ProviderError('cancelled', 'cancelled');
-        usage = result.usage;
+          run.controller.signal,
+        );
+        run.agent = agentRun;
+        await agentRun.finished;
+        return;
       } else {
         usage = await this.runModel(request, provider, model, budget, run, (text) =>
           send({ requestId, type: 'text', text }),
@@ -393,16 +362,6 @@ export class AiService {
         ...(run.timedOut ? { timedOut: true } : {}),
       });
     }
-  }
-
-  private waitForDecision(run: Running, proposalId: string): Promise<AiProposalDecision> {
-    if (run.controller.signal.aborted) return Promise.reject(new ProviderError('cancelled', 'cancelled'));
-    const early = run.early.get(proposalId);
-    if (early) {
-      run.early.delete(proposalId);
-      return Promise.resolve(early);
-    }
-    return new Promise((resolve, reject) => run.waiting.set(proposalId, { resolve, reject }));
   }
 
   /** Chat, inline and edit: one model turn without tools. */

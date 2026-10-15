@@ -89,6 +89,8 @@ export const aiChatZhCN = {
   'ai.error.cancelled': '已停止。',
   'ai.error.provider-error': 'AI 服务出错了，这不是你的问题。请稍后再试。',
   'ai.error.unknown-project': '这个项目已经关闭了，所以没有发送。',
+  'ai.error.budget-exhausted':
+    '这一轮用完了允许的步数、用量或时间，已经停止。已经接受的修改都保留着；再发一条消息可以让它接着做。',
   'ai.error.generic': '请求没有完成。请再试一次。',
   'ai.error.details': '详细信息：{message}',
   // ── S33.2 解释代码 / 问 AI ──
@@ -187,6 +189,8 @@ export const aiChatEn: Record<keyof typeof aiChatZhCN, string> = {
   'ai.error.cancelled': 'Stopped.',
   'ai.error.provider-error': 'The AI service had a problem; it is not your fault. Please try again later.',
   'ai.error.unknown-project': 'This project has been closed, so nothing was sent.',
+  'ai.error.budget-exhausted':
+    'This turn used up its allowed steps, usage or time and stopped. Changes you accepted are kept; send another message to let it continue.',
   'ai.error.generic': 'The request did not complete. Please try again.',
   'ai.error.details': 'Details: {message}',
   'ai.editor.explain': 'Ask AI to explain this code',

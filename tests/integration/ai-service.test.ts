@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AiConfigStore, AiConsentStore } from '../../src/ai/config-store';
 import { createFakeProviders, parseFakeScript, type FakeProviderHub } from '../../src/ai/fake-provider';
 import { createTestEncryptor, KeyStore } from '../../src/ai/keys';
-import { AiService, type AgentRunner } from '../../src/ai/service';
+import { AiService } from '../../src/ai/service';
+import { createAgentRunner, type AgentRunner } from '../../src/ai/agent/runner';
+import { createProjectPorts } from '../../src/ai/agent/ports';
+import { ProjectService } from '../../src/workspace/project-service';
 import { registerAiIpcHandlers } from '../../src/main/ai-ipc';
 import { appDataPath } from '../../src/main/app-data-layout';
 import { AppLog } from '../../src/main/app-log';
@@ -73,7 +76,10 @@ async function call(channel: string, sender: FakeSender, payload?: unknown): Pro
   return result;
 }
 
-async function setup(script: unknown, options: { runner?: AgentRunner; secure?: boolean } = {}) {
+async function setup(
+  script: unknown,
+  options: { runner?: AgentRunner; secure?: boolean; rootOf?: (id: string) => string | undefined } = {},
+) {
   hub = createFakeProviders(parseFakeScript(script));
   agentRunner = options.runner;
   appLog = new AppLog({ dir: appDataPath(userData, 'logs') });
@@ -88,7 +94,7 @@ async function setup(script: unknown, options: { runner?: AgentRunner; secure?: 
     config: new AiConfigStore({ file: appDataPath(userData, 'aiConfig'), log }),
     consent: new AiConsentStore({ file: appDataPath(userData, 'aiConsent'), log }),
     providers: hub.factory,
-    rootOf: (id) => (id === PROJECT ? path.join(dir, '我的 项目') : undefined),
+    rootOf: options.rootOf ?? ((id) => (id === PROJECT ? path.join(dir, '我的 项目') : undefined)),
     readFile: async (_id, relPath) => projectFiles[relPath] ?? null,
     ...(agentRunner ? { agentRunner } : {}),
     log: (level, event, fields) => appLog.write(level, event, fields),
@@ -482,7 +488,7 @@ describe('AI IPC and service (S31.3)', () => {
     expect(req?.messages.at(-1)).toMatchObject({ role: 'user' });
   });
 
-  it('routes agent requests to the injected runner and its proposal decisions back', async () => {
+  it('runs agent requests in the S34 runner over the active provider; decisions and Stop reach it', async () => {
     await setup({});
     await storeKey();
     await call(AI_CHANNELS.setConsent, win, { projectId: PROJECT, allowed: true });
@@ -492,45 +498,106 @@ describe('AI IPC and service (S31.3)', () => {
       message: 'agent not available',
     });
 
-    let seenModel = '';
-    const runner: AgentRunner = async (ctx) => {
-      seenModel = ctx.model;
-      expect(await ctx.readFile('index.html')).toContain('PROJECT-CODE-MARKER');
-      ctx.emit({ type: 'step', tool: 'read_file', summary: 'read index.html' });
-      ctx.emit({
-        type: 'proposal',
-        proposalId: 'p1',
-        reason: 'add about page',
-        changes: [{ kind: 'create', relPath: 'about.html', after: '<h1>About</h1>' }],
-      });
-      const decision = await ctx.waitForDecision('p1');
-      ctx.emit({ type: 'text', text: decision.results[0]?.accepted ? 'applied' : 'skipped' });
-      return { usage: { inputTokens: 5, outputTokens: 3 } };
-    };
-    await setup({}, { runner });
-    const started = await call(AI_CHANNELS.request, win, agent);
+    // The real runner and tools over a real project; the fake provider plays the model through the ModelPort adapter.
+    const projectRoot = path.join(dir, '我的 项目');
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(path.join(projectRoot, 'index.html'), '<h1>PROJECT-CODE-MARKER</h1>\n');
+    const projects = new ProjectService();
+    const opened = await projects.open(projectRoot);
+    if (!opened.ok) throw new Error('project did not open');
+    const projectId = opened.value.projectId;
+    const runner = createAgentRunner({ projectPorts: (id) => createProjectPorts({ projects, projectId: id }) });
+    await setup(
+      {
+        turns: [
+          {
+            purpose: 'agent',
+            match: 'add a page',
+            steps: [
+              { type: 'text', text: 'Looking. ' },
+              { type: 'tool-call', id: 'call-read', name: 'read_file', input: { path: 'index.html' } },
+            ],
+            usage: { inputTokens: 100, outputTokens: 10 },
+          },
+          {
+            purpose: 'agent',
+            match: 'PROJECT-CODE-MARKER',
+            steps: [
+              {
+                type: 'tool-call',
+                id: 'call-create',
+                name: 'propose_create',
+                input: { path: 'about.html', content: '<h1>About</h1>\n', reason: 'Add an about page.' },
+              },
+            ],
+          },
+          { purpose: 'agent', steps: [{ type: 'text', text: 'Done.' }], repeat: true },
+        ],
+      },
+      { runner, rootOf: (id) => projects.rootOf(id) },
+    );
+    await call(AI_CHANNELS.setConsent, win, { projectId, allowed: true });
+    const started = await call(AI_CHANNELS.request, win, { ...agent, projectId });
     const id = started.value.requestId as string;
-    for (let i = 0; i < 100 && !win.sent.some((e) => e.type === 'proposal'); i += 1)
+    for (let i = 0; i < 200 && !win.sent.some((e) => e.requestId === id && e.type === 'proposal'); i += 1) {
       await new Promise((r) => setTimeout(r, 5));
-    const decision = { requestId: id, proposalId: 'p1', results: [{ accepted: true, applied: true }] };
+    }
+    const proposal = win.sent.find((e) => e.requestId === id && e.type === 'proposal');
+    expect(proposal).toMatchObject({ changes: [{ kind: 'create', relPath: 'about.html' }] });
+    const proposalId = proposal?.type === 'proposal' ? proposal.proposalId : '';
+    const decision = { requestId: id, proposalId, results: [{ accepted: true, applied: true }] };
     expect(await call(AI_CHANNELS.resolveProposal, win2, decision)).toMatchObject({ code: 'unknown-request' });
+    expect(await call(AI_CHANNELS.resolveProposal, win, { ...decision, proposalId: 'not-it' })).toMatchObject({
+      code: 'unknown-request',
+    });
     expect(await call(AI_CHANNELS.resolveProposal, win, decision)).toEqual({ ok: true, value: null });
     const events = await finished(win, id);
-    expect(events.map((e) => e.type)).toEqual(['step', 'proposal', 'text', 'done']);
-    expect(events.at(-1)).toMatchObject({ usage: { inputTokens: 5, outputTokens: 3 } });
-    expect(seenModel).toBe('claude-opus-5-5');
+    // Exactly one terminal event, emitted by the runner.
+    expect(events.filter((e) => e.type === 'done' || e.type === 'error')).toHaveLength(1);
+    expect(events.at(-1)).toMatchObject({ type: 'done' });
+    expect(events.some((e) => e.type === 'step')).toBe(true);
+    const agentCalls = hub.requests.filter((r) => r.purpose === 'agent');
+    expect(agentCalls.length).toBeGreaterThanOrEqual(3);
+    expect(agentCalls[0]?.model).toBe('claude-opus-5-5');
+    expect(agentCalls[0]?.toolNames).toContain('propose_create');
+    // The tool result (the file, as data) went back to the model as a tool message.
+    expect(agentCalls[1]?.messages.some((m) => m.role === 'tool')).toBe(true);
+    const log = await logText();
+    expect(log).toContain('"purpose":"agent"');
+    expect(log).not.toContain('PROJECT-CODE-MARKER');
 
-    // Stop while waiting for a decision cancels the turn.
-    const again = await call(AI_CHANNELS.request, win, agent);
+    // Stop while the agent waits for a decision: one terminal 'cancelled' event.
+    await setup(
+      {
+        turns: [
+          {
+            purpose: 'agent',
+            repeat: true,
+            steps: [
+              {
+                type: 'tool-call',
+                name: 'propose_create',
+                input: { path: 'b.html', content: 'x', reason: 'r' },
+              },
+            ],
+          },
+        ],
+      },
+      { runner, rootOf: (pid) => projects.rootOf(pid) },
+    );
+    const again = await call(AI_CHANNELS.request, win, { ...agent, projectId });
     for (
       let i = 0;
-      i < 100 && !win.sent.some((e) => e.requestId === again.value.requestId && e.type === 'proposal');
+      i < 200 && !win.sent.some((e) => e.requestId === again.value.requestId && e.type === 'proposal');
       i += 1
     ) {
       await new Promise((r) => setTimeout(r, 5));
     }
     await call(AI_CHANNELS.cancel, win, { requestId: again.value.requestId });
-    expect((await finished(win, again.value.requestId)).at(-1)).toMatchObject({ type: 'error', code: 'cancelled' });
+    const stopped = await finished(win, again.value.requestId);
+    expect(stopped.filter((e) => e.type === 'done' || e.type === 'error')).toEqual([
+      expect.objectContaining({ type: 'error', code: 'cancelled' }),
+    ]);
   });
 
   it('picks OpenAI defaults from the model list on first use', async () => {

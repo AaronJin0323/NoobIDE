@@ -388,6 +388,9 @@ function start(): void {
       logger,
       log: (level, event, fields) => appLog.write(level, event, fields),
       fakeScript: process.env.NOOBIDE_AI_FAKE,
+      fakeAgentScript: process.env.NOOBIDE_AI_FAKE_AGENT,
+      problems: problems.capture, // S34: the agent's get_problems tool
+      preview, // S34: console records and refresh for the agent
     });
     Object.assign((globalThis as { __noobideTestHooks?: object }).__noobideTestHooks ?? {}, {
       // Fake provider only: what it was asked (purpose, model, provider). Never set in a normal run.

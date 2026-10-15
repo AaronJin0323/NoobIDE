@@ -20,6 +20,7 @@ export const AI_ERROR_CODES: readonly AiErrorCode[] = [
   'cancelled',
   'provider-error',
   'unknown-project',
+  'budget-exhausted',
 ];
 
 const ERROR_KEYS: Record<AiErrorCode, MessageKey> = {
@@ -34,6 +35,7 @@ const ERROR_KEYS: Record<AiErrorCode, MessageKey> = {
   cancelled: 'ai.error.cancelled',
   'provider-error': 'ai.error.provider-error',
   'unknown-project': 'ai.error.unknown-project',
+  'budget-exhausted': 'ai.error.budget-exhausted', // S34
 };
 
 /** The plain-language explanation of an error code; IPC errors ('invalid-request', …) get the generic text. */
