@@ -760,6 +760,12 @@ button {
 /* ── File roles (S20.3) ────────────────────────────────── */
 /* Text label, never colour alone: the role is spelled out next to the real file name. */
 .file-role {
+  /* The real file name wins the space: the role label gives way first (shrinks much faster) and ellipsizes; the
+     tooltip and the editor's role hint still carry it in full. */
+  flex: 0 1000 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   margin-left: 8px;
   color: var(--muted);
   font-size: 11px;
