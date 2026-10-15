@@ -38,11 +38,18 @@ const PROBLEM_KEYS: Record<FileNameProblem, MessageKey> = {
 export function nameProblemMessage(t: Translate, name: string): string | null {
   const check = checkFileName(name);
   if (check.ok) return null;
-  return check.problems
+  return nameProblemsText(t, check.problems, check.invalidChars);
+}
+
+/** The explanations of the given name problems (S13.5 reuses them for names found in a transferred project). */
+export function nameProblemsText(
+  t: Translate,
+  problems: readonly FileNameProblem[],
+  invalidChars: readonly string[],
+): string {
+  return problems
     .map((problem) =>
-      problem === 'invalid-char'
-        ? `${t(PROBLEM_KEYS[problem])} ${check.invalidChars.join(' ')}`
-        : t(PROBLEM_KEYS[problem]),
+      problem === 'invalid-char' ? `${t(PROBLEM_KEYS[problem])} ${invalidChars.join(' ')}` : t(PROBLEM_KEYS[problem]),
     )
     .join(' ');
 }

@@ -24,6 +24,8 @@ interface ProblemsPanelProps {
   onClearResolved?: (() => void) | undefined;
   /** Details of the selected problem (S17.2 go to code / original error, S22.4 problem card). */
   renderDetails?: ((record: ProblemRecord) => ReactNode) | undefined;
+  /** S22.5: the latest one-click fix, kept above the lists until cleared (the fixed problem may leave the list). */
+  fixCard?: ReactNode;
 }
 
 const SECTION_LABEL: Record<SectionId, MessageKey> = {
@@ -56,6 +58,7 @@ export function ProblemsPanel({
   view,
   onClearResolved,
   renderDetails,
+  fixCard,
 }: ProblemsPanelProps) {
   const { t, locale } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
@@ -107,6 +110,7 @@ export function ProblemsPanel({
           </p>
         ) : (
           <div className="problems-body" data-testid="problems-list">
+            {fixCard}
             {view.total === 0 && view.resolvedCandidates === 0 && (
               <p className="problems-message" data-testid="problems-none">
                 <CheckIcon />

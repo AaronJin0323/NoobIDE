@@ -82,6 +82,20 @@ export const RULE_FIXTURES: readonly RuleFixture[] = [
     { ...base, source: 'runtime', preview, code: 'cross-origin-script-error', message: 'Script error.' },
     { externalScripts: ['https://cdn.example.com/lib.min.js'] },
   ),
+  // S16.6 — an error the preview captured inside a script from another website (no project file, URL kept)
+  fx(
+    'cross-origin-external-script-error',
+    'cross-origin-script-error',
+    {
+      ...base,
+      source: 'runtime',
+      preview,
+      code: 'TypeError',
+      message: "Uncaught TypeError: Cannot read properties of null (reading 'addEventListener')",
+      data: { scriptUrl: 'https://cdn.example.com/lib.min.js' },
+    },
+    {},
+  ),
 
   // Rule 1 — misspelled / undefined variable
   fx(

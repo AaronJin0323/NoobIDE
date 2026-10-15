@@ -106,6 +106,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       ),
       history: Object.keys(((w.noobide as { history?: object } | undefined)?.history ?? {}) as object),
       walkthrough: Object.keys(((w.noobide as { walkthrough?: object } | undefined)?.walkthrough ?? {}) as object),
+      problems: Object.keys(((w.noobide as { problems?: object } | undefined)?.problems ?? {}) as object),
     };
   });
   expect(probe).toEqual({
@@ -127,10 +128,12 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'recentProjects',
       'lifecycle',
       'session',
+      'portability', // S13.5: cross-platform transfer check (report only)
       'createProject',
       'history',
       'commands', // S24.2: command context + native menu choices
       'walkthrough',
+      'problems', // S16.2: runtime problems of the preview (read-only list + clear resolved)
     ],
     apiVersion: 1,
     workspace: [
@@ -169,6 +172,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     history: ['files', 'versions', 'read', 'beforeRestore', 'restoreDeleted', 'overview', 'clear', 'cleanup', 'reveal'],
     // S23: onboarding walkthrough progress (step ids and short signatures only).
     walkthrough: ['get', 'save'],
+    problems: ['list', 'clearResolved', 'onChanged'],
   });
 
   // The violation we just provoked is logged as a console error; drop exactly those so the final check stays strict.

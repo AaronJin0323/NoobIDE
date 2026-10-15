@@ -6,6 +6,8 @@ import { APP_DATA_CHANNELS } from '../shared/ipc/app-data-contract';
 import { COMMAND_CHANNELS, COMMAND_EVENTS } from '../shared/ipc/commands-contract'; // S24.2
 import { isCommandId } from '../shared/commands';
 import { WALKTHROUGH_CHANNELS } from '../shared/ipc/walkthrough-contract';
+import { PROBLEMS_CHANNELS, PROBLEMS_EVENT_CHANNEL } from '../shared/ipc/problems-contract'; // S16.2
+import type { ProblemRecord } from '../shared/problem';
 
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
@@ -105,6 +107,9 @@ const api: NoobideApi = {
     saveTabs: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionSaveTabs, request),
     saveLayout: (layout) => ipcRenderer.invoke(APP_DATA_CHANNELS.sessionSaveLayout, layout),
   },
+  portability: {
+    check: (request) => ipcRenderer.invoke(APP_DATA_CHANNELS.portabilityCheck, request),
+  },
   // --- end S13 ---
   // --- S20.2 create-project wizard ---
   createProject: {
@@ -144,6 +149,16 @@ const api: NoobideApi = {
     get: () => ipcRenderer.invoke(WALKTHROUGH_CHANNELS.get),
     save: (state) => ipcRenderer.invoke(WALKTHROUGH_CHANNELS.save, state),
   },
+  // S16.2 runtime problems: the listener receives only the record list, never the IpcRendererEvent.
+  problems: {
+    list: () => ipcRenderer.invoke(PROBLEMS_CHANNELS.list),
+    clearResolved: () => ipcRenderer.invoke(PROBLEMS_CHANNELS.clearResolved),
+    onChanged: (listener) => {
+      const wrapped = (_event: unknown, records: readonly ProblemRecord[]) => listener(records);
+      ipcRenderer.on(PROBLEMS_EVENT_CHANNEL, wrapped);
+      return () => void ipcRenderer.removeListener(PROBLEMS_EVENT_CHANNEL, wrapped);
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld(
@@ -164,5 +179,6 @@ contextBridge.exposeInMainWorld(
     history: Object.freeze(api.history), // S21.3/S21.4
     commands: Object.freeze(api.commands), // S24.2
     walkthrough: Object.freeze(api.walkthrough), // S23
+    problems: Object.freeze(api.problems), // S16.2
   }),
 );

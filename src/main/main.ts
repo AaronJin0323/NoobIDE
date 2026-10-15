@@ -20,6 +20,7 @@ import { installCloseGuard, type CloseGuard } from './close-guard';
 import { ProjectWatchHub } from './project-watch';
 import { ProjectService } from '../workspace/project-service';
 import { PreviewManager } from '../preview/preview-manager';
+import { ProblemsBridge, registerProblemsIpcHandlers } from './problems-bridge'; // S16.2
 import { consoleLogger } from '../recovery/atomic-file';
 import { RecoveryJournal } from '../recovery/journal';
 import { SnapshotStore } from '../recovery/history';
@@ -77,7 +78,9 @@ function start(): void {
 
   // --- S04 preview: the project service is created when the app is ready; the preview asks it for roots. ---
   let projects: ProjectService | undefined;
+  const problems = new ProblemsBridge(); // S16.2: runtime capture adapter, fed by the preview
   const preview = new PreviewManager({
+    capture: problems,
     rootOf: (id) => projects?.rootOf(id),
     // S13.2: the entry page from .noobide/project.json (when that file exists), else the project's index.html.
     entryPathOf: async (id) => {
@@ -91,6 +94,7 @@ function start(): void {
   (globalThis as { __noobideTestHooks?: unknown }).__noobideTestHooks = {
     blockedRequests,
     preview: () => preview.debugInfo(),
+    problems: () => problems.debugInfo(), // S16.2–S16.6
   };
 
   // S24.2: the native menu bar, created when the app is ready (it needs the settings' interface language).
@@ -278,6 +282,7 @@ function start(): void {
       windowOf: (event) => BrowserWindow.fromWebContents(event.sender),
       preview,
     });
+    registerProblemsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, bridge: problems }); // S16.2
     // --- S13 app data (all in app.getPath('userData'), never inside a project) ---
     const settings = new SettingsStore({ file: path.join(appData, 'settings.json'), log: logger });
     // --- S24.2: native menus, translated with the interface language and enabled from the command context ---

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>运行时错误</title>
+    <link rel="stylesheet" href="样式/主 样式.css" />
+  </head>
+  <body>
+    <h1>运行时错误示例</h1>
+    <img src="图片/不存在 的图.png" alt="缺失的图片" />
+    <script src="脚本/语法 错误.js"></script>
+    <script src="脚本/同步 异常.js"></script>
+    <script src="脚本/未处理 拒绝.js"></script>
+    <script src="脚本/控制台.js"></script>
+    <script type="module" src="脚本/模块 入口.js"></script>
+    <script type="module" src="脚本/模块 缺失.js"></script>
+    <script type="module" src="脚本/模块 裸名.js"></script>
+    <!-- A reserved, never-resolving host name: a network error, not an HTTP status. -->
+    <img src="https://noobide-e2e.invalid/远程 图片.png" alt="远程图片" />
+    <script>
+      显示欢迎();
+    </script>
+  </body>
+</html>
