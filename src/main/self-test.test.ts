@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { safeOrigin } from './harden';
-import { augmentSelfTestLine, selfTestOffline, selfTestRequested, withSelfTestQuery } from './self-test';
+import {
+  augmentSelfTestLine,
+  selfTestOffline,
+  selfTestRequested,
+  selfTestUserDataDir,
+  withSelfTestQuery,
+} from './self-test';
 
 describe('offline self-test (S18.1)', () => {
   it('needs both switches', () => {
@@ -22,6 +28,13 @@ describe('self-test switches', () => {
     expect(selfTestRequested({ NOOBIDE_SELF_TEST: '1' })).toBe(true);
     expect(selfTestRequested({ NOOBIDE_SELF_TEST: 'true' })).toBe(false);
     expect(selfTestRequested({})).toBe(false);
+  });
+
+  it("never runs on the user's app data unless a folder is given explicitly", () => {
+    const temp = () => '/tmp/noobide-selftest-x';
+    expect(selfTestUserDataDir({ NOOBIDE_SELF_TEST: '1' }, false, temp)).toBe('/tmp/noobide-selftest-x');
+    expect(selfTestUserDataDir({ NOOBIDE_SELF_TEST: '1' }, true, temp)).toBeUndefined();
+    expect(selfTestUserDataDir({}, false, temp)).toBeUndefined(); // a normal launch keeps the real app data
   });
 
   it('adds the query flag to app and dev URLs', () => {

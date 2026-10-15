@@ -33,6 +33,22 @@ export function augmentSelfTestLine(message: string, extra: Record<string, unkno
   }
 }
 
+/**
+ * A self-test never reads or writes the user's app data (settings, session, recent projects, recovery journal, logs):
+ * it is exempt from the single-instance lock, so on the default app-data folder it would restore and watch the user's
+ * last project next to a running NoobIDE (or another self-test), and rewrite their session. Without an explicit
+ * `--user-data-dir` it therefore runs on a fresh temporary folder, returned here so the caller can point
+ * `app.getPath('userData')` at it before the app is ready and remove it when the probe exits.
+ */
+export function selfTestUserDataDir(
+  env: NodeJS.ProcessEnv,
+  hasUserDataDirSwitch: boolean,
+  makeTempDir: () => string,
+): string | undefined {
+  if (!selfTestRequested(env) || hasUserDataDirSwitch) return undefined;
+  return makeTempDir();
+}
+
 export function withSelfTestQuery(url: string): string {
   const u = new URL(url);
   u.searchParams.set('selftest', '1');

@@ -40,6 +40,27 @@ interface Running {
 let home: string;
 const userData = () => path.join(home, 'Library', 'Application Support', 'NoobIDE');
 
+/** Every packaged process this file started; afterAll ends any that a failed or timed-out step left running. */
+const running = new Set<ChildProcess>();
+
+/** Ends the process (SIGTERM, then SIGKILL after `graceMs`) and resolves once it has exited. */
+async function stop(child: ChildProcess, graceMs = 20_000): Promise<void> {
+  const exited = new Promise<void>((resolve) => {
+    if (child.exitCode !== null || child.signalCode !== null) resolve();
+    else child.once('exit', () => resolve());
+  });
+  if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+  const timer = setTimeout(() => child.kill('SIGKILL'), graceMs);
+  await exited;
+  clearTimeout(timer);
+  running.delete(child);
+}
+
+/**
+ * Starts a packaged build on the throw-away home and connects to its workbench page. Every wait is bounded and fails
+ * with what it was waiting for (the first launch of a freshly signed bundle can be slow on a loaded Mac), and on any
+ * failure the process is ended here: a launch that never reached the test's try/finally must not keep running.
+ */
 async function start(exe: string): Promise<Running> {
   const portFile = path.join(userData(), 'DevToolsActivePort');
   await rm(portFile, { force: true });
@@ -47,41 +68,81 @@ async function start(exe: string): Promise<Running> {
     env: { ...process.env, CFFIXED_USER_HOME: home },
     stdio: 'ignore',
   });
-  let port = '';
-  await expect
-    .poll(async () => {
-      port = existsSync(portFile) ? ((await readFile(portFile, 'utf8')).split('\n')[0] ?? '') : '';
-      return port;
-    })
-    .not.toBe('');
-  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-  let page: Page | undefined;
-  await expect
-    .poll(() => {
-      page = browser
-        .contexts()
-        .flatMap((c) => c.pages())
-        .find((p) => p.url().startsWith('noobide://app/'));
-      return page !== undefined;
-    })
-    .toBe(true);
-  await page!.locator('.monaco-editor .view-lines').first().waitFor();
-  return { child, browser, page: page! };
+  running.add(child);
+  let browser: Browser | undefined;
+  try {
+    let port = '';
+    await expect
+      .poll(
+        async () => {
+          if (child.exitCode !== null || child.signalCode !== null) {
+            return `exited (${child.exitCode ?? child.signalCode}) before opening its DevTools port`;
+          }
+          // Chromium writes "<port>\n<browser target path>"; once the second line is there the port line is whole.
+          const lines = existsSync(portFile) ? (await readFile(portFile, 'utf8')).split('\n') : [];
+          port = lines[1]?.startsWith('/devtools/') ? (lines[0] ?? '') : '';
+          return port ? 'listening' : 'starting';
+        },
+        { message: `DevTools port of ${exe}`, timeout: 90_000 },
+      )
+      .toBe('listening');
+    // connectOverCDP attaches to every page and waits until each one answers. The restored project's preview is a
+    // page too, and while its first navigation is still pending it answers nothing (seen for minutes on a loaded
+    // Mac): connecting then times out with no hint why. So first wait, over plain HTTP that attaches to nothing,
+    // until the workbench is there and no page is between about:blank and its first document.
+    await expect
+      .poll(
+        async () => {
+          const targets = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()) as {
+            type: string;
+            title: string;
+            url: string;
+          }[];
+          const pages = targets.filter((t) => t.type === 'page');
+          if (!pages.some((p) => p.url.startsWith('noobide://app/'))) return 'no workbench page yet';
+          const pending = pages.filter((p) => p.title === 'about:blank' && p.url !== 'about:blank');
+          return pending.length === 0 ? 'settled' : `still loading: ${pending.map((p) => p.url).join(', ')}`;
+        },
+        { message: 'pages of the started app', timeout: 90_000 },
+      )
+      .toBe('settled');
+    browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout: 60_000 });
+    let page: Page | undefined;
+    await expect
+      .poll(
+        () => {
+          page = browser!
+            .contexts()
+            .flatMap((c) => c.pages())
+            .find((p) => p.url().startsWith('noobide://app/'));
+          return page !== undefined;
+        },
+        { message: 'workbench page', timeout: 60_000 },
+      )
+      .toBe(true);
+    // No unbounded waits on this page: a stuck step fails with its own message instead of the test timeout.
+    page!.setDefaultTimeout(30_000);
+    await page!.locator('.monaco-editor .view-lines').first().waitFor({ timeout: 60_000 });
+    return { child, browser, page: page! };
+  } catch (error) {
+    await browser?.close().catch(() => undefined);
+    await stop(child);
+    throw error;
+  }
 }
 
 /** Quits the way the OS does on logout (SIGTERM → a normal app quit) and waits for the process to end. */
 async function quit(app: Running): Promise<void> {
   await app.browser.close().catch(() => undefined);
-  if (app.child.exitCode !== null) return;
-  const exited = new Promise((resolve) => app.child.once('exit', resolve));
-  app.child.kill('SIGTERM');
-  await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 20_000))]);
-  if (app.child.exitCode === null && app.child.signalCode === null) app.child.kill('SIGKILL');
+  await stop(app.child);
 }
 
 async function aboutVersion(page: Page): Promise<string> {
   await page.evaluate(() => window.dispatchEvent(new Event('noobide:open-about')));
   const text = (await page.getByTestId('about-version').textContent()) ?? '';
+  // The dialog installs its Escape handler and then moves focus to Close (effects that run after it renders), so
+  // Escape pressed as soon as the text is there can reach the page before the handler exists.
+  await expect(page.getByTestId('about-close')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('about-dialog')).toHaveCount(0);
   return text;
@@ -94,6 +155,8 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  // A step that timed out never reached its finally: end its app before removing the home it writes to.
+  await Promise.all([...running].map((child) => stop(child, 5_000)));
   await rm(home, { recursive: true, force: true }).catch(() => undefined);
 });
 
