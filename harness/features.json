@@ -2924,7 +2924,7 @@
         "S31.3"
       ],
       "status": "in_progress",
-      "evidence": ""
+      "evidence": "all criteria covered by tests/integration/ai-agent.test.ts (22) + src/ai/agent/tools.test.ts; done blocked only by dependency S31.3 (wire createAgentRunner + fake provider)"
     },
     {
       "id": "S34.2",
