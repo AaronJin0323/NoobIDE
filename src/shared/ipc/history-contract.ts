@@ -187,7 +187,16 @@ export interface HistoryApi {
    * S34.2: right before an AI change is applied to an existing file, keeps its content as a `before-ai` version of
    * the group. `id` is null when the file does not exist or its content could not be kept.
    */
-  groupBefore(request: GroupBeforeRequest): Promise<IpcResult<{ readonly id: string | null }, HistoryError>>;
+  groupBefore(request: GroupBeforeRequest): Promise<
+    IpcResult<
+      {
+        readonly id: string | null;
+        /** The history key the version was kept under (the file's real relative path); record the step with it. */
+        readonly relPath: string | null;
+      },
+      HistoryError
+    >
+  >;
   /** S34.2: after an AI change was applied, adds it to its group (main keeps what is on disk now as `after-ai`). */
   groupRecord(request: GroupRecordRequest): Promise<IpcResult<null, HistoryError>>;
   /** S34.2: the open project's change groups, newest first. */

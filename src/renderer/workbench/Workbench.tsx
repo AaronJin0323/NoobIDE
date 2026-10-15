@@ -680,9 +680,13 @@ export function Workbench() {
       // 2. What is on disk now is kept as a version (reason "before restore").
       const kept = await bridge.history.beforeRestore({ projectId: project.projectId, relPath });
       if (!kept.ok || !same() || saver !== saverOf(relPath)) return 'failed';
-      if (expect !== undefined && !sameText(saver.text, expect)) return 'changed';
       // 3. The version becomes the editor content as one undoable edit, then goes through the save pipeline.
-      const applied = await import('../editor/editor-models').then((m) => m.replaceModelText(tab.uri, text));
+      const models = await import('../editor/editor-models');
+      await models.waitForModel(tab.uri);
+      // Checked right before the replace (only microtasks follow, so no keystroke can land in between).
+      if (saver !== saverOf(relPath)) return 'failed';
+      if (expect !== undefined && !sameText(saver.text, expect)) return 'changed';
+      const applied = await models.replaceModelText(tab.uri, text);
       if (applied === null || saver !== saverOf(relPath)) return 'failed';
       // The editor reports the edit only for the model it shows; a background tab's edit is recorded here (journal).
       if (saver.text !== applied) recordEdit(relPath, applied);

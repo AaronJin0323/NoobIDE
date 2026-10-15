@@ -660,11 +660,13 @@ export class SnapshotStore {
     // App-data upgrade/downgrade policy (S28.4, src/main/json-file.ts): an older version is read and written in the
     // current version on the next change; a newer version is never written, moved or trimmed.
     const schema = schemaVersionOf(record, VERSION, 'v');
-    if (record && record.format === FORMAT && schema.kind === 'newer') {
+    const newer =
+      schema.kind === 'newer' || (typeof record?.v === 'number' && Number.isFinite(record.v) && record.v > VERSION);
+    if (record && record.format === FORMAT && newer) {
       // Written by a newer NoobIDE: leave it exactly as it is and keep everything it may reference.
       this.newer.add(key);
       this.protectText(raw);
-      this.log('history.index-newer', { v: schema.version });
+      this.log('history.index-newer', { v: schema.kind === 'newer' ? schema.version : 'unknown' });
       return;
     }
     const index = record ? toIndex(record) : null;
@@ -728,7 +730,7 @@ export class SnapshotStore {
     if (Object.keys(index.files).length === 0 && Object.keys(index.groups).length === 0) {
       await rm(this.indexPath(key), { force: true });
       this.indexes.delete(key);
-    } else await writeFileAtomic(this.indexPath(key), JSON.stringify(index));
+    } else await writeFileAtomic(this.indexPath(key), serializeIndex(index));
   }
 
   private addRef(meta: SnapshotMeta): void {
@@ -879,6 +881,20 @@ function newIndex(rootPath: string): ProjectIndex {
   return { format: FORMAT, v: VERSION, rootPath, files: nullRecord(), groups: nullRecord() };
 }
 
+/**
+ * An index without anything S34.2 added (no groups, no AI versions) is still written as version 1, so an older
+ * NoobIDE after a downgrade keeps using that project's history; version 2 only once it holds AI data.
+ */
+function serializeIndex(index: ProjectIndex): string {
+  const usesV2 =
+    Object.keys(index.groups).length > 0 ||
+    Object.values(index.files).some((list) =>
+      list.some((m) => m.group !== undefined || m.reason === 'before-ai' || m.reason === 'after-ai'),
+    );
+  if (usesV2) return JSON.stringify(index);
+  return JSON.stringify({ format: index.format, v: 1, rootPath: index.rootPath, files: index.files });
+}
+
 function clipLabel(label: string): string {
   const line = label.replace(/\s+/g, ' ').trim();
   return line.length > GROUP_LIMITS.maxLabel ? `${line.slice(0, GROUP_LIMITS.maxLabel - 1)}…` : line;
@@ -948,6 +964,9 @@ function toIndex(r: Record<string, unknown>): { index: ProjectIndex; dropped: nu
   return { index: { format: FORMAT, v: VERSION, rootPath: r.rootPath, files, groups }, dropped };
 }
 
+/** `<createdAt>-<12 hex>-<seq>`, as `snapshot()` makes them. */
+const VERSION_ID = /^\d{1,16}-[0-9a-f]{12}-\d{1,16}$/;
+
 const isHashOrNull = (v: unknown): v is string | null =>
   v === null || (typeof v === 'string' && /^[0-9a-f]{64}$/.test(v));
 
@@ -964,7 +983,8 @@ function toGroup(id: string, value: unknown, fallbackSeq: number): HistoryGroupR
     const s = item as Record<string, unknown>;
     if (!STEP_KINDS.includes(s.kind as GroupStepKind) || typeof s.relPath !== 'string' || s.relPath === '') return null;
     if (s.kind === 'rename' && (typeof s.to !== 'string' || s.to === '')) return null;
-    if (!(s.before === null || typeof s.before === 'string') || !isHashOrNull(s.afterHash)) return null;
+    if (!(s.before === null || (typeof s.before === 'string' && VERSION_ID.test(s.before)))) return null;
+    if (!isHashOrNull(s.afterHash)) return null;
     steps.push({
       kind: s.kind as GroupStepKind,
       relPath: historyKey(s.relPath),

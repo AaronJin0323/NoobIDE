@@ -277,9 +277,11 @@ export function registerHistoryHandlers(
     if (root === undefined) return UNKNOWN_PROJECT;
     if (!port) return UNAVAILABLE;
     const { key, absPath } = await keyOf(root, relPath);
-    if (absPath === null || !(await isFile(absPath))) return { ok: true, value: { id: null } };
+    if (absPath === null || !(await isFile(absPath))) return { ok: true, value: { id: null, relPath: null } };
     const kept = await port.triggers.snapshotForGroup(root, key, absPath, 'before-ai', groupId);
-    return { ok: true, value: { id: kept?.id ?? null } };
+    // The key is the file's real path (on-disk case, NFC): the step is recorded under it, so a deleted file is found
+    // again even when the agent spelled its path differently.
+    return { ok: true, value: { id: kept?.id ?? null, relPath: kept?.id ? key : null } };
   });
 
   handle(
@@ -425,9 +427,12 @@ export function registerHistoryHandlers(
 export function toHistoryGroup(group: HistoryGroupRecord): HistoryGroup {
   const files: string[] = [];
   for (const step of group.steps) {
-    // A renamed file counts once, under its new name.
-    const p = step.kind === 'rename' && step.to !== undefined ? step.to : step.relPath;
-    if (!files.includes(p)) files.push(p);
+    // A renamed file counts once, under its new name (also when it was edited before the rename).
+    if (step.kind === 'rename' && step.to !== undefined) {
+      const at = files.indexOf(step.relPath);
+      if (at >= 0) files.splice(at, 1, step.to);
+      else if (!files.includes(step.to)) files.push(step.to);
+    } else if (!files.includes(step.relPath)) files.push(step.relPath);
   }
   return {
     id: group.id,

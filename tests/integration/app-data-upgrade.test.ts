@@ -10,7 +10,7 @@ import { RecentProjects } from '../../src/main/recent-projects';
 import { SessionStore } from '../../src/main/session-store';
 import { SettingsStore } from '../../src/main/settings-store';
 import { WalkthroughStore } from '../../src/main/walkthrough-store';
-import { SnapshotStore } from '../../src/recovery/history';
+import { HISTORY_INDEX_VERSION, SnapshotStore } from '../../src/recovery/history';
 import { RecoveryJournal } from '../../src/recovery/journal';
 import { DEFAULT_SETTINGS } from '../../src/shared/settings';
 import { DEFAULT_SESSION_LAYOUT } from '../../src/shared/session';
@@ -187,10 +187,9 @@ describe('app data across NoobIDE versions (S28.4)', () => {
 
   it('vN+1 → vN (downgrade): newer files are used as far as understood and stay byte for byte for the re-upgrade', async () => {
     await useVersionN();
-    // Turn every file into what a newer NoobIDE (its schema + 1, with a field this version does not know) would write.
-    const bump = async (file: string, field = 'version') => {
+    // Turn every file into what a newer NoobIDE (a schema this version does not know, with a new field) would write.
+    const bump = async (file: string, field = 'version', next = 2) => {
       const value = JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>;
-      const next = (typeof value[field] === 'number' ? (value[field] as number) : 0) + 1;
       await writeFile(file, JSON.stringify({ ...value, [field]: next, addedInNext: { anything: true } }));
     };
     for (const entry of ['settings', 'recentProjects', 'session', 'walkthrough', 'preview'] as const) {
@@ -202,7 +201,7 @@ describe('app data across NoobIDE versions (S28.4)', () => {
     await bump(path.join(journalDir, record!), 'v');
     const indexDir = path.join(appDataPath(userData, 'history'), 'index');
     const [index] = await readdir(indexDir);
-    await bump(path.join(indexDir, index!), 'v');
+    await bump(path.join(indexDir, index!), 'v', HISTORY_INDEX_VERSION + 1); // history index: v2 is S34.2's
     const before = await snapshotFiles(userData);
 
     // The older version starts on the newer data.

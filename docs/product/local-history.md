@@ -61,7 +61,7 @@ first — also after NoobIDE was closed or crashed:
 - a deleted file is created again from history (never over a file that has that name now).
 
 A file changed since the turn (edited, saved, or changed outside NoobIDE) is left alone; the window names it and
-says why. The turn is then shown as **已撤销 / Undone**. The chat card's "undo this turn's changes" is the same
+says why, and the turn stays undoable so the rest can be finished later; once every change is undone the turn is shown as **已撤销 / Undone**. The chat card's "undo this turn's changes" is the same
 operation. NoobIDE keeps the newest 100 turns per project; a turn whose versions were removed by the limits below
 reports which files could not be undone.
 

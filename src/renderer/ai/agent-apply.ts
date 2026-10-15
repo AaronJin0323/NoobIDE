@@ -131,14 +131,22 @@ export async function applyChange(
   }
 }
 
-/** Keeps the file's current content as the group's "before" version; null when there is none or that failed. */
-async function keepBefore(host: AgentApplyHost, group: HistoryGroupRef, relPath: string): Promise<string | null> {
+interface Kept {
+  /** Version id of the content before the change, or null when none could be kept. */
+  readonly id: string | null;
+  /** The path to record the step under: the history key main kept it under (real case), else as given. */
+  readonly relPath: string;
+}
+
+/** Keeps the file's current content as the group's "before" version. */
+async function keepBefore(host: AgentApplyHost, group: HistoryGroupRef, relPath: string): Promise<Kept> {
   try {
     const kept = await host.history.groupBefore({ projectId: host.projectId, groupId: group.id, relPath });
-    return kept.ok ? kept.value.id : null;
+    if (kept.ok && kept.value.id !== null) return { id: kept.value.id, relPath: kept.value.relPath ?? relPath };
   } catch {
-    return null;
+    // recorded without a "before" version: undo reports it
   }
+  return { id: null, relPath };
 }
 
 async function record(
@@ -172,7 +180,7 @@ async function applyEdit(
     // nothing reached the disk, so nothing is recorded.
     const problem = await host.replaceOpenText(relPath, before, after);
     if (problem) return { ok: false, failure: problem };
-    await record(host, group, { kind: 'edit', relPath, before: kept });
+    await record(host, group, { kind: 'edit', relPath: kept.relPath, before: kept.id });
     return APPLIED;
   }
   const current = await host.workspace.readFile({ projectId: host.projectId, relPath });
@@ -188,7 +196,7 @@ async function applyEdit(
     expectedHash: current.value.version.hash, // main refuses if the file changed after this read
   });
   if (!written.ok) return failed(written.code === 'changed-on-disk' ? 'changed-since' : 'write-failed', written.code);
-  await record(host, group, { kind: 'edit', relPath, before: kept });
+  await record(host, group, { kind: 'edit', relPath: kept.relPath, before: kept.id });
   return APPLIED;
 }
 
@@ -233,8 +241,19 @@ async function applyRename(host: AgentApplyHost, from: string, to: string): Prom
 }
 
 /** Trashes a file (the Files panel's path). With a group, its content is kept as the group's "before" version. */
-async function applyDelete(host: AgentApplyHost, relPath: string, group?: HistoryGroupRef): Promise<ApplyResult> {
+async function applyDelete(
+  host: AgentApplyHost,
+  relPath: string,
+  group?: HistoryGroupRef,
+  /** Runs after unsaved edits were saved, right before the trash: a failure cancels the deletion. */
+  recheck?: () => Promise<ApplyFailure | null>,
+): Promise<ApplyResult> {
   if (!(await host.fileOps.beforeChange(relPath))) return failed('save-first-failed');
+  const problem = recheck ? await recheck().catch((): ApplyFailure => ({ code: 'write-failed' })) : null;
+  if (problem) {
+    host.fileOps.cancelled?.(relPath);
+    return { ok: false, failure: problem };
+  }
   const kept = group ? await keepBefore(host, group, relPath) : null;
   try {
     const result = await host.workspace.trashEntry({ projectId: host.projectId, relPath });
@@ -247,7 +266,7 @@ async function applyDelete(host: AgentApplyHost, relPath: string, group?: Histor
     return failed('write-failed');
   }
   host.fileOps.afterChange({ type: 'deleted', relPath });
-  if (group) await record(host, group, { kind: 'delete', relPath, before: kept });
+  if (group && kept) await record(host, group, { kind: 'delete', relPath: kept.relPath, before: kept.id });
   return APPLIED;
 }
 
@@ -259,13 +278,15 @@ async function asLeft(
   host: AgentApplyHost,
   relPath: string,
   afterHash: string | null,
+  /** The file-op lock this undo itself just took (the tab is read-only during the trash) does not count. */
+  ownLock = false,
 ): Promise<{ readonly text: string } | ApplyFailure> {
   if (afterHash === null) return { code: 'no-history' };
   const disk = await host.workspace.readFile({ projectId: host.projectId, relPath });
   if (!disk.ok) return disk.code === 'not-found' ? { code: 'not-found' } : { code: 'write-failed', detail: disk.code };
   if (disk.value.version.hash !== afterHash) return { code: 'changed-since' };
   const open = host.openTab(relPath);
-  if (open && (open.blocked || !sameText(open.text, disk.value.text))) return { code: 'changed-since' };
+  if (open && ((open.blocked && !ownLock) || !sameText(open.text, disk.value.text))) return { code: 'changed-since' };
   return { text: disk.value.text };
 }
 
@@ -301,8 +322,12 @@ export async function undoStep(host: AgentApplyHost, step: HistoryGroupStep): Pr
       case 'create': {
         const left = await asLeft(host, step.relPath, step.afterHash);
         if (isFailure(left)) return left;
-        // To the trash (with a local-history copy first), never deleted for good.
-        const result = await applyDelete(host, step.relPath);
+        // To the trash (with a local-history copy first), never deleted for good — and checked again after the
+        // open tab's edits were saved, so nothing typed meanwhile goes to the trash.
+        const result = await applyDelete(host, step.relPath, undefined, async () => {
+          const again = await asLeft(host, step.relPath, step.afterHash, true);
+          return isFailure(again) ? again : null;
+        });
         return result.ok ? null : result.failure;
       }
       case 'rename': {
@@ -339,8 +364,9 @@ export interface UndoTurnResult {
 }
 
 /**
- * Undoes a turn's recorded steps, newest first; a step that cannot be undone is skipped and reported. When anything
- * was undone, local history marks the group as undone.
+ * Undoes a turn's recorded steps, newest first; a step that cannot be undone is skipped and reported. Only when
+ * every step was undone does local history mark the group as undone; after a partial undo it can be run again (the
+ * steps already undone are then skipped, as their files are no longer what the turn left).
  */
 export async function undoGroup(host: AgentApplyHost, group: HistoryGroup): Promise<UndoTurnResult> {
   let undone = 0;
@@ -350,7 +376,7 @@ export async function undoGroup(host: AgentApplyHost, group: HistoryGroup): Prom
     if (failure) failures.push({ step, failure });
     else undone += 1;
   }
-  if (undone > 0) {
+  if (undone > 0 && failures.length === 0) {
     await host.history.groupUndone({ projectId: host.projectId, groupId: group.id }).catch(() => undefined);
   }
   return { undone, failures };

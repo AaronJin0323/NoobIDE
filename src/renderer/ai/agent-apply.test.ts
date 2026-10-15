@@ -200,6 +200,68 @@ describe('undoGroup (S34.2)', () => {
     expect(env.files['notes.txt']?.text).toBe('a new notes file');
   });
 
+  it('a partial undo leaves the turn open: once the user reverts their edit, undoing again finishes it', async () => {
+    const env = await applied();
+    const left = env.files['style.css'];
+    env.files['style.css'] = { text: 'user edit', hash: 'h-user' };
+    const first = await undoGroupById(env.host, GROUP.id);
+    expect(first.undone).toBe(3);
+    expect(env.log).not.toContain(`undone ${GROUP.id}`); // not marked: it can be tried again
+    env.files['style.css'] = left as { text: string; hash: string }; // the user put back what the turn left
+    const second = await undoGroupById(env.host, GROUP.id);
+    expect(second.undone).toBe(1); // the rest: their files are no longer what the turn left, so they are skipped
+    expect(env.files['style.css']?.text).toBe('red');
+    expect(Object.keys(env.files).sort()).toEqual(['notes.txt', 'old.html', 'style.css']);
+  });
+
+  it('a created file edited while its tab’s edits are saved first is not trashed', async () => {
+    const env = await applied();
+    env.host.fileOps.beforeChange = async (relPath) => {
+      env.log.push(`before ${relPath}`);
+      if (relPath === 'about.html') env.files['about.html'] = { text: 'typed meanwhile', hash: 'h-typed' };
+      return true;
+    };
+    const result = await undoGroupById(env.host, GROUP.id);
+    expect(result.failures.map((f) => [f.step?.relPath, f.failure.code])).toEqual([['about.html', 'changed-since']]);
+    expect(env.files['about.html']?.text).toBe('typed meanwhile');
+    expect(env.log).toContain('cancelled about.html');
+    expect(env.log).not.toContain('trash about.html');
+  });
+
+  it('an open created file is trashed although the undo’s own file-op lock makes its tab read-only', async () => {
+    const env = await applied();
+    const tabs: Record<string, { text: string; blocked: boolean }> = {
+      'about.html': { text: '<h1>About</h1>', blocked: false },
+    };
+    env.host.openTab = (relPath) => {
+      const tab = tabs[relPath];
+      return tab ? { text: tab.text, readOnly: false, blocked: tab.blocked } : undefined;
+    };
+    env.host.fileOps.beforeChange = async (relPath) => {
+      if (tabs[relPath]) tabs[relPath].blocked = true; // the workbench locks the tab during the operation
+      return true;
+    };
+    expect(await undoGroupById(env.host, GROUP.id)).toEqual({ undone: 4, failures: [] });
+    expect(env.trash['about.html']).toBeDefined();
+  });
+
+  it('records the step under the path main kept the version under (the file’s real case)', async () => {
+    const env = fakeAgentHost({ 'Notes.txt': { text: 'n', hash: 'h0' } });
+    const groupBefore = env.host.history.groupBefore;
+    env.host.history.groupBefore = async (request) => {
+      const kept = await groupBefore({ ...request, relPath: 'Notes.txt' });
+      return kept;
+    };
+    env.host.workspace.trashEntry = async () => {
+      delete env.files['Notes.txt'];
+      return { ok: true, value: null };
+    };
+    await applyChange(env.host, { kind: 'delete', relPath: 'notes.txt' }, GROUP);
+    expect(env.groups.get(GROUP.id)?.steps[0]).toMatchObject({ kind: 'delete', relPath: 'Notes.txt' });
+    expect(await undoGroupById(env.host, GROUP.id)).toEqual({ undone: 1, failures: [] });
+    expect(env.files['Notes.txt']?.text).toBe('n');
+  });
+
   it('an open tab with edits since the turn is not touched', async () => {
     const env = fakeAgentHost({ 'style.css': { text: 'red', hash: 'h0' } }, { 'style.css': { text: 'red' } });
     await applyChange(env.host, turn[0] as AiFileChange, GROUP);

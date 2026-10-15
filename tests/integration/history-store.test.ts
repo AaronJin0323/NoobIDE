@@ -100,7 +100,7 @@ describe('snapshot store (S21.1)', () => {
     const hash = sha256Hex(bytes('<p>版本一</p>'));
     expect(await tree(historyDir)).toEqual([`index/${projectKey(root)}.json`, `objects/${hash.slice(0, 2)}/${hash}`]);
     const index = JSON.parse(await readFile(indexFile(root), 'utf8'));
-    expect(index).toMatchObject({ format: 'noobide-history', v: 2, rootPath: root });
+    expect(index).toMatchObject({ format: 'noobide-history', v: 1, rootPath: root });
     expect(Object.keys(index.files)).toEqual([REL]);
   });
 

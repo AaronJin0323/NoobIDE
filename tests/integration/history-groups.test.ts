@@ -150,7 +150,7 @@ describe('recording an agent turn (S34.2)', () => {
     wire(newStore());
     const [group] = await groups();
     expect(group).toMatchObject({ id: GROUP.id, kind: 'ai-agent', label: GROUP.label, undoneAt: null });
-    expect(group?.files).toEqual([css, 'about.html', '笔记.txt', '关于 我.html']);
+    expect(group?.files).toEqual([css, '关于 我.html', '笔记.txt']); // the created page counts once, by its new name
     expect(group?.steps).toEqual([
       { kind: 'edit', relPath: css, before: before.value.id, afterHash: sha256Hex(bytes('h1 { color: blue; }\n')) },
       { kind: 'create', relPath: 'about.html', before: null, afterHash: sha256Hex(bytes('<h1>About</h1>\n')) },
@@ -204,8 +204,39 @@ describe('recording an agent turn (S34.2)', () => {
     });
     expect(await call(CHANNELS.historyGroupBefore, { projectId, groupId: GROUP.id, relPath: 'missing.html' })).toEqual({
       ok: true,
-      value: { id: null },
+      value: { id: null, relPath: null },
     });
+  });
+
+  it('a deletion is recorded under the file’s real path, even when the change named it in another case', async () => {
+    const caseInsensitive = await import('node:fs/promises')
+      .then((fs) => fs.access(path.join(root, '笔记.TXT')))
+      .then(
+        () => true,
+        () => false,
+      );
+    await writeFile(path.join(root, 'Readme.md'), '# 你好\n');
+    const spelled = caseInsensitive ? 'README.md' : 'Readme.md';
+    const kept = await call<{ ok: true; value: { id: string; relPath: string } }>(CHANNELS.historyGroupBefore, {
+      projectId,
+      groupId: GROUP.id,
+      relPath: spelled,
+    });
+    expect(kept.value.relPath).toBe('Readme.md');
+    await rm(path.join(root, 'Readme.md'));
+    await call(CHANNELS.historyGroupRecord, {
+      projectId,
+      group: GROUP,
+      step: { kind: 'delete', relPath: kept.value.relPath, before: kept.value.id },
+    });
+    const [step] = (await groups())[0]?.steps ?? [];
+    expect(step).toMatchObject({ kind: 'delete', relPath: 'Readme.md', before: kept.value.id });
+    // …so the deleted file can be created again from that version.
+    expect(await call(CHANNELS.historyRestoreDeleted, { projectId, relPath: 'Readme.md', id: kept.value.id })).toEqual({
+      ok: true,
+      value: { relPath: 'Readme.md' },
+    });
+    expect(await readFile(path.join(root, 'Readme.md'), 'utf8')).toBe('# 你好\n');
   });
 
   it('marks a group undone (persisted); an unknown group is not-found', async () => {
@@ -291,8 +322,24 @@ describe('index schema upgrade and downgrade (S34.2, S28.4 policy)', () => {
     ).toMatchObject({ ok: false, code: 'unavailable' });
     expect(await call(CHANNELS.historyGroupBefore, { projectId, groupId: GROUP.id, relPath: '笔记.txt' })).toEqual({
       ok: true,
-      value: { id: null },
+      value: { id: null, relPath: null },
     });
+    expect(await readFile(indexFile(), 'utf8')).toBe(newer);
+  });
+
+  it('an index without AI data is still written as version 1 (an older NoobIDE keeps using it after a downgrade)', async () => {
+    await store.snapshot(root, '笔记.txt', bytes('plain save'), 'before-save');
+    expect(JSON.parse(await readFile(indexFile(), 'utf8')).v).toBe(1);
+    await store.snapshot(root, '笔记.txt', bytes('ai'), 'before-ai', { group: GROUP.id });
+    expect(JSON.parse(await readFile(indexFile(), 'utf8')).v).toBe(2);
+  });
+
+  it('a newer index with a version this app cannot parse (e.g. 2.5) is left untouched, not quarantined', async () => {
+    const newer = JSON.stringify({ format: 'noobide-history', v: 2.5, rootPath: root, files: {} });
+    await mkdir(path.dirname(indexFile()), { recursive: true });
+    await writeFile(indexFile(), newer);
+    wire(newStore());
+    expect(await call(CHANNELS.historyGroups, { projectId })).toMatchObject({ ok: false, code: 'unavailable' });
     expect(await readFile(indexFile(), 'utf8')).toBe(newer);
   });
 

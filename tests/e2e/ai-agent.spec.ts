@@ -2,7 +2,7 @@ import { access, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promise
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
-import { makeProject, openProject } from './project';
+import { documentText, makeProject, openFile, openProject, tabOf, typeAtEnd } from './project';
 
 /**
  * S34.2 end to end, against the fake provider (NOOBIDE_AI_FAKE=1). S31's fake plays an agent request with
@@ -198,5 +198,38 @@ test.describe('AI agent (S34)', () => {
     await expect(versions.nth(2)).toContainText('AI 助手修改前');
     await versions.nth(1).click();
     await expect(page.getByTestId('history-diff').locator('[data-kind="added"]')).toContainText('color: blue;');
+  });
+
+  test('undo from History skips a file edited since the turn, names it, and can finish later', async () => {
+    await start('all-kinds', { 'notes.txt': 'n\n', 'unused.html': '<p>u</p>\n' });
+    await send('Tidy up my project');
+    await expect(changes()).toHaveCount(4, { timeout: 30_000 });
+    await lastTurn().getByTestId('agent-accept-all').click();
+    await expect(lastTurn()).toHaveAttribute('data-status', 'done');
+
+    // The user keeps working on style.css after the turn (typed in the editor).
+    await openFile(page, 'style.css');
+    await typeAtEnd(page, '/* 我的修改 */');
+    await expect.poll(() => documentText(page.getByTestId('code-editor').getByRole('code'))).toContain('我的修改');
+
+    await page.getByTestId('rail-history').click();
+    const group = page.getByTestId('history-group');
+    await group.getByTestId('history-group-undo').click();
+    const notice = page.getByTestId('history-notice');
+    await expect(notice).toHaveAttribute('data-kind', 'error');
+    await expect(notice).toContainText('撤销了 3 处修改，1 处没有撤销');
+    await expect(notice).toContainText('style.css: 这一轮之后文件又被修改过');
+    // Not marked as undone: it can be finished once the file is back to what the turn left.
+    await expect(group.getByTestId('history-group-undo')).toBeVisible();
+    await expect(group.getByTestId('history-group-undone')).toHaveCount(0);
+
+    // style.css keeps the user's work; the other files are back.
+    expect(await readFile(path.join(root, 'style.css'), 'utf8')).not.toBe(CSS);
+    await page.getByTestId('history-close').click();
+    await tabOf(page, 'style.css').click(); // the restored files opened in tabs of their own
+    await expect.poll(() => documentText(page.getByTestId('code-editor').getByRole('code'))).toContain('我的修改');
+    expect(await readFile(path.join(root, 'notes.txt'), 'utf8')).toBe('n\n');
+    expect(await readFile(path.join(root, 'unused.html'), 'utf8')).toBe('<p>u</p>\n');
+    expect(await exists('about.html')).toBe(false);
   });
 });

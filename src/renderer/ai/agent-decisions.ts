@@ -99,7 +99,9 @@ export class AgentDecisionStore {
   }
 
   canUndo(requestId: string): boolean {
-    return this.applied.has(requestId) && !this.undone.has(requestId);
+    // After a partial undo (files changed since), the rest can be tried again.
+    const undone = this.undone.get(requestId);
+    return this.applied.has(requestId) && (undone === undefined || undone.failures.length > 0);
   }
 
   async accept(ctx: DecisionContext, proposal: ProposalRef, index: number): Promise<void> {

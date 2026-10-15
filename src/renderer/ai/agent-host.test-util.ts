@@ -108,7 +108,7 @@ export function fakeAgentHost(files: Record<string, FakeFile>, open: Record<stri
       async groupBefore({ relPath }) {
         log.push(`keep ${relPath}`);
         const f = files[relPath];
-        return { ok: true, value: { id: f ? keep(relPath, f.text) : null } };
+        return { ok: true, value: f ? { id: keep(relPath, f.text), relPath } : { id: null, relPath: null } };
       },
       async groupRecord({ group, step }: GroupRecordRequest) {
         log.push(`record ${step.kind} ${step.relPath}`);
