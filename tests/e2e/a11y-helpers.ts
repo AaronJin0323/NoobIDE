@@ -19,6 +19,17 @@ export interface AxeFinding {
  * e2e suites); the editor's surrounding controls are scanned.
  */
 export async function axeScan(page: Page, impacts: readonly string[] = ['serious', 'critical']): Promise<AxeFinding[]> {
+  // S40.4: sheets and menus open with a short animation; colour contrast is judged on the settled design, not on a
+  // frame in the middle of a fade. Scroll-driven animations (scroll edge effect) never finish and are skipped.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.timeline instanceof DocumentTimeline && a.playState === 'running')
+        .filter((a) => a.effect?.getComputedTiming().endTime !== Infinity) // a spinner never ends
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  );
   await page.evaluate(AXE_SOURCE);
   const findings = await page.evaluate(async () => {
     const axe = (window as unknown as { axe: { run: (ctx: unknown, opts: unknown) => Promise<AxeResults> } }).axe;

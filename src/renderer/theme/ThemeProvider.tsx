@@ -53,12 +53,28 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     void window.noobide?.settings?.update({ theme: next });
   }, []);
 
+  const previousScheme = useRef<ColorScheme | null>(null);
   useLayoutEffect(() => {
     const root = document.documentElement;
+    // S40.4: a theme switch is instant. Without this, every control's hover transition would fade its colours from
+    // the old theme to the new one at its own speed, and the window would look uneven for a moment.
+    let frame = 0;
+    if (previousScheme.current !== null && previousScheme.current !== scheme) {
+      root.dataset.themeSwitching = '';
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => delete root.dataset.themeSwitching);
+      });
+    }
+    previousScheme.current = scheme;
     for (const [name, value] of Object.entries(cssVariables(scheme))) root.style.setProperty(name, value);
     root.style.colorScheme = scheme;
     root.dataset.theme = scheme;
     root.dataset.themeChoice = choice;
+    return () => {
+      if (frame === 0) return;
+      cancelAnimationFrame(frame);
+      delete root.dataset.themeSwitching;
+    };
   }, [scheme, choice]);
 
   const choiceValue = useMemo(() => ({ choice, setChoice }), [choice, setChoice]);

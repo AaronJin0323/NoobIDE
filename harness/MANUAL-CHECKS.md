@@ -575,3 +575,30 @@ cost: a few cents per provider.
   events and the app log).
 - **Result:** _(owner fills in: providers run, models, pass/fail, cost seen in the provider console, date)_
 - **Close with:** `node harness/session.mjs set S36.1 done --evidence "review: docs/reviews/G9.md + live: npm run test:ai-live <providers>, <date>, 10/10 passed"`
+
+### S40.8 — Liquid Glass refresh on real hardware (Windows x64 and Apple Silicon)
+
+- **Platform:** Windows 11 x64 (the dev machine is fine) and macOS on Apple Silicon
+- **Build:** the commit that closed S40.7 (see harness/PROGRESS.md), `npm start` or `npm run package`
+- **Why manual:** the agent may not change system accessibility settings, and Chromium's mapping of
+  `prefers-reduced-transparency` to the Windows "Transparency effects" switch is not proven by the e2e suite (it
+  emulates the media query and the `html[data-transparency=reduce]` switch instead).
+- **Steps (Windows):**
+  1. Open a project and a file; open the ⋯ menu, the command palette (Ctrl+Shift+P) and 帮助 → 术语表. Light and dark
+     theme (⋯ → 浅色主题 / 深色主题). Expected: rail and top-bar groups are soft translucent capsules, menus and sheets
+     blur what is behind them, code text stays crisp and readable.
+  2. Settings → Personalisation → Colours → **Transparency effects: Off**, restart NoobIDE. Expected: rail, groups,
+     menus, palette and sheets are solid (no blur); in DevTools (development build) `matchMedia('(prefers-reduced-transparency: reduce)').matches`
+     is `true`. Record whether it is — if not, the follow-up "bridge nativeTheme.prefersReducedTransparency" in
+     docs/product/liquid-glass-study.md is needed. Turn the setting back on.
+  3. Settings → Accessibility → **Contrast themes: Night sky** (or any). Expected: every control has a visible system
+     border, nothing is translucent, focus rings are visible. Turn it off.
+  4. Type fast in a long file with the preview running; open and close the palette repeatedly. Expected: no visible
+     lag compared with the previous build.
+- **Steps (macOS):**
+  1. As Windows step 1, with ⌘⇧P.
+  2. System Settings → Accessibility → Display → **Reduce transparency** on: materials become solid. Off again.
+  3. **Increase contrast** on: materials solid, borders stronger. Off again.
+  4. Accessibility → Motion → **Reduce motion** on: menus, palette and sheets only fade in (no scale or slide).
+- **Result:** _(owner fills in: platform/OS, pass/fail per step, date)_
+- **Close with:** `node harness/session.mjs set S40.8 done --evidence "manual: <platforms>, <date>, steps 1–4 pass"`

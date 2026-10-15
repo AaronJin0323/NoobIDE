@@ -75,7 +75,15 @@ const editorModels = () => import('../editor/editor-models');
 // S13 app data
 import type { SettingsSnapshot } from '../../shared/ipc/app-data-contract';
 import { SettingsNotice } from './SettingsNotice';
-import type { CommandContext } from '../../shared/commands'; // S24.1
+import {
+  COMMAND_IDS,
+  commandById,
+  commandChecked,
+  commandShortcutLabel,
+  type CommandContext,
+  type CommandId,
+} from '../../shared/commands'; // S24.1
+import { CommandPalette, type PaletteCommand } from '../commands/CommandPalette'; // S40.5
 import { useThemeChoice } from '../theme/ThemeProvider'; // S24.4
 import { focusRegion } from '../commands/focus-regions'; // S24.3
 import { openAbout } from './about'; // S28.1
@@ -965,10 +973,20 @@ export function Workbench() {
     const next = cycleTab(docRef.current, step);
     if (next) dispatch({ type: 'activate', relPath: next });
   };
+  // S40.5: the command palette lists what can run at the moment it opens; the chosen command runs after it closed.
+  const [palette, setPalette] = useState<readonly PaletteCommand[] | null>(null);
+  const paletteRun = useRef<CommandId | null>(null);
+  const canRunRef = useRef<(id: CommandId) => boolean>(() => false);
   const commandContext: CommandContext = {
     hasProject: doc.project !== null,
     hasActiveTab: doc.active !== null,
-    modalOpen: wizardOpen || historyFor !== null || aboutOpen.open || aiSettingsOpen.open || glossaryFor !== null,
+    modalOpen:
+      wizardOpen ||
+      historyFor !== null ||
+      aboutOpen.open ||
+      aiSettingsOpen.open ||
+      glossaryFor !== null ||
+      palette !== null,
     theme: theme.choice, // S24.4
   };
   const commandHandlers: CommandHandlers = {
@@ -1008,8 +1026,25 @@ export function Workbench() {
     // S32.1: AI ghost-text suggestions on / off (offered only when the AI bridge exists)
     'toggle-inline-ai': aiBridge() ? () => toggleInlineAi(docRef.current.project?.projectId ?? null) : undefined,
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
+    'command-palette': () =>
+      setPalette(
+        COMMAND_IDS.filter((id) => id !== 'command-palette' && canRunRef.current(id)).map((id) => ({
+          id,
+          label: commandById(id).label,
+          shortcut: commandShortcutLabel(id, platform),
+          checked: commandChecked(id, { ...commandContext, modalOpen: false }),
+        })),
+      ),
   };
   const commands = useCommands(platform, commandContext, commandHandlers);
+  canRunRef.current = commands.canRun;
+  useEffect(() => {
+    // After the palette left the DOM (it is a modal, and commands wait while one is open).
+    const id = paletteRun.current;
+    if (palette !== null || id === null) return;
+    paletteRun.current = null;
+    commands.run(id);
+  }, [palette, commands]);
   const menuItems = useAppMenuItems(platform, commandContext, commandHandlers, commands.run);
   // --- end S24.1 ---
 
@@ -1102,6 +1137,7 @@ export function Workbench() {
             : undefined
         }
         menuItems={menuItems}
+        onOpenPalette={() => commands.run('command-palette')}
       />
       <div
         className="workbench-middle"
@@ -1209,7 +1245,8 @@ export function Workbench() {
             historyFor !== null ||
             aboutOpen.open ||
             aiSettingsOpen.open ||
-            glossaryFor !== null
+            glossaryFor !== null ||
+            palette !== null // S40.5: the palette sheet sits over the preview column
           }
           projectId={project?.projectId ?? null}
           saveFailed={doc.tabs.some((tab) => saveStatus(tab.save) === 'failed')}
@@ -1296,6 +1333,15 @@ export function Workbench() {
         />
       )}
       {aboutOpen.open && <AboutDialog onClose={aboutOpen.close} />}
+      {palette && (
+        <CommandPalette
+          commands={palette}
+          onClose={(id) => {
+            paletteRun.current = id;
+            setPalette(null);
+          }}
+        />
+      )}
       {aiSettingsOpen.open && bridge?.ai && (
         <AiSettingsDialog api={bridge.ai} projectId={project?.projectId ?? null} onClose={aiSettingsOpen.close} />
       )}

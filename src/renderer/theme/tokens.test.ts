@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  GLASS,
+  GLASS_BACKDROPS,
+  GLASS_TEXT,
   NON_TEXT_PAIRS,
   TEXT_PAIRS,
   THEMES,
+  composite,
   contrastRatio,
   cssVariableName,
   cssVariables,
@@ -54,6 +58,55 @@ describe('theme tokens (S30.1)', () => {
     expect(cssVariableName('syntaxTag')).toBe('--syntax-tag');
     expect(cssVariableName('bg')).toBe('--bg');
     expect(cssVariables('dark')['--panel']).toBe(THEMES.dark.panel);
-    expect(Object.keys(cssVariables('light'))).toHaveLength(Object.keys(THEMES.light).length);
+    expect(cssVariables('dark')['--glass-overlay']).toBe(GLASS.dark.glassOverlay);
+    expect(Object.keys(cssVariables('light'))).toHaveLength(
+      Object.keys(THEMES.light).length + Object.keys(GLASS.light).length,
+    );
+  });
+});
+
+describe('glass materials (S40.2)', () => {
+  it('composites a translucent colour over a solid one', () => {
+    expect(composite('#FFFFFF80', '#000000')).toBe('#808080');
+    expect(composite('#00000000', '#ABCDEF')).toBe('#ABCDEF');
+    expect(() => composite('#FFFFFF', '#000000')).toThrow();
+  });
+
+  it('dark and light define the same glass tokens; fills are #RRGGBBAA, fallbacks solid', () => {
+    expect(Object.keys(GLASS.dark).sort()).toEqual(Object.keys(GLASS.light).sort());
+    for (const scheme of SCHEMES) {
+      for (const [key, value] of Object.entries(GLASS[scheme])) {
+        expect(value, `${scheme}.${key}`).toMatch(key.endsWith('Solid') ? /^#[0-9A-F]{6}$/ : /^#[0-9A-F]{8}$/);
+      }
+    }
+  });
+
+  it.each(SCHEMES)('%s: text on glass reaches 4.5:1 over every surface the glass can float over', (scheme) => {
+    const t = THEMES[scheme];
+    const g = GLASS[scheme];
+    const failures: string[] = [];
+    for (const [fill, surfaces] of Object.entries(GLASS_BACKDROPS) as [
+      keyof typeof GLASS_BACKDROPS,
+      readonly string[],
+    ][]) {
+      for (const surface of surfaces) {
+        const solid = t[surface as keyof typeof t];
+        // The ambient colour fields tint the window background under the chrome.
+        for (const under of [solid, composite(g.ambientA, solid), composite(g.ambientB, solid)]) {
+          const seen = composite(g[fill], under);
+          for (const fg of GLASS_TEXT) {
+            const ratio = contrastRatio(t[fg], seen);
+            if (ratio < 4.5) failures.push(`${fg} on ${fill} over ${surface} (${under}): ${ratio.toFixed(2)}`);
+          }
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it.each(SCHEMES)('%s: text on the solid fallbacks reaches 4.5:1', (scheme) => {
+    const t = THEMES[scheme];
+    for (const solid of [GLASS[scheme].glassChromeSolid, GLASS[scheme].glassOverlaySolid])
+      for (const fg of GLASS_TEXT) expect(contrastRatio(t[fg], solid), `${fg} on ${solid}`).toBeGreaterThanOrEqual(4.5);
   });
 });

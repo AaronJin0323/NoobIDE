@@ -131,6 +131,17 @@
         "Chats are kept per project in app data and can be reopened; every request shows its token use and an optional daily budget stops new requests",
         "All M9 rules still hold: consent before code or page content is sent, keys main-only, no code in logs, proposals need approval"
       ]
+    },
+    {
+      "id": "M11",
+      "title": "Liquid Glass design language (owner request 2026-10-15)",
+      "plan_refs": "docs/product/liquid-glass-study.md; docs/decisions/0027-liquid-glass-design-language.md; PLAN §3, §9",
+      "exit_criteria": [
+        "The workbench, its dialogs and the AI surfaces follow one documented design language derived from Apple's Liquid Glass guidance: glass only on the floating control layer, solid content, concentric shapes, spring motion",
+        "Every translucent layer has a solid twin used for reduced transparency, increased contrast and forced colours; reduced motion replaces movement with a dissolve; contrast is checked in both themes",
+        "No blur or backdrop effect sits over the editor or the native preview while people type or watch the page (S27 budgets unaffected)",
+        "Every command that applies can be found by searching in Chinese or English and run from the keyboard"
+      ]
     }
   ],
   "sessions": [
@@ -546,6 +557,17 @@
         "S36"
       ],
       "plan_refs": "docs/decisions/0025-ai-assistant.md; docs/product/ai-plan.md; AGENTS.md project folders stay ordinary"
+    },
+    {
+      "id": "S40",
+      "milestone": "M11",
+      "title": "Liquid Glass refresh",
+      "goal": "Study Apple's Liquid Glass guidance, decide what it means for NoobIDE, and ship the highest-value parts: materials, control styles, motion, scroll edges, a command palette, checked in light and dark on Windows and macOS.",
+      "depends_on": [
+        "S30",
+        "S24"
+      ],
+      "plan_refs": "docs/product/liquid-glass-study.md; docs/decisions/0027-liquid-glass-design-language.md; docs/reviews/interface-assessment-2026-10-14.md"
     }
   ],
   "features": [
@@ -3159,6 +3181,143 @@
       ],
       "status": "done",
       "evidence": "src/ai/usage-store.test.ts (day rollover, budget), tests/integration/ai-history.test.ts (chat/inline/edit/agent usage per provider with fake provider usage events; budget refuses new requests with budget-reached, agent turn over budget mid-turn finishes; next local day resets; non-AI save/read unaffected), src/renderer/ai/usage-ui.test.ts (tokens as text on chat/agent/inline edit, Settings usage+budget text zh-CN/en, inline paused), e2e ai-history.spec.ts Settings usage + verify green @ f5b8803"
+    },
+    {
+      "id": "S40.1",
+      "session": "S40",
+      "milestone": "M11",
+      "title": "Liquid Glass design study, decision and plan",
+      "description": "",
+      "acceptance": [
+        "docs/product/liquid-glass-study.md summarises, in our own words with linked Apple sources, what each principle (materials, layering, concentricity, scroll edges, toolbars, sidebars, sheets/popovers/alerts, menus and commands, control styles, text input, animation, accessibility, colour and type) means for NoobIDE on Windows x64 and macOS arm64, including what is adopted, adapted and rejected",
+        "The study contains a concrete phased plan mapped to S40 features and lists later candidates; docs/decisions/0027 records the design direction, alternatives and how it is verified"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "docs/product/liquid-glass-study.md (13 principle areas paraphrased with linked developer.apple.com HIG/SwiftUI/WWDC25 sources, adopt/adapt/reject per area, architecture+perf, phased plan S40.1–S40.8, later candidates) + docs/decisions/0027-liquid-glass-design-language.md; checked against both criteria by the lead"
+    },
+    {
+      "id": "S40.2",
+      "session": "S40",
+      "milestone": "M11",
+      "title": "Glass materials with solid fallbacks",
+      "description": "",
+      "acceptance": [
+        "Translucent glass tokens for chrome and overlays live in tokens.ts beside the solid tokens; a unit test checks text, muted and accent text reach 4.5:1 on each fill composited over every surface it can float over, in both themes, and on the solid twins",
+        "Persistent chrome (rail, top-bar groups, status strip) uses a translucent fill without backdrop blur; only transient overlays (menus, palette, sheets) blur, and nothing with a backdrop filter intersects the editor or the preview while no overlay is open (e2e)",
+        "Reduced transparency (media query or html[data-transparency=reduce]), increased contrast and forced colours switch every material to its solid twin (e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S40.1"
+      ],
+      "status": "done",
+      "evidence": "theme/tokens.ts GLASS + composite(); tokens.test.ts glass contrast over every backdrop incl. ambient tint, both themes, + solid twins; glass.css materials (chrome no backdrop-filter, overlays blur); tests/e2e/glass.spec.ts: no backdrop-filter intersects editor/preview stage while idle, menu+palette blur, rail translucent; reduced transparency (CDP media + data-transparency), contrast more, forced colours → solid/no blur, both themes; e2e Windows x64 @ s40-liquid-glass"
+    },
+    {
+      "id": "S40.3",
+      "session": "S40",
+      "milestone": "M11",
+      "title": "Control styles, toolbar groups, rail and text fields",
+      "description": "",
+      "acceptance": [
+        "Buttons follow named styles mapped from SwiftUI (glassProminent for the one primary action of a place, glass/bordered secondary, plain quiet) with hover and pressed states; related top-bar controls share one capsule group; the rail is a floating capsule; radii are concentric (inner = outer − padding)",
+        "Text fields share one filled style with a visible focus ring and an error shown in words and border, not colour alone; existing roles, names and e2e flows are unchanged"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S40.2"
+      ],
+      "status": "done",
+      "evidence": "glass.css control styles (glassProminent primary, glass secondary, plain quiet, pressed scale), TopBar toolbar groups, rail capsule, concentric radius tokens, unified text fields with focus ring and aria-invalid border+text; shell/a11y/file-tree/ai-settings/theme/menus/commands specs green (shell list gains open-palette); e2e Windows x64 @ s40-liquid-glass"
+    },
+    {
+      "id": "S40.4",
+      "session": "S40",
+      "milestone": "M11",
+      "title": "Motion system with springs and reduce-motion dissolve",
+      "description": "",
+      "acceptance": [
+        "Spring easing tokens (linear() curves) and short durations drive menus, sheets, the palette and pressed states; no animation makes people wait (≤ 340 ms)",
+        "With prefers-reduced-motion the same layers only dissolve (no scale or slide) and pressed controls do not scale (e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S40.2"
+      ],
+      "status": "done",
+      "evidence": "glass.css --ease-snappy/--ease-smooth linear() springs, durations 120–340 ms, glass-pop/rise; reduce motion → glass-fade and no press scale (glass.spec reduced-motion test, both themes); ThemeProvider: instant theme switch (data-theme-switching), fixes mid-transition contrast; e2e Windows x64 @ s40-liquid-glass"
+    },
+    {
+      "id": "S40.5",
+      "session": "S40",
+      "milestone": "M11",
+      "title": "Command palette",
+      "description": "",
+      "acceptance": [
+        "Ctrl+Shift+P / ⌘⇧P, the top bar's search button and View menu open a glass sheet with one search field listing every command that can run now with its shortcut; ↑/↓ and Enter run, Escape or a click outside closes and returns focus; the preview view is hidden while it is open",
+        "Search matches the interface language and the other language ('save' finds 保存) with the other label shown as a hint, ignores case, spaces and ellipses, and never runs anything during IME composition; unit tests for the search model and e2e for keyboard use, menu entry and axe in both themes",
+        "All strings are in zh-CN and en"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S40.3"
+      ],
+      "status": "done",
+      "evidence": "commands/palette-model.ts + test (7: bilingual, normalisation, initials, arrows), CommandPalette.tsx, command-palette in registry + View menu, top-bar search button; glass.spec: keyboard open/search/arrows/Enter runs/Escape and outside click close + focus return, 'save' finds 保存 with hint, empty state, only runnable commands, native menu item, preview covered, axe light+dark; zh-CN+en (i18n parity); e2e Windows x64 @ s40-liquid-glass"
+    },
+    {
+      "id": "S40.6",
+      "session": "S40",
+      "milestone": "M11",
+      "title": "Scroll edge effect and AI surfaces in the same language",
+      "description": "",
+      "acceptance": [
+        "Scrolling lists (file tree, problems, AI chat) dissolve softly under their header once scrolled, with no JavaScript",
+        "The AI chat (messages, composer, chips, consent) uses the same materials, radii and field styles; no AI behaviour changes"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S40.3"
+      ],
+      "status": "done",
+      "evidence": "glass.css scroll-edge mask via @property + animation-timeline: scroll(self) (no JS), scroll-padding keeps keyboard focus visible, off under contrast/forced colours; AI chat messages/composer/chips/consent restyled; ai-chat, ai-settings, ai-history e2e green; screenshots test-results/glass/ai-*.png; e2e Windows x64 @ s40-liquid-glass"
+    },
+    {
+      "id": "S40.7",
+      "session": "S40",
+      "milestone": "M11",
+      "title": "Visual and e2e checks in light and dark",
+      "description": "",
+      "acceptance": [
+        "tests/e2e/glass-visual.spec.ts captures welcome, workbench, menu, problems, palette, AI chat and a sheet in light and dark to test-results/glass/ for review",
+        "tests/e2e/glass.spec.ts asserts the material, motion, palette and accessibility rules in both themes; the existing a11y, theme, shell, menu and command specs stay green"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S40.5",
+        "S40.6"
+      ],
+      "status": "done",
+      "evidence": "tests/e2e/glass-visual.spec.ts (welcome, workbench, menu, problems, palette, ai, sheet × light/dark → test-results/glass/) + tests/e2e/glass.spec.ts (9 tests) green; a11y/theme/shell/menus/commands/ai-settings/ai-chat/file-tree green; full suite 263 passed, 2 failures pre-existing on main f51e123 (smoke preload API list, preview-layout scale factor — baseline reproduced); e2e Windows x64 @ s40-liquid-glass"
+    },
+    {
+      "id": "S40.8",
+      "session": "S40",
+      "milestone": "M11",
+      "title": "Real-hardware check of the refresh",
+      "description": "",
+      "acceptance": [
+        "Windows 11 x64: with Transparency effects off and with a High Contrast theme the materials are solid and readable; typing in the editor and the preview feel unchanged",
+        "Apple Silicon macOS: Reduce Transparency, Increase Contrast and Reduce Motion each take effect; the glass reads well in light and dark"
+      ],
+      "verify": "manual-mac",
+      "depends_on": [
+        "S40.7"
+      ],
+      "status": "needs_manual_check",
+      "evidence": "steps in harness/MANUAL-CHECKS.md#S40.8"
     }
   ]
 }

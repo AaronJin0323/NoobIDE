@@ -4,6 +4,7 @@ import { I18nProvider } from './i18n/I18nProvider';
 import { ThemeProvider } from './theme/ThemeProvider';
 import { Workbench } from './workbench/Workbench';
 import './styles.css';
+import './glass.css'; // S40 Liquid Glass layer, after the base styles
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('missing #root');

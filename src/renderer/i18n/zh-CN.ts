@@ -7,6 +7,7 @@ import { aiChatZhCN } from './ai-chat'; // S33
 import { aiInlineZhCN } from './ai-inline'; // S32.1
 import { aiEditZhCN } from './ai-edit'; // S35
 import { aiHistoryZhCN } from './ai-history'; // S39
+import { paletteZhCN } from './palette'; // S40
 /**
  * zh-CN is the default locale and the source of truth for message keys (AGENTS.md: i18n invariant).
  * Every key must also exist in en.ts — the type system and i18n.test.ts enforce it.
@@ -287,6 +288,7 @@ export const zhCN = {
   ...aiInlineZhCN, // S32.1 AI ghost-text suggestions
   ...aiEditZhCN, // S35 AI inline edit and Fix with AI
   ...aiHistoryZhCN, // S39 saved AI chats and token usage
+  ...paletteZhCN, // S40 command palette
   // --- S18.3 formatting ---
   'format.button': '整理格式',
   'format.title': '整理代码格式：缩进和换行（{shortcut}）',

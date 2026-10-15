@@ -148,6 +148,8 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
     kind: 'submenu',
     label: t('menu.view'),
     items: [
+      command('command-palette'), // S40.5
+      SEPARATOR,
       command('toggle-files'),
       command('toggle-problems'),
       SEPARATOR,
