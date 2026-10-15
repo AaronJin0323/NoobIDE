@@ -142,6 +142,16 @@
         "No blur or backdrop effect sits over the editor or the native preview while people type or watch the page (S27 budgets unaffected)",
         "Every command that applies can be found by searching in Chinese or English and run from the keyboard"
       ]
+    },
+    {
+      "id": "M12",
+      "title": "Preview annotations for the AI assistant (owner request 2026-10-16)",
+      "plan_refs": "docs/decisions/0030-preview-annotations.md; docs/decisions/0026-preview-snapshot-for-ai.md; docs/decisions/0025-ai-assistant.md; AGENTS.md preview isolation",
+      "exit_criteria": [
+        "In the preview, a beginner can point at an element (mouse, or a keyboard list) or draw a region, attach a note, and see it listed with where it is in the source files",
+        "An annotation can be sent to the AI assistant as context the user sees first; the agent proposes an edit in the annotated file and section, marked as such on the proposal",
+        "Preview isolation is unchanged: no preload, page-world script or IDE IPC in the page; picking does not trigger the page's own handlers; annotations live in app data, not the project"
+      ]
     }
   ],
   "sessions": [
@@ -568,6 +578,17 @@
         "S24"
       ],
       "plan_refs": "docs/product/liquid-glass-study.md; docs/decisions/0029-liquid-glass-design-language.md; docs/reviews/interface-assessment-2026-10-14.md"
+    },
+    {
+      "id": "S41",
+      "milestone": "M12",
+      "title": "Preview annotations",
+      "goal": "Annotate elements or regions of the running page with notes, map them to HTML/CSS source, keep them per project in app data, and hand them to the AI agent so its edit targets the right file and section.",
+      "depends_on": [
+        "S38",
+        "S39"
+      ],
+      "plan_refs": "docs/decisions/0030-preview-annotations.md; docs/decisions/0026-preview-snapshot-for-ai.md; docs/decisions/0025-ai-assistant.md; AGENTS.md preview isolation"
     }
   ],
   "features": [
@@ -3407,6 +3428,139 @@
       ],
       "status": "needs_manual_check",
       "evidence": "steps in harness/MANUAL-CHECKS.md#S40.8"
+    },
+    {
+      "id": "S41.1",
+      "session": "S41",
+      "milestone": "M12",
+      "title": "Design: preview annotations ADR",
+      "description": "Owner request 2026-10-16: annotate the preview and let the AI work on the matching source.",
+      "acceptance": [
+        "docs/decisions/0030-preview-annotations.md decides: how an element/region is picked without weakening preview isolation, the keyboard alternative, how an annotation maps to file + line range (exact / approximate / not found), where annotations are stored, how they are shown and edited, and how they reach the AI assistant",
+        "docs/product/ai-plan.md names the new session and its order"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S38.2",
+        "S39.1"
+      ],
+      "status": "done",
+      "evidence": "docs/decisions/0030-preview-annotations.md (picking, keyboard list, region, source mapping exact/approximate/none, app-data store, strip UI, annotation context item) + docs/product/ai-plan.md v3 section; checked against acceptance"
+    },
+    {
+      "id": "S41.2",
+      "session": "S41",
+      "milestone": "M12",
+      "title": "Source locator for preview elements",
+      "description": "Pure main-side module: element description from the page -> HTML file + line range and matching CSS rules.",
+      "acceptance": [
+        "Given the element's ancestry (tag + nth-of-type), id, classes and text, finds its element in the page's HTML text with 1-based start/end lines, handling void elements, comments, raw text (script/style/textarea/title), implied end tags (p, li, td, tr, option) and CRLF; reports exact (ancestry) or approximate (id / tag+class+text) or none",
+        "An element that only a script creates gives none (never a wrong exact match)",
+        "Locates matched CSS rules by selector text in project .css files and in the page's n-th <style> block, with line ranges; only files inside the project root are read",
+        "Unit tests cover the cases above, including a page whose path has Chinese characters and spaces"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S41.1"
+      ],
+      "status": "in_progress",
+      "evidence": ""
+    },
+    {
+      "id": "S41.3",
+      "session": "S41",
+      "milestone": "M12",
+      "title": "Element picking in main (inspect mode + isolated world)",
+      "description": "",
+      "acceptance": [
+        "Main can put the project's preview into pick mode with the DevTools protocol inspect mode on the existing guard session; a click picks an element without the page's own click handlers running; Esc in the page, Cancel, navigation, Stop or a 2-minute timeout end pick mode",
+        "The picked element is described in the isolated world (tag, id, classes, short text, selector, child-index path, ancestry, rectangle, matching same-origin CSS rules), bounded in size and time; main validates and caps it",
+        "A keyboard alternative lists notable elements (bounded) and resolves one by its child-index path; a region (fractions of the viewport) resolves to the smallest containing element; an element can be highlighted with the protocol overlay",
+        "E2E proves isolation facts are identical before and after picking/highlighting (same view, sandbox, no preload, partition, no bridge or new page globals) and a page MutationObserver sees no DOM change"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S41.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S41.4",
+      "session": "S41",
+      "milestone": "M12",
+      "title": "Annotation store and IPC",
+      "description": "",
+      "acceptance": [
+        "Annotations are kept per project in app data (annotations/<projectKey>.json), atomic writes, at most 200 per project, notes at most 2000 characters; corrupt files are moved aside, files from a newer version are left untouched; nothing is written into the project folder",
+        "Typed IPC (src/shared/ipc) with payload parsers and the trusted-sender check: list, pick, cancel pick, candidates, region screenshot, resolve, save, update note, delete, highlight, AI context text; only the window that owns the preview can pick, resolve or highlight",
+        "Listing re-locates each annotation against the files on disk (a moved element gets its new lines; a removed one says not found)",
+        "Unit + integration tests for the store, parsers and handlers"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S41.2",
+        "S41.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S41.5",
+      "session": "S41",
+      "milestone": "M12",
+      "title": "Annotations strip in the preview pane",
+      "description": "",
+      "acceptance": [
+        "The preview toolbar offers Annotate: pick on the page, choose from a list (keyboard), or draw a region on a frozen screenshot (mouse drag, or arrow keys + Enter); then a note is typed and saved",
+        "The page's annotations are listed in the layout flow (never under the native view): number, note (editable), target, source location with a word and icon for found / approximate / not found; Show highlights it on the page; Delete removes it",
+        "zh-CN + en strings, every action reachable with the keyboard, pick mode announced in a live region, no state by colour alone; user HTML is never rendered (screenshots are images, page text is text)",
+        "Component/model unit tests"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S41.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S41.6",
+      "session": "S41",
+      "milestone": "M12",
+      "title": "Annotations as AI context",
+      "description": "",
+      "acceptance": [
+        "A context item kind \"annotation\" whose text main builds (note, element, HTML location with a numbered excerpt, matched CSS rules with excerpts; capped) is shown in an Annotation chip exactly as sent; it is framed as data (tag + neutralizeData; agent nonce frame) and needs the project consent",
+        "Ask AI on an annotation (or all of a page) opens the chat in agent mode with the chip(s) and the note as the prompt; nothing is sent until Send",
+        "A proposal whose edit lies inside an annotation's HTML or CSS range is marked \"in the annotated part\" on its card",
+        "Fake-provider integration test: the agent, given an annotation of a button, proposes an edit to the matched CSS rule in the right file and lines; page text that looks like instructions cannot approve proposals"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S41.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S41.7",
+      "session": "S41",
+      "milestone": "M12",
+      "title": "End-to-end: annotate, list, ask AI, targeted proposal",
+      "description": "",
+      "acceptance": [
+        "Playwright e2e in the real app (project path with Chinese characters and spaces, fake provider): pick a button in the preview by mouse, type a note, see it listed with its HTML and CSS location, Ask AI, Send, and the proposal edits the annotated CSS rule and is marked as in the annotated part",
+        "The keyboard path (choose from list) and a drawn region each create an annotation; annotations survive a restart; smoke.spec lists the new bridge surface",
+        "npm run verify green; full e2e of the new spec green on Windows x64"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S41.5",
+        "S41.6"
+      ],
+      "status": "todo",
+      "evidence": ""
     }
   ]
 }
