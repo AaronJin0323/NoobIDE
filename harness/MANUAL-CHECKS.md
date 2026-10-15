@@ -41,6 +41,20 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
   7. Uninstall via Settings → Apps → NoobIDE. Expected: shortcuts removed, no error dialog.
 - **Expected:** all steps pass. Note the Windows version, whether SmartScreen warned (unsigned until S28), and the
   installer size.
+- **Agent run (2026-10-16, Windows 11 Home 10.0.26200, i9-13900KF, dev machine — steps 1–3 only):** the first
+  `npm run make` failed in the Squirrel maker with `Authors is required.` (package.json has no `author`); fixed in
+  `forge.config.ts` (`authors`, `owners`, `description: 'NoobIDE'`; regression test in
+  `tests/integration/distribution.test.ts`). After the fix: `NoobIDE-Setup.exe` 157,299,200 bytes (150.0 MiB),
+  `NoobIDE-0.0.0-full.nupkg` 156,545,017 bytes, `out\make\zip\win32\x64\NoobIDE-win32-x64-0.0.0.zip` 162,013,831
+  bytes (154.5 MiB). `npm run selftest:packaged` → `self-test PASSED` (24/24 capabilities). The packaged
+  `out\NoobIDE-win32-x64\noobide.exe` (PE machine 0x8664 = x64) launched with a temporary `--user-data-dir`: window
+  title "NoobIDE", About shows "关于 NoobIDE" / "版本 0.0.0" / Electron 44.7.0 · Chromium 152, Escape closes it.
+  `Setup.exe` itself is the 32-bit Squirrel bootstrapper (PE machine 0x014C) — normal for Squirrel.Windows; the app it
+  installs is x64. **Not done by the agent (owner):** steps 4–7 — running the installer, a machine without Node.js,
+  SmartScreen, uninstall.
+- **SmartScreen (owner, step 5):** the installer is unsigned until S28.2/H.2. Expected: "Windows protected your PC" →
+  "More info" shows App "NoobIDE-Setup.exe" (or "NoobIDE"), Publisher "Unknown publisher" → "Run anyway". Record
+  whether the warning appeared, the exact wording, and whether "Run anyway" was offered.
 - **Result:** _(owner fills in: pass/fail, notes, date)_
 - **Close with:** `node harness/session.mjs set S02.7 done --evidence "manual: Win 11 <build>, <date>, steps 1-7 pass"`
 
@@ -314,6 +328,13 @@ fault-suite-windows-x64`, same for macOS); each holds `<platform>-<arch>/junit.x
 - **Expected:** the document has every row filled (cold start n=20, packaged start n=20, save → preview n=20, memory
   n=3). Rows marked "**target missed**" are not a failure of this check: record them in `docs/perf/targets.md`
   (S27.3) with a fix or a decision.
+- **Agent run (2026-10-16, dev machine i9-13900KF / 32 GB, Windows 11 26200):** `docs\perf\win32-x64.md` is written,
+  with every row filled. It is **not clean**: other agent sessions ran Electron e2e suites at the same time, and after
+  ~2 h of waiting there was no quiet window long enough for one full run. In run 1 the cold-start batch ran at 100 % CPU
+  (p95 1806 ms) and the other phases on an idle machine. In run 2 only the cold-start batch was idle (p95 1017 ms).
+  The doc's header has the details. One miss: typical memory 709 MB working-set sum (decision in `targets.md`).
+  **Owner:** repeat step 3 with nothing else running (ideally on the 8 GB reference machine), commit the new
+  document, and check the memory row against `targets.md`.
 - **Result:** _(owner fills in: device, date, pass/fail, notes)_
 
 ### S28.1 — Windows installer with icon and version information
@@ -335,6 +356,17 @@ fault-suite-windows-x64`, same for macOS); each holds `<platform>-<arch>/junit.x
   6. Settings → Apps → Installed apps: NoobIDE is listed with its version. Its icon there is the generic/Electron one
      until a release host for `iconUrl` exists (ADR 0012) — not a failure.
 - **Expected:** as described for each step.
+- **Agent run (2026-10-16, Windows 11 Home 10.0.26200, dev machine):** steps 1–3 and 5 done by the agent, from
+  `npm run make` in the agent worktree. Step 1: `tests/e2e/distribution.spec.ts` — both About tests and "the packaged
+  Windows executable carries the version resource" pass (macOS tests skipped). Step 2: the icon extracted from
+  `NoobIDE-Setup.exe` and from `noobide.exe` is the green `</>`. Step 3 (`(Get-Item …).VersionInfo`): `noobide.exe` —
+  FileDescription/ProductName "NoobIDE", ProductVersion/FileVersion 0.0.0, CompanyName "NoobIDE", Copyright "Copyright
+  © 2026 NoobIDE contributors", PE machine 0x8664 (x64); `NoobIDE-Setup.exe` — FileDescription/ProductName "NoobIDE"
+  (after the fix in forge.config.ts; before it they showed package.json's long description), version 0.0.0, Company
+  "NoobIDE contributors", same copyright. Step 5 on the **packaged** app (not installed): launched with a temporary
+  `--user-data-dir`, About shows "关于 NoobIDE", "版本 0.0.0", "Electron 44.7.0 · Chromium 152.0.7977.130", Escape
+  closes it. **Owner:** steps 4 and 6 (install, shortcuts and taskbar icon, Settings → Apps), and step 5 again in the
+  installed app.
 - **Result:** _(owner fills in: pass/fail, Windows version, date, notes)_
 
 ### S27.3 — Windows target misses recorded
@@ -346,6 +378,9 @@ fault-suite-windows-x64`, same for macOS); each holds `<platform>-<arch>/junit.x
   2. For each miss, add it to `docs/perf/targets.md` under "Misses" with a fix or a decision (or ask an agent
      session to do it); fill the Windows column of the status table.
 - **Expected:** every miss in `win32-x64.md` has an entry in `targets.md`; with no misses, the status table says so.
+- **Agent run (2026-10-16):** done for the dev-machine document. The Windows column of the status table is filled in. The
+  one miss (typical memory, 709/710 MB vs ~700 MB) is under `targets.md` → Misses, with a decision and a trigger.
+  Re-check it after the clean S27.1 re-run above.
 - **Result:** _(owner fills in: date, misses found, where recorded)_
 
 ### S06.1 / S06.2 — CI matrix run on GitHub Actions (Windows x64 + macOS arm64)

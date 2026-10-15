@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 15 — 2026-10-16 — Full Windows e2e suite green twice; preview guard on loaded machines (S05.8)
+## Session 16 — 2026-10-16 — Full Windows e2e suite green twice; preview guard on loaded machines (S05.8)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine (Windows 11, 2560×1440 at 150 %, 32 logical cores), in
 worktree branch `claude/hopeful-hawking-f23203` (node_modules junctioned to the main checkout), started from another
@@ -30,7 +30,7 @@ reviewer for S05.8. Main's S25/S28/S40 work was merged in (`51a7d73`) before the
   never throttles a main-frame navigation.
 - S39.4 — `ai-history.test.ts` budget test raced the usage store (150 ms model delay vs a queued write); explicit
   gate; teardown drains the last request (Session 13's ENOTEMPTY). Dates checked: `dayKey()` is local-calendar.
-- docs/reviews/G9.md — criterion 4 Windows row and a "Windows x64 full e2e suite (Session 15)" section.
+- docs/reviews/G9.md — criterion 4 Windows row and a "Windows x64 full e2e suite (Session 16)" section.
 
 **Evidence:** `npm run verify` green @ `51a7d73`. Full `npm run test:e2e` then `--no-build`, back to back on
 `51a7d73`: **271 passed, 4 skipped (macOS-only), 0 failed — twice** (12.0 / 11.1 min). Earlier runs this session:
@@ -52,9 +52,11 @@ findings (retry spin, cancellable install, launcher cleanup, timeouts) fixed.
 - Under extreme load (2 busy threads per core) a preview can stay Starting up to ~45 s before it is guarded.
 - Other tests the S21.5 subagent saw fail only while the CPU was saturated: history-groups, history-store "coalesces
   a save burst", watcher (2), faults/history-faults — not investigated.
-- Branch not merged into main; local main is ahead of origin (S25, S28, S40 unpushed).
+- Merged into local main on the owner's go-ahead (not pushed); local main is ahead of origin (S25, S28, S40 and this
+  work unpushed). Main's Session 15 (Windows installer + perf) came in after the two green runs: verify and the
+  packaged build were rechecked after that merge, the full e2e suite was not rerun.
 
-**Owner action needed:** merge `claude/hopeful-hawking-f23203` into main and push; check the next CI run on both jobs
+**Owner action needed:** push main; check the next CI run on both jobs
 (G9 condition 2); Mac: run `preview-restore.spec` on Apple Silicon (Session 12 saw the stall there).
 
 **Next up**
@@ -63,6 +65,61 @@ findings (retry spin, cancellable install, launcher cleanup, timeouts) fixed.
 2. Load-sensitive integration tests listed above (one feature each, same approach as S21.5).
 
 **Ideas / backlog candidates:** none.
+
+## Session 15 — 2026-10-16 — Release prep: signing pipeline, sleep/wake recovery, Windows installer + perf
+
+**Agent:** Claude (Opus 5.5) as lead on the Windows x64 dev machine; three subagents in git worktrees (release prep),
+each branch reviewed and merged by the lead. In parallel, two separate sessions ran: "Full Windows e2e run and fix
+failures" (its own branch, not merged yet) and "Liquid Glass UI redesign" (S40).
+
+**Owner decisions this session**
+
+- Owner asked "is NoobIDE ready for release?" — answer: not for public release; ready for self-use and an invite-only
+  unsigned build (G3). Then: fan out agents for everything that is not owner-blocked.
+
+**Done**
+
+- S28.2 / S28.3 — credential-gated signing: `signing.config.ts` (env-only, all-or-nothing per route, DMG signed +
+  notarised + stapled), `.github/workflows/release.yml` (tags/dispatch only, `contents: read`, SHA-pinned actions,
+  secrets only in step env, temp keychain cleaned up), `scripts/verify-signing.mjs` (spctl / stapler / signtool).
+  Status **blocked** on H.2 secrets: `docs/release/signing.md`. ADR 0027 (Windows route: Azure Artifact Signing if
+  eligible, else unsigned first then OV cloud certificate).
+- Owner drafts: ADR 0003 platform support (**Proposed**: macOS 13+ arm64, Windows 10 22H2+ x64, Win arm64 out of
+  v1) and `docs/release/owner-decisions.md` (H.1, H.2, H.4 with recommendations). S01.4 stays todo (needs H.1).
+- S25.1 / S25.2 — sleep/wake recovery (`src/main/wake-recovery.ts`, `src/platform/power-events.ts`): on resume,
+  unlock or a clock-drift jump, watchers resync, the static server / proxy are probed (403 dotfile probe, nothing
+  served) and restarted if dead, a page that hung after sleep gets a new renderer; unsaved edits survive. ADR 0028.
+  Independent reviewer subagent; findings fixed. **needs_manual_check** (real sleep): MANUAL-CHECKS#S25.1/#S25.2.
+- S28.1 done; S02.7 evidence — `npm run make` failed on Windows ("Authors is required."): Squirrel maker now has
+  authors/owners/description (regression test). Setup.exe 157 MB, version info/icon checked, noobide.exe x64,
+  `selftest:packaged` 24/24, packaged app launches and About shows the version. Installer not run (owner steps).
+- S27.1 / S27.3 — `docs/perf/win32-x64.md` (i9-13900KF): cold start p95 1806 ms under load / 1017 ms idle, packaged
+  start p95 447 ms, save→preview p95 123 ms, memory idle 581 MB; typical memory 709 MB vs ~700 MB budget accepted
+  for now in `docs/perf/targets.md` (trigger: profile the Windows GPU process). Kept needs_manual_check: no quiet
+  window for a clean full run.
+- S40 (Liquid Glass UI) reached main by a **fast-forward of main to `s40-liquid-glass` (3dc570b) made outside this
+  lead session**; ADR renumbered to 0029 before that. See that session's report for its features and checks.
+
+**Evidence:** `npm run verify` green on main `0873eee` with the machine idle (earlier red runs were load: a different
+2–6 timing tests failed per run while up to 10 Electron/Node processes ran; each failing file passes alone).
+
+**Problems / risks:** unit timing tests flake under heavy CPU load (history-triggers, watcher, app-data-upgrade,
+portability, ai-history) — the e2e session is fixing several (S21.5). Full Windows e2e still not green twice; the
+preview "Starting" fix (S05.8) and S39.4 live on that session's branch, not on main yet. Signing has never run with
+real credentials. Decision numbers collided three times across parallel branches (0027) — renumber on merge.
+
+**Owner action needed:** read `docs/release/owner-decisions.md` and answer H.1/H.2/H.4; create the signing secrets per
+`docs/release/signing.md`; manual checks S02.7 (install/uninstall, no-Node machine, SmartScreen), S25.1 (real
+sleep), S27.1 (perf on a quiet machine); `npm run test:ai-live` (S36.1); S40.8 hardware checks; push main.
+
+**Next up**
+
+1. Merge the "Full Windows e2e" session's branch once its suite is green twice (S05.8, S21.5, S39.3, S39.4, S15.7).
+2. Push and get CI green on both jobs (S06.1/S06.2/S26.2), then the G1 review (S06.4).
+3. After H.2: first signed release run; after H.1: close S01.4.
+
+**Ideas / backlog candidates:** "Claude Code (your subscription)" provider that spawns the user's own logged-in
+`claude` CLI as a text-only model (policy gray zone — confirm with Anthropic; needs ADR + security review).
 
 ## Session 14 (side session) — 2026-10-15 — Liquid Glass design language (S40, milestone M11)
 
