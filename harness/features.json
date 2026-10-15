@@ -2996,8 +2996,8 @@
         "S34.2",
         "S35.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "review: independent reviewer, 7 findings (2 medium) fixed + re-checked RESOLVED (b223192, a0239ca, af7b57a; decision 0025 amendment; docs/reviews/G9.md). live: npm run test:ai-live wired (tests/live, vitest.live.config.ts, outside verify/CI), skips cleanly without keys; owner run pending: harness/MANUAL-CHECKS.md#S36.1"
     },
     {
       "id": "S36.2",
@@ -3012,8 +3012,8 @@
       "depends_on": [
         "S36.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/release/install.zh-CN.md + install.en.md section 10 (keys, cost, consent/what is sent, key storage, turning off, offline; marked preview until S36.1 live run); docs/capabilities.md claims no AI feature; docs/reviews/G9.md (per criterion per platform: macOS AI e2e 24/24 + full e2e, Windows: no CI run with AI code)"
     }
   ]
 }
