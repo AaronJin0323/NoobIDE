@@ -38,6 +38,23 @@ export interface WatchdogOptions {
   readonly timeoutMs: number;
 }
 
+/**
+ * S16.2: hook for the runtime capture adapter (src/main/problems-bridge.ts → src/diagnostics/runtime-capture.ts).
+ * Gets every raw record the page produces (after the console flood guard), the session (project + server origin)
+ * and the main-frame navigations that define refresh generations (S16.3).
+ */
+export interface PreviewCaptureHook {
+  sessionStarted(
+    session: { readonly projectId: string; readonly origin: string },
+    /** The workbench that started the preview (receives change notifications). */
+    target: { isDestroyed(): boolean; send(channel: string, ...args: never[]): void },
+  ): void;
+  navigationStarted(): void;
+  navigationCommitted(): void;
+  entry(entry: PreviewLogEntry): void;
+  sessionEnded(): void;
+}
+
 export interface PreviewManagerDeps {
   /** Real root of an open project, or undefined (ProjectService.rootOf). */
   rootOf(projectId: string): string | undefined;
@@ -46,6 +63,8 @@ export interface PreviewManagerDeps {
   readonly watchdog?: WatchdogOptions;
   /** How often buffered log records are sent to the workbench. */
   readonly logFlushMs?: number;
+  /** S16.2: runtime capture adapter. */
+  readonly capture?: PreviewCaptureHook;
 }
 
 interface LivePreview {
@@ -152,6 +171,7 @@ export class PreviewManager {
     this.startingWindow = null;
     this.logs.clear();
     this.recent = [];
+    this.deps.capture?.sessionStarted({ projectId, origin: server.origin }, window.webContents);
     this.wireContents(live, view.webContents);
     window.contentView.addChildView(view);
     this.applyBounds();
@@ -182,6 +202,7 @@ export class PreviewManager {
       return this.status;
     }
     this.live = null;
+    this.deps.capture?.sessionEnded();
     for (const timer of live.timers) clearInterval(timer);
     live.window.removeListener('closed', live.onWindowClosed);
     const contents = live.view.webContents;
@@ -295,6 +316,7 @@ export class PreviewManager {
         url: details.url,
         status: details.statusCode,
         resourceType: details.resourceType,
+        ...(details.referrer ? { initiator: details.referrer } : {}),
         at: Date.now(),
       });
     });
@@ -306,6 +328,7 @@ export class PreviewManager {
         message: `${details.error} ${details.method} ${details.resourceType}`,
         url: details.url,
         resourceType: details.resourceType,
+        ...(details.referrer ? { initiator: details.referrer } : {}),
         at: Date.now(),
       });
     });
@@ -369,8 +392,13 @@ export class PreviewManager {
 
     contents.on('did-start-navigation', (event) => {
       if (!isCurrent() || !event.isMainFrame || event.isSameDocument) return;
+      this.deps.capture?.navigationStarted(); // S16.3: a new page load (generation) is on its way
       live.ping = null; // A ping sent to the previous document may never be answered.
       if (this.status.state === 'running') this.update(live, 'refreshing');
+    });
+    // S16.3: the new document committed; from now on the page's records belong to the new generation.
+    contents.on('did-navigate', () => {
+      if (isCurrent()) this.deps.capture?.navigationCommitted();
     });
     contents.on('did-stop-loading', () => {
       if (!isCurrent()) return;
@@ -464,6 +492,7 @@ export class PreviewManager {
 
   private pushLog(entry: PreviewLogEntry): void {
     if (!this.live) return;
+    this.deps.capture?.entry(entry);
     this.logs.push(entry);
     if (this.recent.length >= RECENT_RECORDS) this.recent.shift();
     const max = DEFAULT_LOG_BUFFER.maxMessageLength;
