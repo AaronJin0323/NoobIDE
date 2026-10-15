@@ -7,7 +7,7 @@ import type {
 } from '../../shared/ipc/preview-contract';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
-import { DotIcon, MonitorIcon, StopIcon, WarningIcon } from './icons';
+import { DotIcon, MonitorIcon, RevealIcon, StopIcon, WarningIcon } from './icons';
 // S17.3: console view (levels, filter, clear, page-load attribution) on the same bounded log model.
 import { ConsoleView } from './ConsoleView';
 import {
@@ -19,6 +19,7 @@ import {
   entryToStore,
   isTypingKey,
   nextGeneration,
+  pageLocation,
   pillFor,
   stageMessageKey,
   stateLabelKey,
@@ -346,6 +347,9 @@ export function PreviewPane({
         ),
       );
   };
+  const goToEntry = () => {
+    if (projectId && bridge?.goToEntry && status.projectId === projectId) void bridge.goToEntry({ projectId });
+  };
   const devTools = () => {
     if (projectId && actions.devTools) void bridge?.devTools?.({ projectId });
   };
@@ -410,6 +414,22 @@ export function PreviewPane({
   const messageKey = stageMessageKey(status, projectId !== null);
   const consent = needsConsent && status.state === 'stopped' && projectId !== null;
   const entryValue = options ? entryChoice(options.pages, options.entry) : '';
+  const location = status.projectId === projectId ? pageLocation(status, entryValue) : null;
+  const noticeList = notices.length > 0 && (
+    <div className="preview-notices" role="status" data-testid="preview-notices">
+      {notices.map((notice) => (
+        <p key={notice.id} className="preview-notice" data-testid={`preview-notice-${notice.id}`}>
+          <span>
+            {t(notice.text)}
+            {notice.extra ? ` ${t(notice.extra)}` : ''}
+          </span>
+          <button type="button" className="quiet-button" onClick={() => dismiss(notice)}>
+            {t('preview.note.dismiss')}
+          </button>
+        </p>
+      ))}
+    </div>
+  );
   return (
     <section
       className="region panel preview"
@@ -433,6 +453,19 @@ export function PreviewPane({
           {t(pill.label)}
         </span>
         <div className="preview-actions" role="toolbar" aria-label={t('preview.toolbar')}>
+          {projectId !== null && (
+            <button
+              type="button"
+              className="icon-button"
+              data-testid="preview-open-external"
+              disabled={!actions.openExternal}
+              aria-label={t('preview.openExternal.short')}
+              title={t('preview.openExternal.title')}
+              onClick={openExternal}
+            >
+              <RevealIcon />
+            </button>
+          )}
           {actions.start && (
             <button type="button" className="quiet-button" data-testid="preview-start" onClick={start}>
               {t('preview.start')}
@@ -450,142 +483,151 @@ export function PreviewPane({
           )}
         </div>
       </div>
+      {/* Everything between the header and the stage. When the window is short it scrolls (the stage keeps its
+          minimum height, styles.css .preview-chrome) instead of squeezing the page to nothing. */}
       {projectId !== null && (
-        <div className="preview-toolbar" data-testid="preview-toolbar">
-          <button
-            type="button"
-            className="quiet-button"
-            data-testid="preview-open-external"
-            disabled={!actions.openExternal}
-            title={t('preview.openExternal.title')}
-            onClick={openExternal}
-          >
-            {t('preview.openExternal')}
-          </button>
-          <label className="preview-field" htmlFor={entryId}>
-            {t('preview.entry')}
-          </label>
-          <select
-            id={entryId}
-            className="preview-select"
-            data-testid="preview-entry"
-            value={entryValue}
-            disabled={!options || options.pages.length === 0}
-            title={options?.truncated ? t('preview.entry.truncated') : undefined}
-            onFocus={loadOptions}
-            onChange={(event) => chooseEntry(event.target.value)}
-          >
-            {options && options.pages.length === 0 && <option value="">{t('preview.entry.none')}</option>}
-            {options?.pages.map((page) => (
-              <option key={page} value={page}>
-                {page.toLowerCase() === 'index.html' ? `${page} ${t('preview.entry.default')}` : page}
-              </option>
-            ))}
-          </select>
-          <span className="preview-field">
-            <input
-              id={refreshId}
-              type="checkbox"
-              data-testid="preview-auto-refresh"
-              checked={options?.refresh !== 'manual'}
-              disabled={!options || options.configLocked}
-              title={options?.configLocked ? t('preview.refreshMode.locked') : t('preview.refreshMode.title')}
-              onChange={(event) => setRefreshMode(event.target.checked ? 'auto' : 'manual')}
-            />
-            <label htmlFor={refreshId}>{t('preview.refreshMode')}</label>
-          </span>
-          <button
-            type="button"
-            className="quiet-button"
-            data-testid="preview-advanced"
-            aria-expanded={advancedOpen}
-            aria-controls={advancedId}
-            title={t('preview.advanced.title')}
-            onClick={() => setAdvancedOpen((open) => !open)}
-          >
-            {t('preview.advanced')}
-          </button>
-        </div>
-      )}
-      {projectId !== null && advancedOpen && (
-        <div className="preview-advanced" id={advancedId} data-testid="preview-advanced-panel">
-          <div className="preview-advanced-item">
+        <div className="preview-chrome" data-testid="preview-chrome">
+          <div className="preview-toolbar" data-testid="preview-toolbar">
+            {location && (
+              // The page showing (it changes when the user follows a link), and the way back to the entry page.
+              <span
+                className="preview-location"
+                data-testid="preview-location"
+                data-missing={location.missing ? 'true' : undefined}
+              >
+                <span className="preview-field">{t('preview.page')}</span>
+                <code className="preview-page-path" data-testid="preview-page-path" title={t('preview.page.title')}>
+                  {location.path}
+                </code>
+                {location.missing && (
+                  <span className="preview-page-missing" role="status" data-testid="preview-page-missing">
+                    <WarningIcon size={14} />
+                    {t('preview.page.missing')}
+                  </span>
+                )}
+                {location.away && bridge?.goToEntry && (
+                  <button
+                    type="button"
+                    className="quiet-button"
+                    data-testid="preview-go-to-entry"
+                    title={t('preview.goToEntry.title').replace('{entry}', () => entryValue || 'index.html')}
+                    onClick={goToEntry}
+                  >
+                    {t('preview.goToEntry')}
+                  </button>
+                )}
+              </span>
+            )}
+            <span className="preview-field">
+              <label htmlFor={entryId}>{t('preview.entry')}</label>
+              <select
+                id={entryId}
+                className="preview-select"
+                data-testid="preview-entry"
+                value={entryValue}
+                disabled={!options || options.pages.length === 0}
+                title={options?.truncated ? t('preview.entry.truncated') : undefined}
+                onFocus={loadOptions}
+                onChange={(event) => chooseEntry(event.target.value)}
+              >
+                {options && options.pages.length === 0 && <option value="">{t('preview.entry.none')}</option>}
+                {options?.pages.map((page) => (
+                  <option key={page} value={page}>
+                    {page.toLowerCase() === 'index.html' ? `${page} ${t('preview.entry.default')}` : page}
+                  </option>
+                ))}
+              </select>
+            </span>
+            <span className="preview-field">
+              <input
+                id={refreshId}
+                type="checkbox"
+                data-testid="preview-auto-refresh"
+                checked={options?.refresh !== 'manual'}
+                disabled={!options || options.configLocked}
+                title={options?.configLocked ? t('preview.refreshMode.locked') : t('preview.refreshMode.title')}
+                onChange={(event) => setRefreshMode(event.target.checked ? 'auto' : 'manual')}
+              />
+              <label htmlFor={refreshId}>{t('preview.refreshMode')}</label>
+            </span>
+            {/* S15.3: honest labels — "width", and a note that this is not phone emulation. */}
+            <span
+              className="viewport-switch"
+              role="group"
+              aria-label={t('preview.viewport.label')}
+              aria-describedby="preview-viewport-note"
+              data-testid="viewport-switch"
+              title={t('preview.viewport.note')}
+            >
+              {(['desktop', 'mobile'] as const).map((choice) => (
+                <button
+                  key={choice}
+                  type="button"
+                  className="viewport-choice"
+                  aria-pressed={viewport === choice}
+                  data-testid={`viewport-${choice}`}
+                  onClick={() => setViewport(choice)}
+                >
+                  {choice === 'desktop'
+                    ? t('preview.viewport.desktop')
+                    : t('preview.viewport.mobile').replace('{width}', String(MOBILE_WIDTH))}
+                </button>
+              ))}
+              <span id="preview-viewport-note" className="viewport-note" hidden={viewport !== 'mobile'}>
+                {t('preview.viewport.note')}
+              </span>
+            </span>
             <button
               type="button"
               className="quiet-button"
-              data-testid="preview-devtools"
-              disabled={!actions.devTools}
-              onClick={devTools}
+              data-testid="preview-advanced"
+              aria-expanded={advancedOpen}
+              aria-controls={advancedId}
+              title={t('preview.advanced.title')}
+              onClick={() => setAdvancedOpen((open) => !open)}
             >
-              {t('preview.devTools')}
+              {t('preview.advanced')}
             </button>
-            <span className="preview-advanced-detail">{t('preview.devTools.detail')}</span>
           </div>
-          <div className="preview-advanced-item">
-            <button type="button" className="quiet-button" data-testid="preview-clear-data" onClick={clearData}>
-              {t('preview.clearData')}
-            </button>
-            <span className="preview-advanced-detail">
-              {t('preview.clearData.detail')} {t('preview.clearData.externalNote')}
-            </span>
-          </div>
+          {advancedOpen && (
+            <div className="preview-advanced" id={advancedId} data-testid="preview-advanced-panel">
+              <div className="preview-advanced-item">
+                <button
+                  type="button"
+                  className="quiet-button"
+                  data-testid="preview-devtools"
+                  disabled={!actions.devTools}
+                  onClick={devTools}
+                >
+                  {t('preview.devTools')}
+                </button>
+                <span className="preview-advanced-detail">{t('preview.devTools.detail')}</span>
+              </div>
+              <div className="preview-advanced-item">
+                <button type="button" className="quiet-button" data-testid="preview-clear-data" onClick={clearData}>
+                  {t('preview.clearData')}
+                </button>
+                <span className="preview-advanced-detail">
+                  {t('preview.clearData.detail')} {t('preview.clearData.externalNote')}
+                </span>
+              </div>
+            </div>
+          )}
+          {annotations && (
+            <AnnotationsStrip
+              api={annotations}
+              projectId={projectId}
+              running={status.projectId === projectId && status.state === 'running'}
+              pagePath={status.projectId === projectId ? pagePathOf(status.url) : null}
+              reloadKey={status.generation ?? 0}
+              onCoverChange={setDrawing}
+              onAskAi={onAskAi}
+            />
+          )}
+          {noticeList}
         </div>
       )}
-      {/* S15.3: honest labels — "width", and a note that this is not phone emulation. Shown with a project only. */}
-      {projectId !== null && (
-        <div
-          className="viewport-switch"
-          role="group"
-          aria-label={t('preview.viewport.label')}
-          aria-describedby="preview-viewport-note"
-          data-testid="viewport-switch"
-          title={t('preview.viewport.note')}
-        >
-          {(['desktop', 'mobile'] as const).map((choice) => (
-            <button
-              key={choice}
-              type="button"
-              className="viewport-choice"
-              aria-pressed={viewport === choice}
-              data-testid={`viewport-${choice}`}
-              onClick={() => setViewport(choice)}
-            >
-              {choice === 'desktop'
-                ? t('preview.viewport.desktop')
-                : t('preview.viewport.mobile').replace('{width}', String(MOBILE_WIDTH))}
-            </button>
-          ))}
-          <span id="preview-viewport-note" className="viewport-note" hidden={viewport !== 'mobile'}>
-            {t('preview.viewport.note')}
-          </span>
-        </div>
-      )}
-      {projectId !== null && annotations && (
-        <AnnotationsStrip
-          api={annotations}
-          projectId={projectId}
-          running={status.projectId === projectId && status.state === 'running'}
-          pagePath={status.projectId === projectId ? pagePathOf(status.url) : null}
-          reloadKey={status.generation ?? 0}
-          onCoverChange={setDrawing}
-          onAskAi={onAskAi}
-        />
-      )}
-      {notices.length > 0 && (
-        <div className="preview-notices" role="status" data-testid="preview-notices">
-          {notices.map((notice) => (
-            <p key={notice.id} className="preview-notice" data-testid={`preview-notice-${notice.id}`}>
-              <span>
-                {t(notice.text)}
-                {notice.extra ? ` ${t(notice.extra)}` : ''}
-              </span>
-              <button type="button" className="quiet-button" onClick={() => dismiss(notice)}>
-                {t('preview.note.dismiss')}
-              </button>
-            </p>
-          ))}
-        </div>
-      )}
+      {projectId === null && noticeList}
       {/* S15.5/S15.6: keyboard focus handoff — Enter on the stage gives the page the focus; F6 in the page returns */}
       <div
         className={viewport === 'mobile' ? 'preview-stage mobile' : 'preview-stage'}

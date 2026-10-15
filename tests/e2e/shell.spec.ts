@@ -127,6 +127,7 @@ test('placeholder states are honest and every control works (S30.3)', async () =
     // S20.2: welcome screen while no project is open
     'welcome-create',
     'welcome-open-folder',
+    'editor-more', // Editor options: the code font size (and Format, with a file open) in a small panel
     'zoom-out',
     'zoom-reset',
     'zoom-in',

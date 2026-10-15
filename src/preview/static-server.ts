@@ -10,6 +10,8 @@ import {
 import type { AddressInfo } from 'node:net';
 import { mimeTypeFor } from './mime';
 import { parseRequestTarget, resolveInRoot } from './request-path';
+import { notFoundPageHtml, shownRequestPath } from './not-found-page';
+import type { Locale } from '../renderer/i18n/index';
 
 /**
  * Loopback static server for one project's preview (S04.1, PLAN §8, AGENTS.md "Static server").
@@ -45,6 +47,8 @@ export interface PreviewServerOptions {
   readonly requireToken?: boolean;
   /** Port to try first (the project's previous one); falls back to a random free port. */
   readonly preferredPort?: number | undefined;
+  /** Language of the page shown for a missing page (the interface language); zh-CN when not given. */
+  readonly locale?: (() => Locale) | undefined;
 }
 
 export class PreviewServer {
@@ -77,8 +81,9 @@ export class PreviewServer {
     const grants = new GrantStore();
     const requireToken = options.requireToken ?? true;
     let port = 0;
+    const locale = options.locale ?? ((): Locale => 'zh-CN');
     const server = createServer((req, res) => {
-      void handle(req, res, { root, token, grants, requireToken, port }).catch(() => {
+      void handle(req, res, { root, token, grants, requireToken, port, locale }).catch(() => {
         if (!res.headersSent) send(res, 500);
         else res.destroy();
       });
@@ -146,6 +151,7 @@ interface HandleContext {
   readonly grants: GrantStore;
   readonly requireToken: boolean;
   readonly port: number;
+  readonly locale: () => Locale;
 }
 
 /**
@@ -239,7 +245,8 @@ async function handle(req: IncomingMessage, res: ServerResponse, ctx: HandleCont
     if (resolved.code === 'redirect-to-directory') {
       const [pathPart = '', ...rest] = (req.url ?? '').split('?');
       send(res, 301, { Location: `${pathPart}/${rest.length > 0 ? `?${rest.join('?')}` : ''}` });
-    } else send(res, resolved.code === 'forbidden' ? 403 : 404);
+    } else if (resolved.code === 'forbidden') send(res, 403);
+    else sendNotFound(req, res, ctx);
     return;
   }
   const file = resolved.value;
@@ -251,14 +258,14 @@ async function handle(req: IncomingMessage, res: ServerResponse, ctx: HandleCont
   try {
     handle = await open(file, 'r');
   } catch {
-    send(res, 404);
+    sendNotFound(req, res, ctx);
     return;
   }
   let streaming = false;
   try {
     const info = await handle.stat();
     if (!info.isFile()) {
-      send(res, 404);
+      sendNotFound(req, res, ctx);
       return;
     }
     res.writeHead(200, {
@@ -321,6 +328,35 @@ function send(res: ServerResponse, status: number, headers: Record<string, strin
   });
   res.end(res.req.method === 'HEAD' ? undefined : body);
 }
+
+/**
+ * 404. A page the browser opens as a document (a link to a page that does not exist) gets a short explanation in the
+ * interface language (not-found-page.ts, the path HTML-escaped, no script: its own CSP allows inline styles only);
+ * every other request keeps the plain-text 404. Only reached after the Host, ownership and path checks.
+ */
+function sendNotFound(req: IncomingMessage, res: ServerResponse, ctx: HandleContext): void {
+  if (req.headers['sec-fetch-dest'] !== 'document') {
+    send(res, 404);
+    return;
+  }
+  let locale: Locale = 'zh-CN';
+  try {
+    locale = ctx.locale();
+  } catch {
+    // keep the default
+  }
+  const body = notFoundPageHtml(shownRequestPath(req.url ?? '/'), locale);
+  res.writeHead(404, {
+    ...BASE_HEADERS,
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Security-Policy': NOT_FOUND_CSP,
+    'Content-Length': String(Buffer.byteLength(body)),
+  });
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
+
+/** The missing-page page runs nothing and loads nothing: inline styles only. */
+export const NOT_FOUND_CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
 
 function tokenMatches(header: string | string[] | undefined, token: string): boolean {
   if (typeof header !== 'string' || header.length !== token.length) return false;

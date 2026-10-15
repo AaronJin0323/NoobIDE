@@ -11,6 +11,7 @@ import {
   clearLog,
   nextGeneration,
   olderCount,
+  pageLocation,
   visibleLog,
   previewNotUpdated,
   stageMessageKey,
@@ -132,5 +133,36 @@ describe('console view model (S17.3)', () => {
     }
     expect(view.entries).toHaveLength(MAX_VISIBLE_LOG_ENTRIES);
     expect(olderCount(view)).toBe(0);
+  });
+});
+
+describe('page location in the preview toolbar', () => {
+  const at = (url: string | undefined, notFound = false): PreviewStatus => ({
+    ...status('running'),
+    ...(url ? { url } : {}),
+    ...(notFound ? { notFound } : {}),
+  });
+  const origin = 'http://127.0.0.1:51734';
+  it('names the page showing and offers the way back only away from the entry page', () => {
+    expect(pageLocation(at(`${origin}/`), 'index.html')).toEqual({ path: 'index.html', missing: false, away: false });
+    expect(pageLocation(at(`${origin}/index.html`), 'index.html')?.away).toBe(false);
+    expect(pageLocation(at(`${origin}/about.html`), 'index.html')).toEqual({
+      path: 'about.html',
+      missing: false,
+      away: true,
+    });
+    expect(pageLocation(at(`${origin}/%E5%85%B3%E4%BA%8E%20%E6%88%91.html`), 'index.html')?.path).toBe('关于 我.html');
+    expect(pageLocation(at(`${origin}/docs/`), 'docs/index.html')?.away).toBe(false);
+  });
+  it('a missing page is always away (even when it is the entry), and nothing shows without a page', () => {
+    expect(pageLocation(at(`${origin}/about.html`, true), 'index.html')).toEqual({
+      path: 'about.html',
+      missing: true,
+      away: true,
+    });
+    expect(pageLocation(at(`${origin}/`, true), '')?.away).toBe(true);
+    expect(pageLocation(at(`${origin}/about.html`), '')?.away).toBe(false); // entry not known yet
+    expect(pageLocation(at(undefined), 'index.html')).toBeNull();
+    expect(pageLocation(STOPPED, 'index.html')).toBeNull();
   });
 });

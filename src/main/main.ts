@@ -12,6 +12,7 @@ import {
   powerMonitor,
   protocol,
   safeStorage,
+  screen,
   session,
   shell,
 } from 'electron';
@@ -123,6 +124,8 @@ function start(): void {
   // --- S04 preview: the project service is created when the app is ready; the preview asks it for roots. ---
   let projects: ProjectService | undefined;
   const problems = new ProblemsBridge(); // S16.2: runtime capture adapter, fed by the preview
+  // The interface language (settings), for the page the preview server shows when a page is missing.
+  let uiLocale: 'zh-CN' | 'en' = 'zh-CN';
   const preview = new PreviewManager({
     capture: problems,
     rootOf: (id) => projects?.rootOf(id),
@@ -135,6 +138,7 @@ function start(): void {
     },
     // S15.4: "Open in external browser" (a one-time grant URL; never logged, never sent to the renderer).
     openExternal: (url) => shell.openExternal(url),
+    locale: () => uiLocale,
   });
   // --- end S04 ---
 
@@ -171,7 +175,14 @@ function start(): void {
   });
 
   function createWorkbenchWindow(): BrowserWindow {
-    const options = createWorkbenchWindowOptions(path.join(__dirname, 'preload.cjs'));
+    // A larger first window when the screen allows it (kept within the work area of the screen under the pointer).
+    let workArea: Electron.Size | undefined;
+    try {
+      workArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workAreaSize;
+    } catch {
+      workArea = undefined; // no display information: the fallback size
+    }
+    const options = createWorkbenchWindowOptions(path.join(__dirname, 'preload.cjs'), workArea);
     const insecure = insecurePreferences(options.webPreferences ?? {});
     if (insecure.length > 0) throw new Error(`insecure workbench webPreferences: ${insecure.join(', ')}`);
 
@@ -428,7 +439,10 @@ function start(): void {
     });
     menu = appMenu;
     appMenu.rebuild();
-    void settings.load().then((loaded) => appMenu.setLocale(loaded.settings.locale));
+    void settings.load().then((loaded) => {
+      uiLocale = loaded.settings.locale;
+      appMenu.setLocale(loaded.settings.locale);
+    });
     registerCommandIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       setContext: (senderId, context) => appMenu.setContext(senderId, context),
@@ -441,6 +455,7 @@ function start(): void {
         // S24.2: a language change re-translates the native menus.
         update: async (patch) => {
           const next = await settings.update(patch);
+          uiLocale = next.locale;
           appMenu.setLocale(next.locale);
           return next;
         },

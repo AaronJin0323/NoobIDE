@@ -203,6 +203,11 @@ test('when the tabs overflow the strip, the active tab is scrolled into view and
         return r.left >= strip.left - 0.5 && r.right <= strip.right + 0.5;
       });
     await expect.poll(() => fullyVisible('子 文件夹/页面 二.html')).toBe(true);
+    // An overflow cue on the side where tabs are hidden (a chevron, not colour alone); it scrolls the strip.
+    await expect(page.getByTestId('tabs-scroll-start')).toBeEnabled();
+    await expect(page.getByTestId('tabs-scroll-end')).toBeDisabled(); // nothing hidden on the right
+    await page.getByTestId('tabs-scroll-start').click();
+    await expect(page.getByTestId('tabs-scroll-end')).toBeEnabled();
     // Clicking along the strip, both ways: a click right after the strip scrolled must reach the tab (a macOS overlay
     // scrollbar once covered the lower half of the tabs and swallowed these clicks).
     for (const file of [...files].reverse().concat(files)) {
@@ -210,6 +215,58 @@ test('when the tabs overflow the strip, the active tab is scrolled into view and
       await expect(tabOf(page, file)).toHaveAttribute('aria-selected', 'true');
       await expect.poll(() => fullyVisible(file)).toBe(true);
     }
+  } finally {
+    await app.evaluate(({ BrowserWindow }, bounds) => BrowserWindow.getAllWindows()[0]?.setBounds(bounds), original);
+  }
+});
+
+test('at the default 1280×800 window the tabs keep the header; Format and zoom sit behind Editor options', async () => {
+  const original = await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0]!;
+    const bounds = win.getBounds();
+    win.setSize(1280, 800);
+    return bounds;
+  });
+  try {
+    await expect.poll(() => page.evaluate(() => window.outerWidth)).toBe(1280);
+    for (const file of ['index.html', 'style.css', 'script.js']) await openFile(page, file);
+    // The strip gets most of the editor header (it was 159 px next to History, Format and zoom).
+    const widths = await page.evaluate(() => ({
+      strip: document.querySelector('[data-testid="tab-bar"]')!.getBoundingClientRect().width,
+      header: document.querySelector('.tabs-header')!.getBoundingClientRect().width,
+    }));
+    expect(widths.strip, JSON.stringify(widths)).toBeGreaterThan(widths.header * 0.55);
+    for (const file of ['index.html', 'style.css', 'script.js']) await expect(tabOf(page, file)).toBeVisible();
+
+    // Editor options from the keyboard: Enter opens it and moves focus in, Escape closes it and returns focus.
+    const more = page.getByTestId('editor-more');
+    const panel = page.getByTestId('editor-more-panel');
+    await expect(more).toHaveAccessibleName('编辑器选项');
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await expect(panel).toBeHidden();
+    await more.focus();
+    await page.keyboard.press('Enter');
+    await expect(more).toHaveAttribute('aria-expanded', 'true');
+    await expect(panel).toBeVisible();
+    await expect(panel.getByTestId('format-document')).toBeFocused();
+    await expect(panel.getByTestId('zoom-reset')).toHaveText('16');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab'); // format → zoom-out → zoom-reset → zoom-in
+    await expect(panel.getByTestId('zoom-in')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(panel.getByTestId('zoom-reset')).toHaveText('17');
+    await expect(panel).toBeVisible(); // zoom steps keep it open
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
+    await expect(more).toBeFocused();
+    // Ctrl/Cmd+0 still works without the panel; a click outside closes an open panel.
+    await page.keyboard.press('ControlOrMeta+0');
+    await expect(page.getByTestId('zoom-reset')).toHaveText('16');
+    await more.click();
+    await expect(panel).toBeVisible();
+    await page.getByTestId('project-name').click();
+    await expect(panel).toBeHidden();
   } finally {
     await app.evaluate(({ BrowserWindow }, bounds) => BrowserWindow.getAllWindows()[0]?.setBounds(bounds), original);
   }

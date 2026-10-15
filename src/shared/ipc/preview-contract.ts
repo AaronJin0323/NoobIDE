@@ -25,6 +25,8 @@ export const PREVIEW_CHANNELS = {
   devTools: 'preview:devtools',
   /** S15.5/S15.6: move the keyboard focus into the page. */
   focus: 'preview:focus',
+  /** Open the entry page again (e.g. after a link led to a page that does not exist). */
+  goToEntry: 'preview:go-to-entry',
 } as const;
 
 /** Main → workbench notifications (webContents.send). */
@@ -54,6 +56,11 @@ export interface PreviewStatus {
    * Cleared by the next refresh, navigation, start or stop.
    */
   readonly outdated?: boolean;
+  /**
+   * The page showing (`url`) does not exist: the server answered 404 (e.g. a link to a missing page). Cleared by the
+   * next page that loads.
+   */
+  readonly notFound?: boolean;
 }
 
 /** S14.2: stored in `.noobide/project.json` (preview.autoRefresh) by the S13.2 module; auto is the default. */
@@ -181,6 +188,8 @@ export interface PreviewApi {
    */
   stop(request?: PreviewOwnerRequest): Promise<IpcResult<PreviewStatus, 'not-owner'>>;
   reload(request?: PreviewOwnerRequest): Promise<IpcResult<PreviewStatus, 'not-owner'>>;
+  /** Opens the project's entry page in the running preview (`not-running` when there is no page to navigate). */
+  goToEntry?(request?: PreviewOwnerRequest): Promise<IpcResult<PreviewStatus, 'not-owner' | 'not-running'>>;
   /** Where the view sits over the preview pane, in workbench CSS pixels. Ignored for a preview of another window. */
   setBounds(bounds: PreviewBounds): Promise<IpcResult<null, 'not-owner'>>;
   /** S15.5/S15.6: gives the page the keyboard focus (F6 / Shift+F6 in the page hand it back). */

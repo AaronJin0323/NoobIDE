@@ -8,6 +8,7 @@ import { isUnsaved } from './save-machine';
 import { TabBar } from './TabBar';
 import { isSameOrBelow } from './file-tree-model';
 import { HistoryIcon, MinusIcon, PlusIcon, WarningIcon } from './icons';
+import { EditorTools } from './EditorTools';
 import { FileRoleHint } from './FileRole';
 // S11: external changes
 import { DiskStateBanner, type DiskActions } from './DiskStateBanner';
@@ -140,53 +141,36 @@ export function EditorPane(props: EditorPaneProps) {
             onClick={() => props.onShowHistory?.(tab.relPath)}
           >
             <HistoryIcon size={15} />
-            {t('history.open')}
+            {/* In a narrow editor only the icon shows (styles.css); the name stays the same. */}
+            <span className="history-label">{t('history.open')}</span>
           </button>
         )}
-        {/* S18.3: format the file on screen (hidden for read-only files and other languages) */}
-        {editorFile && tab && !editorFile.readOnly && FORMATTABLE.has(editorFile.language) && (
-          <button
-            type="button"
-            className="quiet-button"
-            title={t('format.title').replace('{shortcut}', formatShortcutLabel(window.noobide?.platform ?? 'other'))}
-            data-testid="format-document"
-            onClick={() => void activeEditor()?.formatDocument()}
-          >
-            {t('format.button')}
-          </button>
-        )}
-        <div className="zoom" role="group" aria-label={t('zoom.label')} data-testid="zoom">
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={t('zoom.out')}
-            title={withShortcut(t('zoom.out'), 'zoom-out', window.noobide?.platform ?? 'other')}
-            data-testid="zoom-out"
-            onClick={() => onZoom(-1)}
-          >
-            <MinusIcon />
-          </button>
-          <button
-            type="button"
-            className="quiet-button zoom-reset"
-            aria-label={`${t('zoom.reset')} (${fontSize})`}
-            title={withShortcut(t('zoom.reset'), 'zoom-reset', window.noobide?.platform ?? 'other')}
-            data-testid="zoom-reset"
-            onClick={() => onZoom(0)}
-          >
-            {fontSize}
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={t('zoom.in')}
-            title={withShortcut(t('zoom.in'), 'zoom-in', window.noobide?.platform ?? 'other')}
-            data-testid="zoom-in"
-            onClick={() => onZoom(1)}
-          >
-            <PlusIcon />
-          </button>
-        </div>
+        {/* Format and the code font size sit behind "Editor options", so the tabs keep the header's width. */}
+        <EditorTools>
+          {(close) => (
+            <>
+              {/* S18.3: format the file on screen (hidden for read-only files and other languages) */}
+              {editorFile && tab && !editorFile.readOnly && FORMATTABLE.has(editorFile.language) && (
+                <button
+                  type="button"
+                  className="quiet-button"
+                  title={t('format.title').replace(
+                    '{shortcut}',
+                    formatShortcutLabel(window.noobide?.platform ?? 'other'),
+                  )}
+                  data-testid="format-document"
+                  onClick={() => {
+                    close();
+                    void activeEditor()?.formatDocument();
+                  }}
+                >
+                  {t('format.button')}
+                </button>
+              )}
+              <ZoomGroup fontSize={fontSize} onZoom={onZoom} />
+            </>
+          )}
+        </EditorTools>
       </div>
       {tab && <FileRoleHint relPath={tab.relPath} />}
       {docError && (
@@ -323,5 +307,44 @@ export function EditorPane(props: EditorPaneProps) {
         </div>
       )}
     </main>
+  );
+}
+
+/** The code font size: smaller, back to the default (shows the size), larger (S13.1 / S24.1 shortcuts in the titles). */
+function ZoomGroup({ fontSize, onZoom }: { fontSize: number; onZoom: (step: 1 | -1 | 0) => void }) {
+  const { t } = useI18n();
+  return (
+    <div className="zoom" role="group" aria-label={t('zoom.label')} data-testid="zoom">
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={t('zoom.out')}
+        title={withShortcut(t('zoom.out'), 'zoom-out', window.noobide?.platform ?? 'other')}
+        data-testid="zoom-out"
+        onClick={() => onZoom(-1)}
+      >
+        <MinusIcon />
+      </button>
+      <button
+        type="button"
+        className="quiet-button zoom-reset"
+        aria-label={`${t('zoom.reset')} (${fontSize})`}
+        title={withShortcut(t('zoom.reset'), 'zoom-reset', window.noobide?.platform ?? 'other')}
+        data-testid="zoom-reset"
+        onClick={() => onZoom(0)}
+      >
+        {fontSize}
+      </button>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={t('zoom.in')}
+        title={withShortcut(t('zoom.in'), 'zoom-in', window.noobide?.platform ?? 'other')}
+        data-testid="zoom-in"
+        onClick={() => onZoom(1)}
+      >
+        <PlusIcon />
+      </button>
+    </div>
   );
 }

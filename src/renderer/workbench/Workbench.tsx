@@ -214,7 +214,7 @@ export function Workbench() {
   );
   // --- end S13.2 ---
   useProjectScripts(bridge, doc.project); // S18.4
-  useProjectIndex(bridge, doc.project); // S43.4
+  const projectIndex = useProjectIndex(bridge, doc.project); // S43.4 (also the 404 explanations' file list)
   const staticProblems = useStaticProblems(doc.project?.projectId ?? null, doc.tabs); // S19.1
   const runtimeProblems = useRuntimeProblems(bridge); // S17.1
   const problemsView = useMemo(
@@ -1327,6 +1327,7 @@ export function Workbench() {
           <ProblemDetails
             record={record}
             uriOf={uriOfFile}
+            projectIndex={projectIndex}
             onGoTo={goTo}
             onFix={problemFix.apply}
             fixBusy={problemFix.fix?.phase === 'applying' || problemFix.fix?.phase === 'undoing'}

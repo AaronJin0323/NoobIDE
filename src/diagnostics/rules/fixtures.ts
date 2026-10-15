@@ -190,6 +190,13 @@ export const RULE_FIXTURES: readonly RuleFixture[] = [
   fx('css-404-similar-name', 'stylesheet-not-found', resource('styles.css', 'stylesheet', '我的 主页/index.html'), {
     projectFiles: ['我的 主页/index.html', 'style.css'],
   }),
+  // A link to a page that does not exist: the document request itself is the 404.
+  fx('page-404-missing', 'page-not-found', resource('about.html', 'document'), {
+    projectFiles: ['index.html', 'style.css', 'script.js'],
+  }),
+  fx('page-404-similar-name', 'page-not-found', resource('关于 我.html', 'document'), {
+    projectFiles: ['index.html', '关于我.html'],
+  }),
 
   // Rule 7 — misspelled CSS property
   fx(

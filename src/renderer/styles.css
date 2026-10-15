@@ -40,17 +40,28 @@ button {
 }
 
 /* ── Frame ─────────────────────────────────────────────── */
+/* A column: top bar, the editor/preview row, then the walkthrough band and the problems panel. The middle row keeps a
+   minimum height (the preview stage must stay usable, PLAN §3); when the window is short, the walkthrough and the
+   problems panel give way first and scroll inside themselves. */
 .workbench {
-  display: grid;
-  grid-template-rows: 52px minmax(0, 1fr) auto;
+  /* 430 px (a preview stage of about 270 px under its toolbar), never more than the window can hold next to the top
+     bar and the status strip. */
+  --middle-min: min(430px, calc(100vh - 52px - 32px - 2 * var(--gap)));
+  display: flex;
+  flex-direction: column;
   height: 100%;
   background: var(--bg);
+}
+.workbench > .topbar {
+  flex: none;
+  height: 52px;
 }
 .workbench-middle {
   position: relative;
   display: flex;
+  flex: 1 1 0;
   gap: var(--gap);
-  min-height: 0;
+  min-height: var(--middle-min);
   padding-right: var(--gap);
 }
 .region {
@@ -361,6 +372,70 @@ button {
   background: var(--hover);
   color: var(--text);
 }
+/* The open-file tabs take the header's free width; chevrons appear on the side where tabs are hidden. */
+.tabs-strip {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  gap: 2px;
+}
+.tabs-strip[data-overflow-end] .tabs {
+  mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+}
+.tabs-strip[data-overflow-start] .tabs {
+  mask-image: linear-gradient(to left, #000 calc(100% - 20px), transparent);
+}
+.tabs-strip[data-overflow-start][data-overflow-end] .tabs {
+  mask-image: linear-gradient(to right, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+}
+.tabs-scroll {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  color: var(--text);
+  cursor: pointer;
+}
+.tabs-scroll:hover:not(:disabled) {
+  background: var(--hover);
+}
+/* No more tabs on this side: the chevron stays (the strip keeps its width) but fades out. */
+.tabs-scroll:disabled {
+  background: none;
+  opacity: 0.35;
+  cursor: default;
+}
+/* "Editor options": Format and the code font size, in a small panel under the button. */
+.editor-more {
+  position: relative;
+  flex: none;
+}
+.editor-more-panel:not([hidden]) {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 160px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 25%);
+}
+.editor-more-panel .zoom {
+  justify-content: space-between;
+  margin-left: 0;
+}
 .zoom {
   display: flex;
   flex: none;
@@ -577,8 +652,12 @@ button {
   font-weight: 600;
 }
 .preview-stage {
-  flex: 1;
-  min-height: 0;
+  /* The page always gets room: the toolbar rows above scroll and the console below shrinks first. */
+  flex: 1 1 0;
+  /* A short pane: at least 240 px, up to 300 px when the pane has room for that next to 150 px of header, toolbar rows
+     and one console line (the rows then scroll). A tall pane: every row at its natural size, the stage takes the
+     rest. Only a tiny window goes below 240 px. */
+  min-height: min(clamp(240px, 100% - 150px, 300px), max(0px, 100vh - 52px - 32px - 140px));
   display: flex;
   margin: 10px;
   border-radius: var(--radius-control);
@@ -588,8 +667,14 @@ button {
 
 /* ── Problems + status strip ───────────────────────────── */
 .problems {
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+}
+/* Open, the panel may give way down to a few rows (it scrolls inside); the status strip below it always shows. */
+.problems:has(> .problems-panel:not([hidden])) {
+  min-height: calc(100px + var(--gap) + 32px);
 }
 .problems-panel {
   height: 160px;
@@ -708,6 +793,13 @@ button {
 .save-alert > svg {
   color: var(--danger);
 }
+/* An informational notice (e.g. "reopened your last project"): neither a warning nor an error. */
+.info-alert {
+  background: var(--accent-soft);
+}
+.info-alert > svg {
+  color: var(--accent-text);
+}
 .alert-detail {
   display: block;
   margin-top: 2px;
@@ -753,6 +845,12 @@ button {
 /* ── File roles (S20.3) ────────────────────────────────── */
 /* Text label, never colour alone: the role is spelled out next to the real file name. */
 .file-role {
+  /* The real file name wins the space: the role label gives way first (shrinks much faster) and ellipsizes; the
+     tooltip and the editor's role hint still carry it in full. */
+  flex: 0 1000 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   margin-left: 8px;
   color: var(--muted);
   font-size: 11px;
@@ -1123,7 +1221,9 @@ button {
   gap: 4px;
 }
 .preview-console {
-  flex: none;
+  /* Gives way first when the pane is short (the stage keeps its minimum). */
+  flex: 0 1 auto;
+  min-height: 26px; /* one line of the console stays visible */
   max-height: 120px;
   margin: 0 10px 10px;
   overflow: auto;
@@ -1173,7 +1273,8 @@ button {
 .problems-panel:not([hidden]) {
   display: flex;
   flex-direction: column;
-  height: 260px;
+  flex: 0 1 260px;
+  min-height: 100px;
 }
 .problems-panel .panel-header {
   gap: 8px;
@@ -1316,6 +1417,53 @@ button {
   font-size: 12px;
   color: var(--muted);
 }
+/* The page showing and the way back to the entry page (a broken link must never trap the preview). */
+/* The rows between the preview header and the stage: they scroll when the window is short (the stage keeps its
+   minimum height). */
+.preview-chrome {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.preview-chrome > * {
+  flex: none;
+}
+.preview-location {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.preview-page-path {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  color: var(--text);
+  font-family: var(--font-code);
+}
+/* Not colour alone: an icon and the words say the page is missing. */
+.preview-page-missing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text);
+  font-weight: 600;
+}
+.preview-page-missing > svg {
+  color: var(--warn);
+}
+.preview-location .quiet-button {
+  height: 26px;
+}
 .preview-toolbar .quiet-button:disabled,
 .preview-advanced .quiet-button:disabled {
   opacity: 0.5;
@@ -1441,10 +1589,9 @@ button {
 
 /* ── Preview viewport width (S15.3) ────────────────────── */
 .viewport-switch {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin: 6px 10px 0;
   flex-wrap: wrap;
 }
 .viewport-choice {

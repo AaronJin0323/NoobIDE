@@ -75,6 +75,22 @@ describe('ProjectIndex (S43.4)', () => {
     expect(index.files()).toEqual(['index.html']);
   });
 
+  it('fileList() is one stable array until the listing changes (a React external-store snapshot)', async () => {
+    const { index, files, disk } = setup({ 'index.html': '<p></p>', 'images/avatar.svg': '' });
+    await index.open(files);
+    const first = index.fileList();
+    expect([...first].sort()).toEqual(['images/avatar.svg', 'index.html']);
+    expect(index.fileList()).toBe(first);
+    disk['index.html'] = '<p id="x"></p>';
+    await index.changed([{ type: 'changed', relPath: 'index.html' }]); // same files: same list
+    expect(index.fileList()).toBe(first);
+    await index.changed([{ type: 'deleted', relPath: 'images/avatar.svg' }]);
+    expect(index.fileList()).not.toBe(first);
+    expect(index.fileList()).toEqual(['index.html']);
+    index.close();
+    expect(index.fileList()).toEqual([]);
+  });
+
   it('never lists hidden files and reads no file that is too large', async () => {
     const { index, files, reads } = setup({
       '.noobide/project.json': '{}',

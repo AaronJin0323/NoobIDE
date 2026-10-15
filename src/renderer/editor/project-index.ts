@@ -69,6 +69,8 @@ export type LiveSymbols = (relPath: string) => FileSymbols | null;
 export class ProjectIndex {
   private readonly entries = new Map<string, Entry>();
   private readonly paths = new Set<string>();
+  /** files() as one array, kept until the listing changes (a stable snapshot for React subscribers). */
+  private listed: readonly string[] | null = null;
   private generation = 0;
   private listeners = new Set<() => void>();
 
@@ -79,6 +81,7 @@ export class ProjectIndex {
     const generation = ++this.generation;
     this.entries.clear();
     this.paths.clear();
+    this.listed = null;
     for (const file of files) this.addPath(file.relPath);
     this.emit();
     const indexed = files.filter((f) => indexedLanguage(f.relPath) && !isHidden(f.relPath));
@@ -93,6 +96,7 @@ export class ProjectIndex {
     this.generation += 1;
     this.entries.clear();
     this.paths.clear();
+    this.listed = null;
     this.emit();
   }
 
@@ -136,6 +140,7 @@ export class ProjectIndex {
     const below = `${relPath}/`;
     const gone = [...this.paths].filter((p) => p === relPath || p.startsWith(below));
     for (const p of gone) this.paths.delete(p);
+    if (gone.length > 0) this.listed = null;
     for (const p of [...this.entries.keys()]) if (p === relPath || p.startsWith(below)) this.entries.delete(p);
     return gone;
   }
@@ -151,6 +156,15 @@ export class ProjectIndex {
   /** Portable relPaths of the project's visible files, for path suggestions. */
   files(): string[] {
     return [...this.paths];
+  }
+
+  /**
+   * The same files as one array that stays the same object until the listing changes (bounded by MAX_LISTED_PATHS):
+   * a snapshot for useSyncExternalStore, e.g. the problem explanations' project file list.
+   */
+  fileList(): readonly string[] {
+    this.listed ??= [...this.paths];
+    return this.listed;
   }
 
   /**
@@ -188,7 +202,9 @@ export class ProjectIndex {
   }
 
   private addPath(relPath: string): void {
-    if (!isHidden(relPath) && this.paths.size < MAX_LISTED_PATHS) this.paths.add(relPath);
+    if (isHidden(relPath) || this.paths.has(relPath) || this.paths.size >= MAX_LISTED_PATHS) return;
+    this.paths.add(relPath);
+    this.listed = null;
   }
 
   private async load(relPath: string, generation: number): Promise<void> {

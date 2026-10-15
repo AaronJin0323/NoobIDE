@@ -199,3 +199,32 @@ export function isTypingKey(event: {
   return !['Shift', 'Control', 'Meta', 'Alt', 'AltGraph', 'CapsLock', 'Escape'].includes(event.key);
 }
 // --- end S14 / S15.4 ---
+
+/** Where the preview is: the page showing, whether it is missing (404), and whether it is not the entry page. */
+export interface PageLocation {
+  /** Project-relative path of the page showing ('index.html' for the server root). */
+  readonly path: string;
+  readonly missing: boolean;
+  /** Showing another page than the entry page (or a missing one): "Back to entry page" is offered. */
+  readonly away: boolean;
+}
+
+/** The folder's index page spelled out: '' → 'index.html', 'docs/' → 'docs/index.html'. */
+const pageOf = (path: string) => (path === '' || path.endsWith('/') ? `${path}index.html` : path);
+
+/**
+ * The page location the toolbar shows, from the status (`url`, `notFound`) and the entry page (`entryChoice`, '' when
+ * unknown). Null while no page of a running preview is known.
+ */
+export function pageLocation(status: PreviewStatus, entryPage: string): PageLocation | null {
+  if (status.state === 'stopped' || !status.url) return null;
+  let path: string;
+  try {
+    path = pageOf(decodeURIComponent(new URL(status.url).pathname.replace(/^\/+/, '')));
+  } catch {
+    return null;
+  }
+  const missing = status.notFound === true;
+  const entry = entryPage === '' ? null : pageOf(entryPage);
+  return { path, missing, away: missing || (entry !== null && path !== entry) };
+}

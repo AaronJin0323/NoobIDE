@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import type { NoobideApi, OpenedProject } from '../../shared/ipc/contract';
 import { MAX_LISTED_PATHS, ProjectIndex } from './project-index';
 
@@ -7,7 +7,8 @@ import { MAX_LISTED_PATHS, ProjectIndex } from './project-index';
  * suggestions and indentation (project-index.ts). Monaco is reached through a dynamic import, like every other editor
  * module of the workbench.
  */
-export function useProjectIndex(bridge: NoobideApi | undefined, project: OpenedProject | null): void {
+export function useProjectIndex(bridge: NoobideApi | undefined, project: OpenedProject | null): ProjectIndex | null {
+  const [current, setCurrent] = useState<ProjectIndex | null>(null);
   useEffect(() => {
     if (!bridge || !project) return undefined;
     const { projectId, rootPath } = project;
@@ -37,6 +38,7 @@ export function useProjectIndex(bridge: NoobideApi | undefined, project: OpenedP
       },
     });
     void index.open(project.files);
+    setCurrent(index);
     void import('./smart-monaco').then(({ setSmartProject }) => {
       if (!disposed) setSmartProject({ index, rootPath });
     });
@@ -47,7 +49,22 @@ export function useProjectIndex(bridge: NoobideApi | undefined, project: OpenedP
       disposed = true;
       unsubscribe();
       index.close();
+      setCurrent((shown) => (shown === index ? null : shown));
       void import('./smart-monaco').then(({ setSmartProject }) => setSmartProject(null));
     };
   }, [bridge, project]);
+  return current;
+}
+
+/**
+ * The open project's file list (portable relPaths, bounded by MAX_LISTED_PATHS), kept current as files change; undefined
+ * without an index. Used by the problem explanations (a 404 names the similarly spelled file the project has).
+ */
+export function useProjectFiles(index: ProjectIndex | null | undefined): readonly string[] | undefined {
+  const subscribe = useCallback(
+    (onChange: () => void) => (index ? index.subscribe(onChange) : () => undefined),
+    [index],
+  );
+  const snapshot = useCallback(() => index?.fileList(), [index]);
+  return useSyncExternalStore(subscribe, snapshot);
 }

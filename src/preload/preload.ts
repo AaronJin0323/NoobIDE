@@ -55,6 +55,7 @@ const api: NoobideApi = {
     start: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.start, request),
     stop: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.stop, request),
     reload: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.reload, request),
+    goToEntry: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.goToEntry, request),
     setBounds: (bounds) => ipcRenderer.invoke(PREVIEW_CHANNELS.setBounds, bounds),
     // S14.2–S14.5, S15.4: refresh mode, typing pause, notes, entry picker, storage, toolbar
     typing: () => ipcRenderer.invoke(PREVIEW_CHANNELS.typing),

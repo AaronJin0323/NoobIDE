@@ -87,6 +87,12 @@ export const zhCN = {
   'notFound.cause.absolutePath': '路径可能写成了电脑上的位置（例如 C:\\ 或 file://），网页只能使用项目里的相对路径。',
   'notFound.check.relative': '路径是从 {initiator} 所在的文件夹开始算的；去上一级文件夹要写 ../。',
   'notFound.check.compareName': '在文件树里找到这个文件，对照它的名字和扩展名（包括大小写）。',
+  // 链接指向了不存在的页面（页面本身是 404）
+  'notFound.title.page': '页面 {path} 不存在（404）：有一个链接指向了不存在的页面。',
+  'notFound.explanation.page':
+    '可能是页面里的一个链接（<a href>）打开了这个页面，但项目里没有这个文件，所以预览显示“找不到这个页面”。点预览工具栏里的“回到入口页面”就能回去。',
+  'notFound.check.link': '检查 {initiator} 里这个链接的 href：文件名、扩展名和大小写。',
+  'notFound.check.createPage': '如果这个页面还没写，就在文件列表里用完全相同的名字新建它。',
 
   // Rule 7 — misspelled CSS property
   'cssProperty.title': '浏览器不认识 CSS 属性 {property}，这条样式会被忽略。',

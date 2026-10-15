@@ -72,6 +72,16 @@ test('roles follow the interface language (en)', async () => {
   await expect(row('style.css').getByTestId('file-role')).toHaveText('Visual styling');
   await expect(row('script.js').getByTestId('file-role')).toHaveText('Interactive behavior');
   await expect(page.getByRole('note', { name: 'What this file is for' })).toHaveText(/^Page structure.*headings/);
+  // At the default files width the long English roles do not fit: the role label is shortened, never the file name.
+  await expect(page.getByTestId('region-files')).toBeVisible();
+  for (const name of ['index.html', 'style.css', 'script.js']) {
+    const fit = await row(name).evaluate((el) => {
+      const nameEl = el.querySelector('.tree-name') as HTMLElement;
+      const role = el.querySelector('[data-testid="file-role"]') as HTMLElement;
+      return { name: nameEl.scrollWidth <= nameEl.clientWidth, roleShown: role.clientWidth > 0 };
+    });
+    expect(fit, name).toEqual({ name: true, roleShown: true });
+  }
   await page.getByTestId('switch-language').click();
   await expect(row('index.html').getByTestId('file-role')).toHaveText('页面结构');
 });

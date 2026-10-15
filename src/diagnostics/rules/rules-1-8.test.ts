@@ -215,6 +215,34 @@ describe('rules 4–6: script, image and stylesheet 404', () => {
     expect(exp.causes.map((c) => c.key)).toEqual(['notFound.cause.missing']);
   });
 
+  it('a link to a page that does not exist is explained as a missing page (zh-CN and en)', () => {
+    const zh = render('page-404-missing');
+    expect(zh.title).toBe('页面 about.html 不存在（404）：有一个链接指向了不存在的页面。');
+    expect(zh.explanation).toContain('回到入口页面');
+    expect(zh.causes).toEqual(['项目里可能还没有这个文件，或者文件名写错了。']);
+    expect(zh.checks).toEqual([
+      '检查 index.html 里这个链接的 href：文件名、扩展名和大小写。',
+      '路径是从 index.html 所在的文件夹开始算的；去上一级文件夹要写 ../。',
+      '如果这个页面还没写，就在文件列表里用完全相同的名字新建它。',
+    ]);
+    const en = render('page-404-missing', 'en');
+    expect(en.title).toBe('The page about.html does not exist (404): a link leads to a missing page.');
+    expect(en.explanation).toContain('Back to entry page');
+    expect(render('page-404-similar-name').causes).toEqual(['文件名可能拼错了：项目里有一个相似的文件 关于我.html。']);
+    const f = fixture('page-404-similar-name');
+    expect(explain(f.record, f.ctx).certainty).toBe('likely');
+  });
+
+  it('the page rule leaves the preview root and other resources alone', () => {
+    const f = fixture('page-404-missing');
+    const root = { ...f.record, resource: { ...f.record.resource!, requestedPath: '' } };
+    expect(explain(root).ruleId).not.toBe('page-not-found');
+    const byExtension = { ...f.record, resource: { ...f.record.resource!, resourceType: 'other' as const } };
+    expect(explain(byExtension).ruleId).toBe('page-not-found');
+    const fetched = { ...f.record, resource: { ...f.record.resource!, resourceType: 'fetch' as const } };
+    expect(explain(fetched).ruleId).not.toBe('page-not-found');
+  });
+
   it('does not apply to non-404 statuses or fetch requests', () => {
     const f = fixture('image-404-no-file-list');
     const ok = { ...f.record, resource: { ...f.record.resource!, status: 500 } };

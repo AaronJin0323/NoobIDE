@@ -1,5 +1,6 @@
 /**
- * Rules 4–6 — script, image and stylesheet 404s (S22.2).
+ * Rules 4–6 — script, image and stylesheet 404s (S22.2), and pages opened by a link
+ * that do not exist (the document itself is the 404).
  *
  * Applies to resource records with status 404 whose type (or file extension) is a script, image or stylesheet.
  * With the project's file list it looks for the likely cause, worded as possibilities (PLAN §9 wireframe 3b):
@@ -10,18 +11,20 @@ import { msg, type DiagnosticsMessageKey } from '../messages';
 import { baseName, dirName, editDistance, extension, samePath, samePathIgnoringCase, typoThreshold } from '../text';
 import type { Rule, RuleContext } from './types';
 
-type Kind = 'script' | 'image' | 'stylesheet';
+type Kind = 'script' | 'image' | 'stylesheet' | 'page';
 
 const EXTENSIONS: Record<Kind, readonly string[]> = {
   script: ['js', 'mjs'],
   image: ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'avif', 'ico', 'bmp'],
   stylesheet: ['css'],
+  page: ['html', 'htm'],
 };
 
 const TITLES: Record<Kind, DiagnosticsMessageKey> = {
   script: 'notFound.title.script',
   image: 'notFound.title.image',
   stylesheet: 'notFound.title.stylesheet',
+  page: 'notFound.title.page',
 };
 
 /**
@@ -42,7 +45,9 @@ function requestedExtension(record: ProblemRecord, path: string | undefined): st
 function kindOf(record: ProblemRecord, path: string | undefined): Kind | undefined {
   const t = record.resource?.resourceType;
   if (t === 'script' || t === 'image' || t === 'stylesheet') return t;
-  if (t && t !== 'other') return undefined; // fetch, font, media, document: not these rules
+  // A page opened by a link (or a frame) that does not exist: the document itself is the 404.
+  if (t === 'document') return 'page';
+  if (t && t !== 'other') return undefined; // fetch, font, media: not these rules
   const ext = requestedExtension(record, path);
   return (Object.keys(EXTENSIONS) as Kind[]).find((k) => EXTENSIONS[k].includes(ext));
 }
@@ -95,18 +100,27 @@ function notFoundRule(kind: Kind): Rule {
       if (record.source !== 'resource' || record.resource?.status !== 404) return null;
       const path = requestedPath(record);
       if (kindOf(record, path) !== kind) return null;
+      // The preview's own entry request ('/') is explained by the preview itself (no page in the project).
+      if (kind === 'page' && !path) return null;
       const shown = path ?? record.resource.requestedUrl;
       const { causes, actions, pinpointed } = analyse(shown, record, ctx);
       const initiator = record.resource.initiatorFile ?? record.file;
       return {
         certainty: pinpointed ? 'likely' : 'possible',
         title: msg(TITLES[kind], { path: shown }),
-        explanation: msg('notFound.explanation'),
+        explanation: msg(kind === 'page' ? 'notFound.explanation.page' : 'notFound.explanation'),
         causes,
-        checks: [
-          ...(initiator ? [msg('notFound.check.relative', { initiator })] : []),
-          msg('notFound.check.compareName'),
-        ],
+        checks:
+          kind === 'page'
+            ? [
+                ...(initiator ? [msg('notFound.check.link', { initiator })] : []),
+                ...(initiator ? [msg('notFound.check.relative', { initiator })] : []),
+                msg('notFound.check.createPage'),
+              ]
+            : [
+                ...(initiator ? [msg('notFound.check.relative', { initiator })] : []),
+                msg('notFound.check.compareName'),
+              ],
         actions,
       };
     },
@@ -116,3 +130,5 @@ function notFoundRule(kind: Kind): Rule {
 export const scriptNotFoundRule = notFoundRule('script');
 export const imageNotFoundRule = notFoundRule('image');
 export const stylesheetNotFoundRule = notFoundRule('stylesheet');
+/** A link to a page that does not exist (the 404 is the page itself). */
+export const pageNotFoundRule = notFoundRule('page');

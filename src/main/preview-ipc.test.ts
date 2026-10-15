@@ -117,6 +117,21 @@ describe('preview ownership (S14.6)', () => {
     expect(preview.reload).not.toHaveBeenCalled();
   });
 
+  it('Back to entry page: only for the owner and its project, with a validated payload', async () => {
+    const goToEntry = vi.fn(async () => ok({ state: 'refreshing' as const, projectId: ID }));
+    (preview as Record<string, unknown>).goToEntry = goToEntry;
+    expect(await call(PREVIEW_CHANNELS.goToEntry, otherWindow)).toMatchObject({ code: 'not-owner' });
+    expect(await call(PREVIEW_CHANNELS.goToEntry, workbench, { projectId: OTHER_ID })).toMatchObject({
+      code: 'not-owner',
+    });
+    expect(await call(PREVIEW_CHANNELS.goToEntry, workbench, { projectId: ID, x: 1 })).toMatchObject({
+      code: 'invalid-request',
+    });
+    expect(goToEntry).not.toHaveBeenCalled();
+    expect(await call(PREVIEW_CHANNELS.goToEntry, workbench, { projectId: ID })).toMatchObject({ ok: true });
+    expect(goToEntry).toHaveBeenCalledTimes(1);
+  });
+
   it('the owner names its project and is served', async () => {
     expect(await call(PREVIEW_CHANNELS.reload, workbench, { projectId: ID })).toMatchObject({ ok: true });
     expect(await call(PREVIEW_CHANNELS.stop, workbench, { projectId: ID })).toMatchObject({ ok: true });

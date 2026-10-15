@@ -503,6 +503,40 @@ test('S15.6: the view follows the window into and out of fullscreen', async () =
   await expectViewOverStage();
 });
 
+test('a 1280×800 window with the walkthrough and Problems open keeps a usable preview (zh-CN and en)', async () => {
+  // 1280×720 content: what a 1280×800 window leaves under the Windows title and menu bars (≈ 1266×737 at 150 %).
+  await setContentSize(1280, 720);
+  await page.getByTestId('app-menu').click();
+  await page.getByTestId('menu-help-walkthrough').click();
+  await expect(page.getByTestId('walkthrough')).toBeVisible();
+  if ((await page.getByTestId('problems-panel').isHidden()) === true) await page.getByTestId('rail-problems').click();
+  await expect(page.getByTestId('problems-panel')).toBeVisible();
+  const check = async (locale: string) => {
+    await expectViewOverStage();
+    const info = await previewInfo(electron());
+    expect(info.viewBounds?.height ?? 0, `${locale}: preview height`).toBeGreaterThanOrEqual(200);
+    // The walkthrough's buttons and the problems panel are still on screen (they give way, they do not vanish).
+    const inView = (testId: string) =>
+      page.getByTestId(testId).evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight;
+      });
+    expect(await inView('walkthrough-next'), `${locale}: walkthrough Next`).toBe(true);
+    expect(await inView('problems-toggle'), `${locale}: problems toggle`).toBe(true);
+  };
+  await check('zh-CN');
+  await page.getByTestId('switch-language').click();
+  await expect(page.getByTestId('viewport-desktop')).toHaveText('Desktop width');
+  await check('en');
+  await page.getByTestId('switch-language').click();
+  // A 1280×800 content area keeps it too.
+  await setContentSize(1280, 800);
+  await expectViewOverStage();
+  expect((await previewInfo(electron())).viewBounds?.height ?? 0).toBeGreaterThanOrEqual(200);
+  await page.getByTestId('walkthrough-close').click();
+  await expect(page.getByTestId('walkthrough')).toHaveCount(0);
+});
+
 for (const factor of [1.5, 2]) {
   test(`S15.5/S15.6: at scale factor ${factor} the view stays on the stage and divider sizes persist exactly`, async () => {
     await stop();

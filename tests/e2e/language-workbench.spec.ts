@@ -2,7 +2,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
-import { collectConsoleErrors, makeProject, openFile, openProject, tabOf } from './project';
+import { collectConsoleErrors, editorOption, makeProject, openFile, openProject, tabOf } from './project';
 import { DOC_END } from './keys';
 
 /**
@@ -92,7 +92,7 @@ test.afterAll(async () => {
 test('Format button formats CSS, saves it, and fires the pre-format hook first (S18.3)', async () => {
   await openFile(page, 'style.css');
   const before = (await preFormat())?.length ?? 0;
-  const button = page.getByTestId('format-document');
+  const button = await editorOption(page, 'format-document');
   await expect(button).toHaveText('整理格式');
   await expect(button).toHaveAttribute('title', process.platform === 'darwin' ? /⇧⌥F/ : /Shift\+Alt\+F/);
   await button.click();
