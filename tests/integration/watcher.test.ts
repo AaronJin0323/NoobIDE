@@ -1,9 +1,22 @@
+import { execFile } from 'node:child_process';
 import { appendFile, mkdir, mkdtemp, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { WatchEvent } from '../../src/shared/ipc/contract';
 import { ProjectWatcher, type WatchFn } from '../../src/workspace/watcher';
+
+const execFileAsync = promisify(execFile);
+
+/** Deletes `dir/f0.txt … f<count-1>.txt` from a separate Node process. */
+async function removeElsewhere(dir: string, count: number): Promise<void> {
+  const script =
+    "const fs=require('node:fs/promises'),path=require('node:path');" +
+    'const [dir,n]=process.argv.slice(1);' +
+    "Promise.all(Array.from({length:+n},(_,i)=>fs.rm(path.join(dir,'f'+i+'.txt')))).catch(e=>{console.error(e);process.exit(1)});";
+  await execFileAsync(process.execPath, ['-e', script, dir, String(count)]);
+}
 
 /**
  * S07.3: the watcher on the real file system (ReadDirectoryChangesW on Windows, FSEvents on macOS) in a project
@@ -225,7 +238,9 @@ describe('bounded cost and recovery (review findings 5, 7, 11)', () => {
       last = now;
     }, 10);
     try {
-      await Promise.all(Array.from({ length: 3000 }, (_, i) => rm(p('many', `f${i}.txt`))));
+      // The deletes run in a child process, as another program would: only the watcher's own work may stall this
+      // event loop (deleting 3000 files from here measured the test's I/O on slow runners, not the watcher).
+      await removeElsewhere(p('many'), 3000);
       const deadline = Date.now() + 8000;
       while (!events.some((e) => e.type === 'rescan') && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 25));

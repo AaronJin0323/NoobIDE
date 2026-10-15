@@ -73,10 +73,10 @@ describe('cross-platform project transfer (S13.5)', () => {
     const expected: PortabilityIssue[] = [{ kind: 'mixed-eol', relPath: 'crlf-mixed.js' }];
     await writeFile(path.join(root, 'Logo.svg'), '<svg/>\n');
     if (await tryCreate('logo.svg', '<svg></svg>\n')) {
-      expected.push({ kind: 'case-conflict', folder: '', names: ['Logo.svg', 'logo.svg'] });
+      expected.push({ kind: 'case-conflict', folder: '', names: ['Logo.svg', 'logo.svg'].sort() });
     }
     if (await tryCreate(`页面/${NFD}`)) {
-      expected.push({ kind: 'unicode-conflict', folder: '页面', names: [NFC, NFD] });
+      expected.push({ kind: 'unicode-conflict', folder: '页面', names: [NFC, NFD].sort() });
       expected.push({ kind: 'decomposed-name', relPath: `页面/${NFD}` });
     }
     // A decomposed name on its own (a file from an older Mac): every volume can hold it.

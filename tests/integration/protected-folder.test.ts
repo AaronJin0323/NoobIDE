@@ -101,7 +101,9 @@ async function opened(service: InstanceType<typeof ProjectService>, dir: string)
 
 const text = { text: '<h1>新的内容</h1>', bom: false } as const;
 
-describe('macOS privacy protection (TCC), simulated', () => {
+// The macOS simulation runs on the real temp folder, so it needs POSIX paths; the classifier itself is covered on every
+// platform with POSIX path strings in src/platform/protected-folders.test.ts.
+describe.runIf(path.sep === '/')('macOS privacy protection (TCC), simulated', () => {
   beforeEach(() => configureProtectedFolders({ platform: 'darwin', home, probe }));
 
   it('opening a project in Documents explains the privacy setting instead of "could not open"', async () => {

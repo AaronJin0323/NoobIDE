@@ -13,7 +13,7 @@ describe('folderNameIssues (S13.5)', () => {
 
   it('reports names that differ only by letter case, as they are', () => {
     expect(folderNameIssues('img', ['Logo.png', 'logo.png', 'LOGO.PNG', 'other.png'])).toEqual([
-      { kind: 'case-conflict', folder: 'img', names: ['Logo.png', 'logo.png', 'LOGO.PNG'] },
+      { kind: 'case-conflict', folder: 'img', names: ['LOGO.PNG', 'Logo.png', 'logo.png'] },
     ]);
     // Folders and files clash too.
     expect(folderNameIssues('', ['Pages', 'pages'])).toEqual([
@@ -23,7 +23,7 @@ describe('folderNameIssues (S13.5)', () => {
 
   it('reports NFC/NFD twins as a Unicode conflict and the decomposed name on its own', () => {
     expect(folderNameIssues('页面', [NFC, NFD])).toEqual([
-      { kind: 'unicode-conflict', folder: '页面', names: [NFC, NFD] },
+      { kind: 'unicode-conflict', folder: '页面', names: [NFC, NFD].sort() },
       { kind: 'decomposed-name', relPath: `页面/${NFD}` },
     ]);
     expect(folderNameIssues('', [NFD])).toEqual([{ kind: 'decomposed-name', relPath: NFD }]);

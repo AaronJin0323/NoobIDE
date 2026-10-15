@@ -68,7 +68,9 @@ export function folderNameIssues(folder: string, names: readonly string[]): Port
   for (const group of groups.values()) {
     if (group.length < 2) continue;
     const composed = new Set(group.map((n) => n.normalize('NFC')));
-    issues.push({ kind: composed.size === 1 ? 'unicode-conflict' : 'case-conflict', folder, names: [...group] });
+    // Sorted by code unit: the report must not depend on the order a file system happens to list names in.
+    const sorted = [...group].sort();
+    issues.push({ kind: composed.size === 1 ? 'unicode-conflict' : 'case-conflict', folder, names: sorted });
   }
   for (const name of names) {
     const relPath = join(folder, name);
