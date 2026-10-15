@@ -1654,7 +1654,7 @@
         "S15.1"
       ],
       "status": "needs_manual_check",
-      "evidence": "steps in harness/MANUAL-CHECKS.md#S15.5; automated parts (edge rounding toViewBounds, overlay hiding, focus handoff, forced DPR 1.5/2) in preview-layout.spec + src/preview/view-sync.test.ts @ 72b956a; decision 0019"
+      "evidence": "steps in harness/MANUAL-CHECKS.md#S15.5; automated parts (edge-rounded bounds, overlays, focus handoff, forced DPR 1.5/2) pass on macOS in preview-layout.spec @ 85d6b7b; decision 0019"
     },
     {
       "id": "S15.6",
@@ -1670,7 +1670,7 @@
         "S15.1"
       ],
       "status": "needs_manual_check",
-      "evidence": "preview-layout.spec on macOS arm64: overlays, DPR 1.5/2, drags pass @ 72b956a; focus handoff + fullscreen passed 8/8 @ b1ac96f, env-skipped (window could not be activated) after review fixes; monitor moves, Retina sharpness, real input in harness/MANUAL-CHECKS.md#S15.6"
+      "evidence": "tests/e2e/preview-layout.spec.ts 8/8 on macOS arm64 @ 85d6b7b (merged with P3 toolbar): overlays hide the view, Enter/F6/Shift+F6 focus handoff, start/refresh do not keep the focus, hidden page releases focus, native fullscreen in/out, forced DPR 1.5 and 2 with exact persisted sizes; full e2e 213 passed/2 env-skipped. Still manual: monitor moves, Retina sharpness, real mouse/keyboard/IME - harness/MANUAL-CHECKS.md#S15.6"
     },
     {
       "id": "S16.1",
