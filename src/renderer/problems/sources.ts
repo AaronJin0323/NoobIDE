@@ -105,8 +105,13 @@ export function previewEventsRuntimeSource(
       sessionId = `s${now().toString(36)}`;
       generation = 0;
     }
-    // A start or refresh is a new generation: earlier problems are kept but marked as "before the refresh".
-    if ((next.state === 'starting' || next.state === 'refreshing') && previous.state !== next.state) generation += 1;
+    // A start or refresh is a new generation: earlier problems are kept but marked as "before the refresh". Main
+    // numbers page loads itself (PreviewStatus.generation, the counter the main-side capture uses too).
+    if (next.generation !== undefined && next.generation > 0) {
+      if (next.state === 'starting' || next.state === 'refreshing') generation = next.generation;
+    } else if ((next.state === 'starting' || next.state === 'refreshing') && previous.state !== next.state) {
+      generation += 1;
+    }
     schedule();
   };
 

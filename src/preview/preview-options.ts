@@ -24,8 +24,14 @@ export function createPreviewWebPreferences(partition: string): WebPreferences {
     disableDialogs: true,
     spellcheck: false,
     devTools: true,
+    // S25.4: no Web Bluetooth. On macOS, navigator.bluetooth.requestDevice() makes Chromium open CoreBluetooth in
+    // the main process before any permission handler runs; the system then ends the whole IDE for a privacy
+    // violation (no Bluetooth usage description). The page sees no navigator.bluetooth, as in Firefox/Safari.
+    disableBlinkFeatures: PREVIEW_DISABLED_BLINK_FEATURES,
   };
 }
+
+export const PREVIEW_DISABLED_BLINK_FEATURES = 'WebBluetooth';
 
 export const REQUIRED_PREVIEW_PREFERENCES = {
   contextIsolation: true,
@@ -37,6 +43,7 @@ export const REQUIRED_PREVIEW_PREFERENCES = {
   allowRunningInsecureContent: false,
   webviewTag: false,
   disableDialogs: true,
+  disableBlinkFeatures: PREVIEW_DISABLED_BLINK_FEATURES,
 } as const satisfies Partial<WebPreferences>;
 
 /** Names of required preview preferences that `prefs` violates, including any preload (empty array = isolated). */

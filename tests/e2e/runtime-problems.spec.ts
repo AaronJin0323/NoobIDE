@@ -5,7 +5,7 @@ import { partitionForProject } from '../../src/preview/preview-options';
 import type { ProblemRecord, ProblemSource } from '../../src/shared/problem';
 import { launchApp } from './launch';
 import { collectConsoleErrors } from './project';
-import { copyFixture, evalInPreview, openProject, waitForPreviewState } from './preview-helpers';
+import { copyFixture, evalInPreview, openProject, previewInfo, waitForPreviewState } from './preview-helpers';
 
 /**
  * S16.2–S16.6 end to end: the runtime capture adapter in main turns what the real sandboxed preview reports into
@@ -192,6 +192,9 @@ test('a refresh starts a new generation; problems that did not happen again are 
   await expect.poll(async () => byMessage(await listed(), "Unexpected token ';'")?.count, { timeout: 20_000 }).toBe(2);
   const after = await snapshot();
   expect(after.current?.sessionId).toBe(before.current?.sessionId);
+  // One counter: problem records are numbered by the preview's own page-load generation (status pill, S14.1), the
+  // same number the one-click fix counts loads with (S22.5).
+  expect(after.current?.generation).toBe((await previewInfo(app)).status.generation);
 
   const records = await listed();
   const fixed = byMessage(records, 'Cannot set properties of null');
@@ -213,9 +216,11 @@ test('a refresh starts a new generation; problems that did not happen again are 
 });
 
 test('a flood of console errors is rate limited and capped; repeats collapse with counts; errors survive (S16.5)', async () => {
+  // 3000 messages paced within the in-page console limit (200 per second): about 23 s.
+  test.setTimeout(120_000);
   await startPreview(await project('预览 错误洪水'));
   await expect
-    .poll(() => evalInPreview<string>(app, 'document.body.dataset.sent ?? ""'), { timeout: 30_000 })
+    .poll(() => evalInPreview<string>(app, 'document.body.dataset.sent ?? ""'), { timeout: 60_000 })
     .toBe('3000');
   await expect.poll(async () => byMessage(await listed(), '洪水之后的错误'), { timeout: 10_000 }).toBeTruthy();
   const { records, stats } = await snapshot();
@@ -224,10 +229,11 @@ test('a flood of console errors is rate limited and capped; repeats collapse wit
     `error flood: ${consoleRecords.length} console records kept, dropped ${JSON.stringify(stats.dropped)}, ` +
       `evicted ${JSON.stringify(stats.evicted)}`,
   );
-  // 3000 different messages: only a burst plus a steady rate become records; the rest are counted as dropped.
-  expect(consoleRecords.length).toBeLessThan(1000);
+  // 3000 different messages: only a burst plus a steady rate become records, the rest are counted as dropped; over
+  // the ~23 s the flood now takes, the per-source ring buffer (capacity 1000) also evicts the oldest, counted too.
+  expect(consoleRecords.length).toBeLessThanOrEqual(1000);
   expect(stats.dropped.console).toBeGreaterThan(0);
-  expect(consoleRecords.length + stats.dropped.console).toBeLessThanOrEqual(3001);
+  expect(consoleRecords.length + stats.dropped.console + stats.evicted.console).toBeLessThanOrEqual(3001);
   // The repeated message is one record with a count, its first original and its latest repeat verbatim.
   const repeated = consoleRecords.filter((r) => r.originalMessage === '同一个错误');
   expect(repeated).toHaveLength(1);

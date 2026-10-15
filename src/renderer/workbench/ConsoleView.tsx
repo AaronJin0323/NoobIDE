@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
+import type { PreviewNotice } from '../../shared/ipc/preview-contract';
 import {
   CONSOLE_LEVEL_FILTERS,
   MAX_VISIBLE_LOG_ENTRIES,
@@ -108,13 +109,21 @@ function LogLine({ entry, older }: { entry: ConsoleEntry; older: boolean }) {
       data-source={entry.source}
       data-level={entry.level}
       data-generation={entry.generation}
+      {...(entry.notice ? { 'data-notice': entry.notice.kind } : {})}
     >
       <span className="preview-console-level">{t(`preview.level.${entry.level}`)}</span>
       {older && <span className="preview-console-older">{t('preview.console.olderTag')}</span>}
-      <span className="preview-console-text">{entry.message}</span>
+      <span className="preview-console-text">{entry.notice ? noticeText(entry.notice, t) : entry.message}</span>
       {where && <span className="preview-console-where">{where}</span>}
     </li>
   );
+}
+
+/** IDE notices about the page (S25.4 permissions, decision 0016 flood stop), in the user's language. */
+function noticeText(notice: PreviewNotice, t: (key: MessageKey) => string): string {
+  if (notice.kind === 'console-flood-stopped') return t('preview.notice.consoleFloodStopped');
+  if (notice.permission === 'other') return t('preview.notice.permissionDeniedOther');
+  return t('preview.notice.permissionDenied').replace('{permission}', t(`preview.permission.${notice.permission}`));
 }
 
 function fileName(url: string): string {

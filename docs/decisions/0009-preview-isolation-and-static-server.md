@@ -56,3 +56,14 @@ control: any local program or any browser tab could otherwise read the project (
 - Verified on Windows x64 by `tests/integration/preview-server.test.ts`, `tests/e2e/preview.spec.ts` and
   `tests/e2e/preview-isolation.spec.ts`. The same suites must run on macOS arm64 (CI runner, S06) — see
   `harness/MANUAL-CHECKS.md#S04-S05-macos`.
+
+## Amendment (2026-10-15, S25.4): permissions
+
+Every permission request of the preview session is denied in main (`setPermissionRequestHandler`,
+`setPermissionCheckHandler`, `setDevicePermissionHandler`, HID/serial/USB choosers cancelled, Bluetooth pairing
+refused, `setDisplayMediaRequestHandler` shares nothing), so no OS prompt can appear. Web Bluetooth is switched off
+for the preview (`disableBlinkFeatures: 'WebBluetooth'`, a required preview preference): on macOS
+`navigator.bluetooth.requestDevice()` made Chromium open CoreBluetooth before any handler ran and the system killed
+the whole IDE for a privacy violation (reproduced in the S25.4 e2e before the fix). The first denied request of each
+kind per page load becomes a localised, non-blocking console notice (`src/preview/permission-policy.ts`). Verified by
+`tests/e2e/preview-permissions.spec.ts` (fixture `预览 权限`) and `permission-policy.test.ts`.

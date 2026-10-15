@@ -46,4 +46,23 @@ describe('preview loads (S22.5)', () => {
     settle();
     expect(seen.at(-1)).toEqual({ started: 3, completed: 2 });
   });
+
+  it('numbers loads by main’s PreviewStatus.generation, the counter runtime problem records carry', () => {
+    const { c, seen, settle } = counter();
+    c.status('starting', 7);
+    c.status('starting', 7); // the same load reported again (its URL was added): not another load
+    expect(seen.at(-1)).toEqual({ started: 7, completed: 0 });
+    c.status('running', 7);
+    settle();
+    expect(seen.at(-1)).toEqual({ started: 7, completed: 7 });
+    c.status('refreshing', 8); // a page-initiated navigation counts as a load too (state machine 'navigate')
+    c.status('running', 8);
+    settle();
+    expect(seen.at(-1)).toEqual({ started: 8, completed: 8 });
+    c.status('stopped', 8);
+    c.status('starting', 9);
+    c.status('running', 9);
+    settle();
+    expect(seen.at(-1)).toEqual({ started: 9, completed: 9 });
+  });
 });
