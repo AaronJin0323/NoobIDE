@@ -52,6 +52,7 @@ import { AppMenuController } from './app-menu';
 import { registerCommandIpcHandlers } from './commands-ipc';
 import { installWindowLifecycle } from './window-lifecycle';
 import { setupAi } from './ai-main'; // S31 AI assistant (decision 0025)
+import { secureStorageFor } from '../platform/secure-storage';
 
 // Windows installer events: create/remove shortcuts and quit without opening a window (S02.7, S28.4: also quits
 // when Update.exe is missing or hangs). App data and projects are never touched by these events.
@@ -380,11 +381,8 @@ function start(): void {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       userData: appData,
       projects,
-      safeStorage: {
-        isAvailable: () => safeStorage.isEncryptionAvailable(),
-        encrypt: (plain) => safeStorage.encryptString(plain),
-        decrypt: (cipher) => safeStorage.decryptString(cipher),
-      },
+      // The keychain is touched only when a key is saved or read (never at startup): src/platform/secure-storage.ts.
+      safeStorage: secureStorageFor(safeStorage, platformId()),
       logger,
       log: (level, event, fields) => appLog.write(level, event, fields),
       fakeScript: process.env.NOOBIDE_AI_FAKE,
