@@ -11,6 +11,18 @@ export const PREVIEW_CHANNELS = {
   stop: 'preview:stop',
   reload: 'preview:reload',
   setBounds: 'preview:set-bounds',
+  // S14.2 refresh mode, typing pause, one-time notes
+  typing: 'preview:typing',
+  setRefreshMode: 'preview:set-refresh-mode',
+  notes: 'preview:notes',
+  noteSeen: 'preview:note-seen',
+  // S14.3 entry page picker
+  options: 'preview:options',
+  // S14.5 per-project storage
+  clearData: 'preview:clear-data',
+  // S15.4 toolbar
+  openExternal: 'preview:open-external',
+  devTools: 'preview:devtools',
 } as const;
 
 /** Main → workbench notifications (webContents.send). */
@@ -35,6 +47,31 @@ export interface PreviewStatus {
    * sets it; optional only so older literals (renderer fallbacks, tests) stay valid.
    */
   readonly generation?: number;
+  /**
+   * S14.2 manual refresh mode: a file was saved after this page loaded, so the page may be older than the files.
+   * Cleared by the next refresh, navigation, start or stop.
+   */
+  readonly outdated?: boolean;
+}
+
+/** S14.2: stored in `.noobide/project.json` (preview.autoRefresh) by the S13.2 module; auto is the default. */
+export type RefreshMode = 'auto' | 'manual';
+
+/** S14.2: notes shown once and then remembered in app data. */
+export type PreviewNoteId = 'reload-clears-state';
+export const PREVIEW_NOTE_IDS: readonly PreviewNoteId[] = ['reload-clears-state'];
+
+/** S14.3: what the preview toolbar needs to know about the open project. */
+export interface PreviewProjectOptions {
+  /** Pages the entry picker offers (portable relative paths, index.html first). */
+  readonly pages: readonly string[];
+  /** The listing stopped at a limit. */
+  readonly truncated: boolean;
+  /** The configured entry page (`.noobide/project.json`), or null for the default index.html. */
+  readonly entry: string | null;
+  readonly refresh: RefreshMode;
+  /** `.noobide/project.json` could not be read; settings cannot be changed until the user fixes or deletes it. */
+  readonly configLocked: boolean;
 }
 
 /** A raw record from the preview page (console, uncaught error, failed request). Diagnostics rules interpret it. */
@@ -73,18 +110,85 @@ export interface PreviewBounds {
   readonly visible: boolean;
 }
 
-export type PreviewStartError = 'unknown-project' | 'no-window' | 'server-failed';
+export type PreviewStartError = 'unknown-project' | 'no-window' | 'server-failed' | 'not-owner' | 'not-trusted';
+
+/**
+ * S14.4 (PLAN §8): who asked for the start. `user` — the user pressed "Start preview" (consent: the folder is
+ * remembered as trusted in app data). `auto` — the workbench starts the preview by itself after opening a project;
+ * main refuses it with `not-trusted` unless the folder is trusted (Start pressed once before, or created from a
+ * built-in template). Absent means `user`.
+ */
+export type PreviewStartTrigger = 'user' | 'auto';
+
+export interface PreviewStartRequest {
+  readonly projectId: string;
+  readonly trigger?: PreviewStartTrigger;
+}
 
 export interface PreviewApi {
   /** Starts the loopback server and the isolated view for the project, replacing any other preview. */
-  start(request: { readonly projectId: string }): Promise<IpcResult<PreviewStatus, PreviewStartError>>;
-  /** Destroys the preview view (also when the page is hung) and shuts the server down. */
-  stop(): Promise<IpcResult<PreviewStatus, never>>;
-  reload(): Promise<IpcResult<PreviewStatus, never>>;
-  /** Where the view sits over the preview pane, in workbench CSS pixels. */
-  setBounds(bounds: PreviewBounds): Promise<IpcResult<null, never>>;
+  start(request: PreviewStartRequest): Promise<IpcResult<PreviewStatus, PreviewStartError>>;
+  /**
+   * Destroys the preview view (also when the page is hung) and shuts the server down. S14.6: only the window that
+   * started the preview may stop it; naming a project that is not the previewed one is refused too (`not-owner`).
+   */
+  stop(request?: PreviewOwnerRequest): Promise<IpcResult<PreviewStatus, 'not-owner'>>;
+  reload(request?: PreviewOwnerRequest): Promise<IpcResult<PreviewStatus, 'not-owner'>>;
+  /** Where the view sits over the preview pane, in workbench CSS pixels. Ignored for a preview of another window. */
+  setBounds(bounds: PreviewBounds): Promise<IpcResult<null, 'not-owner'>>;
   /** Subscribes to status and log events; returns the unsubscribe function. */
   onEvent(listener: (event: PreviewEvent) => void): () => void;
+  // --- S14.2 ---
+  /** A key was typed in the code editor (throttled by the workbench): delays an automatic refresh. */
+  typing?(): Promise<IpcResult<null, never>>;
+  /** Writes the refresh mode into `.noobide/project.json`. */
+  setRefreshMode?(request: SetRefreshModeRequest): Promise<IpcResult<RefreshMode, SetRefreshModeError>>;
+  /** Which one-time notes were already shown (app data). */
+  notes?(): Promise<IpcResult<readonly PreviewNoteId[], never>>;
+  noteSeen?(request: { readonly note: PreviewNoteId }): Promise<IpcResult<null, never>>;
+  // --- S14.3 ---
+  options?(request: { readonly projectId: string }): Promise<IpcResult<PreviewProjectOptions, 'unknown-project'>>;
+  // --- S14.5 ---
+  /** Clears the project's preview storage (localStorage, IndexedDB, cookies, cache); a running page reloads. */
+  clearData?(request: { readonly projectId: string }): Promise<IpcResult<null, 'unknown-project' | 'not-owner'>>;
+  // --- S15.4 ---
+  /** Opens the current page in the default browser through a one-time grant (the URL never reaches the renderer). */
+  openExternal?(request: { readonly projectId: string }): Promise<IpcResult<null, 'not-running' | 'not-owner'>>;
+  /** Opens Chromium's developer tools for the preview page (advanced). */
+  devTools?(request: { readonly projectId: string }): Promise<IpcResult<null, 'not-running' | 'not-owner'>>;
+}
+
+export interface SetRefreshModeRequest {
+  readonly projectId: string;
+  readonly mode: RefreshMode;
+}
+
+export type SetRefreshModeError = 'unknown-project' | 'invalid-existing' | 'outside-project' | 'write-failed';
+
+export function parseSetRefreshMode(payload: unknown): SetRefreshModeRequest | null {
+  if (!isRecord(payload)) return null;
+  const keys = Object.keys(payload).sort().join(',');
+  if (keys !== 'mode,projectId' || !isProjectId(payload.projectId)) return null;
+  return payload.mode === 'auto' || payload.mode === 'manual'
+    ? { projectId: payload.projectId, mode: payload.mode }
+    : null;
+}
+
+export function parseNoteRequest(payload: unknown): { note: PreviewNoteId } | null {
+  if (!isRecord(payload) || Object.keys(payload).length !== 1) return null;
+  const note = PREVIEW_NOTE_IDS.find((id) => id === payload.note);
+  return note ? { note } : null;
+}
+
+/** `{ projectId }` exactly. */
+export function parseProjectOnly(payload: unknown): { projectId: string } | null {
+  if (!isRecord(payload) || Object.keys(payload).length !== 1) return null;
+  return isProjectId(payload.projectId) ? { projectId: payload.projectId } : null;
+}
+
+/** S14.6: the project an action is meant for; refused when it is not the previewed project. */
+export interface PreviewOwnerRequest {
+  readonly projectId: string;
 }
 
 const MAX_COORDINATE = 100_000;
@@ -92,9 +196,19 @@ const MAX_COORDINATE = 100_000;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-export function parsePreviewStart(payload: unknown): { projectId: string } | null {
-  if (!isRecord(payload) || Object.keys(payload).length !== 1) return null;
-  return isProjectId(payload.projectId) ? { projectId: payload.projectId } : null;
+export function parsePreviewStart(payload: unknown): { projectId: string; trigger: PreviewStartTrigger } | null {
+  if (!isRecord(payload)) return null;
+  const keys = Object.keys(payload);
+  if (!keys.every((key) => key === 'projectId' || key === 'trigger') || !isProjectId(payload.projectId)) return null;
+  const trigger = payload.trigger ?? 'user';
+  if (trigger !== 'user' && trigger !== 'auto') return null;
+  return { projectId: payload.projectId, trigger };
+}
+
+/** stop / reload: no payload (the current preview) or `{ projectId }` (only if that project is previewed). */
+export function parseOwnerRequest(payload: unknown): { projectId?: string } | null {
+  if (payload === undefined) return {};
+  return parseProjectOnly(payload);
 }
 
 export function parsePreviewBounds(payload: unknown): PreviewBounds | null {

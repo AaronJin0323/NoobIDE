@@ -8,6 +8,7 @@ import { FilesPanel, type ExtraMenuItem, type FileOpsHooks } from './FilesPanel'
 import { isSameOrBelow } from './file-tree-model';
 import { EditorPane, type SaveCopyNotice } from './EditorPane';
 import { PreviewPane } from './PreviewPane';
+import { PREVIEW_COMMAND_HANDLERS } from './preview-commands'; // S15.4
 import { ProblemsPanel } from './ProblemsPanel';
 import { INITIAL_LAYOUT, NARROW_QUERY, layoutReducer, visibleRegions } from './layout';
 import { INITIAL_DOCUMENT_STATE, activeSaveStatus, activeTab, cycleTab, documentReducer } from './document-state';
@@ -738,6 +739,7 @@ export function Workbench() {
     // S23: onboarding help
     'help-walkthrough': () => walkthroughRef.current.open(),
     'help-glossary': () => setGlossaryFor({ term: null }),
+    ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
   };
   const commands = useCommands(platform, commandContext, commandHandlers);
   const menuItems = useAppMenuItems(platform, commandContext, commandHandlers, commands.run);

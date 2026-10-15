@@ -339,8 +339,7 @@ test.describe('the PLAN §2 journey (S23.2) and the final task (S23.3)', () => {
     await editAndSave('style.css', (t) => `${t}\n.about-me {\n  color: #16a34a;\n}\n`);
     await expect(task).toHaveAttribute('data-done', 'true');
     await expect(page.getByTestId('task-check')).toHaveText('完成了！你自己改了页面结构和样式，整个流程你已经会了。');
-    // After a restart the preview waits for Start (PLAN §8); the result is visible once it runs.
-    await page.getByTestId('preview-start').click();
+    // S14.4: a project created from a built-in template is trusted, so after a restart it previews by itself.
     await waitForPreviewState(page, 'running');
     await expect
       .poll(() => evalInPreview<string>(app, "getComputedStyle(document.querySelector('.about-me')).color"), {

@@ -20,6 +20,9 @@ import { installCloseGuard, type CloseGuard } from './close-guard';
 import { ProjectWatchHub } from './project-watch';
 import { ProjectService } from '../workspace/project-service';
 import { PreviewManager } from '../preview/preview-manager';
+import { PreviewStore } from './preview-store'; // S14.4 trust, S14.2 one-time notes (app data)
+import { readPreviewOptions, refreshModeOf, writeRefreshMode } from '../preview/project-options'; // S14.2/S14.3
+import { err, ok } from '../shared/result';
 import { consoleLogger } from '../recovery/atomic-file';
 import { RecoveryJournal } from '../recovery/journal';
 import { SnapshotStore } from '../recovery/history';
@@ -84,6 +87,8 @@ function start(): void {
       const root = projects?.rootOf(id);
       return root === undefined ? '' : previewEntryPath(root);
     },
+    // S15.4: "Open in external browser" (a one-time grant URL; never logged, never sent to the renderer).
+    openExternal: (url) => shell.openExternal(url),
   });
   // --- end S04 ---
 
@@ -199,13 +204,11 @@ function start(): void {
       watchHub.watch(projectId, root, sender);
       void recent.touch(root);
       void sessionStore.projectOpened(root); // S13.4: reopened on the next normal start
-      const previewed = preview.getStatus().projectId;
-      if (previewed !== null && previewed !== projectId) void preview.stop();
+      void preview.projectSwitched(projectId); // S14.6: another project's preview and server shut down
     };
     const projectClosed = async (projectId: string, root: string) => {
       watchHub.stop();
-      const previewed = preview.getStatus().projectId;
-      if (previewed === null || previewed === projectId) void preview.stop();
+      await preview.projectClosed(projectId); // S14.6: its preview stops and its server shuts down
       // S13.4: the next start shows the welcome screen. Awaited, so a quit right after closing cannot lose it.
       await sessionStore.projectClosed(root);
     };
@@ -218,6 +221,9 @@ function start(): void {
     const historyTriggers = new HistoryTriggers(history, logger);
     // --- end S21 ---
     projects = new ProjectService({ history: historyTriggers });
+    // S14.4/S14.2: preview trust and one-time notes in app data (never inside a project).
+    const previewStore = new PreviewStore({ file: path.join(appData, 'preview.json'), log: logger });
+    const openProjects = projects;
     registerIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       projects,
@@ -258,6 +264,8 @@ function start(): void {
           const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options);
           return result.canceled ? null : (result.filePaths[0] ?? null);
         },
+        // S14.4: a project made from a built-in template is trusted: its preview starts at once (PLAN §8).
+        created: (root) => previewStore.trust(root),
       },
       // --- end S20.2 ---
       // S21.3/S21.4: local history window (store and triggers created above).
@@ -269,14 +277,39 @@ function start(): void {
     savedIn.onSaved((file) => {
       const root = savedIn.rootOf(file.projectId);
       if (root === undefined) return;
-      void effectiveProjectConfig(root).then((config) => {
-        if (config.preview?.autoRefresh !== false) preview.fileSaved(file.projectId);
-      });
+      // S14.2: automatic mode refreshes after the typing pause; manual mode marks the page as outdated.
+      void effectiveProjectConfig(root).then((config) => preview.fileSaved(file.projectId, refreshModeOf(config)));
     });
     registerPreviewIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       windowOf: (event) => BrowserWindow.fromWebContents(event.sender),
       preview,
+      // S14.2/S14.3: preview settings in .noobide/project.json (S13.2 module) and one-time notes in app data.
+      settings: {
+        options: async (projectId) => {
+          const root = openProjects.rootOf(projectId);
+          if (root === undefined) return err('unknown-project', 'project is not open');
+          return ok(await readPreviewOptions(root));
+        },
+        setRefreshMode: async (projectId, mode) => {
+          const root = openProjects.rootOf(projectId);
+          if (root === undefined) return err('unknown-project', 'project is not open');
+          return writeRefreshMode(root, mode);
+        },
+        notesSeen: async () => ((await previewStore.noteSeen('reload-clears-state')) ? ['reload-clears-state'] : []),
+        markNoteSeen: (note) => previewStore.markNoteSeen(note),
+      },
+      // S14.4: start-preview consent, by the project's real root (main only).
+      trust: {
+        isTrusted: async (projectId) => {
+          const root = openProjects.rootOf(projectId);
+          return root !== undefined && (await previewStore.isTrusted(root));
+        },
+        trust: async (projectId) => {
+          const root = openProjects.rootOf(projectId);
+          if (root !== undefined) await previewStore.trust(root);
+        },
+      },
     });
     // --- S13 app data (all in app.getPath('userData'), never inside a project) ---
     const settings = new SettingsStore({ file: path.join(appData, 'settings.json'), log: logger });
