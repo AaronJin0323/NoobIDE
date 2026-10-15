@@ -1324,6 +1324,44 @@ button {
   font-size: 12px;
   color: var(--muted);
 }
+/* The page showing and the way back to the entry page (a broken link must never trap the preview). */
+.preview-location {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+.preview-page-path {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  color: var(--text);
+  font-family: var(--font-code);
+}
+/* Not colour alone: an icon and the words say the page is missing. */
+.preview-page-missing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text);
+  font-weight: 600;
+}
+.preview-page-missing > svg {
+  color: var(--warn);
+}
+.preview-location .quiet-button {
+  height: 26px;
+}
 .preview-toolbar .quiet-button:disabled,
 .preview-advanced .quiet-button:disabled {
   opacity: 0.5;

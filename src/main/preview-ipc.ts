@@ -31,6 +31,8 @@ export interface PreviewIpcDeps {
     start(projectId: string, window: BrowserWindow): Promise<Result<PreviewStatus, PreviewStartError>>;
     stop(): Promise<PreviewStatus>;
     reload(): PreviewStatus;
+    /** Opens the entry page in the running preview. */
+    goToEntry?(): Promise<Result<PreviewStatus, 'not-running'>>;
     setBounds(bounds: PreviewBounds): void;
     /** S14.6: the requesting window (webContents id) started the preview, and it is of the named project. */
     isOwner(requester: { readonly windowId: number; readonly projectId?: string | undefined }): boolean;
@@ -104,6 +106,10 @@ export function registerPreviewIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: P
   handle(PREVIEW_CHANNELS.reload, parseOwnerRequest, async ({ projectId }, event) =>
     owns(event, projectId) ? { ok: true, value: deps.preview.reload() } : NOT_OWNER,
   );
+  handle(PREVIEW_CHANNELS.goToEntry, parseOwnerRequest, async ({ projectId }, event) => {
+    if (!owns(event, projectId)) return NOT_OWNER;
+    return deps.preview.goToEntry ? toIpcResult(await deps.preview.goToEntry()) : UNAVAILABLE;
+  });
   // --- S14.2 refresh mode, typing pause and one-time notes ---
   handle(PREVIEW_CHANNELS.typing, parseNoPayload, async () => {
     deps.preview.typing?.();

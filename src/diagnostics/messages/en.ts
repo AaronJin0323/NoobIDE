@@ -99,6 +99,12 @@ export const en: Record<DiagnosticsMessageKey, string> = {
     'The path starts from the folder that contains {initiator}; to go up one folder, write ../.',
   'notFound.check.compareName':
     'Find the file in the file tree and compare its name and extension, including capitalisation.',
+  // A link to a page that does not exist (the page itself is the 404)
+  'notFound.title.page': 'The page {path} does not exist (404): a link leads to a missing page.',
+  'notFound.explanation.page':
+    'A link (<a href>) probably opened this page, but the project has no such file, so the preview shows “Page not found”. Use “Back to entry page” in the preview toolbar to go back.',
+  'notFound.check.link': 'Check the href of the link in {initiator}: the file name, its extension and capital letters.',
+  'notFound.check.createPage': 'If the page is still to be written, create it in the file list with exactly this name.',
 
   // Rule 7 — misspelled CSS property
   'cssProperty.title': 'The browser does not know the CSS property {property}; this style is ignored.',

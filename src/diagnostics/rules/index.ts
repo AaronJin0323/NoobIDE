@@ -10,7 +10,7 @@ import { crossOriginRule } from './cross-origin';
 import { cssPropertyRule } from './css-property';
 import { explainProblem, withExplanation } from './engine';
 import { moduleImportRule } from './module-import';
-import { imageNotFoundRule, scriptNotFoundRule, stylesheetNotFoundRule } from './not-found';
+import { imageNotFoundRule, pageNotFoundRule, scriptNotFoundRule, stylesheetNotFoundRule } from './not-found';
 import { nullElementRule } from './null-element';
 import { syntaxRule } from './syntax';
 import type { Rule, RuleContext } from './types';
@@ -31,6 +31,7 @@ export const DEFAULT_RULES: readonly Rule[] = [
   scriptNotFoundRule,
   imageNotFoundRule,
   stylesheetNotFoundRule,
+  pageNotFoundRule,
   cssPropertyRule,
   htmlUnclosedTagRule,
   selectorGuidedRule,

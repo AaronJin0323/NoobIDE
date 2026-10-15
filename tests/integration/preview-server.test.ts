@@ -300,6 +300,52 @@ describe('path guard (S04.1)', () => {
     expect((await raw('/index.html/')).status).toBe(404);
   });
 
+  it('explains a missing page to a document load, escaped and script-free; other requests keep the plain 404', async () => {
+    const doc = { 'Sec-Fetch-Dest': 'document', 'Sec-Fetch-Site': 'same-origin' };
+    const page = await raw('/%E5%85%B3%E4%BA%8E%20%E6%88%91.html?x=1', { headers: doc });
+    expect(page.status).toBe(404);
+    expect(page.headers['content-type']).toBe('text/html; charset=utf-8');
+    expect(page.headers['content-security-policy']).toContain("default-src 'none'");
+    expect(page.headers['x-content-type-options']).toBe('nosniff');
+    expect(page.body).toContain('<html lang="zh-CN">');
+    expect(page.body).toContain('找不到这个页面');
+    expect(page.body).toContain('<code>关于 我.html</code>');
+    expect(page.body).not.toContain('<script');
+    // Names with < > " are refused before (400); the characters that do pass are escaped.
+    expect((await raw(`/${encodeURIComponent('<img src=x>.html')}`, { headers: doc })).status).toBe(400);
+    const hostile = await raw(`/${encodeURIComponent("Tom & Jerry's $&.html")}`, { headers: doc });
+    expect(hostile.status).toBe(404);
+    expect(hostile.body).toContain('<code>Tom &amp; Jerry&#39;s $&amp;.html</code>');
+    // Images, scripts, fetches: the plain text answer.
+    const image = await raw('/missing.png', { headers: { 'Sec-Fetch-Dest': 'image' } });
+    expect(image).toMatchObject({ status: 404, body: '404 Not Found\n' });
+    expect((await raw('/missing.html')).body).toBe('404 Not Found\n');
+    // The checks before it still apply: no token, no page.
+    expect((await raw('/missing.html', { token: null, headers: doc })).status).toBe(403);
+    // HEAD: the status and headers only.
+    const head = await raw('/missing.html', { method: 'HEAD', headers: doc });
+    expect(head).toMatchObject({ status: 404, body: '' });
+  });
+
+  it('the missing-page explanation follows the interface language', async () => {
+    let locale: 'zh-CN' | 'en' = 'en';
+    const english = await PreviewServer.start(root, { locale: () => locale });
+    const previous = server;
+    server = english;
+    try {
+      const doc = { 'Sec-Fetch-Dest': 'document' };
+      const page = await raw('/about.html', { headers: doc });
+      expect(page.body).toContain('<html lang="en">');
+      expect(page.body).toContain('Page not found');
+      expect(page.body).toContain('<code>about.html</code>');
+      locale = 'zh-CN';
+      expect((await raw('/about.html', { headers: doc })).body).toContain('找不到这个页面');
+    } finally {
+      server = previous;
+      await english.close();
+    }
+  });
+
   it('never caches, never sniffs', async () => {
     const res = await raw('/index.html');
     expect(res.headers['cache-control']).toBe('no-store');

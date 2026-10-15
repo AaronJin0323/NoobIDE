@@ -42,6 +42,8 @@ import { createPreviewWebPreferences, insecurePreviewPreferences, partitionForPr
 import { decidePreviewRequest, isAllowedNavigation } from './request-policy';
 import { PreviewProxy } from './preview-proxy';
 import { PreviewServer, TOKEN_HEADER } from './static-server';
+import { parseRequestTarget, resolveInRoot } from './request-path';
+import type { Locale } from '../renderer/i18n/index';
 import { NotOwnerError, ServerRegistry, type ServerOwner } from './server-registry';
 import { DEFAULT_TYPING_PAUSE_MS, RefreshScheduler } from './refresh-scheduler';
 import { PermissionNotices } from './permission-policy';
@@ -104,6 +106,8 @@ export interface PreviewManagerDeps {
    * rate limit (docs/decisions/0016) and with its URLs sanitised (decision 0015).
    */
   readonly capture?: PreviewCaptureHook;
+  /** The interface language, for the page the server shows when a page is missing (not-found-page.ts). */
+  locale?(): Locale;
 }
 
 interface LivePreview {
@@ -132,6 +136,10 @@ interface LivePreview {
   readonly floodTrace: FloodTraceEntry[];
   /** S41.3: element picking, finding and highlighting for annotations (decision 0030). */
   readonly picker: ElementPicker;
+  /** The URL the preview started with (the entry page). */
+  readonly entryUrl: string;
+  /** The page showing is the server's 404 (a link to a page that does not exist). */
+  pageMissing: boolean;
 }
 
 /** One flood guard decision: a stop sent, or its answer. `ms` is main's time since the counting window began. */
@@ -200,7 +208,9 @@ export class PreviewManager {
   /** S14.6: owner (project + window) of a start that is still waiting for its server. */
   private startingOwner: ServerOwner | null = null;
   /** S14.6: at most one loopback server per open project, owned by the project and window that started it. */
-  private readonly servers = new ServerRegistry<PreviewServer>((root, options) => PreviewServer.start(root, options));
+  private readonly servers = new ServerRegistry<PreviewServer>((root, options) =>
+    PreviewServer.start(root, { ...options, locale: () => this.deps.locale?.() ?? 'zh-CN' }),
+  );
   /** A save arrived while the page was loading; reload when the load finishes. */
   private reloadPending = false;
   /** S15.5/S15.6: a start or refresh must not take the keyboard focus away from the workbench. */
@@ -222,7 +232,7 @@ export class PreviewManager {
   constructor(private readonly deps: PreviewManagerDeps) {
     this.refresher = new RefreshScheduler({
       quietMs: deps.typingPauseMs ?? DEFAULT_TYPING_PAUSE_MS,
-      refresh: () => void this.reload(),
+      refresh: () => void this.reload({ afterSave: true }),
     });
   }
 
@@ -400,6 +410,8 @@ export class PreviewManager {
       floodStopped: false,
       floodTrace: [],
       picker: new ElementPicker(view.webContents),
+      entryUrl: `${server.origin}/${entryPath}`,
+      pageMissing: false,
     };
     this.live = live;
     this.startingWindow = null;
@@ -415,7 +427,7 @@ export class PreviewManager {
     const watchdog = this.deps.watchdog ?? DEFAULT_WATCHDOG;
     live.timers.push(setInterval(() => this.checkResponsive(live, watchdog), watchdog.intervalMs));
 
-    const url = `${server.origin}/${entryPath}`;
+    const url = live.entryUrl;
     this.setStatus(window, { ...this.status, url });
     view.webContents.loadURL(url).catch(() => undefined); // Failures arrive as did-fail-load.
     return ok(this.status);
@@ -458,7 +470,12 @@ export class PreviewManager {
     return this.status;
   }
 
-  reload(): PreviewStatus {
+  /**
+   * Refreshes the page. `afterSave`: the automatic refresh after a save — when the page showing is a missing page
+   * (404, e.g. after following a broken link), reloading it would only show the 404 again, so the preview goes back
+   * to the entry page instead, unless the missing file exists by now (then that page is loaded).
+   */
+  reload(options: { readonly afterSave?: boolean } = {}): PreviewStatus {
     const live = this.live;
     if (!live || live.view.webContents.isDestroyed()) return this.status;
     // Still loading: refresh once the load has finished, so a save during startup is not lost.
@@ -472,8 +489,53 @@ export class PreviewManager {
     this.update(live, { type: 'refresh' });
     if (this.machine === before) return this.status;
     this.focusGuard.loadStarted(!live.window.isDestroyed() && live.window.webContents.isFocused(), Date.now());
-    live.view.webContents.reloadIgnoringCache();
+    if (options.afterSave && live.pageMissing) void this.leaveMissingPage(live);
+    else live.view.webContents.reloadIgnoringCache();
     return this.status;
+  }
+
+  /** Opens the project's entry page in the running preview ("Back to entry page"). */
+  async goToEntry(): Promise<Result<PreviewStatus, 'not-running'>> {
+    const live = this.live;
+    if (!live || live.view.webContents.isDestroyed()) return err('not-running', 'no preview');
+    const loading = this.status.state === 'starting' || this.status.state === 'refreshing';
+    if (!loading) {
+      const before = this.machine;
+      this.update(live, { type: 'refresh' });
+      if (this.machine === before) return err('not-running', 'the page cannot load now');
+    }
+    this.reloadPending = false; // the entry page is loaded fresh anyway
+    this.focusGuard.loadStarted(!live.window.isDestroyed() && live.window.webContents.isFocused(), Date.now());
+    const target = await this.entryUrlOf(live);
+    if (this.live !== live || live.view.webContents.isDestroyed()) return err('not-running', 'stopped meanwhile');
+    live.view.webContents.loadURL(target).catch(() => undefined); // failures arrive as did-fail-load
+    return ok(this.status);
+  }
+
+  /** The entry page now (the setting may have changed since the preview started). */
+  private async entryUrlOf(live: LivePreview): Promise<string> {
+    const read = this.deps.entryPathOf?.(live.projectId).catch(() => null) ?? Promise.resolve(null);
+    const entryPath = await withTimeout(read, 2_000, null);
+    return entryPath === null ? live.entryUrl : `${live.server.origin}/${entryPath}`;
+  }
+
+  /** After a save on a missing page: load that page if its file exists now, else the entry page. */
+  private async leaveMissingPage(live: LivePreview): Promise<void> {
+    const contents = live.view.webContents;
+    let target: string | null = null;
+    try {
+      const shown = new URL(contents.getURL());
+      const request = parseRequestTarget(shown.pathname);
+      if (shown.origin === live.server.origin && request.ok) {
+        const found = await resolveInRoot(live.server.root, request.value);
+        if (found.ok) target = shown.href;
+      }
+    } catch {
+      // not a page of the server: go to the entry page
+    }
+    target ??= await this.entryUrlOf(live);
+    if (this.live !== live || contents.isDestroyed()) return;
+    contents.loadURL(target).catch(() => undefined); // failures arrive as did-fail-load
   }
 
   /**
@@ -1199,8 +1261,11 @@ export class PreviewManager {
       this.deps.capture?.navigationStarted(live.loadGeneration);
     });
     // S16.3: the new document committed; from now on the page's records belong to its generation.
-    contents.on('did-navigate', () => {
+    contents.on('did-navigate', (_event, url, httpResponseCode) => {
       if (!isCurrent()) return;
+      // Which page is showing, and whether it is the server's 404 (a link to a page that does not exist).
+      live.pageMissing = httpResponseCode === 404;
+      this.pageShown(live, url);
       this.permissionNotices.pageLoaded(); // S25.4: a new page explains its own requests again
       live.floodStopped = false;
       // A ping sent to the previous document after the navigation started is never answered (its frame is gone);
@@ -1294,6 +1359,8 @@ export class PreviewManager {
     // S14.2: a new page load (or Stop) shows the saved files again; other changes keep the "outdated" note.
     const fresh = event.type === 'start' || event.type === 'refresh' || event.type === 'navigate';
     const outdated = !fresh && next.state !== 'stopped' && this.status.outdated === true;
+    // The missing-page mark belongs to the page showing (`url`); the next page that loads sets it again.
+    const notFound = url !== undefined && this.status.notFound === true;
     const status: PreviewStatus = {
       state: next.state,
       projectId: next.state === 'stopped' ? null : projectId,
@@ -1301,9 +1368,19 @@ export class PreviewManager {
       ...(url ? { url } : {}),
       generation: next.generation,
       ...(outdated ? { outdated } : {}),
+      ...(notFound ? { notFound } : {}),
     };
     if (window) this.setStatus(window, status);
     else this.status = status;
+  }
+
+  /** A document of the preview's own server committed: publish its address and whether it is a missing page. */
+  private pageShown(live: LivePreview, url: string): void {
+    if (urlOriginOf(url) !== live.server.origin) return;
+    const notFound = live.pageMissing;
+    if (this.status.url === url && (this.status.notFound === true) === notFound) return;
+    const { notFound: _previous, ...rest } = this.status;
+    this.setStatus(live.window, { ...rest, url, ...(notFound ? { notFound } : {}) });
   }
 
   private setStatus(window: BrowserWindow, status: PreviewStatus): void {

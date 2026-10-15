@@ -19,6 +19,7 @@ import {
   entryToStore,
   isTypingKey,
   nextGeneration,
+  pageLocation,
   pillFor,
   stageMessageKey,
   stateLabelKey,
@@ -346,6 +347,9 @@ export function PreviewPane({
         ),
       );
   };
+  const goToEntry = () => {
+    if (projectId && bridge?.goToEntry && status.projectId === projectId) void bridge.goToEntry({ projectId });
+  };
   const devTools = () => {
     if (projectId && actions.devTools) void bridge?.devTools?.({ projectId });
   };
@@ -410,6 +414,7 @@ export function PreviewPane({
   const messageKey = stageMessageKey(status, projectId !== null);
   const consent = needsConsent && status.state === 'stopped' && projectId !== null;
   const entryValue = options ? entryChoice(options.pages, options.entry) : '';
+  const location = status.projectId === projectId ? pageLocation(status, entryValue) : null;
   return (
     <section
       className="region panel preview"
@@ -450,6 +455,36 @@ export function PreviewPane({
           )}
         </div>
       </div>
+      {location && (
+        // The page showing (it changes when the user follows a link), and the way back to the entry page.
+        <div
+          className="preview-location"
+          data-testid="preview-location"
+          data-missing={location.missing ? 'true' : undefined}
+        >
+          <span className="preview-field">{t('preview.page')}</span>
+          <code className="preview-page-path" data-testid="preview-page-path" title={t('preview.page.title')}>
+            {location.path}
+          </code>
+          {location.missing && (
+            <span className="preview-page-missing" role="status" data-testid="preview-page-missing">
+              <WarningIcon size={14} />
+              {t('preview.page.missing')}
+            </span>
+          )}
+          {location.away && bridge?.goToEntry && (
+            <button
+              type="button"
+              className="quiet-button"
+              data-testid="preview-go-to-entry"
+              title={t('preview.goToEntry.title').replace('{entry}', () => entryValue || 'index.html')}
+              onClick={goToEntry}
+            >
+              {t('preview.goToEntry')}
+            </button>
+          )}
+        </div>
+      )}
       {projectId !== null && (
         <div className="preview-toolbar" data-testid="preview-toolbar">
           <button
