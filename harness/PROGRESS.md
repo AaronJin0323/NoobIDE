@@ -3,6 +3,64 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 10 — 2026-10-15 — Wave 4 on the Mac: wave-2 work rebuilt (preview, diagnostics, problem card, CI)
+
+**Agent:** Claude (Opus 5.5) as lead on the Apple Silicon Mac, seven parallel subagents in git worktrees (P1–P7).
+The Windows-only wave-2 branches (W1/W2/CI/W4-S13.5 from Session 4) were never pushed; the owner chose to **rebuild
+that work here. Those Windows branches are now obsolete — do not merge them.**
+
+**Done (110 done + 12 needs_manual_check of 145; was 88 + 7)**
+
+- P1 — S05.5 (reopened security findings), S05.7, S05.3: all preview traffic goes through a SOCKS5 proxy in main
+  (`src/preview/preview-proxy.ts`, `address-policy.ts`) that allows only the project server on literal 127.0.0.1 and
+  public addresses, deciding on resolved addresses (no rebinding; LAN/own-interface CIDRs, mapped/NAT64 forms refused;
+  lookups via `session.resolveHost`, capped + timed out). Non-blocking dialogs/beforeunload, service workers blocked +
+  cleared, sanitized log URLs. In-page console limiter over CDP (`page-guard.ts`): main stall 11–23 ms during the flood
+  (was 8–9 s). Two independent reviewers, three rounds, all findings fixed. Decisions 0015, 0016.
+- P2 — S16.2–S16.6: runtime capture adapter (`src/diagnostics/runtime-capture.ts`, `src/main/problems-bridge.ts`,
+  `window.noobide.problems`), refresh attribution (stale records), resource failures with initiator, per-source volume
+  limits, certain-wording cross-origin explanation. Decision 0017.
+- P3 — S14.1–S14.6, S15.4: preview state machine, auto/manual refresh, entry picker, start consent (trusted folders
+  hashed in `<userData>/preview.json`), Clear preview data, one server per project with owner checks
+  (`server-registry.ts`), toolbar commands in the S24 registry, "Open in browser" one-time grant + cookie. Reviewed.
+  Decision 0018. Lead fixed two follow-ups P1 found (start ownership on insecure-prefs abort; `open-failed`).
+- P4 — S15.1–S15.3 done (fixed real splitter drag-release bug — likely the old "12 px off"), S15.5/S15.6
+  needs_manual_check (mac half demonstrated incl. fullscreen, overlays, focus handoff, forced scale 1.5/2; real bug
+  fixed: Start/Refresh stole keyboard focus into the page). Decision 0019.
+- P5 — S22.4 problem card (did-you-mean now gets declared names from the TS service), S22.5 one-click fix. Independent
+  review found a must-fix (fix in a background tab bypassed the recovery journal; same latent gap in S21.3 restore) +
+  4 smaller issues; S22.5 reopened, all fixed (`recordEdit` in Workbench), re-marked done.
+- P6 — S06.1–S06.3 needs_manual_check: `.github/workflows/ci.yml` (windows-latest + macos-14, SHA-pinned actions,
+  contents: read), `scripts/inspect-arch.mjs`; the macOS job's commands all pass locally; DMG validated on this Mac.
+  Nothing pushed to Actions yet. Decision 0021.
+- P7 — S13.5 cross-platform transfer notice (read-only scan, `src/shared/portability.ts`), S13.7 Gate G2 review
+  (`docs/reviews/G2.md`, conditional pass — Windows evidence not re-run), FileTree stale-listing race fixed
+  (`folder-listing.ts`). Decision 0022.
+
+**Evidence:** `npm run verify` green (1643 unit/integration tests). Full `npm run test:e2e` on macOS arm64, machine
+otherwise idle: run 1 212 passed / 1 failed / 2 skipped, run 2 214 passed / 2 skipped. Per-feature evidence in
+features.json.
+
+**Decisions:** 0015–0019, 0021, 0022 added (0020 unused). Generation: `PreviewStatus.generation` (P3) and the
+capture adapter's own navigation counter (P2) coexist — unify later.
+
+**Problems / risks:** Load-sensitive e2e flakes, each passing alone: preview-layout scale-1.5 (timed out once in an
+idle full run), recovery.spec S12.2, file-tree S08.5, runtime-problems, history. One unit flake under heavy load
+(likely the "100k events < 2 s" store test). Preview limiter bypass: a page holding a saved native `console.log`
+can still stall main ~2 s. None of this wave has run on Windows. The background-tab journal e2e passes even without
+its fix on this machine (race not reproduced); a unit test guards it.
+
+**Owner action needed:** run `npm run verify` + `npm run test:e2e` on Windows; manual checks S05.5-windows, S15.5,
+S15.6, S06.1–S06.3 (push and run the workflow), plus the Session 9 list (S24.2, S25.3, S26.1, S27.1, S27.3, S28.1).
+H.1, H.2 still open. S09.4/S09.5 IME need a person.
+
+**Next up**
+
+1. Windows re-run of everything; fix what breaks there.
+2. S17.4 and S06.4 gate reviews; S25.4 (preview permission requests denied — now unblocked), S26.2 (fault suite in
+   CI), S28.6 user docs (only claim proven capabilities).
+3. Stabilise the load-sensitive e2e tests listed above; unify the preview generation counters.
+
 ## Session 9 — 2026-10-15 — First macOS session; parallel wave 3 (S23, S24, S25.3, S26.1, S27, S28.1)
 
 **Agent:** Claude (Opus 5.5) as lead on a physical Apple Silicon Mac (MacBook Pro M3 Pro, 18 GB, macOS 27.2 arm64),
