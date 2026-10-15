@@ -205,7 +205,6 @@ describe('bounded, corruption-tolerant journal (S12.3)', () => {
     ['an empty file', () => ''],
     ['a wrong schema', () => JSON.stringify({ format: 'noobide-recovery', v: 1, text: 1 })],
     ['a checksum mismatch', (good: string) => good.replace('未保存', '已篡改')],
-    ['a future format version', (good: string) => good.replace('"v":1', '"v":99')],
   ])('skips %s, logs it, quarantines it and still lists the good records', async (_name, corrupt) => {
     await journal.record(target, snapshot(1));
     const other = { rootPath: root, relPath: 'index.html' };
@@ -221,6 +220,26 @@ describe('bounded, corruption-tolerant journal (S12.3)', () => {
     expect(await readdir(path.join(journalDir, 'quarantine'))).toHaveLength(1);
     expect(await restarted.read(other, BUF_B)).toMatchObject({ ok: false, code: 'not-found' });
     expect((await restarted.usage()).entries).toBe(1);
+  });
+
+  it('S28.4: a record written by a newer NoobIDE is skipped and left in place, byte for byte (downgrade)', async () => {
+    await journal.record(target, snapshot(1));
+    const other = { rootPath: root, relPath: 'index.html' };
+    await journal.record(other, snapshot(1, SECRET, BUF_B));
+    const newerFile = path.join(journalDir, projectKey(root), `${fileKey(other.relPath)}-${BUF_B}.json`);
+    const newer = (await readFile(newerFile, 'utf8')).replace('"v":1', '"v":2');
+    await writeFile(newerFile, newer);
+
+    const older = newJournal();
+    const pending = await older.listPending();
+    expect(pending[0]?.files.map((f) => f.relPath)).toEqual([target.relPath]);
+    expect(logs.some((l) => l.event === 'recovery.entry-skipped' && l.fields.reason === 'newer')).toBe(true);
+    expect(await readFile(newerFile, 'utf8')).toBe(newer);
+    await expect(readdir(path.join(journalDir, 'quarantine'))).rejects.toThrow();
+    // Saving the same buffer in the older version never removes the newer copy; it is still counted.
+    expect(await older.discardSaved(other, BUF_B, 5)).toEqual({ ok: true, value: { removed: false } });
+    expect(await readFile(newerFile, 'utf8')).toBe(newer);
+    expect((await older.usage()).entries).toBe(2);
   });
 
   it('records over a lowered size limit are skipped but kept in place, not quarantined', async () => {

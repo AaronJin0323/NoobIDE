@@ -14,7 +14,8 @@ stays marked as pending until that work is done.
 >
 > - 安装包**还没有签名**（Apple 公证和 Windows 代码签名正在准备中）。第一次打开时系统会提示风险，下面写了怎么处理。
 > - Windows 安装包和 macOS 下载安装的首次启动，还没有在全新的电脑上完成验收（见 [验收清单](acceptance.md)）。
-> - 升级时数据是否完整保留、卸载会留下什么，还在验证中（标有“待 S28.4 确认”的地方）。
+> - 升级会保留你的设置、最近的项目和本地历史：已在 Mac 上用打包好的两个版本测试过；Windows 安装包的升级和卸载还需要在真实的
+>   Windows 电脑上确认（标有“Windows：验证中”的地方）。
 > - 支持的最低系统版本还没有确定（待负责人任务 H.1）。
 
 ## 1. 系统要求
@@ -146,11 +147,12 @@ S14.4 start-preview consent, S23.1–S23.4 walkthrough + glossary, S02.5 / S13.1
 <!-- S24.1, S24.3, S13.6, S25.3, S27.2 -->
 
 **还没有验证、暂不承诺的部分：** 真实设备上的中文输入法、不同显示缩放和多显示器、睡眠唤醒后的恢复、各平台菜单和窗口习惯的
-最终确认、性能指标、签名安装包、升级保留数据。这些会在验证完成后写进发布说明。
+最终确认、性能指标、签名安装包、用 Windows 安装包升级和卸载。这些会在验证完成后写进发布说明。
 
 <!-- Not claimed: S09.4/S09.5 IME (needs_manual_check), S15.5/S15.6 DPI/monitors (needs_manual_check), S25.1/S25.2
 sleep/wake (todo), S24.2 menus/window lifecycle (needs_manual_check), S25.4 preview permission prompts (todo),
-S27.1/S27.3 performance (needs_manual_check), S28.2/S28.3 signing (todo), S28.4/S28.5 upgrade (todo). -->
+S27.1/S27.3 performance (needs_manual_check), S28.2/S28.3 signing (todo), S28.4 Windows installer upgrade/uninstall
+(needs_manual_check), S28.5 macOS upgrade of a signed DMG (todo). -->
 
 ## 5. 你的数据存放在哪里
 
@@ -209,15 +211,19 @@ S13.3, S13.4, S13.6, S14.4, S14.5, S21.4, S23.1. -->
    - **Windows：** 运行新的 `NoobIDE-Setup.exe`，它会直接替换旧版本。
 4. 打开 NoobIDE，在“关于 NoobIDE”里确认版本号（Mac：NoobIDE 菜单；Windows：帮助菜单）。
 
-升级不会动你的项目文件夹。设置、最近的项目和本地历史都放在应用数据文件夹里，安装新版本时不会替换它们；**升级后这些数据是否
-全部保留，正在验证中（待 S28.4 / S28.5 确认）**。
+升级不会动你的项目文件夹。设置、最近的项目、上次的工作状态、本地历史、崩溃恢复副本、预览信任和引导进度都放在应用数据文件夹
+（第 5.2 节）里。每个版本都使用同一个文件夹，安装新版本也不会替换它，所以**这些数据都会保留**：新版本会用你选的界面语言打开，
+重新打开上次的项目，并显示它的历史和你最近的项目。这一点已在 Mac 上用打包好的两个版本测试过；用 Windows 安装包升级的情况
+**正在验证中**（Windows：验证中）。
 
-不要从新版本退回旧版本：旧版本读不懂新版本写的设置文件时，会把它备份后改用默认设置；新版本写的历史索引，旧版本不会修改。
+可以从新版本退回旧版本，但不建议这样做。旧版本会使用新版本文件里它能看懂的部分，**不会修改或删除这些文件**，以后再换回新版本
+时一切都还在。旧版本运行期间改动的设置不会被保存（界面上会有提示），新格式写的历史和恢复副本也不会显示。
 
-<!-- Upgrade data survival: S28.4 (manual-win) and S28.5 (manual-mac) todo. Settings newer-version backup: S13.1
-(src/shared/settings.ts 'newer-version', tests/e2e/settings.spec.ts corrupt case). History index from a newer
-version left untouched: src/recovery/README.md. Squirrel in-place upgrade: ADR 0012. About: S28.1 (e2e
-distribution.spec.ts on macOS; Windows pending). -->
+<!-- S28.4 / ADR 0023: tests/integration/app-data-upgrade.test.ts (vN→vN+1, older schema, downgrade byte-for-byte),
+tests/e2e/upgrade.spec.ts (packaged macOS vN→vN+1→vN on the default app-data folder: language, session, history,
+recent projects). Windows installer upgrade: harness/MANUAL-CHECKS.md#S28.4 (needs_manual_check). Signed DMG upgrade
+incl. Gatekeeper: S28.5 (todo). Settings notice for newer files: src/renderer/workbench/SettingsNotice.tsx. About:
+S28.1. -->
 
 ## 7. 离线使用
 
@@ -236,11 +242,14 @@ distribution.spec.ts on macOS; Windows pending). -->
    - **Mac：** 把“应用程序”里的 NoobIDE 拖到废纸篓。
    - **Windows：** 设置 → 应用 → 已安装的应用 → NoobIDE → 卸载。
 3. 卸载**不会**删除你的项目文件夹。
-4. 应用数据文件夹（第 5.2 节）在卸载后是否保留，**待 S28.4 确认**。预计 Mac 上会保留；如果想彻底删除，退出后按第 5.2 节
-   手动删除整个文件夹。注意：这会同时删除本地历史和还没恢复的修改。
+4. 卸载会删除应用和快捷方式，但会**有意保留应用数据文件夹**（第 5.2 节），这样你的设置、历史和未保存修改的副本不会被误删，
+   重新安装后可以接着用。（Windows：验证中。）如果想彻底删除，退出后按第 5.2 节手动删除整个文件夹。注意：这会同时删除本地
+   历史和还没恢复的修改。
 
-<!-- Uninstall data handling: to be confirmed by S28.4 (Windows) / S28.5 (macOS). Squirrel uninstall removes
-shortcuts (src/platform/squirrel.ts); macOS drag-to-Trash never touches ~/Library/Application Support. -->
+<!-- ADR 0023: Squirrel uninstall deletes %LOCALAPPDATA%\NoobIDE (program files); the --squirrel-uninstall hook only
+removes shortcuts and quits (src/platform/squirrel.ts runSquirrelAction, squirrel.test.ts). App data in
+%APPDATA%\NoobIDE is kept. macOS drag-to-Trash never touches ~/Library/Application Support. Windows steps:
+harness/MANUAL-CHECKS.md#S28.4. -->
 
 ## 9. 遇到问题时
 

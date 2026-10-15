@@ -256,7 +256,9 @@ export const en: Record<MessageKey, string> = {
   // --- end S11 ---
   // --- S13 app data ---
   'settings.corrupt': 'The settings file is damaged and could not be read.',
-  'settings.newer': 'The settings file comes from a newer NoobIDE that this version cannot read.',
+  'settings.newer': 'The settings file comes from a newer NoobIDE.',
+  'settings.readOnly':
+    'The settings this version understands are used; the file is left unchanged for the newer version. Settings changed now are not saved after you quit.',
   'settings.reset': 'The original file was backed up; the default settings are used now.',
   'settings.backup': 'Backup:',
   'appMenu.label': 'More actions',

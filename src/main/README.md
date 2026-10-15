@@ -12,6 +12,8 @@ diagnostics/, recovery/. Every IPC handler validates its payload and sender (see
 - App-data stores, all under `app.getPath('userData')` and never inside a project: `settings-store.ts`
   (`settings.json`), `recent-projects.ts` (`recent-projects.json`), `session-store.ts` (`session.json`),
   `preview-store.ts` (`preview.json`, start-preview trust), `walkthrough-store.ts` (`walkthrough.json`),
-  `app-log.ts` (`logs/`); `json-file.ts` backs up unreadable files instead of overwriting them. The recovery journal
+  `app-log.ts` (`logs/`); the names are listed once in `app-data-layout.ts`. `json-file.ts` backs up unreadable files
+  instead of overwriting them, and `schemaVersionOf` gives the S28.4 rule: older files are upgraded, files from a
+  newer NoobIDE are read but never written (ADR 0023). The recovery journal
   (`recovery/`) and history (`history/`) stores come from src/recovery. User-facing description:
   `docs/release/install.en.md` §5.

@@ -2418,8 +2418,8 @@
       "depends_on": [
         "S28.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "ADR 0023; tests/integration/app-data-upgrade.test.ts (3: vN->vN+1 all stores, older schema upgraded, downgrade leaves newer files byte-for-byte) + store tests (settings-store, recovery-journal, squirrel 6); tests/e2e/upgrade.spec.ts packaged macOS arm64 vN(0.0.0)->vN+1(0.0.1)->vN on default app-data dir keeps language, session, history, recent projects; codesign verify e2e (distribution.spec.ts). Windows install/upgrade/uninstall steps: harness/MANUAL-CHECKS.md#S28.4"
     },
     {
       "id": "S28.5",

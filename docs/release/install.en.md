@@ -17,8 +17,8 @@ together with a done feature that proves it (AGENTS.md, PLAN §4/§9); anything 
 >   system warns on first launch; see below for what to do.
 > - The Windows installer and the first launch of a downloaded macOS DMG have not yet passed acceptance on a clean
 >   computer (see the [acceptance checklist](acceptance.md)).
-> - Whether upgrades keep all your data, and what uninstalling leaves behind, is still being verified (marked "to be
->   confirmed by S28.4").
+> - Upgrades keep your settings, recent projects and local history: tested with packaged builds on a Mac; the Windows
+>   installer upgrade and uninstall still need a check on a real Windows computer (marked "Windows: being verified").
 > - The minimum supported OS versions are not decided yet (owner task H.1).
 
 ## 1. System requirements
@@ -173,11 +173,13 @@ Only features proven by automated tests or validation scenarios are listed.
 
 **Not verified yet, not promised:** Chinese input methods on real devices, different display scaling and multiple
 monitors, recovery after sleep and wake, final confirmation of each platform's menu and window conventions,
-performance targets, signed installers, and data surviving upgrades. They go into the release notes once verified.
+performance targets, signed installers, and upgrading or uninstalling with the Windows installer. They go into the
+release notes once verified.
 
 <!-- Not claimed: S09.4/S09.5 IME (needs_manual_check), S15.5/S15.6 DPI/monitors (needs_manual_check), S25.1/S25.2
 sleep/wake (todo), S24.2 menus/window lifecycle (needs_manual_check), S25.4 preview permission prompts (todo),
-S27.1/S27.3 performance (needs_manual_check), S28.2/S28.3 signing (todo), S28.4/S28.5 upgrade (todo). -->
+S27.1/S27.3 performance (needs_manual_check), S28.2/S28.3 signing (todo), S28.4 Windows installer upgrade/uninstall
+(needs_manual_check), S28.5 macOS upgrade of a signed DMG (todo). -->
 
 ## 5. Where your data lives
 
@@ -238,18 +240,23 @@ NoobIDE does not update itself yet. To upgrade:
    - **Windows:** run the new `NoobIDE-Setup.exe`; it replaces the old version in place.
 4. Open NoobIDE and check the version under "About NoobIDE" (Mac: the NoobIDE menu; Windows: the Help menu).
 
-Upgrading never touches your project folders. Settings, recent projects and local history live in the app-data
-folder, which installing a new version does not replace; **whether all of it survives an upgrade is still being
-verified (to be confirmed by S28.4 / S28.5)**.
+Upgrading never touches your project folders. Settings, recent projects, the last working state, local history,
+crash-recovery copies, preview trust and walkthrough progress live in the app-data folder (section 5.2). Every
+version uses the same folder and installing a new version does not replace it, so **all of it is kept**: the new
+version opens in your language, reopens your last project and shows its history and your recent projects. This was
+tested on a Mac with two packaged versions; with the Windows installer it is **being verified** on a real Windows
+computer.
 
-Do not go back from a newer version to an older one: an older version that cannot read a settings file written by a
-newer one backs it up and uses the defaults; a history index written by a newer version is left untouched by an
-older one.
+Going back to an older version after a newer one is possible but not recommended. The older version uses what it
+understands from the newer version's files and **never changes or deletes them**, so the newer version finds
+everything again later. While the older version runs, settings you change are not saved (a notice says so), and
+history or recovery copies written in a newer format are not shown.
 
-<!-- Upgrade data survival: S28.4 (manual-win) and S28.5 (manual-mac) todo. Settings newer-version backup: S13.1
-(src/shared/settings.ts 'newer-version', tests/e2e/settings.spec.ts corrupt case). History index from a newer
-version left untouched: src/recovery/README.md. Squirrel in-place upgrade: ADR 0012. About: S28.1 (e2e
-distribution.spec.ts on macOS; Windows pending). -->
+<!-- S28.4 / ADR 0023: tests/integration/app-data-upgrade.test.ts (vN→vN+1, older schema, downgrade byte-for-byte),
+tests/e2e/upgrade.spec.ts (packaged macOS vN→vN+1→vN on the default app-data folder: language, session, history,
+recent projects). Windows installer upgrade: harness/MANUAL-CHECKS.md#S28.4 (needs_manual_check). Signed DMG upgrade
+incl. Gatekeeper: S28.5 (todo). Settings notice for newer files: src/renderer/workbench/SettingsNotice.tsx. About:
+S28.1. -->
 
 ## 7. Working offline
 
@@ -270,12 +277,15 @@ explains them.
    - **Mac:** drag NoobIDE from Applications to the Trash.
    - **Windows:** Settings → Apps → Installed apps → NoobIDE → Uninstall.
 3. Uninstalling **never** deletes your project folders.
-4. Whether the app-data folder (section 5.2) remains after uninstalling is **to be confirmed by S28.4**. On a Mac it
-   is expected to remain. To remove everything, quit NoobIDE and delete that folder by hand (section 5.2). This also
-   deletes the local history and any edits not yet recovered.
+4. Uninstalling removes the app and its shortcuts but **keeps the app-data folder** (section 5.2) on purpose, so
+   your settings, history and unsaved-edit copies are not lost by accident and a reinstall continues where you left
+   off. (Windows: verified on a real Windows computer is still pending.) To remove everything, quit NoobIDE and delete
+   that folder by hand (section 5.2). This also deletes the local history and any edits not yet recovered.
 
-<!-- Uninstall data handling: to be confirmed by S28.4 (Windows) / S28.5 (macOS). Squirrel uninstall removes
-shortcuts (src/platform/squirrel.ts); macOS drag-to-Trash never touches ~/Library/Application Support. -->
+<!-- ADR 0023: Squirrel uninstall deletes %LOCALAPPDATA%\NoobIDE (program files); the --squirrel-uninstall hook only
+removes shortcuts and quits (src/platform/squirrel.ts runSquirrelAction, squirrel.test.ts). App data in
+%APPDATA%\NoobIDE is kept. macOS drag-to-Trash never touches ~/Library/Application Support. Windows steps:
+harness/MANUAL-CHECKS.md#S28.4. -->
 
 ## 9. When something goes wrong
 
