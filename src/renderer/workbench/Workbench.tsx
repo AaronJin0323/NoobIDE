@@ -60,6 +60,9 @@ import { WalkthroughPanel } from '../walkthrough/WalkthroughPanel';
 import { GlossaryDialog } from '../walkthrough/GlossaryDialog';
 // S33: AI chat panel, "Explain this code" and "Ask AI" on problems
 import { useAiChat } from '../ai/useAiChat';
+import { AiSettingsDialog, useAiSettingsRequests } from '../ai/AiSettingsDialog'; // S31.4
+import { aiConsentRenderer } from '../ai/AiConsentPrompt'; // S31.4
+import { openAiSettings } from '../ai/ai-status'; // S31.4
 
 const releaseModel = (uri: string) => import('../editor/editor-models').then((m) => m.releaseModel(uri));
 const releaseFileModels = () => void import('../editor/editor-models').then((m) => m.releaseFileModels());
@@ -117,6 +120,7 @@ export function Workbench() {
   // S21.3: the local-history window, opened for a file (the active tab) or for the whole project.
   const [historyFor, setHistoryFor] = useState<{ relPath: string | null } | null>(null);
   const aboutOpen = useAboutRequests(); // S28.1: opened by openAbout() (menus: S24)
+  const aiSettingsOpen = useAiSettingsRequests(); // S31.4: opened by openAiSettings() (menus, the AI chat)
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
 
@@ -127,7 +131,8 @@ export function Workbench() {
   const savers = useRef(new Map<string, DocumentSaver>());
   /** Bumped whenever the project changes: file reads that started for an older project are dropped. */
   const projectSeq = useRef(0);
-  const loading = useRef(new Set<string>());
+  /** Files being read for a tab: true when the tab is to be shown once loaded (not a background session restore). */
+  const loading = useRef(new Map<string, boolean>());
   /** Confirmed writes, for the preview refresh (S10.5): emitted strictly after the write and the status update. */
   const savedFiles = useRef(createSavedFileEvents());
   // S12: each tab's unsaved buffer is journaled to app data until saved (independent of undo, autosave, history).
@@ -314,24 +319,29 @@ export function Workbench() {
   }, [bridge, saveAll]);
 
   const openFile = useCallback(
-    async (relPath: string, options: { readonly quiet?: boolean } = {}) => {
+    async (relPath: string, options: { readonly quiet?: boolean; readonly background?: boolean } = {}) => {
       const project = docRef.current.project;
       if (!bridge || !project) return;
       if (savers.current.has(relPath)) {
-        dispatch({ type: 'activate', relPath });
+        if (!options.background) dispatch({ type: 'activate', relPath });
         return;
       }
-      if (loading.current.has(relPath)) return;
+      if (loading.current.has(relPath)) {
+        // The session restore is reading it in the background; the user asked for it, so it shows once loaded.
+        if (!options.background) loading.current.set(relPath, true);
+        return;
+      }
       const seq = projectSeq.current;
-      loading.current.add(relPath);
+      loading.current.set(relPath, !options.background);
       const result = await bridge.workspace.readFile({ projectId: project.projectId, relPath });
       // A read that finishes after the project changed belongs to nothing any more.
       if (seq !== projectSeq.current) return;
+      const show = loading.current.get(relPath) ?? true;
       loading.current.delete(relPath);
       if (savers.current.has(relPath)) return;
       if (result.ok) {
         savers.current.set(relPath, createSaver(project, relPath, result.value));
-        dispatch({ type: 'docLoaded', relPath, content: result.value });
+        dispatch({ type: 'docLoaded', relPath, content: result.value, ...(show ? {} : { background: true }) });
       } else if (!options.quiet) {
         // S13.4: a file from the last session that is gone now is simply not reopened (quiet).
         dispatch({ type: 'docFailed', relPath, code: result.code });
@@ -820,7 +830,12 @@ export function Workbench() {
     () => agentChatExtensions({ store: agentDecisions, api: aiBridge, host: () => agentHostRef.current }),
     [agentDecisions],
   );
-  const ai = useAiChat(doc.project?.projectId ?? null, aiHost, { extensions: agentExtensions });
+  // S31.4: the reusable consent prompt fills the chat's consent slot.
+  const aiConsent = useMemo(() => (bridge?.ai ? aiConsentRenderer(bridge.ai) : undefined), [bridge]);
+  const ai = useAiChat(doc.project?.projectId ?? null, aiHost, {
+    extensions: agentExtensions,
+    ...(aiConsent ? { consent: aiConsent } : {}),
+  });
   // --- end S33 ---
 
   // Closing the window or quitting: main asks first; we answer after every file is saved (S10.6).
@@ -851,7 +866,7 @@ export function Workbench() {
   const commandContext: CommandContext = {
     hasProject: doc.project !== null,
     hasActiveTab: doc.active !== null,
-    modalOpen: wizardOpen || historyFor !== null || aboutOpen.open || glossaryFor !== null,
+    modalOpen: wizardOpen || historyFor !== null || aboutOpen.open || aiSettingsOpen.open || glossaryFor !== null,
     theme: theme.choice, // S24.4
   };
   const commandHandlers: CommandHandlers = {
@@ -880,6 +895,7 @@ export function Workbench() {
     'focus-next-region': () => void focusRegion(1),
     'focus-previous-region': () => void focusRegion(-1),
     about: () => openAbout(), // S28.1
+    'ai-settings': bridge?.ai ? () => openAiSettings() : undefined, // S31.4
     // S23: onboarding help
     'help-walkthrough': () => walkthroughRef.current.open(),
     'help-glossary': () => setGlossaryFor({ term: null }),
@@ -929,10 +945,11 @@ export function Workbench() {
         if (cancelled || !result.ok || !result.value) return;
         for (const relPath of result.value.tabs) {
           if (cancelled) return;
-          await openFile(relPath, { quiet: true });
+          // In the background: a file the user opened meanwhile stays visible (and keeps their typing).
+          await openFile(relPath, { quiet: true, background: true });
         }
         const active = result.value.active;
-        if (!cancelled && active && savers.current.has(active)) dispatch({ type: 'activate', relPath: active });
+        if (!cancelled && active && savers.current.has(active)) dispatch({ type: 'restoreActive', relPath: active });
       })
       .finally(() => {
         if (!cancelled) restoringTabs.current = false;
@@ -1088,6 +1105,7 @@ export function Workbench() {
             wizardOpen ||
             historyFor !== null ||
             aboutOpen.open ||
+            aiSettingsOpen.open ||
             glossaryFor !== null
           }
           projectId={project?.projectId ?? null}
@@ -1169,6 +1187,9 @@ export function Workbench() {
         />
       )}
       {aboutOpen.open && <AboutDialog onClose={aboutOpen.close} />}
+      {aiSettingsOpen.open && bridge?.ai && (
+        <AiSettingsDialog api={bridge.ai} projectId={project?.projectId ?? null} onClose={aiSettingsOpen.close} />
+      )}
     </div>
   );
 }

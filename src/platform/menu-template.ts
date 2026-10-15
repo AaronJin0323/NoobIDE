@@ -187,6 +187,7 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       command('help-walkthrough'),
       command('help-glossary'),
       SEPARATOR,
+      command('ai-settings'), // S31.4 Settings → AI
       command('open-logs'),
       ...(mac ? [] : [SEPARATOR, command('about')]),
     ],

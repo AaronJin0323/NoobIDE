@@ -21,6 +21,12 @@ export const APP_DATA_ENTRIES = {
   walkthrough: 'walkthrough.json',
   /** Preview trust (hashed folder paths) and one-time notes (S14.2/S14.4). */
   preview: 'preview.json',
+  /** AI API keys, encrypted with Electron safeStorage (S31.2, decision 0025). Never plaintext. */
+  aiKeys: 'ai-keys.json',
+  /** AI settings: on/off, provider, models per purpose, inline completions (S31.3). */
+  aiConfig: 'ai-config.json',
+  /** Projects allowed to send code to the AI provider (hashed real roots, like preview trust) (S31.3). */
+  aiConsent: 'ai-consent.json',
   /** Unsaved-edit journal for crash recovery (S12): one record per dirty buffer. */
   recovery: 'recovery',
   /** Local history: per-project indexes and content-addressed blobs (S21). */

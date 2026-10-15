@@ -14,15 +14,33 @@ import { DOC_END } from './keys';
  * the tests are `fixme`: there is no `ai` bridge, so no suggestion can appear. When S31 lands, adapt FAKE_SCRIPT to
  * the fake provider's real script format and `enableAi` to its key/consent calls, then remove FIXME_UNTIL_S31.
  */
-const FIXME_UNTIL_S31 = true;
+const FIXME_UNTIL_S31 = false;
 
 const SUGGESTION = " 'hello world';";
 /**
- * Planned fake-provider script (S31.1 owns the format): every `inline` request streams SUGGESTION in two chunks;
+ * Fake-provider script (src/ai/fake-provider.ts format): every `inline` request answers SUGGESTION in two chunks;
  * requests whose prefix ends with `slow` wait 5 s before answering, so the test can type while one is in flight.
  */
 const FAKE_SCRIPT = JSON.stringify({
-  inline: [{ whenPrefixEndsWith: 'slow', delayMs: 5000, text: [' never shown'] }, { text: [" 'hello", " world';"] }],
+  turns: [
+    {
+      purpose: 'inline',
+      match: 'slow</prefix>',
+      repeat: true,
+      steps: [
+        { type: 'delay', ms: 5000 },
+        { type: 'text', text: ' never shown' },
+      ],
+    },
+    {
+      purpose: 'inline',
+      repeat: true,
+      steps: [
+        { type: 'text', text: " 'hello" },
+        { type: 'text', text: " world';" },
+      ],
+    },
+  ],
 });
 
 const START = 'let count = 0;';
@@ -67,6 +85,8 @@ async function enableAi(): Promise<void> {
     if (!projectId) throw new Error('no project on screen');
     await ai.setKey({ provider: 'anthropic', key: 'sk-ant-fake-e2e' });
     await ai.setConsent({ projectId, allowed: true });
+    // As Settings → AI does after a change (S31): every AI surface re-reads the status.
+    window.dispatchEvent(new Event('noobide:ai-status-changed'));
   });
 }
 

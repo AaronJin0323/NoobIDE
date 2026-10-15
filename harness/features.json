@@ -2796,8 +2796,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/ai/providers/{anthropic,openai}.test.ts (real SDK clients over mocked fetch: request shape incl. adaptive thinking, cache_control, eager_input_streaming, fallbacks; tool-input validation; refusal/max_tokens; error mapping) + src/ai/fake-provider.test.ts (scripted text/tool calls/refusal/errors/slow-stream cancel, schema validator); deps @anthropic-ai/sdk 0.134.0, openai 7.34.0 in decision 0025; verify green"
     },
     {
       "id": "S31.2",
@@ -2814,8 +2814,8 @@
       "depends_on": [
         "S31.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/ai/keys.test.ts (6: encrypted file never holds the key, no-secure-storage, undecryptable, corrupt/newer files) + tests/integration/ai-service.test.ts (key absent from every IPC response, event, log and app-data file; no keychain → not stored, AI off) + tests/e2e/ai-settings.spec.ts (DOM/inputs/storage and all app-data files incl. logs grepped for the key; no-keychain message zh-CN + en) + src/platform/secure-storage.test.ts; verify green @ fef1479"
     },
     {
       "id": "S31.3",
@@ -2833,8 +2833,8 @@
         "S31.1",
         "S31.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/ai-service.test.ts (12: sender + payload validation on every channel, consent required/revocable/hashed, streaming, cancel only by owner and on window close, error mapping incl. refused/offline/rate-limited/context-too-large, inline buffering + time budget, edit prompt + locale, agent via S34 runner incl. proposals and Stop, OpenAI defaults, logs with ids/purpose/model/tokens only, config schema version) + src/shared/ipc/ai-parse.test.ts; verify green @ fef1479"
     },
     {
       "id": "S31.4",
@@ -2851,8 +2851,8 @@
       "depends_on": [
         "S31.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/ai-settings.spec.ts (3: key entry masked/write-only → stored, never displayed again incl. after restart; Test failure (rejected key) and success explained; models from listModels persisted; AI off removes the rail AI surface; inline off; consent allow/revoke; zh-CN + en; keyboard (type, Enter, Escape) + axe) + menu-template.test.ts (Help → AI settings); full AI e2e 15/15 green @ fef1479"
     },
     {
       "id": "S32.1",
@@ -2869,8 +2869,8 @@
       "depends_on": [
         "S31.3"
       ],
-      "status": "in_progress",
-      "evidence": "Renderer side done: src/renderer/ai/inline-*.ts (49 unit tests, fake bridge), Monaco wiring in CodeEditor, toggle-inline-ai command. Remaining (needs S31 on main): adapt tests/e2e/ai-inline.spec.ts FAKE_SCRIPT/enableAi to S31's fake provider, set FIXME_UNTIL_S31=false, npm run test:e2e -- ai-inline green, then mark done."
+      "status": "done",
+      "evidence": "tests/e2e/ai-inline.spec.ts 4/4 green against S31 fake provider (inline turns in the fake script format; status follows noobide:ai-status-changed) @ fef1479"
     },
     {
       "id": "S33.1",
@@ -2887,8 +2887,8 @@
       "depends_on": [
         "S31.3"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/ai-chat.spec.ts S33.1 tests green against S31 fake provider (NOOBIDE_AI_FAKE=1) @ fef1479"
     },
     {
       "id": "S33.2",
@@ -2905,8 +2905,8 @@
       "depends_on": [
         "S33.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/ai-chat.spec.ts S33.2 tests (explain selection, Ask AI on problem card + axe) green against S31 fake provider @ fef1479"
     },
     {
       "id": "S34.1",
@@ -2923,8 +2923,8 @@
       "depends_on": [
         "S31.3"
       ],
-      "status": "in_progress",
-      "evidence": "all criteria covered by tests/integration/ai-agent.test.ts (22) + src/ai/agent/tools.test.ts; done blocked only by dependency S31.3 (wire createAgentRunner + fake provider)"
+      "status": "done",
+      "evidence": "tests/integration/ai-agent.test.ts (22) + src/ai/agent/tools.test.ts; wired in main via createAgentRunner + ModelPort adapter (src/ai/providers/model-port-adapter.ts, tests) ; tests/integration/ai-service.test.ts agent case over the real runner; tests/e2e/ai-agent.spec.ts 2/2 green @ fef1479"
     },
     {
       "id": "S34.2",

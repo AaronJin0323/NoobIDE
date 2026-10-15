@@ -94,6 +94,40 @@ describe('open tabs (S09.2)', () => {
     expect(documentReducer(s, { type: 'saveState', relPath: 'gone.css', save: dirty }).tabs).toEqual(s.tabs);
   });
 
+  it('session restore (S13.4): restored tabs open behind a file the user opened meanwhile', () => {
+    const restored = (relPath: string): DocumentAction => ({
+      type: 'docLoaded',
+      relPath,
+      content: file(relPath),
+      background: true,
+    });
+    // Nothing chosen: the first restored tab shows, then the session's visible tab.
+    let s = run({ type: 'projectOpened', project }, restored('a.html'), restored('b.css'));
+    expect(s.active).toBe('a.html');
+    s = documentReducer(s, { type: 'restoreActive', relPath: 'b.css' });
+    expect(s.active).toBe('b.css');
+    // The user opens script.js while the restore is still reading: it stays visible (typing lands there).
+    s = run(
+      { type: 'projectOpened', project },
+      restored('a.html'),
+      { type: 'docLoaded', relPath: 'script.js', content: file('script.js') },
+      restored('b.css'),
+      { type: 'restoreActive', relPath: 'a.html' },
+    );
+    expect(s.tabs.map((tab) => tab.relPath)).toEqual(['a.html', 'script.js', 'b.css']);
+    expect(s.active).toBe('script.js');
+    // Choosing a restored tab counts too; a new project starts over.
+    s = run({ type: 'projectOpened', project }, restored('a.html'), restored('b.css'), {
+      type: 'activate',
+      relPath: 'b.css',
+    });
+    expect(documentReducer(s, { type: 'restoreActive', relPath: 'a.html' }).active).toBe('b.css');
+    s = documentReducer(s, { type: 'projectOpened', project });
+    s = documentReducer(s, restored('a.html'));
+    s = documentReducer(s, restored('b.css'));
+    expect(documentReducer(s, { type: 'restoreActive', relPath: 'b.css' }).active).toBe('b.css');
+  });
+
   it('opening another project closes all tabs', () => {
     const s = run(...opened('index.html'), { type: 'projectOpened', project: { ...project, name: 'b' } });
     expect(s.tabs).toEqual([]);

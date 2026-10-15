@@ -57,6 +57,29 @@ unavailable. Tests and CI never call a real provider: a scripted fake provider (
 `NOOBIDE_AI_FAKE`) backs all unit, integration and e2e tests. An optional live smoke test runs only when a key is
 present in the environment.
 
+## Dependencies (S31.1)
+
+Pinned exactly in `package.json` (`dependencies`, bundled into the main-process build by Vite; nothing native):
+
+| Package             | Version   | Transitive runtime packages                                                                                                             |
+| ------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `@anthropic-ai/sdk` | `0.134.0` | `json-schema-to-ts` (+ `@babel/runtime`, `ts-algebra`), `standardwebhooks` (+ `@stablelib/base64`, `fast-sha256`), `@opentelemetry/api` |
+| `openai`            | `7.34.0`  | none (its peer dependencies `ws`, `zod`, `undici`, AWS/Smithy packages are optional and unused)                                         |
+
+Both are pure JavaScript, so no Electron ABI or per-platform build proof is needed. How they are used:
+
+- Anthropic: `client.beta.messages.stream` (beta endpoint for the `server-side-fallback-2026-07-01` header with
+  `fallbacks: "default"`), `thinking: { type: "adaptive" }` with `output_config.effort` per purpose, one
+  `cache_control` breakpoint on the stable system prompt (tools render before it) plus a top-level breakpoint for
+  chat/agent conversations, `eager_input_streaming: true` on every client tool with schema validation of every
+  parsed input (`src/ai/providers/schema.ts`), `stop_reason: "refusal"` handled, typed SDK errors mapped to codes.
+- OpenAI: Chat Completions streaming (`stream_options.include_usage`) with function tools; arguments are parsed and
+  validated before use; `refusal` deltas and `content_filter` are refusals; typed SDK errors mapped to codes.
+- `src/ai/providers/provider.ts` is the only interface the rest of NoobIDE sees; tests use the scripted
+  `src/ai/fake-provider.ts` or the real SDK clients with a mocked `fetch` — never the network.
+- `package-lock.json` was regenerated with `npm install --package-lock-only` on macOS; regenerate it on the Windows
+  dev machine on the next dependency change (AGENTS.md).
+
 ## Consequences
 
 - PLAN §4/§7 need an owner edit to match (AI is now in scope; the offline and diff/undo rules stay). Until then this

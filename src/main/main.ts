@@ -1,7 +1,7 @@
 /// <reference types="@electron-forge/plugin-vite/forge-vite-env" />
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, safeStorage, session, shell } from 'electron';
 import { platformId } from '../platform/index';
 import { currentSquirrelAction, runSquirrelAction } from '../platform/squirrel';
 import { APP_ENTRY_URL, APP_ORIGIN } from './app-asset';
@@ -52,6 +52,8 @@ import { createWorkbenchWindowOptions, insecurePreferences } from './window-opti
 import { AppMenuController } from './app-menu';
 import { registerCommandIpcHandlers } from './commands-ipc';
 import { installWindowLifecycle } from './window-lifecycle';
+import { setupAi } from './ai-main'; // S31 AI assistant (decision 0025)
+import { secureStorageFor } from '../platform/secure-storage';
 
 // Windows installer events: create/remove shortcuts and quit without opening a window (S02.7, S28.4: also quits
 // when Update.exe is missing or hangs). App data and projects are never touched by these events.
@@ -375,6 +377,28 @@ function start(): void {
       restoreEnabled: async () => (await settings.snapshot()).settings.restoreSession,
     });
     // --- end S13 ---
+    // --- S31: AI assistant (decision 0025). Keys in safeStorage, config/consent in app data, provider calls in main
+    // only; NOOBIDE_AI_FAKE=<script.json> swaps in the scripted fake provider for tests. ---
+    const ai = setupAi({
+      ipcMain,
+      allowedOrigin: devOrigin ?? APP_ORIGIN,
+      userData: appData,
+      projects,
+      // The keychain is touched only when a key is saved or read (never at startup): src/platform/secure-storage.ts.
+      safeStorage: secureStorageFor(safeStorage, platformId()),
+      logger,
+      log: (level, event, fields) => appLog.write(level, event, fields),
+      fakeScript: process.env.NOOBIDE_AI_FAKE,
+      fakeAgentScript: process.env.NOOBIDE_AI_FAKE_AGENT,
+      problems: problems.capture, // S34: the agent's get_problems tool
+      preview, // S34: console records and refresh for the agent
+    });
+    Object.assign((globalThis as { __noobideTestHooks?: object }).__noobideTestHooks ?? {}, {
+      // Fake provider only: what it was asked (purpose, model, provider). Never set in a normal run.
+      aiRequests: () =>
+        ai.fake?.requests.map((r) => ({ provider: r.provider, purpose: r.purpose, model: r.model })) ?? null,
+    });
+    // --- end S31 ---
     // S23: onboarding walkthrough progress
     registerWalkthroughIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,

@@ -16,7 +16,7 @@ import { makeProject, openProject } from './project';
  * Until S31 (window.noobide.ai, the AI IPC, the fake provider running the agent runner) is on main the suite is
  * fixme: flip S31_MERGED and run `npm run test:e2e -- -g "AI agent"`.
  */
-const S31_MERGED = false;
+const S31_MERGED = true;
 const CSS = 'h1 {\n  color: red;\n}\n';
 
 let app: ElectronApplication;

@@ -1,0 +1,88 @@
+/* S31.4 Settings → AI and the AI consent prompt. States are always written out, never colour alone. */
+.ai-settings {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+.ai-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ais-section,
+.ais-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+.ais-fieldset legend,
+.ais-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.ais-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ais-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ais-input,
+.ais-select {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  color: var(--text);
+  font: inherit;
+}
+.ais-model-row {
+  display: grid;
+  grid-template-columns: 9em 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.ais-key-state {
+  margin: 0;
+  font-weight: 600;
+}
+.ais-message {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+}
+.ais-message-error {
+  border-left: 3px solid var(--danger, #c62828);
+}
+.ais-message-ok {
+  border-left: 3px solid var(--accent);
+}
+.ais-consent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--raised);
+}
+.ais-consent-title {
+  margin: 0;
+  font-size: 14px;
+}
+.ais-consent-body {
+  margin: 0;
+}

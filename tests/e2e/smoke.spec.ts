@@ -108,6 +108,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       history: Object.keys(((w.noobide as { history?: object } | undefined)?.history ?? {}) as object),
       walkthrough: Object.keys(((w.noobide as { walkthrough?: object } | undefined)?.walkthrough ?? {}) as object),
       problems: Object.keys(((w.noobide as { problems?: object } | undefined)?.problems ?? {}) as object),
+      ai: Object.keys(((w.noobide as { ai?: object } | undefined)?.ai ?? {}) as object),
     };
   });
   expect(probe).toEqual({
@@ -135,6 +136,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'commands', // S24.2: command context + native menu choices
       'walkthrough',
       'problems', // S16.2: runtime problems of the preview (read-only list + clear resolved)
+      'ai', // S31: AI assistant (decision 0025); the key is write-only, never returned
     ],
     apiVersion: 1,
     workspace: [
@@ -174,6 +176,20 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
     // S23: onboarding walkthrough progress (step ids and short signatures only).
     walkthrough: ['get', 'save'],
     problems: ['list', 'clearResolved', 'onChanged'],
+    // S31: AI keys, config, consent and requests (contract src/shared/ipc/ai-contract.ts).
+    ai: [
+      'status',
+      'setKey',
+      'clearKey',
+      'testKey',
+      'listModels',
+      'setConfig',
+      'setConsent',
+      'request',
+      'cancel',
+      'resolveProposal',
+      'onEvent',
+    ],
   });
 
   // The violation we just provoked is logged as a console error; drop exactly those so the final check stays strict.
