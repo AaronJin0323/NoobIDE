@@ -927,8 +927,8 @@
       "depends_on": [
         "S06.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "scripts/inspect-arch.mjs (pure Node Mach-O thin/fat/fat64 + PE COFF parsing; ADR 0021) + tests/integration/inspect-arch.test.ts (13 tests, synthetic headers); real run on out/NoobIDE-darwin-arm64 after npm run make on Apple Silicon M3 Pro: 13 Mach-O all arm64, 0 errors (matches file(1)); wired as CI step after make in .github/workflows/ci.yml. 'Runs in CI' and the Windows x64 PE run need the Actions run: harness/MANUAL-CHECKS.md#S06.1 / S06.2"
     },
     {
       "id": "S06.3",
