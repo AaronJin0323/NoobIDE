@@ -15,7 +15,9 @@ the latest entry to the next session, so write it for a reader with zero context
 
 **Evidence**
 
-- `npm run verify` green.
+- `npm run verify`: harness, lint and format pass; third-party-notices tests pass with the lockfile change. Typecheck
+  and 4 test files (button-hierarchy, Sheet, notice, commands) fail, already broken on main @ df242a0 by a110002
+  (S44 + S45), unrelated to this change.
 
 **Next up**
 
