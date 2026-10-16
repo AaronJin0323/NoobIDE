@@ -1,0 +1,129 @@
+/* AI entry points ("Fix with AI", "Edit with AI", Send): one recognisable look everywhere — the sparkle icon plus a
+   written label on an accent-tinted capsule. Colours only from theme tokens (light and dark); the label and icon carry
+   the meaning, never the colour alone. */
+.ai-entry {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: var(--radius-capsule, var(--radius-control));
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast, 120ms) ease-out,
+    border-color var(--dur-fast, 120ms) ease-out;
+}
+.ai-entry:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--accent-soft));
+}
+.ai-entry:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.ai-entry:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.ai-entry > svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+.ai-entry-kbd {
+  /* Same colour as the label (full contrast on the tint in both themes); only the frame is lighter. */
+  padding: 1px 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 4px;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+/* The prominent variant (Send): filled with the accent. */
+.ai-entry.ai-entry-strong {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.ai-entry.ai-entry-strong:hover:not(:disabled) {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+
+/* The editor's AI actions (EditorAiActions.tsx), at the start of the editor's status bar under the code: always in
+   view, and they never take room from the open-file tabs. Sized by the status bar's own width (a container query).
+   The buttons keep their accessible names when only the icon shows. */
+.editor-status:has(> .editor-ai-actions) {
+  container: editor-status / inline-size;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px 0;
+  padding-left: 6px;
+}
+.editor-ai-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  margin-right: auto;
+  padding-right: 12px;
+}
+.editor-ai-actions .ai-entry {
+  height: 24px;
+  padding: 0 8px 0 6px;
+}
+.editor-ai-actions .quiet-button {
+  height: 24px;
+  padding: 0 8px 0 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.editor-ai-actions .quiet-button > svg {
+  width: 15px;
+  height: 15px;
+}
+@container editor-status (max-width: 460px) {
+  .editor-ai-actions .ai-entry-kbd,
+  .editor-ai-actions .editor-ai-explain-label {
+    display: none;
+  }
+  .editor-ai-actions .quiet-button {
+    width: 26px;
+    padding: 0;
+  }
+}
+
+/* A problem row: the summary toggle and, beside it (never inside it), the row's "Fix with AI". */
+.problem-row-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.problem-row-line > .problem-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.problem-row-line > .ai-entry {
+  height: 24px;
+  padding: 0 8px 0 6px;
+  font-size: 11px;
+}
+.problem-card .problem-actions {
+  align-items: center;
+}
+.problem-card .problem-actions .ai-entry {
+  height: 30px;
+}

@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 24 (side session) — 2026-10-16 — main red after a110002: take the archive fix
+## Session 24 (side session) — 2026-10-16 — main red after a110002: confirmed fixed by the archive restore
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/happy-jackson-8b1fcf`
 (node_modules junctioned), started from the license session, which found `npm run verify` red on `main` @ `df242a0`.
@@ -13,26 +13,104 @@ the latest entry to the next session, so write it for a reader with zero context
 - Searched every local/remote branch and every worktree under `.claude/worktrees` (committed trees and working
   copies) for the missing S44/S45 implementation (`commandLabel`, `fixCardProminent`, the ai-icons exports, the
   `ai.chat.context.addGroup` key). It exists nowhere: a110002 committed only the files it added.
-- The owner-approved fix already existed: `dfb1759` "Restore the last green tree: archive the half-landed S44/S45 HIG
-  files" (pushed as `origin/claude/ci-failures-subagent-4ab7a0`; the same tree is `be7194a` on
-  `claude/noobide-key-features-visibility-643cf7`). Fast-forwarded this branch onto it instead of rewriting the code.
-  Every file a110002 touched is back at `3222c89`; a110002's versions sit in `docs/archive/s44-s45-hig/` (see its
-  README).
+- Took the owner-approved archive restore (`dfb1759`, same tree as `be7194a`) instead of rewriting the code. While this
+  session ran, PR #1 (license) and PR #2 (key-features visibility, which carries the same restore plus S45 rebuilt)
+  landed on `main`; this branch merges `origin/main` and adds only this entry.
 
-**Evidence:** `npm run verify` green on this branch @ `dfb1759` — harness, typecheck, lint, format, test (212 files,
-2612 passed, 15 skipped).
+**Evidence:** `npm run verify` green @ `dfb1759` (2612 tests) and @ `origin/main` `b039282` (harness, typecheck, lint,
+format, test: 2633 passed, 15 skipped).
 
-**Decisions:** none new; reused the owner's 2026-10-16 decision recorded in `docs/archive/s44-s45-hig/README.md`.
+**Decisions:** none new; see `docs/archive/s44-s45-hig/README.md`.
 
-**Problems / risks:** the archive README names backlog feature S46.9 (rebuild), which is not in `features.json` on
-this branch; it lands with the key-features-visibility branch (Session 23). e2e not run here.
+**Problems / risks:** one `verify --quick` run failed in the unit tests once and was not reproducible in three full
+runs (the failing test was not captured). e2e not run here.
 
-**Owner action needed:** merge this branch (or `claude/noobide-key-features-visibility-643cf7`, which contains the
-same fix plus S45 rebuilt) into `main` so `main` is green again.
+**Owner action needed:** none.
 
 **Next up**
 
-1. Merge to `main`, then continue with the key-features-visibility work and S46.9.
+1. Continue from Session 23's Next up (S46.9 rebuild of the archived S44/S45 work).
+
+## Session 23 — 2026-10-16 — Key features always visible (S45, milestone M16)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch
+`claude/noobide-key-features-visibility-643cf7` (node_modules junctioned to the main checkout). Owner request: "key
+features should not be hidden or invisible at any time" (Problems open squeezed the preview so Annotate needed
+scrolling). Three read-only audit subagents (preview/annotations, AI, workbench frame), then three fixers with
+disjoint file ownership, then an independent reviewer (1 blocker fixed by the lead).
+
+**Done**
+
+- S45.1 — verify was red at session start: `a110002` ("S44 + S45: HIG refinement") committed only the files it added;
+  its edits to existing files were lost (not in git objects or any worktree). Owner chose: restore the last green code
+  (`3222c89`) for every file that commit touched and archive its versions in `docs/archive/s44-s45-hig/` (README
+  explains; outside build/typecheck/lint/tests). Commit `be7194a`. Rebuild tracked as S45.9.
+- S45.2 — Annotate moved out of the scrolling strip into the preview header: tinted "标注页面" button with icon and
+  count (`annotate-menu`, rendered through a portal into `preview-annotate-slot`) and a separate "查看标注（N）" list
+  toggle. Never unmounted: when the preview is not running it is `aria-disabled` and says "先启动预览再标注". The three
+  ways open under the toolbar; step actions (Save/Confirm/Cancel) sit in a sticky row.
+- S45.3 — `.preview-chrome` no longer scrolls; the stage gives way first (min derived from `--middle-min`); header
+  actions wrap; Start/Refresh are primary buttons with icons; stage messages wrap; the console has a "网页控制台"
+  heading with an error-count badge and keeps two lines unless an annotation step is open.
+- S45.4 — AI: chat composer bounded (context area scrolls on its own, input + Send never clipped), header uses icon
+  buttons so Close/New chat always fit, chat shrinks before the preview; "用 AI 修复" on the collapsed problem row
+  (`problem-row-fix-ai`) and actions straight after the card head; "AI 编辑 (Ctrl+I)" + "解释" in the editor status
+  bar (`editor-ai-actions`); inline-edit Accept/Reject above the diff, zone re-revealed on review. Shared sparkle
+  style `ai-entry.css`.
+- S45.5 — frame: vertical budget (`--middle-min` minus walkthrough/Problems/notice reserves; `layout.ts`
+  `frameMinimums()` mirrors and tests it) keeps the status strip on screen down to 640×480; Problems panel sized to
+  content (max 260 px); all floating notices + journal-health alert in `.app-notice-stack` above the strip (in the
+  layout flow in narrow windows); prominent top-bar Save button (`topbar-save`, same `save` command as Ctrl+S, shown
+  while dirty/failed, focus kept on the state word when it leaves); rail "课程" button (`rail-lessons`); New file /
+  New folder labels; narrow-window `topbar-new-file`; walkthrough Back/Next never wrap away; History keeps its word
+  down to a 360 px editor; splitter resting grip.
+
+**Evidence:** `npm run verify` green; full e2e on Windows x64 **323 passed, 0 failed, 4 skipped** (15.1 min) incl. new
+`tests/e2e/key-features-visible.spec.ts` (key controls fully inside the window at 1280×800, 1366×768, 1280×720,
+960×600, 640×480 with walkthrough + Problems) and new `preview-layout.spec.ts` checks (Annotate inside the pane,
+`.preview-chrome` unscrolled at 1280×720 and 1366×677). New unit tests: editor-ai-actions, problems-panel-ai,
+layout frame minimums, a11y labels. Window captures checked at 1280×720 / 960×600 with Problems + walkthrough open.
+
+**Decisions:** Annotate and the chat's three Add-context buttons stay visible (the archived S44.2 design put them in
+menus — rejected per owner request). The AI rail button still disappears when AI is turned off: decision 0025 /
+accepted criterion "AI off removes every AI surface" — left for the owner.
+
+**Problems / risks:** `walkthrough.spec.ts` was flaky in isolation (2 of 8 runs: an `expect.poll` reading
+walkthrough.json before it exists throws ENOENT; once a toHaveAttribute timeout); green in the final full run. At
+960×600 with everything open the Problems list shrinks to its header (the status strip still shows the count) and the
+top-bar save word truncates with an ellipsis (full text in the tooltip). Glass visual snapshots were not re-baselined
+(none failed). macOS not checked.
+
+**Owner action needed:** none for AI-off: the owner kept decision 0025 (2026-10-16) — with AI off the AI rail button stays hidden. Look at the new Annotate/Save/Lessons prominence on a real screen.
+
+**Next up**
+
+1. S45.9 — rebuild what is worth keeping from `docs/archive/s44-s45-hig/` (Sheet/Notice anatomy, button hierarchy,
+   command menu groups) without moving key actions into menus.
+2. Make `walkthrough.spec.ts` poll tolerate a not-yet-written walkthrough.json.
+
+**Ideas / backlog candidates:** floating selection pill (Explain / Edit with AI) next to a non-empty selection;
+bottom-sheet AI chat in narrow windows so the preview stays visible while chatting.
+
+## Side task — 2026-10-16 — NoobIDE license
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/noobide-license-c9f1ac`.
+
+**Done**
+
+- Owner chose the MIT License (answers the Session 21 owner question "NoobIDE itself has no license"). Added
+  `LICENSE` (copyright holder "NoobIDE contributors", matching `APP_COPYRIGHT` in forge.config.ts),
+  `"license": "MIT"` in package.json and the lockfile root, and a License section in README.md.
+
+**Evidence**
+
+- `npm run verify`: harness, lint and format pass; third-party-notices tests pass with the lockfile change. Typecheck
+  and 4 test files (button-hierarchy, Sheet, notice, commands) fail, already broken on main @ df242a0 by a110002
+  (S44 + S45), unrelated to this change.
+
+**Next up**
+
+- Unchanged: continue with the current session shown by `npm run session -- start`.
 
 ## Session 22 (side session) — 2026-10-16 — CI: the three load-sensitive preview specs (S05.8, S05.7, S38.1)
 

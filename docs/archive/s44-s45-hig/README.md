@@ -6,7 +6,7 @@ not be recovered from git or any worktree. The tree therefore did not typecheck 
 
 On 2026-10-16 (key-feature visibility session) the owner chose to restore the last green code (`3222c89`) for every
 file that commit touched and keep the commit's own versions here, out of the build, typecheck, lint and tests, as
-reference for a rebuild (backlog feature S46.9). Paths below mirror the repository paths.
+reference for a rebuild (backlog feature S45.9). Paths below mirror the repository paths.
 
 Two parts of this design are deliberately **not** to be rebuilt as written (owner request 2026-10-16, "key features
 must always be visible"):

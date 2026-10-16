@@ -205,12 +205,13 @@
 .history-button + .zoom {
   margin-left: 4px;
 }
-/* A narrow editor (e.g. a 960 px window) gives the tabs the room: the button shows only its icon; the word stays in
-   the accessible name (visually hidden, not removed) and the tooltip. */
+/* History is a key feature: its word stays until the editor is really narrow (the tabs scroll first, they have their
+   own scroll buttons). Only a very narrow editor shows the icon alone; the word stays in the accessible name (visually
+   hidden, not removed) and the tooltip. */
 .editor {
   container-type: inline-size;
 }
-@container (max-width: 440px) {
+@container (max-width: 360px) {
   .history-button .history-label {
     position: absolute;
     width: 1px;

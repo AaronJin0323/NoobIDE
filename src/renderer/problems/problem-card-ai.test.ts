@@ -37,8 +37,8 @@ describe('Ask AI on the problem card (S33.2)', () => {
   it('is offered only while AI is available', () => {
     expect(renderToStaticMarkup(card('zh-CN'))).not.toContain('problem-ask-ai');
     const zh = renderToStaticMarkup(card('zh-CN', () => undefined));
-    expect(zh).toMatch(/data-testid="problem-ask-ai"[^>]*>问 AI</);
+    expect(zh).toMatch(/data-testid="problem-ask-ai"[^>]*><svg[^]*?<\/svg>问 AI<\/button>/);
     const en = renderToStaticMarkup(card('en', () => undefined));
-    expect(en).toMatch(/data-testid="problem-ask-ai"[^>]*>Ask AI</);
+    expect(en).toMatch(/data-testid="problem-ask-ai"[^>]*><svg[^]*?<\/svg>Ask AI<\/button>/);
   });
 });

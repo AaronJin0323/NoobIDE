@@ -6,6 +6,7 @@ import { fill } from '../recovery/format';
 import { saveErrorKey } from '../workbench/file-op-messages';
 import { errorExplanation } from './chat-text';
 import { proposalDiff, SETTINGS_ERRORS, type InlineEditPhase, type InlineEditState } from './inline-edit-model';
+import { AiIcon } from './ai-icons';
 import './inline-edit.css';
 
 type Translate = (key: MessageKey) => string;
@@ -186,25 +187,17 @@ export function InlineEditPanel({
           ? fill(t('ai.edit.review'), { removed: diff.removed, added: diff.added })
           : (status ?? '')}
       </p>
-      {state.phase === 'review' && diff && <DiffView diff={diff} t={t} />}
-      {state.usage && (state.phase === 'review' || state.phase === 'no-change') && (
-        <p className="inline-edit-usage" data-testid="inline-edit-usage">
-          {fill(t('ai.chat.usage'), {
-            input: state.usage.inputTokens.toLocaleString(),
-            output: state.usage.outputTokens.toLocaleString(),
-          })}
-        </p>
-      )}
       <div className="inline-edit-row">
         {state.phase === 'instruction' && (
           <>
             <button
               type="button"
-              className="primary-button"
+              className="ai-entry ai-entry-strong"
               data-testid="inline-edit-send"
               disabled={!state.instruction.trim()}
               onClick={actions.send}
             >
+              <AiIcon />
               {t('ai.edit.send')}
             </button>
             <button type="button" className="secondary-button" data-testid="inline-edit-cancel" onClick={actions.close}>
@@ -278,6 +271,16 @@ export function InlineEditPanel({
           </button>
         )}
       </div>
+      {/* The proposed change comes after its Accept / Reject, so the decision is in view however long the diff is. */}
+      {state.phase === 'review' && diff && <DiffView diff={diff} t={t} />}
+      {state.usage && (state.phase === 'review' || state.phase === 'no-change') && (
+        <p className="inline-edit-usage" data-testid="inline-edit-usage">
+          {fill(t('ai.chat.usage'), {
+            input: state.usage.inputTokens.toLocaleString(),
+            output: state.usage.outputTokens.toLocaleString(),
+          })}
+        </p>
+      )}
     </section>
   );
 }

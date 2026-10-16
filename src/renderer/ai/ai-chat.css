@@ -1,8 +1,9 @@
 /* S33.1 AI chat panel. Colours only from the theme tokens (src/renderer/theme/tokens.ts). */
 .ai-chat {
-  /* Shrinks before the editor and preview do, so the workbench never grows wider than the window. */
-  flex: 0 1 340px;
-  min-width: 240px;
+  /* Shrinks first (and faster) than the editor and the preview, so the workbench never grows wider than the window
+     and the preview keeps its room; the header and composer are built to work at the minimum width. */
+  flex: 0 3 320px;
+  min-width: 220px;
 }
 .workbench.narrow .ai-chat {
   position: absolute;
@@ -14,12 +15,35 @@
   box-shadow: 0 16px 40px rgb(0 0 0 / 35%);
 }
 .ai-chat .panel-header {
-  gap: 4px;
+  gap: 2px;
+  padding-right: 6px;
+  min-width: 0;
 }
-.ai-chat .ai-close {
+.ai-chat .panel-header .region-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ai-chat .panel-header .spacer {
+  min-width: 4px;
+}
+/* The header actions are icons with names and tooltips: they never shrink or leave the header. */
+.ai-chat .panel-header .icon-button {
+  flex: none;
+  width: 28px;
+  height: 28px;
   margin-left: 0;
 }
+.ai-chat .panel-header .ai-header-button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
 .ai-conversations {
+  flex: 0 1 120px;
+  min-width: 56px;
   max-width: 120px;
   height: 28px;
   border: 1px solid var(--line);
@@ -31,7 +55,8 @@
 }
 .ai-body {
   flex: 1 1 auto;
-  min-height: 0;
+  /* The conversation always keeps a few lines, however full the composer gets. */
+  min-height: 56px;
   overflow-y: auto;
   padding: 12px 14px;
 }
@@ -106,7 +131,10 @@
   margin: 6px 0;
 }
 .ai-consent {
-  flex: none;
+  /* Scrolls inside itself when the panel is short, so it never pushes the composer out of the panel. */
+  flex: 0 1 auto;
+  min-height: 48px;
+  overflow-y: auto;
   margin: 0 10px 8px;
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -127,13 +155,27 @@
   margin-top: 0;
   height: 30px;
 }
+/* The composer is bounded: the context area scrolls inside it, while the input and the Send / Stop row never shrink,
+   so asking the AI is possible at any panel height. */
 .ai-composer {
-  flex: none;
+  /* Never squeezed by the log: at most 60% of the panel, and inside that the context area gives way first. */
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-height: 0;
+  max-height: 60%;
   padding: 8px 10px 10px;
   border-top: 1px solid var(--line);
+}
+.ai-composer > * {
+  flex: none;
+}
+.ai-composer > .ai-context {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .ai-context-heading {
   margin: 0;
@@ -221,7 +263,7 @@
 .ai-input {
   width: 100%;
   min-height: 60px;
-  max-height: 200px;
+  max-height: min(200px, 25vh);
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
@@ -238,13 +280,19 @@
 .ai-composer-row .ai-hint {
   flex: 1;
 }
-.ai-composer-row .primary-button {
+.ai-composer-row .ai-hint {
+  min-width: 0;
+}
+.ai-composer-row .primary-button,
+.ai-composer-row .secondary-button {
+  flex: none;
   margin-top: 0;
   height: 30px;
 }
-.ai-send:disabled {
-  opacity: 0.55;
-  cursor: default;
+.ai-composer-row .ai-send {
+  height: 30px;
+  padding: 0 14px 0 10px;
+  font-size: 13px;
 }
 
 /* Safe Markdown of answers (Markdown.tsx) */
@@ -343,4 +391,11 @@
   max-width: 100%;
   max-height: 10rem;
   border: 1px solid var(--border, #8884);
+}
+/* Inside the composer the preview's text and thumbnail stay small, so they never crowd out the input. */
+.ai-composer .ai-preview-text {
+  max-height: 6rem;
+}
+.ai-composer .ai-preview-thumbnail {
+  max-height: 6rem;
 }

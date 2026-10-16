@@ -110,6 +110,11 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await expect.poll(async () => (await stored(userData())).status).toBe('closed');
     await menu('help-walkthrough');
     await expect(panel()).toHaveAttribute('data-step', 'create');
+    // The rail's labelled "课程" button runs the same command: lessons are never only in a menu.
+    await page.getByTestId('walkthrough-close').click();
+    await expect(panel()).toHaveCount(0);
+    await page.getByTestId('rail-lessons').click();
+    await expect(panel()).toHaveAttribute('data-step', 'create');
   });
 
   test('progress survives a restart', async () => {

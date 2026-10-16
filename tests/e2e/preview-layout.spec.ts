@@ -523,6 +523,44 @@ test('a 1280×800 window with the walkthrough and Problems open keeps a usable p
       });
     expect(await inView('walkthrough-next'), `${locale}: walkthrough Next`).toBe(true);
     expect(await inView('problems-toggle'), `${locale}: problems toggle`).toBe(true);
+    // Key features are never hidden: the "Annotate page" entry and the primary preview action are fully inside the
+    // preview pane and the window, with nothing scrolled (the rows above the stage never scroll; the stage gives way).
+    const keyControls = await page.getByTestId('region-preview').evaluate((pane) => {
+      const p = pane.getBoundingClientRect();
+      const inside = (selector: string) => {
+        const el = pane.querySelector(selector);
+        if (!el) return `${selector}: missing`;
+        const r = el.getBoundingClientRect();
+        const ok =
+          r.width > 0 &&
+          r.height > 0 &&
+          r.top >= p.top &&
+          r.bottom <= p.bottom &&
+          r.left >= p.left &&
+          r.right <= p.right &&
+          r.top >= 0 &&
+          r.bottom <= window.innerHeight;
+        return ok ? 'inside' : `${selector}: ${JSON.stringify({ el: r, pane: p })}`;
+      };
+      const chrome = pane.querySelector('[data-testid="preview-chrome"]');
+      return {
+        annotate: inside('[data-testid="annotate-menu"]'),
+        list: inside('[data-testid="annotations-toggle"]'),
+        primary: inside('[data-testid="preview-reload"]'),
+        toolbar: inside('[data-testid="preview-toolbar"]'),
+        console: inside('[data-testid="console-head"]'),
+        chromeScrolled: chrome ? chrome.scrollTop !== 0 || chrome.scrollHeight > chrome.clientHeight + 1 : true,
+      };
+    });
+    expect(keyControls, `${locale}: key preview controls`).toEqual({
+      annotate: 'inside',
+      list: 'inside',
+      primary: 'inside',
+      toolbar: 'inside',
+      console: 'inside',
+      chromeScrolled: false,
+    });
+    await expect(page.getByTestId('annotate-menu')).toHaveAttribute('data-available', 'true');
   };
   await check('zh-CN');
   await page.getByTestId('switch-language').click();
@@ -533,8 +571,18 @@ test('a 1280×800 window with the walkthrough and Problems open keeps a usable p
   await setContentSize(1280, 800);
   await expectViewOverStage();
   expect((await previewInfo(electron())).viewBounds?.height ?? 0).toBeGreaterThanOrEqual(200);
+  // 1366×768 laptop (≈ 1366×677 content) with the walkthrough and Problems open: still nothing hidden.
+  await setContentSize(1366, 677);
+  await check('zh-CN 1366×677');
   await page.getByTestId('walkthrough-close').click();
   await expect(page.getByTestId('walkthrough')).toHaveCount(0);
+  // Problems open alone at 1280×720: the Annotate entry is on screen without scrolling.
+  await setContentSize(1280, 720);
+  await expectViewOverStage();
+  const annotate = await page.getByTestId('annotate-menu').boundingBox();
+  const pane = await page.getByTestId('region-preview').boundingBox();
+  expect(annotate && pane && annotate.y >= pane.y && annotate.y + annotate.height <= pane.y + pane.height).toBe(true);
+  expect(await page.getByTestId('preview-chrome').evaluate((el) => el.scrollTop)).toBe(0);
 });
 
 for (const factor of [1.5, 2]) {

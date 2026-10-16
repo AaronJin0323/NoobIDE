@@ -113,9 +113,37 @@ describe('chat panel (S33.1)', () => {
     expect(out).toContain('aria-label="移除：文件 index.html"');
     expect(out).toContain('aria-label="移除：script.js 第 1–3 行（选中的代码）"');
     expect(out).toContain('模式：解释代码');
-    expect(out).toMatch(/data-testid="ai-send"[^>]*>发送</);
+    // Send is an AI entry point: the sparkle icon and the written label.
+    expect(out).toMatch(
+      /class="ai-entry ai-entry-strong ai-send" data-testid="ai-send"[^>]*><svg[^]*?<\/svg>发送<\/button>/,
+    );
     expect(out).not.toMatch(/data-testid="ai-send"[^>]*disabled/);
     expect(out).toContain('aria-label="向 AI 提问"');
+  });
+
+  it('the header keeps Close and New chat visible: icon buttons with names and tooltips', () => {
+    const out = render(withTurns(turn({})), { locale: 'en' });
+    expect(out).toMatch(/aria-label="New chat" title="New chat" data-testid="ai-new"/);
+    expect(out).toMatch(/aria-label="Close the AI assistant" title="Close the AI assistant" data-testid="ai-close"/);
+    // No text label in the header buttons that could push Close out of a narrow panel.
+    expect(out).not.toMatch(/data-testid="ai-new"[^>]*>New chat</);
+  });
+
+  it('the context area is its own scroll box, so the input and Send always stay in view', () => {
+    const out = render({
+      drafts: { p1: { prompt: 'x', chips: [], mode: 'chat', kind: 'chat' } },
+    });
+    const context = out.indexOf('class="ai-context"');
+    const input = out.indexOf('data-testid="ai-input"');
+    const send = out.indexOf('data-testid="ai-send"');
+    expect(context).toBeGreaterThan(-1);
+    expect(context).toBeLessThan(input);
+    expect(input).toBeLessThan(send);
+    // The three ways to add context stay visible buttons (not folded into a menu).
+    for (const id of ['ai-add-file', 'ai-add-selection', 'ai-add-preview'])
+      expect(out).toContain(`data-testid="${id}"`);
+    // The notice sits outside the scrolling context area, so it is never scrolled away.
+    expect(out.indexOf('data-testid="ai-notice"')).toBeGreaterThan(out.indexOf('data-testid="ai-add-preview"'));
   });
 
   it('says when nothing from the project is sent', () => {

@@ -86,14 +86,34 @@ export function createEditZone(
   editor.changeViewZones((accessor) => {
     zoneId = accessor.addZone(zone);
   });
+  // When the proposal arrives (phase "review"), the zone is brought into view again: the user may have scrolled away
+  // while the AI was writing, and Accept / Reject must not be off screen.
+  let revealedPhase: string | null = null;
+  const revealZone = () => {
+    const line = tracked.getRange(0)?.startLineNumber ?? startLine;
+    const height = zone.heightInPx ?? 0;
+    const zoneTop = editor.getTopForLineNumber(line) - height;
+    const viewTop = editor.getScrollTop();
+    const viewHeight = editor.getLayoutInfo().height;
+    const visibleEnd = zoneTop + Math.min(height, viewHeight);
+    if (zoneTop >= viewTop && visibleEnd <= viewTop + viewHeight) return;
+    editor.setScrollTop(Math.max(0, zoneTop - 8));
+  };
   // The zone is as tall as its content (which changes from instruction box to diff to messages).
   const resize = new ResizeObserver(() => {
     const height = Math.ceil(outer.getBoundingClientRect().height) + 4;
-    if (zoneId === null || Math.abs(height - (zone.heightInPx ?? 0)) < 1) return;
-    zone.heightInPx = height;
-    editor.changeViewZones((accessor) => {
-      if (zoneId !== null) accessor.layoutZone(zoneId);
-    });
+    const phase = container.querySelector('[data-phase]')?.getAttribute('data-phase') ?? null;
+    const changed = zoneId !== null && Math.abs(height - (zone.heightInPx ?? 0)) >= 1;
+    if (changed) {
+      zone.heightInPx = height;
+      editor.changeViewZones((accessor) => {
+        if (zoneId !== null) accessor.layoutZone(zoneId);
+      });
+    }
+    if (phase !== revealedPhase) {
+      revealedPhase = phase;
+      if (phase === 'review' && !closed) revealZone();
+    }
   });
   resize.observe(outer);
 

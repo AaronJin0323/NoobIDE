@@ -50,12 +50,14 @@
 }
 .inline-edit-row {
   display: flex;
+  min-height: 0;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 .inline-edit-diff {
-  max-height: 320px;
+  /* Bounded by the window too, so the zone (Accept / Reject on top) fits on screen with some code around it. */
+  max-height: min(320px, 40vh);
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
@@ -95,4 +97,10 @@
 .monaco-editor .inline-edit-replaced-gutter {
   border-left: 3px solid var(--danger);
   margin-left: 3px;
+}
+.inline-edit-row .primary-button {
+  margin-top: 0;
+}
+.inline-edit-row:empty {
+  display: none;
 }

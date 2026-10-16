@@ -290,7 +290,8 @@ export const INITIAL_ANNOTATIONS: AnnotationsState = {
   projectId: null,
   items: [],
   loaded: false,
-  expanded: true,
+  // Collapsed at first: the header's "View annotations (N)" says how many there are, and the page keeps the room.
+  expanded: false,
   scope: 'page',
   menuOpen: false,
   mode: { kind: 'idle' },
@@ -475,6 +476,19 @@ export function statusKey(mode: PickMode): MessageKey | null {
 /** True while the frozen picture replaces the native view (it must be hidden, the stage counts as covered). */
 export function coversStage(mode: PickMode): boolean {
   return mode.kind === 'drawing';
+}
+
+/**
+ * The preview header's Annotate entry (always shown, never unmounted): whether it can start a pick now and, when it
+ * cannot, the reason it explains (tooltip, aria-describedby, and a notice when pressed anyway).
+ */
+export function annotateEntry(
+  running: boolean,
+  mode: PickMode,
+): { readonly available: boolean; readonly reason: MessageKey | null } {
+  if (!running) return { available: false, reason: 'annotations.entry.needsPreview' };
+  if (mode.kind !== 'idle') return { available: false, reason: 'annotations.entry.busy' };
+  return { available: true, reason: null };
 }
 
 export function canSave(state: AnnotationsState): boolean {

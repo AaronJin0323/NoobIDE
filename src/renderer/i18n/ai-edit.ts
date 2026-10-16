@@ -47,6 +47,11 @@ export const aiEditZhCN = {
   // ── S35.2 问题卡片上的“用 AI 修复” ──
   'problems.card.fixWithAi': '用 AI 修复',
   'problems.card.fixWithAiHint': 'AI 会针对这个问题提出修改，你看过对比后再决定接受还是拒绝。',
+  'problems.row.fixWithAiLabel': '用 AI 修复：{title}',
+  // ── 编辑器标题栏上随时可见的 AI 入口 ──
+  'ai.editor.actions': 'AI 操作',
+  'ai.editor.editButton': 'AI 编辑',
+  'ai.editor.explainButton': '解释',
   'ai.fix.instructionLabel': '请 AI 修复：{title}',
   'ai.fix.heading': '刚才用 AI 做的修复',
   'ai.fix.saveFailed': 'AI 的修改已经在编辑器里，但保存失败：{reason} 问题还没有解决。',
@@ -105,6 +110,10 @@ export const aiEditEn: Record<keyof typeof aiEditZhCN, string> = {
   'problems.card.fixWithAi': 'Fix with AI',
   'problems.card.fixWithAiHint':
     'The AI proposes a change for this problem; you see the difference and then accept or reject it.',
+  'problems.row.fixWithAiLabel': 'Fix with AI: {title}',
+  'ai.editor.actions': 'AI actions',
+  'ai.editor.editButton': 'Edit with AI',
+  'ai.editor.explainButton': 'Explain',
   'ai.fix.instructionLabel': 'Asking the AI to fix: {title}',
   'ai.fix.heading': 'Your AI fix',
   'ai.fix.saveFailed': 'The AI change is in the editor, but saving failed: {reason} The problem is not resolved yet.',
