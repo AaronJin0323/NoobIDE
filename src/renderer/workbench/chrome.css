@@ -1,0 +1,102 @@
+/*
+ * S44.4: window chrome — top bar, the More menu and the status strip — reduced to the essentials (HIG Toolbars,
+ * Menus, Windows). Imported by TopBar.tsx, i.e. before styles.css / glass.css: every rule is scoped one level deeper
+ * than the base rules so it wins without !important.
+ */
+
+/* ── Top bar: project name on one line; its folder is the tooltip and description ── */
+.topbar .project {
+  flex-direction: row;
+  align-items: center;
+  min-width: 0;
+  max-width: 40vw;
+  margin-left: 4px;
+  padding-left: 0;
+  border-left: 0;
+}
+.topbar .project-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-headline);
+  font-weight: var(--font-weight-headline);
+}
+
+/* The save state: a quiet word with its icon (the icon's shape and the word carry the state, not a colour). */
+.topbar .save-status[data-state] {
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-weight: 500;
+}
+.topbar .save-status.save-dirty[data-state],
+.topbar .save-status.save-saving[data-state] {
+  color: var(--text);
+}
+.topbar .save-status.save-failed[data-state],
+.topbar .save-status.save-conflict[data-state],
+.topbar .save-status.save-deleted[data-state] {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* ── The More menu: titles never wrap; check marks and titles line up; shortcuts align right ── */
+.app-menu .app-menu-list {
+  min-width: 264px;
+  max-width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+.app-menu .app-menu-group {
+  display: flex;
+  flex-direction: column;
+}
+.app-menu .app-menu-item {
+  justify-content: flex-start;
+  gap: 0;
+  min-height: 30px;
+  padding: 5px 10px 5px 6px;
+  white-space: nowrap;
+}
+.app-menu .app-menu-check {
+  flex: none;
+  width: 20px;
+  text-align: center;
+}
+.app-menu .app-menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app-menu .menu-shortcut {
+  flex: none;
+  margin-left: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.app-menu .app-menu-heading {
+  padding: 6px 10px 2px 26px;
+  color: var(--muted);
+  font-size: var(--font-size-subheadline);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── Status strip: one quiet line of counts, each with its severity icon ── */
+.status-strip .status-button {
+  white-space: nowrap;
+}
+.status-strip .status-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.status-strip .status-error > svg {
+  color: var(--danger);
+}
+.status-strip .status-warning > svg {
+  color: var(--warn);
+}

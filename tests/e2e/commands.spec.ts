@@ -22,7 +22,7 @@ test.beforeAll(async () => {
   app = await launchApp();
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
-  await page.locator('.monaco-editor .view-lines').waitFor();
+  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
   mac = (await page.evaluate(() => window.noobide?.platform)) === 'mac';
   await openProject(app, page, root);
 });
@@ -35,22 +35,60 @@ test.afterAll(async () => {
 test('the command menu derives its items and shortcut hints from the registry', async () => {
   await page.getByTestId('app-menu').click();
   const items = page.getByRole('menu').getByRole('menuitem');
+  // S44.4: grouped by purpose (project, appearance, language, AI, help); toggles say what they will do now.
   await expect(items).toHaveText([
     /^关闭项目$/,
     /^本地历史…$/,
-    /^显示或隐藏 AI 助手/, // S33 (with its shortcut hint)
-    /^开启或关闭 AI 代码建议$/, // S32
+    /^在(访达|文件资源管理器|文件管理器)中显示$/, // S44.4: was the folder button in the top bar
+    mac ? /^显示 AI 助手⇧⌘A$/ : /^显示 AI 助手Ctrl\+Shift\+A$/, // S33, with its shortcut hint
+    /^开启 AI 代码建议$/, // S32
+    /^AI 设置…$/, // S31.4
     /^入门导览$/,
     /^术语表$/,
     /^打开日志文件夹$/,
-    /^AI 设置…$/, // S31.4
   ]);
+  const choices = page.getByRole('menu').getByRole('menuitemradio');
+  await expect(choices).toHaveText([/跟随系统主题$/, /浅色主题$/, /深色主题$/, /简体中文$/, /English（英语）$/]);
+  await expect(page.getByRole('menu').getByRole('group', { name: '外观' })).toHaveCount(1);
+  await expect(page.getByRole('menu').getByRole('group', { name: '语言 · Language' })).toHaveCount(1);
+  await expect(page.getByTestId('menu-language-zh-CN')).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toHaveCount(0);
-  await expect(page.getByTestId('zoom-in')).toHaveAttribute(
-    'title',
-    mac ? '放大代码字号 (⌘+)' : '放大代码字号 (Ctrl+=)',
+  // S44.5: the code font size moved from the editor header to the View menu and the palette, with the same hints.
+  await page.getByTestId('open-palette').click();
+  await page.getByTestId('palette-input').fill('放大代码字号');
+  await expect(page.getByTestId('palette-zoom-in')).toContainText('放大代码字号');
+  await expect(page.getByTestId('palette-zoom-in').locator('kbd')).toHaveText(mac ? '⌘+' : 'Ctrl+=');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('command-palette')).toHaveCount(0);
+});
+
+/** Every item of the open More menu: its title fits on one line at the menu's default width (S44.4). */
+const menuTitlesFit = () =>
+  page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('.app-menu-list [role^="menuitem"]')].flatMap((item) => {
+      const label = item.querySelector<HTMLElement>('.app-menu-label');
+      const wraps = !label || label.scrollWidth > label.clientWidth || label.getClientRects().length !== 1;
+      return wraps || item.getBoundingClientRect().height > 36 ? [item.textContent ?? ''] : [];
+    }),
   );
+
+test('no More menu title wraps or is cut off, in Chinese and English (S44.4)', async () => {
+  await openFile(page, 'index.html'); // the editing commands join the menu
+  for (const lang of ['zh-CN', 'en'] as const) {
+    await page.getByTestId('app-menu').click();
+    await expect(page.getByTestId('menu-ai-explain-code')).toBeVisible();
+    expect(await menuTitlesFit()).toEqual([]);
+    if (lang === 'zh-CN') {
+      await page.getByTestId('menu-language-en').click();
+      await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    }
+  }
+  // In English the toggles read "Show …" / "Turn on …", and the menu still has one checked language.
+  await expect(page.getByTestId('menu-ai-toggle-chat')).toContainText('Show AI assistant');
+  await expect(page.getByTestId('menu-language-en')).toHaveAttribute('aria-checked', 'true');
+  await page.getByTestId('menu-language-zh-CN').click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
 });
 
 test('⌘S / Ctrl+S saves even when the focus is outside the editor', async () => {
@@ -76,8 +114,17 @@ test('Ctrl+Tab switches tabs and ⌘W / Ctrl+W closes the active one', async () 
 });
 
 test('⌘B / Ctrl+B toggles the files and ⌘⇧M / Ctrl+Shift+M the problems panel', async () => {
+  await expect(page.getByTestId('rail-files')).toHaveAttribute(
+    'title',
+    mac ? '隐藏文件列表 (⌘B)' : '隐藏文件列表 (Ctrl+B)',
+  );
   await page.keyboard.press('ControlOrMeta+B');
   await expect(page.getByTestId('region-files')).toBeHidden();
+  // S44.4: the title says what the command will do now.
+  await expect(page.getByTestId('rail-files')).toHaveAttribute(
+    'title',
+    mac ? '显示文件列表 (⌘B)' : '显示文件列表 (Ctrl+B)',
+  );
   await page.keyboard.press('ControlOrMeta+B');
   await expect(page.getByTestId('region-files')).toBeVisible();
   await expect(page.getByTestId('problems-toggle')).toHaveAttribute('aria-expanded', 'false');

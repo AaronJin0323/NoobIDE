@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  APP_MENU_COMMANDS,
+  APP_MENU_GROUPS,
   COMMANDS,
   COMMAND_IDS,
   INITIAL_COMMAND_CONTEXT,
   commandChecked,
+  commandLabel,
   commandForKeyStroke,
   commandShortcutLabel,
   isCommandEnabled,
@@ -63,35 +64,63 @@ describe('command registry (S24.1)', () => {
 
   it('applies when clauses', () => {
     const none = INITIAL_COMMAND_CONTEXT;
-    const editing = { hasProject: true, hasActiveTab: true, modalOpen: false, theme: 'system' as const };
+    const editing = { ...INITIAL_COMMAND_CONTEXT, hasProject: true, hasActiveTab: true };
     expect(isCommandEnabled('save', none)).toBe(false);
     expect(isCommandEnabled('save', editing)).toBe(true);
-    expect(isCommandEnabled('save', { ...editing, modalOpen: true, theme: 'system' as const })).toBe(true);
+    expect(isCommandEnabled('save', { ...editing, modalOpen: true })).toBe(true);
     expect(isCommandEnabled('close-project', none)).toBe(false);
     expect(isCommandEnabled('close-project', editing)).toBe(true);
-    expect(isCommandEnabled('zoom-in', { ...editing, modalOpen: true, theme: 'system' as const })).toBe(false);
+    expect(isCommandEnabled('zoom-in', { ...editing, modalOpen: true })).toBe(false);
     expect(isCommandEnabled('open-logs', none)).toBe(true);
   });
 
-  it('the in-window menu only names registered commands', () => {
-    for (const entry of APP_MENU_COMMANDS) if (entry !== '-') expect(isCommandId(entry)).toBe(true);
+  it('the in-window menu only names registered commands, each once (S44.4 groups)', () => {
+    const ids = APP_MENU_GROUPS.flatMap((group) => group.ids);
+    for (const id of ids) expect(isCommandId(id)).toBe(true);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const group of APP_MENU_GROUPS) if (group.heading) expect(zhCN[group.heading]).toBeTruthy();
+  });
+
+  it('toggle titles say what they will do now, never "show or hide" (S44.4, HIG Menus)', () => {
+    const c = INITIAL_COMMAND_CONTEXT;
+    const zh = (id: Parameters<typeof commandLabel>[0], context = c) => zhCN[commandLabel(id, context, 'mac')];
+    const enOf = (id: Parameters<typeof commandLabel>[0], context = c) => en[commandLabel(id, context, 'windows')];
+    expect(zh('toggle-files')).toBe('隐藏文件列表');
+    expect(zh('toggle-files', { ...c, filesVisible: false })).toBe('显示文件列表');
+    expect(enOf('toggle-problems')).toBe('Show problems');
+    expect(enOf('toggle-problems', { ...c, problemsOpen: true })).toBe('Hide problems');
+    expect(zh('ai-toggle-chat')).toBe('显示 AI 助手');
+    expect(zh('ai-toggle-chat', { ...c, aiChatOpen: true })).toBe('隐藏 AI 助手');
+    expect(zh('toggle-inline-ai')).toBe('开启 AI 代码建议');
+    expect(enOf('toggle-inline-ai', { ...c, inlineAiOn: true })).toBe('Turn off AI suggestions');
+    expect(zh('reveal-project')).toBe('在访达中显示');
+    expect(enOf('reveal-project')).toBe('Show in File Explorer');
+    // Every title of every command, in every state: no "or" titles in either language.
+    const states = [c, { ...c, filesVisible: false, problemsOpen: true, aiChatOpen: true, inlineAiOn: true }];
+    for (const command of COMMANDS) {
+      for (const state of states) {
+        const key = commandLabel(command.id, state, 'mac');
+        expect(zhCN[key]).not.toMatch(/或/);
+        expect(en[key]).not.toMatch(/\bor\b/);
+      }
+    }
+  });
+
+  it('the interface language is a choice with the current one checked (S44.4)', () => {
+    expect(commandChecked('language-zh-CN', INITIAL_COMMAND_CONTEXT)).toBe(true);
+    expect(commandChecked('language-en', INITIAL_COMMAND_CONTEXT)).toBe(false);
+    expect(commandChecked('language-en', { ...INITIAL_COMMAND_CONTEXT, locale: 'en' })).toBe(true);
   });
 
   it('validates the context the renderer reports', () => {
-    expect(
-      parseCommandContext({ hasProject: true, hasActiveTab: false, modalOpen: false, theme: 'system' as const }),
-    ).toEqual({
-      hasProject: true,
-      hasActiveTab: false,
-      modalOpen: false,
-      theme: 'system',
-    });
+    const valid = { ...INITIAL_COMMAND_CONTEXT, hasProject: true, locale: 'en' as const };
+    expect(parseCommandContext(valid)).toEqual(valid);
     expect(parseCommandContext({ hasProject: true, hasActiveTab: false })).toBeNull();
-    expect(parseCommandContext({ hasProject: true, hasActiveTab: false, modalOpen: false, theme: 'neon' })).toBeNull();
-    expect(
-      parseCommandContext({ hasProject: 1, hasActiveTab: false, modalOpen: false, theme: 'system' as const }),
-    ).toBeNull();
-    expect(parseCommandContext({ hasProject: true, hasActiveTab: false, modalOpen: false, x: true })).toBeNull();
+    expect(parseCommandContext({ ...valid, theme: 'neon' })).toBeNull();
+    expect(parseCommandContext({ ...valid, hasProject: 1 })).toBeNull();
+    expect(parseCommandContext({ ...valid, filesVisible: 'yes' })).toBeNull();
+    expect(parseCommandContext({ ...valid, locale: 'fr' })).toBeNull();
+    expect(parseCommandContext({ ...valid, x: true })).toBeNull();
     expect(parseCommandContext(null)).toBeNull();
     expect(isCommandId('save')).toBe(true);
     expect(isCommandId('rm -rf')).toBe(false);
