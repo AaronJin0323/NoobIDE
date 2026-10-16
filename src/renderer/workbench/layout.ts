@@ -115,10 +115,11 @@ export const FRAME = {
   strip: 32,
   gap: 8,
   middleMax: 430,
-  walkthroughMin: { wide: 88, narrow: 76 },
+  /** The walkthrough band: its full state keeps a step check and the button row; compact (S47.6) is one row. */
+  walkthroughMin: { wide: 88, narrow: 76, compact: 40 },
   /** The open Problems panel's minimum: clamp(40px, 100vh - 620px, 100px). */
   problemsMin: { floor: 40, offset: 620, ceiling: 100 },
-  /** Narrow window with a notice shown (it joins the layout flow): clamp(8px, 100vh - 430px, 120px). */
+  /** A notice shown (S47.5: the stack is in the layout flow above the strip): clamp(8px, 100vh - 430px, 120px). */
   noticeMin: { floor: 8, offset: 430, ceiling: 120 },
 } as const;
 
@@ -135,20 +136,24 @@ export function frameMinimums(
   height: number,
   shown: {
     readonly walkthrough: boolean;
+    /** S47.6: the band is in its compact one-line state. */
+    readonly walkthroughCompact?: boolean;
     readonly problems: boolean;
     readonly narrow: boolean;
     readonly notice?: boolean;
   },
 ): FrameMinimums {
   const panelMin = clamp(height - FRAME.problemsMin.offset, FRAME.problemsMin.floor, FRAME.problemsMin.ceiling);
-  const walkthrough = shown.walkthrough
-    ? (shown.narrow ? FRAME.walkthroughMin.narrow : FRAME.walkthroughMin.wide) + FRAME.gap
-    : 0;
+  const walkthroughMin = shown.walkthroughCompact
+    ? FRAME.walkthroughMin.compact
+    : shown.narrow
+      ? FRAME.walkthroughMin.narrow
+      : FRAME.walkthroughMin.wide;
+  const walkthrough = shown.walkthrough ? walkthroughMin + FRAME.gap : 0;
   const problems = shown.problems ? panelMin + FRAME.gap : 0;
-  const notice =
-    shown.notice && shown.narrow
-      ? clamp(height - FRAME.noticeMin.offset, FRAME.noticeMin.floor, FRAME.noticeMin.ceiling)
-      : 0;
+  const notice = shown.notice
+    ? clamp(height - FRAME.noticeMin.offset, FRAME.noticeMin.floor, FRAME.noticeMin.ceiling)
+    : 0;
   const middle = Math.max(
     0,
     Math.min(FRAME.middleMax, height - FRAME.topbar - FRAME.strip - walkthrough - problems - notice),

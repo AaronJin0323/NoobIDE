@@ -30,6 +30,7 @@ export const zhCN = {
   'region.editor': '编辑器',
   'region.preview': '预览',
   'region.problems': '问题和控制台',
+  'region.status': '状态栏',
   'rail.files': '文件',
   'rail.problems': '问题',
   'files.empty': '还没有打开文件夹。',
@@ -86,6 +87,7 @@ export const zhCN = {
   'fileRole.data': '数据',
   'fileRole.data.detail': '脚本可以读取的结构化数据。',
   'fileRole.hintLabel': '这个文件是做什么的',
+  'fileRole.tooltip': '{role}：{detail}',
   // ── end S20.3 ──
   'narrow.preview': '预览',
   'files.openOther': '打开其他文件夹',
@@ -195,6 +197,8 @@ export const zhCN = {
     '“{name}”这个名称在 Windows 或 macOS 上无效（比如结尾有点或空格、含有冒号或反斜杠，或是 CON 这样的保留名），所以 NoobIDE 不打开它。请按 F2 给它改个名字，改名后就能正常使用。',
   'op.interrupted': '改名没有完成，但文件没有丢失：它现在叫“{name}”，就在同一个文件夹里。请再给它改一次名。',
   'editor.readOnlyEncoding': '这个文件不是 UTF-8 编码，只能查看、不能修改，这样它不会被损坏。文件编码：',
+  'editor.status.readOnly': '只能查看',
+  'editor.status.mixedEol': '混用换行符 · 保存为 {eol}',
   // --- S12 crash recovery ---
   'recovery.title': '恢复上次未保存的修改',
   'recovery.intro':
@@ -288,7 +292,6 @@ export const zhCN = {
   'appMenu.closeProject': '关闭项目',
   'layout.resizeFiles': '调整文件面板的宽度',
   'layout.resizeEditor': '调整代码和预览的宽度比例',
-  'session.restored': '已重新打开上次的项目，位置：',
   'transfer.title': '这个项目换到另一个系统（Windows / macOS）时可能会出问题。NoobIDE 没有改动任何文件：',
   'transfer.caseConflict':
     '“{folder}”里的 {names} 只差大小写：在 Windows 和 macOS 上它们会变成同一个文件。请给其中一个换个名称。',
@@ -458,6 +461,11 @@ export const zhCN = {
   'walkthrough.showMe': '指给我看',
   'walkthrough.close': '关闭课程',
   'walkthrough.closeHint': '以后可以从左边工具栏的“课程”再打开。',
+  // S47.6: the compact one-line band (step, title, Show me, Next) and the way back to the full text
+  'walkthrough.compact': '收起',
+  'walkthrough.compactHint': '只留一行：第几步、标题、指给我看、下一步。新的一步会先完整显示。',
+  'walkthrough.expand': '展开',
+  'walkthrough.expandHint': '显示这一步的完整说明。',
   'walkthrough.offer.title': '课程走完了！',
   'walkthrough.offer.text': '想检验一下吗？试试一个没有提示的小任务。',
   'walkthrough.task.start': '开始小任务',

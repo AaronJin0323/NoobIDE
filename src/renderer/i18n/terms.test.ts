@@ -74,7 +74,15 @@ export const TERMS: readonly Term[] = [
     en: 'AI suggestions',
     exact: ['ai.purpose.inline'],
     menu: [],
-    mentions: ['command.toggleInlineAi', 'ai.settings.inline', 'ai.inline.status.on', 'ai.inline.status.off'],
+    mentions: [
+      'command.toggleInlineAi',
+      'ai.settings.inline',
+      'ai.inline.status.on',
+      'ai.inline.status.off',
+      'ai.inline.state.on',
+      'ai.inline.state.off',
+      'ai.inline.state.paused',
+    ],
   },
   {
     feature: 'AI project changes (agent)',

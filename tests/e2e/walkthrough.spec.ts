@@ -127,22 +127,89 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await expect(panel()).toHaveAttribute('data-step', 'create');
   });
 
-  test('progress survives a restart', async () => {
+  test("S47.6: the band folds to one line (step · title · Show me · Next); a step's first view is always full", async () => {
+    // Full on this first view of "create": the text, the location, the terms, the check line.
+    const band = panel();
+    await expect(band).toHaveAttribute('data-compact', 'false');
+    await expect(page.getByTestId('walkthrough-body')).toBeVisible();
+    await page.getByTestId('walkthrough-compact').click();
+    await expect(band).toHaveAttribute('data-compact', 'true');
+    await expect(page.getByTestId('walkthrough-body')).toHaveCount(0);
+    await expect(page.getByTestId('walkthrough-check')).toHaveCount(0);
+    // One line, at most 56 px: the step, the title, Show me and Next share one row.
+    const box = (await band.boundingBox())!;
+    expect(box.height).toBeLessThanOrEqual(56);
+    const rows = new Set<number>();
+    for (const id of ['walkthrough-progress', 'walkthrough-title', 'walkthrough-show', 'walkthrough-next']) {
+      const r = (await page.getByTestId(id).boundingBox())!;
+      expect(r.y >= box.y && r.y + r.height <= box.y + box.height, `${id} inside the band`).toBe(true);
+      rows.add(Math.round(r.y + r.height / 2));
+    }
+    expect(Math.max(...rows) - Math.min(...rows)).toBeLessThanOrEqual(4);
+    await expect(page.getByTestId('walkthrough-progress')).toHaveText('第 1 步，共 8 步');
+    await expect(page.getByTestId('walkthrough-title')).toHaveText('创建你的第一个网页');
+    await expect(next()).toHaveText('跳过这一步'); // the done state is the button's own label
+    await expect.poll(async () => (await stored(userData())).compact).toBe(true);
+
+    // A step seen before folds too (files and heading were visited above); a step never seen shows in full even
+    // while compact is chosen.
     await next().click();
+    await expect(band).toHaveAttribute('data-step', 'files');
+    await expect(band).toHaveAttribute('data-compact', 'true');
     await next().click();
+    await expect(band).toHaveAttribute('data-step', 'heading');
+    await expect(band).toHaveAttribute('data-compact', 'true');
+    await next().click();
+    await expect(band).toHaveAttribute('data-step', 'style');
+    await expect(band).toHaveAttribute('data-compact', 'false');
+    await expect(page.getByTestId('walkthrough-body')).toBeVisible();
+    await page.getByTestId('walkthrough-back').click();
+    await expect(band).toHaveAttribute('data-step', 'heading');
+    await expect(band).toHaveAttribute('data-compact', 'true');
+    // Expand: the full text comes back on every step until the user folds it again.
+    await page.getByTestId('walkthrough-expand').click();
+    await expect(band).toHaveAttribute('data-compact', 'false');
+    await expect.poll(async () => (await stored(userData())).compact).toBe(false);
+    await page.getByTestId('walkthrough-compact').click();
+    await expect(band).toHaveAttribute('data-compact', 'true');
+  });
+
+  test('progress and the compact choice survive a restart', async () => {
     await expect(panel()).toHaveAttribute('data-step', 'heading');
+    await expect(panel()).toHaveAttribute('data-compact', 'true');
     await expect.poll(async () => (await stored(userData())).step).toBe('heading');
     await app.close();
     await start(userData());
     await expect(panel()).toHaveAttribute('data-step', 'heading');
     await expect(page.getByTestId('walkthrough-progress')).toHaveText('第 3 步，共 8 步');
     await expect.poll(anchored).toEqual([]); // no project open: the heading step's file is not there to point at
+    // S47.6: the compact choice came back with the progress (a step seen before folds); a never-seen step stays full.
+    await expect(panel()).toHaveAttribute('data-compact', 'true');
+    expect((await panel().boundingBox())!.height).toBeLessThanOrEqual(56);
+    await next().click(); // style: seen above, folds
+    await expect(panel()).toHaveAttribute('data-step', 'style');
+    await expect(panel()).toHaveAttribute('data-compact', 'true');
+    await next().click(); // interaction: never seen, full
+    await expect(panel()).toHaveAttribute('data-step', 'interaction');
+    await expect(panel()).toHaveAttribute('data-compact', 'false');
+    await page.getByTestId('walkthrough-back').click(); // from the full band; the compact one has Show me and Next only
+    await expect(panel()).toHaveAttribute('data-step', 'style');
+    await expect(panel()).toHaveAttribute('data-compact', 'true');
+    await page.getByTestId('walkthrough-expand').click();
+    await expect(panel()).toHaveAttribute('data-compact', 'false');
+    await page.getByTestId('walkthrough-back').click();
+    await expect(panel()).toHaveAttribute('data-step', 'heading');
   });
 
   test('standard terms in a step link to the glossary, which keeps the terms as they are (S23.4)', async () => {
     await page.getByTestId('walkthrough-back').click(); // "meet the files" links HTML, CSS, JavaScript
-    await expect(page.getByTestId('walkthrough-term')).toHaveText(['HTML', 'CSS', 'JavaScript']);
-    await page.getByTestId('walkthrough-term').filter({ hasText: 'CSS' }).click();
+    // S47.6: in zh-CN a chip shows the Chinese name and the standard term; the glossary keeps the term itself.
+    await expect(page.getByTestId('walkthrough-term')).toHaveText([
+      '超文本标记语言 HTML',
+      '层叠样式表 CSS',
+      'JavaScript 脚本语言',
+    ]);
+    await page.locator('[data-testid="walkthrough-term"][data-term="CSS"]').click();
     const glossary = page.getByTestId('glossary');
     await expect(glossary).toBeVisible();
     await expect(glossary).toHaveAttribute('aria-modal', 'true');
@@ -165,6 +232,7 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await switchLanguage(page);
     await expect(page.getByTestId('walkthrough-title')).toHaveText('Meet the three files');
     await expect(next()).toHaveText('Skip this step');
+    await expect(page.getByTestId('walkthrough-term')).toHaveText(['HTML', 'CSS', 'JavaScript']); // en: the term alone
     await menu('help-glossary');
     await expect(page.getByRole('heading', { name: 'Glossary' })).toBeVisible();
     await page.getByTestId('glossary-search').fill('selector');

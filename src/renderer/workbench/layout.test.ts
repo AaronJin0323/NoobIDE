@@ -159,6 +159,15 @@ describe('vertical budget: the status strip and the Problems toggle never leave 
     const walkthrough = css('../walkthrough/walkthrough.css');
     expect(walkthrough).toContain(`--walkthrough-min: ${FRAME.walkthroughMin.wide}px;`);
     expect(walkthrough).toContain(`--walkthrough-min: ${FRAME.walkthroughMin.narrow}px;`);
+    // S47.6: the compact band reserves one row; the rule comes after the narrow one so it wins in a narrow window too.
+    const compactRule = `.workbench:has(> .walkthrough.is-compact) { --walkthrough-min: ${FRAME.walkthroughMin.compact}px;`;
+    expect(walkthrough).toContain(compactRule);
+    expect(walkthrough.indexOf(compactRule)).toBeGreaterThan(
+      walkthrough.indexOf(`--walkthrough-min: ${FRAME.walkthroughMin.narrow}px;`),
+    );
+    expect(
+      frameMinimums(480, { walkthrough: true, walkthroughCompact: true, problems: true, narrow: true }).walkthrough,
+    ).toBe(FRAME.walkthroughMin.compact + FRAME.gap);
     expect(walkthrough).toMatch(/\.walkthrough-actions \{[^}]*flex-wrap: nowrap;/);
   });
 });

@@ -122,6 +122,8 @@ test('F6 / Shift+F6 move between regions, also out of the code editor', async ()
   await page.keyboard.press('F6');
   expect((await focused()).region).toBe('region-problems');
   await page.keyboard.press('F6');
+  expect((await focused()).region).toBe('region-status'); // S47.5: the editor's end of the status strip
+  await page.keyboard.press('F6');
   expect((await focused()).region).toBe('region-topbar');
   await page.keyboard.press('F6');
   expect((await focused()).region).toBe('rail');

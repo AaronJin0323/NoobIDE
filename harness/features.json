@@ -4343,8 +4343,8 @@
       "depends_on": [
         "S47.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/key-features-visible.spec.ts 'S47.5: one status row…' (no editor bottom row; region-status in the strip's row, never over the Problems toggle; ≤1 band above the code; entry notice below the code and above the strip; F6 order preview→walkthrough→app-notice-stack→problems→status→topbar; info notice auto-dismiss) + size loop 1280x800…640x480 (indent, caret, AI edit/explain in viewport); a11y.spec F6 order; file-roles.spec 'S47.5: first showing only' (hint collapses, tree tag + tab tooltip keep the role); session.spec (no reopened-project notice); file-role.test.ts (RoleHintMemory), a11y-labels.test.ts (tabTooltip role line); e2e key-features/a11y/shell/file-roles/session/encodings/save/editing/ai-edit/ai-inline/smart-editing/external-change 91 green on Windows; verify green"
     },
     {
       "id": "S47.6",
@@ -4360,8 +4360,8 @@
       "depends_on": [
         "S47.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/walkthrough.spec.ts 'S47.6: the band folds to one line…' (compact ≤ 56 px, progress/title/show/next on one row, no body/check, stored compact, seen steps fold, never-seen step full, expand) + 'progress and the compact choice survive a restart' + zh-CN chips 超文本标记语言 HTML / 层叠样式表 CSS / JavaScript 脚本语言, en chips HTML/CSS/JavaScript (13 tests green on Windows); walkthrough-model.test.ts 'compact band (S47.6)' (toggle, first view, close/revisit, termChipLabel, closeHint names rail.lessons), src/shared/walkthrough.test.ts (compact/viewed parse + lenient load), layout.test.ts (compact reserve); e2e key-features/a11y/shell/editing green on the S47.6 build; verify green"
     },
     {
       "id": "S48.1",
