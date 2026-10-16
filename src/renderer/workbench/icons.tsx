@@ -5,15 +5,13 @@
 import type { ReactNode } from 'react';
 import type { SaveStatus } from './save-machine';
 
-function Icon({
-  size = 16,
-  strokeWidth = 1.6,
-  children,
-}: {
-  size?: number;
-  strokeWidth?: number;
-  children: ReactNode;
-}) {
+/** Allowed rendered sizes (calm design spec, Icons): 14 inline, 16 default, 18 rail, 32 empty states. */
+export const ICON_SIZES = [14, 16, 18, 32] as const;
+/** Every outline icon renders ~1.5 px of stroke at its size; the viewBox is 16 units wide. */
+export const ICON_STROKE_PX = 1.5;
+
+/** The shared outline-icon base: a 16-unit viewBox whose stroke width is scaled to ~1.5 px at the rendered size. */
+export function IconBase({ size = 16, children }: { size?: number; children: ReactNode }) {
   return (
     <svg
       width={size}
@@ -21,7 +19,7 @@ function Icon({
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeWidth={strokeWidth}
+      strokeWidth={(ICON_STROKE_PX * 16) / size}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -33,48 +31,48 @@ function Icon({
 }
 
 export const CodeIcon = ({ size }: { size?: number }) => (
-  <Icon size={size ?? 13} strokeWidth={2.2}>
+  <IconBase size={size ?? 14}>
     <path d="M6 4L2 8l4 4M10 4l4 4-4 4" />
-  </Icon>
+  </IconBase>
 );
 
 export const FileIcon = () => (
-  <Icon size={18} strokeWidth={1.5}>
+  <IconBase size={18}>
     <path d="M9 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V6L9 2z" />
     <path d="M9 2v4h4" />
-  </Icon>
+  </IconBase>
 );
 
 export const ProblemsIcon = () => (
-  <Icon size={18} strokeWidth={1.5}>
+  <IconBase size={18}>
     <path d="M3 4h10M3 8h10M3 12h6" />
-  </Icon>
+  </IconBase>
 );
 
 export const FolderIcon = () => (
-  <Icon size={22} strokeWidth={1.4}>
+  <IconBase size={32}>
     <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z" />
-  </Icon>
+  </IconBase>
 );
 
 export const MonitorIcon = () => (
-  <Icon size={22} strokeWidth={1.4}>
+  <IconBase size={32}>
     <rect x="2" y="3" width="12" height="8" rx="1" />
     <path d="M6 14h4M8 11v3" />
-  </Icon>
+  </IconBase>
 );
 
 export const StopIcon = () => (
-  <Icon size={10} strokeWidth={2.4}>
+  <IconBase size={14}>
     <rect x="4" y="4" width="8" height="8" rx="1" />
-  </Icon>
+  </IconBase>
 );
 
 /** Dashed circle: "not checked yet" — distinct in shape from a check mark or a warning triangle. */
 export const UncheckedIcon = () => (
-  <Icon size={13} strokeWidth={1.6}>
+  <IconBase size={14}>
     <circle cx="8" cy="8" r="6" strokeDasharray="2 2" />
-  </Icon>
+  </IconBase>
 );
 
 export const DotIcon = () => (
@@ -84,29 +82,29 @@ export const DotIcon = () => (
 );
 
 export const ChevronDownIcon = () => (
-  <Icon size={14} strokeWidth={1.8}>
+  <IconBase size={14}>
     <path d="M4 6l4 4 4-4" />
-  </Icon>
+  </IconBase>
 );
 
 export const RevealIcon = () => (
-  <Icon size={15} strokeWidth={1.5}>
+  <IconBase size={16}>
     <path d="M9 3h4v4M13 3L7 9" />
     <path d="M12 10v2.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-8a.5.5 0 0 1 .5-.5H6" />
-  </Icon>
+  </IconBase>
 );
 
 export const SmallFolderIcon = () => (
-  <Icon size={15} strokeWidth={1.5}>
+  <IconBase size={16}>
     <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z" />
-  </Icon>
+  </IconBase>
 );
 
-export const WarningIcon = ({ size = 13 }: { size?: number }) => (
-  <Icon size={size} strokeWidth={1.8}>
+export const WarningIcon = ({ size = 14 }: { size?: number }) => (
+  <IconBase size={size}>
     <path d="M8 2.5l6 11H2z" />
     <path d="M8 7v3M8 12v.01" />
-  </Icon>
+  </IconBase>
 );
 
 /** One shape per save state, so the state never depends on colour alone (AGENTS.md accessibility). */
@@ -114,15 +112,15 @@ export function SaveStateIcon({ state }: { state: SaveStatus }) {
   switch (state) {
     case 'clean':
       return (
-        <Icon size={13} strokeWidth={1.6}>
+        <IconBase size={14}>
           <circle cx="8" cy="8" r="5.5" />
-        </Icon>
+        </IconBase>
       );
     case 'saved':
       return (
-        <Icon size={13} strokeWidth={2.2}>
+        <IconBase size={14}>
           <path d="M3 8.5l3 3 7-7" />
-        </Icon>
+        </IconBase>
       );
     case 'dirty':
       return (
@@ -132,46 +130,46 @@ export function SaveStateIcon({ state }: { state: SaveStatus }) {
       );
     case 'saving':
       return (
-        <Icon size={13} strokeWidth={2}>
+        <IconBase size={14}>
           <path d="M13 8a5 5 0 1 1-1.5-3.5" />
           <path d="M13 2.5v3h-3" />
-        </Icon>
+        </IconBase>
       );
     case 'failed':
       return <WarningIcon />;
     case 'conflict':
       return (
-        <Icon size={13} strokeWidth={1.8}>
+        <IconBase size={14}>
           <path d="M4 2v5a3 3 0 0 0 3 3h5M12 14V9" />
           <path d="M10 8l2 2-2 2" />
-        </Icon>
+        </IconBase>
       );
     case 'deleted': // S11.3: a page with a cross — the file is gone from disk
       return (
-        <Icon size={13} strokeWidth={1.8}>
+        <IconBase size={14}>
           <path d="M4 1.5h5l3 3v10H4z" />
           <path d="M6 8l4 4M10 8l-4 4" />
-        </Icon>
+        </IconBase>
       );
   }
 }
 
 export const CloseIcon = () => (
-  <Icon size={12} strokeWidth={1.8}>
+  <IconBase size={14}>
     <path d="M4 4l8 8M12 4l-8 8" />
-  </Icon>
+  </IconBase>
 );
 
 export const MinusIcon = () => (
-  <Icon size={13} strokeWidth={1.8}>
+  <IconBase size={14}>
     <path d="M3.5 8h9" />
-  </Icon>
+  </IconBase>
 );
 
 export const PlusIcon = () => (
-  <Icon size={13} strokeWidth={1.8}>
+  <IconBase size={14}>
     <path d="M3.5 8h9M8 3.5v9" />
-  </Icon>
+  </IconBase>
 );
 
 /** "More" (three dots): opens a small panel of further actions. */
@@ -185,88 +183,141 @@ export const MoreIcon = () => (
 
 /** Points left (e.g. "more tabs this way"). */
 export const ChevronLeftIcon = () => (
-  <Icon size={12} strokeWidth={1.8}>
+  <IconBase size={14}>
     <path d="M10 3.5L5.5 8l4.5 4.5" />
-  </Icon>
+  </IconBase>
 );
 
 // ── S08: file tree ──────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Points right when closed; CSS rotates it when the folder is open (shape, not colour, shows the state). */
 export const ChevronRightIcon = () => (
-  <Icon size={12} strokeWidth={1.8}>
+  <IconBase size={14}>
     <path d="M6 4l4 4-4 4" />
-  </Icon>
+  </IconBase>
 );
 
 export const TreeFolderIcon = ({ open }: { open: boolean }) => (
-  <Icon size={15} strokeWidth={1.4}>
+  <IconBase size={16}>
     {open ? (
       <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4A1.5 1.5 0 0 1 13.5 6v.5H5.2a1.5 1.5 0 0 0-1.4 1L2 12.5zM2 12.5l1.8-5A1.5 1.5 0 0 1 5.2 6.5H15l-2 6a1 1 0 0 1-1 .5H3a1 1 0 0 1-1-.5z" />
     ) : (
       <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z" />
     )}
-  </Icon>
+  </IconBase>
 );
 
 export const TreeFileIcon = () => (
-  <Icon size={15} strokeWidth={1.4}>
+  <IconBase size={16}>
     <path d="M9 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V6L9 2z" />
     <path d="M9 2v4h4" />
-  </Icon>
+  </IconBase>
 );
 
 export const LinkIcon = () => (
-  <Icon size={12} strokeWidth={1.6}>
+  <IconBase size={14}>
     <path d="M7 9a3 3 0 0 0 4.2 0l2-2a3 3 0 0 0-4.2-4.2l-.6.6M9 7a3 3 0 0 0-4.2 0l-2 2a3 3 0 0 0 4.2 4.2l.6-.6" />
-  </Icon>
+  </IconBase>
 );
 
 export const NewFileIcon = () => (
-  <Icon size={15} strokeWidth={1.5}>
+  <IconBase size={16}>
     <path d="M9 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14H8M9 2l4 4v2M9 2v4h4" />
     <path d="M12 10v4M10 12h4" />
-  </Icon>
+  </IconBase>
 );
 
 export const NewFolderIcon = () => (
-  <Icon size={15} strokeWidth={1.5}>
+  <IconBase size={16}>
     <path d="M8 13H3.5A1.5 1.5 0 0 1 2 11.5v-7A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v2" />
     <path d="M12 10v4M10 12h4" />
-  </Icon>
+  </IconBase>
 );
 
 // S21.3: local history (clock with a back arrow)
 export const HistoryIcon = ({ size = 18 }: { size?: number }) => (
-  <Icon size={size} strokeWidth={1.5}>
+  <IconBase size={size}>
     <path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9" />
     <path d="M2.5 2.5v2.5H5" />
     <path d="M8 5v3l2 1.5" />
-  </Icon>
+  </IconBase>
 );
 
 /** S40.5: the command search in the top bar and the palette's search field. */
 export const SearchIcon = ({ size }: { size?: number }) => (
-  <Icon size={size ?? 15}>
+  <IconBase size={size ?? 16}>
     <circle cx="7" cy="7" r="4.5" />
     <path d="M10.5 10.5L14 14" />
-  </Icon>
+  </IconBase>
 );
 
 /** Key-features pass: the rail's "Lessons" button (an open book). */
 export const LessonsIcon = () => (
-  <Icon size={18} strokeWidth={1.5}>
+  <IconBase size={18}>
     <path d="M8 4.5C6.8 3.5 5 3 2.5 3v9c2.5 0 4.3.5 5.5 1.5 1.2-1 3-1.5 5.5-1.5V3C11 3 9.2 3.5 8 4.5z" />
     <path d="M8 4.5v9" />
-  </Icon>
+  </IconBase>
 );
 
 /** Key-features pass: the top bar's Save button (a tray with a down arrow). */
 export const SaveIcon = () => (
-  <Icon size={15} strokeWidth={1.7}>
+  <IconBase size={16}>
     <path d="M8 2.5v7M5 6.5l3 3 3-3" />
     <path d="M2.5 10.5v1.5A1.5 1.5 0 0 0 4 13.5h8a1.5 1.5 0 0 0 1.5-1.5v-1.5" />
-  </Icon>
+  </IconBase>
+);
+
+// ── S46.7: glyphs that used to be inline in components ─────────────────────────────────────────────────────────
+
+/** Preview "Run" (a filled play triangle; the label next to it carries the meaning). */
+export const PlayIcon = () => (
+  <svg width={14} height={14} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+    <path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z" />
+  </svg>
+);
+
+/** Preview "Refresh": a circular arrow. */
+export const RefreshIcon = () => (
+  <IconBase size={14}>
+    <path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" />
+  </IconBase>
+);
+
+/** The Annotate entry: a pencil. */
+export const PencilIcon = () => (
+  <IconBase size={16}>
+    <path d="M2.5 13.5l1-3.6 7.3-7.3a1.6 1.6 0 0 1 2.3 0l.3.3a1.6 1.6 0 0 1 0 2.3l-7.3 7.3z" />
+    <path d="M9.6 3.8l2.6 2.6" />
+  </IconBase>
+);
+
+/** A bulleted list (the annotations list toggle). */
+export const ListIcon = () => (
+  <IconBase size={14}>
+    <path d="M6 4h8M6 8h8M6 12h8M2.5 4h.1M2.5 8h.1M2.5 12h.1" />
+  </IconBase>
+);
+
+/** A check mark (e.g. an annotation's source was found). */
+export const CheckIcon = () => (
+  <IconBase size={14}>
+    <path d="M3 8.5l3.2 3L13 4.5" />
+  </IconBase>
+);
+
+/** "About right": two waves (e.g. an annotation's source was found approximately). */
+export const ApproximateIcon = () => (
+  <IconBase size={14}>
+    <path d="M3 6.5c1.6-1.4 3.4-1.4 5 0s3.4 1.4 5 0M3 10.5c1.6-1.4 3.4-1.4 5 0s3.4 1.4 5 0" />
+  </IconBase>
+);
+
+/** A circle with an exclamation mark (e.g. an annotation's source was not found). */
+export const NoticeIcon = () => (
+  <IconBase size={14}>
+    <circle cx="8" cy="8" r="6" />
+    <path d="M8 4.8v3.8M8 11.2v.1" />
+  </IconBase>
 );
 
 /** The NoobIDE mark without its tile ("< • >", resources/brand/noobide-mark.svg), in the current colour. */

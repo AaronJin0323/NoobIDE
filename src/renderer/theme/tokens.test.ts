@@ -65,7 +65,20 @@ describe('theme tokens (S30.1)', () => {
   });
 });
 
-describe('glass materials (S40.2)', () => {
+describe('overlay materials (S40.2, S46)', () => {
+  it('keeps only overlay keys: persistent chrome glass and ambient fields are gone (decision 0034)', () => {
+    for (const scheme of SCHEMES) {
+      expect(Object.keys(GLASS[scheme]).sort()).toEqual(
+        ['glassHover', 'glassOverlay', 'glassOverlaySolid', 'glassShadow', 'glassStroke', 'scrim'].sort(),
+      );
+      for (const removed of ['glassChrome', 'glassChromeSolid', 'glassHighlight', 'ambientA', 'ambientB'])
+        expect(GLASS[scheme], removed).not.toHaveProperty(removed);
+    }
+    expect(Object.keys(GLASS_BACKDROPS)).toEqual(['glassOverlay']);
+    expect(cssVariables('light')).not.toHaveProperty('--glass-chrome');
+    expect(cssVariables('light')).not.toHaveProperty('--ambient-a');
+  });
+
   it('composites a translucent colour over a solid one', () => {
     expect(composite('#FFFFFF80', '#000000')).toBe('#808080');
     expect(composite('#00000000', '#ABCDEF')).toBe('#ABCDEF');
@@ -91,13 +104,10 @@ describe('glass materials (S40.2)', () => {
     ][]) {
       for (const surface of surfaces) {
         const solid = t[surface as keyof typeof t];
-        // The ambient colour fields tint the window background under the chrome.
-        for (const under of [solid, composite(g.ambientA, solid), composite(g.ambientB, solid)]) {
-          const seen = composite(g[fill], under);
-          for (const fg of GLASS_TEXT) {
-            const ratio = contrastRatio(t[fg], seen);
-            if (ratio < 4.5) failures.push(`${fg} on ${fill} over ${surface} (${under}): ${ratio.toFixed(2)}`);
-          }
+        const seen = composite(g[fill], solid);
+        for (const fg of GLASS_TEXT) {
+          const ratio = contrastRatio(t[fg], seen);
+          if (ratio < 4.5) failures.push(`${fg} on ${fill} over ${surface} (${solid}): ${ratio.toFixed(2)}`);
         }
       }
     }
@@ -106,7 +116,7 @@ describe('glass materials (S40.2)', () => {
 
   it.each(SCHEMES)('%s: text on the solid fallbacks reaches 4.5:1', (scheme) => {
     const t = THEMES[scheme];
-    for (const solid of [GLASS[scheme].glassChromeSolid, GLASS[scheme].glassOverlaySolid])
+    for (const solid of [GLASS[scheme].glassOverlaySolid])
       for (const fg of GLASS_TEXT) expect(contrastRatio(t[fg], solid), `${fg} on ${solid}`).toBeGreaterThanOrEqual(4.5);
   });
 });

@@ -1,4 +1,5 @@
-/* S31.4 Settings → AI and the AI consent prompt. States are always written out, never colour alone. */
+/* S31.4 Settings → AI and the AI consent prompt, in the S46 calm language: sections are separated by spacing and one
+   divider (no boxes in the dialog), messages are soft callouts. States are always written out, never colour alone. */
 .ai-settings {
   width: min(560px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
@@ -7,28 +8,38 @@
 .ai-settings-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 .ais-section,
 .ais-fieldset {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
   margin: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+/* Floated, so the legend is an ordinary first line under the divider instead of cutting through it. */
+.ais-fieldset legend {
+  float: left;
+  width: 100%;
+  padding: 0;
 }
 .ais-fieldset legend,
 .ais-label {
   margin: 0;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
 }
 .ais-check {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.ais-check input {
+  accent-color: var(--accent);
 }
 .ais-row {
   display: flex;
@@ -36,17 +47,10 @@
   align-items: center;
   gap: 8px;
 }
+/* Text fields: the shared .text-field look (styles.css); only the row layout is set here. */
 .ais-input,
 .ais-select {
   flex: 1;
-  min-width: 0;
-  height: 30px;
-  padding: 0 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--raised);
-  color: var(--text);
-  font: inherit;
 }
 .ais-model-row {
   display: grid;
@@ -56,32 +60,53 @@
 }
 .ais-key-state {
   margin: 0;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
+/* Callouts: a soft fill and the message in words; no bar, no border. */
 .ais-message {
   margin: 0;
-  padding: 6px 8px;
+  padding: 10px 12px;
   border-radius: var(--radius-control);
   background: var(--raised);
+  color: var(--text);
 }
 .ais-message-error {
-  border-left: 3px solid var(--danger, #c62828);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 .ais-message-ok {
-  border-left: 3px solid var(--accent);
+  background: var(--ok-soft);
+  color: var(--ok);
 }
+/* The consent prompt is a card where it stands alone (the chat panel); inside a settings section or the inline edit
+   zone it is plain content, never a card in a card. */
 .ais-consent {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 16px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--raised);
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+}
+.ais-section .ais-consent,
+.inline-edit .ais-consent {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+/* In the chat panel it scrolls inside itself when the panel is short, so it never pushes the composer out. */
+.ai-chat > .ais-consent {
+  flex: 0 1 auto;
+  min-height: 48px;
+  overflow-y: auto;
+  margin: 0 8px 8px;
 }
 .ais-consent-title {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
 }
 .ais-consent-body {
   margin: 0;

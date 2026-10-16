@@ -1,31 +1,28 @@
 /* AI entry points ("Fix with AI", "Edit with AI", Send): one recognisable look everywhere — the sparkle icon plus a
-   written label on an accent-tinted capsule. Colours only from theme tokens (light and dark); the label and icon carry
-   the meaning, never the colour alone. */
+   written label on a soft raised control (S46 calm language); Send is the filled primary. Colours only from theme
+   tokens (light and dark); the label and icon carry the meaning, never the colour alone. */
 .ai-entry {
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   height: 28px;
   padding: 0 10px 0 8px;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  border-radius: var(--radius-capsule, var(--radius-control));
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  color: var(--text);
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    background-color var(--dur-fast, 120ms) ease-out,
-    border-color var(--dur-fast, 120ms) ease-out;
+  transition: background-color var(--dur-fast) var(--ease-smooth);
 }
 .ai-entry:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 18%, var(--accent-soft));
+  background: var(--hover);
 }
 .ai-entry:focus-visible {
   outline: 2px solid var(--focus);
@@ -35,31 +32,31 @@
   opacity: 0.55;
   cursor: default;
 }
+/* Icons are sized by their component (AiIcon size), never resized here: the stroke is computed for that size. */
 .ai-entry > svg {
   flex: none;
-  width: 15px;
-  height: 15px;
 }
 .ai-entry-kbd {
-  /* Same colour as the label (full contrast on the tint in both themes); only the frame is lighter. */
+  /* Quieter than the label, without a frame of its own. */
   padding: 1px 4px;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  border-radius: 4px;
-  color: inherit;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--muted);
   font: inherit;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
 }
-/* The prominent variant (Send): filled with the accent. */
+/* The prominent variant (Send): the shared primary button's look. */
 .ai-entry.ai-entry-strong {
-  border-color: transparent;
+  height: 32px;
+  padding: 0 14px 0 10px;
   background: var(--accent-fill);
   color: var(--on-accent);
-  box-shadow: inset 0 0 0 1px var(--accent-rim);
+  box-shadow: var(--ring-accent);
+  font-size: var(--text-md);
 }
 .ai-entry.ai-entry-strong:hover:not(:disabled) {
-  background: var(--accent-fill);
-  filter: brightness(1.08);
+  background: color-mix(in srgb, var(--accent-fill) 86%, var(--muted));
 }
 
 /* The editor's AI actions (EditorAiActions.tsx), at the start of the editor's status bar under the code: always in
@@ -89,12 +86,8 @@
 .editor-ai-actions .quiet-button {
   height: 24px;
   padding: 0 8px 0 6px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   white-space: nowrap;
-}
-.editor-ai-actions .quiet-button > svg {
-  width: 15px;
-  height: 15px;
 }
 @container editor-status (max-width: 460px) {
   .editor-ai-actions .ai-entry-kbd,
@@ -120,11 +113,10 @@
 .problem-row-line > .ai-entry {
   height: 24px;
   padding: 0 8px 0 6px;
-  font-size: 11px;
 }
 .problem-card .problem-actions {
   align-items: center;
 }
 .problem-card .problem-actions .ai-entry {
-  height: 30px;
+  height: 32px;
 }

@@ -47,7 +47,7 @@ export function DiskStateBanner(props: DiskStateBannerProps) {
     const ready = tab.conflictDisk !== undefined;
     return (
       <div className="inline-alert save-alert" role="alert" data-testid="conflict-banner">
-        <WarningIcon size={15} />
+        <WarningIcon size={16} />
         <div className="save-alert-body">
           <strong>
             {tab.relPath}: {t('conflict.title')}
@@ -95,7 +95,7 @@ export function DiskStateBanner(props: DiskStateBannerProps) {
     const error = tab.save.error;
     return (
       <div className="inline-alert save-alert" role="alert" data-testid="deleted-banner">
-        <WarningIcon size={15} />
+        <WarningIcon size={16} />
         <div className="save-alert-body">
           <strong>
             {tab.relPath}: {t('deleted.title')}

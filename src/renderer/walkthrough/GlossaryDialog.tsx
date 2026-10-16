@@ -50,7 +50,7 @@ export function GlossaryDialog({ initialTerm, onClose }: GlossaryDialogProps) {
         <input
           ref={searchRef}
           type="search"
-          className="glossary-search"
+          className="text-field glossary-search"
           aria-label={t('glossary.search')}
           placeholder={t('glossary.search')}
           data-testid="glossary-search"

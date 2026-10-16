@@ -153,7 +153,7 @@ export function InlineEditPanel({
           <textarea
             id={inputId}
             ref={setFocus}
-            className="inline-edit-input"
+            className="text-field inline-edit-input"
             data-testid="inline-edit-input"
             rows={2}
             placeholder={t('ai.edit.instructionPlaceholder')}
@@ -197,7 +197,7 @@ export function InlineEditPanel({
               disabled={!state.instruction.trim()}
               onClick={actions.send}
             >
-              <AiIcon />
+              <AiIcon size={16} />
               {t('ai.edit.send')}
             </button>
             <button type="button" className="secondary-button" data-testid="inline-edit-cancel" onClick={actions.close}>

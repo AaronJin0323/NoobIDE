@@ -9,6 +9,7 @@ import {
   dialog,
   ipcMain,
   Menu,
+  nativeTheme,
   powerMonitor,
   protocol,
   safeStorage,
@@ -62,7 +63,8 @@ import { registerWalkthroughIpcHandlers } from './walkthrough-ipc';
 import { SessionStore, blockingRecoveryCount } from './session-store';
 import type { WebContents } from 'electron';
 import { resolveTemplatesDir } from '../workspace/templates'; // S20.2
-import { createWorkbenchWindowOptions, insecurePreferences } from './window-options';
+import { createWorkbenchWindowOptions, insecurePreferences, windowColorScheme } from './window-options';
+import type { ThemeChoice } from '../shared/settings';
 // S24.2: native menus from the command registry, and the platform's window lifecycle
 import { AppMenuController } from './app-menu';
 import { registerCommandIpcHandlers } from './commands-ipc';
@@ -176,6 +178,9 @@ function start(): void {
     quitting = true;
   });
 
+  // S46: the saved theme choice (S24.4) for the native window background; set once the settings store exists.
+  let savedTheme: () => ThemeChoice = () => 'system';
+
   function createWorkbenchWindow(): BrowserWindow {
     // A larger first window when the screen allows it (kept within the work area of the screen under the pointer).
     let workArea: Electron.Size | undefined;
@@ -184,7 +189,12 @@ function start(): void {
     } catch {
       workArea = undefined; // no display information: the fallback size
     }
-    const options = createWorkbenchWindowOptions(path.join(__dirname, 'preload.cjs'), workArea);
+    const options = createWorkbenchWindowOptions(
+      path.join(__dirname, 'preload.cjs'),
+      workArea,
+      // The saved theme choice (settings, S24.4) decides; 'system' follows the OS, as the renderer does.
+      windowColorScheme(savedTheme(), nativeTheme.shouldUseDarkColors),
+    );
     const insecure = insecurePreferences(options.webPreferences ?? {});
     if (insecure.length > 0) throw new Error(`insecure workbench webPreferences: ${insecure.join(', ')}`);
 
@@ -419,6 +429,7 @@ function start(): void {
     });
     // --- S13 app data (all in app.getPath('userData'), never inside a project) ---
     const settings = new SettingsStore({ file: appDataPath(appData, 'settings'), log: logger });
+    savedTheme = () => settings.current.settings.theme;
     // --- S24.2: native menus, translated with the interface language and enabled from the command context ---
     const appMenu = new AppMenuController({
       platform: platformId(),
@@ -441,10 +452,14 @@ function start(): void {
     });
     menu = appMenu;
     appMenu.rebuild();
-    void settings.load().then((loaded) => {
-      uiLocale = loaded.settings.locale;
-      appMenu.setLocale(loaded.settings.locale);
-    });
+    // The first window waits for the settings (one small file): its native background follows the saved theme.
+    const settingsLoaded = settings.load().then(
+      (loaded) => {
+        uiLocale = loaded.settings.locale;
+        appMenu.setLocale(loaded.settings.locale);
+      },
+      () => undefined, // never rejects today; the window must open regardless
+    );
     registerCommandIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       setContext: (senderId, context) => appMenu.setContext(senderId, context),
@@ -517,18 +532,20 @@ function start(): void {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       store: new WalkthroughStore({ file: appDataPath(appData, 'walkthrough'), log: logger }),
     });
-    createWorkbenchWindow();
+    void settingsLoaded.then(() => {
+      createWorkbenchWindow();
 
-    // S24.2: Windows exits with its last window; macOS stays in the dock and reopens a window on activation.
-    installWindowLifecycle(app, {
-      windowCount: () => BrowserWindow.getAllWindows().length,
-      createWindow: () => void createWorkbenchWindow(),
-      focusFirstWindow: () => {
-        const win = BrowserWindow.getAllWindows()[0];
-        if (!win) return;
-        if (win.isMinimized()) win.restore();
-        win.focus();
-      },
+      // S24.2: Windows exits with its last window; macOS stays in the dock and reopens a window on activation.
+      installWindowLifecycle(app, {
+        windowCount: () => BrowserWindow.getAllWindows().length,
+        createWindow: () => void createWorkbenchWindow(),
+        focusFirstWindow: () => {
+          const win = BrowserWindow.getAllWindows()[0];
+          if (!win) return;
+          if (win.isMinimized()) win.restore();
+          win.focus();
+        },
+      });
     });
   });
 }

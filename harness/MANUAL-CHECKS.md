@@ -21,6 +21,23 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 
 ## Open checks
 
+### S46.8 — Calm refinement visual pass on real hardware
+
+- **Platform:** Windows 11 x64 and macOS on Apple Silicon
+- **Build:** branch `claude/ui-refinement` (S46)
+- **Steps:**
+  1. `npx playwright test -c tests/e2e/playwright.config.ts glass-visual` after `npx electron-forge package`, and look
+     at `test-results/glass/*.png` (welcome, workbench, menu, problems, palette, AI, sheet; light and dark).
+  2. `npm start`; with the OS in dark mode, watch the first frame: no white flash. In Settings choose Dark while the
+     OS is light, restart: the window opens dark.
+  3. Click through files, tabs, rail, Problems, the AI panel and a dialog; judge whether it reads calm and flat.
+  4. Windows: Settings → Accessibility → Visual effects → Transparency effects off; then a High Contrast theme. Open
+     the app menu, the command palette (Ctrl+Shift+P) and Help → Glossary: each overlay is solid and readable and
+     focus rings are visible (including the AI composer).
+  5. macOS: Reduce Transparency, Increase Contrast and Reduce Motion each on: overlays solid, nothing scales.
+- **Expected:** the owner judges the look calm; steps 2, 4 and 5 behave as described.
+- **Result:** _(owner fills in: pass/fail, notes, date)_
+
 ### S02.7 — Windows x64 installer via `npm run make`
 
 - **Platform:** Windows 11 x64 (or the minimum version chosen in H.1), ideally a second clean machine or VM without

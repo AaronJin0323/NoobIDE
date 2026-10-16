@@ -7,7 +7,7 @@ import type {
 } from '../../shared/ipc/preview-contract';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
-import { DotIcon, MonitorIcon, RevealIcon, StopIcon, WarningIcon } from './icons';
+import { DotIcon, MonitorIcon, PlayIcon, RefreshIcon, RevealIcon, StopIcon, WarningIcon } from './icons';
 // S17.3: console view (levels, filter, clear, page-load attribution) on the same bounded log model.
 import { ConsoleView } from './ConsoleView';
 import {
@@ -63,33 +63,6 @@ interface Notice {
   readonly extra?: MessageKey;
   /** Remembered in app data once dismissed (S14.2 one-time notes). */
   readonly note?: PreviewNoteId;
-}
-
-/** Decorative icons of the primary preview actions (the visible label next to each carries the meaning). */
-function PlayIcon() {
-  return (
-    <svg width={14} height={14} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
-      <path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z" />
-    </svg>
-  );
-}
-function RefreshIcon() {
-  return (
-    <svg
-      width={14}
-      height={14}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" />
-    </svg>
-  );
 }
 
 /** How often typing in the editor is reported to main (S14.2 typing pause). */
@@ -693,7 +666,7 @@ export function PreviewPane({
         {noPage ? (
           <div className="empty-state" data-testid="preview-no-page">
             <span className="empty-icon">
-              <WarningIcon size={22} />
+              <WarningIcon size={32} />
             </span>
             <p className="empty-title">{t('preview.noPage.title')}</p>
             <p className="empty-detail">{t('preview.noPage.detail')}</p>
@@ -735,7 +708,7 @@ export function PreviewPane({
             <div className="empty-state" data-testid="preview-message">
               <span className="empty-icon">
                 {status.state === 'unresponsive' || status.state === 'failed' ? (
-                  <WarningIcon size={22} />
+                  <WarningIcon size={32} />
                 ) : (
                   <MonitorIcon />
                 )}
