@@ -3,6 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { listTemplates } from '../../src/workspace/templates';
 import { launchApp, repoRoot, tempRoot } from './launch';
+import { switchLanguage } from './project';
 
 /**
  * S20.3: a project made from the default template shows the role of index.html / style.css / script.js in the file
@@ -67,7 +68,7 @@ test('the editor shows the role hint of the open file, and none before a file is
 });
 
 test('roles follow the interface language (en)', async () => {
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(row('index.html').getByTestId('file-role')).toHaveText('Page structure');
   await expect(row('style.css').getByTestId('file-role')).toHaveText('Visual styling');
   await expect(row('script.js').getByTestId('file-role')).toHaveText('Interactive behavior');
@@ -82,6 +83,6 @@ test('roles follow the interface language (en)', async () => {
     });
     expect(fit, name).toEqual({ name: true, roleShown: true });
   }
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(row('index.html').getByTestId('file-role')).toHaveText('页面结构');
 });

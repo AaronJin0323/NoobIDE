@@ -3,7 +3,15 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
 import { DOC_START } from './keys';
-import { collectConsoleErrors, documentText, focusEditor, makeProject, openFile, openProject } from './project';
+import {
+  collectConsoleErrors,
+  documentText,
+  focusEditor,
+  makeProject,
+  openFile,
+  openProject,
+  switchLanguage,
+} from './project';
 
 /**
  * S35 end to end against the fake provider: the inline edit (Ctrl/Cmd+I) and "Fix with AI" on the problem card, on a
@@ -139,7 +147,7 @@ test('Ctrl/Cmd+I on a selection: consent, instruction, diff, Accept saves one un
 test('the context menu opens it too; Reject leaves the text unchanged', async () => {
   await selectLine(3);
   await page.locator('.monaco-editor .view-lines').first().click({ button: 'right' });
-  const item = page.getByRole('menuitem', { name: '用 AI 修改这段代码' });
+  const item = page.getByRole('menuitem', { name: 'AI 修改' }); // S47.4: one name
   await item.hover();
   await page.keyboard.press('Enter');
   await ask('make it blue');
@@ -155,7 +163,7 @@ test('"Edit with AI" under the code is always in view and opens it on the select
   await selectLine(3);
   const button = page.getByTestId('editor-ai-edit');
   await expect(button).toBeVisible();
-  await expect(button).toContainText('AI 编辑');
+  await expect(button).toContainText('AI 修改');
   await expect(page.getByTestId('editor-ai-explain')).toBeVisible();
   await button.click();
   await expect(zone()).toBeVisible();
@@ -216,7 +224,7 @@ test('Stop cancels a running edit and nothing changes', async () => {
 });
 
 test('en: labels, the request locale, an error explained, Esc closes', async () => {
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   try {
     await selectLine(3);
     await page.keyboard.press(`${mod}+i`);
@@ -241,7 +249,7 @@ test('en: labels, the request locale, an error explained, Esc closes', async () 
     await expect(zone()).toHaveCount(0);
     expect(await disk('index.html')).toBe(HTML);
   } finally {
-    await page.getByTestId('switch-language').click(); // back to zh-CN
+    await switchLanguage(page); // back to zh-CN
   }
 });
 
@@ -277,11 +285,11 @@ test('"Fix with AI" on a page problem: diff, Accept, resolved after the preview 
     { timeout: 30_000 },
   );
   await expect(fixCard).toHaveAttribute('data-phase', 'resolved');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(fixCard.getByTestId('ai-fix-status')).toHaveText(
     'Resolved: script.js line 3 — not reported again after checking again and refreshing the preview.',
   );
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
 });
 
 test('no console errors during the AI edit run', () => {

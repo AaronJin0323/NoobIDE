@@ -12,6 +12,7 @@ import {
   tabOf,
   treeRow,
   typeAtEnd,
+  switchLanguage,
 } from './project';
 import { replaceEditorText } from './preview-helpers';
 
@@ -296,11 +297,11 @@ test('clearing asks first and removes the project history; project files are unt
 });
 
 test('the history window follows the interface language (en)', async () => {
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(page.getByTestId('show-history')).toHaveText('History');
   await page.getByTestId('rail-history').click();
-  await expect(dialog().getByRole('heading', { name: 'Local history' })).toBeVisible();
+  await expect(dialog().getByRole('heading', { name: 'History', exact: true })).toBeVisible();
   await expect(page.getByTestId('history-usage')).toHaveText(/^History uses .+ \(limit 256\.0 MB\)$/);
   await page.keyboard.press('Escape');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
 });

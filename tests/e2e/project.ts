@@ -1,6 +1,6 @@
 import { cp, mkdir, mkdtemp } from 'node:fs/promises';
 import path from 'node:path';
-import type { ElectronApplication, Locator, Page } from '@playwright/test';
+import { expect, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import { repoRoot, tempRoot } from './launch';
 import { DOC_END } from './keys';
 
@@ -27,6 +27,33 @@ export async function answerSaveDialog(app: ElectronApplication, file: string | 
     const fake = async () => ({ canceled: chosen === null, filePath: chosen ?? '' });
     (dialog as unknown as { showSaveDialog: typeof fake }).showSaveDialog = fake;
   }, file);
+}
+
+/**
+ * S47.4: switches the interface language from the help/more menu at the end of the top bar (the bar has no language
+ * button any more) and waits until the document reports the new language.
+ */
+export async function switchLanguage(page: Page): Promise<void> {
+  const next = (await page.locator('html').getAttribute('lang')) === 'en' ? 'zh-CN' : 'en';
+  await page.getByTestId('app-menu').click();
+  await page.getByTestId(`menu-language-${next}`).click();
+  await expect(page.locator('html')).toHaveAttribute('lang', next);
+  // The choice is persisted through main (S13.1), which also serves the preview's "page not found" page in the
+  // interface language: wait until main reports it, so the next preview request is already in the new language.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const result = await window.noobide?.settings?.get();
+        return result?.ok ? result.value.settings.locale : null;
+      }),
+    )
+    .toBe(next);
+}
+
+/** S47.4: runs a command of the project menu next to the project name (close project, reveal, history, lessons). */
+export async function projectMenu(page: Page, id: string): Promise<void> {
+  await page.getByTestId('project-menu').click();
+  await page.getByTestId(`menu-${id}`).click();
 }
 
 export async function openProject(app: ElectronApplication, page: Page, root: string): Promise<void> {

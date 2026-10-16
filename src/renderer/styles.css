@@ -223,9 +223,12 @@ input[type='radio'] {
   font-size: var(--text-lg);
   font-weight: var(--weight-medium);
 }
+/* S47.4: the project name with its menu button beside it; the folder path is the name's tooltip and a line in the
+   project menu, never a second line of the bar. */
 .project {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   min-width: 0;
   margin-left: 16px;
   line-height: 1.3;
@@ -233,13 +236,6 @@ input[type='radio'] {
 .project-name {
   font-size: var(--text-lg);
   font-weight: var(--weight-medium);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.project-detail {
-  font-size: var(--text-sm);
-  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1015,13 +1011,17 @@ input[type='radio'] {
 .workbench.narrow > .problems {
   order: 2;
 }
-/* S13: command menu next to the project name (opens over the left half, never under the native preview) */
+/* S13 / S47.4: the in-window menus (the project menu next to the project name, the help/more menu at the end of
+   the bar). An open menu is an overlay: the native preview view hides under it (preview-viewport.ts). */
 .app-menu {
   position: relative;
   flex: none;
 }
 .app-menu .icon-button {
   margin-left: 4px;
+}
+.project .app-menu .icon-button {
+  margin-left: 0;
 }
 /* The menu's overlay material, shadow and motion come from glass.css. */
 .app-menu-list {
@@ -1033,6 +1033,26 @@ input[type='radio'] {
   flex-direction: column;
   min-width: 240px;
   padding: 6px;
+}
+/* S47.4: the trailing menu opens flush with the bar's right edge instead of running off the window */
+.app-menu-list-end {
+  left: auto;
+  right: 0;
+}
+/* S47.4: the project folder, as plain text above the project menu's items */
+.app-menu-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 480px;
+  padding: 6px 10px 8px;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.app-menu-detail-text {
+  color: var(--text);
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 .app-menu-item {
   display: flex;
@@ -1199,8 +1219,7 @@ input[type='radio'] {
 }
 
 /* ── Narrow window (S30.4) ─────────────────────────────── */
-.workbench.narrow .app-name,
-.workbench.narrow .project-detail {
+.workbench.narrow .app-name {
   display: none;
 }
 .workbench.narrow .project {
@@ -1267,9 +1286,6 @@ input[type='radio'] {
 }
 .list-note {
   padding: 8px 14px;
-}
-.reveal-button {
-  margin-left: 0;
 }
 .inline-alert {
   display: flex;

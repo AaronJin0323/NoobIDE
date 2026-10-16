@@ -2,6 +2,7 @@ import { chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/prom
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, repoRoot, tempRoot } from './launch';
+import { switchLanguage } from './project';
 import { DOC_END } from './keys';
 
 /**
@@ -73,7 +74,7 @@ test('opens a folder with Chinese characters and spaces and lists its files (S03
   await answerFolderDialog(root);
   await page.getByTestId('welcome-open-folder').click();
   await expect(page.getByTestId('project-name')).toHaveText('中文 路径 项目');
-  await expect(page.getByTestId('project-path')).toHaveText(root);
+  await expect(page.getByTestId('project-name')).toHaveAttribute('title', root);
   await expect(treeItem('index.html')).toBeVisible();
   await expect(treeItem('子 文件夹')).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByTestId('sample-badge')).toHaveCount(0);
@@ -100,11 +101,11 @@ test('edits are saved to disk with Ctrl/Cmd+S (S03.4)', async () => {
 
 test('a language switch keeps unsaved edits in the editor', async () => {
   await typeAtEnd('切换语言');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   // Leaving the editor autosaves (S10.2); whichever moment we look, the text is never lost.
   await expect(editorText()).toContainText('切换语言');
   await expect(status()).toHaveText('Saved');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(status()).toHaveText('已保存');
   await expect.poll(() => readFile(path.join(root, 'index.html'), 'utf8')).toContain('切换语言');
 });

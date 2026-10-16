@@ -88,12 +88,17 @@ import type { SettingsSnapshot } from '../../shared/ipc/app-data-contract';
 import { SettingsNotice } from './SettingsNotice';
 import {
   COMMAND_IDS,
+  HELP_MENU_COMMANDS,
+  PROJECT_MENU_COMMANDS,
   commandById,
   commandChecked,
   commandShortcutLabel,
   type CommandContext,
   type CommandId,
 } from '../../shared/commands'; // S24.1
+import { LOCALES, type Locale } from '../i18n/index';
+import { revealLabelKey } from '../../platform/labels';
+import type { AppMenuItem } from './AppMenu';
 import { CommandPalette, type PaletteCommand } from '../commands/CommandPalette'; // S40.5
 import { useThemeChoice } from '../theme/ThemeProvider'; // S24.4
 import { focusRegion } from '../commands/focus-regions'; // S24.3
@@ -131,7 +136,7 @@ export function Workbench() {
   const bridge = window.noobide;
   const platform = bridge?.platform ?? 'other';
   const [layout, dispatchLayout] = useReducer(layoutReducer, INITIAL_LAYOUT);
-  const { t } = useI18n(); // S13.4: splitter labels
+  const { t, locale, setLocale } = useI18n(); // S13.4: splitter labels; S47.4: the language items of the help menu
   const [doc, dispatch] = useReducer(documentReducer, INITIAL_DOCUMENT_STATE);
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [copyNotice, setCopyNotice] = useState<SaveCopyNotice | null>(null);
@@ -1126,7 +1131,41 @@ export function Workbench() {
     paletteRun.current = null;
     commands.run(id);
   }, [palette, commands]);
-  const menuItems = useAppMenuItems(platform, commandContext, commandHandlers, commands.run);
+  // S47.4: two menus. The project menu (close, reveal, history, lessons) next to the project name; the help/more
+  // menu (theme, language, AI, glossary, logs, settings) at the end of the top bar. Reveal and the language choice
+  // are not registry commands (a platform label, and a choice that re-renders everything), so they are added here.
+  const projectCommands = useAppMenuItems(
+    platform,
+    commandContext,
+    commandHandlers,
+    commands.run,
+    PROJECT_MENU_COMMANDS,
+  );
+  const helpCommands = useAppMenuItems(platform, commandContext, commandHandlers, commands.run, HELP_MENU_COMMANDS);
+  const projectMenu = useMemo((): AppMenuItem[] => {
+    const project = doc.project;
+    if (!project || !bridge) return projectCommands;
+    const reveal: AppMenuItem = {
+      id: 'reveal-project',
+      label: revealLabelKey(platform),
+      onSelect: () => void bridge.workspace.revealProject({ projectId: project.projectId }),
+    };
+    const [close, ...rest] = projectCommands;
+    return close?.id === 'close-project' ? [close, reveal, ...rest] : [reveal, ...projectCommands];
+  }, [projectCommands, bridge, platform, doc.project]);
+  const helpMenu = useMemo((): AppMenuItem[] => {
+    const languages: AppMenuItem[] = LOCALES.map((choice: Locale, index) => ({
+      id: `language-${choice}`,
+      label: choice === 'zh-CN' ? 'language.zhCN' : 'language.en',
+      separatorBefore: index === 0,
+      checked: choice === locale,
+      onSelect: () => setLocale(choice),
+    }));
+    const themes = helpCommands.filter((item) => item.id.startsWith('theme-'));
+    const rest = helpCommands.filter((item) => !item.id.startsWith('theme-'));
+    const first = rest[0];
+    return [...themes, ...languages, ...(first ? [{ ...first, separatorBefore: true }, ...rest.slice(1)] : [])];
+  }, [helpCommands, locale, setLocale]);
   // --- end S24.1 ---
 
   // --- S13.4: session restore. On a normal start main reopens the last project (crash recovery takes precedence: it
@@ -1210,15 +1249,13 @@ export function Workbench() {
         project={project}
         save={activeSaveStatus(doc)}
         saveRetrying={activeSaveRetrying(doc)} // S47.3: the Save button stays through a retry of a failed write
-        onReveal={() => {
-          if (bridge && project) void bridge.workspace.revealProject({ projectId: project.projectId });
-        }}
         narrow={
           visible.narrowSwitch
             ? { view: layout.narrowView, onShow: (view) => dispatchLayout({ type: 'showNarrowView', view }) }
             : undefined
         }
-        menuItems={menuItems}
+        projectMenu={projectMenu}
+        helpMenu={helpMenu}
         onOpenPalette={() => commands.run('command-palette')}
         onSave={() => commands.run('save')} // the same path as Ctrl+S / ⌘S
         onNewFile={

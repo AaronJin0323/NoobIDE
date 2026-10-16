@@ -3,6 +3,82 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 29 (side session) — 2026-10-16 — S47.4 one name, one home per feature
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/recursing-dewdney-9752a3`:
+main @ `65c95a0` merged with `claude/xenodochial-hopper-116d81` @ `41ae221` (S47.2 + S47.3, Session 28), so the
+welcome layout and the fixed save slot are in place. Started by the assessment session; owner rule (Session 23): no
+key feature moves into a menu — the rail keeps Files, Problems, History, Lessons, AI; decision 0034 and
+`design-rules.test.ts` unchanged.
+
+**Done**
+
+- S47.4 — One name, one home per feature.
+  - **Term table as a test.** `src/renderer/i18n/terms.test.ts` encodes the assessment's table (History 历史版本 /
+    History, Lessons 课程 / Lessons, Problems 问题 / Problems, Ask AI 问 AI / Ask AI, AI edit AI 修改 / Edit with AI,
+    AI fix AI 修复 / Fix with AI, AI suggestions AI 建议 / AI suggestions, Change project 修改项目 / Change project,
+    crash recovery 恢复上次未保存的修改 / Recover unsaved edits, external change 文件在外部被改动 / Changed outside
+    NoobIDE). For each term it checks the keys that _are_ the term (rail buttons, headings, buttons), the menu / palette
+    labels (term plus an optional …) and the longer messages that must name the feature (tooltips, toggles, hints), and
+    it fails if any catalogue value brings a retired name back (本地历史, 入门导览, AI 编辑, 内联编辑, 自动补全,
+    智能体, AI 代码建议, 用 AI 修复/修改, 更多操作; local history, walkthrough, inline edit, completions, agent, AI
+    edit, more actions). Renamed accordingly: `rail.history`/`history.title`/`command.showHistory`, `rail.ai`/
+    `ai.chat.title`/`command.ai.toggleChat`, `command.walkthrough`/`walkthrough.*`, `ai.editor.editButton`/
+    `ai.editor.inlineEdit`/`command.ai.inlineEdit`/`ai.edit.region`, `problems.card.fixWithAi`/`problems.row.fixWithAiLabel`,
+    `command.toggleInlineAi`/`ai.settings.inline`/`ai.purpose.*`, `recovery.title`, `disk.reloaded`/`conflict.title`,
+    and the prose that still said "local history" (agent notes, history group) or "completions" (budget notice). The
+    lessons' content follows: glossary entry 历史版本, the restore step says 历史版本, the reopen step points at the
+    project menu.
+  - **Two menus.** `src/shared/commands.ts` replaces `APP_MENU_COMMANDS` with `PROJECT_MENU_COMMANDS` (close,
+    history, lessons) and `HELP_MENU_COMMANDS` (theme, AI chat / explain / edit / suggestions, glossary, logs, AI
+    settings); `useAppMenuItems` takes the list. `Workbench.tsx` adds the two items that are not registry commands:
+    Reveal (platform label, second in the project menu) and the language choice (中文 / English as `menuitemradio`,
+    after the theme group of the help menu). `AppMenu.tsx` takes a name, test id, icon, `alignEnd` and a `detail`
+    line; the project menu (`project-menu`, ▾ next to the project name, list `#project-menu-list`) shows the project
+    folder as its first line (`project-path`); the help/more menu keeps `app-menu` / `#app-menu-list`, opens flush
+    right, and is named 帮助与更多 / Help and more.
+  - **Top bar.** `TopBar.tsx`: the path is the project name's `title` (hover) and the menu line, no second line
+    (`.project-detail` and `topbar.language`/`topbar.switchLanguage` removed); the reveal icon button and the
+    language button leave the bar; the trailing group is command search + help menu. The S47.2/S47.3 box tests still
+    hold (`shell.spec` measures `app-menu` in place of the language button). The walkthrough's reopen anchor is the
+    project menu button (`walkthrough-model.ts`).
+  - **Tests moved with the UI.** `tests/e2e/project.ts` gains `switchLanguage(page)` (help menu → the other
+    language, waits for `html[lang]`) and `projectMenu(page, id)`; the 45 direct clicks on `switch-language` in 20
+    specs use the helper, path assertions read the name's `title`, close-project / lessons clicks go through the
+    project menu (`walkthrough.spec`'s `menu()` uses the rail's Lessons button while no project is open, since the
+    project menu exists only with a project).
+
+**Evidence:** `src/renderer/i18n/terms.test.ts` (22 tests); `src/shared/commands.test.ts` (menus name registered
+commands, each in one menu, project menu order); `tests/e2e/shell.spec.ts` "S47.4: …" (no `.project-detail` and no
+path text in the bar, name tooltip = path, no `switch-language` / `reveal-project`, project menu = folder line + 关闭项目
+· 在…中显示 · 历史版本… · 课程 and its Lessons item opens the walkthrough, help menu radios = three themes + 中文 /
+English, switching to en re-labels the rail and the menu and back, and every measured top-bar box is unchanged
+afterwards); `tests/e2e/commands.spec.ts` (both menus' items from the registry, path line); `tests/e2e/a11y.spec.ts`
+(both menus keyboard-only with axe clean, Tab order from the project menu). `npm run verify` green. Full e2e suite on the
+Windows build: 332 tests — 318 passed + 4 skipped (macOS-only) in one run, the 4 that failed (ai-edit, history,
+not-found, smoke: all test-side, see Problems) fixed and green on a rerun of those specs (30 passed).
+
+**Decisions:** no new decision record. Reveal and the language choice are menu items built in `Workbench.tsx`, not
+registry commands: Reveal's label is per platform (`revealLabelKey`) and the native menus / palette did not need them;
+the language items would otherwise need a `locale` field in the IPC-validated `CommandContext`. The project menu
+exists only with a project (its items are all about one), so without a project Lessons is reached from the rail and
+the welcome, never only from a menu.
+
+**Problems / risks:** macOS not run (renderer-only changes; the reveal label in the project menu is checked for both
+platforms in `commands.spec`). `glass-visual.spec` screenshots of the top bar and the menu differ by design. Two
+test-side fixes outside the feature: `smoke.spec` "five regions" still expected a preview column without a project
+(S47.2 made it hidden; the suite was not run in Session 28), and `switchLanguage` now waits until main reports the
+new locale — the renderer sets the language before main has persisted it, and the preview's "page not found" page
+(served by main in the interface language) could still come up in the old language when a test navigated right after
+the switch (`not-found.spec`). The product behaves the same as before; only the test ordering is deterministic now.
+
+**Owner action needed:** none new; S46.8 visual pass still open.
+
+**Next up**
+
+1. S47.5 (one status row, fewer bands), S47.6 (compact walkthrough).
+2. S48.1 should reuse the fixed-slot pattern of S47.3 for the preview header's state pill.
+
 ## Session 28 (side session) — 2026-10-16 — S47.2 welcome owns the window, S47.3 stable save state and tabs
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/xenodochial-hopper-116d81`,

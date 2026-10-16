@@ -4,7 +4,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { ProblemRecord } from '../../src/shared/problem';
 import { launchApp } from './launch';
-import { collectConsoleErrors, openFile } from './project';
+import { collectConsoleErrors, openFile, switchLanguage } from './project';
 import { evalInPreview, waitForPreviewState } from './preview-helpers';
 
 /**
@@ -38,8 +38,16 @@ async function start(userData: string) {
   await app.evaluate(({ app: electronApp }, docs) => electronApp.setPath('documents', docs), documents);
 }
 
+/**
+ * S47.4: the glossary is in the help/more menu; lessons are in the project menu, which exists only with a project —
+ * without one the rail's labelled Lessons button runs the same command (key features are never only in a menu).
+ */
 async function menu(id: string) {
-  await page.getByTestId('app-menu').click();
+  if (id === 'help-walkthrough' && (await page.getByTestId('project-menu').count()) === 0) {
+    await page.getByTestId('rail-lessons').click();
+    return;
+  }
+  await page.getByTestId(id === 'help-walkthrough' ? 'project-menu' : 'app-menu').click();
   await page.getByTestId(`menu-${id}`).click();
 }
 
@@ -152,7 +160,7 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await page.getByTestId('glossary-search').fill('没有这种词');
     await expect(page.getByTestId('glossary-empty')).toHaveText('没有找到这个术语。');
     await page.getByTestId('glossary-close').click();
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
     await expect(page.getByTestId('walkthrough-title')).toHaveText('Meet the three files');
     await expect(next()).toHaveText('Skip this step');
     await menu('help-glossary');
@@ -162,7 +170,7 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await expect(selector.getByTestId('glossary-term')).toHaveText('selector');
     await expect(selector).toContainText('which elements the style applies to');
     await page.keyboard.press('Escape');
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
     await page.getByTestId('walkthrough-close').click();
     expect(consoleErrors).toEqual([]);
     await app.close();
@@ -182,7 +190,7 @@ test.describe('the PLAN §2 journey (S23.2) and the final task (S23.3)', () => {
     await page.getByTestId('welcome-create').click();
     await page.getByTestId('wizard-create').click();
     projectRoot = path.join(documents, 'NoobIDE 项目', '我的第一个网页');
-    await expect(page.getByTestId('project-path')).toHaveText(projectRoot);
+    await expect(page.getByTestId('project-name')).toHaveAttribute('title', projectRoot);
     await waitForPreviewState(page, 'running');
     await expect(panel()).toHaveAttribute('data-step', 'files');
     await page.getByTestId('walkthrough-back').click();
@@ -304,17 +312,17 @@ test.describe('the PLAN §2 journey (S23.2) and the final task (S23.3)', () => {
   test('reopen: closing the app and opening it again restores the project and completes the journey', async () => {
     await expect(panel()).toHaveAttribute('data-step', 'reopen');
     await expect(panel()).toHaveAttribute('data-done', 'false');
-    await expect.poll(anchored).toEqual(['project-path']);
+    await expect.poll(anchored).toEqual(['project-menu']); // S47.4: the path is the name's tooltip and a line of the menu
     await page.waitForTimeout(800); // tabs and layout are written 300 ms after the last change
     expect(consoleErrors).toEqual([]);
     await app.close();
 
     await start(userData());
-    await expect(page.getByTestId('project-path')).toHaveText(projectRoot);
+    await expect(page.getByTestId('project-name')).toHaveAttribute('title', projectRoot);
     await expect(page.locator('[data-testid="tab"][data-path="script.js"]')).toHaveCount(1);
     await expect(panel()).toHaveAttribute('data-step', 'reopen');
     await expect(panel()).toHaveAttribute('data-done', 'true');
-    await expect(next()).toHaveText('完成导览');
+    await expect(next()).toHaveText('完成课程');
     const state = await stored(userData());
     expect(state.completed).toEqual([
       'create',

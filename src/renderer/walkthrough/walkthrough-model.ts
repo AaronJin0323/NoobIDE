@@ -150,5 +150,7 @@ export const STEP_ANCHORS: Readonly<Record<WalkthroughStepId, string>> = {
   interaction: '[data-testid="file-tree"] [data-path="script.js"]',
   error: '[data-testid="problems-toggle"]',
   restore: '[data-testid="rail-history"]',
-  reopen: '[data-testid="project-path"]',
+  // S47.4: the folder path is the project name's tooltip and a line of the project menu, so the step points at the
+  // menu button next to the name (the lesson text says where the path is).
+  reopen: '[data-testid="project-menu"]',
 };

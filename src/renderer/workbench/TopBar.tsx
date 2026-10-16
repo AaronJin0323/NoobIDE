@@ -1,11 +1,11 @@
 import { useLayoutEffect, useRef } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
-import { otherLocale, type MessageKey } from '../i18n/index';
-import { revealLabelKey, type PlatformId } from '../../platform/labels';
+import type { MessageKey } from '../i18n/index';
+import type { PlatformId } from '../../platform/labels';
 import { withShortcut } from '../commands/useCommands'; // S24.1
 import type { OpenedProject } from '../../shared/ipc/contract';
 import type { SaveStatus } from './save-machine';
-import { DotIcon, NewFileIcon, NoobIdeMark, RevealIcon, SaveIcon, SaveStateIcon, SearchIcon } from './icons';
+import { ChevronDownIcon, DotIcon, NewFileIcon, NoobIdeMark, SaveIcon, SaveStateIcon, SearchIcon } from './icons';
 import { commandShortcutLabel } from '../../shared/commands';
 import type { NarrowView } from './layout';
 import { AppMenu, type AppMenuItem } from './AppMenu'; // S13
@@ -15,11 +15,12 @@ interface TopBarProps {
   project: OpenedProject | null;
   /** `null` when no file is open. */
   save: SaveStatus | null;
-  onReveal: () => void;
   /** Present only in a narrow window (S30.4). */
   narrow?: { view: NarrowView; onShow: (view: NarrowView) => void } | undefined;
-  /** S13: commands of the menu next to the project (close project, open logs folder). */
-  menuItems?: readonly AppMenuItem[] | undefined;
+  /** S47.4: the project menu next to the project name (close, reveal, history, lessons); only with a project. */
+  projectMenu?: readonly AppMenuItem[] | undefined;
+  /** S13 / S47.4: the trailing help/more menu (theme, language, AI, glossary, logs, settings). */
+  helpMenu?: readonly AppMenuItem[] | undefined;
   /** S40.5: opens the command palette. */
   onOpenPalette?: (() => void) | undefined;
   /** Saves the active file: the same path as Ctrl+S / ⌘S (the `save` command). */
@@ -60,16 +61,16 @@ export function TopBar({
   platform,
   project,
   save,
-  onReveal,
   narrow,
-  menuItems,
+  projectMenu,
+  helpMenu,
   onOpenPalette,
   onSave,
   onNewFile,
   autosave = true,
   saveRetrying = false,
 }: TopBarProps) {
-  const { t, locale, setLocale } = useI18n();
+  const { t } = useI18n();
   // The Save button leaves once the file is saved; if it had the keyboard focus, the focus stays in the save group
   // (on the state word) instead of dropping to the page body.
   const saveShown = onSave !== undefined && saveButtonShown(save, autosave, saveRetrying);
@@ -86,34 +87,22 @@ export function TopBar({
         <NoobIdeMark />
       </span>
       <span className="app-name">{t('app.name')}</span>
+      {/* S47.4: the project's full path is a tooltip on its name and a line in the project menu, not a second line of
+          the bar; the project menu (close, reveal, history, lessons) sits next to the name. */}
       <div className="project">
-        <span className="project-name" data-testid="project-name">
+        <span className="project-name" data-testid="project-name" title={project ? project.rootPath : undefined}>
           {project ? project.name : t('topbar.noProject')}
         </span>
-        {project && (
-          <span className="project-detail" data-testid="project-path">
-            {project.rootPath}
-          </span>
+        {project && projectMenu && (
+          <AppMenu
+            items={projectMenu}
+            menuLabel="projectMenu.label"
+            testId="project-menu"
+            icon={<ChevronDownIcon />}
+            detail={{ label: 'projectMenu.location', text: project.rootPath, testId: 'project-path' }}
+          />
         )}
       </div>
-      {/* S40.3: project actions share one glass group */}
-      {(project || (menuItems && menuItems.length > 0)) && (
-        <div className="toolbar-group">
-          {project && (
-            <button
-              type="button"
-              className="icon-button reveal-button"
-              aria-label={t(revealLabelKey(platform))}
-              title={t(revealLabelKey(platform))}
-              data-testid="reveal-project"
-              onClick={onReveal}
-            >
-              <RevealIcon />
-            </button>
-          )}
-          {menuItems && <AppMenu items={menuItems} />}
-        </div>
-      )}
       {narrow && (
         <div className="segmented" role="group" aria-label={t('narrow.switch')} data-testid="narrow-switch">
           {(['code', 'preview'] as const).map((view) => (
@@ -177,6 +166,7 @@ export function TopBar({
           </button>
         )}
       </div>
+      {/* S47.4: the trailing group — command search and the help/more menu (the language switch lives in it) */}
       <div className="toolbar-group">
         {onOpenPalette && (
           <button
@@ -193,15 +183,7 @@ export function TopBar({
             <kbd className="kbd">{commandShortcutLabel('command-palette', platform)}</kbd>
           </button>
         )}
-        <button
-          type="button"
-          className="quiet-button"
-          title={t('topbar.language')}
-          data-testid="switch-language"
-          onClick={() => setLocale(otherLocale(locale))}
-        >
-          {t('topbar.switchLanguage')}
-        </button>
+        {helpMenu && <AppMenu items={helpMenu} alignEnd />}
       </div>
     </header>
   );

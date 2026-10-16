@@ -2,7 +2,7 @@ import { rm } from 'node:fs/promises';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { THEMES } from '../../src/renderer/theme/tokens';
 import { launchApp } from './launch';
-import { makeProject, openProject } from './project';
+import { makeProject, openProject, switchLanguage } from './project';
 
 const toRgb = (hex: string) => `rgb(${[1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
 
@@ -71,10 +71,10 @@ test('a language switch after a scheme change keeps the editor on the current th
   for (const scheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     await expect(page.locator('html')).toHaveAttribute('data-theme', scheme);
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect.poll(editorMatchesShell).toBe(true);
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await expect.poll(editorMatchesShell).toBe(true);
   }
@@ -127,9 +127,8 @@ test('placeholder states are honest and every control works (S30.3)', async () =
   expect(
     await buttons.evaluateAll((els) => els.map((b) => b.getAttribute('data-testid') ?? b.getAttribute('aria-label'))),
   ).toEqual([
-    'app-menu', // S13: command menu (open logs folder)
     'open-palette', // S40.5: command search (opens the command palette)
-    'switch-language',
+    'app-menu', // S13 / S47.4: the help/more menu at the end of the bar (theme, language, glossary, logs, settings)
     'rail-files',
     'rail-problems',
     'rail-lessons', // key features: the beginner walkthrough has its own labelled rail button
@@ -155,7 +154,7 @@ async function topBarBoxes() {
     const bar = document.querySelector('[data-testid="region-topbar"]');
     if (!bar) return out;
     out.topbar = JSON.stringify(bar.getBoundingClientRect());
-    for (const id of ['save-status', 'open-palette', 'switch-language']) {
+    for (const id of ['save-status', 'open-palette', 'app-menu']) {
       out[id] = JSON.stringify(bar.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect());
     }
     for (const cls of ['app-mark', 'app-name', 'save-group']) {
@@ -198,7 +197,9 @@ for (const [width, height] of [
 
     // "The sample is not saved" is said once: the badge next to the sample tab, not the top bar nor the welcome.
     await expect(page.getByText(/保存到磁盘|不会保存/)).toHaveCount(1);
-    await expect(page.getByTestId('project-path')).toHaveCount(0);
+    // S47.4: no project, no project menu and no folder tooltip on the name.
+    await expect(page.getByTestId('project-menu')).toHaveCount(0);
+    expect(await page.getByTestId('project-name').getAttribute('title')).toBeNull();
   });
 }
 
@@ -227,13 +228,60 @@ test('S47.2: opening a project reveals the workbench without a top-bar layout ju
   await openProject(app, page, root);
   await expect(page.getByTestId('welcome')).toHaveCount(0);
   await expect(page.getByTestId('region-preview')).toBeVisible();
-  await expect(page.getByTestId('project-path')).toHaveText(root);
+  await expect(page.getByTestId('project-name')).toHaveAttribute('title', root);
   const after = await topBarBoxes();
   expect(after).toEqual(before);
   // S30.3: editor and preview split the remaining width equally.
   const editor = await page.getByTestId('region-editor').boundingBox();
   const preview = await page.getByTestId('region-preview').boundingBox();
   expect(Math.abs((editor?.width ?? 0) - (preview?.width ?? -10))).toBeLessThanOrEqual(1);
+});
+
+test('S47.4: the path is a tooltip and a project-menu line, the language lives in the help menu, nothing moves', async () => {
+  const bar = page.getByTestId('region-topbar');
+  // Not a line of the bar: the path shows on hover (title) and in the project menu only.
+  await expect(bar.locator('.project-detail')).toHaveCount(0);
+  await expect(bar.getByText(root)).toHaveCount(0);
+  await expect(page.getByTestId('project-name')).toHaveText('中文 路径 项目');
+  await expect(page.getByTestId('project-name')).toHaveAttribute('title', root);
+  await expect(page.getByTestId('switch-language')).toHaveCount(0);
+  await expect(page.getByTestId('reveal-project')).toHaveCount(0);
+
+  const before = await topBarBoxes();
+  // The project menu: the folder line, then close, reveal, history, lessons.
+  await page.getByTestId('project-menu').click();
+  const projectMenu = page.locator('#project-menu-list');
+  await expect(projectMenu).toBeVisible();
+  await expect(projectMenu.getByTestId('project-path')).toHaveText(root);
+  await expect(projectMenu.getByRole('menuitem')).toHaveText([/^关闭项目$/, /显示$/, /^历史版本…$/, /^课程$/]);
+  await projectMenu.getByTestId('menu-help-walkthrough').click();
+  await expect(page.getByTestId('walkthrough')).toBeVisible();
+  await page.getByTestId('walkthrough-close').click();
+  await expect(page.getByTestId('walkthrough')).toHaveCount(0);
+
+  // The help/more menu at the end of the bar: theme and language are radio choices; the language switch works.
+  await page.getByTestId('app-menu').click();
+  const helpMenu = page.locator('#app-menu-list');
+  await expect(helpMenu).toBeVisible();
+  await expect(helpMenu.getByRole('menuitemradio')).toHaveText([
+    /跟随系统/, // the current choice carries a ✓ (S24.4)
+    /^浅色主题$/,
+    /^深色主题$/,
+    /中文$/,
+    /^English$/,
+  ]);
+  await expect(helpMenu.getByTestId('menu-language-zh-CN')).toHaveAttribute('aria-checked', 'true');
+  await helpMenu.getByTestId('menu-language-en').click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(page.getByTestId('rail-files')).toHaveText('Files');
+  await expect(page.getByTestId('app-menu')).toHaveAttribute('title', 'Help and more');
+  await page.getByTestId('app-menu').click();
+  await expect(helpMenu.getByTestId('menu-language-en')).toHaveAttribute('aria-checked', 'true');
+  await helpMenu.getByTestId('menu-language-zh-CN').click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+  await expect(page.getByTestId('rail-files')).toHaveText('文件');
+  // Opening and closing the menus and switching the language back left every top-bar box where it was.
+  expect(await topBarBoxes()).toEqual(before);
 });
 
 test('narrow window: files collapse and a Code / Preview switch shows one view (S30.4)', async () => {
