@@ -18,7 +18,6 @@ import { journeyEn } from './journey'; // beginner-journey fixes
 export const en: Record<MessageKey, string> = {
   'app.name': 'NoobIDE',
   'topbar.noProject': 'No project open',
-  'topbar.sampleNotice': 'Editing a sample — nothing is saved to disk',
   'topbar.saveStatus': 'Save status',
   'topbar.saveStatus.noFile': 'No file open',
   'topbar.language': 'Interface language',
@@ -32,6 +31,7 @@ export const en: Record<MessageKey, string> = {
   'rail.files': 'Files',
   'rail.problems': 'Problems',
   'files.empty': 'No folder is open yet.',
+  'files.emptyHint': 'Create or open a webpage project and its files will show here.',
   'editor.loading': 'Loading the editor…',
   'editor.welcomeTab': 'sample.html',
   'editor.sampleBadge': 'Sample · not saved to disk',
@@ -89,7 +89,6 @@ export const en: Record<MessageKey, string> = {
   'fileRole.data.detail': 'Structured data that a script can read.',
   'fileRole.hintLabel': 'What this file is for',
   // ── end S20.3 ──
-  'files.openFolder': 'Open folder…',
   'files.openOther': 'Open another folder',
   'files.listLabel': 'Project files',
   'files.truncated': 'Too many files: only the first 2000 are listed.',
@@ -103,7 +102,7 @@ export const en: Record<MessageKey, string> = {
   'save.clean': 'No changes',
   'save.dirty': 'Unsaved',
   'save.saving': 'Saving…',
-  'save.failed': 'Save failed — your edits are kept',
+  'save.failed': 'Save failed',
   'save.shortcut': 'Save',
   'save.error.permission': 'No permission to write: the file or folder is read-only.',
   'save.error.busy': 'Another program is using the file.',
@@ -120,7 +119,7 @@ export const en: Record<MessageKey, string> = {
   'save.kept': 'Your edits are still in the editor and nothing was lost. Fix the cause, then save again.',
   'error.detail': 'Details',
   'save.saved': 'Saved',
-  'save.conflict': 'The file changed on disk — not saved automatically',
+  'save.conflict': 'File conflict',
   'save.retry': 'Retry saving',
   'save.elsewhere': 'Save a copy elsewhere…',
   'save.copySaved': 'A copy was saved to:',
@@ -261,7 +260,7 @@ export const en: Record<MessageKey, string> = {
   'recovery.close': 'Close',
   // --- end S12 ---
   // --- S11 external changes ---
-  'save.deleted': 'File deleted on disk — the text is still in the editor',
+  'save.deleted': 'File deleted',
   'tab.state.deleted': 'Deleted',
   'disk.reloaded':
     'This file was changed outside NoobIDE; the new version from disk is shown (Undo brings back the previous text).',

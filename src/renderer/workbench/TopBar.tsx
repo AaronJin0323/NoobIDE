@@ -26,11 +26,24 @@ interface TopBarProps {
   onSave?: (() => void) | undefined;
   /** Narrow window only: opens the file drawer and starts a new file (its button lives in the hidden files panel). */
   onNewFile?: (() => void) | undefined;
+  /** S47.3: whether edits are saved on their own after a pause (the save pipeline's default). */
+  autosave?: boolean | undefined;
+  /** S47.3: a write is in flight after a failed one (the error is still set): the failed situation continues. */
+  saveRetrying?: boolean | undefined;
 }
 
-/** The Save button is offered (prominent) while there is something to save; otherwise the calm state word shows. */
-export function saveButtonShown(save: SaveStatus | null): boolean {
-  return save === 'dirty' || save === 'failed';
+/**
+ * S47.3: the prominent Save button is offered only while a save cannot happen on its own — a failed write, a conflict,
+ * a file deleted on disk, or autosave off with unsaved edits. Ordinary typing shows the state word only, in a
+ * fixed-width slot, so nothing in the top bar moves during the typing → autosave cycle (the button still saves
+ * through the same command as Ctrl+S / ⌘S when it is shown). A retry in flight after a failure (`retrying`) keeps the
+ * button: the failed situation only ends when the write is confirmed, and a button that vanished for the write and
+ * came back would lose the keyboard focus the user gave it.
+ */
+export function saveButtonShown(save: SaveStatus | null, autosave = true, retrying = false): boolean {
+  if (save === 'failed' || save === 'conflict' || save === 'deleted') return true;
+  if (save === 'saving') return retrying;
+  return !autosave && save === 'dirty';
 }
 
 const SAVE_LABEL: Record<SaveStatus, MessageKey> = {
@@ -53,11 +66,13 @@ export function TopBar({
   onOpenPalette,
   onSave,
   onNewFile,
+  autosave = true,
+  saveRetrying = false,
 }: TopBarProps) {
   const { t, locale, setLocale } = useI18n();
   // The Save button leaves once the file is saved; if it had the keyboard focus, the focus stays in the save group
   // (on the state word) instead of dropping to the page body.
-  const saveShown = onSave !== undefined && saveButtonShown(save);
+  const saveShown = onSave !== undefined && saveButtonShown(save, autosave, saveRetrying);
   const saveRef = useRef<HTMLButtonElement>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
   // Read before the commit removes the button (removing a focused node may or may not fire blur).
@@ -75,9 +90,11 @@ export function TopBar({
         <span className="project-name" data-testid="project-name">
           {project ? project.name : t('topbar.noProject')}
         </span>
-        <span className="project-detail" data-testid="project-path">
-          {project ? project.rootPath : t('topbar.sampleNotice')}
-        </span>
+        {project && (
+          <span className="project-detail" data-testid="project-path">
+            {project.rootPath}
+          </span>
+        )}
       </div>
       {/* S40.3: project actions share one glass group */}
       {(project || (menuItems && menuItems.length > 0)) && (
@@ -125,8 +142,9 @@ export function TopBar({
         </button>
       )}
       <span className="spacer" />
-      {/* The save state is always announced (role=status); while there is something to save a prominent Save button
-          sits next to it, so saving never depends on knowing the shortcut. */}
+      {/* The save state is always announced (role=status) in a fixed-width slot (S47.3: the pill never resizes); while
+          a save cannot happen on its own a prominent Save button sits next to it, so saving never depends on knowing
+          the shortcut. The pill words are short; the full sentence is in the editor's banner. */}
       <div className="save-group">
         <span
           className={`save-status${save ? ` save-${save}` : ''}`}
@@ -138,7 +156,7 @@ export function TopBar({
           tabIndex={-1}
           data-state={save ?? 'none'}
         >
-          {save ? <SaveStateIcon state={save} /> : <DotIcon />}
+          <span className="save-status-icon">{save ? <SaveStateIcon state={save} /> : <DotIcon />}</span>
           <span className="save-status-text">{save ? t(SAVE_LABEL[save]) : t('topbar.saveStatus.noFile')}</span>
         </span>
         {saveShown && (

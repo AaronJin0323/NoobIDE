@@ -248,9 +248,11 @@ input[type='radio'] {
   flex: 1;
 }
 /* The save state is plain text with an icon: muted while there is nothing to save, the status colour (with its icon
-   and word) only for a success or a failure. */
+   and word) only for a success or a failure. S47.3: it sits in a fixed-width slot (the longest word of either
+   language fits), so the top bar never moves while the user types and the file saves itself. */
 .save-status {
-  min-width: 0;
+  flex: none;
+  width: var(--save-slot-w, 136px);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -410,13 +412,13 @@ input[type='radio'] {
 /* Key features in the top bar: Save and (narrow window) New file. */
 .save-group {
   display: inline-flex;
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: none;
   align-items: center;
   gap: 4px;
 }
-/* While there are unsaved edits (or a save failed), Save is the one primary action of the window: the primary
-   button style. The word, the icon and the shortcut say what it does; the colour is never the only cue. */
+/* While a save cannot happen on its own (failed, conflict, deleted, autosave off), Save is the one primary action of
+   the window: the primary button style. The word, the icon and the shortcut say what it does; the colour is never
+   the only cue. */
 .save-button {
   display: inline-flex;
   flex: none;
@@ -448,8 +450,18 @@ input[type='radio'] {
   flex: none;
   white-space: nowrap;
 }
-/* The state word gives way (ellipsis) before any control leaves the top bar; the full word stays in the status. */
+/* Inside the slot the icon keeps one 14 px box for every state and the word takes the rest (ellipsis if a locale's
+   word were ever longer than the slot); the full sentence is in the banner. */
+.save-status-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
 .save-status-text {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -680,11 +692,20 @@ input[type='radio'] {
   color: var(--text);
   font-weight: var(--weight-strong);
 }
+/* S47.3: the state lives in a fixed 14 px slot inside the tab (icon with a tooltip; the word for screen readers),
+   so a tab never widens or narrows as it is typed in and saved. */
+.tab-state-slot {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
 .tab-state {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: var(--text-xs);
+  justify-content: center;
   color: var(--text);
 }
 .tab-failed .tab-state,

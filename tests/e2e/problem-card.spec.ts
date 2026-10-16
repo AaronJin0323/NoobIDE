@@ -179,7 +179,7 @@ test('a failed save keeps the edit, shows the save failure and never shows resol
   await expect(fixCard()).toHaveAttribute('data-phase', 'save-failed', { timeout: 20_000 });
   await expect(fixStatus()).toContainText('保存失败');
   await expect(fixStatus()).toContainText('修改还在编辑器里');
-  await expect(page.getByTestId('save-status')).toHaveText('保存失败 — 你的修改还在');
+  await expect(page.getByTestId('save-status')).toHaveText('保存失败');
   await expect.poll(editorText).toContain('console.log(userName);');
   expect(await disk('script.js')).toBe(SCRIPT);
   // Even once the code check no longer reports it, a fix that is not on disk is not called resolved.

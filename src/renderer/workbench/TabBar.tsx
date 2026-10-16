@@ -26,9 +26,14 @@ export function tabTitle(relPath: string): string {
   return relPath.slice(relPath.lastIndexOf('/') + 1);
 }
 
+/** S47.3: the tab's tooltip — the relative path, plus the state word while the tab is not clean. */
+export function tabTooltip(relPath: string, state: string | null): string {
+  return state ? `${relPath} · ${state}` : relPath;
+}
+
 /**
  * Open files as an ARIA tablist (S09.2): one tab stop (roving tabindex), 鈫?鈫?Home/End move and show a tab, Delete
- * closes it; middle-click and the 脳 button close too. Unsaved, saving, failed and conflict states are written out
+ * closes it; middle-click and the × button close too. Unsaved, saving, failed and conflict states show a distinct
  * next to a distinct icon 鈥?never colour alone.
  */
 export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
@@ -179,7 +184,7 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
                 // S24.3: Delete closes the tab; the mouse-only × next to it is hidden from the tablist's children.
                 aria-keyshortcuts="Delete"
                 tabIndex={selected || (active === null && index === 0) ? 0 : -1}
-                title={tab.relPath}
+                title={tabTooltip(tab.relPath, label ? t(label) : null)}
                 onClick={() => {
                   onActivate(tab.relPath);
                   showTab(tab.relPath); // also when it is already active but scrolled partly out of view
@@ -187,12 +192,14 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
                 onKeyDown={(event) => onKeyDown(event, index)}
               >
                 <span className="tab-name">{tabTitle(tab.relPath)}</span>
-                {label && (
-                  <span className="tab-state" data-testid="tab-state">
-                    <SaveStateIcon state={status} />
-                    {t(label)}
-                  </span>
-                )}
+                <span className="tab-state-slot" aria-hidden={label ? undefined : 'true'}>
+                  {label && (
+                    <span className="tab-state" data-testid="tab-state" title={t(label)}>
+                      <SaveStateIcon state={status} />
+                      <span className="sr-only">{t(label)}</span>
+                    </span>
+                  )}
+                </span>
               </button>
               <button
                 type="button"

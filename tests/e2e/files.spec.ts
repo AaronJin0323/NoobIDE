@@ -64,14 +64,14 @@ test.afterAll(async () => {
 
 test('cancelling the folder dialog changes nothing (S03.3)', async () => {
   await answerFolderDialog(null);
-  await page.getByTestId('open-folder').click();
+  await page.getByTestId('welcome-open-folder').click();
   await expect(page.getByTestId('project-name')).toHaveText('未打开项目');
   await expect(page.getByTestId('sample-badge')).toBeVisible();
 });
 
 test('opens a folder with Chinese characters and spaces and lists its files (S03.3)', async () => {
   await answerFolderDialog(root);
-  await page.getByTestId('open-folder').click();
+  await page.getByTestId('welcome-open-folder').click();
   await expect(page.getByTestId('project-name')).toHaveText('中文 路径 项目');
   await expect(page.getByTestId('project-path')).toHaveText(root);
   await expect(treeItem('index.html')).toBeVisible();
@@ -115,7 +115,7 @@ test('a failed save keeps the edits, explains the cause and succeeds after the f
   await chmod(file, 0o444);
   await typeAtEnd('只读时的修改');
   await page.keyboard.press('ControlOrMeta+S');
-  await expect(status()).toHaveText('保存失败 — 你的修改还在');
+  await expect(status()).toHaveText('保存失败');
   await expect(page.getByTestId('save-error')).toContainText('没有写入权限');
   await expect(page.getByTestId('save-error')).toContainText('你的修改还在编辑器里');
   // The banner made the editor shorter; bring the last line into view before reading it.

@@ -31,7 +31,7 @@ export async function answerSaveDialog(app: ElectronApplication, file: string | 
 
 export async function openProject(app: ElectronApplication, page: Page, root: string): Promise<void> {
   await answerFolderDialog(app, root);
-  await page.getByTestId('open-folder').click();
+  await page.getByTestId('welcome-open-folder').click();
   await page.getByTestId('file-tree').waitFor();
 }
 

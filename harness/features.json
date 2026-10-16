@@ -190,6 +190,16 @@
         "Every renderer stylesheet follows the calm design spec: shared radius, type, weight, elevation and colour tokens, enforced by src/renderer/design-rules.test.ts",
         "npm run verify and the full e2e suite are green on Windows x64; before/after screenshots in both themes are reviewed by the owner"
       ]
+    },
+    {
+      "id": "M18",
+      "title": "UI/UX refinement (owner request 2026-10-16)",
+      "plan_refs": "docs/reviews/ui-ux-assessment-2026-10-16.md; PLAN §2, §3, §7, §8, §9; AGENTS.md invariants",
+      "exit_criteria": [
+        "Every P1 and P2 finding of docs/reviews/ui-ux-assessment-2026-10-16.md is either fixed by a done feature or recorded as dropped with a reason",
+        "No key feature moved into a menu; AI-off still removes every AI surface; S46 design rules stay green",
+        "npm run verify and the full e2e suite are green on Windows x64; the owner walks the task script on the refined build (S49.7)"
+      ]
     }
   ],
   "sessions": [
@@ -681,6 +691,36 @@
         "S45"
       ],
       "plan_refs": "docs/product/calm-design-spec.md; docs/decisions/0034-calm-design-language.md"
+    },
+    {
+      "id": "S47",
+      "milestone": "M18",
+      "title": "UI/UX refinement: frame and first run",
+      "goal": "Assess the UI/UX against PLAN §2/§3 and make the refine plan; then give the welcome the window, stop the top bar and tabs from moving while typing, one name and home per feature, one status row, and a compact walkthrough.",
+      "depends_on": [
+        "S46"
+      ],
+      "plan_refs": "docs/reviews/ui-ux-assessment-2026-10-16.md (S47 table)"
+    },
+    {
+      "id": "S48",
+      "milestone": "M18",
+      "title": "UI/UX refinement: preview, problems and console",
+      "goal": "Two-row preview chrome with one filled action per state, the problem card in PLAN §9 order, one error with one count linked from the console to its card, and a tidier annotations entry.",
+      "depends_on": [
+        "S47"
+      ],
+      "plan_refs": "docs/reviews/ui-ux-assessment-2026-10-16.md (S48 table); PLAN §8, §9"
+    },
+    {
+      "id": "S49",
+      "milestone": "M18",
+      "title": "UI/UX refinement: AI, history, dialogs and wording",
+      "goal": "One Sheet shell and one diff review for every dialog, History focused on restoring, AI set-up before the composer, a beginner wording pass with a jargon test, and the owner walk-through.",
+      "depends_on": [
+        "S47"
+      ],
+      "plan_refs": "docs/reviews/ui-ux-assessment-2026-10-16.md (S49 table); PLAN §7, §9"
     }
   ],
   "features": [
@@ -4203,6 +4243,288 @@
       ],
       "status": "needs_manual_check",
       "evidence": "steps in harness/MANUAL-CHECKS.md#S46.8; screenshots via glass-visual.spec.ts"
+    },
+    {
+      "id": "S47.1",
+      "session": "S47",
+      "milestone": "M18",
+      "title": "UI/UX assessment and refine plan",
+      "description": "",
+      "acceptance": [
+        "docs/reviews/ui-ux-assessment-2026-10-16.md assesses the packaged build and the renderer source against PLAN §2, §3, §7, §8, §9 with file:line evidence, states what is good and must be kept, and prioritises findings P1–P3",
+        "The refine plan is registered as sessions S47–S49 with acceptance criteria, a term table for one name per feature, and explicit non-goals (no key feature into menus, AI-off rule, S46 design rules, preview isolation)"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "docs/reviews/ui-ux-assessment-2026-10-16.md (packaged build cfc3232 driven through the journey, three read-only source audits cross-checked); plan registered as M18 / S47–S49 in features.json"
+    },
+    {
+      "id": "S47.2",
+      "session": "S47",
+      "milestone": "M18",
+      "title": "Welcome owns the window",
+      "description": "",
+      "acceptance": [
+        "With no project open the welcome fills the editor and preview area; it has exactly one filled button (create first page) and open-folder as a secondary; the files panel empty state has no button; \"the sample is not saved\" appears once (e2e at 1280x800 and 640x480)",
+        "Lessons stays reachable from the welcome; opening or creating a project reveals the full workbench without a layout jump of the top bar (e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S47.1"
+      ],
+      "status": "done",
+      "evidence": "tests/e2e/shell.spec.ts 'S47.2: …' (1280x800 + 640x480 welcome fills editor+preview area, one filled button, files empty state without button, 'not saved' once, Lessons from the welcome, no top-bar box moves on open) + layout.test.ts; e2e shell/welcome/files/walkthrough/recent-projects green on Windows; verify green"
+    },
+    {
+      "id": "S47.3",
+      "session": "S47",
+      "milestone": "M18",
+      "title": "Stable save state and tabs",
+      "description": "",
+      "acceptance": [
+        "During a typing → autosave cycle no top-bar or tab element changes its bounding box (e2e measures before and after); the save pill lives in a fixed-width slot and shows short words with the full sentence in the banner",
+        "The prominent Save button appears only for failed, conflict, deleted or autosave off, and still calls the same save command as Ctrl+S; the tab dirty state is an icon with a tooltip (unit + e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S47.1"
+      ],
+      "status": "done",
+      "evidence": "tests/e2e/key-features-visible.spec.ts 'S47.3: …' (no Save button while typing; read-only file shows it with the short pill word and the banner sentence; Enter on the focused button saves via the save command and focus lands on the state word; bounding boxes of every top-bar and tab-strip element equal before typing, during the autosave pause and after saved) + a11y-labels.test.ts (saveButtonShown matrix, pill word lengths, tabTooltip) + document-state.test.ts (activeSaveRetrying); e2e key-features/save/tabs/a11y/shell/external-change/files/preview/problem-card/recovery/session/editing green on Windows; verify green"
+    },
+    {
+      "id": "S47.4",
+      "session": "S47",
+      "milestone": "M18",
+      "title": "One name, one home per feature",
+      "description": "",
+      "acceptance": [
+        "The term table of the assessment is encoded as a test over the zh-CN and en catalogues (History, Lessons, Problems, Ask AI, AI edit, AI fix, AI suggestions, Change project, crash recovery, external change) and every rail, menu, palette, tooltip and walkthrough hint agrees with it",
+        "The ⋯ menu splits into a project menu (close, reveal, history, lessons) and a trailing help/more menu (theme, language, AI, glossary, logs, settings); the project path shows on hover and in the project menu, not as a top-bar line; the language switch leaves the top bar (e2e menus, commands, shell green)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S47.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S47.5",
+      "session": "S47",
+      "milestone": "M18",
+      "title": "One status row and fewer bands around the editor",
+      "description": "",
+      "acceptance": [
+        "The editor bottom row merges into the global status strip (AI edit, explain, suggestions toggle, indent, caret); F6 reaches it and the walkthrough band and the notice stack (e2e)",
+        "At most one persistent band above the code: the role hint collapses after its first showing per file (tag and tooltip remain), encoding and line-ending notes move to the status strip; notices anchor above the strip and never cover the code, informational notices auto-dismiss, and the \"reopened last project\" notice is removed because the top bar shows the path (e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S47.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S47.6",
+      "session": "S47",
+      "milestone": "M18",
+      "title": "Compact walkthrough band",
+      "description": "",
+      "acceptance": [
+        "The walkthrough has a compact state (one line: step n of 8, title, show me, next) toggled by the user and restored across starts; the full state is shown on the first view of each step; the compact band is at most 56 px (e2e)",
+        "Term chips show the Chinese term and the English word in zh-CN; the close hint names the rail button (unit)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S47.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S48.1",
+      "session": "S48",
+      "milestone": "M18",
+      "title": "Two-row preview chrome with one filled action per state",
+      "description": "",
+      "acceptance": [
+        "Header: title, state pill, one filled action matching the state (Start when stopped or failed, Refresh when running, Stop when unresponsive), the other actions quiet, Annotate, the annotations list toggle and a labelled open-in-browser; toolbar: one page control (entry picker only with more than one page or when away from the entry), auto-refresh, viewport segment, Advanced as a popover; at most two rows at a pane width of 420 px or more (e2e)",
+        "No header element changes position on refresh: Refresh stays and reads busy, Annotate stays enabled and shows a state-specific reason when it cannot be used; the stopped stage has a Start button; the hung-page stage points at a primary Stop (unit + e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S47.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S48.2",
+      "session": "S48",
+      "milestone": "M18",
+      "title": "Problem card in PLAN §9 order",
+      "description": "",
+      "acceptance": [
+        "Card order: head → explanation → checks → actions (the one-click fix or Go to code first and the only primary, Show original, then one AI button) → original error; the open row does not repeat its head; the row-level AI button is quiet (unit + e2e problem-card)",
+        "Empty Problems sections are hidden and section badges count what is listed (unit + e2e problems)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S47.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S48.3",
+      "session": "S48",
+      "milestone": "M18",
+      "title": "One error, one count",
+      "description": "",
+      "acceptance": [
+        "A console error that matches a problem offers a link that opens its card; file:line in the console goes to the code; the console badge and the status strip count problems the same deduplicated way and the badge names Problems (e2e runtime-problems)",
+        "IDE notices in the console are labelled as NoobIDE notes and styled apart from page output; the Problems region label is Problems only (unit + e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S48.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S48.4",
+      "session": "S48",
+      "milestone": "M18",
+      "title": "Annotations entry tidy-up",
+      "description": "",
+      "acceptance": [
+        "One count (the badge); click-to-pick is the default with list and box offered from the picking banner; Cancel sits inside the banner; the chooser is anchored to its button; a disabled Annotate shows its reason as visible text (unit + e2e preview-annotations)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S48.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S49.1",
+      "session": "S49",
+      "milestone": "M18",
+      "title": "One Sheet shell for every dialog",
+      "description": "",
+      "acceptance": [
+        "History, Recovery, AI settings, Glossary, confirms and the wizard use one shell: title, Close top-right, Esc, focus trap, Cancel → Primary order, danger style for destructive buttons, widths from 480/720/960; a backdrop click never discards typed input (unit + e2e)",
+        "Recovery traps focus, Esc keeps every record and says so, and \"clear all recovery data\" moves out of the dialog footer (e2e recovery)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S47.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S49.2",
+      "session": "S49",
+      "milestone": "M18",
+      "title": "History focused on restoring",
+      "description": "",
+      "acceptance": [
+        "The History dialog is file → version → diff → restore only; AI turns appear as a tag or filter on versions; storage and orphaned-project cleanup move to a settings sheet reachable from the History footer and the menu (e2e history, ai-agent green)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S49.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S49.3",
+      "session": "S49",
+      "milestone": "M18",
+      "title": "One diff review",
+      "description": "",
+      "acceptance": [
+        "Inline edit, agent proposals, conflicts, History and Recovery use one diff component with one legend and the decision buttons above the diff; Esc in inline review returns focus to the editor and keeps the proposal, Reject is explicit (e2e ai-edit, ai-agent, external-change, history, recovery)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S49.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S49.4",
+      "session": "S49",
+      "milestone": "M18",
+      "title": "AI set-up before the composer",
+      "description": "",
+      "acceptance": [
+        "Without a key the chat panel shows only the set-up card (service → paste key → test) and no composer; Settings shows the three-step connect first and folds models, budget and usage under Advanced; focus starts in the key field; the composer keeps the add-context controls visible and merges kind and mode into one control; usage is shown in settings, not after every answer (e2e ai-chat, ai-settings)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S49.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S49.5",
+      "session": "S49",
+      "milestone": "M18",
+      "title": "Beginner wording pass",
+      "description": "",
+      "acceptance": [
+        "The listed jargon (磁盘, token, CRLF/LF, UTF-8, 服务商, 智能体, 内联编辑, session id, 代码 xyz, 单独的安全窗口) is replaced in zh-CN and en and a test rejects those terms outside the glossary; the glossary gains API key, token, model, undo and crash recovery; 撤销 is reserved for Ctrl+Z (unit over the catalogues and glossary)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S47.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S49.6",
+      "session": "S49",
+      "milestone": "M18",
+      "title": "Rail and small controls",
+      "description": "",
+      "acceptance": [
+        "Rail toggles show pressed and launchers show current (Lessons shows state while the band is open); Format sits in the editor header; the tab close is keyboard-reachable with a tooltip naming its key; one word for the calm save state; indent source moves to the tooltip (unit + e2e shell, editing)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S47.5"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S49.7",
+      "session": "S49",
+      "milestone": "M18",
+      "title": "Owner beginner walk-through of the refined build",
+      "description": "",
+      "acceptance": [
+        "The owner, or one beginner (H.3), runs docs/product/task-script.md on the refined Windows build; hesitations over 10 s are recorded in docs/research/; any P1 finding that reappears becomes a new feature"
+      ],
+      "verify": "manual-win",
+      "depends_on": [
+        "S47.6",
+        "S48.4",
+        "S49.6"
+      ],
+      "status": "todo",
+      "evidence": ""
     }
   ]
 }

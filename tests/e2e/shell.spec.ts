@@ -1,14 +1,19 @@
+import { rm } from 'node:fs/promises';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { THEMES } from '../../src/renderer/theme/tokens';
 import { launchApp } from './launch';
+import { makeProject, openProject } from './project';
 
 const toRgb = (hex: string) => `rgb(${[1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
 
 let app: ElectronApplication;
 let page: Page;
+let tmp: string;
+let root: string;
 const consoleErrors: string[] = [];
 
 test.beforeAll(async () => {
+  ({ tmp, root } = await makeProject('noobide-shell-'));
   app = await launchApp();
   page = await app.firstWindow();
   page.on('console', (msg) => {
@@ -20,6 +25,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await app?.close();
+  await rm(tmp, { recursive: true, force: true });
 });
 
 async function setWindowSize(width: number, height: number) {
@@ -111,7 +117,8 @@ test('rail toggles the files panel (S30.3)', async () => {
 test('placeholder states are honest and every control works (S30.3)', async () => {
   await expect(page.getByTestId('sample-badge')).toHaveText('示例 · 未保存到磁盘');
   await expect(page.getByTestId('save-status')).toHaveText('没有打开的文件');
-  await expect(page.getByTestId('preview-state')).toHaveText('未运行');
+  // S47.2: nothing to preview without a project — the column is not shown instead of showing an empty stage.
+  await expect(page.getByTestId('region-preview')).toBeHidden();
   await expect(page.getByTestId('problems-toggle')).toContainText('还没检查');
   await expect(page.getByText('没有发现问题')).toHaveCount(0);
   // Outside Monaco, the shell offers only controls that do something; none is disabled decoration.
@@ -127,10 +134,10 @@ test('placeholder states are honest and every control works (S30.3)', async () =
     'rail-problems',
     'rail-lessons', // key features: the beginner walkthrough has its own labelled rail button
     'rail-ai', // S33: AI is on by default (decision 0025); without a key the panel explains how to add one
-    'open-folder',
-    // S20.2: welcome screen while no project is open
+    // S20.2: welcome screen while no project is open (S47.2: it owns Open folder; the files panel has no button)
     'welcome-create',
     'welcome-open-folder',
+    'welcome-lessons', // S47.2: Lessons stays reachable from the welcome
     'editor-more', // Editor options: the code font size (and Format, with a file open) in a small panel
     'zoom-out',
     'zoom-reset',
@@ -141,7 +148,89 @@ test('placeholder states are honest and every control works (S30.3)', async () =
   ]);
 });
 
-test('editor and preview split the remaining width equally (S30.3)', async () => {
+/** Bounding boxes of the top-bar controls that must not move when a project opens (S47.2). */
+async function topBarBoxes() {
+  return page.evaluate(() => {
+    const out: Record<string, string> = {};
+    const bar = document.querySelector('[data-testid="region-topbar"]');
+    if (!bar) return out;
+    out.topbar = JSON.stringify(bar.getBoundingClientRect());
+    for (const id of ['save-status', 'open-palette', 'switch-language']) {
+      out[id] = JSON.stringify(bar.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect());
+    }
+    for (const cls of ['app-mark', 'app-name', 'save-group']) {
+      out[cls] = JSON.stringify(bar.querySelector(`.${cls}`)?.getBoundingClientRect());
+    }
+    return out;
+  });
+}
+
+for (const [width, height] of [
+  [1280, 800],
+  [640, 480],
+] as const) {
+  test(`S47.2: at ${width}x${height} the welcome owns the window — one filled button, no preview column`, async () => {
+    await setWindowSize(width, height);
+    const welcome = page.getByTestId('welcome');
+    await expect(welcome).toBeVisible();
+    // The welcome's column spans the editor + preview area: no preview column, no editor splitter, no switch.
+    await expect(page.getByTestId('region-preview')).toBeHidden();
+    await expect(page.getByTestId('splitter-editor')).toHaveCount(0);
+    await expect(page.getByTestId('narrow-switch')).toHaveCount(0);
+    const editor = await page.getByTestId('region-editor').boundingBox();
+    const welcomeBox = await welcome.boundingBox();
+    expect(editor).not.toBeNull();
+    expect(editor!.x + editor!.width).toBeGreaterThanOrEqual(width - 12); // up to the window's right gutter
+    expect(welcomeBox!.width).toBeGreaterThanOrEqual(editor!.width - 24);
+    // The sample code is still there, below the welcome (Monaco renders only the lines that fit: the first one).
+    await expect(page.locator('.view-lines')).toContainText('<!doctype html>');
+    await expect(page.getByTestId('sample-badge')).toBeVisible();
+
+    // Exactly one filled button in the whole window: Create my first webpage. Open folder is secondary and lives on
+    // the welcome only (the files panel's empty state has no button); Lessons is reachable from the welcome.
+    const filled = page.locator('.primary-button, .save-button');
+    await expect(filled).toHaveCount(1);
+    await expect(filled).toHaveAttribute('data-testid', 'welcome-create');
+    await expect(page.getByTestId('welcome-open-folder')).toHaveClass(/secondary-button/);
+    await expect(page.getByTestId('region-files').locator('.empty-state button')).toHaveCount(0);
+    await expect(page.getByTestId('open-folder')).toHaveCount(0);
+    await expect(page.getByTestId('welcome-lessons')).toHaveText('课程');
+
+    // "The sample is not saved" is said once: the badge next to the sample tab, not the top bar nor the welcome.
+    await expect(page.getByText(/保存到磁盘|不会保存/)).toHaveCount(1);
+    await expect(page.getByTestId('project-path')).toHaveCount(0);
+  });
+}
+
+test('S47.2: narrow window without a project: files collapse into the drawer, the welcome keeps the column', async () => {
+  await setWindowSize(800, 600);
+  await expect(page.getByTestId('region-files')).toBeHidden();
+  await expect(page.getByTestId('region-editor')).toBeVisible();
+  await expect(page.getByTestId('narrow-switch')).toHaveCount(0);
+  await page.getByTestId('rail-files').click();
+  await expect(page.getByTestId('region-files')).toBeVisible();
+  await page.getByTestId('rail-files').click();
+  await expect(page.getByTestId('region-files')).toBeHidden();
+  await setWindowSize(1280, 800);
+  await expect(page.getByTestId('region-files')).toBeVisible();
+});
+
+test('S47.2: the Lessons button on the welcome opens the walkthrough', async () => {
+  await page.getByTestId('welcome-lessons').click();
+  await expect(page.getByTestId('walkthrough')).toBeVisible();
+  await page.getByTestId('walkthrough-close').click();
+  await expect(page.getByTestId('walkthrough')).toHaveCount(0);
+});
+
+test('S47.2: opening a project reveals the workbench without a top-bar layout jump (S30.3 split kept)', async () => {
+  const before = await topBarBoxes();
+  await openProject(app, page, root);
+  await expect(page.getByTestId('welcome')).toHaveCount(0);
+  await expect(page.getByTestId('region-preview')).toBeVisible();
+  await expect(page.getByTestId('project-path')).toHaveText(root);
+  const after = await topBarBoxes();
+  expect(after).toEqual(before);
+  // S30.3: editor and preview split the remaining width equally.
   const editor = await page.getByTestId('region-editor').boundingBox();
   const preview = await page.getByTestId('region-preview').boundingBox();
   expect(Math.abs((editor?.width ?? 0) - (preview?.width ?? -10))).toBeLessThanOrEqual(1);
@@ -169,8 +258,6 @@ test('narrow window: files collapse and a Code / Preview switch shows one view (
   await code.press('Enter');
   await expect(page.getByTestId('region-files')).toBeHidden();
   await expect(page.getByTestId('region-editor')).toBeVisible();
-  // The sample buffer survived being hidden.
-  await expect(page.locator('.view-lines')).toContainText('<h1 class="title">NoobIDE</h1>');
 
   await setWindowSize(1280, 800);
   await expect(narrowSwitch).toBeHidden();

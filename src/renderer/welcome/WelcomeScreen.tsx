@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OpenedProject } from '../../shared/ipc/contract';
 import { useI18n } from '../i18n/I18nProvider';
-import { NoobIdeLogo, PlusIcon, SmallFolderIcon, WarningIcon } from '../workbench/icons';
+import { LessonsIcon, NoobIdeLogo, PlusIcon, SmallFolderIcon, WarningIcon } from '../workbench/icons';
 import { protectedFolderMessage } from '../workbench/file-op-messages';
 import { recentRowView, type RecentProject, type RecentProjectsSource } from './welcome-model';
 import type { AiHistoryApi } from '../../shared/ipc/ai-history-contract';
@@ -18,11 +18,14 @@ interface WelcomeScreenProps {
   onOpenRecent: (project: OpenedProject) => void;
   /** S39.1: saved AI chats of a recent entry (removing it offers to delete them). Default: the preload bridge. */
   chats?: Pick<AiHistoryApi, 'countRecentChats' | 'deleteRecentChats'> | undefined;
+  /** S47.2: opens the beginner lessons (the same command as the rail button and Help → walkthrough). */
+  onShowLessons?: (() => void) | undefined;
 }
 
 /**
  * Welcome screen (S20.2, wireframe welcome 1a), shown while no project is open: one prominent "Create my first
- * webpage", "Open folder…" and the recent projects with their full paths. A recent project whose folder is gone is
+ * webpage", "Open folder…", Lessons (S47.2) and the recent projects with their full paths. S47.2: it owns the editor +
+ * preview area (the preview column is not shown without a project) and is the window's only filled button. A recent project whose folder is gone is
  * marked with a warning icon and the text "folder not found", and can only be removed from the list — nothing on
  * disk is ever deleted from here.
  */
@@ -32,6 +35,7 @@ export function WelcomeScreen({
   recent,
   onOpenRecent,
   chats = aiHistoryBridge(),
+  onShowLessons,
 }: WelcomeScreenProps) {
   const { t } = useI18n();
   const [projects, setProjects] = useState<readonly RecentProject[] | null>(null);
@@ -106,6 +110,18 @@ export function WelcomeScreen({
             >
               <SmallFolderIcon />
               {t('welcome.openFolder')}
+            </button>
+          )}
+          {onShowLessons && (
+            <button
+              type="button"
+              className="quiet-button welcome-lessons"
+              title={t('rail.lessons.title')}
+              data-testid="welcome-lessons"
+              onClick={onShowLessons}
+            >
+              <LessonsIcon />
+              {t('welcome.lessons')}
             </button>
           )}
         </div>
