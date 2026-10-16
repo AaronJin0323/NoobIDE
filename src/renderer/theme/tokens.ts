@@ -1,8 +1,9 @@
 /**
  * Colour tokens for the workbench shell and the Monaco theme (S30.1). Single source of truth: the stylesheet only
  * reads these as CSS custom properties (`--bg`, `--panel`, …), and monaco-theme.ts builds the editor themes from them.
- * Values follow the 2026-10-14 UI prototype, with the brand blue accent #1D6CF0 of the NoobIDE logo
- * (resources/brand/) in place of the prototype's purple; contrast is checked by tokens.test.ts. Solid colours only, so the
+ * Values follow the 2026-10-14 UI prototype, with the monochrome accent of the NoobIDE logo (resources/brand/) in
+ * place of the prototype's purple: black #111318 in the light scheme, inverted to near-white in the dark scheme
+ * (black cannot reach 3:1 on the dark panels); contrast is checked by tokens.test.ts. Solid colours only, so the
  * contrast check never depends on what a translucent colour is drawn over.
  */
 export type ColorScheme = 'dark' | 'light';
@@ -53,19 +54,19 @@ export const THEMES: Record<ColorScheme, ThemeTokens> = {
     text: '#ECEEF4',
     muted: '#9AA3B5',
     faint: '#7D8599',
-    accent: '#1D6CF0',
-    onAccent: '#FFFFFF',
-    accentText: '#8DB8FF',
-    accentSoft: '#16233D',
+    accent: '#F2F3F5',
+    onAccent: '#0B0D12',
+    accentText: '#FFFFFF',
+    accentSoft: '#2A2E38',
     ok: '#3DDC97',
     okSoft: '#13271F',
     warn: '#FFB547',
     warnSoft: '#2A2216',
     danger: '#FF7A7A',
     dangerSoft: '#2D1A1D',
-    focus: '#8DB8FF',
-    lineHighlight: '#161B26',
-    selection: '#1E3358',
+    focus: '#FFFFFF',
+    lineHighlight: '#181B22',
+    selection: '#2F3542',
     syntaxTag: '#7DB4FF',
     syntaxAttribute: '#FFB86B',
     syntaxString: '#8EE6B3',
@@ -82,19 +83,19 @@ export const THEMES: Record<ColorScheme, ThemeTokens> = {
     text: '#151821',
     muted: '#555D70',
     faint: '#636B7D',
-    accent: '#1D6CF0',
+    accent: '#111318',
     onAccent: '#FFFFFF',
-    accentText: '#1554C9',
-    accentSoft: '#E6EFFF',
+    accentText: '#111318',
+    accentSoft: '#E6E8EC',
     ok: '#0F7A4B',
     okSoft: '#E2F5EC',
     warn: '#8F5200',
     warnSoft: '#FFF2DC',
     danger: '#C02F2F',
     dangerSoft: '#FDEAEA',
-    focus: '#1554C9',
-    lineHighlight: '#F4F7FF',
-    selection: '#D3E2FF',
+    focus: '#111318',
+    lineHighlight: '#F5F6F8',
+    selection: '#D9DCE3',
     syntaxTag: '#2557C7',
     syntaxAttribute: '#A35200',
     syntaxString: '#0F7A4B',
@@ -140,7 +141,7 @@ export const GLASS: Record<ColorScheme, GlassTokens> = {
     glassStroke: '#FFFFFF1F',
     glassHighlight: '#FFFFFF24',
     glassShadow: '#00000073',
-    ambientA: '#1D6CF02E',
+    ambientA: '#FFFFFF0F',
     ambientB: '#3DDC9714',
     glassChromeSolid: '#1B1F29',
     glassOverlaySolid: '#1B1F29',
@@ -153,7 +154,7 @@ export const GLASS: Record<ColorScheme, GlassTokens> = {
     glassStroke: '#FFFFFFB3',
     glassHighlight: '#FFFFFFE6',
     glassShadow: '#1E223C29',
-    ambientA: '#1D6CF024',
+    ambientA: '#11131814',
     ambientB: '#38BDF81F',
     glassChromeSolid: '#FFFFFF',
     glassOverlaySolid: '#FFFFFF',

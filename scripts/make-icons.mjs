@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// S28.1: generates the app icon files in resources/icons/ from the NoobIDE logo: a brand-blue rounded square with a
+// S28.1: generates the app icon files in resources/icons/ from the NoobIDE logo: a black rounded square with a
 // white "< • >" mark, an HTML tag holding one dot (the vector original is resources/brand/noobide-logo.svg; keep the
 // geometry below in step with it). Pure Node (zlib only): no image tools, no native modules.
 //
@@ -15,7 +15,7 @@ import { deflateSync } from 'node:zlib';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(root, 'resources', 'icons');
 
-const BACKGROUND = [29, 108, 240]; // #1D6CF0, the theme accent (src/renderer/theme/tokens.ts)
+const BACKGROUND = [17, 19, 24]; // #111318, the light theme accent (src/renderer/theme/tokens.ts)
 const FOREGROUND = [255, 255, 255];
 
 // Geometry in a 1024 unit square. macOS-style margin: the tile covers 824 units, centred.

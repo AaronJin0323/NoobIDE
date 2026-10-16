@@ -15,12 +15,16 @@ the latest entry to the next session, so write it for a reader with zero context
   `scripts/make-icons.mjs` now draws the same geometry; `icon.png/.icns/.ico` regenerated (checked at 1024, 32
   and 16 px). The welcome screen shows the logo above its title (`NoobIdeLogo` in `workbench/icons.tsx`,
   decorative, coloured from `--accent` / `--on-accent`).
-- **Brand colour:** the accent is now blue `#1D6CF0` instead of the prototype's purple `#6E5BFF`, in both
-  schemes, with matching accentText, accentSoft, focus, selection, lineHighlight and the ambient glass field
-  (`src/renderer/theme/tokens.ts`). White on the accent is 4.71:1; tokens.test.ts passes. Syntax colours are
-  unchanged (keywords stay violet in the editor).
+- **Brand colour (owner: "dark black, so it looks much cooler"):** the accent is monochrome instead of the
+  prototype's purple `#6E5BFF`. Light scheme: black `#111318` with white text (18:1). Dark scheme: inverted to
+  near-white `#F2F3F5` with dark text, because black cannot reach the 3:1 non-text contrast on the dark panels, so
+  primary buttons and the welcome logo turn white there. accentText, accentSoft, focus, selection, lineHighlight and
+  the ambient glass field are neutral greys to match (`src/renderer/theme/tokens.ts`); tokens.test.ts passes. The
+  app icon tile is black. Syntax colours are unchanged (keywords stay violet in the editor). A blue `#1D6CF0`
+  was tried first and replaced at the owner's request.
 
-**Evidence:** `vitest run src/renderer/theme src/renderer/welcome tests/integration`: 56 files, 696 passed.
+**Evidence:** `vitest run src/renderer/theme src/renderer/welcome src/renderer/editor tests/integration`: 74 files,
+992 passed.
 
 **Problems:** `npm run verify` is red **at the base commit df242a0** (main), before this change: typecheck errors
 in `ai/AddContextMenu.tsx`, `PreviewMoreMenu.tsx`, `notice.test.ts`, `button-hierarchy.test.ts`, and failing
