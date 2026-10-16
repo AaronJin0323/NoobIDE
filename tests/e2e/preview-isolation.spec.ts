@@ -26,6 +26,7 @@ import {
   workbenchPid,
 } from './preview-helpers';
 import { DOC_END } from './keys';
+import { focusEditor } from './project';
 
 /**
  * S05.1–S05.5 end to end: hostile or broken pages cannot hurt the editor. An endless loop, a console flood, page
@@ -51,10 +52,15 @@ async function openInEditor(name: string) {
   await expect(page.getByTestId('tab-bar').getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true');
 }
 
-/** Clicks into the editor, types plain text on a new last line and returns how long until it was visible. */
+/**
+ * Focuses the editor, types plain text on a new last line and returns how long until it was visible. Focus, not a
+ * click on `.view-lines` (docs/testing.md): on the Windows CI runner's 1024×768 display the editor is narrower than
+ * the malicious page's longest line, `.view-lines` (as wide as the longest line) is twice the visible width, and its
+ * centre lands on the overview ruler at the editor's right edge.
+ */
 async function typeAndMeasure(text: string): Promise<number> {
   const started = Date.now();
-  await page.locator('.monaco-editor .view-lines').click();
+  await focusEditor(page);
   await page.keyboard.press(DOC_END);
   await page.keyboard.press('Enter');
   await page.keyboard.type(text);
