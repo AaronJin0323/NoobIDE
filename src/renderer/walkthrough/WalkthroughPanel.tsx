@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { WALKTHROUGH_STEPS } from '../../shared/walkthrough';
 import { useI18n } from '../i18n/I18nProvider';
 import { FINAL_TASK_LESSON, STEP_LESSONS, localized } from './lessons';
-import { STEP_ANCHORS, isLastStep, type PanelView } from './walkthrough-model';
+import { STEP_ANCHORS, isLastStep, termChipLabel, type PanelView } from './walkthrough-model';
 import './walkthrough.css';
 
 export interface WalkthroughPanelProps {
@@ -10,6 +10,8 @@ export interface WalkthroughPanelProps {
   onNext(): void;
   onBack(): void;
   onClose(): void;
+  /** S47.6: compact one-line band ⇄ full text (remembered across starts). */
+  onToggleCompact(): void;
   onStartTask(): void;
   onCloseTask(): void;
   /** Opens the glossary at a standard term (S23.4). */
@@ -56,13 +58,15 @@ function showAnchor(selector: string): void {
  * The walkthrough strip (S23.1): a non-modal region between the workbench and the status strip, so it never covers
  * the editor, the file tree or the native preview. It names the step, says what to do and where (in words — the
  * outline on the anchor is never the only cue), reports detection as text, links standard terms to the glossary,
- * and every action is a keyboard-reachable button.
+ * and every action is a keyboard-reachable button. S47.6: the user can fold it to one line (step n of 8 · title ·
+ * Show me · Next); a step's first view is always the full text, and the choice is remembered across starts.
  */
 export function WalkthroughPanel({
   view,
   onNext,
   onBack,
   onClose,
+  onToggleCompact,
   onStartTask,
   onCloseTask,
   onTerm,
@@ -75,6 +79,70 @@ export function WalkthroughPanel({
   if (view.kind === 'step') {
     const lesson = STEP_LESSONS[view.step];
     const last = isLastStep(view.step);
+    const progress = t('walkthrough.progress')
+      .replace('{n}', String(view.index + 1))
+      .replace('{total}', String(WALKTHROUGH_STEPS.length));
+    const showMe = anchor && (
+      <button
+        type="button"
+        className="secondary-button"
+        data-testid="walkthrough-show"
+        onClick={() => showAnchor(anchor)}
+      >
+        {t('walkthrough.showMe')}
+      </button>
+    );
+    // The done state is in the button's own label (Next vs Skip this step), so the compact band needs no check line.
+    const next = (
+      <button
+        type="button"
+        className={view.done ? 'primary-button walkthrough-next' : 'secondary-button walkthrough-next'}
+        data-testid="walkthrough-next"
+        onClick={onNext}
+      >
+        {last ? t('walkthrough.finish') : view.done ? t('walkthrough.next') : t('walkthrough.skipStep')}
+      </button>
+    );
+    const toggle = (
+      <button
+        type="button"
+        className="quiet-button"
+        aria-expanded={!view.compact}
+        data-testid={view.compact ? 'walkthrough-expand' : 'walkthrough-compact'}
+        title={t(view.compact ? 'walkthrough.expandHint' : 'walkthrough.compactHint')}
+        onClick={onToggleCompact}
+      >
+        {t(view.compact ? 'walkthrough.expand' : 'walkthrough.compact')}
+      </button>
+    );
+    if (view.compact) {
+      return (
+        <section
+          className="walkthrough is-compact"
+          aria-label={t('walkthrough.region')}
+          data-testid="walkthrough"
+          data-step={view.step}
+          data-done={view.done}
+          data-compact="true"
+        >
+          <div className="walkthrough-main">
+            <p className="walkthrough-progress" data-testid="walkthrough-progress">
+              {progress}
+            </p>
+            <h2 className="walkthrough-title" data-testid="walkthrough-title">
+              {localized(lesson.title, locale)}
+            </h2>
+          </div>
+          <div className="walkthrough-side">
+            <div className="walkthrough-actions">
+              {showMe}
+              {next}
+              {toggle}
+            </div>
+          </div>
+        </section>
+      );
+    }
     return (
       <section
         className="walkthrough"
@@ -82,12 +150,11 @@ export function WalkthroughPanel({
         data-testid="walkthrough"
         data-step={view.step}
         data-done={view.done}
+        data-compact="false"
       >
         <div className="walkthrough-main">
           <p className="walkthrough-progress" data-testid="walkthrough-progress">
-            {t('walkthrough.progress')
-              .replace('{n}', String(view.index + 1))
-              .replace('{total}', String(WALKTHROUGH_STEPS.length))}
+            {progress}
           </p>
           <h2 className="walkthrough-title" data-testid="walkthrough-title">
             {localized(lesson.title, locale)}
@@ -107,9 +174,10 @@ export function WalkthroughPanel({
                 type="button"
                 className="walkthrough-term"
                 data-testid="walkthrough-term"
+                data-term={term}
                 onClick={() => onTerm(term)}
               >
-                {term}
+                {termChipLabel(term, locale)}
               </button>
             ))}
           </p>
@@ -132,24 +200,9 @@ export function WalkthroughPanel({
             >
               {t('walkthrough.back')}
             </button>
-            {anchor && (
-              <button
-                type="button"
-                className="secondary-button"
-                data-testid="walkthrough-show"
-                onClick={() => showAnchor(anchor)}
-              >
-                {t('walkthrough.showMe')}
-              </button>
-            )}
-            <button
-              type="button"
-              className={view.done ? 'primary-button walkthrough-next' : 'secondary-button walkthrough-next'}
-              data-testid="walkthrough-next"
-              onClick={onNext}
-            >
-              {last ? t('walkthrough.finish') : view.done ? t('walkthrough.next') : t('walkthrough.skipStep')}
-            </button>
+            {showMe}
+            {next}
+            {toggle}
             <button
               type="button"
               className="quiet-button"

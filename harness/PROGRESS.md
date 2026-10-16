@@ -3,6 +3,100 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 31 (side session) — 2026-10-16 — S47.5 one status row, S47.6 compact walkthrough
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/s47-5-6-frame-93b3b8` cut
+from `claude/recursing-dewdney-9752a3` @ `86169b6` (S47.2–S47.4 in place). Started by the assessment session in
+parallel with the S48 (preview, problems) and S49 (sheet) sessions, with disjoint file ownership: this one owns the
+editor frame, the notices and the walkthrough band; `ProblemsPanel.tsx`, `PreviewPane.tsx` and the dialogs were not
+touched. Owner rule (Session 23) kept: nothing moved into a menu; decision 0034 and `design-rules.test.ts` unchanged.
+
+**Done**
+
+- S47.5 — One status row and fewer bands around the editor.
+  - **One status row.** The editor's own bottom row is gone. `EditorStatusStrip.tsx` (new) renders Edit with AI,
+    Explain, the indentation button, the caret position and the AI-suggestions state at the end of the global status
+    strip, next to the Problems toggle at its start. The strip's markup stays in `ProblemsPanel.tsx` (another session's
+    file), so the group is a sibling region (`region-status`, `.status-editor`) laid over the strip's free end: same
+    row and height, right-aligned, capped at the strip minus 250 px so it never reaches the toggle, and `pointer-events`
+    pass through its empty part. The caret comes through a tiny store (`editor-status-state.ts`, like
+    `indent-state.ts`) so the workbench never re-renders on a cursor move. The suggestions state is now a real toggle
+    button (`aria-pressed`, the `toggle-inline-ai` command; short word `ai.inline.state.*`, the sentence as tooltip).
+    In a narrow window the shortcut, the Explain label and the indentation source give way (`ai-entry.css`,
+    `styles.css`); the accessible names stay.
+  - **At most one persistent band above the code.** `FileRoleHint` shows on a file's first showing per app run and
+    stays collapsed once the user moved to another file (`RoleHintMemory` in `file-role.ts`, keyed by project + path;
+    marked on the key change, not on unmount, because of React's development double-mount). The tree tag keeps the role
+    and the tab tooltip gains it on a second line (`tabTooltip(relPath, state, role)`, `fileRole.tooltip`). The non-UTF-8
+    and mixed line-ending notes are short status-strip items (`gb18030 · 只能查看`, `混用换行符 · 保存为 CRLF`) with
+    the full sentence as tooltip; their test ids (`read-only-notice`, `mixed-eol`) and words are kept. The save, open,
+    conflict and deleted alerts are states, not bands, and stay where they were.
+  - **Notices.** The stack joins the layout flow between the walkthrough band and Problems in every window width
+    (the narrow rule of S30.4 generalised; `frameMinimums` counts the notice reserve for wide windows too): a notice
+    sits above the strip and below the code, never over the tree, the code or the native preview. `SessionNotice` is
+    removed with `session.restored` (the top bar shows the name; the folder is its tooltip and a project-menu line).
+    `EntryNotice` (success) and `TransferNotice` dismiss themselves after 12 s through `useAutoDismiss` (paused while
+    hovered or focused; the Dismiss button stays); the settings alert and the journal alert still wait for the user.
+  - **F6.** `focus-regions.ts` adds the walkthrough band / final-task card, the notice stack and the status group to the
+    region order (after the AI chat, before and after Problems); empty or hidden ones are skipped as before.
+- S47.6 — Compact walkthrough band.
+  - **State.** `WalkthroughState` gains `compact` (the user's choice) and `viewed` (steps whose full text was on
+    screen); `loadWalkthroughState` fills both from a file written before this (full band, nothing viewed), the IPC
+    parser requires them. The reducer marks a step viewed when the user leaves it (Next, Back, Close) and on
+    `toggleCompact`, so a toggle takes effect at once; `panelView` shows compact only for `compact && viewed` — a
+    step's first view is always the full text, a step seen before folds, and the choice comes back after a restart
+    with the rest of `walkthrough.json`.
+  - **Band.** Compact is one line: 第 n 步，共 8 步 · title · 指给我看 · 下一步 · 展开 (the done state is the Next
+    button's own label, 下一步 vs 跳过这一步). The full band gains 收起 before 关闭课程. `--walkthrough-min` is 40 px
+    while compact (`FRAME.walkthroughMin.compact`, the rule after the narrow one so it wins there too), so the band
+    measures 42 px with its border, under the 56 px limit, and the frame arithmetic in `layout.ts` follows.
+  - **Terms.** `termChipLabel(term, locale)`: in zh-CN a chip shows the glossary's Chinese name and the standard term
+    (自动保存 autosave, 标签 tag, 超文本标记语言 HTML; a name that already holds the term, JavaScript 脚本语言, as it is);
+    in en the term alone. The close hint already names the rail button (课程 / Lessons) — now checked by a unit test.
+
+**Evidence:** S47.5 — `tests/e2e/key-features-visible.spec.ts` "S47.5: one status row …" (no `.editor-status` in the
+editor; `region-status` in the strip's row and height, its left edge right of the Problems toggle; at most one band above
+the code; the entry notice below the editor's bottom and above the strip; F6 from the code visits preview → walkthrough →
+app-notice-stack → problems → status → topbar → rail → files → editor; the notice leaves by itself) and the size loop
+1280×800 … 640×480 (indent, caret, AI edit / explain in the viewport, the group never reaches the toggle);
+`tests/e2e/a11y.spec.ts` F6 order; `tests/e2e/file-roles.spec.ts` "S47.5: …" (no hint on a second visit, tree tag
+and tab tooltip keep the role, nothing else above the code); `tests/e2e/session.spec.ts` (no reopened-project notice,
+empty stack); `file-role.test.ts` (RoleHintMemory), `a11y-labels.test.ts` (tooltip role line), `terms.test.ts`
+(the new `ai.inline.state.*` keys name AI 建议). e2e key-features, a11y, shell, file-roles, session, encodings, save,
+editing, ai-edit, ai-inline, smart-editing, external-change: 91 passed on Windows. S47.6 — `walkthrough-model.test.ts`
+"compact band (S47.6)" (5 tests: default full, toggle, first view full / seen before compact, close and revisit, term
+chip labels, close hint names Lessons), `src/shared/walkthrough.test.ts` (older file loads as full, strict parse),
+`layout.test.ts` (compact reserve and CSS order); `tests/e2e/walkthrough.spec.ts` "S47.6: …" (compact band ≤ 56 px,
+the four pieces on one row, no body / check, stored `compact`, a new step full, a seen step compact, expand) and
+"progress and the compact choice survive a restart", zh-CN chips 超文本标记语言 HTML / 层叠样式表 CSS / JavaScript
+脚本语言, en chips HTML / CSS / JavaScript. e2e walkthrough, key-features, a11y, shell, editing green on Windows after the
+S47.6 build. `npm run verify` green at each commit.
+
+**Decisions:** no new decision record. The status group is an overlay sibling of the strip rather than a slot in
+`ProblemsPanel` only because of the parallel ownership this session had; S48.3 (the strip's count) or a later tidy-up
+may move it inside the strip's markup — the test ids and the `.status-editor` rules carry over. Auto-dismiss is 12 s
+and only for `role="status"` notices. The role-hint memory lives for the app run, not in app data: a restart shows
+each file's hint once more, which a beginner coming back after days should get. The compact band keeps 展开 as a
+fifth control (the way back); Close lives in the full band only.
+
+**Problems / risks:** macOS not run (renderer-only changes; the strip overlay uses `position: absolute` inside the
+workbench column, which is the same on both platforms). `glass-visual.spec` screenshots of the editor and the band
+differ by design. The first `npm run verify` of the session had one 5 s timeout in `beginner-diagnostics.test.ts`
+under the load of four parallel sessions; it passed alone and in every later run. Possible merge touch points with the
+sibling sessions: `Workbench.tsx` (two lines: the strip element and the `onToggleCompact` prop), `styles.css`
+(`.status-editor`, `.app-notice-stack`, `.workbench > .problems { order: 2 }`), `zh-CN.ts` / `en.ts` (keys only).
+
+**Owner action needed:** none new; S46.8 visual pass still open (now includes the one status row and the compact band).
+
+**Next up**
+
+1. S48 / S49 continue in their sessions; S48.3 may fold `EditorStatusStrip` into the strip's own markup.
+2. S49.6 can drop the indentation source from the button text (it is already the tooltip and narrow windows hide it).
+
+**Ideas / backlog candidates:** the compact band could show the step check as a ✓ before the title once there is a
+spec-approved glyph; the role hint could learn a per-project "seen" list in `.noobide/project.json` (no secrets, but
+it writes into the project, so it needs the owner's call).
+
 ## Session 30 (side session) — 2026-10-16 — S47.4 one name, one home per feature
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/recursing-dewdney-9752a3`:

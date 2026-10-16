@@ -4341,8 +4341,8 @@
       "depends_on": [
         "S47.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/walkthrough.spec.ts 'S47.6: the band folds to one line…' (compact ≤ 56 px, progress/title/show/next on one row, no body/check, stored compact, seen steps fold, never-seen step full, expand) + 'progress and the compact choice survive a restart' + zh-CN chips 超文本标记语言 HTML / 层叠样式表 CSS / JavaScript 脚本语言, en chips HTML/CSS/JavaScript (13 tests green on Windows); walkthrough-model.test.ts 'compact band (S47.6)' (toggle, first view, close/revisit, termChipLabel, closeHint names rail.lessons), src/shared/walkthrough.test.ts (compact/viewed parse + lenient load), layout.test.ts (compact reserve); e2e key-features/a11y/shell/editing green on the S47.6 build; verify green"
     },
     {
       "id": "S48.1",

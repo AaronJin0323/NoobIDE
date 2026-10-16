@@ -1395,6 +1395,7 @@ export function Workbench() {
         onNext={walkthrough.next}
         onBack={walkthrough.back}
         onClose={walkthrough.close}
+        onToggleCompact={walkthrough.toggleCompact} // S47.6
         onStartTask={walkthrough.startTask}
         onCloseTask={walkthrough.closeTask}
         onTerm={(term) => setGlossaryFor({ term })}

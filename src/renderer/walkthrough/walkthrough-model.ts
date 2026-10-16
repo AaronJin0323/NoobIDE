@@ -15,6 +15,8 @@ import {
   type WalkthroughState,
   type WalkthroughStepId,
 } from '../../shared/walkthrough';
+import type { Locale } from '../i18n/index';
+import { glossaryEntry } from './lessons';
 
 export type WalkthroughAction =
   | { readonly type: 'loaded'; readonly state: WalkthroughState }
@@ -24,6 +26,8 @@ export type WalkthroughAction =
   | { readonly type: 'back' }
   /** Close the walkthrough (skip it); it can be revisited from Help. */
   | { readonly type: 'close' }
+  /** S47.6: the user switches between the compact one-line band and the full text (remembered across starts). */
+  | { readonly type: 'toggleCompact' }
   | { readonly type: 'detected'; readonly step: WalkthroughStepId }
   | { readonly type: 'baseline'; readonly step: WalkthroughStepId; readonly baseline: string }
   // S23.3 final task
@@ -48,8 +52,13 @@ export function firstOpenStep(state: WalkthroughState): WalkthroughStepId | null
   return WALKTHROUGH_STEPS.find((id) => !state.completed.includes(id)) ?? null;
 }
 
+/** S47.6: the step's full text has been on screen; from now on the band may be compact for it. */
+const markViewed = (state: WalkthroughState, step: WalkthroughStepId): readonly WalkthroughStepId[] =>
+  state.viewed.includes(step) ? state.viewed : orderSteps([...state.viewed, step]);
+
+/** Leaving a step ends its first view (S47.6); the next step's baseline starts over. */
 const moveTo = (state: WalkthroughState, step: WalkthroughStepId): WalkthroughState =>
-  step === state.step ? state : { ...state, step, baseline: null };
+  step === state.step ? state : { ...state, step, baseline: null, viewed: markViewed(state, state.step) };
 
 export function walkthroughReducer(model: ModelState, action: WalkthroughAction): ModelState {
   if (action.type === 'loaded') return { loaded: true, value: action.state };
@@ -78,7 +87,14 @@ function reduce(state: WalkthroughState, action: WalkthroughAction): Walkthrough
       return moveTo(state, WALKTHROUGH_STEPS[stepIndex(state.step) - 1] as WalkthroughStepId);
     }
     case 'close':
-      return state.status === 'active' ? { ...state, status: 'closed', baseline: null } : state;
+      return state.status === 'active'
+        ? { ...state, status: 'closed', baseline: null, viewed: markViewed(state, state.step) }
+        : state;
+    case 'toggleCompact':
+      // The toggle counts as having seen the step: compact takes effect at once, also on a step's first view.
+      return state.status === 'active'
+        ? { ...state, compact: !state.compact, viewed: markViewed(state, state.step) }
+        : state;
     case 'detected':
       if (state.completed.includes(action.step)) return state;
       return { ...state, completed: orderSteps([...state.completed, action.step]) };
@@ -114,10 +130,16 @@ function reduce(state: WalkthroughState, action: WalkthroughAction): Walkthrough
   }
 }
 
-/** What the panel shows. */
+/** What the panel shows. S47.6: `compact` — the one-line band, never on a step's first view. */
 export type PanelView =
   | { readonly kind: 'hidden' }
-  | { readonly kind: 'step'; readonly step: WalkthroughStepId; readonly done: boolean; readonly index: number }
+  | {
+      readonly kind: 'step';
+      readonly step: WalkthroughStepId;
+      readonly done: boolean;
+      readonly index: number;
+      readonly compact: boolean;
+    }
   | { readonly kind: 'task-offer' }
   | { readonly kind: 'task'; readonly done: boolean };
 
@@ -130,12 +152,25 @@ export function panelView(model: ModelState): PanelView {
       step: state.step,
       done: state.completed.includes(state.step),
       index: stepIndex(state.step),
+      compact: state.compact && state.viewed.includes(state.step),
     };
   }
   if (state.task === 'active') return { kind: 'task', done: false };
   if (state.status === 'finished' && state.task === 'done') return { kind: 'task', done: true };
   if (state.status === 'finished' && state.task === 'not-started') return { kind: 'task-offer' };
   return { kind: 'hidden' };
+}
+
+/**
+ * S47.6: what a term chip says. The glossary keeps the standard (English) term; in zh-CN the chip shows the Chinese
+ * name and the English word together ("自动保存 autosave"), so a beginner meets both. A Chinese name that already
+ * contains the term ("JavaScript 脚本语言") is shown as it is; in en the term alone.
+ */
+export function termChipLabel(term: string, locale: Locale): string {
+  if (locale === 'en') return term;
+  const name = glossaryEntry(term)?.['zh-CN'].name;
+  if (!name || name === term) return term;
+  return name.includes(term) ? name : `${name} ${term}`;
 }
 
 /**

@@ -481,6 +481,12 @@ export const en: Record<MessageKey, string> = {
   'walkthrough.showMe': 'Show me',
   'walkthrough.close': 'Close Lessons',
   'walkthrough.closeHint': 'You can open it again from Lessons in the tool bar on the left.',
+  // S47.6: the compact one-line band (step, title, Show me, Next) and the way back to the full text
+  'walkthrough.compact': 'Collapse',
+  'walkthrough.compactHint':
+    'One line only: the step number, its title, Show me and Next. A new step shows in full first.',
+  'walkthrough.expand': 'Expand',
+  'walkthrough.expandHint': 'Show the full text of this step.',
   'walkthrough.offer.title': 'Lessons complete!',
   'walkthrough.offer.text': 'Want to check what you learned? Try a small task without hints.',
   'walkthrough.task.start': 'Start the task',

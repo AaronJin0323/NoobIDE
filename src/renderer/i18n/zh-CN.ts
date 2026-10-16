@@ -458,6 +458,11 @@ export const zhCN = {
   'walkthrough.showMe': '指给我看',
   'walkthrough.close': '关闭课程',
   'walkthrough.closeHint': '以后可以从左边工具栏的“课程”再打开。',
+  // S47.6: the compact one-line band (step, title, Show me, Next) and the way back to the full text
+  'walkthrough.compact': '收起',
+  'walkthrough.compactHint': '只留一行：第几步、标题、指给我看、下一步。新的一步会先完整显示。',
+  'walkthrough.expand': '展开',
+  'walkthrough.expandHint': '显示这一步的完整说明。',
   'walkthrough.offer.title': '课程走完了！',
   'walkthrough.offer.text': '想检验一下吗？试试一个没有提示的小任务。',
   'walkthrough.task.start': '开始小任务',
