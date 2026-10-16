@@ -28,6 +28,11 @@ drafted each e2e fix; every diff was reviewed here before it was committed.
 - **S05.5 dialogs test:** it clicked the centre of `.view-lines` (as wide as the longest line), which on the
   1024×768 Windows runner lands on Monaco's overview ruler; it now uses `focusEditor()` (docs/testing.md). It had
   not executed on Windows CI since the flood test started failing before it.
+- **S14.2 typing pause (product):** PR #6's Windows run reloaded the preview 1.2 s into typing (keys 100 ms apart).
+  The editor reported typing to main with a leading-edge 150 ms throttle, so the last keystrokes of a burst were
+  dropped and main's 400 ms pause could start up to 150 ms early. `createTypingReporter`
+  (`src/renderer/workbench/typing-reporter.ts`, unit-tested) adds a trailing report; the spec uses `focusEditor()`.
+- Main now requires the `windows-x64` and `macos-arm64` checks (owner request, "Protect main" ruleset).
 
 **Evidence:** CI run 38844020782 @ 1d47cc0 green on windows-x64 and macos-arm64 (fault suite, verify, e2e, make,
 arch inspection); local `npm run verify` and full e2e (311 passed) green.
