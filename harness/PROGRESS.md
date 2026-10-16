@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 27 (side session) — 2026-10-16 — UI/UX assessment and refine plan (owner request)
+## Session 28 (side session) — 2026-10-16 — UI/UX assessment and refine plan (owner request)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/noobide-ui-ux-assessment-d4624a`,
 merged with `origin/main` @ `cfc3232` (S46 calm refinement) before assessing. Three read-only audit subagents
@@ -46,6 +46,48 @@ is a design judgement. macOS not run. The S46 visual pass (S46.8) is still the o
 1. S47.2 (welcome owns the window) and S47.3 (stable save state and tabs), then S47.4 (term table test, menu split).
 2. S45.9 (rebuild of the archived HIG parts) should be re-scoped against this plan: the Sheet anatomy it archived is
    S49.1 now.
+
+## Session 27 (side session) — 2026-10-16 — CI green again: billing, the half-landed S44/S45 commit, three e2e fixes
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/ci-failures-subagent-4ab7a0`.
+CI read through the Actions API; fixes verified by `workflow_dispatch` runs of the branch. Subagents diagnosed and
+drafted each e2e fix; every diff was reviewed here before it was committed.
+
+**Done**
+
+- **Why every run since 6a70c74 was red:** the jobs never started — "recent account payments have failed or your
+  spending limit needs to be increased". The private repo had used its ~3,000 included Actions minutes for October
+  (302 Windows min × 2 + 229 macOS min × 10). The owner made the repository public, which removes the limit.
+- **main itself was red:** a110002 (S44/S45) committed only its new files, so typecheck and 18 unit tests failed.
+  Cherry-picked be7194a as dfb1759 ("Restore the last green tree", from `claude/noobide-key-features-visibility-643cf7`), which
+  archives those files under `docs/archive/s44-s45-hig/`.
+- **S05.7 flood test (tests only), two measurement flaws exposed by the runners:**
+  - the "beyond the simulated work" stall subtracted messages × 0.6 ms; on the 3-core macOS runner the spins
+    overran under 8 busy workers. It now subtracts the time main measurably spent in the simulated work.
+  - the iframe cases were compared to console-free baselines from another window (Windows: 405–518 ms vs 146 ms);
+    they now get a same-frames, same-volume baseline through the top document's console, measured before each window.
+  - the per-10 ms-tick batch bound failed whenever main stalled for another reason (Windows "20 workers": 381 in one
+    1.7 s gap, 759 of 776 allowed in total). It is now a token-bucket `backlog` (Lindley's recursion) against
+    `MOST_PER_SECOND`; the unlimited isolated-world flood is asserted to exceed it (control).
+- **S05.5 dialogs test:** it clicked the centre of `.view-lines` (as wide as the longest line), which on the
+  1024×768 Windows runner lands on Monaco's overview ruler; it now uses `focusEditor()` (docs/testing.md). It had
+  not executed on Windows CI since the flood test started failing before it.
+- **S14.2 typing pause (product):** PR #6's Windows run reloaded the preview 1.2 s into typing (keys 100 ms apart).
+  The editor reported typing to main with a leading-edge 150 ms throttle, so the last keystrokes of a burst were
+  dropped and main's 400 ms pause could start up to 150 ms early. `createTypingReporter`
+  (`src/renderer/workbench/typing-reporter.ts`, unit-tested) adds a trailing report; the spec uses `focusEditor()`.
+- Main now requires the `windows-x64` and `macos-arm64` checks (owner request, "Protect main" ruleset).
+
+**Evidence:** CI run 38844020782 @ 1d47cc0 green on windows-x64 and macos-arm64 (fault suite, verify, e2e, make,
+arch inspection); local `npm run verify` and full e2e (311 passed) green.
+
+**Problems / notes**
+
+- Merged into main after Sessions 23–26 (S45 key features, brand, S46 visual refinement); the merged tree was re-verified before the push.
+- The archived S44/S45 HIG refinement (`docs/archive/s44-s45-hig/`) is still to be rebuilt on the current tree.
+- No product code changed in this session; no acceptance criterion changed.
+
+**Next up:** confirm CI green on main after this merge; rebuild the archived HIG refinement as complete commits.
 
 ## Session 26 — 2026-10-16 — Calm visual refinement (owner request)
 

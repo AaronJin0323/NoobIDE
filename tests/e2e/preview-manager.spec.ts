@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
 import { DOC_END } from './keys';
-import { treeRow } from './project';
+import { focusEditor, treeRow } from './project';
 import { evalInPreview, openProject, previewInfo, waitForPreviewState } from './preview-helpers';
 
 /**
@@ -202,7 +202,7 @@ test('Refresh (button and ⌘R/Ctrl+R command) starts a new page-load generation
 
 test('automatic refresh waits for a typing pause; manual mode only marks the page as outdated (S14.2)', async () => {
   await treeRow(page, 'index.html').click();
-  await page.locator('.monaco-editor .view-lines').click();
+  await focusEditor(page);
   await page.keyboard.press(DOC_END);
   const loaded = await timeOrigin();
   // Save while still typing: no reload until the typing stops.
@@ -225,7 +225,7 @@ test('automatic refresh waits for a typing pause; manual mode only marks the pag
     .poll(async () => readFile(path.join(rootA, '.noobide', 'project.json'), 'utf8').then(JSON.parse, () => null))
     .toEqual({ version: 1, preview: { autoRefresh: false } });
   const before = await timeOrigin();
-  await page.locator('.monaco-editor .view-lines').click();
+  await focusEditor(page);
   await page.keyboard.press(DOC_END);
   await page.keyboard.type('c');
   await page.keyboard.press('ControlOrMeta+S');

@@ -26,6 +26,7 @@ import {
   workbenchPid,
 } from './preview-helpers';
 import { DOC_END } from './keys';
+import { focusEditor } from './project';
 
 /**
  * S05.1–S05.5 end to end: hostile or broken pages cannot hurt the editor. An endless loop, a console flood, page
@@ -51,10 +52,15 @@ async function openInEditor(name: string) {
   await expect(page.getByTestId('tab-bar').getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true');
 }
 
-/** Clicks into the editor, types plain text on a new last line and returns how long until it was visible. */
+/**
+ * Focuses the editor, types plain text on a new last line and returns how long until it was visible. Focus, not a
+ * click on `.view-lines` (docs/testing.md): on the Windows CI runner's 1024×768 display the editor is narrower than
+ * the malicious page's longest line, `.view-lines` (as wide as the longest line) is twice the visible width, and its
+ * centre lands on the overview ruler at the editor's right edge.
+ */
 async function typeAndMeasure(text: string): Promise<number> {
   const started = Date.now();
-  await page.locator('.monaco-editor .view-lines').click();
+  await focusEditor(page);
   await page.keyboard.press(DOC_END);
   await page.keyboard.press('Enter');
   await page.keyboard.type(text);
@@ -569,21 +575,30 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   // main in every window; a runner stall does not. Each case gets up to STALL_ATTEMPTS windows and the best one counts;
   // what reaches main and the result are checked in every window.
   const STALL_ATTEMPTS = 3;
+  // `budget`, when given, is measured right before each window (a baseline next to the window it calibrates).
   const bestOf = async (
     name: string,
     measure: () => Promise<Awaited<ReturnType<typeof measureMainStall>>>,
     check: (run: Awaited<ReturnType<typeof measureMainStall>>) => void,
     stall: (run: Awaited<ReturnType<typeof measureMainStall>>) => number,
+    budget: () => Promise<number> = async () => stallBudget(name),
   ) => {
     const stalls: number[] = [];
+    const budgets: number[] = [];
     for (let attempt = 0; attempt < STALL_ATTEMPTS; attempt += 1) {
+      budgets.push(await budget());
       const run = await measure();
       check(run);
       stalls.push(stall(run));
-      if (stall(run) < stallBudget(name)) break;
+      if (stalls[attempt]! < budgets[attempt]!) break;
     }
-    if (stalls.length > 1) console.log(`${name}: stalls in ${stalls.length} windows ${JSON.stringify(stalls)} ms`);
-    expect(Math.min(...stalls), name).toBeLessThan(stallBudget(name));
+    if (stalls.length > 1) {
+      console.log(
+        `${name}: stalls in ${stalls.length} windows ${JSON.stringify(stalls)} ms, budgets ${JSON.stringify(budgets)} ms`,
+      );
+    }
+    // The best window, measured against its own budget.
+    expect(Math.min(...stalls.map((s, k) => s - budgets[k]!)), name).toBeLessThan(0);
   };
   for (const [name, code] of bypasses) {
     await bestOf(
@@ -607,40 +622,100 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   // go (page-guard.ts: CONSOLE_BURST + MAX_GUARDED_SCOPES × WORKER_CONSOLE_BURST messages, ≤ 156 ms of that work),
   // and the rest of each stall stays within the budget. The simulated work is wall-clock time: on the 3-core macOS
   // runner, where "20 workers" itself runs 8 busy threads, 170–208 messages in one go took 196–250 ms, so the
-  // simulated part is checked through the batch size, not the wall-clock total.
+  // simulated part is checked through the message count, not the wall-clock total, and "the rest" is the gap minus the
+  // time main measurably spent in the simulated work (measureMainStall).
   const MOST_AT_ONCE = CONSOLE_BURST + MAX_GUARDED_SCOPES * WORKER_CONSOLE_BURST;
+  // "In one go" is a token bucket's bound, so it is checked as one: over any stretch of time, at most MOST_AT_ONCE
+  // more messages than MOST_PER_SECOND allows for that stretch (measureMainStall's `backlog`). Counting the messages
+  // between two ticks alone is not that bound when main stalls for another reason: on the Windows CI runner of
+  // 2026-10-16 (run 38838854227) eight busy workers stalled main 3,009 ms with no console output at all and 1,558 ms
+  // with it; in the 0.6 ms run one 1,700 ms gap took 381 messages, all legitimately admitted while main was not
+  // listening (759 in the whole run, `allowedFor` 776). The rate: the page's own budget plus, per guarded scope, the
+  // worker rate and the burst of a scope started in its place (MAX_GUARDED_SCOPES starts per second). A bypass sends
+  // thousands of messages in milliseconds (13,948 queued within 71 ms before the second amendment), far beyond either.
+  const MOST_PER_SECOND = CONSOLE_LIMIT + MAX_GUARDED_SCOPES * (WORKER_CONSOLE_LIMIT + WORKER_CONSOLE_BURST);
+  const slowMain = { costMs: 0.6, ratePerSecond: MOST_PER_SECOND };
+  // The iframe cases need a baseline under the same slow main. Windows CI (2026-10-16) measured the churn case at
+  // 16 ms without the slow main and its console-free baseline at 146 ms, but 405, 518 and 514 ms beyond the simulated
+  // work in three windows with it (macOS and the dev machine: 42–58 ms) — every window, yet with 398–399 messages and
+  // at most 90–112 between two ticks, inside MOST_AT_ONCE: no more console traffic than the limiter allows, and frame
+  // lifecycle work (frame bookkeeping, every frame's DevTools Page events for the guard's session and Playwright's)
+  // that piles up behind the simulated work is the likely rest. A console-free baseline has no simulated work, so it
+  // cannot calibrate that; one measured in another window cannot either (146 ms here, 94–776 ms run to run). The
+  // calibration is therefore the same frames, the same busy loop and the same console volume through the top
+  // document's own console — the path "saved console.log in the page" bounds — instead of the frames' consoles,
+  // measured right before each window. Whatever only a frame's console adds (a bypass) is still held to 200 ms; the
+  // baseline itself is held to the limiter's batch bound and to 1.5 s.
+  const throughTop: Record<string, string> = {
+    '200 iframes, each with a saved console.log': `(() => {
+        const log = console.log;
+        const logs = [];
+        for (let k = 0; k < 200; k += 1) {
+          const f = document.createElement('iframe');
+          f.style.display = 'none';
+          document.body.append(f);
+          logs.push(f.contentWindow.console.log);
+        }
+        ${loop("for (let k = 0; k < logs.length; k += 1) log('多个框架 ' + i)")}
+        document.querySelectorAll('iframe').forEach((f) => f.remove());
+        return 'finished';
+      })()`,
+    'iframes created and removed in a loop, each a saved console.log': `(() => {
+        const log = console.log;
+        let frames = 0;
+        ${loop("const f = document.createElement('iframe'); document.body.append(f); void f.contentWindow.console.log; for (let k = 0; k < 60; k += 1) log('循环框架 ' + k); f.remove(); frames += 1")}
+        return frames > 100 ? 'finished' : 'only ' + frames + ' frames';
+      })()`,
+  };
+  const slowMainBaseline = async (name: string, code: string) => {
+    const base = await measureMainStall(app, previewId, code, slowMain);
+    console.log(
+      `${name} (main 0.6 ms per message), the same through the top document's console (baseline): ` +
+        `${base.messages} messages; most between two ticks ${base.batch}; beyond the rate ${base.backlog}; most simulated work between two ticks ${base.simulated} ms; ` +
+        `longest stall beyond the simulated work ${base.unexplained} ms`,
+    );
+    expect(base.result, name).toBe('finished');
+    expect(base.backlog, name).toBeLessThanOrEqual(MOST_AT_ONCE);
+    expect(base.unexplained, name).toBeLessThan(1_500);
+    return 200 + base.unexplained;
+  };
   for (const [name, code] of bypasses.filter(([n]) =>
     /page|worker$|sandboxed|^200 iframes|^20 workers|in a loop/.test(n),
   )) {
     await bestOf(
       name,
-      () => measureMainStall(app, previewId, code, { costMs: 0.6 }),
+      () => measureMainStall(app, previewId, code, slowMain),
       (run) => {
         console.log(
           `${name} (main 0.6 ms per message): ${run.messages} messages; longest main stall ${run.max} ms; ` +
-            `most messages between two 10 ms ticks ${run.batch}; longest stall beyond the simulated work ${run.unexplained} ms`,
+            `most messages between two 10 ms ticks ${run.batch} (beyond the rate ${run.backlog}); most simulated work between two ticks ${run.simulated} ms; ` +
+            `longest stall beyond the simulated work ${run.unexplained} ms`,
         );
         expect(run.result, name).toBe('finished');
-        expect(run.batch, name).toBeLessThanOrEqual(MOST_AT_ONCE);
+        expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name));
+        expect(run.backlog, name).toBeLessThanOrEqual(MOST_AT_ONCE);
       },
       (run) => run.unexplained,
+      throughTop[name] === undefined ? undefined : () => slowMainBaseline(name, throughTop[name]!),
     );
   }
 
   // Defence in depth (decision 0016, first amendment): output the limiter cannot see — here a DevTools isolated
-  // world, which no page can create — still trips main's flood guard, which stops the running script.
+  // world, which no page can create — still trips main's flood guard, which stops the running script. It is also the
+  // control for `backlog`: an unlimited source must show far more than MOST_AT_ONCE beyond MOST_PER_SECOND.
   const backstop = await measureMainStall(
     app,
     previewId,
     `(() => { const end = Date.now() + 5000; let i = 0; while (Date.now() < end) { console.log('隔离世界 ' + i); i += 1; } return 'finished'; })()`,
-    { isolatedWorld: true },
+    { isolatedWorld: true, ratePerSecond: MOST_PER_SECOND },
   );
   console.log(
     `isolated-world flood (backstop): ${backstop.result} after ${backstop.ms} ms; longest main stall ${backstop.max} ms; ` +
-      `guard ${JSON.stringify((await previewInfo(app)).floodTrace)}`,
+      `${backstop.messages} messages, beyond the rate ${backstop.backlog}; guard ${JSON.stringify((await previewInfo(app)).floodTrace)}`,
   );
   expect(backstop.result).toBe('stopped');
   expect(backstop.ms).toBeLessThan(5_000);
+  expect(backstop.backlog).toBeGreaterThan(MOST_AT_ONCE);
   expect(await evalInPreview<number>(app, '1 + 1')).toBe(2);
   await expect(
     page
@@ -654,44 +729,73 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
 /**
  * Runs `code` in the preview while a 10 ms timer in main records the longest stall; also returns the code's result
  * ('stopped' when its execution was terminated), how long it ran and how many console messages of the preview
- * reached main. `costMs` adds that much main-thread work per message (a slow main); `isolatedWorld` runs the code in
- * a DevTools isolated world of the page (no page guard there) instead of the page's own world.
+ * reached main. `costMs` adds that much main-thread work per message (a slow main); `backlog` is the most messages
+ * beyond a `ratePerSecond` token bucket over any stretch of ticks; `isolatedWorld` runs the code in a DevTools isolated
+ * world of the page (no page guard there) instead of the page's own world.
  */
 async function measureMainStall(
   app: ElectronApplication,
   previewId: number,
   code: string,
-  options: { costMs?: number; isolatedWorld?: boolean } = {},
-): Promise<{ max: number; result: string; ms: number; messages: number; batch: number; unexplained: number }> {
+  options: { costMs?: number; ratePerSecond?: number; isolatedWorld?: boolean } = {},
+): Promise<{
+  max: number;
+  result: string;
+  ms: number;
+  messages: number;
+  batch: number;
+  backlog: number;
+  simulated: number;
+  unexplained: number;
+}> {
   return app.evaluate(
-    async ({ webContents }, { id, js, costMs, isolatedWorld }) => {
+    async ({ webContents }, { id, js, costMs, ratePerSecond, isolatedWorld }) => {
       const wc = webContents.fromId(id);
-      if (!wc) return { max: 0, result: 'no preview', ms: 0, messages: 0, batch: 0, unexplained: 0 };
+      if (!wc)
+        return { max: 0, result: 'no preview', ms: 0, messages: 0, batch: 0, backlog: 0, simulated: 0, unexplained: 0 };
       let messages = 0;
       let sinceTick = 0;
       let batch = 0;
+      // Wall-clock time main spent in the simulated work since the last tick. A spin to a deadline ends late when the
+      // OS takes the thread off a CPU near the deadline: on the 3-core macOS runner, where "20 workers" runs 8 busy
+      // threads, 177–201 messages (≈ 120 ms of nominal work) left 277–398 ms of a gap "unexplained" in every window
+      // (CI run of 2026-10-16) with no more messages than the limiter allows. That overrun belongs to the simulation
+      // (it only exists because the simulated work spins), so it is measured, not estimated as messages × costMs.
+      let simulatedSinceTick = 0;
+      let simulated = 0;
       const onMessage = () => {
         messages += 1;
         sinceTick += 1;
         if (costMs > 0) {
-          const until = performance.now() + costMs;
-          while (performance.now() < until) {
-            // a slow main thread
+          const from = performance.now();
+          const until = from + costMs;
+          let now = from;
+          while (now < until) {
+            now = performance.now(); // a slow main thread
           }
+          simulatedSinceTick += now - from;
         }
       };
       wc.on('console-message', onMessage);
       let last = performance.now();
       let max = 0;
       let unexplained = 0;
+      // Messages beyond a token bucket of `ratePerSecond` over the worst stretch of ticks ending at a tick (Lindley's
+      // recursion: this gap's messages minus its allowance, plus whatever excess the stretch before it carried).
+      let excess = 0;
+      let backlog = 0;
       const timer = setInterval(() => {
         const now = performance.now();
         max = Math.max(max, now - last - 10);
         // The part of this gap that the simulated per-message work does not account for.
-        unexplained = Math.max(unexplained, now - last - 10 - sinceTick * costMs);
-        last = now;
+        unexplained = Math.max(unexplained, now - last - 10 - simulatedSinceTick);
         batch = Math.max(batch, sinceTick);
+        excess = sinceTick - (ratePerSecond * (now - last)) / 1_000 + Math.max(0, excess);
+        backlog = Math.max(backlog, excess);
+        simulated = Math.max(simulated, simulatedSinceTick);
+        last = now;
         sinceTick = 0;
+        simulatedSinceTick = 0;
       }, 10);
       const evaluate = async (): Promise<string> => {
         if (!isolatedWorld) return String(await wc.executeJavaScript(js));
@@ -717,9 +821,24 @@ async function measureMainStall(
       await new Promise((r) => setTimeout(r, 1_000)); // whatever main still had queued
       clearInterval(timer);
       wc.off('console-message', onMessage);
-      return { max: Math.round(max), result, ms, messages, batch, unexplained: Math.round(unexplained) };
+      return {
+        max: Math.round(max),
+        result,
+        ms,
+        messages,
+        batch,
+        backlog: Math.round(backlog),
+        simulated: Math.round(simulated),
+        unexplained: Math.round(unexplained),
+      };
     },
-    { id: previewId, js: code, costMs: options.costMs ?? 0, isolatedWorld: options.isolatedWorld ?? false },
+    {
+      id: previewId,
+      js: code,
+      costMs: options.costMs ?? 0,
+      ratePerSecond: options.ratePerSecond ?? 0,
+      isolatedWorld: options.isolatedWorld ?? false,
+    },
   );
 }
 
