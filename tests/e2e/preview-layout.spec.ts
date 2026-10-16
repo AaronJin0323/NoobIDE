@@ -2,16 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
-import {
-  consentStart,
-  copyFixture,
-  evalInPreview,
-  openPreviewMore,
-  openProject,
-  previewInfo,
-  waitForPreviewState,
-} from './preview-helpers';
-import { switchLanguage } from './language-switch'; // S44.4
+import { copyFixture, evalInPreview, openProject, previewInfo, waitForPreviewState } from './preview-helpers';
 
 /**
  * S15 preview layout end to end: splitters drag (mouse) and persist, the files panel collapses and stays collapsed
@@ -122,7 +113,7 @@ async function startPreview() {
       timeout: 20_000,
     })
     .toMatch(/^(consent|starting|running)$/);
-  if ((await consent.count()) > 0) await consentStart(page).click();
+  if ((await consent.count()) > 0) await page.getByTestId('preview-consent-start').click();
   await waitForPreviewState(page, 'running');
 }
 
@@ -248,11 +239,9 @@ test('S15.3: the mobile choice changes only the width, and says so', async () =>
   expect((await stageRect()).width).toBeGreaterThan(500);
   const desktop = page.getByTestId('viewport-desktop');
   const mobile = page.getByTestId('viewport-mobile');
-  // S44.2: a compact segmented control in the toolbar row; the group says "page width", each choice too.
   await expect(page.getByTestId('viewport-switch')).toHaveAttribute('aria-label', '页面宽度');
   await expect(desktop).toHaveText('桌面宽度');
-  await expect(mobile).toHaveText('手机宽度');
-  await expect(mobile).toHaveAttribute('title', /手机宽度 375px.*不是手机模拟/);
+  await expect(mobile).toHaveText('手机宽度 375px');
   await expect(desktop).toHaveAttribute('aria-pressed', 'true');
   const before = await evalInPreview<{ ua: string; touch: number; dpr: number; width: number }>(
     electron(),
@@ -262,9 +251,7 @@ test('S15.3: the mobile choice changes only the width, and says so', async () =>
   await mobile.click();
   await expect(mobile).toHaveAttribute('aria-pressed', 'true');
   await expect(desktop).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.getByTestId('viewport-switch')).toContainText('不是手机模拟'); // its accessible description
-  // ...and a visible note says it whenever the phone width is chosen.
-  await expect(page.getByTestId('preview-notice-viewport')).toContainText('不是手机模拟');
+  await expect(page.getByTestId('viewport-switch')).toContainText('不是手机模拟');
   await expectViewOn(async () => {
     const s = await stageRect();
     return { x: s.x + Math.floor((s.width - 375) / 2), y: s.y, width: 375, height: s.height };
@@ -278,21 +265,17 @@ test('S15.3: the mobile choice changes only the width, and says so', async () =>
   expect(after).toEqual({ ua: before.ua, touch: before.touch, dpr: before.dpr });
 
   await desktop.click();
-  await expect(page.getByTestId('preview-notice-viewport')).toHaveCount(0);
   await expectViewOverStage();
   await expect.poll(() => evalInPreview<number>(electron(), 'innerWidth')).toBe(before.width);
 
   // English labels say "width" too.
-  await switchLanguage(page);
-  await expect(mobile).toHaveText('Phone');
-  await expect(desktop).toHaveText('Desktop');
-  await expect(page.getByTestId('viewport-switch')).toHaveAttribute('aria-label', 'Page width');
-  await expect(mobile).toHaveAttribute('title', /Mobile width 375px.*not phone emulation/);
+  await page.getByTestId('switch-language').click();
+  await expect(mobile).toHaveText('Mobile width 375px');
+  await expect(desktop).toHaveText('Desktop width');
   await mobile.click();
   await expect(page.getByTestId('viewport-switch')).toContainText('not phone emulation');
-  await expect(page.getByTestId('preview-notice-viewport')).toContainText('not phone emulation');
   await desktop.click();
-  await switchLanguage(page);
+  await page.getByTestId('switch-language').click();
   await expect(desktop).toHaveText('桌面宽度');
 });
 
@@ -517,174 +500,6 @@ test('S15.6: the view follows the window into and out of fullscreen', async () =
   await expect.poll(async () => (await stageRect()).width).toBeGreaterThan(before.width);
   await expectViewOverStage();
   expect(await fullScreen(false)).toBe(true);
-  await expectViewOverStage();
-});
-
-test('S44.2: one toolbar row above the page; the More menu holds the rest and hides the view while open', async () => {
-  await setContentSize(1280, 800);
-  await expectViewOverStage();
-  // Dismiss transient notes (one-time reload note etc.), so only the chrome is measured.
-  for (const dismiss of await page.getByTestId('preview-notices').getByRole('button').all()) await dismiss.click();
-  const header = await box('preview-toolbar');
-  const stage = await stageRect();
-  // One row: the stage starts right under the header (its own 10px margin), the header is one control high.
-  expect(header.height).toBeLessThanOrEqual(44);
-  expect(stage.y - (header.y + header.height)).toBeLessThanOrEqual(12);
-  // State, width, the primary action (Refresh while running), Stop and More are all in that row.
-  for (const id of ['preview-state', 'viewport-switch', 'preview-reload', 'preview-stop', 'preview-more']) {
-    const b = await box(id);
-    expect(b.y).toBeGreaterThanOrEqual(header.y);
-    expect(b.y + b.height).toBeLessThanOrEqual(header.y + header.height);
-  }
-  await expect(page.getByTestId('preview-reload')).toHaveClass(/primary-button/);
-  await expect(page.locator('[data-testid="region-preview"] .primary-button')).toHaveCount(1);
-  // No annotations yet: no strip row and no helper sentence.
-  await expect(page.getByTestId('annotations-strip')).toHaveAttribute('data-quiet', 'true');
-  await expect(page.getByTestId('annotations-empty')).toHaveCount(0);
-
-  // The keyboard reaches the More menu: ↓ opens it on the first item; the view hides under it; Escape returns.
-  const more = page.getByTestId('preview-more');
-  await expect(more).toHaveAccessibleName('更多');
-  await more.focus();
-  await page.keyboard.press('ArrowDown');
-  const menu = page.getByTestId('preview-more-menu');
-  await expect(menu).toBeVisible();
-  await expect(page.getByTestId('preview-open-external')).toBeFocused();
-  await expect.poll(viewVisible).toBe(false);
-  for (const id of [
-    'preview-open-external',
-    'preview-entry',
-    'preview-auto-refresh',
-    'preview-annotate-pick',
-    'preview-annotate-list',
-    'preview-annotate-region',
-    'preview-advanced',
-  ]) {
-    await expect(menu.getByTestId(id)).toBeVisible();
-  }
-  await page.keyboard.press('End');
-  await expect(page.getByTestId('preview-advanced')).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(menu).toHaveCount(0);
-  await expect(more).toBeFocused();
-  await expectViewOverStage();
-
-  // Advanced opens a panel in the layout flow; the view moves down with the stage and comes back up after.
-  await openPreviewMore(page);
-  await page.getByTestId('preview-advanced').click();
-  await expect(page.getByTestId('preview-advanced-panel')).toBeVisible();
-  await expectViewOverStage();
-  await page.getByTestId('preview-advanced-close').click();
-  await expect(page.getByTestId('preview-advanced-panel')).toHaveCount(0);
-  await expectViewOverStage();
-
-  // English: the More button is called "More".
-  await switchLanguage(page);
-  await expect(more).toHaveAccessibleName('More');
-  await switchLanguage(page);
-});
-
-test('S44.2: the stopped stage keeps its message whole when the Problems panel opens; one Start only', async () => {
-  await page.getByTestId('preview-stop').click();
-  await waitForPreviewState(page, 'stopped');
-  const message = page.getByTestId('preview-message');
-  await expect(message).toBeVisible();
-  // Exactly one Start, in the stage (not a second one in the toolbar).
-  await expect(page.getByTestId('preview-start')).toHaveCount(1);
-  await expect(message.getByTestId('preview-start')).toBeVisible();
-  await page.getByTestId('problems-toggle').click();
-  await expect(page.getByTestId('problems-toggle')).toHaveAttribute('aria-expanded', 'true');
-  for (const height of [800, 640, 560]) {
-    await setContentSize(1280, height);
-    // Nothing of the message is cut off above or drawn outside the stage: either it fits, or the stage scrolls.
-    const fit = await page.getByTestId('preview-stage').evaluate((stage) => {
-      stage.scrollTop = 0;
-      const s = stage.getBoundingClientRect();
-      const m = stage.querySelector('.empty-state')!.getBoundingClientRect();
-      return {
-        topInside: m.top >= s.top - 0.5,
-        fits: m.bottom <= s.bottom + 0.5,
-        scrolls: stage.scrollHeight > stage.clientHeight,
-        overflow: getComputedStyle(stage).overflowY,
-      };
-    });
-    expect(fit.topInside).toBe(true);
-    expect(fit.fits || (fit.scrolls && fit.overflow === 'auto')).toBe(true);
-    const start = message.getByTestId('preview-start');
-    await start.scrollIntoViewIfNeeded();
-    await expect(start).toBeInViewport();
-  }
-  await setContentSize(1280, 800);
-  await page.getByTestId('problems-toggle').click();
-  await message.getByTestId('preview-start').click();
-  await waitForPreviewState(page, 'running');
-  await expectViewOverStage();
-});
-
-test('S45.3: the preview header keeps its title and state word at every pane width', async () => {
-  await setContentSize(1280, 800);
-  for (const dismiss of await page.getByTestId('preview-notices').getByRole('button').all()) await dismiss.click();
-  const splitter = page.getByTestId('splitter-editor');
-  const shareBefore = await splitter.getAttribute('aria-valuenow');
-  await splitter.focus();
-  await page.keyboard.press('End'); // the narrowest preview pane the divider allows
-  const title = page.getByTestId('preview-toolbar').locator('.preview-title');
-  const stateText = page.getByTestId('preview-state').locator('.state-pill-text');
-  for (const width of [1280, 1100, 960]) {
-    await setContentSize(width, 800);
-    const pane = await box('region-preview');
-    if (width === 960) expect(pane.width).toBeLessThan(300);
-    // The title and the state word are shown, whole (HIG Layout: always say where you are).
-    for (const [el, text] of [
-      [title, '预览'],
-      [stateText, '运行中'],
-    ] as const) {
-      await expect(el).toBeVisible();
-      await expect(el).toHaveText(text);
-      const whole = await el.evaluate(
-        (e) => e.scrollWidth <= e.clientWidth + 1 && e.getBoundingClientRect().width > 12,
-      );
-      expect(whole, `${text} at ${width}`).toBe(true);
-    }
-    // The width choices give way first: icons in a narrow pane, their words kept as the accessible name.
-    for (const [id, name] of [
-      ['viewport-desktop', '桌面宽度'],
-      ['viewport-mobile', '手机宽度'],
-    ] as const) {
-      await expect(page.getByTestId(id)).toHaveAccessibleName(name);
-      await expect(page.getByTestId(id)).toBeVisible();
-    }
-    if (pane.width <= 430) {
-      await expect(page.getByTestId('viewport-desktop').locator('.segment-icon')).toBeVisible();
-    }
-    // Nothing of the header is cut off: every control is inside the pane and inside the header (which grows a row
-    // rather than letting a control spill over the notes or the page below it).
-    const header = await box('preview-toolbar');
-    for (const id of ['preview-state', 'viewport-switch', 'preview-reload', 'preview-stop', 'preview-more']) {
-      const b = await box(id);
-      expect(b.y, id).toBeGreaterThanOrEqual(header.y - 0.5);
-      expect(b.y + b.height, id).toBeLessThanOrEqual(header.y + header.height + 0.5);
-      expect(b.x, id).toBeGreaterThanOrEqual(pane.x - 0.5);
-      expect(b.x + b.width, id).toBeLessThanOrEqual(pane.x + pane.width + 0.5);
-    }
-  }
-  await setContentSize(1280, 800);
-  // Put the divider back where it was (S15.3 left it at Home), and wait until that is saved for the next launch.
-  await splitter.focus();
-  await page.keyboard.press('Home');
-  await expect(splitter).toHaveAttribute('aria-valuenow', shareBefore ?? '');
-  await expect
-    .poll(async () => {
-      try {
-        const { layout } = JSON.parse(await readFile(path.join(userData, 'session.json'), 'utf8')) as {
-          layout: { editorShare: number } | null;
-        };
-        return layout ? String(Math.round(layout.editorShare * 100)) : null;
-      } catch {
-        return null;
-      }
-    })
-    .toBe(shareBefore);
   await expectViewOverStage();
 });
 

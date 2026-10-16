@@ -24,7 +24,7 @@ test.afterEach(async () => {
 async function start() {
   const app = await launchApp({}, { userDataDir: userData });
   const page = await app.firstWindow();
-  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+  await page.locator('.monaco-editor .view-lines').waitFor();
   return { app, page };
 }
 
@@ -62,14 +62,14 @@ test('the theme choice and the code zoom persist across a restart (S24.4)', asyn
 
   await page.keyboard.press('ControlOrMeta+=');
   await page.keyboard.press('ControlOrMeta+=');
-  await expect(page.getByTestId('region-editor')).toHaveAttribute('data-font-size', '18');
+  await expect(page.getByTestId('zoom-reset')).toHaveText('18');
   await expect.poll(settingsFile).toMatchObject({ theme: 'light', editorFontSize: 18 });
   await app.close();
 
   ({ app, page } = await start());
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await expect(page.getByTestId('region-editor')).toHaveAttribute('data-font-size', '18');
+  await expect(page.getByTestId('zoom-reset')).toHaveText('18');
   await expect.poll(async () => (await nativeChecked(app, 'theme-light')) === true).toBe(true);
 
   // The native View menu changes it too.
