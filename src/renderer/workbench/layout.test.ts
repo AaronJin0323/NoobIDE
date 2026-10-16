@@ -1,5 +1,15 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { INITIAL_LAYOUT, layoutReducer, persistedLayout, visibleRegions, type LayoutState } from './layout';
+import {
+  FRAME,
+  INITIAL_LAYOUT,
+  frameMinimums,
+  layoutReducer,
+  persistedLayout,
+  visibleRegions,
+  type LayoutState,
+} from './layout';
 
 describe('workbench layout (S30.3, S30.4)', () => {
   it('wide window starts with files, editor and preview visible and problems collapsed', () => {
@@ -77,5 +87,58 @@ describe('layout sizes (S13.4)', () => {
     expect(persistedLayout(restored)).toEqual(saved);
     expect(visibleRegions(restored, false).files).toBe(false);
     expect(visibleRegions(restored, false).problemsPanel).toBe(true);
+  });
+});
+
+describe('vertical budget: the status strip and the Problems toggle never leave the window', () => {
+  const css = (file: string) => readFileSync(path.join(__dirname, file), 'utf8').replace(/\s+/g, ' ');
+
+  it('never needs more height than the window has, down to the 640x480 minimum window', () => {
+    for (let height = 440; height <= 1400; height += 1) {
+      for (const walkthrough of [false, true]) {
+        for (const problems of [false, true]) {
+          for (const narrow of [false, true]) {
+            for (const notice of [false, true]) {
+              const m = frameMinimums(height, { walkthrough, problems, narrow, notice });
+              expect(m.total).toBeLessThanOrEqual(height);
+              expect(m.middle).toBeGreaterThan(0);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it('keeps the 430 px middle row at 1280x720 with the walkthrough and Problems open (no loss for the preview)', () => {
+    expect(frameMinimums(720, { walkthrough: true, problems: true, narrow: false }).middle).toBe(430);
+    expect(frameMinimums(720, { walkthrough: true, problems: true, narrow: false }).problems).toBe(100 + FRAME.gap);
+    // A 1366x768 laptop (about 677 px of content) and 1080p at 150 % (about 637 px).
+    expect(frameMinimums(677, { walkthrough: true, problems: true, narrow: false }).middle).toBe(430);
+    expect(frameMinimums(637, { walkthrough: true, problems: true, narrow: false }).middle).toBe(409);
+  });
+
+  it('matches the CSS that applies it', () => {
+    const styles = css('../styles.css');
+    expect(styles).toContain(`--topbar-h: ${FRAME.topbar}px;`);
+    expect(styles).toContain(`--strip-h: ${FRAME.strip}px;`);
+    expect(styles).toContain(
+      `--problems-panel-min: clamp(${FRAME.problemsMin.floor}px, calc(100vh - ${FRAME.problemsMin.offset}px), ${FRAME.problemsMin.ceiling}px);`,
+    );
+    expect(styles).toContain(
+      `min( ${FRAME.middleMax}px, calc( 100vh - var(--topbar-h) - var(--strip-h) - var(--walkthrough-reserve) - var(--problems-reserve) - var(--notice-reserve) ) )`,
+    );
+    expect(styles).toContain(
+      `--notice-reserve: clamp(${FRAME.noticeMin.floor}px, calc(100vh - ${FRAME.noticeMin.offset}px), ${FRAME.noticeMin.ceiling}px);`,
+    );
+    // A flex-shrink below 1 would remove only that share of the overflow and push the status strip off the window.
+    expect(css('../walkthrough/walkthrough.css')).toMatch(/\.walkthrough \{[^}]*flex: 0 1 auto;/);
+    expect(styles).toMatch(/body \{[^}]*overflow: hidden;/);
+    expect(styles).toMatch(/\.status-strip \{[^}]*flex: none;/);
+    // Problems is sized to its content (up to a cap), not a fixed 260 px.
+    expect(styles).toMatch(/\.problems-panel:not\(\[hidden\]\) \{[^}]*flex: 0 1 auto;[^}]*max-height: 260px;/);
+    const walkthrough = css('../walkthrough/walkthrough.css');
+    expect(walkthrough).toContain(`--walkthrough-min: ${FRAME.walkthroughMin.wide}px;`);
+    expect(walkthrough).toContain(`--walkthrough-min: ${FRAME.walkthroughMin.narrow}px;`);
+    expect(walkthrough).toMatch(/\.walkthrough-actions \{[^}]*flex-wrap: nowrap;/);
   });
 });

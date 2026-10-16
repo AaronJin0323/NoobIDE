@@ -123,7 +123,23 @@ describe('"Fix with AI" on the problem card (S35.2)', () => {
     );
   it('is offered only while AI is available, beside the other actions', () => {
     expect(card('zh-CN')).not.toContain('problem-fix-ai');
-    expect(card('zh-CN', () => undefined)).toMatch(/data-testid="problem-fix-ai"[^>]*>用 AI 修复</);
-    expect(card('en', () => undefined)).toMatch(/data-testid="problem-fix-ai"[^>]*>Fix with AI</);
+    // The AI look: the sparkle icon and the written label (never the colour alone).
+    expect(card('zh-CN', () => undefined)).toMatch(
+      /class="ai-entry" data-testid="problem-fix-ai"[^>]*><svg[^]*?<\/svg>用 AI 修复<\/button>/,
+    );
+    expect(card('en', () => undefined)).toMatch(
+      /data-testid="problem-fix-ai"[^>]*><svg[^]*?<\/svg>Fix with AI<\/button>/,
+    );
+  });
+
+  it('the actions come right after the head, before the explanation, causes and checks', () => {
+    const html = card('zh-CN', () => undefined);
+    const head = html.indexOf('data-testid="problem-card-head"');
+    const fixAi = html.indexOf('data-testid="problem-fix-ai"');
+    const explanation = html.indexOf('data-testid="problem-explanation"');
+    expect(head).toBeGreaterThan(-1);
+    expect(fixAi).toBeGreaterThan(head);
+    expect(fixAi).toBeLessThan(explanation);
+    expect(html.indexOf('data-testid="problem-go-to"')).toBeLessThan(explanation);
   });
 });

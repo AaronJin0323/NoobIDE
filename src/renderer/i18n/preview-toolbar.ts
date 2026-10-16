@@ -28,6 +28,8 @@ export const previewToolbarZhCN = {
   'preview.clearData.done': '这个项目的预览数据已清除。',
   'preview.clearData.failed': '没能清除预览数据。',
   'preview.note.dismiss': '知道了',
+  'preview.console.errors': '{count} 个错误',
+  'preview.console.errors.label': '这次加载有 {count} 个错误',
   // ── S14.2 刷新方式 ──
   'preview.refreshMode': '保存后自动刷新',
   'preview.refreshMode.title': '打开：保存成功并停止输入后自动刷新预览。关闭：只在你点“刷新”时刷新。',
@@ -81,6 +83,8 @@ export const previewToolbarEn: Record<keyof typeof previewToolbarZhCN, string> =
   'preview.clearData.done': 'This project’s preview data was cleared.',
   'preview.clearData.failed': 'The preview data could not be cleared.',
   'preview.note.dismiss': 'Got it',
+  'preview.console.errors': 'Errors: {count}',
+  'preview.console.errors.label': 'Errors in this page load: {count}',
   'preview.refreshMode': 'Refresh after saving',
   'preview.refreshMode.title':
     'On: the preview refreshes after a successful save once you pause typing. Off: only when you click Refresh.',

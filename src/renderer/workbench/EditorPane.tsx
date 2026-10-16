@@ -20,6 +20,7 @@ import { formatShortcutLabel } from '../../platform/labels';
 import { saveErrorKey } from './file-op-messages';
 import { useInlineAiState } from '../ai/useInlineAiState'; // S32.1
 import { IndentStatus } from './IndentStatus'; // S43.2
+import { EditorAiActions } from '../ai/EditorAiActions';
 
 const FORMATTABLE = new Set(['html', 'css', 'javascript']);
 
@@ -291,6 +292,9 @@ export function EditorPane(props: EditorPaneProps) {
       )}
       {editorFile && cursor && (
         <div className="editor-status">
+          {/* Edit with AI / Explain: always in view under the code while AI is offered (the same actions as the editor's
+              context menu), without taking room from the open-file tabs. */}
+          {tab && <EditorAiActions />}
           <IndentStatus />
           <span data-testid="cursor-position">{`${t('editor.line')} ${cursor.line}, ${t('editor.column')} ${cursor.column}`}</span>
           {inlineAi && (

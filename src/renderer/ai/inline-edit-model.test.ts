@@ -269,5 +269,12 @@ describe('inline edit texts in zh-CN and en (S35.1)', () => {
     expect(html).toMatch(/data-kind="added".*\+.*added: .*&lt;p&gt;blue&lt;\/p&gt;/);
     expect(html).toContain('data-testid="inline-edit-accept"');
     expect(html).toContain('data-testid="inline-edit-reject"');
+    // Accept / Reject come before the diff, so they are in view however long the proposed change is.
+    expect(html.indexOf('data-testid="inline-edit-accept"')).toBeLessThan(
+      html.indexOf('data-testid="inline-edit-diff"'),
+    );
+    expect(html.indexOf('data-testid="inline-edit-reject"')).toBeLessThan(
+      html.indexOf('data-testid="inline-edit-diff"'),
+    );
   });
 });

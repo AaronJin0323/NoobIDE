@@ -4,7 +4,6 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import { axeScan } from './a11y-helpers';
 import { launchApp } from './launch';
 import { collectConsoleErrors, focusEditor, makeProject, openFile, openProject } from './project';
-import { switchLanguage } from './language-switch'; // S44.4
 
 /**
  * S33 AI chat panel and "Explain" entry points, against the scripted fake provider of S31 (decision 0025: no test calls
@@ -52,7 +51,7 @@ test.describe('AI chat (S33)', () => {
     app = await launchApp({ NOOBIDE_AI_FAKE: '1' });
     page = await app.firstWindow();
     consoleErrors = collectConsoleErrors(page);
-    await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+    await page.locator('.monaco-editor .view-lines').waitFor();
     await openProject(app, page, root);
   });
 
@@ -79,15 +78,23 @@ test.describe('AI chat (S33)', () => {
     await expect(input()).toBeFocused();
     await expect(chips()).toHaveCount(1);
     await expect(chips().first()).toContainText('文件 index.html');
+    // Close, New chat, the three ways to add context, the input and Send are all in view at once.
+    for (const id of [
+      'ai-new',
+      'ai-close',
+      'ai-add-file',
+      'ai-add-selection',
+      'ai-add-preview',
+      'ai-input',
+      'ai-send',
+    ]) {
+      await expect(panel().getByTestId(id)).toBeInViewport({ ratio: 1 });
+    }
     // Removable, and added back on request.
     await chips().first().getByTestId('ai-chip-remove').click();
     await expect(chips()).toHaveCount(0);
     await expect(panel().getByTestId('ai-no-context')).toBeVisible();
-    // S45.5: the add actions sit behind one Add (+) pull-down menu.
-    await panel().getByTestId('ai-add-menu').click();
-    await expect(panel().getByRole('menu')).toBeVisible();
     await panel().getByTestId('ai-add-file').click();
-    await expect(panel().getByRole('menu')).toHaveCount(0);
     await expect(chips()).toHaveCount(1);
 
     await input().fill('这个页面是做什么的？');
@@ -124,14 +131,14 @@ test.describe('AI chat (S33)', () => {
   });
 
   test('en: an offline error is explained; answers follow the UI locale (S33.1)', async () => {
-    await switchLanguage(page);
+    await page.getByTestId('switch-language').click();
     await panel().getByTestId('ai-new').click();
     await input().fill('[[offline]] hello');
     await panel().getByTestId('ai-send').click();
     const error = lastTurn().getByTestId('ai-error');
     await expect(error).toHaveAttribute('data-code', 'offline');
     await expect(error).toContainText('Cannot reach the AI service. Check the network connection.');
-    await switchLanguage(page); // back to zh-CN
+    await page.getByTestId('switch-language').click(); // back to zh-CN
   });
 
   test('"Explain this code" on a selection opens the chat in explain mode with the selection (S33.2)', async () => {

@@ -1,16 +1,107 @@
-/* S41.5 preview annotations strip: in the layout flow under the preview toolbar (the native view never covers it). */
-.annotations {
+/* S41.5 preview annotations. The entry ("Annotate page" + "View annotations (N)") sits in the preview header row; the
+   ways, the steps and the list sit in the layout flow between the toolbar and the stage, so the native view never
+   covers them and nothing of them is ever inside a scrolling area that hides its buttons. */
+
+/* ── Header entry ── */
+.annotate-entry {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+/* The tinted primary entry: an icon, the words and the count (never colour alone). */
+.annotate-button {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px 0 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-text) 40%, transparent);
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.annotate-button:hover {
+  border-color: var(--accent-text);
+}
+.annotate-button[aria-expanded='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+/* Not available yet (preview not running, or a step in progress): still shown and focusable, with a dashed outline
+   and its reason in the tooltip and aria-describedby. */
+.annotate-button[aria-disabled='true'] {
+  border-style: dashed;
+  border-color: var(--line);
+  background: transparent;
+  color: var(--muted);
+  cursor: help;
+}
+.annotate-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11px;
+  line-height: 1;
+}
+.annotate-button[aria-expanded='true'] .annotate-badge {
+  background: var(--on-accent);
+  color: var(--accent);
+}
+.annotate-button[aria-disabled='true'] .annotate-badge {
+  background: var(--raised);
+  color: var(--text);
+}
+.annotate-entry .annotations-toggle {
+  height: 30px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+.annotate-entry .annotations-toggle[aria-expanded='true'] {
+  background: var(--raised);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ── Strip: zero height when idle and the list is closed ── */
+.annotations {
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 45%;
-  overflow: auto;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--line);
+  gap: 6px;
+  min-height: 0;
+  /* Room for a step or the list without pushing the stage under its minimum. */
+  max-height: max(110px, 100% - 310px);
+  padding: 0 10px;
+  overflow: hidden;
   font-size: 12px;
 }
-.annotations-bar,
+.annotations:not([data-mode='idle']) {
+  max-height: max(170px, 100% - 230px);
+}
+.annotations:has(> :not(.annotations-status:empty):not([hidden])) {
+  padding-top: 6px;
+}
+.annotations-panel-head .annotations-scope {
+  margin-left: auto;
+}
+/* Drawing: the picture takes the stage's place and is fitted into it. */
+.annotations[data-mode='drawing'] {
+  flex: 1 1 0;
+  max-height: none;
+  padding-bottom: 6px;
+}
 .annotations-ways,
 .annotations-actions,
 .annotations-scope {
@@ -19,28 +110,57 @@
   align-items: center;
   gap: 4px 8px;
 }
-.annotations-scope {
+.annotations-ways {
+  flex: none;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-text) 30%, transparent);
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+}
+.annotations-ways-title {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.annotations-way {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+.annotations-way:hover {
+  border-color: var(--accent-text);
+}
+.annotations-ways-close {
   margin-left: auto;
 }
-.annotations-bar .quiet-button,
 .annotations-ways .quiet-button,
 .annotations-actions .quiet-button,
 .annotations-step > .quiet-button,
-.annotations > div > .quiet-button {
+.annotations-panel .quiet-button {
   height: 26px;
   padding: 0 8px;
 }
-.annotations-toggle {
+/* The step's main action (Save, Use this region). */
+.annotations-primary {
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: var(--on-accent);
   font-weight: 600;
-  color: var(--text);
+  cursor: pointer;
 }
-.annotations-count {
-  min-width: 18px;
-  padding: 0 6px;
-  border-radius: 9px;
-  background: var(--raised);
-  color: var(--muted);
-  font-weight: 400;
+.annotations-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.annotations-toggle {
+  color: var(--text);
 }
 .annotations-status:empty {
   display: none;
@@ -50,17 +170,63 @@
   margin: 0;
   color: var(--muted);
 }
+/* An active step is announced in a banner (text, not colour alone). */
+.annotations-status:not(:empty) {
+  flex: none;
+  padding: 4px 8px;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
 .annotations-step {
+  flex: none;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+  min-height: 0;
   padding: 6px 8px;
   border-radius: var(--radius-control);
   background: var(--raised);
 }
+.annotations-step-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+/* A long list or a long note scrolls inside the step; its buttons stay on screen (sticky at the bottom). */
+.annotations-step:has(.annotation-candidates),
+.annotation-naming {
+  flex: 0 1 auto;
+  overflow-y: auto;
+}
+.annotations-step > .annotations-actions {
+  position: sticky;
+  bottom: -6px;
+  align-self: stretch;
+  margin-bottom: -6px;
+  padding: 4px 0 6px;
+  background: var(--raised);
+}
+.annotation-drawing {
+  flex: 1 1 0;
+  align-items: stretch;
+}
+.annotation-region-frame {
+  flex: 1 1 0;
+  min-height: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: hidden;
+  container-type: size;
+}
 .annotation-candidates {
   align-self: stretch;
+  flex: 0 1 auto;
+  min-height: 48px;
   max-height: 180px;
   margin: 0;
   padding: 2px;
@@ -99,8 +265,8 @@
 }
 .annotation-region-canvas img {
   display: block;
-  max-width: 100%;
-  max-height: 50vh;
+  max-width: 100cqw;
+  max-height: 100cqh;
 }
 .annotation-region-rect {
   position: absolute;
@@ -125,9 +291,43 @@
   gap: 4px;
   align-items: baseline;
 }
+/* ── The list ── */
+.annotations-panel:not([hidden]) {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+.annotations-panel > * {
+  flex: none;
+  margin-inline: 8px;
+}
+.annotations-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.annotations-panel-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.annotations-panel .annotations-hint,
+.annotations-panel > .quiet-button {
+  margin-block: 4px;
+}
 .annotations-list {
+  flex: 0 1 auto;
+  min-height: 0;
   margin: 0;
   padding-left: 22px;
+  overflow-y: auto;
 }
 .annotation-item {
   padding: 4px 0;

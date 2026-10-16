@@ -6,7 +6,6 @@ import { chromium, expect, test, type Browser, type Page } from '@playwright/tes
 import { repoRoot, tempRoot } from './launch';
 import { packagedExecutable } from './packaged';
 import { typeAtEnd } from './project';
-import { switchLanguage } from './language-switch'; // S44.4
 
 /**
  * S28.4 (docs/decisions/0023-upgrade-and-uninstall.md), the macOS half of "vN → vN+1 manual upgrade keeps settings,
@@ -123,7 +122,7 @@ async function start(exe: string): Promise<Running> {
       .toBe(true);
     // No unbounded waits on this page: a stuck step fails with its own message instead of the test timeout.
     page!.setDefaultTimeout(30_000);
-    await page!.locator('.monaco-editor .view-lines').first().waitFor({ state: 'attached', timeout: 60_000 });
+    await page!.locator('.monaco-editor .view-lines').first().waitFor({ timeout: 60_000 });
     return { child, browser, page: page! };
   } catch (error) {
     await browser?.close().catch(() => undefined);
@@ -178,7 +177,7 @@ test('packaged vN → vN+1 keeps settings, session, history and recent projects;
   try {
     const { page } = vN;
     expect(await aboutVersion(page)).toBe(`版本 ${pkg.version}`);
-    await switchLanguage(page);
+    await page.getByTestId('switch-language').click();
     expect(await aboutVersion(page)).toBe(`Version ${pkg.version}`);
 
     await page.getByTestId('welcome-create').click();
