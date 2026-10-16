@@ -3,6 +3,24 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Side task — 2026-10-16 — NoobIDE license
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/noobide-license-c9f1ac`.
+
+**Done**
+
+- Owner chose the MIT License (answers the Session 21 owner question "NoobIDE itself has no license"). Added
+  `LICENSE` (copyright holder "NoobIDE contributors", matching `APP_COPYRIGHT` in forge.config.ts),
+  `"license": "MIT"` in package.json and the lockfile root, and a License section in README.md.
+
+**Evidence**
+
+- `npm run verify` green.
+
+**Next up**
+
+- Unchanged: continue with the current session shown by `npm run session -- start`.
+
 ## Session 22 (side session) — 2026-10-16 — CI: the three load-sensitive preview specs (S05.8, S05.7, S38.1)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/interesting-hopper-188b01`
