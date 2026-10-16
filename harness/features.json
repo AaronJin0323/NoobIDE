@@ -4273,8 +4273,8 @@
       "depends_on": [
         "S47.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/shell.spec.ts 'S47.2: …' (1280x800 + 640x480 welcome fills editor+preview area, one filled button, files empty state without button, 'not saved' once, Lessons from the welcome, no top-bar box moves on open) + layout.test.ts; e2e shell/welcome/files/walkthrough/recent-projects green on Windows; verify green"
     },
     {
       "id": "S47.3",

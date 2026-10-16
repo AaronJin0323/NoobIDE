@@ -141,7 +141,7 @@ export function Workbench() {
   const aboutOpen = useAboutRequests(); // S28.1: opened by openAbout() (menus: S24)
   const aiSettingsOpen = useAiSettingsRequests(); // S31.4: opened by openAiSettings() (menus, the AI chat)
   const narrow = useMediaQuery(NARROW_QUERY);
-  const visible = visibleRegions(layout, narrow);
+  const visible = visibleRegions(layout, narrow, doc.project !== null); // S47.2: the welcome owns the window
   /** Bumped by the narrow window's top-bar "New file" button: the files panel starts a new file (key-features pass). */
   const [newFileRequest, setNewFileRequest] = useState(0);
 
@@ -1214,7 +1214,9 @@ export function Workbench() {
         style={
           {
             '--files-width': `${layout.filesWidth}px`,
-            '--editor-grow': layout.editorShare,
+            // S47.2: without a project the editor column (welcome + sample) takes the whole free width: a flex-grow
+            // below 1 would leave the preview's share empty.
+            '--editor-grow': project ? layout.editorShare : 1,
             '--preview-grow': 1 - layout.editorShare,
           } as CSSProperties
         }
@@ -1285,7 +1287,7 @@ export function Workbench() {
             />
           }
         />
-        {!narrow && (
+        {!narrow && project && (
           <Splitter
             label={t('layout.resizeEditor')}
             testId="splitter-editor"
@@ -1303,6 +1305,7 @@ export function Workbench() {
               const total = (editor?.width ?? 0) + (preview?.width ?? 0);
               return total > 0 ? start + dx / total : start;
             }}
+              onShowLessons={() => commands.run('help-walkthrough')} // S47.2: Lessons stays reachable from the welcome
             onChange={(share) => dispatchLayout({ type: 'resizeEditor', share })}
           />
         )}

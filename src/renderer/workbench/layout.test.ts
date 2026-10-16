@@ -41,6 +41,26 @@ describe('workbench layout (S30.3, S30.4)', () => {
     expect(visibleRegions(preview, false)).toMatchObject({ editor: true, preview: true });
   });
 
+  it('S47.2: without a project the welcome owns the middle row — no preview column, no narrow switch', () => {
+    expect(visibleRegions(INITIAL_LAYOUT, false, false)).toMatchObject({
+      editor: true,
+      preview: false,
+      narrowSwitch: false,
+    });
+    expect(visibleRegions(INITIAL_LAYOUT, true, false)).toMatchObject({
+      editor: true,
+      preview: false,
+      narrowSwitch: false,
+    });
+    // The narrow view chosen before the project closed never hides the welcome.
+    const preview = layoutReducer(INITIAL_LAYOUT, { type: 'showNarrowView', view: 'preview' });
+    expect(visibleRegions(preview, true, false)).toMatchObject({ editor: true, preview: false });
+    expect(visibleRegions(preview, true, true)).toMatchObject({ editor: false, preview: true });
+    // The files panel follows its own toggle either way.
+    expect(visibleRegions(INITIAL_LAYOUT, false, false).files).toBe(true);
+    expect(visibleRegions(INITIAL_LAYOUT, true, false).files).toBe(false);
+  });
+
   it('files toggle is remembered separately for wide and narrow windows', () => {
     const wideClosed = layoutReducer(INITIAL_LAYOUT, { type: 'toggleFiles', narrow: false });
     expect(visibleRegions(wideClosed, false).files).toBe(false);

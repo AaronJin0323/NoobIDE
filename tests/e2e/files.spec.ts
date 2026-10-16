@@ -64,14 +64,14 @@ test.afterAll(async () => {
 
 test('cancelling the folder dialog changes nothing (S03.3)', async () => {
   await answerFolderDialog(null);
-  await page.getByTestId('open-folder').click();
+  await page.getByTestId('welcome-open-folder').click();
   await expect(page.getByTestId('project-name')).toHaveText('未打开项目');
   await expect(page.getByTestId('sample-badge')).toBeVisible();
 });
 
 test('opens a folder with Chinese characters and spaces and lists its files (S03.3)', async () => {
   await answerFolderDialog(root);
-  await page.getByTestId('open-folder').click();
+  await page.getByTestId('welcome-open-folder').click();
   await expect(page.getByTestId('project-name')).toHaveText('中文 路径 项目');
   await expect(page.getByTestId('project-path')).toHaveText(root);
   await expect(treeItem('index.html')).toBeVisible();

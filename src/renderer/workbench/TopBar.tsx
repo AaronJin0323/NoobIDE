@@ -75,9 +75,11 @@ export function TopBar({
         <span className="project-name" data-testid="project-name">
           {project ? project.name : t('topbar.noProject')}
         </span>
-        <span className="project-detail" data-testid="project-path">
-          {project ? project.rootPath : t('topbar.sampleNotice')}
-        </span>
+        {project && (
+          <span className="project-detail" data-testid="project-path">
+            {project.rootPath}
+          </span>
+        )}
       </div>
       {/* S40.3: project actions share one glass group */}
       {(project || (menuItems && menuItems.length > 0)) && (

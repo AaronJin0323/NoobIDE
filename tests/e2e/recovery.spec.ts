@@ -103,7 +103,7 @@ async function openProjectAndFile(relPath: string) {
     (dialog as unknown as { showOpenDialog: typeof fake }).showOpenDialog = fake;
   }, root);
   // S13.4: after a normal quit the project is already reopened; then the files panel offers "open other folder".
-  const first = page.getByTestId('open-folder');
+  const first = page.getByTestId('welcome-open-folder');
   await ((await first.count()) > 0 ? first : page.getByTestId('open-other-folder')).click();
   await expect(page.getByTestId('project-name')).toHaveText('中文 路径 项目');
   // S08.1 file tree: expand the folders on the way, then open the file.

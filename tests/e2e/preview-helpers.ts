@@ -31,7 +31,7 @@ export async function answerFolderDialog(app: ElectronApplication, folder: strin
 export async function openProject(app: ElectronApplication, page: Page, folder: string): Promise<void> {
   await answerFolderDialog(app, folder);
   // Whichever entry the screen shows once it has rendered (welcome: open-folder; a project open: open-other-folder).
-  await page.getByTestId('open-folder').or(page.getByTestId('open-other-folder')).first().click();
+  await page.getByTestId('welcome-open-folder').or(page.getByTestId('open-other-folder')).first().click();
   await expect(page.getByTestId('project-name')).toHaveText(path.basename(folder));
 }
 

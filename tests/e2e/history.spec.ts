@@ -68,7 +68,7 @@ async function stubShell() {
   );
 }
 
-async function openFolder(root: string, testId: 'open-folder' | 'open-other-folder') {
+async function openFolder(root: string, testId: 'welcome-open-folder' | 'open-other-folder') {
   await answerFolderDialog(app, root);
   await page.getByTestId(testId).click();
   await expect(page.getByTestId('project-name')).toHaveText(path.basename(root));
@@ -88,7 +88,7 @@ test.beforeAll(async () => {
   consoleErrors = collectConsoleErrors(page);
   await page.locator('.monaco-editor .view-lines').waitFor();
   await stubShell();
-  await openFolder(rootA, 'open-folder');
+  await openFolder(rootA, 'welcome-open-folder');
 });
 
 test.afterAll(async () => {

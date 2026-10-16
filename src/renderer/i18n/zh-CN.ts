@@ -19,7 +19,6 @@ import { journeyZhCN } from './journey'; // beginner-journey fixes
 export const zhCN = {
   'app.name': 'NoobIDE',
   'topbar.noProject': '未打开项目',
-  'topbar.sampleNotice': '正在编辑示例，不会保存到磁盘',
   'topbar.saveStatus': '保存状态',
   'topbar.saveStatus.noFile': '没有打开的文件',
   'topbar.language': '界面语言',
@@ -33,6 +32,7 @@ export const zhCN = {
   'rail.files': '文件',
   'rail.problems': '问题',
   'files.empty': '还没有打开文件夹。',
+  'files.emptyHint': '创建或打开一个网页项目后，它的文件会显示在这里。',
   'editor.loading': '正在加载编辑器…',
   'editor.welcomeTab': '示例.html',
   'editor.sampleBadge': '示例 · 未保存到磁盘',
@@ -87,7 +87,6 @@ export const zhCN = {
   'fileRole.hintLabel': '这个文件是做什么的',
   // ── end S20.3 ──
   'narrow.preview': '预览',
-  'files.openFolder': '打开文件夹…',
   'files.openOther': '打开其他文件夹',
   'files.listLabel': '项目文件',
   'files.truncated': '文件太多，只列出了前 2000 个。',

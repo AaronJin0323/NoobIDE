@@ -33,7 +33,7 @@ test.beforeAll(async () => {
     const fake = async () => ({ canceled: false, filePaths: [chosen] });
     (dialog as unknown as { showOpenDialog: typeof fake }).showOpenDialog = fake;
   }, root);
-  await page.getByTestId('open-folder').click();
+  await page.getByTestId('welcome-open-folder').click();
   await expect(page.getByTestId('project-name')).toHaveText('我的 主页');
 });
 

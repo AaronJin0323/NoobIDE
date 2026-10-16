@@ -18,7 +18,6 @@ import { journeyEn } from './journey'; // beginner-journey fixes
 export const en: Record<MessageKey, string> = {
   'app.name': 'NoobIDE',
   'topbar.noProject': 'No project open',
-  'topbar.sampleNotice': 'Editing a sample — nothing is saved to disk',
   'topbar.saveStatus': 'Save status',
   'topbar.saveStatus.noFile': 'No file open',
   'topbar.language': 'Interface language',
@@ -32,6 +31,7 @@ export const en: Record<MessageKey, string> = {
   'rail.files': 'Files',
   'rail.problems': 'Problems',
   'files.empty': 'No folder is open yet.',
+  'files.emptyHint': 'Create or open a webpage project and its files will show here.',
   'editor.loading': 'Loading the editor…',
   'editor.welcomeTab': 'sample.html',
   'editor.sampleBadge': 'Sample · not saved to disk',
@@ -89,7 +89,6 @@ export const en: Record<MessageKey, string> = {
   'fileRole.data.detail': 'Structured data that a script can read.',
   'fileRole.hintLabel': 'What this file is for',
   // ── end S20.3 ──
-  'files.openFolder': 'Open folder…',
   'files.openOther': 'Open another folder',
   'files.listLabel': 'Project files',
   'files.truncated': 'Too many files: only the first 2000 are listed.',
