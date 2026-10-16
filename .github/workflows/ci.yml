@@ -16,16 +16,18 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    name: ${{ matrix.target }}
+    name: ${{ matrix.target }} (shard ${{ matrix.shard }}/2)
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
+        target: [windows-x64, macos-arm64]
+        shard: [1, 2]
         include:
           - target: windows-x64
             os: windows-latest
@@ -63,7 +65,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: fault-suite-${{ matrix.target }}
+          name: fault-suite-${{ matrix.target }}-${{ matrix.shard }}
           path: reports/faults/
           if-no-files-found: error
           retention-days: 30
@@ -74,15 +76,27 @@ jobs:
       # No xvfb: Windows and macOS runners have a desktop session, and Playwright drives the Electron binary from
       # node_modules, so no browser download is needed (scripts/e2e.mjs).
       - name: End-to-end tests (Playwright + Electron)
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
+
+      - name: Upload E2E timing report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-report-${{ matrix.target }}-${{ matrix.shard }}
+          path: reports/e2e/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Make installers
-        run: npm run make
+        if: matrix.shard == 1
+        run: npm run make -- --from-package
 
       - name: Inspect binary architectures
+        if: matrix.shard == 1
         run: node scripts/inspect-arch.mjs
 
       - name: Upload installers
+        if: matrix.shard == 1
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: noobide-${{ matrix.target }}
@@ -94,7 +108,24 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-results-${{ matrix.target }}
+          name: e2e-results-${{ matrix.target }}-${{ matrix.shard }}
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  complete:
+    # Preserve the required check names in the existing Protect main ruleset.
+    # Each gate requires the whole matrix, so neither can hide a failed or cancelled shard.
+    name: ${{ matrix.target }}
+    if: always()
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: {}
+    strategy:
+      matrix:
+        target: [windows-x64, macos-arm64]
+    steps:
+      - name: Require every platform and shard
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: node -e "if (process.env.BUILD_RESULT !== 'success') process.exit(1)"

@@ -1613,7 +1613,7 @@ const AUTO_ATTACH = { autoAttach: true, waitForDebuggerOnStart: true, flatten: t
  * S05.8: the first document comes first and on its own (showFirstDocument), then the commands are bounded by
  * GUARD_TIMEOUT_MS. With one 5 s bound over both, a first navigation stuck on a loaded machine made the preview run
  * without its guard after 5 s of "Starting", the about:blank load still pending when the page's own load began.
- * The e2e suite never saw it with Playwright's DevTools connection to every view; tests/e2e/preview-restore.spec.ts
+ * The e2e suite never saw it with Playwright's DevTools connection to every view; tests/e2e/app-startup-restore.spec.ts
  * restarts the app without that connection.
  */
 async function installPageGuard(

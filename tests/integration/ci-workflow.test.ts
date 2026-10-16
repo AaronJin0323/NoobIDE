@@ -79,6 +79,8 @@ describe('ci.yml', () => {
   it('builds Windows x64 on windows-latest and Apple Silicon on macos-14, without fail-fast', () => {
     const strategy = block('strategy', 4).body.map((l) => l.trim());
     expect(strategy).toContain('fail-fast: false');
+    expect(strategy).toContain('target: [windows-x64, macos-arm64]');
+    expect(strategy).toContain('shard: [1, 2]');
     const include = strategy.slice(strategy.indexOf('include:') + 1).join('\n');
     expect(include).toBe(
       [
@@ -95,12 +97,18 @@ describe('ci.yml', () => {
 
   it('runs install, verify, e2e, make and the architecture inspection in that order', () => {
     const runs = steps.filter((s) => s.run).map((s) => s.run);
-    const order = ['npm ci', 'npm run verify', 'npm run test:e2e', 'npm run make', 'node scripts/inspect-arch.mjs'];
+    const order = [
+      'npm ci',
+      'npm run verify',
+      'npm run test:e2e -- --shard=${{ matrix.shard }}/2',
+      'npm run make -- --from-package',
+      'node scripts/inspect-arch.mjs',
+    ];
     const idx = order.map((cmd) => runs.indexOf(cmd));
     expect(idx.every((i) => i >= 0)).toBe(true);
     expect([...idx].sort((a, b) => a - b)).toEqual(idx);
-    // These steps are unconditional (an `if:` could silently skip them).
-    for (const s of steps.filter((x) => order.includes(x.run ?? ''))) expect(s.if).toBeUndefined();
+    for (const s of steps.filter((x) => order.slice(0, 3).includes(x.run ?? ''))) expect(s.if).toBeUndefined();
+    for (const s of steps.filter((x) => order.slice(3).includes(x.run ?? ''))) expect(s.if).toBe('matrix.shard == 1');
   });
 
   it('runs the fault suite (S26.2) on every matrix job, unconditionally, and uploads its report per target', () => {
@@ -119,7 +127,7 @@ describe('ci.yml', () => {
     // always(): the report of a failing run is the most useful one.
     expect(steps[upload]?.if).toBe('always()');
     expect(steps[upload]?.with).toMatchObject({
-      name: 'fault-suite-${{ matrix.target }}',
+      name: 'fault-suite-${{ matrix.target }}-${{ matrix.shard }}',
       'if-no-files-found': 'error',
     });
   });
@@ -143,12 +151,12 @@ describe('ci.yml', () => {
   });
 
   it('uploads the installers from out/make after make, failing when there are none', () => {
-    const makeIdx = steps.findIndex((s) => s.run === 'npm run make');
+    const makeIdx = steps.findIndex((s) => s.run === 'npm run make -- --from-package');
     const upload = steps.findIndex(
       (s) => s.uses?.startsWith('actions/upload-artifact@') && s.with.path === 'out/make/',
     );
     expect(upload).toBeGreaterThan(makeIdx);
-    expect(steps[upload]?.if).toBeUndefined();
+    expect(steps[upload]?.if).toBe('matrix.shard == 1');
     expect(steps[upload]?.with).toMatchObject({
       name: 'noobide-${{ matrix.target }}',
       'if-no-files-found': 'error',
@@ -160,6 +168,27 @@ describe('ci.yml', () => {
     expect(uses.length).toBeGreaterThanOrEqual(3);
     for (const l of uses) {
       expect(l).toMatch(/uses:\s+[\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+(\.\d+){0,2}$/);
+    }
+  });
+
+  it('cancels stale runs and requires every matrix job at the aggregate gate', () => {
+    expect(block('concurrency', 0).body.map((l) => l.trim())).toContain('cancel-in-progress: true');
+    const gate = block('complete', 2).body.join('\n');
+    expect(gate).toContain('if: always()');
+    expect(gate).toContain('needs: build');
+    expect(gate).toContain('name: ${{ matrix.target }}');
+    expect(gate).toContain('target: [windows-x64, macos-arm64]');
+    expect(gate).toContain('BUILD_RESULT: ${{ needs.build.result }}');
+    expect(gate).toContain("process.env.BUILD_RESULT !== 'success'");
+  });
+
+  it('retains per-shard reports even on failure without artifact name collisions', () => {
+    const report = steps.find((s) => s.name === 'Upload E2E timing report');
+    expect(report?.if).toBe('always()');
+    expect(report?.with.path).toBe('reports/e2e/');
+    for (const s of steps.filter((s) => s.uses?.startsWith('actions/upload-artifact@'))) {
+      expect(s.with.name).toContain('${{ matrix.target }}');
+      if (s.if !== 'matrix.shard == 1') expect(s.with.name).toContain('${{ matrix.shard }}');
     }
   });
 });
