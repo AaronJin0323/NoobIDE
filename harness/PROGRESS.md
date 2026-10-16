@@ -91,7 +91,10 @@ Choices worth knowing:
   `closeDisabled`, `onEscape`, `dismissOnBackdrop` off by default, the danger-filled primary. Notice anatomy, button
   hierarchy and the rest of S45.9 remain open.
 
-**Problems / risks:** macOS not run. `glass.css` still names `.recovery-dialog` / `.recovery-backdrop` in its
+**Problems / risks:** macOS not run. After the merge of the integration head `cd21a2d` (S46.9 integrated title
+bar) the dialog e2e specs were re-run locally: 77 passed; the sheets sit inside `.dialog-backdrop`, which S46.9 already
+marks `no-drag`. The first CI run failed only in `walkthrough.spec` (a poll read `walkthrough.json` between the
+store's temp write and its rename; the read now counts as "not yet"). `glass.css` still names `.recovery-dialog` / `.recovery-backdrop` in its
 selector lists (harmless; the recovery sheet now carries `.dialog`) — left alone to avoid conflicts with the parallel
 sessions; prune in S49.2. `glass-visual.spec` screenshots that include a dialog will differ by design (not run
 here). `FilesPanel.tsx` got one attribute (`tone="danger"`) outside the owned file list.
