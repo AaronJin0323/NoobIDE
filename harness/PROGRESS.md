@@ -3,6 +3,35 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 24 (side session) — 2026-10-16 — main red after a110002: confirmed fixed by the archive restore
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/happy-jackson-8b1fcf`
+(node_modules junctioned), started from the license session, which found `npm run verify` red on `main` @ `df242a0`.
+
+**Done**
+
+- Searched every local/remote branch and every worktree under `.claude/worktrees` (committed trees and working
+  copies) for the missing S44/S45 implementation (`commandLabel`, `fixCardProminent`, the ai-icons exports, the
+  `ai.chat.context.addGroup` key). It exists nowhere: a110002 committed only the files it added.
+- Took the owner-approved archive restore (`dfb1759`, same tree as `be7194a`) instead of rewriting the code. While this
+  session ran, PR #1 (license) and PR #2 (key-features visibility, which carries the same restore plus S45 rebuilt)
+  landed on `main`; this branch merges `origin/main` and adds only this entry.
+
+**Evidence:** `npm run verify` green @ `dfb1759` (2612 tests) and @ `origin/main` `b039282` (harness, typecheck, lint,
+format, test: 2633 passed, 15 skipped).
+
+**Decisions:** none new; see `docs/archive/s44-s45-hig/README.md`.
+
+**Problems / risks:** one `verify --quick` run failed in the unit tests once and was not reproducible in three full
+runs; the merged tree once failed `tests/integration/watcher.test.ts` "mass delete" on its 500 ms event-loop lag
+bound (606 ms) and passed on rerun — a load-sensitive bound. e2e not run here.
+
+**Owner action needed:** none.
+
+**Next up**
+
+1. Continue from Session 23's Next up (S45.9: rebuild what is worth keeping of the archived S44/S45 work).
+
 ## Session 23 — 2026-10-16 — Key features always visible (S45, milestone M16)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch
