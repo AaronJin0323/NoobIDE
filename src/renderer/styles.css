@@ -133,7 +133,7 @@ input[type='radio'] {
   /* What the walkthrough band and the open Problems panel keep at least (set below while they are shown). */
   --walkthrough-reserve: 0px;
   --problems-reserve: 0px;
-  /* Narrow window only: room kept for a shown notice, which joins the layout flow there (.app-notice-stack). */
+  /* Room kept for a shown notice (S47.5: the stack sits in the layout flow above the strip, .app-notice-stack). */
   --notice-reserve: 0px;
   /* 430 px (a preview stage of about 270 px under its toolbar), never more than the window can hold next to the top
      bar, the status strip and the minimums of the band and the panel. */
@@ -147,6 +147,7 @@ input[type='radio'] {
       )
     )
   );
+  position: relative; /* S47.5: the editor's end of the status strip is laid over the strip's row */
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -810,22 +811,45 @@ input[type='radio'] {
   min-height: 0;
   flex-direction: column;
 }
-.editor-status {
-  flex: none;
-  padding: 4px 14px;
-  border-top: 1px solid var(--line);
+/* S47.5: the editor's end of the global status strip (EditorStatusStrip.tsx): one status row for the window. The
+   strip's markup (the Problems toggle and its live count) belongs to the Problems region, so this group is a sibling
+   laid over the strip's free end — same row, same height, right-aligned — and it never reaches the toggle: at most
+   the strip minus the room the toggle needs, clipped on its own side. The empty part of its box lets clicks through. */
+.status-editor {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  height: var(--strip-h, 32px);
+  max-width: calc(100% - 250px);
+  padding: 0 16px 0 8px;
+  overflow: hidden;
   font-size: var(--text-sm);
   color: var(--muted);
-  text-align: right;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
 }
-/* S32.1: AI suggestions on/off, as text next to the cursor position */
-.editor-status-ai {
-  margin-left: 16px;
+.status-editor > * {
+  flex: none;
+  pointer-events: auto;
+}
+/* A narrow window: the indentation's source gives way (it stays in the button's tooltip and accessible name). */
+.workbench.narrow .status-editor .editor-status-indent-source {
+  display: none;
+}
+/* S47.5: the encoding / line-ending note (the sentence is its tooltip), with the warning shape next to the words. */
+.status-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 /* S43.2: indentation of the file on screen; a button that opens the indentation menu */
 .editor-status-indent {
-  margin-right: 16px;
   padding: 0 4px;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
@@ -961,20 +985,25 @@ input[type='radio'] {
 .splitter:focus-visible {
   box-shadow: 0 0 0 2px var(--accent-text);
 }
-/* S13: app-level notices (session restored, settings reset, entry page, transfer report, journal health) share one
-   stack bottom-left, right of the rail and above the status strip: they never cover the Problems toggle or each
-   other, and a long stack scrolls. The native preview view would cover the right side; in a narrow window the stack
-   is registered as covering the preview ([data-covers-preview]) when it overlaps it. */
+/* S13: app-level notices (settings reset, entry page, transfer report, journal health) share one stack. S47.5: the
+   stack sits in the layout flow between the walkthrough band and the Problems panel (flex order), anchored above the
+   status strip: it never covers the code, the tree, the native preview view or the Problems toggle, in any window
+   width. It gives way first when the window is short (a long stack scrolls inside); informational notices leave by
+   themselves (useAutoDismiss). Empty, it takes no room and is skipped by F6. */
+.workbench:has(> .app-notice-stack:not(:empty)) {
+  --notice-reserve: clamp(8px, calc(100vh - 430px), 120px);
+}
 .app-notice-stack {
-  position: fixed;
-  left: 80px;
-  bottom: calc(var(--strip-h, 32px) + var(--gap));
-  z-index: 40;
+  order: 1;
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
   gap: var(--gap);
-  width: min(420px, calc(100vw - 96px));
-  max-height: calc(100vh - var(--topbar-h, 52px) - var(--strip-h, 32px) - 3 * var(--gap));
+  /* The gap above is padding, so the reserved height covers it. */
+  min-height: var(--notice-reserve);
+  max-height: 35vh;
+  margin: 0 var(--gap) 0 72px;
+  padding-top: var(--gap);
   overflow-y: auto;
 }
 .app-notice-stack:empty {
@@ -984,31 +1013,7 @@ input[type='radio'] {
   flex: none;
   margin: 0;
 }
-/* A floating notice is an overlay: the one overlay shadow. */
-.app-notice-stack > .inline-alert {
-  box-shadow: var(--shadow-overlay);
-}
-.workbench.narrow .app-notice-stack > .inline-alert {
-  box-shadow: none;
-}
-/* Narrow window: the preview fills the column, so a floating stack would cover the native view (and hide it). The
-   stack joins the layout flow instead, between the walkthrough band and the Problems panel (flex order), and gives
-   way first when the window is short (it scrolls inside). */
-.workbench.narrow:has(> .app-notice-stack:not(:empty)) {
-  --notice-reserve: clamp(8px, calc(100vh - 430px), 120px);
-}
-.workbench.narrow .app-notice-stack {
-  position: static;
-  order: 1;
-  flex: 0 1 auto;
-  width: auto;
-  /* The gap above is padding, so the reserved height covers it. */
-  min-height: var(--notice-reserve);
-  max-height: 35vh;
-  margin: 0 var(--gap) 0 72px;
-  padding-top: var(--gap);
-}
-.workbench.narrow > .problems {
+.workbench > .problems {
   order: 2;
 }
 /* S13 / S47.4: the in-window menus (the project menu next to the project name, the help/more menu at the end of

@@ -106,8 +106,8 @@ import { openAbout } from './about'; // S28.1
 import { isEntryPath } from '../../shared/project-config';
 import type { TreeEntry } from '../../shared/ipc/contract';
 import { EntryNotice, type EntryNoticeState } from './EntryNotice';
-import { SessionNotice } from './SessionNotice';
 import { TransferNotice } from './TransferNotice'; // S13.5
+import { EditorStatusStrip } from './EditorStatusStrip'; // S47.5
 import { useI18n } from '../i18n/I18nProvider';
 import { opErrorMessage } from './file-op-messages';
 import { Splitter } from './Splitter';
@@ -1170,8 +1170,8 @@ export function Workbench() {
 
   // --- S13.4: session restore. On a normal start main reopens the last project (crash recovery takes precedence: it
   // reports recovery-pending and the recovery dialog offers the unsaved buffers instead); its tabs, the visible tab
-  // and the layout sizes come back. Tabs and layout are saved shortly after every change. ---
-  const [restoredFrom, setRestoredFrom] = useState<string | null>(null);
+  // and the layout sizes come back. Tabs and layout are saved shortly after every change. S47.5: no notice says so —
+  // the top bar shows the project name, its folder is the name's tooltip and a line of the project menu. ---
   const layoutReady = useRef(false);
   const restoreRequested = useRef(false);
   useEffect(() => {
@@ -1186,7 +1186,7 @@ export function Workbench() {
       if (!result.ok) return;
       if (result.value.layout) dispatchLayout({ type: 'restoreLayout', layout: result.value.layout });
       const restored = result.value.project;
-      if (restored && !docRef.current.project && (await adoptProject(restored))) setRestoredFrom(restored.rootPath);
+      if (restored && !docRef.current.project) await adoptProject(restored);
     });
   }, [bridge, adoptProject]);
 
@@ -1428,18 +1428,23 @@ export function Workbench() {
           </>
         }
       />
+      {/* S47.5: the editor's end of the status strip (AI edit, explain, indent, encoding / line-ending notes, caret,
+          AI suggestions), laid over the free end of the strip that ProblemsPanel renders; its own F6 stop. */}
+      <EditorStatusStrip
+        tab={activeTab(doc)}
+        hasEditor={activeTab(doc) !== null || project === null}
+        projectId={project?.projectId ?? null}
+      />
       {inlineEdit.element /* S35: what an inline edit did, announced politely */}
-      {/* App-level notices share one stack above the status strip: they never cover the Problems toggle or each other.
-          It counts as covering the preview where it overlaps the stage (a narrow window). */}
-      <div className="app-notice-stack" data-testid="app-notice-stack" data-covers-preview="">
+      {/* App-level notices share one stack in the layout flow between the walkthrough band and Problems (S47.5):
+          anchored above the status strip, never over the code, the tree or the preview; informational ones leave by
+          themselves. The stack is its own F6 stop while it holds a notice. */}
+      <div className="app-notice-stack" data-testid="app-notice-stack">
         {/* S12: the recovery journal could not be written */}
         <JournalHealthNotice health={journals.health} />
         {/* S13.1: the settings file was unusable and was backed up */}
         {settingsNotice && <SettingsNotice snapshot={settingsNotice} onDismiss={() => setSettingsNotice(null)} />}
         {entryNotice && <EntryNotice state={entryNotice} onDismiss={() => setEntryNotice(null)} />}
-        {restoredFrom && project?.rootPath === restoredFrom && (
-          <SessionNotice rootPath={restoredFrom} onDismiss={() => setRestoredFrom(null)} />
-        )}
         {/* S13.5: what would break on the other system (report only, nothing is renamed) */}
         <TransferNotice api={bridge?.portability} projectId={project?.projectId ?? null} />
       </div>

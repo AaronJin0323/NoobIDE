@@ -118,7 +118,7 @@ export const FRAME = {
   walkthroughMin: { wide: 88, narrow: 76 },
   /** The open Problems panel's minimum: clamp(40px, 100vh - 620px, 100px). */
   problemsMin: { floor: 40, offset: 620, ceiling: 100 },
-  /** Narrow window with a notice shown (it joins the layout flow): clamp(8px, 100vh - 430px, 120px). */
+  /** A notice shown (S47.5: the stack is in the layout flow above the strip): clamp(8px, 100vh - 430px, 120px). */
   noticeMin: { floor: 8, offset: 430, ceiling: 120 },
 } as const;
 
@@ -145,10 +145,9 @@ export function frameMinimums(
     ? (shown.narrow ? FRAME.walkthroughMin.narrow : FRAME.walkthroughMin.wide) + FRAME.gap
     : 0;
   const problems = shown.problems ? panelMin + FRAME.gap : 0;
-  const notice =
-    shown.notice && shown.narrow
-      ? clamp(height - FRAME.noticeMin.offset, FRAME.noticeMin.floor, FRAME.noticeMin.ceiling)
-      : 0;
+  const notice = shown.notice
+    ? clamp(height - FRAME.noticeMin.offset, FRAME.noticeMin.floor, FRAME.noticeMin.ceiling)
+    : 0;
   const middle = Math.max(
     0,
     Math.min(FRAME.middleMax, height - FRAME.topbar - FRAME.strip - walkthrough - problems - notice),

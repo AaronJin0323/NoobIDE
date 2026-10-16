@@ -99,11 +99,10 @@ test('reopening restores the project, its tabs, the active tab and the layout si
 
   await start();
   await expect(page.getByTestId('project-name')).toHaveAttribute('title', project.root);
-  await expect(page.getByTestId('session-restored')).toBeVisible();
-  // Informational, not styled like a failed save.
-  await expect(page.getByTestId('session-restored')).toHaveClass(/\binfo-alert\b/);
-  await expect(page.getByTestId('session-restored')).not.toHaveClass(/\bsave-alert\b/);
-  await expect(page.getByTestId('session-restored-path')).toHaveText(project.root);
+  // S47.5: no "reopened last project" notice — the top bar names the project and its folder is the name's tooltip
+  // (above) and a line of the project menu; the notice stack stays empty.
+  await expect(page.getByTestId('session-restored')).toHaveCount(0);
+  await expect(page.getByTestId('app-notice-stack')).toBeEmpty();
   await expect(page.locator('[data-testid="tab"]')).toHaveCount(3);
   expect(
     await page.locator('[data-testid="tab"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-path'))),
@@ -112,8 +111,6 @@ test('reopening restores the project, its tabs, the active tab and the layout si
   await expect(page.getByTestId('splitter-editor')).toHaveAttribute('aria-valuenow', '60');
   await expect.poll(() => width('region-files')).toBe(filesWidth);
   expect(Math.abs((await width('region-editor')) - editorWidth)).toBeLessThanOrEqual(2);
-  await page.getByTestId('session-restored-dismiss').click();
-  await expect(page.getByTestId('session-restored')).toHaveCount(0);
 });
 
 test('crash recovery takes precedence over session restore (S13.4 + S12)', async () => {

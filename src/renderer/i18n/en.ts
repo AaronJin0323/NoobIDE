@@ -28,6 +28,7 @@ export const en: Record<MessageKey, string> = {
   'region.editor': 'Editor',
   'region.preview': 'Preview',
   'region.problems': 'Problems and console',
+  'region.status': 'Status bar',
   'rail.files': 'Files',
   'rail.problems': 'Problems',
   'files.empty': 'No folder is open yet.',
@@ -88,6 +89,7 @@ export const en: Record<MessageKey, string> = {
   'fileRole.data': 'Data',
   'fileRole.data.detail': 'Structured data that a script can read.',
   'fileRole.hintLabel': 'What this file is for',
+  'fileRole.tooltip': '{role}: {detail}',
   // ── end S20.3 ──
   'files.openOther': 'Open another folder',
   'files.listLabel': 'Project files',
@@ -205,6 +207,8 @@ export const en: Record<MessageKey, string> = {
     'The rename did not finish, but nothing is lost: the item is now called "{name}" in the same folder. Rename it again.',
   'editor.readOnlyEncoding':
     'This file is not UTF-8, so it is shown read-only and cannot be damaged by saving. File encoding:',
+  'editor.status.readOnly': 'View only',
+  'editor.status.mixedEol': 'Mixed line endings · saves as {eol}',
   // --- S12 crash recovery ---
   'recovery.title': 'Recover unsaved edits',
   'recovery.intro':
@@ -298,7 +302,6 @@ export const en: Record<MessageKey, string> = {
   'appMenu.closeProject': 'Close project',
   'layout.resizeFiles': 'Resize the files panel',
   'layout.resizeEditor': 'Resize code and preview',
-  'session.restored': 'Reopened your last project. Location:',
   'transfer.title':
     'This project may run into problems on the other system (Windows / macOS). NoobIDE has not changed any file:',
   'transfer.caseConflict':

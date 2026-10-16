@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { en } from '../i18n/en';
 import { zhCN } from '../i18n/zh-CN';
-import { fileRoleDetailKey, fileRoleFor, fileRoleLabelKey, type FileRole } from './file-role';
+import {
+  RoleHintMemory,
+  fileRoleDetailKey,
+  fileRoleFor,
+  fileRoleLabelKey,
+  roleHintKey,
+  type FileRole,
+} from './file-role';
 
 describe('fileRoleFor (S20.3)', () => {
   it('maps the beginner trio to structure / style / behavior', () => {
@@ -67,5 +74,25 @@ describe('file role strings', () => {
       expect(zhCN[fileRoleLabelKey(role) as keyof typeof zhCN].length).toBeLessThanOrEqual(6);
       expect(en[fileRoleLabelKey(role)].length).toBeLessThanOrEqual(22);
     }
+  });
+});
+
+describe('role hint memory (S47.5)', () => {
+  it('shows a file once: the first showing lasts until the user moves on, then it stays collapsed', () => {
+    const memory = new RoleHintMemory();
+    const index = roleHintKey('p1', 'index.html');
+    expect(memory.firstShowing(index)).toBe(true);
+    expect(memory.firstShowing(index)).toBe(true); // re-rendering while it is still active does not end the showing
+    memory.markShown(index);
+    expect(memory.firstShowing(index)).toBe(false);
+    expect(memory.firstShowing(roleHintKey('p1', 'style.css'))).toBe(true);
+  });
+
+  it('keys by project and path: the same relative path in another project is a new file', () => {
+    const memory = new RoleHintMemory();
+    memory.markShown(roleHintKey('p1', 'index.html'));
+    expect(memory.firstShowing(roleHintKey('p2', 'index.html'))).toBe(true);
+    expect(memory.firstShowing(roleHintKey(null, 'index.html'))).toBe(true);
+    expect(roleHintKey('p1', 'a/b.html')).not.toBe(roleHintKey('p1a', '/b.html'));
   });
 });

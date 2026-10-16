@@ -4324,8 +4324,8 @@
       "depends_on": [
         "S47.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/key-features-visible.spec.ts 'S47.5: one status row…' (no editor bottom row; region-status in the strip's row, never over the Problems toggle; ≤1 band above the code; entry notice below the code and above the strip; F6 order preview→walkthrough→app-notice-stack→problems→status→topbar; info notice auto-dismiss) + size loop 1280x800…640x480 (indent, caret, AI edit/explain in viewport); a11y.spec F6 order; file-roles.spec 'S47.5: first showing only' (hint collapses, tree tag + tab tooltip keep the role); session.spec (no reopened-project notice); file-role.test.ts (RoleHintMemory), a11y-labels.test.ts (tabTooltip role line); e2e key-features/a11y/shell/file-roles/session/encodings/save/editing/ai-edit/ai-inline/smart-editing/external-change 91 green on Windows; verify green"
     },
     {
       "id": "S47.6",

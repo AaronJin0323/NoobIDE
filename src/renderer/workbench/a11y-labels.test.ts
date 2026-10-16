@@ -85,6 +85,13 @@ describe('key features keep a visible, labelled control', () => {
   it('S47.3: a tab names its state in the tooltip, after the path', () => {
     expect(tabTooltip('src/app.js', null)).toBe('src/app.js');
     expect(tabTooltip('src/app.js', '未保存')).toBe('src/app.js · 未保存');
+    // S47.5: the file's role follows on its own line (it stays here after the hint above the code collapsed).
+    expect(tabTooltip('index.html', null, '页面结构：写网页上有什么内容')).toBe(
+      'index.html\n页面结构：写网页上有什么内容',
+    );
+    expect(tabTooltip('index.html', '未保存', '页面结构：写网页上有什么内容')).toBe(
+      'index.html · 未保存\n页面结构：写网页上有什么内容',
+    );
   });
 
   it('names the Lessons rail button and its tooltip in both languages', () => {

@@ -2,7 +2,7 @@ import { chmod, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import { launchApp } from './launch';
-import { collectConsoleErrors, makeProject, openFile, openProject, typeAtEnd } from './project';
+import { collectConsoleErrors, makeProject, openFile, openProject, treeRow, typeAtEnd } from './project';
 
 /**
  * Key features are never pushed off screen (owner request): with the walkthrough band and the Problems panel open,
@@ -141,10 +141,86 @@ test('S47.3: nothing in the top bar or the tab strip changes its bounding box du
     Object.fromEntries(Object.keys(before.boxes).map((key) => [key, sample[key]]));
   expect(same(during.boxes)).toEqual(before.boxes);
   expect(after.boxes).toEqual(before.boxes);
-  // The tab's state is an icon with a tooltip, never a label that resizes the tab.
+  // The tab's state is an icon with a tooltip, never a label that resizes the tab (S47.5: the tooltip's second line
+  // is the file's role, which stays there after the hint above the code collapsed).
   const tab = page.locator('[data-testid="tab"][data-path="index.html"] [role="tab"]');
-  await expect(tab).toHaveAttribute('title', 'index.html');
+  await expect(tab).toHaveAttribute('title', /^index\.html\n页面结构：/);
   await expect(tab.locator('.tab-state-slot')).toHaveCount(1);
+});
+
+/** The band or region the focused element is in (the walkthrough band and the notice stack are F6 stops too). */
+const focusedRegion = () =>
+  page.evaluate(
+    () =>
+      document.activeElement
+        ?.closest(
+          '[data-testid^="region-"], [data-testid="rail"], [data-testid="walkthrough"], [data-testid="app-notice-stack"]',
+        )
+        ?.getAttribute('data-testid') ?? null,
+  );
+
+test('S47.5: one status row — the editor has no bottom row; F6 reaches the strip, the walkthrough band and the notice stack', async () => {
+  await setContentSize(1280, 800);
+  // The editor's former bottom row is gone; its controls sit at the end of the global status strip, in one row with
+  // the Problems toggle, and the strip keeps its height.
+  await expect(page.locator('[data-testid="region-editor"] .editor-status')).toHaveCount(0);
+  const status = page.getByTestId('region-status');
+  await expect(status).toBeVisible();
+  await expect(status.getByTestId('indent-status')).toBeVisible();
+  await expect(status.getByTestId('cursor-position')).toHaveText(/^行 \d+, 列 \d+$/);
+  if ((await page.getByTestId('editor-ai-edit').count()) > 0) {
+    await expect(status.getByTestId('editor-ai-edit')).toBeVisible();
+    await expect(status.getByTestId('editor-ai-explain')).toBeVisible();
+  }
+  const strip = await page.locator('.status-strip').boundingBox();
+  const group = await status.boundingBox();
+  const toggle = await page.getByTestId('problems-toggle').boundingBox();
+  expect(strip && group && Math.abs(group.y - strip.y) <= 0.5 && Math.abs(group.height - strip.height) <= 0.5).toBe(
+    true,
+  );
+  expect(toggle && group && toggle.x + toggle.width <= group.x + 0.5, 'the group never reaches the toggle').toBe(true);
+
+  // At most one persistent band above the code: the role hint on a file's first showing; nothing else.
+  await expect(
+    page.locator('[data-testid="region-editor"] > .inline-alert, [data-testid="region-editor"] > .file-role-hint'),
+  ).toHaveCount(await page.getByTestId('file-role-hint').count());
+
+  // A notice (set as entry page) anchors above the strip, below the code: it covers neither.
+  if ((await page.getByTestId('walkthrough').count()) === 0) await page.getByTestId('rail-lessons').click();
+  await treeRow(page, 'index.html').click({ button: 'right' });
+  await page.getByTestId('tree-menu').getByRole('menuitem', { name: '设为入口页面' }).click();
+  const notice = page.getByTestId('entry-notice');
+  await expect(notice).toHaveAttribute('data-state', 'set');
+  const noticeBox = await notice.boundingBox();
+  const editorBox = await page.getByTestId('region-editor').boundingBox();
+  const stripBox = await page.locator('.status-strip').boundingBox();
+  expect(noticeBox && editorBox && noticeBox.y >= editorBox.y + editorBox.height - 0.5, 'below the code').toBe(true);
+  expect(noticeBox && stripBox && noticeBox.y + noticeBox.height <= stripBox.y + 0.5, 'above the strip').toBe(true);
+  await expect(page.getByTestId('walkthrough-next')).toBeVisible();
+
+  // F6 from the code: preview, the walkthrough band, the notice stack, Problems, the strip's editor group, top bar.
+  await page.locator('.monaco-editor .view-lines').click();
+  const visited: string[] = [];
+  for (let i = 0; i < 12; i += 1) {
+    await page.keyboard.press('F6');
+    const region = await focusedRegion();
+    if (region) visited.push(region);
+    if (region === 'region-editor') break;
+  }
+  expect(visited).toEqual([
+    'region-preview',
+    'walkthrough',
+    'app-notice-stack',
+    'region-problems',
+    'region-status',
+    'region-topbar',
+    'rail',
+    'region-files',
+    'region-editor',
+  ]);
+  // Informational notices leave by themselves (12 s, paused while the pointer or the focus is on them).
+  await page.mouse.move(5, 5);
+  await expect(notice).toHaveCount(0, { timeout: 20_000 });
 });
 
 test('the Lessons rail button opens the walkthrough', async () => {
@@ -174,6 +250,19 @@ for (const [width, height] of [
     await expectInViewport(page.getByTestId('walkthrough-back'), 'walkthrough Back');
     await expectInViewport(page.getByTestId('walkthrough-next'), 'walkthrough Next');
     await expectInViewport(page.getByTestId('save-status'), 'save status');
+    // S47.5: the editor's controls at the end of the status strip, next to the toggle, never over it.
+    await expectInViewport(page.getByTestId('indent-status'), 'indent status');
+    await expectInViewport(page.getByTestId('cursor-position'), 'caret position');
+    if ((await page.getByTestId('editor-ai-edit').count()) > 0) {
+      await expectInViewport(page.getByTestId('editor-ai-edit'), 'Edit with AI');
+      await expectInViewport(page.getByTestId('editor-ai-explain'), 'Explain');
+    }
+    const toggle = await page.getByTestId('problems-toggle').boundingBox();
+    const group = await page.getByTestId('region-status').boundingBox();
+    expect(
+      toggle && group && toggle.x + toggle.width <= group.x + 0.5,
+      'the editor group never reaches the toggle',
+    ).toBe(true);
     // Nothing overflows the window vertically: the frame fits, it never needs a scroll.
     expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 0.5)).toBe(true);
 

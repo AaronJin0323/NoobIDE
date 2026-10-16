@@ -4,6 +4,8 @@ import type { MessageKey } from '../i18n/index';
 import type { OpenTab } from './document-state';
 import { saveStatus, type SaveStatus } from './save-machine';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, SaveStateIcon } from './icons';
+import { fileRoleDetailKey, fileRoleFor, fileRoleLabelKey } from './file-role';
+import { fill } from './file-op-messages';
 
 interface TabBarProps {
   tabs: readonly OpenTab[];
@@ -26,9 +28,13 @@ export function tabTitle(relPath: string): string {
   return relPath.slice(relPath.lastIndexOf('/') + 1);
 }
 
-/** S47.3: the tab's tooltip — the relative path, plus the state word while the tab is not clean. */
-export function tabTooltip(relPath: string, state: string | null): string {
-  return state ? `${relPath} · ${state}` : relPath;
+/**
+ * S47.3: the tab's tooltip — the relative path, plus the state word while the tab is not clean. S47.5: the file's role
+ * ("页面结构：写网页上有什么内容…") on a second line, where it stays after the hint above the code has collapsed.
+ */
+export function tabTooltip(relPath: string, state: string | null, role: string | null = null): string {
+  const first = state ? `${relPath} · ${state}` : relPath;
+  return role ? `${first}\n${role}` : first;
 }
 
 /**
@@ -149,6 +155,10 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
         {tabs.map((tab, index) => {
           const status = saveStatus(tab.save);
           const label = TAB_STATE_LABEL[status];
+          const role = fileRoleFor(tab.relPath);
+          const roleText = role
+            ? fill(t('fileRole.tooltip'), { role: t(fileRoleLabelKey(role)), detail: t(fileRoleDetailKey(role)) })
+            : null;
           const selected = tab.relPath === active;
           const closeLabel = `${t('tabs.close')} ${tab.relPath}`;
           return (
@@ -184,7 +194,7 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
                 // S24.3: Delete closes the tab; the mouse-only × next to it is hidden from the tablist's children.
                 aria-keyshortcuts="Delete"
                 tabIndex={selected || (active === null && index === 0) ? 0 : -1}
-                title={tabTooltip(tab.relPath, label ? t(label) : null)}
+                title={tabTooltip(tab.relPath, label ? t(label) : null, roleText)}
                 onClick={() => {
                   onActivate(tab.relPath);
                   showTab(tab.relPath); // also when it is already active but scrolled partly out of view
