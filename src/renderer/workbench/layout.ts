@@ -89,13 +89,18 @@ export interface Visibility {
   narrowSwitch: boolean;
 }
 
-export function visibleRegions(state: LayoutState, narrow: boolean): Visibility {
+/**
+ * S47.2: while no project is open the welcome owns the editor + preview area: the editor column (which hosts the
+ * welcome and the sample) is the only middle region, the preview column and the narrow Code / Preview switch are
+ * not shown — there is nothing to preview yet — whatever narrow view was chosen before the project closed.
+ */
+export function visibleRegions(state: LayoutState, narrow: boolean, projectOpen = true): Visibility {
   return {
     files: narrow ? state.filesOpenNarrow : state.filesOpenWide,
-    editor: !narrow || state.narrowView === 'code',
-    preview: !narrow || state.narrowView === 'preview',
+    editor: !projectOpen || !narrow || state.narrowView === 'code',
+    preview: projectOpen && (!narrow || state.narrowView === 'preview'),
     problemsPanel: state.problemsOpen,
-    narrowSwitch: narrow,
+    narrowSwitch: projectOpen && narrow,
   };
 }
 

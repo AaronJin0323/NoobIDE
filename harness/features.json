@@ -4273,8 +4273,8 @@
       "depends_on": [
         "S47.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/shell.spec.ts 'S47.2: …' (1280x800 + 640x480 welcome fills editor+preview area, one filled button, files empty state without button, 'not saved' once, Lessons from the welcome, no top-bar box moves on open) + layout.test.ts; e2e shell/welcome/files/walkthrough/recent-projects green on Windows; verify green"
     },
     {
       "id": "S47.3",
@@ -4290,8 +4290,8 @@
       "depends_on": [
         "S47.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/key-features-visible.spec.ts 'S47.3: …' (no Save button while typing; read-only file shows it with the short pill word and the banner sentence; Enter on the focused button saves via the save command and focus lands on the state word; bounding boxes of every top-bar and tab-strip element equal before typing, during the autosave pause and after saved) + a11y-labels.test.ts (saveButtonShown matrix, pill word lengths, tabTooltip) + document-state.test.ts (activeSaveRetrying); e2e key-features/save/tabs/a11y/shell/external-change/files/preview/problem-card/recovery/session/editing green on Windows; verify green"
     },
     {
       "id": "S47.4",
@@ -4307,8 +4307,8 @@
       "depends_on": [
         "S47.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/i18n/terms.test.ts (22 tests: term table over zh-CN/en + retired names), src/shared/commands.test.ts (two menus), tests/e2e/shell.spec.ts 'S47.4: …', commands.spec, a11y.spec; verify green; full e2e 332 tests green on Windows (318 + 4 skipped mac-only + 4 test-side fixes rerun green) @ Session 30"
     },
     {
       "id": "S47.5",

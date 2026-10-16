@@ -3,6 +3,146 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 30 (side session) — 2026-10-16 — S47.4 one name, one home per feature
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/recursing-dewdney-9752a3`:
+main @ `65c95a0` merged with `claude/xenodochial-hopper-116d81` @ `41ae221` (S47.2 + S47.3, Session 29), so the
+welcome layout and the fixed save slot are in place. Started by the assessment session; owner rule (Session 23): no
+key feature moves into a menu — the rail keeps Files, Problems, History, Lessons, AI; decision 0034 and
+`design-rules.test.ts` unchanged.
+
+**Done**
+
+- S47.4 — One name, one home per feature.
+  - **Term table as a test.** `src/renderer/i18n/terms.test.ts` encodes the assessment's table (History 历史版本 /
+    History, Lessons 课程 / Lessons, Problems 问题 / Problems, Ask AI 问 AI / Ask AI, AI edit AI 修改 / Edit with AI,
+    AI fix AI 修复 / Fix with AI, AI suggestions AI 建议 / AI suggestions, Change project 修改项目 / Change project,
+    crash recovery 恢复上次未保存的修改 / Recover unsaved edits, external change 文件在外部被改动 / Changed outside
+    NoobIDE). For each term it checks the keys that _are_ the term (rail buttons, headings, buttons), the menu / palette
+    labels (term plus an optional …) and the longer messages that must name the feature (tooltips, toggles, hints), and
+    it fails if any catalogue value brings a retired name back (本地历史, 入门导览, AI 编辑, 内联编辑, 自动补全,
+    智能体, AI 代码建议, 用 AI 修复/修改, 更多操作; local history, walkthrough, inline edit, completions, agent, AI
+    edit, more actions). Renamed accordingly: `rail.history`/`history.title`/`command.showHistory`, `rail.ai`/
+    `ai.chat.title`/`command.ai.toggleChat`, `command.walkthrough`/`walkthrough.*`, `ai.editor.editButton`/
+    `ai.editor.inlineEdit`/`command.ai.inlineEdit`/`ai.edit.region`, `problems.card.fixWithAi`/`problems.row.fixWithAiLabel`,
+    `command.toggleInlineAi`/`ai.settings.inline`/`ai.purpose.*`, `recovery.title`, `disk.reloaded`/`conflict.title`,
+    and the prose that still said "local history" (agent notes, history group) or "completions" (budget notice). The
+    lessons' content follows: glossary entry 历史版本, the restore step says 历史版本, the reopen step points at the
+    project menu.
+  - **Two menus.** `src/shared/commands.ts` replaces `APP_MENU_COMMANDS` with `PROJECT_MENU_COMMANDS` (close,
+    history, lessons) and `HELP_MENU_COMMANDS` (theme, AI chat / explain / edit / suggestions, glossary, logs, AI
+    settings); `useAppMenuItems` takes the list. `Workbench.tsx` adds the two items that are not registry commands:
+    Reveal (platform label, second in the project menu) and the language choice (中文 / English as `menuitemradio`,
+    after the theme group of the help menu). `AppMenu.tsx` takes a name, test id, icon, `alignEnd` and a `detail`
+    line; the project menu (`project-menu`, ▾ next to the project name, list `#project-menu-list`) shows the project
+    folder as its first line (`project-path`); the help/more menu keeps `app-menu` / `#app-menu-list`, opens flush
+    right, and is named 帮助与更多 / Help and more.
+  - **Top bar.** `TopBar.tsx`: the path is the project name's `title` (hover) and the menu line, no second line
+    (`.project-detail` and `topbar.language`/`topbar.switchLanguage` removed); the reveal icon button and the
+    language button leave the bar; the trailing group is command search + help menu. The S47.2/S47.3 box tests still
+    hold (`shell.spec` measures `app-menu` in place of the language button). The walkthrough's reopen anchor is the
+    project menu button (`walkthrough-model.ts`).
+  - **Tests moved with the UI.** `tests/e2e/project.ts` gains `switchLanguage(page)` (help menu → the other
+    language, waits for `html[lang]`) and `projectMenu(page, id)`; the 45 direct clicks on `switch-language` in 20
+    specs use the helper, path assertions read the name's `title`, close-project / lessons clicks go through the
+    project menu (`walkthrough.spec`'s `menu()` uses the rail's Lessons button while no project is open, since the
+    project menu exists only with a project).
+
+**Evidence:** `src/renderer/i18n/terms.test.ts` (22 tests); `src/shared/commands.test.ts` (menus name registered
+commands, each in one menu, project menu order); `tests/e2e/shell.spec.ts` "S47.4: …" (no `.project-detail` and no
+path text in the bar, name tooltip = path, no `switch-language` / `reveal-project`, project menu = folder line + 关闭项目
+· 在…中显示 · 历史版本… · 课程 and its Lessons item opens the walkthrough, help menu radios = three themes + 中文 /
+English, switching to en re-labels the rail and the menu and back, and every measured top-bar box is unchanged
+afterwards); `tests/e2e/commands.spec.ts` (both menus' items from the registry, path line); `tests/e2e/a11y.spec.ts`
+(both menus keyboard-only with axe clean, Tab order from the project menu). `npm run verify` green. Full e2e suite on the
+Windows build: 332 tests — 318 passed + 4 skipped (macOS-only) in one run, the 4 that failed (ai-edit, history,
+not-found, smoke: all test-side, see Problems) fixed and green on a rerun of those specs (30 passed).
+
+**Decisions:** no new decision record. Reveal and the language choice are menu items built in `Workbench.tsx`, not
+registry commands: Reveal's label is per platform (`revealLabelKey`) and the native menus / palette did not need them;
+the language items would otherwise need a `locale` field in the IPC-validated `CommandContext`. The project menu
+exists only with a project (its items are all about one), so without a project Lessons is reached from the rail and
+the welcome, never only from a menu.
+
+**Problems / risks:** macOS not run (renderer-only changes; the reveal label in the project menu is checked for both
+platforms in `commands.spec`). `glass-visual.spec` screenshots of the top bar and the menu differ by design. Two
+test-side fixes outside the feature: `smoke.spec` "five regions" still expected a preview column without a project
+(S47.2 made it hidden; the suite was not run in Session 29), and `switchLanguage` now waits until main reports the
+new locale — the renderer sets the language before main has persisted it, and the preview's "page not found" page
+(served by main in the interface language) could still come up in the old language when a test navigated right after
+the switch (`not-found.spec`). The product behaves the same as before; only the test ordering is deterministic now.
+
+**Owner action needed:** none new; S46.8 visual pass still open.
+
+**Next up**
+
+1. S47.5 (one status row, fewer bands), S47.6 (compact walkthrough).
+2. S48.1 should reuse the fixed-slot pattern of S47.3 for the preview header's state pill.
+
+## Session 29 (side session) — 2026-10-16 — S47.2 welcome owns the window, S47.3 stable save state and tabs
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/xenodochial-hopper-116d81`,
+fast-forwarded onto `claude/noobide-ui-ux-assessment-d4624a` @ `2edb98e` (the assessment, on main @ `cfc3232`) so
+the M18 backlog entries exist. Started by the assessment session; owner rule (Session 23): no key feature moves into a
+menu; decision 0034 and `design-rules.test.ts` unchanged — both features are structural, not a restyle.
+
+**Done**
+
+- S47.2 — Welcome owns the window. `layout.ts` `visibleRegions(state, narrow, projectOpen)`: without a project the
+  editor column (welcome + sample) is the only middle region — no preview column, no editor splitter, no narrow
+  Code / Preview switch, whatever narrow view was chosen before the project closed (`layout.test.ts`). `Workbench.tsx`
+  gives the column the whole free width (`--editor-grow: 1` without a project; a flex-grow below 1 left the preview's
+  share empty). The files panel's empty state has no button any more (`files.emptyHint` explains where files come
+  from); the welcome keeps the window's one filled button (create), Open folder… as a secondary, and gains a Lessons
+  quiet button (`welcome-lessons`, the same `help-walkthrough` command as the rail). "The sample is not saved" is said
+  once: the badge next to the sample tab; `topbar.sampleNotice` is removed (the top bar shows the path line only with a
+  project) and `welcome.sampleBelow` no longer repeats it. e2e helpers and specs that clicked the files panel's
+  `open-folder` now click `welcome-open-folder`.
+- S47.3 — Stable save state and tabs. `TopBar.tsx` `saveButtonShown(save, autosave)`: the prominent Save button is
+  offered only for `failed`, `conflict`, `deleted` or autosave off with unsaved edits; ordinary typing changes the
+  state word inside a fixed-width slot (`.save-status` width `--save-slot-w` 136 px, the icon in a 14 px box, every
+  `SaveStateIcon` variant 14 px). Pill words are short in both languages (`save.failed` 保存失败 / Save failed,
+  `save.conflict` 文件有冲突 / File conflict, `save.deleted` 文件已删除 / File deleted); the full sentences stay in the
+  editor banners (`save.kept`, `conflict.*`, `deleted.*`). `TabBar.tsx`: the tab's state is an icon in a fixed 14 px
+  slot (`.tab-state-slot`) with the word in the tooltip (`tabTooltip`) and as screen-reader text, so a tab never widens
+  or narrows while it is typed in and saved. The save command (Ctrl+S and the button) over a conflict or a deleted
+  file moves the focus to the banner's first choice (`conflict-compare` / `deleted-resave`) instead of doing nothing;
+  nothing is written on its own there (S11.2, S11.3 unchanged). A retry in flight after a failed write keeps the button
+  (`activeSaveRetrying`: the error is cleared only on success), so the blur retry that focusing the button triggers
+  never removes the button under the focus. S45 kept: the button stays while a save cannot happen on its own, and the
+  focus returns to the state word when it leaves.
+
+**Evidence:** S47.2 — `tests/e2e/shell.spec.ts` "S47.2: …" (1280×800 and 640×480: the welcome's column reaches the
+window's right gutter, no preview column / splitter / switch, exactly one filled button and it is `welcome-create`,
+Open folder is secondary, the files panel's empty state has no button, "not saved" matches once, Lessons opens the
+walkthrough, opening a project keeps every measured top-bar box identical and the S30.3 equal split holds);
+`layout.test.ts`. S47.3 — `tests/e2e/key-features-visible.spec.ts` "S47.3: …" (typing never shows the button; a
+read-only file shows it with the short word and the banner sentence; the focused button saves on Enter through the
+save command and the focus lands on the state word; the bounding-box test records every element of the top bar and the
+tab strip before typing, during the autosave pause and after `saved` — all equal); `a11y-labels.test.ts`
+(`saveButtonShown` matrix incl. autosave off, pill word lengths, `tabTooltip`). `npm run verify` green; e2e run:
+shell, welcome, files, walkthrough, recent-projects, key-features-visible, tabs, save, external-change, problem-card,
+a11y, recovery, preview, session, editing, smart-editing green on the Windows build (see the commit messages for the
+counts).
+
+**Decisions:** no new decision record. Two small calls to note: (1) the rail is unchanged without a project (the
+assessment's S47 table says "the rail shows only Files until a project is open"; the feature's acceptance criteria
+do not, and hiding Problems / Lessons / AI from the rail would contradict the key-features-visible rule — left for the
+owner to confirm); (2) a mouse click on the top-bar Save button first blurs the editor, whose blur autosave already
+retries the save, so the button is removed before it receives focus — the S45 focus-return is a keyboard guarantee and
+is tested as one.
+
+**Problems / risks:** macOS not run (renderer-only changes; no platform code touched). `tests/e2e/glass-visual.spec.ts`
+screenshots now differ for the welcome (by design). The e2e suites not in the list above were not re-run in this
+session; none of them assert the removed strings or the files-panel button (grep-checked).
+
+**Owner action needed:** confirm the two calls under Decisions; S46.8 visual pass still open.
+
+**Next up**
+
+1. S47.4 (term table test, ⋯ menu split, path on hover), then S47.5, S47.6.
+2. S48.1 should reuse the fixed-slot pattern of S47.3 for the preview header's state pill.
+
 ## Session 28 (side session) — 2026-10-16 — UI/UX assessment and refine plan (owner request)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/noobide-ui-ux-assessment-d4624a`,

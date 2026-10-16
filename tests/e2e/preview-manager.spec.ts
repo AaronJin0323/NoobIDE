@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
 import { DOC_END } from './keys';
-import { focusEditor, treeRow } from './project';
+import { focusEditor, treeRow, projectMenu } from './project';
 import { evalInPreview, openProject, previewInfo, waitForPreviewState } from './preview-helpers';
 
 /**
@@ -61,8 +61,7 @@ const reachable = (origin: string) =>
   );
 
 async function closeProject(): Promise<void> {
-  await page.getByTestId('app-menu').click();
-  await page.getByTestId('menu-close-project').click();
+  await projectMenu(page, 'close-project');
   await expect(page.getByTestId('welcome')).toBeVisible();
 }
 

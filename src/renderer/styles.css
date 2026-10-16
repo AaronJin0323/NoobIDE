@@ -223,9 +223,12 @@ input[type='radio'] {
   font-size: var(--text-lg);
   font-weight: var(--weight-medium);
 }
+/* S47.4: the project name with its menu button beside it; the folder path is the name's tooltip and a line in the
+   project menu, never a second line of the bar. */
 .project {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   min-width: 0;
   margin-left: 16px;
   line-height: 1.3;
@@ -237,20 +240,15 @@ input[type='radio'] {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.project-detail {
-  font-size: var(--text-sm);
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .spacer {
   flex: 1;
 }
 /* The save state is plain text with an icon: muted while there is nothing to save, the status colour (with its icon
-   and word) only for a success or a failure. */
+   and word) only for a success or a failure. S47.3: it sits in a fixed-width slot (the longest word of either
+   language fits), so the top bar never moves while the user types and the file saves itself. */
 .save-status {
-  min-width: 0;
+  flex: none;
+  width: var(--save-slot-w, 136px);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -410,13 +408,13 @@ input[type='radio'] {
 /* Key features in the top bar: Save and (narrow window) New file. */
 .save-group {
   display: inline-flex;
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: none;
   align-items: center;
   gap: 4px;
 }
-/* While there are unsaved edits (or a save failed), Save is the one primary action of the window: the primary
-   button style. The word, the icon and the shortcut say what it does; the colour is never the only cue. */
+/* While a save cannot happen on its own (failed, conflict, deleted, autosave off), Save is the one primary action of
+   the window: the primary button style. The word, the icon and the shortcut say what it does; the colour is never
+   the only cue. */
 .save-button {
   display: inline-flex;
   flex: none;
@@ -448,8 +446,18 @@ input[type='radio'] {
   flex: none;
   white-space: nowrap;
 }
-/* The state word gives way (ellipsis) before any control leaves the top bar; the full word stays in the status. */
+/* Inside the slot the icon keeps one 14 px box for every state and the word takes the rest (ellipsis if a locale's
+   word were ever longer than the slot); the full sentence is in the banner. */
+.save-status-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
 .save-status-text {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -680,11 +688,20 @@ input[type='radio'] {
   color: var(--text);
   font-weight: var(--weight-strong);
 }
+/* S47.3: the state lives in a fixed 14 px slot inside the tab (icon with a tooltip; the word for screen readers),
+   so a tab never widens or narrows as it is typed in and saved. */
+.tab-state-slot {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
 .tab-state {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: var(--text-xs);
+  justify-content: center;
   color: var(--text);
 }
 .tab-failed .tab-state,
@@ -994,13 +1011,17 @@ input[type='radio'] {
 .workbench.narrow > .problems {
   order: 2;
 }
-/* S13: command menu next to the project name (opens over the left half, never under the native preview) */
+/* S13 / S47.4: the in-window menus (the project menu next to the project name, the help/more menu at the end of
+   the bar). An open menu is an overlay: the native preview view hides under it (preview-viewport.ts). */
 .app-menu {
   position: relative;
   flex: none;
 }
 .app-menu .icon-button {
   margin-left: 4px;
+}
+.project .app-menu .icon-button {
+  margin-left: 0;
 }
 /* The menu's overlay material, shadow and motion come from glass.css. */
 .app-menu-list {
@@ -1012,6 +1033,26 @@ input[type='radio'] {
   flex-direction: column;
   min-width: 240px;
   padding: 6px;
+}
+/* S47.4: the trailing menu opens flush with the bar's right edge instead of running off the window */
+.app-menu-list-end {
+  left: auto;
+  right: 0;
+}
+/* S47.4: the project folder, as plain text above the project menu's items */
+.app-menu-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 480px;
+  padding: 6px 10px 8px;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.app-menu-detail-text {
+  color: var(--text);
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 .app-menu-item {
   display: flex;
@@ -1178,8 +1219,7 @@ input[type='radio'] {
 }
 
 /* ── Narrow window (S30.4) ─────────────────────────────── */
-.workbench.narrow .app-name,
-.workbench.narrow .project-detail {
+.workbench.narrow .app-name {
   display: none;
 }
 .workbench.narrow .project {
@@ -1246,9 +1286,6 @@ input[type='radio'] {
 }
 .list-note {
   padding: 8px 14px;
-}
-.reveal-button {
-  margin-left: 0;
 }
 .inline-alert {
   display: flex;
