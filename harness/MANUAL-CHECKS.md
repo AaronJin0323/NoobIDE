@@ -21,6 +21,26 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 
 ## Open checks
 
+### S46.9 — Integrated title bar
+
+- **Platform:** Windows 11 x64 and macOS on Apple Silicon
+- **Build:** branch `claude/window-frame-styling-bcf1ff`
+- **Steps:**
+  1. `npm start` with the OS in dark mode and NoobIDE's theme set to Light (Settings or the ⋯ menu): there is no black
+     title bar or 文件/编辑/视图/帮助 bar; the top bar is the first thing in the window, and the minimise / maximise /
+     close buttons at its right are light with dark symbols.
+  2. Switch the theme to Dark, then to "follow the system" and flip the OS scheme: the caption buttons recolour each
+     time without a restart.
+  3. Drag the window by the empty part of the top bar and by the project name; double-click it: the window
+     maximises / restores. Windows: drag to a screen edge snaps; hovering maximise shows the Snap layouts flyout.
+  4. Every top-bar control (reveal, ⋯ menu and its items, Save, 搜索命令, English) still clicks; with the ⋯ menu, the
+     command palette or a dialog open, clicking where it overlaps the top bar acts on it and does not drag the window.
+  5. Narrow the window to its minimum: no top-bar control slides under the caption buttons.
+  6. macOS: the traffic lights sit vertically centred in the top bar, left of the NoobIDE mark, and do not overlap it;
+     the menu bar at the top of the screen is unchanged.
+- **Expected:** all steps behave as described.
+- **Result:** _(owner fills in: pass/fail, notes, date)_
+
 ### S46.8 — Calm refinement visual pass on real hardware
 
 - **Platform:** Windows 11 x64 and macOS on Apple Silicon

@@ -291,6 +291,44 @@ is a design judgement. macOS not run. The S46 visual pass (S46.8) is still the o
 2. S45.9 (rebuild of the archived HIG parts) should be re-scoped against this plan: the Sheet anatomy it archived is
    S49.1 now.
 
+## Session 28 (side session) — 2026-10-16 — Integrated title bar (S46.9, owner request)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/window-frame-styling-bcf1ff`.
+
+**Done**
+
+- **Why the frame looked ugly:** the native title bar and the Windows menu bar follow the _OS_ colour scheme, not
+  NoobIDE's theme. With Windows dark and NoobIDE light, a black title bar and a black 文件/编辑/视图/帮助 strip sat
+  over the light workbench, and three stacked bars (title, menu, top bar) showed "NoobIDE" twice.
+- The owner chose an integrated title bar over only recolouring the native frame.
+  - `window-options.ts` `workbenchFrameOptions`: Windows `titleBarStyle: 'hidden'` with a `titleBarOverlay` in the
+    theme's `bg`/`text`, 52 px tall (`TITLE_BAR_HEIGHT` = `--topbar-h`, a unit test keeps them equal). macOS
+    `hiddenInset` with the traffic lights at (20, 20). Linux keeps the native frame.
+  - `main.ts` `applyFrameTheme`: background and overlay colours follow a theme change in settings and OS scheme
+    changes (`nativeTheme` `updated`).
+  - The top bar (`data-frame`) is the drag area. Controls, menus, dialogs, the palette, the context menu and notices
+    are `no-drag`. Windows reserves room for the caption buttons from the Window Controls Overlay
+    `env(titlebar-area-*)`, and macOS has 88 px on the left.
+  - The native menu stays set (accelerators, macOS menu bar). On Windows it is no longer drawn, and every command
+    in it is in the command palette.
+- `key-features-visible.spec.ts`: at the 640×480 minimum a frameless window on a 150 % display gets 640×482 of
+  content (measured: Electron rounds the minimum-size clamp). The resize helper now accepts up to 2 px over the
+  requested size, never under it. `useContentSize` was tried and made it worse (641×482).
+
+- `tabs.spec.ts` (1280×800): a frameless window's `outerWidth` counts the invisible resize borders (1295), and
+  `setSize` rounds to 1281 at 150 %. The test now sizes the content to 1280×800 and waits on `innerWidth`.
+
+**Evidence:** `window-options.test.ts` (3 new tests); before/after window captures checked on the dev machine
+(one light bar, themed caption buttons, no control under them); verify green; full e2e 316 passed + 3 failed, of
+which language-workbench S18.4 and walkthrough reopen pass on rerun (unrelated flakes) and tabs 1280×800 is fixed
+above (tabs.spec 12 passed).
+
+**Problems / notes**
+
+- Dragging, Snap layouts, live recolouring and macOS are in MANUAL-CHECKS.md#S46.9 (needs_manual_check).
+
+**Next up:** owner runs MANUAL-CHECKS S46.9 and S46.8; rebuild the archived HIG refinement as complete commits.
+
 ## Session 27 (side session) — 2026-10-16 — CI green again: billing, the half-landed S44/S45 commit, three e2e fixes
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/ci-failures-subagent-4ab7a0`.
