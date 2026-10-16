@@ -40,10 +40,16 @@ async function setContentSize(width: number, height: number) {
     ({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height),
     { width, height },
   );
-  await page.waitForFunction((size) => window.innerWidth === size.width && window.innerHeight === size.height, {
-    width,
-    height,
-  });
+  // At the minimum size a frameless Windows window (S46.9) can round up by a pixel or two at fractional scaling
+  // (150 %: 640×480 becomes 640×482); never smaller than asked.
+  await page.waitForFunction(
+    (size) =>
+      window.innerWidth >= size.width &&
+      window.innerWidth <= size.width + 2 &&
+      window.innerHeight >= size.height &&
+      window.innerHeight <= size.height + 2,
+    { width, height },
+  );
 }
 
 /** The element's whole box is inside the window's viewport. */

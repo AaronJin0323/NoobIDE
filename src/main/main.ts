@@ -18,6 +18,7 @@ import {
   shell,
 } from 'electron';
 import { platformId } from '../platform/index';
+import { isWindows } from '../platform/labels';
 import { currentSquirrelAction, runSquirrelAction } from '../platform/squirrel';
 import { APP_ENTRY_URL, APP_ORIGIN } from './app-asset';
 import { handleAppProtocol, registerAppSchemePrivileges } from './app-protocol';
@@ -63,7 +64,13 @@ import { registerWalkthroughIpcHandlers } from './walkthrough-ipc';
 import { SessionStore, blockingRecoveryCount } from './session-store';
 import type { WebContents } from 'electron';
 import { resolveTemplatesDir } from '../workspace/templates'; // S20.2
-import { createWorkbenchWindowOptions, insecurePreferences, windowColorScheme } from './window-options';
+import {
+  createWorkbenchWindowOptions,
+  insecurePreferences,
+  titleBarOverlay,
+  windowColorScheme,
+} from './window-options';
+import { THEMES } from '../renderer/theme/tokens';
 import type { ThemeChoice } from '../shared/settings';
 // S24.2: native menus from the command registry, and the platform's window lifecycle
 import { AppMenuController } from './app-menu';
@@ -181,6 +188,17 @@ function start(): void {
   // S46: the saved theme choice (S24.4) for the native window background; set once the settings store exists.
   let savedTheme: () => ThemeChoice = () => 'system';
 
+  /** The window frame follows a theme change (settings or, for 'system', the OS): background and caption buttons. */
+  function applyFrameTheme(): void {
+    const scheme = windowColorScheme(savedTheme(), nativeTheme.shouldUseDarkColors);
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (win.isDestroyed()) continue;
+      win.setBackgroundColor(THEMES[scheme].bg);
+      if (isWindows(platformId())) win.setTitleBarOverlay(titleBarOverlay(scheme));
+    }
+  }
+  nativeTheme.on('updated', applyFrameTheme);
+
   function createWorkbenchWindow(): BrowserWindow {
     // A larger first window when the screen allows it (kept within the work area of the screen under the pointer).
     let workArea: Electron.Size | undefined;
@@ -194,6 +212,7 @@ function start(): void {
       workArea,
       // The saved theme choice (settings, S24.4) decides; 'system' follows the OS, as the renderer does.
       windowColorScheme(savedTheme(), nativeTheme.shouldUseDarkColors),
+      platformId(),
     );
     const insecure = insecurePreferences(options.webPreferences ?? {});
     if (insecure.length > 0) throw new Error(`insecure workbench webPreferences: ${insecure.join(', ')}`);
@@ -472,6 +491,7 @@ function start(): void {
         // S24.2: a language change re-translates the native menus.
         update: async (patch) => {
           const next = await settings.update(patch);
+          if (patch.theme !== undefined) applyFrameTheme();
           uiLocale = next.locale;
           appMenu.setLocale(next.locale);
           return next;

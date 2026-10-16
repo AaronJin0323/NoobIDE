@@ -1,6 +1,7 @@
-import type { BrowserWindowConstructorOptions, WebPreferences } from 'electron';
+import type { BrowserWindowConstructorOptions, TitleBarOverlayOptions, WebPreferences } from 'electron';
 import { THEMES, type ColorScheme } from '../renderer/theme/tokens';
 import type { ThemeChoice } from '../shared/settings';
+import { isMac, isWindows, type PlatformId } from '../platform/labels';
 
 /**
  * Security-relevant webPreferences for the trusted workbench window (S02.2, PLAN §8, Electron security checklist).
@@ -75,10 +76,34 @@ export function windowColorScheme(theme: ThemeChoice, systemDark: boolean): Colo
   return theme;
 }
 
+/** Height of the workbench top bar (`--topbar-h` in styles.css): the integrated title bar is exactly this tall. */
+export const TITLE_BAR_HEIGHT = 52;
+
+/**
+ * Windows: the caption buttons (minimise, maximise, close) drawn over the top bar's right end, in the theme's colours
+ * so they read as part of the workbench instead of a native strip in the OS colour scheme.
+ */
+export function titleBarOverlay(scheme: ColorScheme): TitleBarOverlayOptions {
+  return { color: THEMES[scheme].bg, symbolColor: THEMES[scheme].text, height: TITLE_BAR_HEIGHT };
+}
+
+/**
+ * The window frame: on Windows and macOS the native title bar is hidden and the workbench top bar takes its place
+ * (it is the drag area; window controls are the themed overlay on Windows and the inset traffic lights on macOS).
+ * Elsewhere the native frame stays.
+ */
+export function workbenchFrameOptions(platform: PlatformId, scheme: ColorScheme): BrowserWindowConstructorOptions {
+  if (isWindows(platform)) return { titleBarStyle: 'hidden', titleBarOverlay: titleBarOverlay(scheme) };
+  // Traffic lights (12 px buttons) centred vertically in the top bar.
+  if (isMac(platform)) return { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: 20 } };
+  return {};
+}
+
 export function createWorkbenchWindowOptions(
   preloadPath: string,
   workArea?: { readonly width: number; readonly height: number },
   scheme: ColorScheme = 'light',
+  platform: PlatformId = 'other',
 ): BrowserWindowConstructorOptions {
   return {
     title: 'NoobIDE',
@@ -88,6 +113,7 @@ export function createWorkbenchWindowOptions(
     show: false,
     // The window background is the theme's `bg`, so a dark window never flashes white before the first paint.
     backgroundColor: THEMES[scheme].bg,
+    ...workbenchFrameOptions(platform, scheme),
     webPreferences: createWorkbenchWebPreferences(preloadPath),
   };
 }
