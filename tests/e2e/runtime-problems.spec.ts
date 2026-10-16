@@ -58,7 +58,7 @@ test.beforeAll(async () => {
   app = await launchApp();
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
-  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+  await page.locator('.monaco-editor .view-lines').waitFor();
 });
 
 test.afterAll(async () => {

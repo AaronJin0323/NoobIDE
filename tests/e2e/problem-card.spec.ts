@@ -3,7 +3,6 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
 import { collectConsoleErrors, documentText, makeProject, openFile, openProject } from './project';
-import { switchLanguage } from './language-switch'; // S44.4
 
 /**
  * The problem card (S22.4, PLAN §9) and the one-click fix for a misspelled name (S22.5), on a project whose path has
@@ -53,7 +52,7 @@ test.beforeAll(async () => {
   app = await launchApp({}, { userDataDir: userData });
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
-  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+  await page.locator('.monaco-editor .view-lines').waitFor();
   await openProject(app, page, root);
 });
 
@@ -88,7 +87,7 @@ test('the card shows file, line, explanation, checks, Go to code and Show origin
     "Cannot find name 'userNmae'. Did you mean 'userName'?",
   );
 
-  await switchLanguage(page);
+  await page.getByTestId('switch-language').click();
   await expect(card.getByTestId('problem-card-head')).toHaveText(
     'Code check script.js, line 3: Cannot find the variable userNmae.',
   );
@@ -96,7 +95,7 @@ test('the card shows file, line, explanation, checks, Go to code and Show origin
   await expect(card.getByTestId('problem-go-to')).toHaveText('Go to code');
   await expect(card.getByTestId('problem-show-original')).toHaveText('Show original error');
   await expect(card.getByTestId('problem-fix')).toHaveText('Change to userName');
-  await switchLanguage(page);
+  await page.getByTestId('switch-language').click();
   await expect(card.getByTestId('problem-fix')).toHaveText('改成 userName');
 });
 
@@ -218,11 +217,11 @@ test('a problem from the running page is resolved only after the preview reloade
   await expect(row).toContainText('刷新后没有再出现');
 
   // English: the result is announced in English too.
-  await switchLanguage(page);
+  await page.getByTestId('switch-language').click();
   await expect(fixStatus()).toHaveText(
     'Resolved: script.js line 3 — not reported again after checking again and refreshing the preview.',
   );
-  await switchLanguage(page);
+  await page.getByTestId('switch-language').click();
 });
 
 test('no console errors during the problem card run', () => {

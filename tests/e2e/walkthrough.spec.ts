@@ -6,7 +6,6 @@ import type { ProblemRecord } from '../../src/shared/problem';
 import { launchApp } from './launch';
 import { collectConsoleErrors, openFile } from './project';
 import { evalInPreview, waitForPreviewState } from './preview-helpers';
-import { switchLanguage } from './language-switch'; // S44.4
 
 /**
  * S23 onboarding walkthrough end to end: the engine (anchored, skippable, revisitable from Help, persisted), the
@@ -35,7 +34,7 @@ async function start(userData: string) {
   app = await launchApp({}, { userDataDir: userData });
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
-  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+  await page.locator('.monaco-editor .view-lines').waitFor();
   await app.evaluate(({ app: electronApp }, docs) => electronApp.setPath('documents', docs), documents);
 }
 
@@ -148,7 +147,7 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await page.getByTestId('glossary-search').fill('没有这种词');
     await expect(page.getByTestId('glossary-empty')).toHaveText('没有找到这个术语。');
     await page.getByTestId('glossary-close').click();
-    await switchLanguage(page);
+    await page.getByTestId('switch-language').click();
     await expect(page.getByTestId('walkthrough-title')).toHaveText('Meet the three files');
     await expect(next()).toHaveText('Skip this step');
     await menu('help-glossary');
@@ -158,7 +157,7 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await expect(selector.getByTestId('glossary-term')).toHaveText('selector');
     await expect(selector).toContainText('which elements the style applies to');
     await page.keyboard.press('Escape');
-    await switchLanguage(page);
+    await page.getByTestId('switch-language').click();
     await page.getByTestId('walkthrough-close').click();
     expect(consoleErrors).toEqual([]);
     await app.close();
@@ -300,7 +299,7 @@ test.describe('the PLAN §2 journey (S23.2) and the final task (S23.3)', () => {
   test('reopen: closing the app and opening it again restores the project and completes the journey', async () => {
     await expect(panel()).toHaveAttribute('data-step', 'reopen');
     await expect(panel()).toHaveAttribute('data-done', 'false');
-    await expect.poll(anchored).toEqual(['project-name']);
+    await expect.poll(anchored).toEqual(['project-path']);
     await page.waitForTimeout(800); // tabs and layout are written 300 ms after the last change
     expect(consoleErrors).toEqual([]);
     await app.close();

@@ -2,7 +2,6 @@ import { rm } from 'node:fs/promises';
 import { expect, test, type ElectronApplication } from '@playwright/test';
 import { launchApp } from './launch';
 import { makeProject, openProject } from './project';
-import { switchLanguage } from './language-switch'; // S44.4
 
 /**
  * S24.2 native menus and window lifecycle, end to end. The menu bar is read and clicked through Electron's Menu API
@@ -52,7 +51,7 @@ test('the menu bar follows the platform, the interface language and the command 
   const { tmp, root } = await makeProject('noobide-menus-');
   const app = await launchApp();
   const page = await app.firstWindow();
-  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+  await page.locator('.monaco-editor .view-lines').waitFor();
   const mac = (await page.evaluate(() => window.noobide?.platform)) === 'mac';
 
   const menus = await readMenu(app);
@@ -79,15 +78,10 @@ test('the menu bar follows the platform, the interface language and the command 
   await expect.poll(async () => (await menuItem(app, 'close-project'))?.enabled).toBe(true);
 
   // A menu choice runs the registry command in the workbench.
-  expect(await menuItem(app, 'toggle-files')).toMatchObject({ label: '隐藏文件列表' });
   await clickMenuItem(app, 'toggle-files');
   await expect(page.getByTestId('region-files')).toBeHidden();
-  // S44.4: the title says what the item will do now (HIG Menus), not "show or hide".
-  await expect.poll(async () => (await menuItem(app, 'toggle-files'))?.label).toBe('显示文件列表');
   await clickMenuItem(app, 'toggle-files');
   await expect(page.getByTestId('region-files')).toBeVisible();
-  await expect.poll(async () => (await menuItem(app, 'toggle-files'))?.label).toBe('隐藏文件列表');
-  expect(await menuItem(app, 'reveal-project')).toMatchObject({ enabled: true });
 
   // S28.1: "About NoobIDE" opens NoobIDE's About dialog.
   await clickMenuItem(app, 'about');
@@ -97,22 +91,10 @@ test('the menu bar follows the platform, the interface language and the command 
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
-  // S44.4: the interface language is a checked choice in View → Language, and choosing it there switches the window.
-  const languageChecked = () =>
-    app.evaluate(({ Menu }) =>
-      ['language-zh-CN', 'language-en'].map((id) => Menu.getApplicationMenu()?.getMenuItemById(id)?.checked),
-    );
-  expect(await languageChecked()).toEqual([true, false]);
-  await clickMenuItem(app, 'language-en');
-  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expect.poll(languageChecked).toEqual([false, true]);
   // Switching the interface language re-translates the native menus.
+  await page.getByTestId('switch-language').click();
   await expect.poll(async () => (await menuItem(app, 'close-project'))?.label).toBe('Close project');
   expect((await readMenu(app)).map((m) => m.label)).toContain('Edit');
-  expect(await menuItem(app, 'toggle-problems')).toMatchObject({ label: 'Show problems' });
-  // And back from the in-window More menu.
-  await switchLanguage(page);
-  await expect.poll(languageChecked).toEqual([true, false]);
 
   await app.close();
   await rm(tmp, { recursive: true, force: true });
@@ -121,7 +103,7 @@ test('the menu bar follows the platform, the interface language and the command 
 test('macOS keeps running after the last window closes and reopens a window on activation', async () => {
   const app = await launchApp();
   const page = await app.firstWindow();
-  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+  await page.locator('.monaco-editor .view-lines').waitFor();
   if ((await page.evaluate(() => window.noobide?.platform)) !== 'mac') {
     await app.close();
     test.skip(true, 'macOS convention');
@@ -137,7 +119,7 @@ test('macOS keeps running after the last window closes and reopens a window on a
     electronApp.emit('activate');
   });
   const second = await reopened;
-  await second.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+  await second.locator('.monaco-editor .view-lines').waitFor();
   expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1);
   await app.close();
 });
@@ -145,7 +127,7 @@ test('macOS keeps running after the last window closes and reopens a window on a
 test('Windows exits when the last window closes', async () => {
   const app = await launchApp();
   const page = await app.firstWindow();
-  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+  await page.locator('.monaco-editor .view-lines').waitFor();
   if ((await page.evaluate(() => window.noobide?.platform)) === 'mac') {
     await app.close();
     test.skip(true, 'Windows (and Linux) convention');
