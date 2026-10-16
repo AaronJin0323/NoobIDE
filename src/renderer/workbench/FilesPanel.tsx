@@ -386,6 +386,7 @@ export function FilesPanel({
           title={fill(t('delete.title'), { trash })}
           confirmLabel={fill(t('delete.confirm'), { trash })}
           cancelLabel={t('delete.cancel')}
+          tone="danger"
           testId="delete-dialog"
           onConfirm={() => void deleteConfirmed()}
           onCancel={() => {

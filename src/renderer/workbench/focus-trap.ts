@@ -21,6 +21,20 @@ export interface KeyLike {
   preventDefault(): void;
 }
 
+/**
+ * Pure rule of the trap: where a Tab press from `active` goes among the dialog's focusable `items` (in DOM order),
+ * or null when the browser's own order already stays inside. Tab on the last item (or from outside the dialog) wraps
+ * to the first; Shift+Tab on the first (or from outside) wraps to the last.
+ */
+export function tabWrapTarget<T>(items: readonly T[], active: T | null, shiftKey: boolean, inside: boolean): T | null {
+  if (items.length === 0) return null;
+  const first = items[0] as T;
+  const last = items[items.length - 1] as T;
+  if (shiftKey && (active === first || !inside)) return last;
+  if (!shiftKey && (active === last || !inside)) return first;
+  return null;
+}
+
 export function trapTab(event: KeyLike, container: HTMLElement | null): void {
   if (event.key !== 'Tab' || !container) return;
   const items = focusableIn(container);
@@ -28,15 +42,11 @@ export function trapTab(event: KeyLike, container: HTMLElement | null): void {
     event.preventDefault();
     return;
   }
-  const first = items[0] as HTMLElement;
-  const last = items[items.length - 1] as HTMLElement;
-  const active = document.activeElement;
-  if (event.shiftKey && (active === first || !container.contains(active))) {
+  const active = document.activeElement as HTMLElement | null;
+  const target = tabWrapTarget(items, active, event.shiftKey, container.contains(active));
+  if (target) {
     event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && (active === last || !container.contains(active))) {
-    event.preventDefault();
-    first.focus();
+    target.focus();
   }
 }
 

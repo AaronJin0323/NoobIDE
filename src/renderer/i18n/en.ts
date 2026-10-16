@@ -194,6 +194,7 @@ export const en: Record<MessageKey, string> = {
   'delete.restoreHint': 'You can restore it from the {trash} if you need it.',
   'delete.confirm': 'Move to {trash}',
   'delete.cancel': 'Cancel',
+  'dialog.close': 'Close',
   'delete.failed': 'It could not be moved to the {trash}; it is still in place and nothing was deleted.',
   'menu.label': 'File actions',
   'menu.open': 'Open',
@@ -262,6 +263,9 @@ export const en: Record<MessageKey, string> = {
   'recovery.saveAsFailed': 'The file could not be saved there. The recovery copy is still kept.',
   'recovery.back': 'Back to the list',
   'recovery.close': 'Close',
+  'recovery.keepNote':
+    'Esc or "Decide later" discards nothing: every recovered copy is kept and offered again the next time NoobIDE starts.',
+  'recovery.advanced': 'Advanced',
   // --- end S12 ---
   // --- S11 external changes ---
   'save.deleted': 'File deleted',

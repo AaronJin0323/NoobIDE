@@ -185,6 +185,7 @@ export const zhCN = {
   'delete.restoreHint': '需要时可以从{trash}里还原。',
   'delete.confirm': '移到{trash}',
   'delete.cancel': '取消',
+  'dialog.close': '关闭',
   'delete.failed': '没能移到{trash}，它还在原处，没有被删除。',
   'menu.label': '文件操作',
   'menu.open': '打开',
@@ -250,6 +251,8 @@ export const zhCN = {
   'recovery.saveAsFailed': '无法保存到那里，恢复副本仍然保留着。',
   'recovery.back': '返回列表',
   'recovery.close': '关闭',
+  'recovery.keepNote': '按 Esc 或“稍后处理”不会丢弃任何内容：所有恢复副本都会保留，下次启动 NoobIDE 时再提醒你。',
+  'recovery.advanced': '高级',
   // --- end S12 ---
   // --- S11 external changes ---
   'save.deleted': '文件已删除',

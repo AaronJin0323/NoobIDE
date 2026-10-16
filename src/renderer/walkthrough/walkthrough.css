@@ -167,18 +167,12 @@
   min-width: 0;
 }
 
-.glossary-dialog {
-  width: min(640px, calc(100vw - 32px));
-  max-height: calc(100vh - 64px);
-  display: flex;
-  flex-direction: column;
-}
-/* The shared .text-field; only its spacing in the dialog is set here. */
+/* The shared .text-field; it stays in view while the list below scrolls (the sheet's content gives it room). */
 .glossary-search {
-  margin: 8px 0;
+  margin: 0;
 }
-.glossary-list {
-  flex: 1;
+.sheet-content > .glossary-list {
+  flex: 1 1 auto;
   min-height: 0;
   margin: 0;
   padding: 0;

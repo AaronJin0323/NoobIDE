@@ -115,7 +115,9 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     // Close (skip the walkthrough): hidden, stored as closed; Help reopens it at the first step not done yet.
     await page.getByTestId('walkthrough-close').click();
     await expect(panel()).toHaveCount(0);
-    await expect.poll(async () => (await stored(userData())).status).toBe('closed');
+    // The store writes atomically (temp file + rename): between the two the file is briefly absent, so a read that
+    // fails is 'not yet', not a failure (seen once on the Windows CI runner).
+    await expect.poll(async () => (await stored(userData()).catch(() => null))?.status).toBe('closed');
     await menu('help-walkthrough');
     await expect(panel()).toHaveAttribute('data-step', 'create');
     // The rail's labelled "课程" button runs the same command: lessons are never only in a menu.

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import { fill } from '../recovery/format';
 import { aboutVersions, OPEN_ABOUT_EVENT } from './about';
-import { useModalKeys } from './focus-trap';
+import { Sheet, sheetButtonClass } from './Sheet';
 
 /** Open state of the About dialog: opened by `openAbout()` from anywhere, closed by the dialog. */
 export function useAboutRequests(): { open: boolean; close: () => void } {
@@ -25,16 +25,13 @@ export function useAboutRequests(): { open: boolean; close: () => void } {
 }
 
 /**
- * S28.1 About dialog: name, version and runtime versions. It says only what the app is proven to do (PLAN §4, §9):
- * editing and previewing plain HTML / CSS / JavaScript webpages. Escape or Close dismisses it; Tab stays inside.
+ * S28.1 About dialog on the shared Sheet (S49.1): name, version and runtime versions. It says only what the app is
+ * proven to do (PLAN §4, §9): editing and previewing plain HTML / CSS / JavaScript webpages. Escape, Close or a click
+ * outside dismisses it (nothing to lose); Tab stays inside.
  */
 export function AboutDialog({ onClose }: { onClose: () => void }) {
   const { t } = useI18n();
-  const titleId = useId();
-  const dialog = useRef<HTMLDivElement>(null);
-  const close = useRef<HTMLButtonElement>(null);
   const versions = aboutVersions(__NOOBIDE_VERSION__, navigator.userAgent);
-  useModalKeys(dialog, onClose);
   // Third-party license notices (<resources>/THIRD_PARTY_NOTICES.txt), opened by main in the OS text viewer.
   const notices = window.noobide?.notices;
   const [noticesFailed, setNoticesFailed] = useState(false);
@@ -45,60 +42,46 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
       () => setNoticesFailed(true),
     );
   }, [notices]);
-  useEffect(() => close.current?.focus(), []);
 
   return (
-    <div className="dialog-backdrop" onMouseDown={onClose}>
-      <div
-        ref={dialog}
-        className="dialog about-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid="about-dialog"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <h2 className="dialog-title" id={titleId}>
-          {t('about.title')}
-        </h2>
-        <div className="dialog-body">
-          <p>{t('about.description')}</p>
-          <p data-testid="about-version" data-version={versions.app}>
-            {fill(t('about.version'), { version: versions.app })}
-          </p>
-          {versions.electron && versions.chromium && (
-            <p className="dialog-hint" data-testid="about-runtime">
-              {fill(t('about.runtime'), { electron: versions.electron, chromium: versions.chromium })}
-            </p>
-          )}
-          {noticesFailed && (
-            <p className="dialog-hint" role="alert" data-testid="about-notices-error">
-              {t('about.noticesFailed')}
-            </p>
-          )}
-        </div>
-        <div className="dialog-actions">
-          {notices && (
-            <button
-              type="button"
-              className="quiet-button dialog-button"
-              data-testid="about-notices"
-              onClick={openNotices}
-            >
-              {t('about.notices')}
-            </button>
-          )}
+    <Sheet
+      title={t('about.title')}
+      width={480}
+      className="about-dialog"
+      onClose={onClose}
+      closeLabel={t('about.close')}
+      dismissOnBackdrop
+      testId="about-dialog"
+      closeTestId="about-close"
+      actions={
+        notices && (
           <button
             type="button"
-            className="primary-button dialog-button"
-            ref={close}
-            data-testid="about-close"
-            onClick={onClose}
+            className={sheetButtonClass('cancel')}
+            data-testid="about-notices"
+            onClick={openNotices}
           >
-            {t('about.close')}
+            {t('about.notices')}
           </button>
-        </div>
+        )
+      }
+    >
+      <div className="dialog-body">
+        <p>{t('about.description')}</p>
+        <p data-testid="about-version" data-version={versions.app}>
+          {fill(t('about.version'), { version: versions.app })}
+        </p>
+        {versions.electron && versions.chromium && (
+          <p className="dialog-hint" data-testid="about-runtime">
+            {fill(t('about.runtime'), { electron: versions.electron, chromium: versions.chromium })}
+          </p>
+        )}
+        {noticesFailed && (
+          <p className="dialog-hint" role="alert" data-testid="about-notices-error">
+            {t('about.noticesFailed')}
+          </p>
+        )}
       </div>
-    </div>
+    </Sheet>
   );
 }

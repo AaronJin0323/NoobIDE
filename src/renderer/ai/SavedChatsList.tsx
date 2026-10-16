@@ -18,7 +18,8 @@ export interface SavedChatsActions {
 
 /**
  * "Past chats" of the open project (S39.1): title, date and size of each saved chat, newest first; Open reopens it,
- * Delete asks for confirmation first. Everything is a button (keyboard reachable) and every state is said in words.
+ * Delete asks for confirmation first — Cancel, then the destructive verb, in the order every confirmation uses
+ * (S49.1). Everything is a button (keyboard reachable) and every state is said in words.
  */
 export function SavedChatsList({
   state,
@@ -105,20 +106,20 @@ export function SavedChatsList({
                     <span className="ai-history-confirm-text">{fill(t('ai.history.confirmDelete'), { title })}</span>
                     <button
                       type="button"
-                      className="secondary-button"
-                      ref={confirmButton}
-                      data-testid="ai-history-confirm-delete"
-                      onClick={() => void actions.confirmDelete()}
-                    >
-                      {t('ai.history.confirmYes')}
-                    </button>
-                    <button
-                      type="button"
                       className="quiet-button"
                       data-testid="ai-history-cancel-delete"
                       onClick={() => actions.cancelDelete()}
                     >
                       {t('ai.history.cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button danger-button"
+                      ref={confirmButton}
+                      data-testid="ai-history-confirm-delete"
+                      onClick={() => void actions.confirmDelete()}
+                    >
+                      {t('ai.history.confirmYes')}
                     </button>
                   </span>
                 ) : (
