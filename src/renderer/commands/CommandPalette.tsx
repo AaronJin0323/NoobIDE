@@ -105,7 +105,7 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
           {t('palette.title')}
         </h2>
         <div className="palette-search">
-          <SearchIcon size={17} />
+          <SearchIcon size={16} />
           <label className="sr-only" htmlFor={`${listId}-input`}>
             {t('palette.label')}
           </label>

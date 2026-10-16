@@ -4,24 +4,11 @@
  */
 import type { ReactNode } from 'react';
 import type { ProblemSeverity } from '../../shared/problem';
+import { IconBase } from '../workbench/icons';
 
-function Svg({ children, size = 14 }: { children: ReactNode; size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.7}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      {children}
-    </svg>
-  );
+/** 14 px glyphs on the shared icon base (S46.7: one ~1.5 px stroke for every outline icon). */
+function Svg({ children }: { children: ReactNode }) {
+  return <IconBase size={14}>{children}</IconBase>;
 }
 
 export const ErrorIcon = () => (

@@ -141,7 +141,7 @@ export function EditorPane(props: EditorPaneProps) {
             data-testid="show-history"
             onClick={() => props.onShowHistory?.(tab.relPath)}
           >
-            <HistoryIcon size={15} />
+            <HistoryIcon size={16} />
             {/* In a narrow editor only the icon shows (styles.css); the name stays the same. */}
             <span className="history-label">{t('history.open')}</span>
           </button>
@@ -182,7 +182,7 @@ export function EditorPane(props: EditorPaneProps) {
       )}
       {saveError && tab && (
         <div className="inline-alert save-alert" role="alert" data-testid="save-error">
-          <WarningIcon size={15} />
+          <WarningIcon size={16} />
           <div className="save-alert-body">
             <strong>
               {tab.relPath}: {t(saveErrorKey(saveError.code))}

@@ -16,7 +16,7 @@ export function EntryNotice({ state, onDismiss }: { state: EntryNoticeState; onD
       data-testid="entry-notice"
       data-state={state.error ?? 'set'}
     >
-      {state.error && <WarningIcon size={15} />}
+      {state.error && <WarningIcon size={16} />}
       <div className="save-alert-body">
         {state.error ? (
           <strong>{t(state.error === 'invalid-existing' ? 'entry.invalidExisting' : 'entry.failed')}</strong>

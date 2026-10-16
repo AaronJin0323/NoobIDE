@@ -63,7 +63,7 @@ export function EditorAiActionsView({
           data-testid="editor-ai-edit"
           onClick={() => edit.run(selection())}
         >
-          <AiIcon />
+          <AiIcon size={14} />
           <span className="editor-ai-edit-label">{t('ai.editor.editButton')}</span>
           {shortcut && (
             <kbd className="ai-entry-kbd" aria-hidden="true">
@@ -81,7 +81,7 @@ export function EditorAiActionsView({
           data-testid="editor-ai-explain"
           onClick={() => explain.run(selection())}
         >
-          <ExplainIcon />
+          <ExplainIcon size={14} />
           <span className="editor-ai-explain-label">{t('ai.editor.explainButton')}</span>
         </button>
       )}

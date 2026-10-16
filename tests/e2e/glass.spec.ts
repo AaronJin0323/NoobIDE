@@ -6,12 +6,13 @@ import { axeScan } from './a11y-helpers';
 import { commandShortcutLabel } from '../../src/shared/commands';
 
 /**
- * S40.7 end to end: the command palette (S40.5) and the Liquid Glass materials (S40.2–S40.4).
+ * S40.7 end to end: the command palette (S40.5) and the overlay materials (S40.2–S40.4, narrowed by S46.3).
  * - The palette opens from the keyboard, the top bar button and the native View menu; it searches in both interface
  *   languages, lists only commands that can run, runs the chosen one after it closed and returns focus.
  * - Materials: content (editor, preview) never sits under a backdrop-filter while nothing floats; menus and the
- *   palette blur while open; persistent chrome is translucent without blur; reduced transparency and increased
- *   contrast make every material solid; reduced motion replaces movement with a cross-fade. Both themes.
+ *   palette blur while open; persistent chrome (rail, top bar, its groups, files sidebar, status strip) is opaque or
+ *   has no background, never blurred; reduced transparency, increased contrast and forced colours make every overlay
+ *   solid; reduced motion replaces movement with a cross-fade. Both themes.
  */
 test.describe.configure({ mode: 'serial' });
 
@@ -100,6 +101,19 @@ async function paletteStyle() {
   return style;
 }
 
+/** Opens the glossary (a .dialog sheet) from the app menu and returns its computed style; closes it again. */
+async function dialogStyle() {
+  await page.getByTestId('app-menu').click();
+  await page.getByTestId('menu-help-glossary').click();
+  const glossary = page.getByTestId('glossary');
+  await expect(glossary).toBeVisible();
+  await expect(glossary).toHaveClass(/\bdialog\b/);
+  const style = await styleOf('[data-testid="glossary"]');
+  await page.keyboard.press('Escape');
+  await expect(glossary).toHaveCount(0);
+  return style;
+}
+
 /**
  * Whether the OS itself asks for solid materials (macOS "Reduce transparency" / "Increase contrast"). glass.css
  * honours both, so the app is right to draw solid chrome then; GitHub's macos-14 runner image ships with Reduce
@@ -111,16 +125,20 @@ const systemAsksForSolid = () =>
       matchMedia('(prefers-reduced-transparency: reduce)').matches || matchMedia('(prefers-contrast: more)').matches,
   );
 
-/** The computed colour a solid chrome fill must have in the current theme (`--glass-chrome-solid`, resolved). */
-const solidChrome = () =>
-  page.evaluate(() => {
-    const probe = document.createElement('div');
-    probe.style.background = 'var(--glass-chrome-solid)';
-    document.body.append(probe);
-    const color = getComputedStyle(probe).backgroundColor;
-    probe.remove();
-    return color;
-  });
+/** Persistent chrome (S46.3): flat on the window background, so no material and no blur of its own. */
+const CHROME = ['.rail', '.topbar', '.toolbar-group', '[data-testid="region-files"]', '.status-strip'] as const;
+
+/** Every piece of persistent chrome has an opaque background or none (alpha 1 or 0) and no backdrop-filter. */
+async function expectFlatChrome(label: string): Promise<void> {
+  for (const selector of CHROME) {
+    const style = await styleOf(selector);
+    expect(style.backdropFilter, `${label} ${selector}`).toBe('none');
+    expect([0, 1], `${label} ${selector} ${style.background}`).toContain(alphaOf(style.background));
+  }
+  // No ambient colour fields behind the chrome: the window is one flat colour.
+  const image = await page.locator('.workbench').evaluate((el) => getComputedStyle(el).backgroundImage);
+  expect(image, label).toBe('none');
+}
 
 /** Pins the colour scheme and the default (glass) material preferences, whatever the OS is set to. */
 async function setSchemeWithGlass(cdp: CDPSession, scheme: 'light' | 'dark'): Promise<void> {
@@ -238,18 +256,20 @@ test('the native View menu opens the palette', async () => {
   await closePalette();
 });
 
-test('materials: content never under blur, overlays blur, chrome is translucent — in both themes', async () => {
+test('materials: content never under blur, overlays blur, chrome is flat — in both themes', async () => {
   const systemSolid = await systemAsksForSolid();
   if (systemSolid) {
     // The OS asks for solid materials: the app must honour it, in both themes, before we emulate the default.
     test.info().annotations.push({ type: 'system materials', description: 'OS asks for solid materials' });
     for (const scheme of ['light', 'dark'] as const) {
       await setScheme(scheme);
-      const rail = await styleOf('.rail');
-      expect(rail.backdropFilter, scheme).toBe('none');
-      expect(rail.background, `${scheme} system-solid rail`).toBe(await solidChrome());
-      expect(alphaOf(rail.background), `${scheme} rail ${rail.background}`).toBe(1);
-      expect((await paletteStyle()).backdropFilter, scheme).toBe('none');
+      await expectFlatChrome(`${scheme} system-solid`);
+      const menu = await appMenuStyle();
+      expect(menu.backdropFilter, scheme).toBe('none');
+      expect(alphaOf(menu.background), `${scheme} system-solid menu ${menu.background}`).toBe(1);
+      const sheet = await paletteStyle();
+      expect(sheet.backdropFilter, scheme).toBe('none');
+      expect(alphaOf(sheet.background), `${scheme} system-solid palette ${sheet.background}`).toBe(1);
     }
   }
   const cdp: CDPSession = await page.context().newCDPSession(page);
@@ -287,12 +307,8 @@ async function runMaterialChecks(cdp: CDPSession): Promise<void> {
     });
     expect(blurred, scheme).toEqual([]);
 
-    // Persistent chrome: translucent fill, no blur.
-    const rail = await styleOf('.rail');
-    expect(rail.backdropFilter, scheme).toBe('none');
-    expect(alphaOf(rail.background), `${scheme} rail ${rail.background}`).toBeLessThan(1);
-    const group = await styleOf('.toolbar-group');
-    expect(group.backdropFilter, scheme).toBe('none');
+    // Persistent chrome: opaque or no background, no blur.
+    await expectFlatChrome(scheme);
 
     // Overlays blur what is behind them while open.
     expect((await appMenuStyle()).backdropFilter, scheme).toContain('blur');
@@ -399,14 +415,16 @@ test('reduced transparency makes every material solid', async () => {
           document.documentElement.dataset.transparency = 'reduce';
         });
       }
-      const rail = await styleOf('.rail');
-      expect(alphaOf(rail.background), `${scheme} rail ${rail.background}`).toBe(1);
+      await expectFlatChrome(`${scheme} reduced transparency`);
       const menu = await appMenuStyle();
       expect(menu.backdropFilter, scheme).toBe('none');
       expect(alphaOf(menu.background), `${scheme} menu ${menu.background}`).toBe(1);
       const sheet = await paletteStyle();
       expect(sheet.backdropFilter, scheme).toBe('none');
       expect(alphaOf(sheet.background), `${scheme} palette ${sheet.background}`).toBe(1);
+      const dialog = await dialogStyle();
+      expect(dialog.backdropFilter, scheme).toBe('none');
+      expect(alphaOf(dialog.background), `${scheme} dialog ${dialog.background}`).toBe(1);
     }
     test.info().annotations.push({
       type: 'prefers-reduced-transparency',
@@ -423,8 +441,12 @@ test('reduced transparency makes every material solid', async () => {
       document.documentElement.dataset.transparency = 'reduce';
     });
     expect(await page.evaluate(() => matchMedia('(prefers-reduced-transparency: reduce)').matches)).toBe(false);
-    expect(alphaOf((await styleOf('.rail')).background)).toBe(1);
-    expect((await paletteStyle()).backdropFilter).toBe('none');
+    const menu = await appMenuStyle();
+    expect(menu.backdropFilter).toBe('none');
+    expect(alphaOf(menu.background), `menu ${menu.background}`).toBe(1);
+    const sheet = await paletteStyle();
+    expect(sheet.backdropFilter).toBe('none');
+    expect(alphaOf(sheet.background), `palette ${sheet.background}`).toBe(1);
   } finally {
     await page.evaluate(() => {
       delete document.documentElement.dataset.transparency;
@@ -433,10 +455,16 @@ test('reduced transparency makes every material solid', async () => {
     await cdp.detach();
     await page.emulateMedia({ colorScheme: null });
   }
-  // Back to what the OS asks for: glass, or solid when the system itself reduces transparency (macOS CI runner).
-  const rail = (await styleOf('.rail')).background;
-  if (await systemAsksForSolid()) expect(alphaOf(rail), `system-solid rail ${rail}`).toBe(1);
-  else expect(alphaOf(rail), `rail ${rail}`).toBeLessThan(1);
+  // Back to what the OS asks for: frosted overlays, or solid ones when the system itself reduces transparency (macOS
+  // CI runner).
+  const sheet = await paletteStyle();
+  if (await systemAsksForSolid()) {
+    expect(sheet.backdropFilter, 'system-solid palette').toBe('none');
+    expect(alphaOf(sheet.background), `system-solid palette ${sheet.background}`).toBe(1);
+  } else {
+    expect(sheet.backdropFilter, 'palette').toContain('blur');
+    expect(alphaOf(sheet.background), `palette ${sheet.background}`).toBeLessThan(1);
+  }
 });
 
 test('reduced motion swaps the menu pop for a cross-fade', async () => {
@@ -457,14 +485,16 @@ test('increased contrast makes every material solid', async () => {
     await page.emulateMedia({ colorScheme: scheme, contrast: 'more' });
     await expect(html()).toHaveAttribute('data-theme', scheme);
     expect(await page.evaluate(() => matchMedia('(prefers-contrast: more)').matches)).toBe(true);
-    const rail = await styleOf('.rail');
-    expect(alphaOf(rail.background), `${scheme} rail ${rail.background}`).toBe(1);
+    await expectFlatChrome(`${scheme} increased contrast`);
     const menu = await appMenuStyle();
     expect(menu.backdropFilter, scheme).toBe('none');
     expect(alphaOf(menu.background), `${scheme} menu ${menu.background}`).toBe(1);
     const sheet = await paletteStyle();
     expect(sheet.backdropFilter, scheme).toBe('none');
     expect(alphaOf(sheet.background), `${scheme} palette ${sheet.background}`).toBe(1);
+    const dialog = await dialogStyle();
+    expect(dialog.backdropFilter, scheme).toBe('none');
+    expect(alphaOf(dialog.background), `${scheme} dialog ${dialog.background}`).toBe(1);
   }
   await page.emulateMedia({ colorScheme: null, contrast: null });
 });
@@ -476,15 +506,24 @@ test('forced colours (Windows contrast themes) drop every blur and keep the pale
   expect(rail.backdropFilter).toBe('none');
   const menu = await appMenuStyle();
   expect(menu.backdropFilter).toBe('none');
+  expect(alphaOf(menu.background), `menu ${menu.background}`).toBe(1);
   await page.getByTestId('open-palette').click();
   await expect(palette()).toBeVisible();
-  expect((await styleOf('.palette')).backdropFilter).toBe('none');
+  const sheet = await styleOf('.palette');
+  expect(sheet.backdropFilter).toBe('none');
+  expect(alphaOf(sheet.background), `palette ${sheet.background}`).toBe(1);
+
   // The active option keeps a system highlight (not the accent fill, which forced colours would drop).
   const selected = await styleOf('.palette-option[aria-selected="true"]');
   const other = await styleOf('.palette-option[aria-selected="false"]');
   expect(alphaOf(selected.background)).toBe(1);
   expect(selected.background).not.toBe(other.background);
   await closePalette();
+
+  // Dialogs (sheets) are solid too.
+  const dialog = await dialogStyle();
+  expect(dialog.backdropFilter).toBe('none');
+  expect(alphaOf(dialog.background), `dialog ${dialog.background}`).toBe(1);
   await page.emulateMedia({ forcedColors: null });
 });
 

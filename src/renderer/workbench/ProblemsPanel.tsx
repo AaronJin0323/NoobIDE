@@ -255,7 +255,7 @@ function ProblemRow({
             data-testid="problem-row-fix-ai"
             onClick={() => onFixWithAi(record, title)}
           >
-            <AiIcon />
+            <AiIcon size={14} />
             {t('problems.card.fixWithAi')}
           </button>
         )}

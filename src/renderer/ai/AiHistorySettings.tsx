@@ -129,7 +129,7 @@ export function AiUsageSection({
           </label>
           <input
             id={amountId}
-            className="ais-input"
+            className="text-field ais-input"
             inputMode="numeric"
             value={draft}
             data-testid="ai-budget-amount"
@@ -152,7 +152,7 @@ export function AiUsageSection({
       )}
       {message && (
         <p
-          className={`ais-message ai-message-${message.tone}`}
+          className={`ais-message ais-message-${message.tone}`}
           role={message.tone === 'error' ? 'alert' : 'status'}
           data-testid="ai-budget-message"
         >

@@ -4,42 +4,32 @@
   position: absolute;
   z-index: 5;
   padding: 4px 0;
-  font: 13px/1.5 var(--font-ui);
+  font: var(--text-md)/1.5 var(--font-ui);
   color: var(--text);
 }
 .inline-edit {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-control);
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
   background: var(--raised);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 12%, transparent);
 }
 .inline-edit-target,
 .inline-edit-hint {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .inline-edit-label {
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
+/* The shared .text-field (a textarea); only its size in the zone is set here. */
 .inline-edit-input {
   width: 100%;
   min-height: 2.6em;
   resize: vertical;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-}
-.inline-edit-input:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 1px;
 }
 .inline-edit-status {
   margin: 0;
@@ -59,10 +49,9 @@
   /* Bounded by the window too, so the zone (Accept / Reject on top) fits on screen with some code around it. */
   max-height: min(320px, 40vh);
   overflow: auto;
-  border: 1px solid var(--line);
   border-radius: var(--radius-control);
-  background: var(--bg);
-  font: 13px/1.6 var(--font-code);
+  background: var(--panel);
+  font: var(--text-md)/1.6 var(--font-code);
 }
 .inline-edit-line {
   display: flex;
@@ -75,7 +64,8 @@
   flex: none;
   width: 2ch;
   text-align: center;
-  font-weight: 700;
+  /* A sign, not a heading: medium weight (the line's fill and strike-through carry the kind too). */
+  font-weight: var(--weight-medium);
 }
 .inline-edit-line[data-kind='removed'] {
   background: var(--danger-soft);
@@ -88,14 +78,14 @@
   padding: 0 1ch;
   color: var(--muted);
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 /* The lines a proposal would replace, in the editor itself (plus a gutter bar). */
 .monaco-editor .inline-edit-replaced-line {
   background: var(--danger-soft);
 }
 .monaco-editor .inline-edit-replaced-gutter {
-  border-left: 3px solid var(--danger);
+  border-left: 2px solid var(--danger);
   margin-left: 3px;
 }
 .inline-edit-row .primary-button {

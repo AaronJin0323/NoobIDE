@@ -178,7 +178,7 @@ export function CreateProjectDialog({ api, onCreated, onCancel }: CreateProjectD
               <input
                 ref={nameRef}
                 id={nameId}
-                className="wizard-input"
+                className="text-field wizard-input"
                 data-testid="wizard-name"
                 value={name}
                 spellCheck={false}

@@ -1,10 +1,11 @@
 /* S42.3 inline /ai prompt lines in the code editor. Colours only from theme tokens; the state is written out in the
    end-of-line hint and the warning marker's text, never colour alone. */
 .monaco-editor .ai-prompt-line {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
+/* A solid quiet bar marks the prompt lines in the gutter (with the soft line fill above). */
 .monaco-editor .ai-prompt-gutter {
-  border-left: 3px dashed var(--accent);
+  border-left: 2px solid var(--muted);
   margin-left: 3px;
 }
 .monaco-editor .ai-prompt-hint {

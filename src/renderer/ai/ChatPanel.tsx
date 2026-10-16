@@ -223,7 +223,7 @@ export function ChatPanelView({
         <span className="spacer" />
         {conversations.length > 0 && (
           <select
-            className="ai-conversations"
+            className="text-field ai-conversations"
             aria-label={t('ai.chat.conversations')}
             data-testid="ai-conversations"
             value={conversation?.id ?? ''}
@@ -501,7 +501,7 @@ export function ChatPanelView({
                 data-testid="ai-send"
                 disabled={!canSend}
               >
-                <AiIcon />
+                <AiIcon size={16} />
                 {t('ai.chat.send')}
               </button>
             )}
