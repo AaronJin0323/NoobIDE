@@ -3,6 +3,37 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 24 (side session) — 2026-10-16 — main red after a110002: take the archive fix
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/happy-jackson-8b1fcf`
+(node_modules junctioned), started from the license session, which found `npm run verify` red on `main` @ `df242a0`.
+
+**Done**
+
+- Searched every local/remote branch and every worktree under `.claude/worktrees` (committed trees and working
+  copies) for the missing S44/S45 implementation (`commandLabel`, `fixCardProminent`, the ai-icons exports, the
+  `ai.chat.context.addGroup` key). It exists nowhere: a110002 committed only the files it added.
+- The owner-approved fix already existed: `dfb1759` "Restore the last green tree: archive the half-landed S44/S45 HIG
+  files" (pushed as `origin/claude/ci-failures-subagent-4ab7a0`; the same tree is `be7194a` on
+  `claude/noobide-key-features-visibility-643cf7`). Fast-forwarded this branch onto it instead of rewriting the code.
+  Every file a110002 touched is back at `3222c89`; a110002's versions sit in `docs/archive/s44-s45-hig/` (see its
+  README).
+
+**Evidence:** `npm run verify` green on this branch @ `dfb1759` — harness, typecheck, lint, format, test (212 files,
+2612 passed, 15 skipped).
+
+**Decisions:** none new; reused the owner's 2026-10-16 decision recorded in `docs/archive/s44-s45-hig/README.md`.
+
+**Problems / risks:** the archive README names backlog feature S46.9 (rebuild), which is not in `features.json` on
+this branch; it lands with the key-features-visibility branch (Session 23). e2e not run here.
+
+**Owner action needed:** merge this branch (or `claude/noobide-key-features-visibility-643cf7`, which contains the
+same fix plus S45 rebuilt) into `main` so `main` is green again.
+
+**Next up**
+
+1. Merge to `main`, then continue with the key-features-visibility work and S46.9.
+
 ## Session 22 (side session) — 2026-10-16 — CI: the three load-sensitive preview specs (S05.8, S05.7, S38.1)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/interesting-hopper-188b01`
