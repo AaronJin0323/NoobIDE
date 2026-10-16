@@ -1,5 +1,8 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import { THEMES } from '../../src/renderer/theme/tokens';
 import { launchApp } from './launch';
+
+const toRgb = (hex: string) => `rgb(${[1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
 
 let app: ElectronApplication;
 let page: Page;
@@ -47,9 +50,9 @@ test('shell and editor follow the system colour scheme together (S30.1, S30.2)',
       .toBe(true);
     seen[scheme] = await background('[data-testid="region-editor"]');
   }
-  expect(seen.dark).toBe('rgb(19, 22, 29)'); // tokens.ts dark.panel #13161D
-  expect(seen.light).toBe('rgb(255, 255, 255)'); // tokens.ts light.panel #FFFFFF
-  expect(await background('body')).toBe('rgb(236, 238, 243)'); // light.bg
+  expect(seen.dark).toBe(toRgb(THEMES.dark.panel));
+  expect(seen.light).toBe(toRgb(THEMES.light.panel));
+  expect(await background('body')).toBe(toRgb(THEMES.light.bg));
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });

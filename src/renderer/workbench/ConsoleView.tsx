@@ -52,7 +52,7 @@ export function ConsoleView({ log, onClear }: { log: LogView; onClear: () => voi
             data-testid="console-error-count"
             title={t('preview.console.errors.label').replace('{count}', String(errors))}
           >
-            <WarningIcon size={12} />
+            <WarningIcon size={14} />
             {t('preview.console.errors').replace('{count}', String(errors))}
           </span>
         )}

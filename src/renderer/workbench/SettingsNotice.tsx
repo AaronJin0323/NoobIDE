@@ -12,7 +12,7 @@ export function SettingsNotice({ snapshot, onDismiss }: { snapshot: SettingsSnap
   const newer = snapshot.notice === 'newer-version';
   return (
     <div className="inline-alert save-alert app-notice" role="alert" data-testid="settings-notice">
-      <WarningIcon size={15} />
+      <WarningIcon size={16} />
       <div className="save-alert-body">
         <strong>{t(newer ? 'settings.newer' : 'settings.corrupt')}</strong>{' '}
         {t(newer ? 'settings.readOnly' : 'settings.reset')}

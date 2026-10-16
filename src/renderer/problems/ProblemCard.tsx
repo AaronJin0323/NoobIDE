@@ -112,7 +112,7 @@ export function ProblemCardBody({
             title={t('problems.card.fixWithAiHint')}
             onClick={() => onFixWithAi(record, text.title)}
           >
-            <AiIcon />
+            <AiIcon size={16} />
             {t('problems.card.fixWithAi')}
           </button>
         )}

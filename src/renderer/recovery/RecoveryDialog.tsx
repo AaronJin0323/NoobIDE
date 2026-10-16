@@ -77,7 +77,7 @@ export function JournalHealthNotice({ health }: { health: JournalHealth }) {
   if (health === null) return null;
   return (
     <p className="inline-alert save-alert recovery-health" role="alert" data-testid="journal-health">
-      <WarningIcon size={15} />
+      <WarningIcon size={16} />
       {t('recovery.journalFailed')}
     </p>
   );

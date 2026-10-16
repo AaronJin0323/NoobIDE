@@ -1,109 +1,42 @@
 /*
- * S40 Liquid Glass layer (docs/decisions/0029-liquid-glass-design-language.md, study in
- * docs/product/liquid-glass-study.md). Loaded after styles.css and refines it; colours still come only from the
- * token custom properties ThemeProvider writes (tokens.ts THEMES + GLASS).
+ * Overlay material (S40, narrowed by S46: docs/product/calm-design-spec.md, decision 0034). Loaded after
+ * styles.css; colours still come only from the token custom properties ThemeProvider writes (tokens.ts THEMES +
+ * GLASS).
  *
  * Rules this file follows:
- *  1. Glass is for the layer that floats above content — rail, top-bar groups, status strip, menus, the command
- *     palette, sheets. Content (code, preview, file names, chat text) stays on solid panels.
- *  2. Persistent chrome never uses backdrop-filter: it floats over the static window background, so a fill with
- *     some alpha shows the ambient colour through at no cost. Only transient overlays blur what is behind them,
- *     and only while they are open — typing in the editor and the preview never pay for blur (S27 budgets).
- *  3. Reduced transparency, increased contrast and forced colours swap every translucent fill for its solid twin.
- *     Reduced motion swaps movement (scale, slide) for a short cross-fade.
- *  4. Shapes are concentric: an inner radius is the outer radius minus the padding between them.
+ *  1. One material per layer. Persistent chrome (top bar, rail, files sidebar, status strip) is flat on --bg and has
+ *     no material at all (styles.css). Only overlays that float above content — menus, popovers, the command palette,
+ *     dialogs — are frosted, and only while they are open: typing in the editor and the preview never pay for blur.
+ *  2. Reduced transparency, increased contrast and forced colours swap the frosted fill for its solid twin, without
+ *     blur. Reduced motion swaps movement for a short cross-fade.
+ *  3. Overlays carry the one shadow of the app (--shadow-overlay) and the sheet or panel radius.
  */
 :root {
-  /* Materials (switched to solid below) */
-  --material-chrome: var(--glass-chrome);
+  /* The overlay material (switched to solid below) */
   --material-overlay: var(--glass-overlay);
   --material-blur: blur(28px) saturate(170%);
-  --material-hairline: color-mix(in srgb, var(--line) 60%, transparent);
-  --shadow-chrome:
-    inset 0 1px 0 var(--glass-highlight), inset 0 0 0 1px var(--glass-stroke), 0 0 0 1px var(--material-hairline),
-    0 8px 24px -14px var(--glass-shadow);
-  --shadow-overlay:
-    inset 0 1px 0 var(--glass-highlight), inset 0 0 0 1px var(--glass-stroke), 0 0 0 1px var(--material-hairline),
-    0 4px 14px -6px var(--glass-shadow), 0 28px 64px -18px var(--glass-shadow);
-  --shadow-panel: 0 0 0 1px var(--material-hairline), 0 10px 30px -22px var(--glass-shadow);
-  /* The rim keeps a black fill visible on the dark scheme (same colour as the fill in the light scheme). */
-  --shadow-prominent:
-    inset 0 0 0 1px var(--accent-rim), inset 0 1px 0 color-mix(in srgb, var(--on-accent) 35%, transparent),
-    0 6px 16px -8px color-mix(in srgb, var(--accent-fill) 80%, transparent);
-
-  /* Concentric radii */
-  --radius-capsule: 999px;
-  --radius-rail: 22px;
-  --radius-rail-item: 16px; /* 22 − 6 padding */
-  --radius-panel: 14px;
-  --radius-control: 8px; /* 14 − 6 inset of header controls */
-  --radius-menu: 14px;
-  --radius-menu-item: 8px; /* 14 − 6 padding */
-  --radius-sheet: 22px;
-  --radius-field: 10px;
-
-  /* Motion. Springs as linear() curves: a short settle with a ~4% overshoot ("snappy") and a critically damped one
-     ("smooth"). Durations stay short so motion never slows anyone down. */
-  --ease-snappy: linear(
-    0,
-    0.071,
-    0.229,
-    0.415,
-    0.593,
-    0.742,
-    0.858,
-    0.939,
-    0.992,
-    1.022,
-    1.035,
-    1.038,
-    1.035,
-    1.029,
-    1.021,
-    1.015,
-    1.009,
-    1.005,
-    1.002,
-    1
-  );
-  --ease-smooth: linear(0, 0.093, 0.277, 0.469, 0.632, 0.758, 0.849, 0.91, 0.949, 0.973, 0.988, 0.995, 0.999, 1);
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --dur-press: 120ms;
-  --dur-fast: 160ms;
-  --dur-base: 260ms;
-  --dur-sheet: 340ms;
 }
 
 /* ── Accessibility: solid materials ───────────────────────────── */
 @media (prefers-reduced-transparency: reduce) {
   :root {
-    --material-chrome: var(--glass-chrome-solid);
     --material-overlay: var(--glass-overlay-solid);
     --material-blur: none;
-    --material-hairline: var(--line);
   }
 }
 :root[data-transparency='reduce'] {
-  --material-chrome: var(--glass-chrome-solid);
   --material-overlay: var(--glass-overlay-solid);
   --material-blur: none;
-  --material-hairline: var(--line);
 }
 @media (prefers-contrast: more) {
   :root {
-    --material-chrome: var(--glass-chrome-solid);
     --material-overlay: var(--glass-overlay-solid);
     --material-blur: none;
-    --material-hairline: var(--muted);
     --glass-stroke: transparent;
-  }
-  .workbench {
-    background-image: none !important;
   }
 }
 @media (forced-colors: active) {
   :root {
-    --material-chrome: var(--glass-chrome-solid);
     --material-overlay: var(--glass-overlay-solid);
     --material-blur: none;
   }
@@ -113,434 +46,67 @@
     background: Highlight;
     color: HighlightText;
   }
-  .rail,
-  .toolbar-group,
   .app-menu-list,
   .context-menu,
+  .editor-more-panel,
   .dialog,
   .recovery-dialog,
   .palette {
     border: 1px solid CanvasText;
   }
-}
-
-/* ── Window: ambient colour behind the floating layer ─────────── */
-.workbench {
-  background-color: var(--bg);
-  background-image:
-    radial-gradient(70% 55% at 0% 0%, var(--ambient-a), transparent 70%),
-    radial-gradient(55% 50% at 100% 100%, var(--ambient-b), transparent 70%);
-}
-
-/* ── Content panels: solid, lifted a little ───────────────────── */
-.panel {
-  border-color: transparent;
-  box-shadow: var(--shadow-panel);
-}
-.panel-header {
-  border-bottom-color: var(--material-hairline);
-}
-
-/* ── Top bar: identity on the left, grouped controls on the right ─ */
-.topbar {
-  gap: 8px;
-}
-.app-mark {
-  border-radius: 8px;
-  box-shadow: var(--shadow-prominent);
-}
-.project {
-  border-left-color: var(--material-hairline);
-}
-/* A toolbar group: related controls share one glass capsule (HIG toolbars). */
-.toolbar-group {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 2px;
-  height: 36px;
-  padding: 3px;
-  border-radius: var(--radius-capsule);
-  background: var(--material-chrome);
-  box-shadow: var(--shadow-chrome);
-}
-.toolbar-group .quiet-button,
-.toolbar-group .icon-button {
-  height: 30px;
-  border-radius: var(--radius-capsule);
-  margin-left: 0;
-}
-.toolbar-group .icon-button {
-  width: 30px;
-}
-.toolbar-group .save-status {
-  height: 30px;
-  border: 0;
-}
-.save-status {
-  border-radius: var(--radius-capsule);
-  transition:
-    background-color var(--dur-base) var(--ease-out),
-    color var(--dur-base) var(--ease-out);
-}
-/* The command search: looks like a search field, opens the command palette (S40.5). */
-.palette-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 30px;
-  min-width: 0;
-  padding: 0 6px 0 12px;
-  border: 0;
-  border-radius: var(--radius-capsule);
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-.palette-button:hover {
-  background: var(--glass-hover);
-  color: var(--text);
-}
-.palette-button-label {
-  white-space: nowrap;
-}
-.kbd {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 6px;
-  background: var(--glass-hover);
-  box-shadow: inset 0 0 0 1px var(--material-hairline);
-  color: var(--muted);
-  font: 600 11px/1 var(--font-ui);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.workbench.narrow .palette-button-label,
-.workbench.narrow .palette-button .kbd {
-  display: none;
-}
-.workbench.narrow .palette-button {
-  width: 30px;
-  padding: 0;
-  justify-content: center;
-}
-
-/* ── Key features in the top bar: Save and (narrow window) New file ─ */
-.save-group {
-  display: inline-flex;
-  flex: 0 1 auto;
-  min-width: 0;
-  align-items: center;
-  gap: 6px;
-}
-/* glassProminent: while there are unsaved edits, Save is the one primary action of the window. The word, the icon
-   and the shortcut say what it does; the colour is never the only cue. */
-.save-button {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 6px 0 12px;
-  border: 0;
-  border-radius: var(--radius-capsule);
-  background: var(--accent-fill);
-  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--on-accent) 16%, transparent), transparent 60%);
-  color: var(--on-accent);
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-  box-shadow: var(--shadow-prominent);
-  transition:
-    transform var(--dur-press) var(--ease-snappy),
-    filter var(--dur-fast) var(--ease-out);
-}
-.save-button:hover {
-  filter: brightness(1.08);
-}
-.save-button:active {
-  transform: scale(0.96);
-}
-.save-button .kbd {
-  background: color-mix(in srgb, var(--on-accent) 22%, transparent);
-  box-shadow: none;
-  color: var(--on-accent);
-}
-.topbar-new-file {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-/* The state word gives way (ellipsis) before any control leaves the top bar; the full word stays in the status. */
-.save-status-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* A narrow window keeps every top-bar control on screen: New file shows its icon only (the name stays its accessible
-   name and tooltip) and Save drops the shortcut hint (the tooltip keeps it). */
-@media (max-width: 879px) {
-  .workbench.narrow .topbar-new-file {
-    width: 32px;
-    padding: 0;
-    justify-content: center;
-  }
-  .workbench.narrow .topbar-new-file-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-  .workbench.narrow .save-button .kbd {
-    display: none;
+  /* The selected ring of an icon-only control (a box shadow, dropped here) becomes a system-colour border. */
+  .icon-button[aria-pressed='true'],
+  .icon-button[aria-expanded='true'] {
+    border: 1px solid CanvasText;
   }
 }
 
-/* ── Rail: a floating glass capsule ───────────────────────────── */
-.rail {
-  align-self: flex-start;
-  gap: 2px;
-  width: 64px;
-  margin-left: 8px;
-  padding: 6px;
-  border-radius: var(--radius-rail);
-  background: var(--material-chrome);
-  box-shadow: var(--shadow-chrome);
-}
-.rail-button {
-  width: 52px;
-  border-radius: var(--radius-rail-item);
-  transition:
-    background-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    transform var(--dur-press) var(--ease-snappy);
-}
-.rail-button:hover {
-  background: var(--glass-hover);
-}
-.rail-button[aria-pressed='true'],
-.rail-button[aria-expanded='true'] {
-  background: var(--accent-soft);
-  /* Not colour alone: bold label plus an inner ring marks the open tool. */
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-text) 35%, transparent);
-}
-.workbench.narrow .files {
-  left: 80px;
-}
-.problems-panel {
-  margin-left: 80px;
-}
-.status-strip {
-  padding-left: 82px;
-}
-
-/* ── Status strip ─────────────────────────────────────────────── */
-.status-button {
-  height: 26px;
-  padding: 0 10px;
-  border-radius: var(--radius-capsule);
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-.status-button:hover,
-.status-button[aria-expanded='true'] {
-  background: var(--material-chrome);
-  box-shadow: var(--shadow-chrome);
-}
-
-/* ── Control styles (SwiftUI button styles → CSS) ─────────────── */
-/* glassProminent: the one primary action of a place */
-.primary-button {
-  border-radius: var(--radius-capsule);
-  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--on-accent) 16%, transparent), transparent 60%);
-  box-shadow: var(--shadow-prominent);
-  transition:
-    transform var(--dur-press) var(--ease-snappy),
-    box-shadow var(--dur-fast) var(--ease-out),
-    filter var(--dur-fast) var(--ease-out);
-}
-.primary-button:hover:not(:disabled) {
-  filter: brightness(1.08);
-}
-/* glass / bordered: secondary actions */
-.secondary-button {
-  border-color: transparent;
-  border-radius: var(--radius-capsule);
-  background: var(--material-chrome);
-  box-shadow: var(--shadow-chrome);
-  transition:
-    transform var(--dur-press) var(--ease-snappy),
-    background-color var(--dur-fast) var(--ease-out);
-}
-.secondary-button:hover {
-  background: var(--hover);
-}
-/* plain: quiet actions in toolbars and lists */
-.quiet-button,
-.icon-button,
-.tab-close,
-.menu-item,
-.app-menu-item {
-  transition:
-    background-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    transform var(--dur-press) var(--ease-snappy);
-}
-.quiet-button:hover,
-.icon-button:hover {
-  background: var(--glass-hover);
-}
-/* Pressed: a quick spring squeeze, like a glass control giving under the finger. */
-.primary-button:active:not(:disabled),
-.secondary-button:active,
-.quiet-button:active:not(:disabled),
-.icon-button:active,
-.rail-button:active,
-.palette-button:active,
-.segment:active {
-  transform: scale(0.96);
-}
-/* Segmented control: the selection is a raised glass knob in a sunken track. */
-.segmented {
-  padding: 3px;
-  border-radius: var(--radius-capsule);
-  background: var(--material-chrome);
-  box-shadow: var(--shadow-chrome);
-}
-.segment {
-  border-radius: var(--radius-capsule);
-  transition:
-    background-color var(--dur-base) var(--ease-smooth),
-    color var(--dur-base) var(--ease-smooth),
-    transform var(--dur-press) var(--ease-snappy);
-}
-.segment[aria-pressed='true'] {
-  box-shadow: var(--shadow-prominent);
-}
-.viewport-choice {
-  transition:
-    background-color var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
-}
-/* Pills that report state */
-.state-pill,
-.badge {
-  border-radius: var(--radius-capsule);
-}
-
-/* ── Tabs ─────────────────────────────────────────────────────── */
-.tab-item {
-  border-radius: 10px;
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-.tab-item .tab {
-  border-radius: 10px 0 0 10px;
-}
-.tab-item.selected {
-  box-shadow: inset 0 0 0 1px var(--material-hairline);
-}
-
-/* ── Text input: filled fields, a clear focus glow, errors in words ─ */
-.name-input,
-.ai-input,
-.ais-input,
-.ais-select,
-.wizard-input,
-.glossary-search,
-.preview-select,
-.ai-conversations,
-.palette-input {
-  border: 1px solid var(--material-hairline);
-  border-radius: var(--radius-field);
-  background: var(--raised);
-  color: var(--text);
-  transition:
-    border-color var(--dur-fast) var(--ease-out),
-    box-shadow var(--dur-fast) var(--ease-out),
-    background-color var(--dur-fast) var(--ease-out);
-}
-.name-input {
-  border-radius: 6px;
-}
-.name-input:focus,
-.ai-input:focus,
-.ais-input:focus,
-.ais-select:focus,
-.wizard-input:focus,
-.glossary-search:focus,
-.preview-select:focus,
-.ai-conversations:focus {
-  border-color: var(--focus);
-  background: var(--panel);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 28%, transparent);
-}
-.name-input[aria-invalid='true'],
-.wizard-input[aria-invalid='true'] {
-  border-color: var(--danger);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent);
-}
-::placeholder {
-  color: var(--muted);
-  opacity: 1;
-}
-
-/* ── Menus: glass, concentric, appear from their button ───────── */
+/* ── Menus and popovers: frosted, appear from their button ────── */
 .app-menu-list,
-.context-menu {
-  padding: 6px;
+.context-menu,
+.editor-more-panel:not([hidden]) {
   border: 0;
-  border-radius: var(--radius-menu);
+  border-radius: var(--radius-panel);
   background: var(--material-overlay);
   -webkit-backdrop-filter: var(--material-blur);
   backdrop-filter: var(--material-blur);
   box-shadow: var(--shadow-overlay);
   animation: glass-pop var(--dur-base) var(--ease-snappy) both;
 }
-.app-menu-list {
-  transform-origin: top left;
-  min-width: 240px;
-}
+.app-menu-list,
 .context-menu {
   transform-origin: top left;
 }
+.editor-more-panel:not([hidden]) {
+  transform-origin: top right;
+}
 .app-menu-item,
 .menu-item {
-  min-height: 32px;
-  border-radius: var(--radius-menu-item);
+  transition:
+    background-color var(--dur-fast) var(--ease-smooth),
+    color var(--dur-fast) var(--ease-smooth);
 }
+/* The row under the pointer or the keyboard: the accent fill (with its rim on dark). */
 .app-menu-item:hover,
 .app-menu-item:focus-visible,
 .menu-item:hover,
 .menu-item:focus-visible {
   background: var(--accent-fill);
   color: var(--on-accent);
-  box-shadow: inset 0 0 0 1px var(--accent-rim);
+  box-shadow: var(--ring-accent);
 }
 /* Keyboard focus: an inner ring on top of the fill (transparent here, drawn by the system in forced colours). */
 .app-menu-item:focus-visible,
 .menu-item:focus-visible {
   outline: 2px solid transparent;
   outline-offset: -2px;
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--on-accent) 70%, transparent);
+  box-shadow: inset 0 0 0 2px var(--on-accent);
 }
 .app-menu-item:hover .menu-shortcut,
 .app-menu-item:focus-visible .menu-shortcut,
 .menu-item:hover .menu-shortcut,
 .menu-item:focus-visible .menu-shortcut {
   color: inherit;
-}
-.app-menu-separator {
-  margin: 4px 10px;
-  background: var(--material-hairline);
 }
 
 /* ── Sheets and dialogs ───────────────────────────────────────── */
@@ -560,101 +126,10 @@
   -webkit-backdrop-filter: var(--material-blur);
   backdrop-filter: var(--material-blur);
   box-shadow: var(--shadow-overlay);
-  animation: glass-rise var(--dur-sheet) var(--ease-smooth) both;
-}
-.dialog {
-  padding: 24px;
-}
-.dialog-title {
-  font-size: 17px;
-  letter-spacing: -0.01em;
+  animation: glass-rise var(--dur-base) var(--ease-smooth) both;
 }
 
-/* ── Floating notices ─────────────────────────────────────────── */
-.app-notice-stack > .inline-alert {
-  box-shadow: var(--shadow-overlay);
-}
-
-/* ── Welcome: one inviting place to start ─────────────────────── */
-:root .welcome {
-  border-radius: 18px;
-  background-color: var(--raised);
-  background-image:
-    radial-gradient(80% 120% at 0% 0%, var(--ambient-a), transparent 60%),
-    radial-gradient(60% 100% at 100% 0%, var(--ambient-b), transparent 60%);
-  box-shadow: inset 0 0 0 1px var(--material-hairline);
-}
-
-/* ── Scroll edge effect: content dissolves softly under a header ─ */
-@property --scroll-edge {
-  syntax: '<length>';
-  inherits: false;
-  initial-value: 0px;
-}
-@keyframes scroll-edge-reveal {
-  to {
-    --scroll-edge: 20px;
-  }
-}
-.tree-scroll,
-.problems-body,
-.ai-body,
-.file-list {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-edge));
-  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-edge));
-  animation: scroll-edge-reveal linear both;
-  animation-timeline: scroll(self);
-  animation-range: 0 32px;
-  /* A row scrolled into view by the keyboard stops below the faded edge, so its focus ring stays visible. */
-  scroll-padding-top: 20px;
-}
-@media (prefers-contrast: more), (forced-colors: active) {
-  .tree-scroll,
-  .problems-body,
-  .ai-body,
-  .file-list {
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
-}
-
-/* ── AI chat (S33–S39) in the same language ───────────────────── */
-:root .ai-msg {
-  border-radius: 14px;
-}
-:root .ai-msg-user {
-  margin-left: 24px;
-  border-bottom-right-radius: 6px;
-  background: var(--accent-soft);
-}
-:root .ai-msg-answer {
-  margin-right: 12px;
-  border-color: var(--material-hairline);
-  border-bottom-left-radius: 6px;
-}
-:root .ai-composer {
-  margin: 0 8px 8px;
-  padding: 8px 10px 10px;
-  border-top: 0;
-  border-radius: 18px;
-  background: var(--raised);
-  box-shadow: inset 0 0 0 1px var(--material-hairline);
-}
-:root .ai-input {
-  border-radius: 12px;
-  background: var(--panel);
-}
-:root .ai-chip {
-  border-color: transparent;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-text) 30%, transparent);
-}
-:root .ai-consent {
-  border: 0;
-  border-radius: 14px;
-  box-shadow: inset 0 0 0 1px var(--material-hairline);
-}
-
-/* ── Command palette (S40.5): a glass sheet near the top ──────── */
+/* ── Command palette (S40.5): a frosted sheet near the top ───── */
 .palette-backdrop {
   position: fixed;
   inset: 0;
@@ -685,23 +160,25 @@
   flex: none;
   align-items: center;
   gap: 10px;
-  padding: 0 6px 0 14px;
+  padding: 0 4px 0 12px;
   color: var(--muted);
 }
+/* The shared text field (styles.css), a little taller as the palette's one input. */
 .palette-input {
   flex: 1;
   min-width: 0;
-  height: 44px;
+  height: 40px;
   padding: 0 12px;
-  border-radius: 14px; /* 22 − 8 padding */
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--text);
   font: inherit;
-  font-size: 15px;
+  font-size: var(--text-lg);
+  transition: border-color var(--dur-fast) var(--ease-smooth);
 }
 .palette-input:focus {
-  outline: 2px solid transparent; /* visible in forced colours, where the glow is dropped */
   border-color: var(--focus);
-  background: var(--panel);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 28%, transparent);
 }
 .palette-list {
   flex: 1 1 auto;
@@ -717,17 +194,20 @@
   gap: 8px;
   min-height: 40px;
   padding: 4px 12px 4px 6px;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   cursor: pointer;
 }
 .palette-option[aria-selected='true'] {
   background: var(--accent-fill);
   color: var(--on-accent);
-  box-shadow: inset 0 0 0 1px var(--accent-rim);
+  box-shadow: var(--ring-accent);
 }
 .palette-option[aria-selected='true'] .palette-other,
 .palette-option[aria-selected='true'] .kbd {
   color: inherit;
+}
+.palette-option[aria-selected='true'] .kbd {
+  background: color-mix(in srgb, var(--on-accent) 22%, transparent);
 }
 .palette-check {
   flex: none;
@@ -742,14 +222,14 @@
   line-height: 1.3;
 }
 .palette-label {
-  font-size: 14px;
+  font-size: var(--text-md);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .palette-other {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .palette-empty {
   margin: 8px 12px;
@@ -764,22 +244,53 @@
   gap: 4px 12px;
   margin: 6px 0 0;
   padding: 8px 12px 4px;
-  border-top: 1px solid var(--material-hairline);
+  border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
-/* ── Motion ───────────────────────────────────────────────────── */
+/* ── Scroll edge effect: content dissolves softly under a header ─ */
+@property --scroll-edge {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes scroll-edge-reveal {
+  to {
+    --scroll-edge: 20px;
+  }
+}
+.tree-scroll,
+.problems-body,
+.ai-body {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-edge));
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-edge));
+  animation: scroll-edge-reveal linear both;
+  animation-timeline: scroll(self);
+  animation-range: 0 32px;
+  /* A row scrolled into view by the keyboard stops below the faded edge, so its focus ring stays visible. */
+  scroll-padding-top: 20px;
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  .tree-scroll,
+  .problems-body,
+  .ai-body {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+/* ── Motion (overlays only; controls change colour, never scale) ─ */
 @keyframes glass-pop {
   from {
     opacity: 0;
-    transform: translateY(-4px) scale(0.94);
+    transform: translateY(-4px) scale(0.97);
   }
 }
 @keyframes glass-rise {
   from {
     opacity: 0;
-    transform: translateY(14px) scale(0.98);
+    transform: translateY(10px) scale(0.99);
   }
 }
 @keyframes glass-fade {
@@ -797,6 +308,7 @@
 @media (prefers-reduced-motion: reduce) {
   .app-menu-list,
   .context-menu,
+  .editor-more-panel:not([hidden]),
   .dialog,
   .recovery-dialog,
   .palette {
@@ -804,72 +316,8 @@
     animation-duration: var(--dur-fast);
     animation-timing-function: var(--ease-out);
   }
-  .primary-button:active:not(:disabled),
-  .secondary-button:active,
-  .quiet-button:active:not(:disabled),
-  .icon-button:active,
-  .rail-button:active,
-  .palette-button:active,
-  .segment:active {
-    transform: none;
-  }
   .tree-twisty {
     transition: none;
-  }
-}
-
-/* ── Layout touches found in the visual pass ──────────────────── */
-/* An empty state's one action is the place's primary action (glassProminent). */
-.empty-state > .quiet-button {
-  height: 34px;
-  margin-top: 8px;
-  padding: 0 18px;
-  border-radius: var(--radius-capsule);
-  background-color: var(--accent-fill);
-  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--on-accent) 16%, transparent), transparent 60%);
-  color: var(--on-accent);
-  font-weight: 600;
-  box-shadow: var(--shadow-prominent);
-}
-.empty-state > .quiet-button:hover {
-  background-color: var(--accent-fill);
-  color: var(--on-accent);
-  filter: brightness(1.08);
-}
-/* Header actions never break a label over several lines in a narrow column. */
-.panel-header .quiet-button {
-  flex: none;
-  white-space: nowrap;
-}
-
-/* The preview's key actions: Start / Refresh is glassProminent; Annotate page is a tinted capsule. */
-.preview-primary,
-.annotations-primary {
-  border-radius: var(--radius-capsule);
-  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--on-accent) 16%, transparent), transparent 60%);
-  box-shadow: var(--shadow-prominent);
-  transition:
-    transform var(--dur-press) var(--ease-snappy),
-    filter var(--dur-fast) var(--ease-out);
-}
-.annotate-button,
-.annotations-way {
-  border-radius: var(--radius-capsule);
-  transition:
-    background-color var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out),
-    transform var(--dur-press) var(--ease-snappy);
-}
-.preview-primary:active,
-.annotate-button:active,
-.annotations-way:active {
-  transform: scale(0.96);
-}
-@media (prefers-reduced-motion: reduce) {
-  .preview-primary:active,
-  .annotate-button:active,
-  .annotations-way:active {
-    transform: none;
   }
 }
 

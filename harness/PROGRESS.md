@@ -3,6 +3,63 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 26 — 2026-10-16 — Calm visual refinement (owner request)
+
+**Agent:** Claude (Opus 5.5) as lead on the Windows x64 dev machine, worktree branch `claude/ui-refinement`
+(node_modules junctioned to the main checkout). The owner asked why the UI looks cheap next to Claude Desktop, then
+asked to fan out subagents: design and plan first, then implement.
+
+**Done**
+
+- S46.1 — Three read-only audit subagents (shell styles, feature styles, test and backlog constraints) plus "before"
+  screenshots. Findings and contract in `docs/product/calm-design-spec.md`; decision
+  `docs/decisions/0034-calm-design-language.md` supersedes the persistent-chrome glass, capsules, concentric radii,
+  glossy buttons and press scaling of 0029, and keeps frosted overlays, solid twins, the reduced-motion dissolve, the
+  palette and the scroll-edge masks. `src/renderer/design-rules.test.ts` enforces the rules on every stylesheet.
+- S46.2 — Warm-neutral palette (tokens.ts), quiet status colours, neutral "no changes" save state; GLASS reduced to
+  overlay tokens; the native window background follows the saved theme (`windowColorScheme`; the first window now
+  waits for the settings file); `color-scheme` meta.
+- S46.3 — Chrome (rail, top bar, files sidebar, status strip) is solid with no ambient fields; overlays stay frosted;
+  glass.spec asserts flat chrome and solid menu, palette and dialog under reduced transparency, contrast and forced
+  colours.
+- S46.4 — Flat primary, secondary, quiet and icon buttons, flush rail, plain top-bar groups, radius scale
+  sm/control/panel/sheet/capsule, one overlay shadow, shared `.text-field`. Selected, current and pressed states are
+  the `--hover` fill plus a 600 label (or `--ring-selected` on icon-only controls); hover is `--hover-soft`
+  (Microsoft YaHei has no 500 face, so 500 is not a cue).
+- S46.5 — Type tokens `--text-xs` to `--text-2xl`, weights 400/500/600, regular body text.
+- S46.6 — AI chat (plain-text answers, one composer field), AI settings, agent proposals, inline edit, annotations,
+  history, welcome, wizard and walkthrough use the shared components; no nested cards, left bars, dashed lines or
+  gradients.
+- S46.7 — One 1.5 px effective stroke and sizes 14/16/18/32; inline SVGs moved into icons.tsx; a test forbids
+  inline `<svg>` in components.
+- Built by four parallel subagents with disjoint files, checked by an independent review subagent (findings:
+  colour-only selected states, saved theme ignored, composer focus lost in forced colours, stray SVGs, gaps in the
+  rules test), fixed by two more subagents.
+
+**Evidence:** `npm run verify` green. Full `npm run test:e2e`: 321 passed, 4 skipped, 1 failed —
+`not-found.spec.ts:105` (preview title still zh-CN after the English switch; passes on rerun and passed in the
+earlier full run; locale timing, unrelated to styles). Regressions found by the first e2e run and fixed: agent diff
+editor height (agent.css), composer button clipped by a negative margin, tabs overflow 0.56 px rounding (`.tabs`
+padding-inline-end 1px), narrow-window editor height (welcome logo hidden in the narrow layout; HEAD already failed
+this test on this machine). Before and after screenshots in both themes via glass-visual.spec.ts (ignored
+`test-results/glass/`).
+
+**Decisions:** 0034 calm design language. The owner's monochrome brand is kept (black fills, grey rim in dark).
+
+**Problems / risks:** Window creation now waits for `settings.load()` (it never rejects; a hung read would delay the
+first window). `.ai-entry` and `.annotations-primary` copy the primary-button rules instead of using the class
+(unit tests match their class names). The rail stretches the middle row, not the full window. The native title bar
+is unchanged. `not-found.spec.ts:105` locale timing flake.
+
+**Owner action needed:** S46.8 visual judgement and platform checks (harness/MANUAL-CHECKS.md#S46.8).
+
+**Next up**
+
+1. Owner review of the S46 look; then S45.9 (rebuild the archived S44/S45 HIG parts) against the new design rules.
+
+**Ideas / backlog candidates:** custom title bar (`titleBarStyle: 'hidden'` with an overlay) to drop the native
+band; native Mica or vibrancy behind the window background only.
+
 ## Session 25 (side session) — 2026-10-16 — Logo and brand colour (owner request)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/noobide-logo-theme-e36f86`

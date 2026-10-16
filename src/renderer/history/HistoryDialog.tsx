@@ -401,7 +401,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
                     <span className="history-item-main">{f.relPath}</span>
                     {!f.exists && (
                       <span className="history-tag" data-testid="history-deleted">
-                        <WarningIcon size={12} />
+                        <WarningIcon size={14} />
                         {t('history.deleted')}
                       </span>
                     )}

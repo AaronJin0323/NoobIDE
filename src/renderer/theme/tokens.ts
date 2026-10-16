@@ -1,15 +1,16 @@
 /**
  * Colour tokens for the workbench shell and the Monaco theme (S30.1). Single source of truth: the stylesheet only
  * reads these as CSS custom properties (`--bg`, `--panel`, …), and monaco-theme.ts builds the editor themes from them.
- * Values follow the 2026-10-14 UI prototype, with the monochrome accent of the NoobIDE logo (resources/brand/) in
- * place of the prototype's purple: filled controls are black in both schemes (with a light rim on
- * the dark panels), lines and indicators are black in the light scheme and near-white in the dark one; contrast is checked by tokens.test.ts. Solid colours only, so the
- * contrast check never depends on what a translucent colour is drawn over.
+ * Warm neutral palette of the calm design language (docs/product/calm-design-spec.md, decision 0034), with the
+ * monochrome accent of the NoobIDE logo (resources/brand/): filled controls are black in both schemes (with a grey
+ * rim on the dark panels), lines and indicators are near-black in the light scheme and near-white in the dark one;
+ * contrast is checked by tokens.test.ts. Solid colours only, so the contrast check never depends on what a
+ * translucent colour is drawn over.
  */
 export type ColorScheme = 'dark' | 'light';
 
 export interface ThemeTokens {
-  /** Window background behind the floating panels. */
+  /** Window background; chrome (rail, top bar, status strip) sits directly on it. */
   bg: string;
   /** Panels: files, editor, preview, problems. Also the Monaco background. */
   panel: string;
@@ -51,92 +52,86 @@ export interface ThemeTokens {
 
 export const THEMES: Record<ColorScheme, ThemeTokens> = {
   dark: {
-    bg: '#0B0D12',
-    panel: '#13161D',
-    raised: '#1B1F29',
-    hover: '#242937',
-    line: '#262B38',
-    text: '#ECEEF4',
-    muted: '#9AA3B5',
-    faint: '#7D8599',
-    accent: '#F2F3F5',
-    accentFill: '#050608',
-    accentRim: '#7D8599',
+    bg: '#1B1A18',
+    panel: '#232220',
+    raised: '#2B2A27',
+    hover: '#33312E',
+    line: '#363431',
+    text: '#ECEAE4',
+    muted: '#A9A59D',
+    faint: '#959189',
+    accent: '#ECEAE4',
+    accentFill: '#0F0E0D',
+    accentRim: '#8F8B83',
     onAccent: '#FFFFFF',
-    accentText: '#FFFFFF',
-    accentSoft: '#2A2E38',
-    ok: '#3DDC97',
-    okSoft: '#13271F',
-    warn: '#FFB547',
-    warnSoft: '#2A2216',
-    danger: '#FF7A7A',
-    dangerSoft: '#2D1A1D',
-    focus: '#FFFFFF',
-    lineHighlight: '#181B22',
-    selection: '#2F3542',
-    syntaxTag: '#7DB4FF',
-    syntaxAttribute: '#FFB86B',
-    syntaxString: '#8EE6B3',
-    syntaxComment: '#8B93A6',
-    syntaxKeyword: '#C3A6FF',
-    syntaxNumber: '#F5A3C7',
+    accentText: '#ECEAE4',
+    accentSoft: '#34322F',
+    ok: '#86C29C',
+    okSoft: '#22302A',
+    warn: '#E2B467',
+    warnSoft: '#342C1F',
+    danger: '#EC8F84',
+    dangerSoft: '#3A2624',
+    focus: '#ECEAE4',
+    lineHighlight: '#282725',
+    selection: '#3E3B37',
+    syntaxTag: '#8DB4F0',
+    syntaxAttribute: '#E3AE78',
+    syntaxString: '#9BCF9F',
+    syntaxComment: '#99958D',
+    syntaxKeyword: '#C4A9F0',
+    syntaxNumber: '#EAA3C2',
   },
   light: {
-    bg: '#ECEEF3',
+    bg: '#F4F3EF',
     panel: '#FFFFFF',
-    raised: '#F3F4F8',
-    hover: '#E8EAF0',
-    line: '#DCE0E8',
-    text: '#151821',
-    muted: '#555D70',
-    faint: '#636B7D',
-    accent: '#111318',
-    accentFill: '#111318',
-    accentRim: '#111318',
+    raised: '#F1F0EC',
+    hover: '#E9E7E2',
+    line: '#E3E1DB',
+    text: '#1F1E1C',
+    muted: '#5F5C56',
+    faint: '#6E6B64',
+    accent: '#1F1E1C',
+    accentFill: '#1F1E1C',
+    accentRim: '#1F1E1C',
     onAccent: '#FFFFFF',
-    accentText: '#111318',
-    accentSoft: '#E6E8EC',
-    ok: '#0F7A4B',
-    okSoft: '#E2F5EC',
-    warn: '#8F5200',
-    warnSoft: '#FFF2DC',
-    danger: '#C02F2F',
-    dangerSoft: '#FDEAEA',
-    focus: '#111318',
-    lineHighlight: '#F5F6F8',
-    selection: '#D9DCE3',
-    syntaxTag: '#2557C7',
-    syntaxAttribute: '#A35200',
-    syntaxString: '#0F7A4B',
-    syntaxComment: '#636B7D',
-    syntaxKeyword: '#6E3FD6',
-    syntaxNumber: '#B0306A',
+    accentText: '#1F1E1C',
+    accentSoft: '#ECEAE5',
+    ok: '#2E6B47',
+    okSoft: '#EAF2EC',
+    warn: '#7F5300',
+    warnSoft: '#F8F0DF',
+    danger: '#A8352C',
+    dangerSoft: '#F9ECEA',
+    focus: '#1F1E1C',
+    lineHighlight: '#F7F6F3',
+    selection: '#E2DFD8',
+    syntaxTag: '#2F5BB5',
+    syntaxAttribute: '#93531A',
+    syntaxString: '#2E6B47',
+    syntaxComment: '#6E6B64',
+    syntaxKeyword: '#7346B8',
+    syntaxNumber: '#A23C6B',
   },
 };
 
 /**
- * S40.2 Liquid Glass materials (docs/decisions/0029-liquid-glass-design-language.md). Translucent `#RRGGBBAA`
- * colours for the floating control layer only — content (code, preview, file names) always sits on the solid
- * tokens above. Every translucent fill has a solid twin used when the system asks for reduced transparency or
- * higher contrast, and tokens.test.ts checks text on the fill composited over every surface it can float over.
+ * Overlay materials (docs/decisions/0034-calm-design-language.md). Decision 0034 superseded the persistent chrome
+ * glass of 0029: rail, top bar and status strip sit flat on `bg`. Only transient layers (menus, command palette,
+ * dialogs, popovers) keep a translucent fill, over content, with a backdrop blur. Content (code, preview, file
+ * names) always sits on the solid tokens above. The overlay fill has a solid twin used when the system asks for
+ * reduced transparency or higher contrast, and tokens.test.ts checks text on the fill composited over every
+ * surface an overlay can open above.
  */
 export interface GlassTokens {
-  /** Persistent chrome (rail, top-bar groups, status strip) over the window background. No backdrop blur. */
-  glassChrome: string;
   /** Transient layers (menus, command palette, sheets) over content, with a backdrop blur. */
   glassOverlay: string;
-  /** Hover / pressed fill of a control drawn on glass. */
+  /** Hover / pressed fill of a control drawn on an overlay. */
   glassHover: string;
-  /** Rim: the thin edge that separates glass from what is behind it. */
+  /** Rim: the thin edge that separates an overlay from what is behind it. */
   glassStroke: string;
-  /** Specular highlight along the top edge. */
-  glassHighlight: string;
   glassShadow: string;
-  /** Soft colour fields in the window background that the chrome refracts. */
-  ambientA: string;
-  ambientB: string;
-  /** Solid fallbacks (reduced transparency, increased contrast, forced colours). */
-  glassChromeSolid: string;
+  /** Solid fallback (reduced transparency, increased contrast, forced colours). */
   glassOverlaySolid: string;
   /** Dims the workbench behind a sheet. */
   scrim: string;
@@ -144,30 +139,20 @@ export interface GlassTokens {
 
 export const GLASS: Record<ColorScheme, GlassTokens> = {
   dark: {
-    glassChrome: '#1E2230A6',
-    glassOverlay: '#181B25D1',
-    glassHover: '#FFFFFF14',
-    glassStroke: '#FFFFFF1F',
-    glassHighlight: '#FFFFFF24',
-    glassShadow: '#00000073',
-    ambientA: '#FFFFFF0F',
-    ambientB: '#3DDC9714',
-    glassChromeSolid: '#1B1F29',
-    glassOverlaySolid: '#1B1F29',
-    scrim: '#05060A99',
+    glassOverlay: '#262522E0',
+    glassHover: '#ECEAE414',
+    glassStroke: '#ECEAE41A',
+    glassShadow: '#0B0A0999',
+    glassOverlaySolid: '#2B2A27',
+    scrim: '#0B0A0999',
   },
   light: {
-    glassChrome: '#FFFFFF94',
-    glassOverlay: '#FFFFFFC7',
-    glassHover: '#151A2B0F',
-    glassStroke: '#FFFFFFB3',
-    glassHighlight: '#FFFFFFE6',
-    glassShadow: '#1E223C29',
-    ambientA: '#11131814',
-    ambientB: '#38BDF81F',
-    glassChromeSolid: '#FFFFFF',
+    glassOverlay: '#FFFFFFD9',
+    glassHover: '#1F1E1C0F',
+    glassStroke: '#1F1E1C1A',
+    glassShadow: '#1F1E1C29',
     glassOverlaySolid: '#FFFFFF',
-    scrim: '#1E223C47',
+    scrim: '#1F1E1C40',
   },
 };
 
@@ -200,16 +185,14 @@ export function composite(over: string, under: string): string {
 }
 
 /**
- * What each glass fill can float over (S40.2). Chrome sits on the window background (tinted by the ambient fields);
- * overlays can open above any surface of the workbench. The native preview view is never under glass: it is
- * hidden while an overlay covers it (PreviewPane `covered`).
+ * What the overlay fill can float over. Overlays can open above any surface of the workbench. The native preview
+ * view is never under an overlay: it is hidden while one covers it (PreviewPane `covered`).
  */
 export const GLASS_BACKDROPS = {
-  glassChrome: ['bg'],
   glassOverlay: ['bg', 'panel', 'raised', 'hover', 'line', 'selection', 'accentSoft', 'lineHighlight'],
-} as const satisfies Record<'glassChrome' | 'glassOverlay', readonly (keyof ThemeTokens)[]>;
+} as const satisfies Record<'glassOverlay', readonly (keyof ThemeTokens)[]>;
 
-/** Text styles drawn on glass. */
+/** Text styles drawn on an overlay. */
 export const GLASS_TEXT: readonly (keyof ThemeTokens)[] = ['text', 'muted', 'accentText'];
 
 /** WCAG 2.x relative luminance of a `#RRGGBB` colour. */

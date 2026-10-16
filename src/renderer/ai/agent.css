@@ -1,16 +1,23 @@
-/* AI agent proposal review in the chat panel (S34.2). Colours only from the theme tokens. */
+/* AI agent proposal review in the chat panel (S34.2), in the S46 calm language: one card for the proposal; inside it
+   the changes are separated by spacing and one divider, and the diff has no frame of its own. Colours only from the
+   theme tokens. */
 .agent-proposal {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 12px;
+  padding: 16px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--raised);
+  border-radius: var(--radius-panel);
+  background: var(--panel);
 }
 .agent-proposal-title {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+}
+.agent-proposal-reason {
+  margin: 0;
+  color: var(--muted);
 }
 .agent-changes {
   display: flex;
@@ -23,7 +30,11 @@
 .agent-change {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+.agent-change + .agent-change {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 .agent-change-head {
   display: flex;
@@ -34,29 +45,34 @@
 }
 .agent-change-title {
   font-family: var(--font-code);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 .agent-change-state {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  color: var(--muted);
+  font-size: var(--text-sm);
 }
-.agent-diff-editor {
+/* Monaco needs an explicit height. The shared .code-editor is a flex: 1 / min-height: 0 child (it fills the editor
+   pane), which inside the change's column collapses it to zero; here it keeps its own fixed height. */
+.code-editor.agent-diff-editor {
+  flex: none;
   height: 260px;
-  border: 1px solid var(--line);
+  min-height: 260px;
   border-radius: var(--radius-control);
   overflow: hidden;
 }
 .agent-change-actions,
 .agent-proposal-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .agent-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .agent-undo {
   display: flex;

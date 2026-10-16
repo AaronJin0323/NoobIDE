@@ -268,7 +268,7 @@ export function AiSettingsDialog({
                 >
                   <input
                     id={keyId}
-                    className="ais-input"
+                    className="text-field ais-input"
                     type="password"
                     autoComplete="off"
                     spellCheck={false}
@@ -290,7 +290,7 @@ export function AiSettingsDialog({
                 <p className="dialog-hint">{withKeyStore(t('ai.settings.key.hint'), t)}</p>
                 {keyMessage && (
                   <p
-                    className={`ais-message ai-message-${keyMessage.tone}`}
+                    className={`ais-message ais-message-${keyMessage.tone}`}
                     role={keyMessage.tone === 'error' ? 'alert' : 'status'}
                     data-testid="ai-key-message"
                   >
@@ -319,7 +319,7 @@ export function AiSettingsDialog({
                 </div>
                 {testMessage && (
                   <p
-                    className={`ais-message ai-message-${testMessage.tone}`}
+                    className={`ais-message ais-message-${testMessage.tone}`}
                     role={testMessage.tone === 'error' ? 'alert' : 'status'}
                     data-testid="ai-test-message"
                   >
@@ -337,7 +337,7 @@ export function AiSettingsDialog({
                   <label key={purpose} className="ais-model-row">
                     <span>{t(PURPOSE_LABEL[purpose])}</span>
                     <select
-                      className="ais-select"
+                      className="text-field ais-select"
                       value={config.models[purpose]}
                       data-testid={`ai-model-${purpose}`}
                       onChange={(event) =>

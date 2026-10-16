@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
+import { MoreIcon } from './icons';
 
 export interface AppMenuItem {
   readonly id: string;
@@ -81,11 +82,7 @@ export function AppMenu({ items }: { items: readonly AppMenuItem[] }) {
           }
         }}
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-          <circle cx="3.5" cy="8" r="1.4" fill="currentColor" />
-          <circle cx="8" cy="8" r="1.4" fill="currentColor" />
-          <circle cx="12.5" cy="8" r="1.4" fill="currentColor" />
-        </svg>
+        <MoreIcon />
       </button>
       {open && (
         <div

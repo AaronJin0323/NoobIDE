@@ -181,6 +181,15 @@
         "Every key beginner feature (save, preview controls, annotations, Problems, console, AI chat/fix/inline edit, lessons, new file) is visible and reachable without scrolling at 1280x720 content with walkthrough and Problems open, and the status strip stays on screen down to the minimum window",
         "npm run verify and the full e2e suite are green on Windows x64"
       ]
+    },
+    {
+      "id": "M17",
+      "title": "Calm visual refinement (owner request 2026-10-16)",
+      "plan_refs": "docs/product/calm-design-spec.md; docs/decisions/0034-calm-design-language.md; AGENTS.md invariants",
+      "exit_criteria": [
+        "Every renderer stylesheet follows the calm design spec: shared radius, type, weight, elevation and colour tokens, enforced by src/renderer/design-rules.test.ts",
+        "npm run verify and the full e2e suite are green on Windows x64; before/after screenshots in both themes are reviewed by the owner"
+      ]
     }
   ],
   "sessions": [
@@ -662,6 +671,16 @@
         "S44"
       ],
       "plan_refs": "harness/PROGRESS.md Session 23"
+    },
+    {
+      "id": "S46",
+      "milestone": "M17",
+      "title": "Calm visual refinement",
+      "goal": "Audit why the UI looks cheap next to Claude Desktop (read-only subagents), write a calm design spec and decision, then restyle tokens, shell, feature surfaces and icons in parallel against a mechanical design-rules test.",
+      "depends_on": [
+        "S45"
+      ],
+      "plan_refs": "docs/product/calm-design-spec.md; docs/decisions/0034-calm-design-language.md"
     }
   ],
   "features": [
@@ -3395,8 +3414,9 @@
       "depends_on": [
         "S40.1"
       ],
-      "status": "done",
-      "evidence": "theme/tokens.ts GLASS + composite(); tokens.test.ts glass contrast over every backdrop incl. ambient tint, both themes, + solid twins; glass.css materials (chrome no backdrop-filter, overlays blur); tests/e2e/glass.spec.ts: no backdrop-filter intersects editor/preview stage while idle, menu+palette blur, rail translucent; reduced transparency (CDP media + data-transparency), contrast more, forced colours → solid/no blur, both themes; e2e Windows x64 @ s40-liquid-glass"
+      "status": "superseded",
+      "evidence": "theme/tokens.ts GLASS + composite(); tokens.test.ts glass contrast over every backdrop incl. ambient tint, both themes, + solid twins; glass.css materials (chrome no backdrop-filter, overlays blur); tests/e2e/glass.spec.ts: no backdrop-filter intersects editor/preview stage while idle, menu+palette blur, rail translucent; reduced transparency (CDP media + data-transparency), contrast more, forced colours → solid/no blur, both themes; e2e Windows x64 @ s40-liquid-glass",
+      "superseded_by": "S46.3"
     },
     {
       "id": "S40.3",
@@ -3412,8 +3432,9 @@
       "depends_on": [
         "S40.2"
       ],
-      "status": "done",
-      "evidence": "glass.css control styles (glassProminent primary, glass secondary, plain quiet, pressed scale), TopBar toolbar groups, rail capsule, concentric radius tokens, unified text fields with focus ring and aria-invalid border+text; shell/a11y/file-tree/ai-settings/theme/menus/commands specs green (shell list gains open-palette); e2e Windows x64 @ s40-liquid-glass"
+      "status": "superseded",
+      "evidence": "glass.css control styles (glassProminent primary, glass secondary, plain quiet, pressed scale), TopBar toolbar groups, rail capsule, concentric radius tokens, unified text fields with focus ring and aria-invalid border+text; shell/a11y/file-tree/ai-settings/theme/menus/commands specs green (shell list gains open-palette); e2e Windows x64 @ s40-liquid-glass",
+      "superseded_by": "S46.4"
     },
     {
       "id": "S40.4",
@@ -4041,6 +4062,147 @@
       "depends_on": [],
       "status": "todo",
       "evidence": ""
+    },
+    {
+      "id": "S46.1",
+      "session": "S46",
+      "milestone": "M17",
+      "title": "Calm design audit, spec and decision",
+      "description": "",
+      "acceptance": [
+        "docs/product/calm-design-spec.md lists the audited causes of the cheap look with their sources, and specifies tokens (colour, radius, type, weight, elevation, motion), shared components and every region",
+        "docs/decisions/0034 records the direction, the options considered, which parts of 0029 are kept and superseded, and how it is verified; src/renderer/design-rules.test.ts encodes the mechanical rules of the spec"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "docs/product/calm-design-spec.md + docs/decisions/0034 + src/renderer/design-rules.test.ts; checked against both criteria by the lead"
+    },
+    {
+      "id": "S46.2",
+      "session": "S46",
+      "milestone": "M17",
+      "title": "Warm-neutral palette and themed window background",
+      "description": "",
+      "acceptance": [
+        "tokens.ts uses the warm-neutral light and dark palettes of the spec; tokens.test.ts keeps every text pair at 4.5:1 and every non-text pair at 3:1 in both themes, and axe finds no serious or critical issue in a11y.spec.ts",
+        "The native window background colour matches the theme background at creation (unit test), so a dark-scheme start shows no white flash",
+        "The normal \"no changes\" save state is neutral text with an icon; status colours appear only for problems, failures and successes, always with an icon or words"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S46.1"
+      ],
+      "status": "done",
+      "evidence": "tokens.ts + tokens.test.ts (4.5:1 and 3:1 unchanged), window-options windowColorScheme + test, shell.spec.ts, a11y.spec.ts axe; verify green + full e2e 321 passed, 1 unrelated locale flake passes on rerun, @ claude/ui-refinement"
+    },
+    {
+      "id": "S46.3",
+      "session": "S46",
+      "milestone": "M17",
+      "title": "Solid chrome, frosted overlays only",
+      "description": "",
+      "acceptance": [
+        "Persistent chrome (rail, top bar, status strip, files sidebar) has an opaque background or none, no backdrop-filter and no ambient colour fields behind it (e2e)",
+        "Menus, the command palette and dialogs stay frosted with a backdrop blur; nothing with a backdrop filter intersects the editor or the preview while no overlay is open; dialogs pass the frosted pixel check (e2e)",
+        "Reduced transparency (media query or html[data-transparency=reduce]), increased contrast and forced colours make every overlay solid (e2e); text, muted and accent text reach 4.5:1 on the overlay fill over every surface it can cover and on its solid twin (unit test)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S46.1"
+      ],
+      "status": "done",
+      "evidence": "glass.spec.ts flat chrome, frosted overlays, solid menu/palette/dialog under reduced transparency, contrast, forced colours; tokens.test.ts overlay contrast; verify green + full e2e 321 passed, 1 unrelated locale flake passes on rerun, @ claude/ui-refinement"
+    },
+    {
+      "id": "S46.4",
+      "session": "S46",
+      "milestone": "M17",
+      "title": "Flat controls, flush rail, one shape scale",
+      "description": "",
+      "acceptance": [
+        "Primary, secondary, quiet and icon buttons follow the spec: flat fills with no gradient, drop shadow, brightness filter or scaling; the rail is a full-height column on the window background; top-bar controls are plain groups (design-rules test + e2e computed styles)",
+        "Every border radius in the renderer stylesheets is one of --radius-sm/control/panel/sheet/capsule (design-rules test)",
+        "Text fields share one style with a visible focus ring and an error shown in words and border, not colour alone; existing roles, names and e2e flows are unchanged"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S46.1"
+      ],
+      "status": "done",
+      "evidence": "design-rules.test.ts (radius, shadow, filter, scale), styles.css shared buttons and .text-field, glass.spec.ts; verify green + full e2e 321 passed, 1 unrelated locale flake passes on rerun, @ claude/ui-refinement"
+    },
+    {
+      "id": "S46.5",
+      "session": "S46",
+      "milestone": "M17",
+      "title": "Type scale and weights",
+      "description": "",
+      "acceptance": [
+        "Every font size in the renderer stylesheets is a --text-* token (or em/inherit) and every weight is 400, 500 or 600 (design-rules test); body text is regular weight",
+        "With larger prose (chat, lessons, dialogs) every key feature stays visible at 1280x720 and 640x480 and the preview keeps at least 200 px (key-features-visible.spec.ts, preview-layout.spec.ts)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S46.1"
+      ],
+      "status": "done",
+      "evidence": "design-rules.test.ts (font-size tokens, weights 400/500/600), key-features-visible.spec.ts and preview-layout.spec.ts green; verify green + full e2e 321 passed, 1 unrelated locale flake passes on rerun, @ claude/ui-refinement"
+    },
+    {
+      "id": "S46.6",
+      "session": "S46",
+      "milestone": "M17",
+      "title": "Feature surfaces on the shared components",
+      "description": "",
+      "acceptance": [
+        "AI chat, AI settings, agent proposals, inline edit, annotations, local history, welcome, wizard and walkthrough use the shared button, field, chip, card, list-row and callout styles: no nested bordered cards, no left-bar callouts, no dashed lines, no literal colours or gradients (design-rules test)",
+        "Assistant chat messages read as plain text and the composer is one field; no AI, annotation, history or walkthrough behaviour changes (existing e2e green)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S46.1"
+      ],
+      "status": "done",
+      "evidence": "design-rules.test.ts per feature stylesheet; ai, annotations, history, walkthrough, welcome e2e green; verify green + full e2e 321 passed, 1 unrelated locale flake passes on rerun, @ claude/ui-refinement"
+    },
+    {
+      "id": "S46.7",
+      "session": "S46",
+      "milestone": "M17",
+      "title": "Consistent icon set",
+      "description": "",
+      "acceptance": [
+        "Every outline icon renders with the same effective stroke width at its size, and icon sizes come from the spec set 14/16/18/32 (unit test over icons.tsx)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S46.1"
+      ],
+      "status": "done",
+      "evidence": "src/renderer/workbench/icons.test.ts (1.5 px effective stroke, sizes 14/16/18/32, no inline svg in components); verify green + full e2e 321 passed, 1 unrelated locale flake passes on rerun, @ claude/ui-refinement"
+    },
+    {
+      "id": "S46.8",
+      "session": "S46",
+      "milestone": "M17",
+      "title": "Calm refinement visual pass on real hardware",
+      "description": "",
+      "acceptance": [
+        "Before/after screenshots of welcome, workbench, menu, problems, palette, AI and a sheet in both themes are captured by glass-visual.spec.ts and reviewed by the owner",
+        "On Windows x64 and Apple Silicon the owner confirms the workbench reads calm and flat, dark start shows no white flash, and Transparency effects off / High Contrast / Reduce Transparency keep overlays solid and readable"
+      ],
+      "verify": "manual-win",
+      "depends_on": [
+        "S46.2",
+        "S46.3",
+        "S46.4",
+        "S46.5",
+        "S46.6",
+        "S46.7"
+      ],
+      "status": "needs_manual_check",
+      "evidence": "steps in harness/MANUAL-CHECKS.md#S46.8; screenshots via glass-visual.spec.ts"
     }
   ]
 }

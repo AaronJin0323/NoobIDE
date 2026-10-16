@@ -34,6 +34,7 @@ import {
   type Point,
   type Translate,
 } from './annotations-model';
+import { ApproximateIcon, CheckIcon, ListIcon, NoticeIcon, PencilIcon } from '../workbench/icons';
 import './annotations.css';
 
 /** Operations of the strip that talk to main; the view only calls them and dispatches plain state changes. */
@@ -68,45 +69,6 @@ export interface AnnotationsStripViewProps {
 export interface AnnotationsIds {
   readonly list: string;
   readonly ways: string;
-}
-
-/** Decorative icon of the Annotate entry: a pencil (the text next to it carries the meaning). */
-function AnnotateIcon() {
-  return (
-    <svg
-      width={16}
-      height={16}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.7}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M2.5 13.5l1-3.6 7.3-7.3a1.6 1.6 0 0 1 2.3 0l.3.3a1.6 1.6 0 0 1 0 2.3l-7.3 7.3z" />
-      <path d="M9.6 3.8l2.6 2.6" />
-    </svg>
-  );
-}
-
-function ListIcon() {
-  return (
-    <svg
-      width={14}
-      height={14}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.7}
-      strokeLinecap="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M6 4h8M6 8h8M6 12h8M2.5 4h.1M2.5 8h.1M2.5 12h.1" />
-    </svg>
-  );
 }
 
 export interface AnnotateEntryViewProps {
@@ -148,7 +110,7 @@ export function AnnotateEntryView({ state, dispatch, t, running, pagePath, ids, 
           else if (!running) dispatch({ type: 'failed', code: 'not-running' });
         }}
       >
-        <AnnotateIcon />
+        <PencilIcon />
         <span>{t('annotations.annotate')}</span>
         {onPage > 0 && (
           <span className="annotate-badge" data-testid="annotations-count">
@@ -186,31 +148,9 @@ function focusEntry(testId: 'annotate-menu' | 'annotations-toggle') {
 
 /** Decorative state icons: the state word next to them carries the meaning (never colour or shape alone). */
 function StateIcon({ state }: { state: AnnotationSourceState }) {
-  return (
-    <svg
-      width={12}
-      height={12}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      {state === 'found' ? (
-        <path d="M3 8.5l3.2 3L13 4.5" />
-      ) : state === 'approximate' ? (
-        <path d="M3 6.5c1.6-1.4 3.4-1.4 5 0s3.4 1.4 5 0M3 10.5c1.6-1.4 3.4-1.4 5 0s3.4 1.4 5 0" />
-      ) : (
-        <>
-          <circle cx="8" cy="8" r="6" />
-          <path d="M8 4.8v3.8M8 11.2v.1" />
-        </>
-      )}
-    </svg>
-  );
+  if (state === 'found') return <CheckIcon />;
+  if (state === 'approximate') return <ApproximateIcon />;
+  return <NoticeIcon />;
 }
 
 function SourceLine({ source, t }: { source: Annotation['source']; t: Translate }) {
@@ -524,7 +464,7 @@ export function AnnotationsStripView({
           <textarea
             id={noteId}
             ref={noteRef}
-            className="annotation-note-input"
+            className="text-field annotation-note-input"
             data-testid="annotation-note-input"
             rows={2}
             maxLength={ANNOTATION_LIMITS.noteChars}
@@ -617,7 +557,7 @@ export function AnnotationsStripView({
                     <div className="annotation-edit">
                       <textarea
                         ref={editRef}
-                        className="annotation-note-input"
+                        className="text-field annotation-note-input"
                         data-testid="annotation-edit-input"
                         aria-label={t('annotations.note.label')}
                         rows={2}

@@ -1,4 +1,6 @@
 import type { BrowserWindowConstructorOptions, WebPreferences } from 'electron';
+import { THEMES, type ColorScheme } from '../renderer/theme/tokens';
+import type { ThemeChoice } from '../shared/settings';
 
 /**
  * Security-relevant webPreferences for the trusted workbench window (S02.2, PLAN §8, Electron security checklist).
@@ -64,9 +66,19 @@ export function defaultWindowSize(workArea?: { readonly width: number; readonly 
   };
 }
 
+/**
+ * The colour scheme of the native window background (S46): the saved theme choice (S24.4), where 'system'
+ * follows the OS setting. The renderer resolves the same choice, so the first paint matches the window behind it.
+ */
+export function windowColorScheme(theme: ThemeChoice, systemDark: boolean): ColorScheme {
+  if (theme === 'system') return systemDark ? 'dark' : 'light';
+  return theme;
+}
+
 export function createWorkbenchWindowOptions(
   preloadPath: string,
   workArea?: { readonly width: number; readonly height: number },
+  scheme: ColorScheme = 'light',
 ): BrowserWindowConstructorOptions {
   return {
     title: 'NoobIDE',
@@ -74,7 +86,8 @@ export function createWorkbenchWindowOptions(
     minWidth: MIN_WINDOW.width,
     minHeight: MIN_WINDOW.height,
     show: false,
-    backgroundColor: '#ffffff',
+    // The window background is the theme's `bg`, so a dark window never flashes white before the first paint.
+    backgroundColor: THEMES[scheme].bg,
     webPreferences: createWorkbenchWebPreferences(preloadPath),
   };
 }

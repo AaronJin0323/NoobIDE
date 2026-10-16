@@ -1,12 +1,13 @@
-/* Welcome screen and create wizard (S20.2). Colours only from the theme tokens (src/renderer/theme/tokens.ts). */
+/* Welcome screen and create wizard (S20.2). Colours only from the theme tokens (src/renderer/theme/tokens.ts). S46 calm
+   language: the welcome has no card and no gradient (its content sits on the window background) and uses the shared
+   primary and secondary buttons. */
 .welcome {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px 24px;
+  gap: 16px 32px;
   margin: 10px;
-  padding: 18px 20px 12px;
-  border-radius: var(--radius-panel);
-  background: var(--raised);
+  padding: 16px 20px 12px;
+  background: none;
   overflow: auto;
   max-height: 55%;
   flex: none;
@@ -17,7 +18,7 @@
 }
 .welcome-start .noobide-logo {
   display: block;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .noobide-logo-tile {
   fill: var(--accent-fill);
@@ -32,21 +33,24 @@
   fill: var(--on-accent);
 }
 .welcome-title {
-  margin: 0 0 6px;
-  font-size: 20px;
+  margin: 0 0 8px;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-strong);
   line-height: 1.3;
 }
 .welcome-lead {
   margin: 0;
   color: var(--muted);
+  font-size: var(--text-lg);
+  line-height: 1.6;
   max-width: 52ch;
 }
 .welcome-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 8px;
+  margin-top: 16px;
 }
 .welcome-actions .primary-button {
   margin-top: 0;
@@ -57,21 +61,15 @@
   align-items: center;
   gap: 8px;
 }
-.welcome-create {
-  height: 40px;
-  padding: 0 20px;
-  font-size: 14px;
-}
-.welcome-open {
-  height: 36px;
-}
 .welcome-recent {
   flex: 1 1 280px;
   min-width: 0;
 }
 .welcome-recent-title {
-  margin: 0 0 6px;
-  font-size: 13px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
 }
 .welcome-recent-list {
   margin: 0;
@@ -81,8 +79,8 @@
 .welcome-recent-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 0;
+  gap: 12px;
+  padding: 8px 0;
   border-top: 1px solid var(--line);
 }
 .welcome-recent-text {
@@ -95,13 +93,13 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 .welcome-recent-missing {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-weight: 400;
+  font-weight: var(--weight-regular);
   color: var(--text);
 }
 .welcome-recent-missing > svg {
@@ -116,7 +114,7 @@
   flex-basis: 100%;
   margin: 0;
   color: var(--muted); /* S24.3: --faint on --raised is below 4.5:1 in the dark theme */
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 /* Wizard */
@@ -153,7 +151,7 @@
 }
 .wizard-label {
   padding: 0;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 .wizard-templates {
   display: grid;
@@ -166,16 +164,23 @@
   flex-direction: column;
   gap: 4px;
   padding: 8px;
-  border: 2px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-control);
-  background: var(--raised);
+  background: transparent;
   cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-smooth);
 }
 .wizard-template:hover {
+  background: var(--hover-soft);
+}
+/* Selected (spec: Selected / current / pressed): the --hover fill, the name at 600, the checked radio and the written
+   "✓ Selected". Hover is lighter and never overrides it. */
+.wizard-template.selected,
+.wizard-template.selected:hover {
   background: var(--hover);
 }
-.wizard-template.selected {
-  border-color: var(--accent);
+.wizard-template.selected .wizard-template-name {
+  font-weight: var(--weight-strong);
 }
 .wizard-template:focus-within {
   outline: 2px solid var(--focus);
@@ -185,28 +190,16 @@
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
 }
 .wizard-template-name {
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 .wizard-template-state {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--accent-text);
-  font-weight: 600;
-}
-.wizard-input {
-  height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-}
-.wizard-input[aria-invalid='true'] {
-  border-color: var(--danger);
+  font-weight: var(--weight-medium);
 }
 .wizard-row {
   display: flex;
@@ -218,7 +211,7 @@
   min-width: 0;
   overflow-wrap: anywhere;
   font-family: var(--font-code);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .wizard-message {
   margin: 0;
@@ -231,15 +224,15 @@
   min-width: 0;
   padding: 12px;
   border-radius: var(--radius-control);
-  background: var(--bg);
+  background: var(--raised);
 }
 .wizard-preview-image {
   width: 100%;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .wizard-preview-name {
   margin: 0;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 .wizard-preview .dialog-hint {
   margin: 0;
@@ -255,7 +248,7 @@
   margin: 0;
   padding-left: 18px;
   font-family: var(--font-code);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .dialog-actions .primary-button:disabled {
   opacity: 0.5;

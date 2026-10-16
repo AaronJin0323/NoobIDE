@@ -5,7 +5,9 @@ import {
   defaultWindowSize,
   insecurePreferences,
   REQUIRED_WORKBENCH_PREFERENCES,
+  windowColorScheme,
 } from './window-options';
+import { THEMES } from '../renderer/theme/tokens';
 
 describe('workbench webPreferences factory (S02.2)', () => {
   const prefs = createWorkbenchWebPreferences('/app/.vite/build/preload.cjs');
@@ -73,5 +75,18 @@ describe('workbench webPreferences factory (S02.2)', () => {
     expect(options.title).toBe('NoobIDE');
     expect(options.show).toBe(false);
     expect(options.webPreferences).toEqual(createWorkbenchWebPreferences('/p.cjs'));
+  });
+
+  it('native background follows the colour scheme (no white flash in dark)', () => {
+    expect(createWorkbenchWindowOptions('/p.cjs', undefined, 'dark').backgroundColor).toBe(THEMES.dark.bg);
+    expect(createWorkbenchWindowOptions('/p.cjs', undefined, 'light').backgroundColor).toBe(THEMES.light.bg);
+    expect(createWorkbenchWindowOptions('/p.cjs').backgroundColor).toBe(THEMES.light.bg);
+  });
+
+  it('the window scheme is the saved theme choice; "system" follows the OS (S46)', () => {
+    expect(windowColorScheme('dark', false)).toBe('dark');
+    expect(windowColorScheme('light', true)).toBe('light');
+    expect(windowColorScheme('system', true)).toBe('dark');
+    expect(windowColorScheme('system', false)).toBe('light');
   });
 });
