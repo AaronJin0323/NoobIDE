@@ -224,11 +224,13 @@ test('at the default 1280×800 window the tabs keep the header; Format and zoom 
   const original = await app.evaluate(({ BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows()[0]!;
     const bounds = win.getBounds();
-    win.setSize(1280, 800);
+    // The page's size: with no native title bar (S46.9) the window is its content, and Windows reports frameless
+    // window sizes with a pixel of rounding at fractional scaling.
+    win.setContentSize(1280, 800);
     return bounds;
   });
   try {
-    await expect.poll(() => page.evaluate(() => window.outerWidth)).toBe(1280);
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(1280);
     for (const file of ['index.html', 'style.css', 'script.js']) await openFile(page, file);
     // The strip gets most of the editor header (it was 159 px next to History, Format and zoom).
     const widths = await page.evaluate(() => ({

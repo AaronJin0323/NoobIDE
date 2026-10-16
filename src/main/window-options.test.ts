@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   createWorkbenchWebPreferences,
   createWorkbenchWindowOptions,
+  TITLE_BAR_HEIGHT,
+  titleBarOverlay,
+  workbenchFrameOptions,
   defaultWindowSize,
   insecurePreferences,
   REQUIRED_WORKBENCH_PREFERENCES,
@@ -88,5 +91,28 @@ describe('workbench webPreferences factory (S02.2)', () => {
     expect(windowColorScheme('light', true)).toBe('light');
     expect(windowColorScheme('system', true)).toBe('dark');
     expect(windowColorScheme('system', false)).toBe('light');
+  });
+
+  it('Windows: no native title bar; caption buttons are a theme-coloured overlay as tall as the top bar', () => {
+    const options = createWorkbenchWindowOptions('/p.cjs', undefined, 'light', 'windows');
+    expect(options.titleBarStyle).toBe('hidden');
+    expect(options.titleBarOverlay).toEqual({ color: THEMES.light.bg, symbolColor: THEMES.light.text, height: 52 });
+    expect(titleBarOverlay('dark')).toEqual({ color: THEMES.dark.bg, symbolColor: THEMES.dark.text, height: 52 });
+    expect(TITLE_BAR_HEIGHT).toBe(52);
+  });
+
+  it('macOS: inset traffic lights in the top bar; other platforms keep the native frame', () => {
+    expect(workbenchFrameOptions('mac', 'dark')).toEqual({
+      titleBarStyle: 'hiddenInset',
+      trafficLightPosition: { x: 20, y: 20 },
+    });
+    expect(workbenchFrameOptions('other', 'dark')).toEqual({});
+    expect(createWorkbenchWindowOptions('/p.cjs').titleBarStyle).toBeUndefined();
+  });
+
+  it('the top bar height in the stylesheet matches the title bar height', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const css = await readFile(new URL('../renderer/styles.css', import.meta.url), 'utf8');
+    expect(css).toContain(`--topbar-h: ${TITLE_BAR_HEIGHT}px;`);
   });
 });
