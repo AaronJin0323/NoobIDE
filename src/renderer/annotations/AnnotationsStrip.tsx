@@ -1,3 +1,4 @@
+import { isImeKey } from '../workbench/ime';
 import { useCallback, useEffect, useId, useReducer, useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type {
@@ -472,6 +473,7 @@ export function AnnotationsStripView({
             value={state.draft}
             onChange={(event) => dispatch({ type: 'draft', text: event.target.value })}
             onKeyDown={(event) => {
+              if (isImeKey(event.nativeEvent)) return;
               if (event.key === 'Escape') {
                 event.preventDefault();
                 ops.cancel();
@@ -565,6 +567,7 @@ export function AnnotationsStripView({
                         value={editing.text}
                         onChange={(event) => dispatch({ type: 'edit-text', text: event.target.value })}
                         onKeyDown={(event) => {
+                          if (isImeKey(event.nativeEvent)) return;
                           if (event.key === 'Escape') {
                             event.preventDefault();
                             dispatch({ type: 'edit-cancel' });
@@ -789,6 +792,7 @@ export function AnnotationsStrip({
   useEffect(() => {
     if (!picking) return undefined;
     const onKey = (event: globalThis.KeyboardEvent) => {
+      if (isImeKey(event)) return;
       if (event.key === 'Escape') cancel();
     };
     window.addEventListener('keydown', onKey);

@@ -1,3 +1,4 @@
+import { isImeKey } from '../workbench/ime';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { PlatformId } from '../../platform/labels';
 import {
@@ -49,7 +50,7 @@ export function useCommands(platform: PlatformId, context: CommandContext, handl
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.isComposing) return; // an input method owns the keys while composing
+      if (isImeKey(event)) return; // an input method owns the keys while composing
       const id = commandForKeyStroke(platform, event);
       if (id === null || !canRun(id)) return;
       event.preventDefault();
