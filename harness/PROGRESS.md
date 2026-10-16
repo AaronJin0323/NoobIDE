@@ -53,8 +53,7 @@ walkthrough.json before it exists throws ENOENT; once a toHaveAttribute timeout)
 top-bar save word truncates with an ellipsis (full text in the tooltip). Glass visual snapshots were not re-baselined
 (none failed). macOS not checked.
 
-**Owner action needed:** decide whether AI-off should still show an inviting "set up AI" rail button (conflicts with
-decision 0025). Look at the new Annotate/Save/Lessons prominence on a real screen.
+**Owner action needed:** none for AI-off: the owner kept decision 0025 (2026-10-16) — with AI off the AI rail button stays hidden. Look at the new Annotate/Save/Lessons prominence on a real screen.
 
 **Next up**
 
