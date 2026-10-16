@@ -268,3 +268,33 @@ export const SaveIcon = () => (
     <path d="M2.5 10.5v1.5A1.5 1.5 0 0 0 4 13.5h8a1.5 1.5 0 0 0 1.5-1.5v-1.5" />
   </Icon>
 );
+
+/** The NoobIDE mark without its tile ("< • >", resources/brand/noobide-mark.svg), in the current colour. */
+export const NoobIdeMark = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="172 172 680 680" aria-hidden="true" focusable="false">
+    <g fill="none" stroke="currentColor" strokeWidth="88" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="356,352 216,512 356,672" />
+      <polyline points="668,352 808,512 668,672" />
+    </g>
+    <circle cx="512" cy="512" r="64" fill="currentColor" />
+  </svg>
+);
+
+/** The NoobIDE logo (resources/brand/noobide-logo.svg): accent tile with a "< • >" mark. Decorative. */
+export const NoobIdeLogo = ({ size = 40 }: { size?: number }) => (
+  <svg
+    className="noobide-logo"
+    width={size}
+    height={size}
+    viewBox="100 100 824 824"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <rect className="noobide-logo-tile" x="100" y="100" width="824" height="824" rx="185" />
+    <g className="noobide-logo-glyph" fill="none" strokeWidth="88" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="356,352 216,512 356,672" />
+      <polyline points="668,352 808,512 668,672" />
+      <circle cx="512" cy="512" r="64" stroke="none" />
+    </g>
+  </svg>
+);

@@ -5,7 +5,7 @@ import { revealLabelKey, type PlatformId } from '../../platform/labels';
 import { withShortcut } from '../commands/useCommands'; // S24.1
 import type { OpenedProject } from '../../shared/ipc/contract';
 import type { SaveStatus } from './save-machine';
-import { CodeIcon, DotIcon, NewFileIcon, RevealIcon, SaveIcon, SaveStateIcon, SearchIcon } from './icons';
+import { DotIcon, NewFileIcon, NoobIdeMark, RevealIcon, SaveIcon, SaveStateIcon, SearchIcon } from './icons';
 import { commandShortcutLabel } from '../../shared/commands';
 import type { NarrowView } from './layout';
 import { AppMenu, type AppMenuItem } from './AppMenu'; // S13
@@ -68,7 +68,7 @@ export function TopBar({
   return (
     <header className="region topbar" role="banner" aria-label={t('region.topbar')} data-testid="region-topbar">
       <span className="app-mark" aria-hidden="true">
-        <CodeIcon />
+        <NoobIdeMark />
       </span>
       <span className="app-name">{t('app.name')}</span>
       <div className="project">

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="NoobIDE">
+  <!-- NoobIDE app logo: an HTML tag "< >" holding a single dot, the first thing you write. Same geometry as
+       scripts/make-icons.mjs. Brand black #111318 (theme accent, light scheme). -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="88" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="356,352 216,512 356,672"/>
+    <polyline points="668,352 808,512 668,672"/>
+  </g>
+  <circle cx="512" cy="512" r="64" fill="#FFFFFF"/>
+</svg>

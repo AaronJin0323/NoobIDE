@@ -53,11 +53,12 @@
 /* The prominent variant (Send): filled with the accent. */
 .ai-entry.ai-entry-strong {
   border-color: transparent;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
+  box-shadow: inset 0 0 0 1px var(--accent-rim);
 }
 .ai-entry.ai-entry-strong:hover:not(:disabled) {
-  background: var(--accent);
+  background: var(--accent-fill);
   filter: brightness(1.08);
 }
 

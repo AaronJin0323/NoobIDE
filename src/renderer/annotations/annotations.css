@@ -29,8 +29,8 @@
   border-color: var(--accent-text);
 }
 .annotate-button[aria-expanded='true'] {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-fill);
+  border-color: var(--accent-rim);
   color: var(--on-accent);
 }
 /* Not available yet (preview not running, or a step in progress): still shown and focusable, with a dashed outline
@@ -50,8 +50,9 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 9px;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
+  box-shadow: inset 0 0 0 1px var(--accent-rim);
   font-size: 11px;
   line-height: 1;
 }
@@ -150,8 +151,9 @@
   padding: 0 12px;
   border: 0;
   border-radius: var(--radius-control);
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
+  box-shadow: inset 0 0 0 1px var(--accent-rim);
   font-weight: 600;
   cursor: pointer;
 }

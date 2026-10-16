@@ -3,6 +3,45 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 25 (side session) — 2026-10-16 — Logo and brand colour (owner request)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/noobide-logo-theme-e36f86`
+(node_modules junctioned to the main checkout).
+
+**Done**
+
+- **Logo:** a rounded square with a white `< • >` mark, an HTML tag holding one dot (the first thing you write).
+  Vector originals in `resources/brand/` (`noobide-logo.svg` tile, `noobide-mark.svg` single-colour mark).
+  `scripts/make-icons.mjs` now draws the same geometry; `icon.png/.icns/.ico` regenerated (checked at 1024, 32
+  and 16 px). The welcome screen shows the logo above its title (`NoobIdeLogo` in `workbench/icons.tsx`,
+  decorative, coloured from `--accent` / `--on-accent`).
+- **Brand colour (owner: "dark black, so it looks much cooler"):** monochrome instead of the prototype's purple
+  `#6E5BFF`. Filled controls (primary buttons, selected segment, hovered menu row, selected palette row, app mark,
+  welcome logo) use the new `accentFill` token: black in both schemes, with white text. In the dark scheme a grey
+  `accentRim` (`#7D8599`) edges every fill so it reaches 3:1 against bg, panel and raised (WCAG 1.4.11); in the
+  light scheme the rim is the fill colour. `accent` is now the line/indicator colour only (active-row bars,
+  dashed callouts): black in light, near-white in dark. New contrast pairs: onAccent on accentFill, accentRim on
+  bg/panel/raised. The top bar's app mark shows the `< • >` logo mark instead of the generic code icon. Syntax
+  colours are unchanged (keywords stay violet). A blue `#1D6CF0` and an inverted white-in-dark accent were tried
+  first and replaced at the owner's request.
+- **Seen:** renderer served by Vite in the built-in browser, dark and light: logo tiles, top-bar mark and the
+  command palette's selected row are black with the rim in dark mode.
+
+**Evidence:** `vitest run src/renderer/theme src/renderer/welcome src/renderer/editor src/renderer/workbench
+tests/integration`: 1165 passed; the 10 failures are the pre-existing Sheet/notice ones listed under Problems.
+
+**Merged with origin/main** (Sessions 23–24: the archive restore of the half-landed S44/S45 files, key features
+pass). Main's new filled buttons (AI Send, annotate button and badge, annotation primary, top-bar Save, preview
+action) were moved to `accentFill` + rim as well, so no text is drawn white on the dark scheme's near-white
+`accent`. `npm run verify` is green on the merged tree.
+
+**CI fix (PR #4, windows-x64):** `src/ai/usage-store.test.ts` timed out: its retention check recorded ~70 days
+one atomic write at a time (209 ms locally, over 5 s on the Windows runner); the timed-out loop kept moving the
+shared clock and failed the next test (`day: 2026-12-12`). The test now seeds the old days into the file and
+records one more day (30 ms, same assertions plus the newest day kept; it fails when retention is widened).
+
+**Next up:** the owner checks the new icon in a packaged build on both platforms.
+
 ## Session 24 (side session) — 2026-10-16 — main red after a110002: confirmed fixed by the archive restore
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/happy-jackson-8b1fcf`

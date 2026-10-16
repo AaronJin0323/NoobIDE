@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OpenedProject } from '../../shared/ipc/contract';
 import { useI18n } from '../i18n/I18nProvider';
-import { PlusIcon, SmallFolderIcon, WarningIcon } from '../workbench/icons';
+import { NoobIdeLogo, PlusIcon, SmallFolderIcon, WarningIcon } from '../workbench/icons';
 import { protectedFolderMessage } from '../workbench/file-op-messages';
 import { recentRowView, type RecentProject, type RecentProjectsSource } from './welcome-model';
 import type { AiHistoryApi } from '../../shared/ipc/ai-history-contract';
@@ -79,6 +79,7 @@ export function WelcomeScreen({
   return (
     <section className="welcome" aria-labelledby="welcome-title" data-testid="welcome">
       <div className="welcome-start">
+        <NoobIdeLogo />
         <h2 id="welcome-title" className="welcome-title">
           {t('welcome.title')}
         </h2>
