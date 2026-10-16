@@ -18,7 +18,7 @@ import type { AiChatExtensions, AiConsentRenderer } from './chat-extensions';
 import { contextLabel, errorExplanation, providerName } from './chat-text';
 import { withKeyStore } from './ai-status';
 import { Markdown, type MarkdownLabels } from './Markdown';
-import { CloseIcon } from './ai-icons';
+import { AiIcon, CloseIcon, NewChatIcon, PastChatsIcon } from './ai-icons';
 import { SavedProposal } from './SavedChatsList';
 import './ai-chat.css';
 
@@ -242,16 +242,26 @@ export function ChatPanelView({
         {pastChats && (
           <button
             type="button"
-            className="quiet-button"
+            className="icon-button ai-header-button"
             aria-pressed={pastChats.listOpen}
+            aria-label={t('ai.history.button')}
+            title={t('ai.history.button')}
             data-testid="ai-history-toggle"
             onClick={pastChats.onToggle}
           >
-            {t('ai.history.button')}
+            <PastChatsIcon />
           </button>
         )}
-        <button type="button" className="quiet-button" data-testid="ai-new" onClick={() => actions.newConversation()}>
-          {t('ai.chat.new')}
+        {/* Icons with names and tooltips, so Close and New chat always fit a narrow panel's header. */}
+        <button
+          type="button"
+          className="icon-button ai-header-button"
+          aria-label={t('ai.chat.new')}
+          title={t('ai.chat.new')}
+          data-testid="ai-new"
+          onClick={() => actions.newConversation()}
+        >
+          <NewChatIcon />
         </button>
         <button
           type="button"
@@ -429,10 +439,10 @@ export function ChatPanelView({
                 </button>
               </div>
             )}
-            <p className="ai-notice" role="status" data-testid="ai-notice">
-              {state.notice ? t(state.notice as MessageKey) : ''}
-            </p>
           </div>
+          <p className="ai-notice" role="status" data-testid="ai-notice">
+            {state.notice ? t(state.notice as MessageKey) : ''}
+          </p>
           {extensions?.agent && projectId !== null && (
             <fieldset className="ai-kind" data-testid="ai-kind">
               <legend>{t('ai.chat.kind.label')}</legend>
@@ -485,7 +495,13 @@ export function ChatPanelView({
                 {t('ai.chat.stop')}
               </button>
             ) : (
-              <button type="submit" className="primary-button ai-send" data-testid="ai-send" disabled={!canSend}>
+              <button
+                type="submit"
+                className="ai-entry ai-entry-strong ai-send"
+                data-testid="ai-send"
+                disabled={!canSend}
+              >
+                <AiIcon />
                 {t('ai.chat.send')}
               </button>
             )}

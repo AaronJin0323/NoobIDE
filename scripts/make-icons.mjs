@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// S28.1: generates the app icon files in resources/icons/ — a PLACEHOLDER design (green rounded square with a white
-// "</>" mark) until the owner supplies real artwork. Pure Node (zlib only): no image tools, no native modules.
+// S28.1: generates the app icon files in resources/icons/ from the NoobIDE logo: a black rounded square with a
+// white "< • >" mark, an HTML tag holding one dot (the vector original is resources/brand/noobide-logo.svg; keep the
+// geometry below in step with it). Pure Node (zlib only): no image tools, no native modules.
 //
 //   node scripts/make-icons.mjs        # writes icon.png (1024), icon.icns (macOS), icon.ico (Windows)
 //
-// The output is deterministic, so re-running produces byte-identical files (tests/integration/icons.test.ts checks
-// the committed files' structure). To replace the artwork, overwrite the three files with the same names and sizes.
+// The output is deterministic, so re-running produces byte-identical files. To replace the artwork, overwrite the
+// three files with the same names and sizes.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,37 +15,33 @@ import { deflateSync } from 'node:zlib';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(root, 'resources', 'icons');
 
-const BACKGROUND = [47, 93, 67]; // #2F5D43
+const BACKGROUND = [17, 19, 24]; // #111318, the light theme accent (src/renderer/theme/tokens.ts)
 const FOREGROUND = [255, 255, 255];
 
 // Geometry in a 1024 unit square. macOS-style margin: the tile covers 824 units, centred.
 const TILE = { x0: 100, y0: 100, x1: 924, y1: 924, radius: 185 };
-const STROKE = 36; // half-width of the glyph strokes
+const STROKE = 44; // half-width of the chevron strokes (round caps and joins)
 const SEGMENTS = [
   // "<"
   [
-    [360, 382],
-    [230, 512],
+    [356, 352],
+    [216, 512],
   ],
   [
-    [230, 512],
-    [360, 642],
-  ],
-  // "/"
-  [
-    [560, 340],
-    [464, 684],
+    [216, 512],
+    [356, 672],
   ],
   // ">"
   [
-    [664, 382],
-    [794, 512],
+    [668, 352],
+    [808, 512],
   ],
   [
-    [794, 512],
-    [664, 642],
+    [808, 512],
+    [668, 672],
   ],
 ];
+const DOT = { x: 512, y: 512, r: 64 };
 
 function roundedRectDistance(x, y) {
   const cx = (TILE.x0 + TILE.x1) / 2;
@@ -75,7 +72,10 @@ export function renderIcon(size) {
       const x = (px + 0.5) * scale;
       const y = (py + 0.5) * scale;
       const tile = Math.min(1, Math.max(0, 0.5 - roundedRectDistance(x, y) / scale));
-      const glyphDistance = Math.min(...SEGMENTS.map((s) => segmentDistance(x, y, s)));
+      const glyphDistance = Math.min(
+        Math.hypot(x - DOT.x, y - DOT.y) - DOT.r,
+        ...SEGMENTS.map((s) => segmentDistance(x, y, s)),
+      );
       const glyph = Math.min(1, Math.max(0, 0.5 - glyphDistance / scale));
       const i = (py * size + px) * 4;
       for (let c = 0; c < 3; c += 1) {

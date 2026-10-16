@@ -179,7 +179,7 @@ test('Refresh (button and ⌘R/Ctrl+R command) starts a new page-load generation
   await expect(note).toHaveCount(0);
 
   // The registry command (shortcut) does the same; the note does not come back.
-  await page.getByTestId('region-preview').locator('.panel-header').click();
+  await page.getByTestId('region-preview').locator('.panel-header .region-title').click(); // the title, not a header button
   await page.keyboard.press('ControlOrMeta+R');
   await expect.poll(generation).toBe(g0 + 2);
   await waitForPreviewState(page, 'running');

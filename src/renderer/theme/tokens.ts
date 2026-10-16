@@ -1,7 +1,9 @@
 /**
  * Colour tokens for the workbench shell and the Monaco theme (S30.1). Single source of truth: the stylesheet only
  * reads these as CSS custom properties (`--bg`, `--panel`, …), and monaco-theme.ts builds the editor themes from them.
- * Values follow the 2026-10-14 UI prototype; contrast is checked by tokens.test.ts. Solid colours only, so the
+ * Values follow the 2026-10-14 UI prototype, with the monochrome accent of the NoobIDE logo (resources/brand/) in
+ * place of the prototype's purple: filled controls are black in both schemes (with a light rim on
+ * the dark panels), lines and indicators are black in the light scheme and near-white in the dark one; contrast is checked by tokens.test.ts. Solid colours only, so the
  * contrast check never depends on what a translucent colour is drawn over.
  */
 export type ColorScheme = 'dark' | 'light';
@@ -19,8 +21,13 @@ export interface ThemeTokens {
   muted: string;
   /** Line numbers and other quiet text drawn on `panel`. */
   faint: string;
+  /** Accent as a line or indicator: active-row bars, focus outlines, dashed callouts. */
   accent: string;
-  /** Text and icons drawn on `accent`. */
+  /** Accent as a filled surface: primary buttons, selected segment and menu row, the app mark. Black in both schemes. */
+  accentFill: string;
+  /** Edge drawn around `accentFill`, so a black fill stays visible on the dark scheme's panels (WCAG 1.4.11). */
+  accentRim: string;
+  /** Text and icons drawn on `accentFill`. */
   onAccent: string;
   accentText: string;
   accentSoft: string;
@@ -52,19 +59,21 @@ export const THEMES: Record<ColorScheme, ThemeTokens> = {
     text: '#ECEEF4',
     muted: '#9AA3B5',
     faint: '#7D8599',
-    accent: '#6E5BFF',
+    accent: '#F2F3F5',
+    accentFill: '#050608',
+    accentRim: '#7D8599',
     onAccent: '#FFFFFF',
-    accentText: '#B3A8FF',
-    accentSoft: '#22213F',
+    accentText: '#FFFFFF',
+    accentSoft: '#2A2E38',
     ok: '#3DDC97',
     okSoft: '#13271F',
     warn: '#FFB547',
     warnSoft: '#2A2216',
     danger: '#FF7A7A',
     dangerSoft: '#2D1A1D',
-    focus: '#B3A8FF',
-    lineHighlight: '#1A1C2C',
-    selection: '#2E2A5C',
+    focus: '#FFFFFF',
+    lineHighlight: '#181B22',
+    selection: '#2F3542',
     syntaxTag: '#7DB4FF',
     syntaxAttribute: '#FFB86B',
     syntaxString: '#8EE6B3',
@@ -81,19 +90,21 @@ export const THEMES: Record<ColorScheme, ThemeTokens> = {
     text: '#151821',
     muted: '#555D70',
     faint: '#636B7D',
-    accent: '#6E5BFF',
+    accent: '#111318',
+    accentFill: '#111318',
+    accentRim: '#111318',
     onAccent: '#FFFFFF',
-    accentText: '#5240E0',
-    accentSoft: '#EEEBFF',
+    accentText: '#111318',
+    accentSoft: '#E6E8EC',
     ok: '#0F7A4B',
     okSoft: '#E2F5EC',
     warn: '#8F5200',
     warnSoft: '#FFF2DC',
     danger: '#C02F2F',
     dangerSoft: '#FDEAEA',
-    focus: '#5240E0',
-    lineHighlight: '#F6F5FF',
-    selection: '#DCD7FF',
+    focus: '#111318',
+    lineHighlight: '#F5F6F8',
+    selection: '#D9DCE3',
     syntaxTag: '#2557C7',
     syntaxAttribute: '#A35200',
     syntaxString: '#0F7A4B',
@@ -139,7 +150,7 @@ export const GLASS: Record<ColorScheme, GlassTokens> = {
     glassStroke: '#FFFFFF1F',
     glassHighlight: '#FFFFFF24',
     glassShadow: '#00000073',
-    ambientA: '#6E5BFF2E',
+    ambientA: '#FFFFFF0F',
     ambientB: '#3DDC9714',
     glassChromeSolid: '#1B1F29',
     glassOverlaySolid: '#1B1F29',
@@ -152,7 +163,7 @@ export const GLASS: Record<ColorScheme, GlassTokens> = {
     glassStroke: '#FFFFFFB3',
     glassHighlight: '#FFFFFFE6',
     glassShadow: '#1E223C29',
-    ambientA: '#6E5BFF24',
+    ambientA: '#11131814',
     ambientB: '#38BDF81F',
     glassChromeSolid: '#FFFFFF',
     glassOverlaySolid: '#FFFFFF',
@@ -232,7 +243,7 @@ export const TEXT_PAIRS: readonly (readonly [fg: keyof ThemeTokens, bg: keyof Th
   ['muted', 'raised'],
   ['faint', 'panel'],
   ['faint', 'lineHighlight'],
-  ['onAccent', 'accent'],
+  ['onAccent', 'accentFill'],
   ['accentText', 'panel'],
   ['accentText', 'raised'],
   ['accentText', 'accentSoft'],
@@ -258,4 +269,7 @@ export const NON_TEXT_PAIRS: readonly (readonly [fg: keyof ThemeTokens, bg: keyo
   ['focus', 'bg'],
   ['focus', 'panel'],
   ['accent', 'panel'],
+  ['accentRim', 'bg'],
+  ['accentRim', 'panel'],
+  ['accentRim', 'raised'],
 ];

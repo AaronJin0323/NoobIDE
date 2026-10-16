@@ -54,13 +54,20 @@ describe('AiUsageStore (S39.2)', () => {
     expect((await s.summary()).totalTokens).toBe(0);
     await s.record('anthropic', { inputTokens: 1, outputTokens: 1 });
     expect((await s.summary()).totalTokens).toBe(2);
-    for (let d = 0; d < USAGE_DAYS_KEPT + 5; d += 1) {
-      clock = at(2026, 11, 1) + d * 86_400_000;
-      await s.record('openai', { inputTokens: 1, outputTokens: 0 });
-    }
+    // Retention: more days than are kept are seeded into the file, then one more day is recorded. (Recording each day
+    // was ~70 atomic writes, which took over 5 s on the Windows CI runner and leaked its clock into the next test.)
+    const stored = JSON.parse(await readFile(file, 'utf8')) as { days: Record<string, unknown> };
+    const last = at(2026, 11, 1) + (USAGE_DAYS_KEPT + 4) * 86_400_000;
+    for (let d = 0; d < USAGE_DAYS_KEPT + 4; d += 1)
+      stored.days[dayKey(at(2026, 11, 1) + d * 86_400_000)] = { openai: { inputTokens: 1, outputTokens: 0 } };
+    await writeFile(file, JSON.stringify(stored));
+    clock = last;
+    await make().record('openai', { inputTokens: 1, outputTokens: 0 });
     const days = Object.keys((JSON.parse(await readFile(file, 'utf8')) as { days: object }).days);
     expect(days).toHaveLength(USAGE_DAYS_KEPT);
     expect(days).not.toContain('2026-10-15');
+    expect(days).not.toContain('2026-10-16');
+    expect(days).toContain(dayKey(last));
   });
 
   it('has no budget by default; a budget is reached at the limit and resets the next day', async () => {

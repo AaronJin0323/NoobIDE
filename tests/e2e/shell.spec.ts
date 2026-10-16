@@ -122,6 +122,7 @@ test('placeholder states are honest and every control works (S30.3)', async () =
     'switch-language',
     'rail-files',
     'rail-problems',
+    'rail-lessons', // key features: the beginner walkthrough has its own labelled rail button
     'rail-ai', // S33: AI is on by default (decision 0025); without a key the panel explains how to add one
     'open-folder',
     // S20.2: welcome screen while no project is open

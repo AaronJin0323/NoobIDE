@@ -26,9 +26,10 @@
     inset 0 1px 0 var(--glass-highlight), inset 0 0 0 1px var(--glass-stroke), 0 0 0 1px var(--material-hairline),
     0 4px 14px -6px var(--glass-shadow), 0 28px 64px -18px var(--glass-shadow);
   --shadow-panel: 0 0 0 1px var(--material-hairline), 0 10px 30px -22px var(--glass-shadow);
+  /* The rim keeps a black fill visible on the dark scheme (same colour as the fill in the light scheme). */
   --shadow-prominent:
-    inset 0 1px 0 color-mix(in srgb, var(--on-accent) 35%, transparent),
-    0 6px 16px -8px color-mix(in srgb, var(--accent) 80%, transparent);
+    inset 0 0 0 1px var(--accent-rim), inset 0 1px 0 color-mix(in srgb, var(--on-accent) 35%, transparent),
+    0 6px 16px -8px color-mix(in srgb, var(--accent-fill) 80%, transparent);
 
   /* Concentric radii */
   --radius-capsule: 999px;
@@ -225,6 +226,84 @@
   width: 30px;
   padding: 0;
   justify-content: center;
+}
+
+/* ── Key features in the top bar: Save and (narrow window) New file ─ */
+.save-group {
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+/* glassProminent: while there are unsaved edits, Save is the one primary action of the window. The word, the icon
+   and the shortcut say what it does; the colour is never the only cue. */
+.save-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 6px 0 12px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--accent-fill);
+  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--on-accent) 16%, transparent), transparent 60%);
+  color: var(--on-accent);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--shadow-prominent);
+  transition:
+    transform var(--dur-press) var(--ease-snappy),
+    filter var(--dur-fast) var(--ease-out);
+}
+.save-button:hover {
+  filter: brightness(1.08);
+}
+.save-button:active {
+  transform: scale(0.96);
+}
+.save-button .kbd {
+  background: color-mix(in srgb, var(--on-accent) 22%, transparent);
+  box-shadow: none;
+  color: var(--on-accent);
+}
+.topbar-new-file {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+/* The state word gives way (ellipsis) before any control leaves the top bar; the full word stays in the status. */
+.save-status-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A narrow window keeps every top-bar control on screen: New file shows its icon only (the name stays its accessible
+   name and tooltip) and Save drops the shortcut hint (the tooltip keeps it). */
+@media (max-width: 879px) {
+  .workbench.narrow .topbar-new-file {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+  }
+  .workbench.narrow .topbar-new-file-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .workbench.narrow .save-button .kbd {
+    display: none;
+  }
 }
 
 /* ── Rail: a floating glass capsule ───────────────────────────── */
@@ -442,8 +521,9 @@
 .app-menu-item:focus-visible,
 .menu-item:hover,
 .menu-item:focus-visible {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
+  box-shadow: inset 0 0 0 1px var(--accent-rim);
 }
 /* Keyboard focus: an inner ring on top of the fill (transparent here, drawn by the system in forced colours). */
 .app-menu-item:focus-visible,
@@ -491,8 +571,7 @@
 }
 
 /* ── Floating notices ─────────────────────────────────────────── */
-.app-notice .inline-alert,
-.recovery-health .inline-alert {
+.app-notice-stack > .inline-alert {
   box-shadow: var(--shadow-overlay);
 }
 
@@ -642,8 +721,9 @@
   cursor: pointer;
 }
 .palette-option[aria-selected='true'] {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
+  box-shadow: inset 0 0 0 1px var(--accent-rim);
 }
 .palette-option[aria-selected='true'] .palette-other,
 .palette-option[aria-selected='true'] .kbd {
@@ -745,14 +825,14 @@
   margin-top: 8px;
   padding: 0 18px;
   border-radius: var(--radius-capsule);
-  background-color: var(--accent);
+  background-color: var(--accent-fill);
   background-image: linear-gradient(to bottom, color-mix(in srgb, var(--on-accent) 16%, transparent), transparent 60%);
   color: var(--on-accent);
   font-weight: 600;
   box-shadow: var(--shadow-prominent);
 }
 .empty-state > .quiet-button:hover {
-  background-color: var(--accent);
+  background-color: var(--accent-fill);
   color: var(--on-accent);
   filter: brightness(1.08);
 }
@@ -760,6 +840,37 @@
 .panel-header .quiet-button {
   flex: none;
   white-space: nowrap;
+}
+
+/* The preview's key actions: Start / Refresh is glassProminent; Annotate page is a tinted capsule. */
+.preview-primary,
+.annotations-primary {
+  border-radius: var(--radius-capsule);
+  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--on-accent) 16%, transparent), transparent 60%);
+  box-shadow: var(--shadow-prominent);
+  transition:
+    transform var(--dur-press) var(--ease-snappy),
+    filter var(--dur-fast) var(--ease-out);
+}
+.annotate-button,
+.annotations-way {
+  border-radius: var(--radius-capsule);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-press) var(--ease-snappy);
+}
+.preview-primary:active,
+.annotate-button:active,
+.annotations-way:active {
+  transform: scale(0.96);
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-primary:active,
+  .annotate-button:active,
+  .annotations-way:active {
+    transform: none;
+  }
 }
 
 /* S40.4: a theme switch is instant (ThemeProvider sets this for two frames). */

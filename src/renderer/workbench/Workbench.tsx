@@ -19,7 +19,7 @@ import { DEFAULT_FONT_SIZE, zoomFontSize } from './zoom';
 // S12: crash-recovery journal
 import { useJournals } from '../recovery/useJournal';
 import { newBufferId, type JournalScheduler } from '../recovery/journal-scheduler';
-import { RecoveryDialog, type RestoreOutcome } from '../recovery/RecoveryDialog';
+import { JournalHealthNotice, RecoveryDialog, type RestoreOutcome } from '../recovery/RecoveryDialog';
 import type { RecoveredEntry } from '../../shared/ipc/recovery-contract';
 // S20.2: welcome screen and create-project wizard
 import { WelcomeScreen } from '../welcome/WelcomeScreen';
@@ -142,6 +142,8 @@ export function Workbench() {
   const aiSettingsOpen = useAiSettingsRequests(); // S31.4: opened by openAiSettings() (menus, the AI chat)
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
+  /** Bumped by the narrow window's top-bar "New file" button: the files panel starts a new file (key-features pass). */
+  const [newFileRequest, setNewFileRequest] = useState(0);
 
   // Async handlers read the latest state without being re-created on every keystroke.
   const docRef = useRef(doc);
@@ -1197,6 +1199,15 @@ export function Workbench() {
         }
         menuItems={menuItems}
         onOpenPalette={() => commands.run('command-palette')}
+        onSave={() => commands.run('save')} // the same path as Ctrl+S / ⌘S
+        onNewFile={
+          project && bridge?.workspace
+            ? () => {
+                if (!visible.files) dispatchLayout({ type: 'toggleFiles', narrow });
+                setNewFileRequest((n) => n + 1);
+              }
+            : undefined
+        }
       />
       <div
         className="workbench-middle"
@@ -1214,6 +1225,7 @@ export function Workbench() {
           problemsOpen={visible.problemsPanel}
           onToggleFiles={() => dispatchLayout({ type: 'toggleFiles', narrow })}
           onToggleProblems={() => dispatchLayout({ type: 'toggleProblems' })}
+          onShowLessons={() => commands.run('help-walkthrough')} // the same command as Help → walkthrough
           ai={ai.shown ? { open: ai.open, onToggle: ai.toggle } : undefined}
         />
         <FilesPanel
@@ -1227,6 +1239,7 @@ export function Workbench() {
           platform={platform}
           fileOps={fileOps}
           extraMenuItems={extraMenuItems}
+          newFileRequest={newFileRequest}
         />
         {!narrow && visible.files && (
           <Splitter
@@ -1332,6 +1345,7 @@ export function Workbench() {
         projectOpen={project !== null}
         view={problemsView}
         onClearResolved={runtimeProblems.clearResolved}
+        onFixWithAi={inlineEdit.shown ? (record, title) => void inlineEdit.fixProblem(record, title) : undefined}
         renderDetails={(record) => (
           <ProblemDetails
             record={record}
@@ -1354,18 +1368,23 @@ export function Workbench() {
         }
       />
       {inlineEdit.element /* S35: what an inline edit did, announced politely */}
-      {/* S13.1: the settings file was unusable and was backed up */}
-      {settingsNotice && <SettingsNotice snapshot={settingsNotice} onDismiss={() => setSettingsNotice(null)} />}
-      {entryNotice && <EntryNotice state={entryNotice} onDismiss={() => setEntryNotice(null)} />}
-      {restoredFrom && project?.rootPath === restoredFrom && (
-        <SessionNotice rootPath={restoredFrom} onDismiss={() => setRestoredFrom(null)} />
-      )}
-      {/* S13.5: what would break on the other system (report only, nothing is renamed) */}
-      <TransferNotice api={bridge?.portability} projectId={project?.projectId ?? null} />
-      {/* S12: crash-recovery prompt and journal health */}
+      {/* App-level notices share one stack above the status strip: they never cover the Problems toggle or each other.
+          It counts as covering the preview where it overlaps the stage (a narrow window). */}
+      <div className="app-notice-stack" data-testid="app-notice-stack" data-covers-preview="">
+        {/* S12: the recovery journal could not be written */}
+        <JournalHealthNotice health={journals.health} />
+        {/* S13.1: the settings file was unusable and was backed up */}
+        {settingsNotice && <SettingsNotice snapshot={settingsNotice} onDismiss={() => setSettingsNotice(null)} />}
+        {entryNotice && <EntryNotice state={entryNotice} onDismiss={() => setEntryNotice(null)} />}
+        {restoredFrom && project?.rootPath === restoredFrom && (
+          <SessionNotice rootPath={restoredFrom} onDismiss={() => setRestoredFrom(null)} />
+        )}
+        {/* S13.5: what would break on the other system (report only, nothing is renamed) */}
+        <TransferNotice api={bridge?.portability} projectId={project?.projectId ?? null} />
+      </div>
+      {/* S12: crash-recovery prompt */}
       <RecoveryDialog
         bridge={bridge}
-        health={journals.health}
         onProjectOpened={adoptProject}
         onRestore={restoreRecovered}
         onCleared={rejournal}

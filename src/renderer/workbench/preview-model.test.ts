@@ -9,6 +9,7 @@ import {
   actionsFor,
   appendLogBatch,
   clearLog,
+  errorCount,
   nextGeneration,
   olderCount,
   pageLocation,
@@ -101,6 +102,17 @@ describe('console view model (S17.3)', () => {
     expect(visibleLog(view, 'all', false).map((e) => e.message)).toEqual(['second load']);
     expect(visibleLog(view, 'all', true).map((e) => e.message)).toEqual(['first load', 'second load']);
     expect(olderCount(view)).toBe(1);
+    // The console heading counts the errors of the current page load only.
+    expect(errorCount(view)).toBe(1);
+    expect(errorCount(nextGeneration(view))).toBe(0);
+    expect(errorCount(EMPTY_LOG)).toBe(0);
+  });
+
+  it('console heading and error count are translated in both locales', () => {
+    for (const dict of [zhCN, en]) {
+      expect(dict['preview.console'].trim()).not.toBe('');
+      expect(dict['preview.console.errors']).toContain('{count}');
+    }
   });
 
   it('filters by level (info includes debug)', () => {
