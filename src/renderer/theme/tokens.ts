@@ -2,8 +2,8 @@
  * Colour tokens for the workbench shell and the Monaco theme (S30.1). Single source of truth: the stylesheet only
  * reads these as CSS custom properties (`--bg`, `--panel`, …), and monaco-theme.ts builds the editor themes from them.
  * Values follow the 2026-10-14 UI prototype, with the monochrome accent of the NoobIDE logo (resources/brand/) in
- * place of the prototype's purple: black #111318 in the light scheme, inverted to near-white in the dark scheme
- * (black cannot reach 3:1 on the dark panels); contrast is checked by tokens.test.ts. Solid colours only, so the
+ * place of the prototype's purple: filled controls are black in both schemes (with a light rim on
+ * the dark panels), lines and indicators are black in the light scheme and near-white in the dark one; contrast is checked by tokens.test.ts. Solid colours only, so the
  * contrast check never depends on what a translucent colour is drawn over.
  */
 export type ColorScheme = 'dark' | 'light';
@@ -21,8 +21,13 @@ export interface ThemeTokens {
   muted: string;
   /** Line numbers and other quiet text drawn on `panel`. */
   faint: string;
+  /** Accent as a line or indicator: active-row bars, focus outlines, dashed callouts. */
   accent: string;
-  /** Text and icons drawn on `accent`. */
+  /** Accent as a filled surface: primary buttons, selected segment and menu row, the app mark. Black in both schemes. */
+  accentFill: string;
+  /** Edge drawn around `accentFill`, so a black fill stays visible on the dark scheme's panels (WCAG 1.4.11). */
+  accentRim: string;
+  /** Text and icons drawn on `accentFill`. */
   onAccent: string;
   accentText: string;
   accentSoft: string;
@@ -55,7 +60,9 @@ export const THEMES: Record<ColorScheme, ThemeTokens> = {
     muted: '#9AA3B5',
     faint: '#7D8599',
     accent: '#F2F3F5',
-    onAccent: '#0B0D12',
+    accentFill: '#050608',
+    accentRim: '#7D8599',
+    onAccent: '#FFFFFF',
     accentText: '#FFFFFF',
     accentSoft: '#2A2E38',
     ok: '#3DDC97',
@@ -84,6 +91,8 @@ export const THEMES: Record<ColorScheme, ThemeTokens> = {
     muted: '#555D70',
     faint: '#636B7D',
     accent: '#111318',
+    accentFill: '#111318',
+    accentRim: '#111318',
     onAccent: '#FFFFFF',
     accentText: '#111318',
     accentSoft: '#E6E8EC',
@@ -234,7 +243,7 @@ export const TEXT_PAIRS: readonly (readonly [fg: keyof ThemeTokens, bg: keyof Th
   ['muted', 'raised'],
   ['faint', 'panel'],
   ['faint', 'lineHighlight'],
-  ['onAccent', 'accent'],
+  ['onAccent', 'accentFill'],
   ['accentText', 'panel'],
   ['accentText', 'raised'],
   ['accentText', 'accentSoft'],
@@ -260,4 +269,7 @@ export const NON_TEXT_PAIRS: readonly (readonly [fg: keyof ThemeTokens, bg: keyo
   ['focus', 'bg'],
   ['focus', 'panel'],
   ['accent', 'panel'],
+  ['accentRim', 'bg'],
+  ['accentRim', 'panel'],
+  ['accentRim', 'raised'],
 ];

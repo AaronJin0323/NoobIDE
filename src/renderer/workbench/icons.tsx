@@ -253,6 +253,17 @@ export const SearchIcon = ({ size }: { size?: number }) => (
   </Icon>
 );
 
+/** The NoobIDE mark without its tile ("< • >", resources/brand/noobide-mark.svg), in the current colour. */
+export const NoobIdeMark = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="172 172 680 680" aria-hidden="true" focusable="false">
+    <g fill="none" stroke="currentColor" strokeWidth="88" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="356,352 216,512 356,672" />
+      <polyline points="668,352 808,512 668,672" />
+    </g>
+    <circle cx="512" cy="512" r="64" fill="currentColor" />
+  </svg>
+);
+
 /** The NoobIDE logo (resources/brand/noobide-logo.svg): accent tile with a "< • >" mark. Decorative. */
 export const NoobIdeLogo = ({ size = 40 }: { size?: number }) => (
   <svg

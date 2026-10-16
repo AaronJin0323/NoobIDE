@@ -15,16 +15,20 @@ the latest entry to the next session, so write it for a reader with zero context
   `scripts/make-icons.mjs` now draws the same geometry; `icon.png/.icns/.ico` regenerated (checked at 1024, 32
   and 16 px). The welcome screen shows the logo above its title (`NoobIdeLogo` in `workbench/icons.tsx`,
   decorative, coloured from `--accent` / `--on-accent`).
-- **Brand colour (owner: "dark black, so it looks much cooler"):** the accent is monochrome instead of the
-  prototype's purple `#6E5BFF`. Light scheme: black `#111318` with white text (18:1). Dark scheme: inverted to
-  near-white `#F2F3F5` with dark text, because black cannot reach the 3:1 non-text contrast on the dark panels, so
-  primary buttons and the welcome logo turn white there. accentText, accentSoft, focus, selection, lineHighlight and
-  the ambient glass field are neutral greys to match (`src/renderer/theme/tokens.ts`); tokens.test.ts passes. The
-  app icon tile is black. Syntax colours are unchanged (keywords stay violet in the editor). A blue `#1D6CF0`
-  was tried first and replaced at the owner's request.
+- **Brand colour (owner: "dark black, so it looks much cooler"):** monochrome instead of the prototype's purple
+  `#6E5BFF`. Filled controls (primary buttons, selected segment, hovered menu row, selected palette row, app mark,
+  welcome logo) use the new `accentFill` token: black in both schemes, with white text. In the dark scheme a grey
+  `accentRim` (`#7D8599`) edges every fill so it reaches 3:1 against bg, panel and raised (WCAG 1.4.11); in the
+  light scheme the rim is the fill colour. `accent` is now the line/indicator colour only (active-row bars,
+  dashed callouts): black in light, near-white in dark. New contrast pairs: onAccent on accentFill, accentRim on
+  bg/panel/raised. The top bar's app mark shows the `< • >` logo mark instead of the generic code icon. Syntax
+  colours are unchanged (keywords stay violet). A blue `#1D6CF0` and an inverted white-in-dark accent were tried
+  first and replaced at the owner's request.
+- **Seen:** renderer served by Vite in the built-in browser, dark and light: logo tiles, top-bar mark and the
+  command palette's selected row are black with the rim in dark mode.
 
-**Evidence:** `vitest run src/renderer/theme src/renderer/welcome src/renderer/editor tests/integration`: 74 files,
-992 passed.
+**Evidence:** `vitest run src/renderer/theme src/renderer/welcome src/renderer/editor src/renderer/workbench
+tests/integration`: 1165 passed; the 10 failures are the pre-existing Sheet/notice ones listed under Problems.
 
 **Problems:** `npm run verify` is red **at the base commit df242a0** (main), before this change: typecheck errors
 in `ai/AddContextMenu.tsx`, `PreviewMoreMenu.tsx`, `notice.test.ts`, `button-hierarchy.test.ts`, and failing

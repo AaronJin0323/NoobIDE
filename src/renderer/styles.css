@@ -108,7 +108,7 @@ button {
   width: 24px;
   height: 24px;
   border-radius: 7px;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
 }
 .app-name {
@@ -193,7 +193,7 @@ button {
   cursor: pointer;
 }
 .segment[aria-pressed='true'] {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
   font-weight: 600;
 }
@@ -730,7 +730,7 @@ button {
   padding: 0 16px;
   border: 0;
   border-radius: var(--radius-control);
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
   font-weight: 600;
   cursor: pointer;

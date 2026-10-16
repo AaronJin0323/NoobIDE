@@ -20,7 +20,10 @@
   margin-bottom: 14px;
 }
 .noobide-logo-tile {
-  fill: var(--accent);
+  fill: var(--accent-fill);
+  stroke: var(--accent-rim);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
 }
 .noobide-logo-glyph {
   stroke: var(--on-accent);
