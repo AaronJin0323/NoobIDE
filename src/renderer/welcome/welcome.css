@@ -123,13 +123,6 @@
 .wizard-backdrop {
   z-index: 60;
 }
-.dialog.wizard {
-  display: flex;
-  flex-direction: column;
-  width: min(820px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
-  overflow: auto;
-}
 .wizard-body {
   display: flex;
   flex-wrap: wrap;
@@ -255,8 +248,4 @@
 .dialog-actions .primary-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-/* The wizard scrolls as a whole in a small window; its sections never shrink into each other. */
-.dialog.wizard > * {
-  flex: none;
 }

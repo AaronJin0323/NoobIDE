@@ -3,6 +3,113 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 31 (side session) — 2026-10-16 — S49.1 one Sheet shell for every dialog
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/s49-1-sheet-024346`, cut from
+`claude/recursing-dewdney-9752a3` @ `86169b6`, then fast-forwarded onto the integration branch
+`claude/noobide-ui-ux-assessment-d4624a` @ `42f3ea4` (PR #9 merged; same tree). S47.1–S47.4 in place. Started by the assessment session as one of
+four parallel sessions with disjoint file ownership (this one: dialogs). Sibling branches (S47.5/6 frame, S48.1–4
+preview, S48.2/3 problems) are not merged here.
+
+**Done**
+
+- S49.1 — One Sheet shell for every dialog (assessment P1 item 6, P2 item 12, S49 table).
+  - **`src/renderer/workbench/Sheet.tsx`** is the shell; its header comment is the API contract for S49.2–S49.4:
+    `title` (+ `titleIcon`), one-line `description`, scrolling `children`, `actions` in reading order Cancel →
+    Primary, `leading` (text or a control set apart at the left of the action row), `onClose` (Close top-right, Esc,
+    and the backdrop only with `dismissOnBackdrop`), `onEscape` (step in before closing: History cancels an open
+    confirmation), `closeLabel` (the caller's own word: Close / Cancel / Decide later), `closeDisabled` (a restore
+    or create in flight), `role` (`alertdialog` is described by its content), `width` 480 | 720 | 960,
+    `className` / `backdropClassName` (a feature's z-index), `testId` / `closeTestId`, `sheetRef`. Focus moves in
+    when it opens (a child that took focus keeps it → `[data-autofocus]` → first control of the content → Close) and
+    returns to the opener on close (`useReturnFocus`). `sheetButtonClass('cancel' | 'primary' | 'danger')` names the
+    three button jobs; `escapeAction` is the pure Esc rule. The element keeps the `dialog` / `dialog-backdrop`
+    classes, so glass.css (frosted overlay, solid twin under reduced transparency / contrast / forced colours), the
+    glass e2e frost probe and `preview-viewport.ts` OVERLAY_SELECTOR (native preview hidden under any sheet, decision 0019) apply unchanged; Workbench's explicit `covered` list did not change.
+  - **focus-trap.ts**: the wrap rule is the pure `tabWrapTarget(items, active, shiftKey, inside)`; `trapTab` and
+    `useModalKeys` are unchanged in behaviour.
+  - **Migrated** (behaviour — what each restores, saves, lists — unchanged): `ConfirmDialog` (480, alertdialog, Cancel
+    autofocused, `tone="danger"` for Move to trash from FilesPanel), `AboutDialog` (480), `GlossaryDialog` (720; the
+    search stays in view, the list scrolls), `CreateProjectDialog` (720, was 820; Close = Cancel, disabled while
+    creating; a backdrop click never loses the typed name), `AiSettingsDialog` (720, was 560; the bottom primary
+    Close is gone, Close is top-right; a backdrop click no longer discards a half-typed key; focus moves to the first
+    field — the AI on/off box — once the settings arrive, unless the user already moved), `HistoryDialog` (960, was
+    1100; Close top-right with `history-close`, disabled while busy; first Esc still cancels an inline confirmation),
+    `RecoveryDialog` (720, was 760; see below), `SavedChatsList` delete confirm (Cancel, then "Delete chat" drawn
+    `danger-button`; focus still lands on the verb, as the ai-history e2e expects).
+  - **Recovery** (P1 item 6): a real modal now — the sheet traps focus and starts on "Open project and review"; Esc,
+    the Close control (named 稍后处理 / Decide later) and the footer button all keep every record, and the sheet says
+    so under the title (`recovery.keepNote`: 按 Esc 或“稍后处理”不会丢弃任何内容…). A backdrop click does nothing at all.
+    "清除全部恢复数据" left the footer for a `<details>` disclosure 高级 / Advanced under the project list (list step
+    only); its confirmation, the discard confirmations and the relocate question are Cancel → verb, destructive verbs
+    `secondary-button danger-button`. The usage line is the action row's leading text.
+  - **Styles** (`styles.css`): one `.dialog` block (flex column, 480 default, `.sheet-720` / `.sheet-960`, 16 px
+    backdrop padding so a sheet never touches the window edge, `.sheet-content` is the only scrolling part, `.sheet-
+content > * { flex: none }` so sections never shrink into each other — the glossary list opts in), `.sheet-close`
+    (the shared `.icon-button` pulled into the title corner), `.dialog-hint` now has `margin: 0` everywhere,
+    `.danger-button` stays red text and `.primary-button.danger-button` is the danger fill. Removed the hand-built
+    `.recovery-dialog/.recovery-title/.recovery-intro/.recovery-footer`, `.history-head`, `.dialog.wizard`,
+    `.glossary-dialog`, `.ai-settings` width rules. `design-rules.test.ts` green (one radius scale, no literal colours).
+  - **Tests**: `src/renderer/workbench/sheet.test.ts` (20 tests: anatomy order, Close top-right with the caller's
+    label, alertdialog semantics, leading slot, widths, button classes and the danger CSS, ConfirmDialog order and
+    tone, the focus-trap wrap rule, the Esc rule, "no component other than Sheet sets aria-modal", every dialog
+    renders `<Sheet>`, a sheet with a field never has `dismissOnBackdrop`, inline confirmations are Cancel → danger
+    verb). `tests/e2e/recovery.spec.ts`: the clear-data test opens the Advanced disclosure and checks the Cancel →
+    danger order; new test "Escape, Close and a click outside keep every recovered copy, and the dialog says so" (aria-
+    modal, heading, Close accessible name, keep note, focus start, Tab trap over 8 presses, backdrop click keeps the
+    dialog open, Esc and Close keep the journal record across relaunches).
+
+**Evidence:** `npm run verify` green (typecheck, lint, format, 220 unit files). e2e on Windows, run 1: recovery, history,
+ai-settings, ai-history, walkthrough (glossary), welcome (wizard), files, file-tree (delete confirm), a11y, glass,
+distribution (About), menus, session, problem-card — 87 passed, 2 failed (a strict-mode clash between the confirm
+sheet's X and its Cancel, both named 取消, and a stale locator across a relaunch in the new test); fixed (the X of a
+confirmation is named 关闭 / Close, `dialog.close`), run 2: recovery + file-tree 24 passed, including the new test
+"Escape, Close and a click outside keep every recovered copy, and the dialog says so".
+
+**Decisions:** no new decision record (the shell implements decision 0034's overlay rules and 0019's cover rule).
+Choices worth knowing:
+
+- **Esc in Recovery says so before, not after.** Esc, Close and "Decide later" are one action (keep everything, close,
+  ask again next start), and the sheet's note under the title states it in words. A notice after closing would need
+  the workbench notice stack, owned by the frame session this round; if the owner wants an after-the-fact
+  confirmation, add it there (S47.5) rather than a second floating mechanism in the dialog.
+- **Close top-right on every sheet, including confirmations.** One shell means the X is always there; on a
+  confirmation it does what Cancel does but is named 关闭 / Close (new key `dialog.close`), so Cancel stays the one
+  control with its name for screen readers and locators. Only sheets without a field (`ConfirmDialog`, `About`)
+  close on a backdrop click.
+- **Widths**: History 960 (S49.2 asks for 960), Recovery / Wizard / AI settings / Glossary 720, Confirm / About 480.
+- **S45.9, Sheet part — taken from `docs/archive/s44-s45-hig/.../Sheet.tsx` and `Sheet.test.ts`:** the anatomy and
+  its order (title → description → content → trailing actions, Cancel before the default), `alertdialog` described
+  by its content, the `leading` slot, the `[data-autofocus]` → first control rule with "a child that took focus keeps
+  it", focus return, `data-sheet`, the static-markup test style and the renderer scan (no other `aria-modal`).
+  **Dropped:** `titleHidden`/`sr-only` header and the `footer` slot (the command palette keeps its own shell — a
+  search field with a list is not a titled dialog; it stays the one exception in the scan), the named sizes
+  small/medium/wide/large (replaced by the 480/720/960 scale the assessment fixes), the `onMouseDown` passthrough, its
+  `focusSnapshot`/`returnFocus` helpers (the existing `useReturnFocus` does this), and `i18n/sheets.ts` (its four
+  strings — wizard description, history backup note, recovery discard/clear questions — are not needed: the existing
+  confirm strings stay). **Added over the archive:** Close top-right as an icon button carrying the caller's word,
+  `closeDisabled`, `onEscape`, `dismissOnBackdrop` off by default, the danger-filled primary. Notice anatomy, button
+  hierarchy and the rest of S45.9 remain open.
+
+**Problems / risks:** macOS not run. After the merge of the integration head `cd21a2d` (S46.9 integrated title
+bar) the dialog e2e specs were re-run locally: 77 passed; the sheets sit inside `.dialog-backdrop`, which S46.9 already
+marks `no-drag`. The first CI run failed only in `walkthrough.spec` (a poll read `walkthrough.json` between the
+store's temp write and its rename; the read now counts as "not yet"). `glass.css` still names `.recovery-dialog` / `.recovery-backdrop` in its
+selector lists (harmless; the recovery sheet now carries `.dialog`) — left alone to avoid conflicts with the parallel
+sessions; prune in S49.2. `glass-visual.spec` screenshots that include a dialog will differ by design (not run
+here). `FilesPanel.tsx` got one attribute (`tone="danger"`) outside the owned file list.
+
+**Owner action needed:** none new.
+
+**Next up**
+
+1. S49.2 (History focused on restoring, 960 sheet; move storage / orphans to a settings sheet via the History footer
+   `leading` slot), S49.3 (one diff review), S49.4 (AI set-up) — all on `<Sheet>`; keep its header contract.
+2. When the frame branch (S47.5) lands: decide whether Recovery's Esc should also post an after-the-fact notice.
+
+**Ideas / backlog candidates:** a `Sheet.stories`-style e2e that opens every sheet once and checks Tab order and the
+Close focus return in one place (today each feature's spec does its own).
+
 ## Session 30 (side session) — 2026-10-16 — S47.4 one name, one home per feature
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/recursing-dewdney-9752a3`:
