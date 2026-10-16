@@ -23,13 +23,14 @@ format, test: 2633 passed, 15 skipped).
 **Decisions:** none new; see `docs/archive/s44-s45-hig/README.md`.
 
 **Problems / risks:** one `verify --quick` run failed in the unit tests once and was not reproducible in three full
-runs (the failing test was not captured). e2e not run here.
+runs; the merged tree once failed `tests/integration/watcher.test.ts` "mass delete" on its 500 ms event-loop lag
+bound (606 ms) and passed on rerun — a load-sensitive bound. e2e not run here.
 
 **Owner action needed:** none.
 
 **Next up**
 
-1. Continue from Session 23's Next up (S46.9 rebuild of the archived S44/S45 work).
+1. Continue from Session 23's Next up (S45.9: rebuild what is worth keeping of the archived S44/S45 work).
 
 ## Session 23 — 2026-10-16 — Key features always visible (S45, milestone M16)
 
