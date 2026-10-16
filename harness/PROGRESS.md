@@ -3,6 +3,70 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 28 (side session) — 2026-10-16 — S47.2 welcome owns the window, S47.3 stable save state and tabs
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/xenodochial-hopper-116d81`,
+fast-forwarded onto `claude/noobide-ui-ux-assessment-d4624a` @ `2edb98e` (the assessment, on main @ `cfc3232`) so
+the M18 backlog entries exist. Started by the assessment session; owner rule (Session 23): no key feature moves into a
+menu; decision 0034 and `design-rules.test.ts` unchanged — both features are structural, not a restyle.
+
+**Done**
+
+- S47.2 — Welcome owns the window. `layout.ts` `visibleRegions(state, narrow, projectOpen)`: without a project the
+  editor column (welcome + sample) is the only middle region — no preview column, no editor splitter, no narrow
+  Code / Preview switch, whatever narrow view was chosen before the project closed (`layout.test.ts`). `Workbench.tsx`
+  gives the column the whole free width (`--editor-grow: 1` without a project; a flex-grow below 1 left the preview's
+  share empty). The files panel's empty state has no button any more (`files.emptyHint` explains where files come
+  from); the welcome keeps the window's one filled button (create), Open folder… as a secondary, and gains a Lessons
+  quiet button (`welcome-lessons`, the same `help-walkthrough` command as the rail). "The sample is not saved" is said
+  once: the badge next to the sample tab; `topbar.sampleNotice` is removed (the top bar shows the path line only with a
+  project) and `welcome.sampleBelow` no longer repeats it. e2e helpers and specs that clicked the files panel's
+  `open-folder` now click `welcome-open-folder`.
+- S47.3 — Stable save state and tabs. `TopBar.tsx` `saveButtonShown(save, autosave)`: the prominent Save button is
+  offered only for `failed`, `conflict`, `deleted` or autosave off with unsaved edits; ordinary typing changes the
+  state word inside a fixed-width slot (`.save-status` width `--save-slot-w` 136 px, the icon in a 14 px box, every
+  `SaveStateIcon` variant 14 px). Pill words are short in both languages (`save.failed` 保存失败 / Save failed,
+  `save.conflict` 文件有冲突 / File conflict, `save.deleted` 文件已删除 / File deleted); the full sentences stay in the
+  editor banners (`save.kept`, `conflict.*`, `deleted.*`). `TabBar.tsx`: the tab's state is an icon in a fixed 14 px
+  slot (`.tab-state-slot`) with the word in the tooltip (`tabTooltip`) and as screen-reader text, so a tab never widens
+  or narrows while it is typed in and saved. The save command (Ctrl+S and the button) over a conflict or a deleted
+  file moves the focus to the banner's first choice (`conflict-compare` / `deleted-resave`) instead of doing nothing;
+  nothing is written on its own there (S11.2, S11.3 unchanged). A retry in flight after a failed write keeps the button
+  (`activeSaveRetrying`: the error is cleared only on success), so the blur retry that focusing the button triggers
+  never removes the button under the focus. S45 kept: the button stays while a save cannot happen on its own, and the
+  focus returns to the state word when it leaves.
+
+**Evidence:** S47.2 — `tests/e2e/shell.spec.ts` "S47.2: …" (1280×800 and 640×480: the welcome's column reaches the
+window's right gutter, no preview column / splitter / switch, exactly one filled button and it is `welcome-create`,
+Open folder is secondary, the files panel's empty state has no button, "not saved" matches once, Lessons opens the
+walkthrough, opening a project keeps every measured top-bar box identical and the S30.3 equal split holds);
+`layout.test.ts`. S47.3 — `tests/e2e/key-features-visible.spec.ts` "S47.3: …" (typing never shows the button; a
+read-only file shows it with the short word and the banner sentence; the focused button saves on Enter through the
+save command and the focus lands on the state word; the bounding-box test records every element of the top bar and the
+tab strip before typing, during the autosave pause and after `saved` — all equal); `a11y-labels.test.ts`
+(`saveButtonShown` matrix incl. autosave off, pill word lengths, `tabTooltip`). `npm run verify` green; e2e run:
+shell, welcome, files, walkthrough, recent-projects, key-features-visible, tabs, save, external-change, problem-card,
+a11y, recovery, preview, session, editing, smart-editing green on the Windows build (see the commit messages for the
+counts).
+
+**Decisions:** no new decision record. Two small calls to note: (1) the rail is unchanged without a project (the
+assessment's S47 table says "the rail shows only Files until a project is open"; the feature's acceptance criteria
+do not, and hiding Problems / Lessons / AI from the rail would contradict the key-features-visible rule — left for the
+owner to confirm); (2) a mouse click on the top-bar Save button first blurs the editor, whose blur autosave already
+retries the save, so the button is removed before it receives focus — the S45 focus-return is a keyboard guarantee and
+is tested as one.
+
+**Problems / risks:** macOS not run (renderer-only changes; no platform code touched). `tests/e2e/glass-visual.spec.ts`
+screenshots now differ for the welcome (by design). The e2e suites not in the list above were not re-run in this
+session; none of them assert the removed strings or the files-panel button (grep-checked).
+
+**Owner action needed:** confirm the two calls under Decisions; S46.8 visual pass still open.
+
+**Next up**
+
+1. S47.4 (term table test, ⋯ menu split, path on hover), then S47.5, S47.6.
+2. S48.1 should reuse the fixed-slot pattern of S47.3 for the preview header's state pill.
+
 ## Session 27 (side session) — 2026-10-16 — UI/UX assessment and refine plan (owner request)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/noobide-ui-ux-assessment-d4624a`,

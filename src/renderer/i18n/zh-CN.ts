@@ -99,7 +99,7 @@ export const zhCN = {
   'save.clean': '无改动',
   'save.dirty': '未保存',
   'save.saving': '正在保存…',
-  'save.failed': '保存失败 — 你的修改还在',
+  'save.failed': '保存失败',
   'save.shortcut': '保存',
   'save.error.permission': '没有写入权限：文件或文件夹是只读的。',
   'save.error.busy': '文件正被其他程序占用。',
@@ -115,7 +115,7 @@ export const zhCN = {
   'save.kept': '你的修改还在编辑器里，没有丢失。解决问题后再按保存。',
   'error.detail': '详细信息',
   'save.saved': '已保存',
-  'save.conflict': '磁盘上的文件被改动了 — 未自动保存',
+  'save.conflict': '文件有冲突',
   'save.retry': '重试保存',
   'save.elsewhere': '另存一份到别处…',
   'save.copySaved': '已另存一份到：',
@@ -247,7 +247,7 @@ export const zhCN = {
   'recovery.close': '关闭',
   // --- end S12 ---
   // --- S11 external changes ---
-  'save.deleted': '文件已在磁盘上删除 — 内容还在编辑器里',
+  'save.deleted': '文件已删除',
   'tab.state.deleted': '已删除',
   'disk.reloaded': '这个文件在 NoobIDE 之外被修改了，已载入磁盘上的新版本（可以用"撤销"回到之前的内容）。',
   'disk.dismiss': '知道了',

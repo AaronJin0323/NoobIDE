@@ -102,7 +102,7 @@ export const en: Record<MessageKey, string> = {
   'save.clean': 'No changes',
   'save.dirty': 'Unsaved',
   'save.saving': 'Saving…',
-  'save.failed': 'Save failed — your edits are kept',
+  'save.failed': 'Save failed',
   'save.shortcut': 'Save',
   'save.error.permission': 'No permission to write: the file or folder is read-only.',
   'save.error.busy': 'Another program is using the file.',
@@ -119,7 +119,7 @@ export const en: Record<MessageKey, string> = {
   'save.kept': 'Your edits are still in the editor and nothing was lost. Fix the cause, then save again.',
   'error.detail': 'Details',
   'save.saved': 'Saved',
-  'save.conflict': 'The file changed on disk — not saved automatically',
+  'save.conflict': 'File conflict',
   'save.retry': 'Retry saving',
   'save.elsewhere': 'Save a copy elsewhere…',
   'save.copySaved': 'A copy was saved to:',
@@ -260,7 +260,7 @@ export const en: Record<MessageKey, string> = {
   'recovery.close': 'Close',
   // --- end S12 ---
   // --- S11 external changes ---
-  'save.deleted': 'File deleted on disk — the text is still in the editor',
+  'save.deleted': 'File deleted',
   'tab.state.deleted': 'Deleted',
   'disk.reloaded':
     'This file was changed outside NoobIDE; the new version from disk is shown (Undo brings back the previous text).',

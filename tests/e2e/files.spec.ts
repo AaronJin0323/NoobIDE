@@ -115,7 +115,7 @@ test('a failed save keeps the edits, explains the cause and succeeds after the f
   await chmod(file, 0o444);
   await typeAtEnd('只读时的修改');
   await page.keyboard.press('ControlOrMeta+S');
-  await expect(status()).toHaveText('保存失败 — 你的修改还在');
+  await expect(status()).toHaveText('保存失败');
   await expect(page.getByTestId('save-error')).toContainText('没有写入权限');
   await expect(page.getByTestId('save-error')).toContainText('你的修改还在编辑器里');
   // The banner made the editor shorter; bring the last line into view before reading it.

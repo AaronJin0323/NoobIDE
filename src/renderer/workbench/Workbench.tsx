@@ -11,7 +11,14 @@ import { PreviewPane } from './PreviewPane';
 import { PREVIEW_COMMAND_HANDLERS } from './preview-commands'; // S15.4
 import { ProblemsPanel } from './ProblemsPanel';
 import { INITIAL_LAYOUT, NARROW_QUERY, layoutReducer, visibleRegions } from './layout';
-import { INITIAL_DOCUMENT_STATE, activeSaveStatus, activeTab, cycleTab, documentReducer } from './document-state';
+import {
+  INITIAL_DOCUMENT_STATE,
+  activeSaveRetrying,
+  activeSaveStatus,
+  activeTab,
+  cycleTab,
+  documentReducer,
+} from './document-state';
 import { CHANGED_ON_DISK, DocumentSaver, saveEvery } from './save-controller';
 import { isUnsaved, saveStatus } from './save-machine';
 import { createSavedFileEvents } from './saved-file-events';
@@ -414,7 +421,20 @@ export function Workbench() {
     dropTab(relPath);
   }, []);
 
-  const saveActive = useCallback(() => void saverOf(docRef.current.active)?.save(), []);
+  const saveActive = useCallback(() => {
+    const saver = saverOf(docRef.current.active);
+    if (!saver) return;
+    // S47.3: over a conflict or a deleted file nothing is ever written on its own (S11.2, S11.3); the save command
+    // (Ctrl+S and the top-bar Save button) then moves the focus to the banner's first choice instead of doing nothing.
+    const { conflict, deleted } = saver.state;
+    if (conflict || deleted) {
+      document
+        .querySelector<HTMLElement>(`[data-testid="${conflict ? 'conflict-compare' : 'deleted-resave'}"]`)
+        ?.focus();
+      return;
+    }
+    void saver.save();
+  }, []);
 
   const saveCopy = useCallback(async () => {
     const project = docRef.current.project;
@@ -1189,6 +1209,7 @@ export function Workbench() {
         platform={platform}
         project={project}
         save={activeSaveStatus(doc)}
+        saveRetrying={activeSaveRetrying(doc)} // S47.3: the Save button stays through a retry of a failed write
         onReveal={() => {
           if (bridge && project) void bridge.workspace.revealProject({ projectId: project.projectId });
         }}
@@ -1284,6 +1305,7 @@ export function Workbench() {
               onOpenFolder={bridge ? () => void openFolder() : undefined}
               recent={recentProjects}
               onOpenRecent={(opened) => void adoptProject(opened)}
+              onShowLessons={() => commands.run('help-walkthrough')} // S47.2: Lessons stays reachable from the welcome
             />
           }
         />
@@ -1305,7 +1327,6 @@ export function Workbench() {
               const total = (editor?.width ?? 0) + (preview?.width ?? 0);
               return total > 0 ? start + dx / total : start;
             }}
-              onShowLessons={() => commands.run('help-walkthrough')} // S47.2: Lessons stays reachable from the welcome
             onChange={(share) => dispatchLayout({ type: 'resizeEditor', share })}
           />
         )}

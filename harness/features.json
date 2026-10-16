@@ -4290,8 +4290,8 @@
       "depends_on": [
         "S47.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/key-features-visible.spec.ts 'S47.3: …' (no Save button while typing; read-only file shows it with the short pill word and the banner sentence; Enter on the focused button saves via the save command and focus lands on the state word; bounding boxes of every top-bar and tab-strip element equal before typing, during the autosave pause and after saved) + a11y-labels.test.ts (saveButtonShown matrix, pill word lengths, tabTooltip) + document-state.test.ts (activeSaveRetrying); e2e key-features/save/tabs/a11y/shell/external-change/files/preview/problem-card/recovery/session/editing green on Windows; verify green"
     },
     {
       "id": "S47.4",
