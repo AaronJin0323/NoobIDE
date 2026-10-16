@@ -3,10 +3,10 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 29 (side session) — 2026-10-16 — S47.4 one name, one home per feature
+## Session 30 (side session) — 2026-10-16 — S47.4 one name, one home per feature
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/recursing-dewdney-9752a3`:
-main @ `65c95a0` merged with `claude/xenodochial-hopper-116d81` @ `41ae221` (S47.2 + S47.3, Session 28), so the
+main @ `65c95a0` merged with `claude/xenodochial-hopper-116d81` @ `41ae221` (S47.2 + S47.3, Session 29), so the
 welcome layout and the fixed save slot are in place. Started by the assessment session; owner rule (Session 23): no
 key feature moves into a menu — the rail keeps Files, Problems, History, Lessons, AI; decision 0034 and
 `design-rules.test.ts` unchanged.
@@ -67,7 +67,7 @@ the welcome, never only from a menu.
 **Problems / risks:** macOS not run (renderer-only changes; the reveal label in the project menu is checked for both
 platforms in `commands.spec`). `glass-visual.spec` screenshots of the top bar and the menu differ by design. Two
 test-side fixes outside the feature: `smoke.spec` "five regions" still expected a preview column without a project
-(S47.2 made it hidden; the suite was not run in Session 28), and `switchLanguage` now waits until main reports the
+(S47.2 made it hidden; the suite was not run in Session 29), and `switchLanguage` now waits until main reports the
 new locale — the renderer sets the language before main has persisted it, and the preview's "page not found" page
 (served by main in the interface language) could still come up in the old language when a test navigated right after
 the switch (`not-found.spec`). The product behaves the same as before; only the test ordering is deterministic now.
@@ -79,7 +79,7 @@ the switch (`not-found.spec`). The product behaves the same as before; only the 
 1. S47.5 (one status row, fewer bands), S47.6 (compact walkthrough).
 2. S48.1 should reuse the fixed-slot pattern of S47.3 for the preview header's state pill.
 
-## Session 28 (side session) — 2026-10-16 — S47.2 welcome owns the window, S47.3 stable save state and tabs
+## Session 29 (side session) — 2026-10-16 — S47.2 welcome owns the window, S47.3 stable save state and tabs
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/xenodochial-hopper-116d81`,
 fast-forwarded onto `claude/noobide-ui-ux-assessment-d4624a` @ `2edb98e` (the assessment, on main @ `cfc3232`) so
@@ -143,7 +143,7 @@ session; none of them assert the removed strings or the files-panel button (grep
 1. S47.4 (term table test, ⋯ menu split, path on hover), then S47.5, S47.6.
 2. S48.1 should reuse the fixed-slot pattern of S47.3 for the preview header's state pill.
 
-## Session 27 (side session) — 2026-10-16 — UI/UX assessment and refine plan (owner request)
+## Session 28 (side session) — 2026-10-16 — UI/UX assessment and refine plan (owner request)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/noobide-ui-ux-assessment-d4624a`,
 merged with `origin/main` @ `cfc3232` (S46 calm refinement) before assessing. Three read-only audit subagents

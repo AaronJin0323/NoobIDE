@@ -4308,7 +4308,7 @@
         "S47.1"
       ],
       "status": "done",
-      "evidence": "src/renderer/i18n/terms.test.ts (22 tests: term table over zh-CN/en + retired names), src/shared/commands.test.ts (two menus), tests/e2e/shell.spec.ts 'S47.4: …', commands.spec, a11y.spec; verify green; full e2e 332 tests green on Windows (318 + 4 skipped mac-only + 4 test-side fixes rerun green) @ Session 29"
+      "evidence": "src/renderer/i18n/terms.test.ts (22 tests: term table over zh-CN/en + retired names), src/shared/commands.test.ts (two menus), tests/e2e/shell.spec.ts 'S47.4: …', commands.spec, a11y.spec; verify green; full e2e 332 tests green on Windows (318 + 4 skipped mac-only + 4 test-side fixes rerun green) @ Session 30"
     },
     {
       "id": "S47.5",
