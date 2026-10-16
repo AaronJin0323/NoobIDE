@@ -4425,8 +4425,8 @@
       "depends_on": [
         "S47.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/sheet.test.ts (20 tests) + verify green; e2e on Windows: run 1 (87 passed) recovery, history, ai-settings, ai-history, walkthrough (glossary), welcome (wizard), files, file-tree (delete confirm), a11y, glass, distribution (about), menus, session, problem-card; run 2 after fixes: recovery + file-tree 24 passed incl. new 'Escape, Close and a click outside keep every recovered copy' test. Base 42f3ea4."
     },
     {
       "id": "S49.2",
