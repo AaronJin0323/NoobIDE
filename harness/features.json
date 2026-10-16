@@ -4245,6 +4245,25 @@
       "evidence": "steps in harness/MANUAL-CHECKS.md#S46.8; screenshots via glass-visual.spec.ts"
     },
     {
+      "id": "S46.9",
+      "session": "S46",
+      "milestone": "M17",
+      "title": "Integrated title bar",
+      "description": "The native title bar and menu bar followed the OS colour scheme, not the app theme (a black strip over a light workbench) and stacked three bars. The workbench top bar becomes the title bar.",
+      "acceptance": [
+        "Windows: the window has no native title bar or menu bar; minimise/maximise/close are a title bar overlay in the theme's bg/text colours and as tall as the top bar, recoloured when the theme setting or the OS scheme changes (unit test + window-options)",
+        "macOS: hiddenInset traffic lights sit in the top bar; other platforms keep the native frame (unit test)",
+        "The top bar is the drag area; its controls, menus, dialogs, palette and notices are not; no top-bar control sits under the window controls (styles.css, checked on Windows)",
+        "Every native menu command stays reachable on Windows through the command palette or the top bar menu"
+      ],
+      "verify": "manual-win",
+      "depends_on": [
+        "S46.2"
+      ],
+      "status": "needs_manual_check",
+      "evidence": "window-options.test.ts (frame/overlay/height), tabs + key-features-visible e2e green, Windows capture checked; drag/snap/recolour/macOS steps in harness/MANUAL-CHECKS.md#S46.9"
+    },
+    {
       "id": "S47.1",
       "session": "S47",
       "milestone": "M18",
