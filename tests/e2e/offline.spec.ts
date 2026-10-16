@@ -5,7 +5,6 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import { electronArgs, repoRoot } from './launch';
 import { collectConsoleErrors, openFile } from './project';
 import { evalInPreview, replaceEditorText, waitForPreviewState } from './preview-helpers';
-import { switchLanguage } from './language-switch'; // S44.4
 
 /**
  * S27.2 offline acceptance (PLAN §11 "Offline use"): with the network disabled, a beginner can create a project from
@@ -60,7 +59,7 @@ test.beforeAll(async () => {
   await app.evaluate(({ session }) => session.defaultSession.enableNetworkEmulation({ offline: true }));
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
-  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+  await page.locator('.monaco-editor .view-lines').waitFor();
   await app.evaluate(({ app: electronApp }, docs) => electronApp.setPath('documents', docs), documents);
 });
 
@@ -175,9 +174,9 @@ test('explanations: a typo is explained as a code-check problem and as a runtime
   await expect(page.getByTestId('cursor-position')).toHaveText(/^行 \d+, 列 \d+$/);
 
   // English explanations are bundled too.
-  await switchLanguage(page);
+  await page.getByTestId('switch-language').click();
   await expect(page.locator('[data-section="runtime"]')).toContainText('While the page runs');
-  await switchLanguage(page);
+  await page.getByTestId('switch-language').click();
 });
 
 test('the app itself tried to reach nothing outside this machine', async () => {

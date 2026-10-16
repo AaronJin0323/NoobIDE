@@ -28,7 +28,7 @@ test.beforeAll(async () => {
   await writeFile(path.join(root, 'html', 'about'), ''); // empty: nothing to suggest
   app = await launchApp();
   page = await app.firstWindow();
-  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+  await page.locator('.monaco-editor .view-lines').waitFor();
   await openProject(app, page, root);
 });
 

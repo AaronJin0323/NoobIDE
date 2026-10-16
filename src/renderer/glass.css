@@ -228,6 +228,84 @@
   justify-content: center;
 }
 
+/* ── Key features in the top bar: Save and (narrow window) New file ─ */
+.save-group {
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+/* glassProminent: while there are unsaved edits, Save is the one primary action of the window. The word, the icon
+   and the shortcut say what it does; the colour is never the only cue. */
+.save-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 6px 0 12px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--accent-fill);
+  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--on-accent) 16%, transparent), transparent 60%);
+  color: var(--on-accent);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--shadow-prominent);
+  transition:
+    transform var(--dur-press) var(--ease-snappy),
+    filter var(--dur-fast) var(--ease-out);
+}
+.save-button:hover {
+  filter: brightness(1.08);
+}
+.save-button:active {
+  transform: scale(0.96);
+}
+.save-button .kbd {
+  background: color-mix(in srgb, var(--on-accent) 22%, transparent);
+  box-shadow: none;
+  color: var(--on-accent);
+}
+.topbar-new-file {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+/* The state word gives way (ellipsis) before any control leaves the top bar; the full word stays in the status. */
+.save-status-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A narrow window keeps every top-bar control on screen: New file shows its icon only (the name stays its accessible
+   name and tooltip) and Save drops the shortcut hint (the tooltip keeps it). */
+@media (max-width: 879px) {
+  .workbench.narrow .topbar-new-file {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+  }
+  .workbench.narrow .topbar-new-file-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .workbench.narrow .save-button .kbd {
+    display: none;
+  }
+}
+
 /* ── Rail: a floating glass capsule ───────────────────────────── */
 .rail {
   align-self: flex-start;
@@ -493,8 +571,7 @@
 }
 
 /* ── Floating notices ─────────────────────────────────────────── */
-.app-notice .inline-alert,
-.recovery-health .inline-alert {
+.app-notice-stack > .inline-alert {
   box-shadow: var(--shadow-overlay);
 }
 
@@ -763,6 +840,37 @@
 .panel-header .quiet-button {
   flex: none;
   white-space: nowrap;
+}
+
+/* The preview's key actions: Start / Refresh is glassProminent; Annotate page is a tinted capsule. */
+.preview-primary,
+.annotations-primary {
+  border-radius: var(--radius-capsule);
+  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--on-accent) 16%, transparent), transparent 60%);
+  box-shadow: var(--shadow-prominent);
+  transition:
+    transform var(--dur-press) var(--ease-snappy),
+    filter var(--dur-fast) var(--ease-out);
+}
+.annotate-button,
+.annotations-way {
+  border-radius: var(--radius-capsule);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-press) var(--ease-snappy);
+}
+.preview-primary:active,
+.annotate-button:active,
+.annotations-way:active {
+  transform: scale(0.96);
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-primary:active,
+  .annotate-button:active,
+  .annotations-way:active {
+    transform: none;
+  }
 }
 
 /* S40.4: a theme switch is instant (ThemeProvider sets this for two frames). */

@@ -151,6 +151,26 @@ test('the context menu opens it too; Reject leaves the text unchanged', async ()
   expect(await disk('index.html')).toBe(HTML);
 });
 
+test('"Edit with AI" under the code is always in view and opens it on the selection', async () => {
+  await selectLine(3);
+  const button = page.getByTestId('editor-ai-edit');
+  await expect(button).toBeVisible();
+  await expect(button).toContainText('AI 编辑');
+  await expect(page.getByTestId('editor-ai-explain')).toBeVisible();
+  await button.click();
+  await expect(zone()).toBeVisible();
+  await expect(zone().getByTestId('inline-edit-target')).toHaveText('要修改的代码：index.html 第 3 行');
+  await ask('make it blue');
+  await expect(zone()).toHaveAttribute('data-phase', 'review', { timeout: 30_000 });
+  // Accept / Reject come before the diff, so they are in view without scrolling the zone.
+  const accept = await zone().getByTestId('inline-edit-accept').boundingBox();
+  const diffBox = await zone().getByTestId('inline-edit-diff').boundingBox();
+  expect(accept && diffBox && accept.y < diffBox.y).toBe(true);
+  await zone().getByTestId('inline-edit-reject').click();
+  await expect(zone()).toHaveCount(0);
+  expect(await disk('index.html')).toBe(HTML);
+});
+
 test('a range that changed after it was sent is not applied (stale), and says so', async () => {
   // No selection: the whole file is the range.
   await focusEditor(page);
@@ -232,8 +252,11 @@ test('"Fix with AI" on a page problem: diff, Accept, resolved after the preview 
   await page.getByTestId('problems-toggle').click();
   const row = page.locator('[data-section="runtime"]').getByTestId('problem-row').filter({ hasText: 'script.js:3' });
   await expect(row.first()).toBeVisible({ timeout: 20_000 });
+  // "Fix with AI" is on the collapsed row itself; once the row is open, right under the card's head.
+  await expect(row.first().getByTestId('problem-row-fix-ai')).toBeVisible();
   const summary = row.first().getByTestId('problem-summary');
   if ((await summary.getAttribute('aria-expanded')) !== 'true') await summary.click();
+  await expect(row.first().getByTestId('problem-row-fix-ai')).toHaveCount(0);
   const card = row.first().getByTestId('problem-card');
   await card.getByTestId('problem-fix-ai').click();
 

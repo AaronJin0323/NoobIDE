@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { noticeText } from './console-notice';
+import { WarningIcon } from './icons';
 import {
   CONSOLE_LEVEL_FILTERS,
   MAX_VISIBLE_LOG_ENTRIES,
+  errorCount,
   olderCount,
   visibleLog,
   type ConsoleEntry,
@@ -30,6 +32,7 @@ export function ConsoleView({ log, onClear }: { log: LogView; onClear: () => voi
   const [onlyCurrent, setOnlyCurrent] = useState(false);
   const lines = visibleLog(log, level, !onlyCurrent);
   const older = olderCount(log);
+  const errors = errorCount(log);
   // The tools appear with the first output (no controls that do nothing); an emptied console starts unfiltered again.
   const hasOutput = log.entries.length > 0 || log.dropped > 0 || log.throttled;
   useEffect(() => {
@@ -39,44 +42,59 @@ export function ConsoleView({ log, onClear }: { log: LogView; onClear: () => voi
   }, [hasOutput]);
   return (
     <div className="preview-console" role="region" aria-label={t('preview.console')} data-testid="preview-console">
-      {hasOutput && (
-        <div className="preview-console-toolbar">
-          <label className="preview-console-filter">
-            {t('preview.console.filter')}
-            <select
-              value={level}
-              data-testid="console-level"
-              onChange={(event) => setLevel(event.target.value as ConsoleLevelFilter)}
-            >
-              {CONSOLE_LEVEL_FILTERS.map((filter) => (
-                <option key={filter} value={filter}>
-                  {t(FILTER_LABEL[filter])}
-                </option>
-              ))}
-            </select>
-          </label>
-          {older > 0 && (
-            <label className="preview-console-filter">
-              <input
-                type="checkbox"
-                checked={onlyCurrent}
-                data-testid="console-only-current"
-                onChange={(event) => setOnlyCurrent(event.target.checked)}
-              />
-              {t('preview.console.onlyCurrent').replace('{count}', String(older))}
-            </label>
-          )}
-          <button
-            type="button"
-            className="quiet-button"
-            data-testid="console-clear"
-            title={t('preview.console.cap').replace('{count}', String(MAX_VISIBLE_LOG_ENTRIES))}
-            onClick={onClear}
+      {/* The heading row is always shown (a visible name and the number of errors, icon + number, never colour
+          alone); the tools appear with the first output. */}
+      <div className="preview-console-toolbar" data-testid="console-head">
+        <h3 className="preview-console-title">{t('preview.console')}</h3>
+        {errors > 0 && (
+          <span
+            className="preview-console-errors"
+            data-testid="console-error-count"
+            title={t('preview.console.errors.label').replace('{count}', String(errors))}
           >
-            {t('preview.console.clear')}
-          </button>
-        </div>
-      )}
+            <WarningIcon size={12} />
+            {t('preview.console.errors').replace('{count}', String(errors))}
+          </span>
+        )}
+        {hasOutput && (
+          <>
+            <label className="preview-console-filter">
+              {t('preview.console.filter')}
+              <select
+                value={level}
+                data-testid="console-level"
+                onChange={(event) => setLevel(event.target.value as ConsoleLevelFilter)}
+              >
+                {CONSOLE_LEVEL_FILTERS.map((filter) => (
+                  <option key={filter} value={filter}>
+                    {t(FILTER_LABEL[filter])}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {older > 0 && (
+              <label className="preview-console-filter">
+                <input
+                  type="checkbox"
+                  checked={onlyCurrent}
+                  data-testid="console-only-current"
+                  onChange={(event) => setOnlyCurrent(event.target.checked)}
+                />
+                {t('preview.console.onlyCurrent').replace('{count}', String(older))}
+              </label>
+            )}
+            <button
+              type="button"
+              className="quiet-button"
+              data-testid="console-clear"
+              title={t('preview.console.cap').replace('{count}', String(MAX_VISIBLE_LOG_ENTRIES))}
+              onClick={onClear}
+            >
+              {t('preview.console.clear')}
+            </button>
+          </>
+        )}
+      </div>
       {(log.dropped > 0 || log.throttled) && (
         <p className="preview-console-dropped" data-testid="preview-console-dropped">
           {t(log.throttled ? 'preview.console.droppedAtLeast' : 'preview.console.dropped').replace(

@@ -65,6 +65,33 @@ interface Notice {
   readonly note?: PreviewNoteId;
 }
 
+/** Decorative icons of the primary preview actions (the visible label next to each carries the meaning). */
+function PlayIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z" />
+    </svg>
+  );
+}
+function RefreshIcon() {
+  return (
+    <svg
+      width={14}
+      height={14}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" />
+    </svg>
+  );
+}
+
 /** How often typing in the editor is reported to main (S14.2 typing pause). */
 const TYPING_THROTTLE_MS = 150;
 
@@ -98,6 +125,8 @@ export function PreviewPane({
   /** Result of a "rename to … .html" offered by the no-page state, as text (announced politely). */
   const [renameNote, setRenameNote] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  /** S41.5: the Annotate entry is drawn in the header row (a portal target), never in a scrolling area. */
+  const [entrySlot, setEntrySlot] = useState<HTMLElement | null>(null);
   const advancedId = useId();
   const entryId = useId();
   const refreshId = useId();
@@ -169,7 +198,14 @@ export function PreviewPane({
     const isOverlay = (node: Node) =>
       node instanceof Element && (node.matches(OVERLAY_SELECTOR) || node.querySelector(OVERLAY_SELECTOR) !== null);
     const observer = new MutationObserver((records) => {
-      if (records.some((r) => [...r.addedNodes].some(isOverlay) || [...r.removedNodes].some(isOverlay))) schedule();
+      // A notice added to or removed from an always-mounted cover (the app notice stack) changes what covers the
+      // stage without adding an overlay node itself.
+      const insideCover = (r: MutationRecord) =>
+        r.target instanceof Element && r.target.closest('[data-covers-preview]') !== null;
+      if (
+        records.some((r) => insideCover(r) || [...r.addedNodes].some(isOverlay) || [...r.removedNodes].some(isOverlay))
+      )
+        schedule();
     });
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener('resize', schedule);
@@ -435,9 +471,11 @@ export function PreviewPane({
       className="region panel preview"
       aria-label={t('region.preview')}
       data-testid="region-preview"
+      data-drawing={drawing ? 'true' : undefined}
       hidden={hidden}
     >
-      <div className="panel-header">
+      {/* The header row wraps instead of clipping in a narrow pane; it never scrolls. */}
+      <div className="panel-header preview-header" data-testid="preview-header">
         <h2 className="region-title">{t('region.preview')}</h2>
         <span
           className="state-pill"
@@ -452,6 +490,9 @@ export function PreviewPane({
           {pill.warning ? <WarningIcon /> : status.state === 'stopped' ? <StopIcon /> : <DotIcon />}
           {t(pill.label)}
         </span>
+        {projectId !== null && annotations && (
+          <span className="preview-annotate-slot" ref={setEntrySlot} data-testid="preview-annotate-slot" />
+        )}
         <div className="preview-actions" role="toolbar" aria-label={t('preview.toolbar')}>
           {projectId !== null && (
             <button
@@ -467,24 +508,27 @@ export function PreviewPane({
             </button>
           )}
           {actions.start && (
-            <button type="button" className="quiet-button" data-testid="preview-start" onClick={start}>
+            <button type="button" className="preview-primary" data-testid="preview-start" onClick={start}>
+              <PlayIcon />
               {t('preview.start')}
             </button>
           )}
           {actions.reload && (
-            <button type="button" className="quiet-button" data-testid="preview-reload" onClick={refresh}>
+            <button type="button" className="preview-primary" data-testid="preview-reload" onClick={refresh}>
+              <RefreshIcon />
               {t('preview.reload')}
             </button>
           )}
           {actions.stop && (
-            <button type="button" className="quiet-button" data-testid="preview-stop" onClick={stop}>
+            <button type="button" className="quiet-button preview-stop" data-testid="preview-stop" onClick={stop}>
+              <StopIcon />
               {t('preview.stop')}
             </button>
           )}
         </div>
       </div>
-      {/* Everything between the header and the stage. When the window is short it scrolls (the stage keeps its
-          minimum height, styles.css .preview-chrome) instead of squeezing the page to nothing. */}
+      {/* The rows between the header and the stage: always at their natural size, never scrolled away. When the
+          window is short the stage gives way (styles.css .preview-stage), not these controls. */}
       {projectId !== null && (
         <div className="preview-chrome" data-testid="preview-chrome">
           <div className="preview-toolbar" data-testid="preview-toolbar">
@@ -589,6 +633,7 @@ export function PreviewPane({
               {t('preview.advanced')}
             </button>
           </div>
+          {noticeList}
           {advancedOpen && (
             <div className="preview-advanced" id={advancedId} data-testid="preview-advanced-panel">
               <div className="preview-advanced-item">
@@ -613,19 +658,21 @@ export function PreviewPane({
               </div>
             </div>
           )}
-          {annotations && (
-            <AnnotationsStrip
-              api={annotations}
-              projectId={projectId}
-              running={status.projectId === projectId && status.state === 'running'}
-              pagePath={status.projectId === projectId ? pagePathOf(status.url) : null}
-              reloadKey={status.generation ?? 0}
-              onCoverChange={setDrawing}
-              onAskAi={onAskAi}
-            />
-          )}
-          {noticeList}
         </div>
+      )}
+      {/* S41.5: the annotation steps sit in the layout flow between the controls and the stage (the native view never
+          covers them); while a region is drawn the picture takes the stage's place. */}
+      {projectId !== null && annotations && (
+        <AnnotationsStrip
+          api={annotations}
+          projectId={projectId}
+          running={status.projectId === projectId && status.state === 'running'}
+          pagePath={status.projectId === projectId ? pagePathOf(status.url) : null}
+          reloadKey={status.generation ?? 0}
+          onCoverChange={setDrawing}
+          onAskAi={onAskAi}
+          entrySlot={entrySlot}
+        />
       )}
       {projectId === null && noticeList}
       {/* S15.5/S15.6: keyboard focus handoff — Enter on the stage gives the page the focus; F6 in the page returns */}

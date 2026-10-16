@@ -6,7 +6,6 @@ import { expect, test } from '@playwright/test';
 import { launchApp, repoRoot } from './launch';
 import { packagedExecutable } from './packaged';
 import { copyFixture, openProject, previewInfo, waitForPreviewState } from './preview-helpers';
-import { switchLanguage } from './language-switch'; // S44.4
 
 /**
  * S28.1 (docs/decisions/0012-installers-and-app-identity.md): the About dialog shows the version, and the packaged
@@ -18,7 +17,7 @@ test('About shows the app version and runtime versions, translated, and closes w
   const app = await launchApp();
   try {
     const page = await app.firstWindow();
-    await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+    await page.locator('.monaco-editor .view-lines').waitFor();
     const electronVersion = await app.evaluate(() => process.versions.electron);
     const appVersion = await app.evaluate(({ app: electronApp }) => electronApp.getVersion());
     expect(appVersion).toBe(pkg.version);
@@ -35,7 +34,7 @@ test('About shows the app version and runtime versions, translated, and closes w
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
 
-    await switchLanguage(page);
+    await page.getByTestId('switch-language').click();
     await page.evaluate(() => window.dispatchEvent(new Event('noobide:open-about')));
     await expect(dialog.getByRole('heading')).toHaveText('About NoobIDE');
     await expect(page.getByTestId('about-version')).toHaveText(`Version ${appVersion}`);
@@ -51,7 +50,7 @@ test('the native preview view is hidden while About is open, so it cannot cover 
   const app = await launchApp();
   try {
     const page = await app.firstWindow();
-    await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+    await page.locator('.monaco-editor .view-lines').waitFor();
     await openProject(app, page, root);
     await page.getByTestId('preview-start').click();
     await waitForPreviewState(page, 'running');

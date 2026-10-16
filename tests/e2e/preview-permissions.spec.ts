@@ -44,7 +44,7 @@ async function launch(args: string[] = []) {
   app = await launchApp({}, { args });
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
-  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
+  await page.locator('.monaco-editor .view-lines').waitFor();
 }
 
 async function startPreview(root: string) {

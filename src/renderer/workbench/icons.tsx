@@ -253,6 +253,22 @@ export const SearchIcon = ({ size }: { size?: number }) => (
   </Icon>
 );
 
+/** Key-features pass: the rail's "Lessons" button (an open book). */
+export const LessonsIcon = () => (
+  <Icon size={18} strokeWidth={1.5}>
+    <path d="M8 4.5C6.8 3.5 5 3 2.5 3v9c2.5 0 4.3.5 5.5 1.5 1.2-1 3-1.5 5.5-1.5V3C11 3 9.2 3.5 8 4.5z" />
+    <path d="M8 4.5v9" />
+  </Icon>
+);
+
+/** Key-features pass: the top bar's Save button (a tray with a down arrow). */
+export const SaveIcon = () => (
+  <Icon size={15} strokeWidth={1.7}>
+    <path d="M8 2.5v7M5 6.5l3 3 3-3" />
+    <path d="M2.5 10.5v1.5A1.5 1.5 0 0 0 4 13.5h8a1.5 1.5 0 0 0 1.5-1.5v-1.5" />
+  </Icon>
+);
+
 /** The NoobIDE mark without its tile ("< • >", resources/brand/noobide-mark.svg), in the current colour. */
 export const NoobIdeMark = ({ size = 16 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="172 172 680 680" aria-hidden="true" focusable="false">

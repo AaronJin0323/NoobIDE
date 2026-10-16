@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useReducer, useRef, type KeyboardEvent, type PointerEvent } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   Annotation,
   AnnotationCandidates,
@@ -11,6 +12,7 @@ import { ANNOTATION_LIMITS } from '../../shared/ipc/annotations-contract';
 import { useI18n } from '../i18n/I18nProvider';
 import {
   INITIAL_ANNOTATIONS,
+  annotateEntry,
   annotationsOnPage,
   annotationsReducer,
   canSave,
@@ -59,6 +61,127 @@ export interface AnnotationsStripViewProps {
   /** Page shown in the preview ('' = index page), or null when unknown (every annotation counts as this page). */
   readonly pagePath: string | null;
   readonly onAskAi?: ((annotations: readonly Annotation[]) => void) | undefined;
+  /** Element ids shared with the header entry (aria-controls); generated when absent (unit tests). */
+  readonly ids?: AnnotationsIds | undefined;
+}
+
+export interface AnnotationsIds {
+  readonly list: string;
+  readonly ways: string;
+}
+
+/** Decorative icon of the Annotate entry: a pencil (the text next to it carries the meaning). */
+function AnnotateIcon() {
+  return (
+    <svg
+      width={16}
+      height={16}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M2.5 13.5l1-3.6 7.3-7.3a1.6 1.6 0 0 1 2.3 0l.3.3a1.6 1.6 0 0 1 0 2.3l-7.3 7.3z" />
+      <path d="M9.6 3.8l2.6 2.6" />
+    </svg>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg
+      width={14}
+      height={14}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M6 4h8M6 8h8M6 12h8M2.5 4h.1M2.5 8h.1M2.5 12h.1" />
+    </svg>
+  );
+}
+
+export interface AnnotateEntryViewProps {
+  readonly state: AnnotationsState;
+  readonly dispatch: (action: AnnotationsAction) => void;
+  readonly t: Translate;
+  readonly running: boolean;
+  readonly pagePath: string | null;
+  readonly ids: AnnotationsIds;
+  readonly reasonId: string;
+}
+
+/**
+ * The Annotate entry in the preview header (always shown, never inside a scroll area): the primary "Annotate page"
+ * button with the number of annotations on this page, and "View annotations (N)" for the list. When the preview is
+ * not running the button stays visible and focusable, says why it cannot start (tooltip + aria-describedby), and
+ * pressing it shows that reason as a notice.
+ */
+export function AnnotateEntryView({ state, dispatch, t, running, pagePath, ids, reasonId }: AnnotateEntryViewProps) {
+  const entry = annotateEntry(running, state.mode);
+  const onPage = annotationsOnPage(state.items, pagePath).length;
+  const shown = state.scope === 'page' ? onPage : state.items.length;
+  const open = entry.available && state.menuOpen;
+  const reason = entry.reason ? t(entry.reason) : null;
+  return (
+    <span className="annotate-entry" data-annotate-entry="">
+      <button
+        type="button"
+        className="annotate-button"
+        data-testid="annotate-menu"
+        data-available={entry.available ? 'true' : 'false'}
+        aria-expanded={open}
+        aria-controls={open ? ids.ways : undefined}
+        aria-disabled={entry.available ? undefined : 'true'}
+        aria-describedby={reason ? reasonId : undefined}
+        title={reason ?? t('annotations.annotate.title')}
+        onClick={() => {
+          if (entry.available) dispatch({ type: 'menu', open: !state.menuOpen });
+          else if (!running) dispatch({ type: 'failed', code: 'not-running' });
+        }}
+      >
+        <AnnotateIcon />
+        <span>{t('annotations.annotate')}</span>
+        {onPage > 0 && (
+          <span className="annotate-badge" data-testid="annotations-count">
+            <span aria-hidden="true">{onPage}</span>
+            <span className="sr-only">{fill(t('annotations.entry.count'), { count: onPage })}</span>
+          </span>
+        )}
+      </button>
+      {reason && (
+        <span id={reasonId} className="sr-only" data-testid="annotate-reason">
+          {reason}
+        </span>
+      )}
+      <button
+        type="button"
+        className="quiet-button annotations-toggle"
+        data-testid="annotations-toggle"
+        aria-expanded={state.expanded}
+        aria-controls={ids.list}
+        title={state.expanded ? t('annotations.toggle.hide') : t('annotations.toggle.show')}
+        onClick={() => dispatch({ type: 'toggle-expanded' })}
+      >
+        <ListIcon />
+        {fill(t('annotations.list.toggle'), { count: shown })}
+      </button>
+    </span>
+  );
+}
+
+/** Moves the focus to a control of the header entry (a closed panel must not leave the focus on <body>). */
+function focusEntry(testId: 'annotate-menu' | 'annotations-toggle') {
+  if (typeof document === 'undefined') return;
+  document.querySelector<HTMLElement>(`[data-annotate-entry] [data-testid="${testId}"]`)?.focus();
 }
 
 /** Decorative state icons: the state word next to them carries the meaning (never colour or shape alone). */
@@ -117,9 +240,12 @@ export function AnnotationsStripView({
   running,
   pagePath,
   onAskAi,
+  ids,
 }: AnnotationsStripViewProps) {
-  const listId = useId();
-  const waysId = useId();
+  const ownListId = useId();
+  const ownWaysId = useId();
+  const listId = ids?.list ?? ownListId;
+  const waysId = ids?.ways ?? ownWaysId;
   const noteId = useId();
   const statusText = statusKey(state.mode);
   const mode = state.mode;
@@ -158,19 +284,24 @@ export function AnnotationsStripView({
       deleteQuestionRef.current?.focus();
       return;
     }
-    // A step ended: only take the focus back if it was in the strip (or lost with the controls that went away).
+    // A step ended: only take the focus back if it was in the strip or on the header entry (or lost with the
+    // controls that went away).
     const active = typeof document === 'undefined' ? null : document.activeElement;
-    if (!root || (active && active !== document.body && !root.contains(active))) return;
+    const inEntry = active instanceof Element && active.closest('[data-annotate-entry]') !== null;
+    if (!root || (active && active !== document.body && !root.contains(active) && !inEntry)) return;
     const control = (testId: string, id?: string) =>
       [...root.querySelectorAll<HTMLElement>(`[data-testid="${testId}"]`)].find(
         (el) => id === undefined || el.closest<HTMLElement>('[data-testid="annotation-item"]')?.dataset.id === id,
       ) ?? null;
+    // The Annotate entry lives in the preview header, outside the strip.
+    const entry = (testId: string) =>
+      document.querySelector<HTMLElement>(`[data-annotate-entry] [data-testid="${testId}"]`);
     const back =
       (target.kind === 'item-control'
         ? control(target.control === 'edit' ? 'annotation-edit' : 'annotation-delete', target.id)
         : null) ??
-      control('annotate-menu') ??
-      control('annotations-toggle');
+      entry('annotate-menu') ??
+      entry('annotations-toggle');
     back?.focus();
   }, [focusMode, focusEditing, focusDeleting]);
 
@@ -224,57 +355,8 @@ export function AnnotationsStripView({
     }
   };
 
-  const busy = mode.kind !== 'idle';
   return (
-    <div className="annotations" data-testid="annotations-strip" ref={rootRef}>
-      <div className="annotations-bar">
-        <button
-          type="button"
-          className="quiet-button annotations-toggle"
-          data-testid="annotations-toggle"
-          aria-expanded={state.expanded}
-          aria-controls={listId}
-          title={state.expanded ? t('annotations.toggle.hide') : t('annotations.toggle.show')}
-          onClick={() => dispatch({ type: 'toggle-expanded' })}
-        >
-          <span aria-hidden="true">{state.expanded ? '▾' : '▸'}</span>
-          {t('annotations.title')}
-          <span className="annotations-count" data-testid="annotations-count">
-            {fill(t('annotations.count'), { count: shown.length })}
-          </span>
-        </button>
-        {running && (
-          <button
-            type="button"
-            className="quiet-button"
-            data-testid="annotate-menu"
-            aria-expanded={state.menuOpen}
-            aria-controls={waysId}
-            title={t('annotations.annotate.title')}
-            disabled={busy}
-            onClick={() => dispatch({ type: 'menu', open: !state.menuOpen })}
-          >
-            {t('annotations.annotate')}
-          </button>
-        )}
-        {state.expanded && (
-          <div className="annotations-scope" role="group" aria-label={t('annotations.scope.label')}>
-            {(['page', 'all'] as const).map((scope) => (
-              <button
-                key={scope}
-                type="button"
-                className="viewport-choice"
-                aria-pressed={state.scope === scope}
-                data-testid={`annotations-scope-${scope}`}
-                onClick={() => dispatch({ type: 'scope', scope })}
-              >
-                {scope === 'page' ? t('annotations.scope.page') : t('annotations.scope.all')}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
+    <div className="annotations" data-testid="annotations-strip" data-mode={mode.kind} ref={rootRef}>
       {running && state.menuOpen && mode.kind === 'idle' && (
         <div
           className="annotations-ways"
@@ -283,14 +365,26 @@ export function AnnotationsStripView({
           aria-label={t('annotations.annotate.ways')}
           data-testid="annotate-ways"
         >
-          <button type="button" className="quiet-button" data-testid="annotate-pick" onClick={ops.pick}>
+          <span className="annotations-ways-title">{t('annotations.ways.title')}</span>
+          <button type="button" className="annotations-way" data-testid="annotate-pick" onClick={ops.pick}>
             {t('annotations.annotate.pick')}
           </button>
-          <button type="button" className="quiet-button" data-testid="annotate-list" onClick={ops.candidates}>
+          <button type="button" className="annotations-way" data-testid="annotate-list" onClick={ops.candidates}>
             {t('annotations.annotate.list')}
           </button>
-          <button type="button" className="quiet-button" data-testid="annotate-region" onClick={ops.region}>
+          <button type="button" className="annotations-way" data-testid="annotate-region" onClick={ops.region}>
             {t('annotations.annotate.region')}
+          </button>
+          <button
+            type="button"
+            className="quiet-button annotations-ways-close"
+            data-testid="annotate-ways-close"
+            onClick={() => {
+              dispatch({ type: 'menu', open: false });
+              focusEntry('annotate-menu');
+            }}
+          >
+            {t('annotations.ways.close')}
           </button>
         </div>
       )}
@@ -301,7 +395,7 @@ export function AnnotationsStripView({
       </p>
 
       {(mode.kind === 'picking' || mode.kind === 'loading') && (
-        <div className="annotations-step">
+        <div className="annotations-step annotations-step-row">
           <button type="button" className="quiet-button" data-testid="annotate-cancel" onClick={ops.cancel}>
             {t('annotations.cancel')}
           </button>
@@ -339,52 +433,58 @@ export function AnnotationsStripView({
             </ul>
           )}
           {mode.truncated && <p className="annotations-hint">{t('annotations.candidates.truncated')}</p>}
-          <button type="button" className="quiet-button" data-testid="annotate-cancel" onClick={ops.cancel}>
-            {t('annotations.cancel')}
-          </button>
+          <div className="annotations-actions">
+            <button type="button" className="quiet-button" data-testid="annotate-cancel" onClick={ops.cancel}>
+              {t('annotations.cancel')}
+            </button>
+          </div>
         </div>
       )}
 
       {mode.kind === 'drawing' && (
-        <div className="annotations-step">
-          <div
-            ref={canvasRef}
-            className="annotation-region-canvas"
-            role="application"
-            tabIndex={0}
-            aria-label={t('annotations.region.canvas')}
-            aria-describedby={`${listId}-region`}
-            data-testid="annotation-region-canvas"
-            onKeyDown={onCanvasKey}
-            onPointerDown={(event) => {
-              const at = imagePoint(event);
-              if (!at) return;
-              event.currentTarget.setPointerCapture?.(event.pointerId);
-              event.currentTarget.focus();
-              dispatch({ type: 'drag-start', at });
-            }}
-            onPointerMove={(event) => {
-              const at = mode.dragFrom ? imagePoint(event) : null;
-              if (at) dispatch({ type: 'drag-move', at });
-            }}
-            onPointerUp={(event) => {
-              const at = imagePoint(event);
-              if (at) dispatch({ type: 'drag-end', at });
-            }}
-          >
-            <img src={mode.shot.dataUrl} alt={t('annotations.region.image')} draggable={false} />
-            {mode.rect && (
-              <div
-                className="annotation-region-rect"
-                aria-hidden="true"
-                style={{
-                  left: `${(mode.rect.x / mode.shot.width) * 100}%`,
-                  top: `${(mode.rect.y / mode.shot.height) * 100}%`,
-                  width: `${(mode.rect.width / mode.shot.width) * 100}%`,
-                  height: `${(mode.rect.height / mode.shot.height) * 100}%`,
-                }}
-              />
-            )}
+        <div className="annotations-step annotation-drawing">
+          {/* The picture takes the stage's place (the stage is hidden while drawing) and is fitted into it, so
+              Confirm and Cancel below always stay on screen. */}
+          <div className="annotation-region-frame">
+            <div
+              ref={canvasRef}
+              className="annotation-region-canvas"
+              role="application"
+              tabIndex={0}
+              aria-label={t('annotations.region.canvas')}
+              aria-describedby={`${listId}-region`}
+              data-testid="annotation-region-canvas"
+              onKeyDown={onCanvasKey}
+              onPointerDown={(event) => {
+                const at = imagePoint(event);
+                if (!at) return;
+                event.currentTarget.setPointerCapture?.(event.pointerId);
+                event.currentTarget.focus();
+                dispatch({ type: 'drag-start', at });
+              }}
+              onPointerMove={(event) => {
+                const at = mode.dragFrom ? imagePoint(event) : null;
+                if (at) dispatch({ type: 'drag-move', at });
+              }}
+              onPointerUp={(event) => {
+                const at = imagePoint(event);
+                if (at) dispatch({ type: 'drag-end', at });
+              }}
+            >
+              <img src={mode.shot.dataUrl} alt={t('annotations.region.image')} draggable={false} />
+              {mode.rect && (
+                <div
+                  className="annotation-region-rect"
+                  aria-hidden="true"
+                  style={{
+                    left: `${(mode.rect.x / mode.shot.width) * 100}%`,
+                    top: `${(mode.rect.y / mode.shot.height) * 100}%`,
+                    width: `${(mode.rect.width / mode.shot.width) * 100}%`,
+                    height: `${(mode.rect.height / mode.shot.height) * 100}%`,
+                  }}
+                />
+              )}
+            </div>
           </div>
           <p className="annotations-hint" id={`${listId}-region`} data-testid="annotation-region-size">
             {mode.rect
@@ -397,7 +497,7 @@ export function AnnotationsStripView({
           <div className="annotations-actions">
             <button
               type="button"
-              className="quiet-button"
+              className="annotations-primary"
               data-testid="annotation-region-confirm"
               disabled={!regionUsable(mode.rect)}
               onClick={ops.confirmRegion}
@@ -444,7 +544,7 @@ export function AnnotationsStripView({
           <div className="annotations-actions">
             <button
               type="button"
-              className="quiet-button"
+              className="annotations-primary"
               data-testid="annotation-save"
               disabled={!canSave(state)}
               onClick={ops.save}
@@ -472,7 +572,35 @@ export function AnnotationsStripView({
         </p>
       )}
 
-      <div id={listId} hidden={!state.expanded}>
+      <div id={listId} className="annotations-panel" data-testid="annotations-panel" hidden={!state.expanded}>
+        <div className="annotations-panel-head">
+          <h3 className="annotations-panel-title">{t('annotations.list.label')}</h3>
+          <div className="annotations-scope" role="group" aria-label={t('annotations.scope.label')}>
+            {(['page', 'all'] as const).map((scope) => (
+              <button
+                key={scope}
+                type="button"
+                className="viewport-choice"
+                aria-pressed={state.scope === scope}
+                data-testid={`annotations-scope-${scope}`}
+                onClick={() => dispatch({ type: 'scope', scope })}
+              >
+                {scope === 'page' ? t('annotations.scope.page') : t('annotations.scope.all')}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="quiet-button"
+            data-testid="annotations-panel-close"
+            onClick={() => {
+              dispatch({ type: 'toggle-expanded' });
+              focusEntry('annotations-toggle');
+            }}
+          >
+            {t('annotations.ways.close')}
+          </button>
+        </div>
         {state.loaded && shown.length === 0 && (
           <p className="annotations-hint" data-testid="annotations-empty">
             {state.scope === 'page' ? t('annotations.empty.page') : t('annotations.empty.all')}
@@ -631,6 +759,8 @@ interface AnnotationsStripProps {
   /** The frozen picture replaces the native view while a region is drawn: the pane must hide the view. */
   readonly onCoverChange: (covered: boolean) => void;
   readonly onAskAi?: ((annotations: readonly Annotation[]) => void) | undefined;
+  /** Where the Annotate entry goes: a slot in the preview header row (null until it is mounted). */
+  readonly entrySlot: HTMLElement | null;
 }
 
 /** The strip wired to `window.noobide.annotations` (S41.5). */
@@ -642,8 +772,13 @@ export function AnnotationsStrip({
   reloadKey,
   onCoverChange,
   onAskAi,
+  entrySlot,
 }: AnnotationsStripProps) {
   const { t } = useI18n();
+  const listId = useId();
+  const waysId = useId();
+  const reasonId = useId();
+  const ids = { list: listId, ways: waysId };
   const [state, dispatch] = useReducer(annotationsReducer, INITIAL_ANNOTATIONS);
   const current = useRef(state);
   current.current = state;
@@ -800,14 +935,30 @@ export function AnnotationsStrip({
   };
 
   return (
-    <AnnotationsStripView
-      state={state}
-      dispatch={dispatch}
-      ops={ops}
-      t={t}
-      running={running}
-      pagePath={pagePath}
-      onAskAi={onAskAi}
-    />
+    <>
+      {entrySlot &&
+        createPortal(
+          <AnnotateEntryView
+            state={state}
+            dispatch={dispatch}
+            t={t}
+            running={running}
+            pagePath={pagePath}
+            ids={ids}
+            reasonId={reasonId}
+          />,
+          entrySlot,
+        )}
+      <AnnotationsStripView
+        state={state}
+        dispatch={dispatch}
+        ops={ops}
+        t={t}
+        running={running}
+        pagePath={pagePath}
+        onAskAi={onAskAi}
+        ids={ids}
+      />
+    </>
   );
 }
