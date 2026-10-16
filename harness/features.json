@@ -3961,8 +3961,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "be7194a restores 3222c89 for every file a110002 touched, archive docs/archive/s44-s45-hig/ + README; verify green"
     },
     {
       "id": "S45.2",
@@ -3977,8 +3977,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/key-features-visible.spec.ts + preview-layout/preview-annotations/ai-chat/ai-edit/shell/walkthrough specs; unit tests (annotations-strip, editor-ai-actions, problems-panel-ai, layout, a11y-labels); full e2e 323 passed 0 failed + verify green @ a99b1a5; PROGRESS Session 23"
     },
     {
       "id": "S45.3",
@@ -3993,8 +3993,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/key-features-visible.spec.ts + preview-layout/preview-annotations/ai-chat/ai-edit/shell/walkthrough specs; unit tests (annotations-strip, editor-ai-actions, problems-panel-ai, layout, a11y-labels); full e2e 323 passed 0 failed + verify green @ a99b1a5; PROGRESS Session 23"
     },
     {
       "id": "S45.4",
@@ -4009,8 +4009,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/key-features-visible.spec.ts + preview-layout/preview-annotations/ai-chat/ai-edit/shell/walkthrough specs; unit tests (annotations-strip, editor-ai-actions, problems-panel-ai, layout, a11y-labels); full e2e 323 passed 0 failed + verify green @ a99b1a5; PROGRESS Session 23"
     },
     {
       "id": "S45.5",
@@ -4025,8 +4025,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/key-features-visible.spec.ts + preview-layout/preview-annotations/ai-chat/ai-edit/shell/walkthrough specs; unit tests (annotations-strip, editor-ai-actions, problems-panel-ai, layout, a11y-labels); full e2e 323 passed 0 failed + verify green @ a99b1a5; PROGRESS Session 23"
     },
     {
       "id": "S45.9",
