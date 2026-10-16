@@ -3,6 +3,57 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 32 (side session) — 2026-10-17 — Draft-release CD (S28.7, owner request)
+
+**Agent:** Codex on Windows x64, branch codex/faster-ci.
+
+**Done:** Version tags now have a dependent draft-delivery job after both native release builds.
+Release builds run the full E2E suite before signing. Delivery downloads only this run's installers,
+validates both targets, gives assets unique version/platform/signing names and hashes their bytes.
+Draft notes identify the source commit and signing states. Branch dispatch remains artifact-only;
+existing releases are never overwritten and public publishing remains an owner action.
+
+**Evidence:** Delivery fixtures cover checksums, provenance, missing installers/platforms, ambiguous
+signing artifacts, duplicate asset names and refusing existing staging output. Release workflow
+checks cover ordering, tag-only dependent delivery and job-scoped write permissions. Final verify
+result is recorded in S28.7 evidence. Clean main-based PR checkout: verify passed (2728 tests, 15 skipped). Fixed first-install Electron download text contaminating shard-list stdout by using a dedicated JSON report file.
+
+**Decisions:** ADR 0036; setup, tag/version procedure, retries and public acceptance in
+docs/release/delivery.md. No new dependency or signing credentials.
+
+**Problems / risks:** One full verification run hit the existing watcher mass-delete timing limit
+(1475ms against 500ms); threshold retained and rechecked. No actual version tag or hosted release
+was created; macOS signing and downloaded-install acceptance remain pending. This local branch also
+contains the pre-existing IME and concurrent completion commits, which must not be silently dropped.
+
+**Next up:** Push/review/merge the workflow changes, run a branch-dispatch release dry run and compare
+hosted CI timing; configure H.2 signing before public distribution. Follow docs/release/delivery.md.
+
+## Session 31 (side session) — 2026-10-16 — CI latency (S06.5, owner request)
+
+**Agent:** Codex on Windows x64, branch codex/faster-ci.
+
+**Done:** Two isolated E2E shards per platform, cancellation of superseded main runs, one installer
+build per target reusing the tested package, macOS-only upgrade fixture, per-shard timing reports.
+Preserved required windows-x64/macOS-arm64 check names (actual spelling: macos-arm64) as aggregate
+gates that require the entire matrix. Renamed the unchanged startup stress test to place it apart
+from the long preview isolation suite. No tests removed or retries added.
+
+**Evidence:** Both Windows shards passed: 162 + 162 tests, 3 + 1 platform skips, in 3.2m / 8.5m
+before balancing. Real Playwright selection checks prove complete, disjoint coverage and separation
+of the two expensive suites; 12 workflow/shard tests passed. Repository verify passed (2753 tests,
+15 skipped). Installer reuse and final verification recorded in feature evidence.
+
+**Decisions:** ADR 0035 records baseline hosted run 38889623114 (51m 56s, including 28m 57s before
+macOS started), rollout, required status preservation and limits on latency claims.
+
+**Problems / risks:** Hosted/macOS runs are still needed to measure speedup and queue effects. A
+concurrent S43.9 completion commit arrived in the shared checkout; it is preserved. Existing .idea/
+remains untouched. Sandbox baseline failures passed under normal Windows permissions.
+
+**Next up:** Finish draft-release CD (original owner request), then run the updated workflows on GitHub.
+Existing signing credentials and physical-platform acceptance remain owner work.
+
 ## Session 28 (side session) — 2026-10-16 — Integrated title bar (S46.9, owner request)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/window-frame-styling-bcf1ff`.
