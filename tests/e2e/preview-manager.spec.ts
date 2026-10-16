@@ -4,7 +4,14 @@ import { expect, test, type ElectronApplication, type Page } from '@playwright/t
 import { launchApp, tempRoot } from './launch';
 import { DOC_END } from './keys';
 import { treeRow } from './project';
-import { evalInPreview, openProject, previewInfo, waitForPreviewState } from './preview-helpers';
+import {
+  consentStart,
+  evalInPreview,
+  openPreviewMore,
+  openProject,
+  previewInfo,
+  waitForPreviewState,
+} from './preview-helpers';
 
 /**
  * S14 preview manager and S15.4 preview toolbar end to end, on project paths with Chinese characters and spaces:
@@ -87,7 +94,7 @@ test.beforeAll(async () => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
   page.on('pageerror', (error) => consoleErrors.push(String(error)));
-  await page.locator('.monaco-editor .view-lines').waitFor();
+  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
 });
 
 test.afterAll(async () => {
@@ -99,12 +106,23 @@ test('an opened folder asks for "Start preview" once; the choice is kept in app 
   const before = (await readdir(rootA)).sort();
   await openProject(app, page, rootA);
   await expect(page.getByTestId('preview-consent')).toBeVisible();
-  await expect(page.getByTestId('preview-consent')).toContainText('只有在你点“开始预览”之后才会运行');
+  // S45.3 (HIG Empty states): title, one short sentence and the action; the full reason is behind "为什么？".
+  const consent = page.getByTestId('preview-consent');
+  await expect(consent.locator('.empty-detail').first()).toHaveText('点“开始预览”后才会运行这个文件夹的脚本。');
+  const why = consent.getByTestId('preview-more-info');
+  const reason = why.getByText('只有在你点“开始预览”之后才会运行', { exact: false });
+  await expect(reason).toBeHidden();
+  await why.getByText('为什么？').focus();
+  await page.keyboard.press('Enter'); // a native disclosure: keyboard reachable
+  await expect(reason).toBeVisible();
+  // S44.2: exactly one "Start preview" is shown — the stage's, not a second one in the toolbar.
+  await expect(page.getByTestId('preview-start')).toHaveCount(1);
+  await expect(consentStart(page)).toBeVisible();
   await waitForPreviewState(page, 'stopped');
   expect((await previewInfo(app)).previewWebContentsId).toBeNull();
   expect(await serverProjects()).toEqual([]);
 
-  await page.getByTestId('preview-consent-start').click();
+  await consentStart(page).click();
   await waitForPreviewState(page, 'running');
   await expect(page.getByTestId('preview-consent')).toHaveCount(0);
   await expect.poll(() => evalInPreview<string>(app, 'document.body.dataset.stored ?? ""')).toBe('none');
@@ -149,7 +167,7 @@ test('one server per open project, shut down on switch and close; ownership is c
   await expect(page.getByTestId('preview-consent')).toBeVisible();
   expect(await serverProjects()).toEqual([]);
   expect(await reachable(originA)).toBe(false);
-  await page.getByTestId('preview-consent-start').click();
+  await consentStart(page).click();
   await waitForPreviewState(page, 'running');
   const idB = await projectId();
   expect(await serverProjects()).toEqual([idB]);
@@ -179,7 +197,7 @@ test('Refresh (button and ⌘R/Ctrl+R command) starts a new page-load generation
   await expect(note).toHaveCount(0);
 
   // The registry command (shortcut) does the same; the note does not come back.
-  await page.getByTestId('region-preview').locator('.panel-header').click();
+  await page.getByTestId('preview-state').click(); // focus in the preview pane, on no control
   await page.keyboard.press('ControlOrMeta+R');
   await expect.poll(generation).toBe(g0 + 2);
   await waitForPreviewState(page, 'running');
@@ -218,9 +236,13 @@ test('automatic refresh waits for a typing pause; manual mode only marks the pag
   await waitForPreviewState(page, 'running');
 
   // Manual mode: stored in .noobide/project.json; a save does not reload, the pill says so in words.
+  // S44.2: a check-mark item of the preview's More menu.
   const auto = page.getByTestId('preview-auto-refresh');
-  await expect(auto).toBeChecked();
-  await auto.uncheck();
+  await openPreviewMore(page);
+  await expect(auto).toHaveAttribute('role', 'menuitemcheckbox');
+  await expect(auto).toHaveAttribute('aria-checked', 'true');
+  await auto.click();
+  await expect(page.getByTestId('preview-more-menu')).toHaveCount(0);
   await expect
     .poll(async () => readFile(path.join(rootA, '.noobide', 'project.json'), 'utf8').then(JSON.parse, () => null))
     .toEqual({ version: 1, preview: { autoRefresh: false } });
@@ -239,21 +261,43 @@ test('automatic refresh waits for a typing pause; manual mode only marks the pag
   await expect(pill()).not.toHaveAttribute('data-outdated', 'true');
 
   // Back to automatic: the key is removed again (automatic is the default).
-  await auto.check();
+  await openPreviewMore(page);
+  await expect(auto).toHaveAttribute('aria-checked', 'false');
+  await auto.click();
   await expect
     .poll(async () => readFile(path.join(rootA, '.noobide', 'project.json'), 'utf8').then(JSON.parse))
     .toEqual({ version: 1 });
 });
 
 test('the entry picker lists the pages, defaults to index.html and stores the choice in project.json (S14.3)', async () => {
-  const picker = page.getByTestId('preview-entry');
-  await expect(picker).toHaveValue('index.html');
-  const values = await picker
-    .locator('option')
-    .evaluateAll((options) => options.map((o) => (o as HTMLOptionElement).value));
-  expect(values).toEqual(['index.html', 'about.html', '子 页面/联系 我们.html']);
+  // S44.2: More → Entry page (shows the current one) → the pages, the current one with a check mark.
+  const options = page.getByTestId('preview-entry-option');
+  const pickEntry = async (pageName: string) => {
+    await openPreviewMore(page);
+    await page.getByTestId('preview-entry').click();
+    await options.and(page.locator(`[data-page="${pageName}"]`)).click();
+    await expect(page.getByTestId('preview-more-menu')).toHaveCount(0);
+  };
+  await openPreviewMore(page);
+  await expect(page.getByTestId('preview-entry')).toContainText('index.html');
+  // Keyboard: → opens the list on the current page, Escape goes back, Escape again closes.
+  await page.getByTestId('preview-entry').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(options.first()).toBeFocused();
+  expect(await options.evaluateAll((list) => list.map((o) => o.getAttribute('data-page')))).toEqual([
+    'index.html',
+    'about.html',
+    '子 页面/联系 我们.html',
+  ]);
+  await expect(options.first()).toHaveAttribute('aria-checked', 'true');
+  await expect(options.first()).toHaveAttribute('role', 'menuitemradio');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('preview-entry')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('preview-more-menu')).toHaveCount(0);
+  await expect(page.getByTestId('preview-more')).toBeFocused();
 
-  await picker.selectOption('子 页面/联系 我们.html');
+  await pickEntry('子 页面/联系 我们.html');
   await expect
     .poll(async () => JSON.parse(await readFile(path.join(rootA, '.noobide', 'project.json'), 'utf8')))
     .toEqual({ version: 1, entry: '子 页面/联系 我们.html' });
@@ -262,7 +306,10 @@ test('the entry picker lists the pages, defaults to index.html and stores the ch
     .toBe('/子 页面/联系 我们.html');
   await waitForPreviewState(page, 'running');
 
-  await picker.selectOption('index.html');
+  await openPreviewMore(page);
+  await expect(page.getByTestId('preview-entry')).toContainText('联系 我们.html');
+  await page.keyboard.press('Escape');
+  await pickEntry('index.html');
   await expect
     .poll(async () => JSON.parse(await readFile(path.join(rootA, '.noobide', 'project.json'), 'utf8')))
     .toEqual({ version: 1 });
@@ -288,6 +335,7 @@ test('each project has its own preview storage; "Clear preview data" clears only
   await openProject(app, page, rootA);
   await waitForPreviewState(page, 'running');
   await expect.poll(() => evalInPreview<string>(app, 'document.body.dataset.stored ?? ""')).toBe('from-A');
+  await openPreviewMore(page);
   await page.getByTestId('preview-advanced').click();
   const panel = page.getByTestId('preview-advanced-panel');
   await expect(panel).toContainText('外部浏览器的数据是分开保存的');
@@ -313,6 +361,7 @@ test('"Open in browser" hands the OS a one-time grant URL and explains the separ
       opened.push(url);
     };
   });
+  await openPreviewMore(page);
   await page.getByTestId('preview-open-external').click();
   await expect(page.getByTestId('preview-notice-external')).toContainText('浏览器有自己的存储');
   const opened = await app.evaluate(() => (globalThis as unknown as { __opened: string[] }).__opened);
@@ -334,8 +383,10 @@ test('"Open in browser" hands the OS a one-time grant URL and explains the separ
 });
 
 test('developer tools open from the Advanced panel (S15.4)', async () => {
-  const advanced = page.getByTestId('preview-advanced');
-  if ((await advanced.getAttribute('aria-expanded')) !== 'true') await advanced.click();
+  if ((await page.getByTestId('preview-advanced-panel').count()) === 0) {
+    await openPreviewMore(page);
+    await page.getByTestId('preview-advanced').click();
+  }
   await expect(page.getByTestId('preview-advanced-panel')).toContainText('Chromium');
   await page.getByTestId('preview-devtools').click();
   const { previewWebContentsId } = await previewInfo(app);
@@ -349,6 +400,9 @@ test('developer tools open from the Advanced panel (S15.4)', async () => {
     .toBe(true);
   await app.evaluate(({ webContents }, id) => webContents.fromId(id ?? -1)?.closeDevTools(), previewWebContentsId);
   await waitForPreviewState(page, 'running');
+  // The panel closes with its own button.
+  await page.getByTestId('preview-advanced-close').click();
+  await expect(page.getByTestId('preview-advanced-panel')).toHaveCount(0);
 });
 
 test('no workbench console errors during the preview manager run', () => {

@@ -107,7 +107,7 @@ test.beforeAll(async () => {
   app = await launchApp({ NOOBIDE_AI_FAKE: FAKE_SCRIPT });
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
-  await page.locator('.monaco-editor .view-lines').waitFor();
+  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
   await openProject(app, page, root);
   await openFile(page, 'ai.js');
   await enableAi();

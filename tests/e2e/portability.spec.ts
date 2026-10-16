@@ -51,7 +51,7 @@ test.beforeAll(async () => {
   }
   app = await launchApp();
   page = await app.firstWindow();
-  await page.locator('.monaco-editor .view-lines').waitFor();
+  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
 });
 
 test.afterAll(async () => {
@@ -66,6 +66,9 @@ test('opening a transferred project lists its issues and changes nothing on disk
   await expect(notice).toBeVisible();
   await expect(notice).toHaveAttribute('role', 'status'); // non-blocking: the workbench stays usable
   await expect(notice).toContainText('NoobIDE 没有改动任何文件');
+  // S45.2: the shared notice anatomy — a one-line title and one sentence above the list.
+  await expect(notice.locator('.notice-title')).toHaveText('换到另一个系统时可能出问题');
+  await expect(notice.locator('.notice-body')).toHaveCount(1);
   await expect(notice.getByTestId('transfer-issue').filter({ hasText: 'crlf-mixed.js' })).toContainText('CRLF');
   for (const name of extras) {
     await expect(notice.getByTestId('transfer-issue').filter({ hasText: name })).toHaveCount(1);

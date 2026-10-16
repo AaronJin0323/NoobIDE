@@ -23,7 +23,7 @@ test.beforeAll(async () => {
   ({ tmp, root } = await makeProject('noobide-a11y-'));
   app = await launchApp();
   page = await app.firstWindow();
-  await page.locator('.monaco-editor .view-lines').waitFor();
+  await page.locator('.monaco-editor .view-lines').waitFor({ state: 'attached' });
 });
 
 test.afterAll(async () => {
@@ -145,9 +145,9 @@ test('key actions work from the keyboard alone', async () => {
   await expect(page.locator('html')).toHaveAttribute('data-theme-choice', 'light');
   // Zoom, panels and closing the project.
   await page.keyboard.press('ControlOrMeta+=');
-  await expect(page.getByTestId('zoom-reset')).toHaveText('17');
+  await expect(page.getByTestId('region-editor')).toHaveAttribute('data-font-size', '17');
   await page.keyboard.press('ControlOrMeta+0');
-  await expect(page.getByTestId('zoom-reset')).toHaveText('16');
+  await expect(page.getByTestId('region-editor')).toHaveAttribute('data-font-size', '16');
   await page.keyboard.press('ControlOrMeta+B');
   await expect(page.getByTestId('region-files')).toBeHidden();
   await page.keyboard.press('ControlOrMeta+B');
