@@ -21,6 +21,9 @@ export const journeyZhCN = {
   'editor.more.title': '整理格式、代码字号',
   'tabs.scrollStart': '显示前面的标签页',
   'tabs.scrollEnd': '显示后面的标签页',
+  // ── 关键功能始终可见：侧栏“课程” ──
+  'rail.lessons': '课程',
+  'rail.lessons.title': '打开入门课程：一步步带你做出第一个网页',
 } as const;
 
 export const journeyEn: Record<keyof typeof journeyZhCN, string> = {
@@ -40,4 +43,6 @@ export const journeyEn: Record<keyof typeof journeyZhCN, string> = {
   'editor.more.title': 'Format, code font size',
   'tabs.scrollStart': 'Show earlier tabs',
   'tabs.scrollEnd': 'Show later tabs',
+  'rail.lessons': 'Lessons',
+  'rail.lessons.title': 'Open the beginner lessons: build your first web page step by step',
 };

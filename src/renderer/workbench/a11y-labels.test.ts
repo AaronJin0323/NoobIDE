@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { translate, type Locale, type MessageKey } from '../i18n/index';
 import { indentButtonLabel } from './IndentStatus';
 import { shouldReturnFocus } from './focus-trap';
+import { saveButtonShown } from './TopBar';
 
 const tr = (locale: Locale) => (key: MessageKey) => translate(locale, key);
 
@@ -36,5 +37,23 @@ describe('dialogs give the focus back when they close', () => {
     expect(shouldReturnFocus({ isConnected: false, focus: () => undefined }, body, body)).toBe(false);
     expect(shouldReturnFocus(null, body, body)).toBe(false);
     expect(shouldReturnFocus(body, body, body)).toBe(false);
+  });
+});
+
+describe('key features keep a visible, labelled control', () => {
+  it('offers the Save button while there is something to save, the calm state word otherwise', () => {
+    expect(saveButtonShown('dirty')).toBe(true);
+    expect(saveButtonShown('failed')).toBe(true); // saving again is the way out of a failed save
+    for (const state of ['clean', 'saving', 'saved', 'conflict', 'deleted', null] as const) {
+      expect(saveButtonShown(state)).toBe(false);
+    }
+  });
+
+  it('names the Lessons rail button and its tooltip in both languages', () => {
+    expect(translate('zh-CN', 'rail.lessons')).toBe('课程');
+    expect(translate('en', 'rail.lessons')).toBe('Lessons');
+    for (const locale of ['zh-CN', 'en'] as const) {
+      expect(translate(locale, 'rail.lessons.title').length).toBeGreaterThan(translate(locale, 'rail.lessons').length);
+    }
   });
 });

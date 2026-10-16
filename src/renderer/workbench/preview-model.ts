@@ -133,6 +133,10 @@ export function visibleLog(view: LogView, level: ConsoleLevelFilter, older: bool
 export function olderCount(view: LogView): number {
   return view.entries.filter((entry) => entry.generation !== view.generation).length;
 }
+/** Errors of the current page load: the console heading shows their number (icon + number, never colour alone). */
+export function errorCount(view: LogView): number {
+  return view.entries.filter((entry) => entry.level === 'error' && entry.generation === view.generation).length;
+}
 // --- end S17.3 ---
 
 // --- S14.2–S14.4, S15.4: preview toolbar ---

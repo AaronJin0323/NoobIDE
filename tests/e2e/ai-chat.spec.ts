@@ -78,6 +78,18 @@ test.describe('AI chat (S33)', () => {
     await expect(input()).toBeFocused();
     await expect(chips()).toHaveCount(1);
     await expect(chips().first()).toContainText('文件 index.html');
+    // Close, New chat, the three ways to add context, the input and Send are all in view at once.
+    for (const id of [
+      'ai-new',
+      'ai-close',
+      'ai-add-file',
+      'ai-add-selection',
+      'ai-add-preview',
+      'ai-input',
+      'ai-send',
+    ]) {
+      await expect(panel().getByTestId(id)).toBeInViewport({ ratio: 1 });
+    }
     // Removable, and added back on request.
     await chips().first().getByTestId('ai-chip-remove').click();
     await expect(chips()).toHaveCount(0);

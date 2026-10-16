@@ -25,6 +25,9 @@ body,
   margin: 0;
 }
 body {
+  /* The window is a fixed frame: the page itself never scrolls. A page-level scrollbar would also shrink the layout
+     viewport below 100vh and push the status strip off the bottom (the vertical budget is computed from 100vh). */
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
   font: 13px/1.5 var(--font-ui);
@@ -40,21 +43,48 @@ button {
 }
 
 /* ── Frame ─────────────────────────────────────────────── */
-/* A column: top bar, the editor/preview row, then the walkthrough band and the problems panel. The middle row keeps a
-   minimum height (the preview stage must stay usable, PLAN §3); when the window is short, the walkthrough and the
-   problems panel give way first and scroll inside themselves. */
+/* A column: top bar, the editor/preview row, then the walkthrough band and the problems panel, then the status strip.
+   Vertical budget (key features are never pushed off screen): the top bar and the status strip never shrink; the
+   walkthrough band keeps its title row and buttons, the open Problems panel keeps its header; the middle row gets
+   430 px when the window can hold that next to those minimums, otherwise what is left. The minimums never add up to
+   more than the window, so the status strip and the Problems toggle stay on screen down to the 640×480 minimum window.
+   Shrink order when space runs out: the Problems list, then the walkthrough text, then the middle row. */
 .workbench {
+  --topbar-h: 52px;
+  --strip-h: 32px;
+  /* The open Problems panel: 100 px (a few rows) when the window is tall enough, down to its header in a short one. */
+  --problems-panel-min: clamp(40px, calc(100vh - 620px), 100px);
+  /* What the walkthrough band and the open Problems panel keep at least (set below while they are shown). */
+  --walkthrough-reserve: 0px;
+  --problems-reserve: 0px;
+  /* Narrow window only: room kept for a shown notice, which joins the layout flow there (.app-notice-stack). */
+  --notice-reserve: 0px;
   /* 430 px (a preview stage of about 270 px under its toolbar), never more than the window can hold next to the top
-     bar and the status strip. */
-  --middle-min: min(430px, calc(100vh - 52px - 32px - 2 * var(--gap)));
+     bar, the status strip and the minimums of the band and the panel. */
+  --middle-min: max(
+    0px,
+    min(
+      430px,
+      calc(
+        100vh - var(--topbar-h) - var(--strip-h) - var(--walkthrough-reserve) - var(--problems-reserve) -
+          var(--notice-reserve)
+      )
+    )
+  );
   display: flex;
   flex-direction: column;
   height: 100%;
   background: var(--bg);
 }
+.workbench:has(> .walkthrough) {
+  --walkthrough-reserve: calc(var(--walkthrough-min, 88px) + var(--gap));
+}
+.workbench:has(> .problems > .problems-panel:not([hidden])) {
+  --problems-reserve: calc(var(--problems-panel-min) + var(--gap));
+}
 .workbench > .topbar {
   flex: none;
-  height: 52px;
+  height: var(--topbar-h);
 }
 .workbench-middle {
   position: relative;
@@ -128,6 +158,9 @@ button {
 .project-name {
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .project-detail {
   font-size: 12px;
@@ -140,6 +173,7 @@ button {
   flex: 1;
 }
 .save-status {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -200,6 +234,10 @@ button {
 
 /* ── Rail ──────────────────────────────────────────────── */
 .rail {
+  /* In a short window the rail may reach below the middle row, into the empty left margin of the walkthrough band and
+     the Problems panel: every rail button stays visible instead of being cut off. */
+  position: relative;
+  z-index: 6;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -558,21 +596,73 @@ button {
   cursor: col-resize;
   touch-action: none;
 }
+/* A short grip at rest, so the split is discoverable before the pointer finds it (a shape, not only a colour). */
+.splitter::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 32px;
+  margin: -16px 0 0 -1px;
+  border-radius: 1px;
+  background: var(--line);
+  transition: background-color 120ms ease-out;
+}
 .splitter:hover,
 .splitter:focus-visible {
   background: var(--accent-soft);
   outline: none;
 }
+.splitter:hover::before,
+.splitter:focus-visible::before {
+  background: var(--accent-text);
+}
 .splitter:focus-visible {
   box-shadow: 0 0 0 2px var(--accent-text);
 }
-/* S13: app-level notices sit bottom-left, over the files panel (the native preview view would cover the right) */
-.app-notice {
+/* S13: app-level notices (session restored, settings reset, entry page, transfer report, journal health) share one
+   stack bottom-left, right of the rail and above the status strip: they never cover the Problems toggle or each
+   other, and a long stack scrolls. The native preview view would cover the right side; in a narrow window the stack
+   is registered as covering the preview ([data-covers-preview]) when it overlaps it. */
+.app-notice-stack {
   position: fixed;
-  left: 16px;
-  bottom: 16px;
+  left: 80px;
+  bottom: calc(var(--strip-h, 32px) + var(--gap));
   z-index: 40;
-  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  width: min(420px, calc(100vw - 96px));
+  max-height: calc(100vh - var(--topbar-h, 52px) - var(--strip-h, 32px) - 3 * var(--gap));
+  overflow-y: auto;
+}
+.app-notice-stack:empty {
+  display: none;
+}
+.app-notice-stack > * {
+  flex: none;
+  margin: 0;
+}
+/* Narrow window: the preview fills the column, so a floating stack would cover the native view (and hide it). The
+   stack joins the layout flow instead, between the walkthrough band and the Problems panel (flex order), and gives
+   way first when the window is short (it scrolls inside). */
+.workbench.narrow:has(> .app-notice-stack:not(:empty)) {
+  --notice-reserve: clamp(8px, calc(100vh - 430px), 120px);
+}
+.workbench.narrow .app-notice-stack {
+  position: static;
+  order: 1;
+  flex: 0 1 auto;
+  width: auto;
+  /* The gap above is padding, so the reserved height covers it. */
+  min-height: var(--notice-reserve);
+  max-height: 35vh;
+  margin: 0 var(--gap) 0 72px;
+  padding-top: var(--gap);
+}
+.workbench.narrow > .problems {
+  order: 2;
 }
 /* S13: command menu next to the project name (opens over the left half, never under the native preview) */
 .app-menu {
@@ -652,17 +742,49 @@ button {
   font-weight: 600;
 }
 .preview-stage {
-  /* The page always gets room: the toolbar rows above scroll and the console below shrinks first. */
+  /* The stage is the part that gives way: the header, the toolbar row, notices, an annotation step and the console
+     heading always keep their natural size (nothing of them is ever scrolled out of reach), and the page takes the
+     rest, never less than 130 px (80 px while an annotation step is open). A tall pane: the stage takes the rest. */
   flex: 1 1 0;
-  /* A short pane: at least 240 px, up to 300 px when the pane has room for that next to 150 px of header, toolbar rows
-     and one console line (the rows then scroll). A tall pane: every row at its natural size, the stage takes the
-     rest. Only a tiny window goes below 240 px. */
-  min-height: min(clamp(240px, 100% - 150px, 300px), max(0px, 100vh - 52px - 32px - 140px));
+  /* 130 px, less when the middle row itself is short (--middle-min, .workbench) so the stage never overflows the
+     pane: about 260 px of the middle row go to the header, the toolbar row and the console. */
+  min-height: min(130px, max(60px, var(--middle-min, 430px) - 260px));
   display: flex;
-  margin: 10px;
+  margin: 6px 10px;
+  /* A message that does not fit (a short or narrow pane) scrolls inside the stage instead of being clipped. */
+  overflow: auto;
   border-radius: var(--radius-control);
   border: 1px dashed var(--line);
   background: var(--bg);
+}
+.preview:has(> .annotations:not([data-mode='idle'])) > .preview-stage {
+  min-height: min(80px, max(40px, var(--middle-min, 430px) - 320px));
+}
+/* While a region is drawn the frozen picture takes the stage's place (the native view is hidden then). */
+.preview[data-drawing] > .preview-stage {
+  display: none;
+}
+/* Stage messages wrap, and their buttons are never clipped. */
+.preview-stage > .empty-state {
+  flex: none;
+  max-width: min(320px, 100%);
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+.preview-stage > .empty-state .quiet-button {
+  height: auto;
+  min-height: 34px;
+  max-width: 100%;
+  padding-block: 6px;
+  white-space: normal;
+  text-align: center;
+}
+.no-page-fix {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
 }
 
 /* ── Problems + status strip ───────────────────────────── */
@@ -670,14 +792,13 @@ button {
   flex: 0 1 auto;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: var(--strip-h, 32px);
 }
-/* Open, the panel may give way down to a few rows (it scrolls inside); the status strip below it always shows. */
+/* Open, the panel may give way down to its header (the list scrolls inside); the status strip below it always shows. */
 .problems:has(> .problems-panel:not([hidden])) {
-  min-height: calc(100px + var(--gap) + 32px);
+  min-height: calc(var(--problems-panel-min, 100px) + var(--gap) + var(--strip-h, 32px));
 }
 .problems-panel {
-  height: 160px;
   margin: var(--gap) var(--gap) 0 72px;
 }
 .problems-message {
@@ -689,10 +810,12 @@ button {
   color: var(--muted);
 }
 .status-strip {
+  /* Never shrinks: the problem count and the Problems toggle are always on screen. */
+  flex: none;
   display: flex;
   align-items: center;
   gap: 12px;
-  height: 32px;
+  height: var(--strip-h, 32px);
   padding: 0 16px 0 74px;
 }
 .status-button {
@@ -994,6 +1117,31 @@ button {
 .panel-actions .icon-button {
   margin-left: 0;
 }
+/* New file / New folder: icon-only in a slim panel (the name stays in aria-label and the tooltip); with room, the
+   word shows next to the icon — New file first, it is the one beginners need. */
+.files {
+  container-type: inline-size;
+}
+.files-action {
+  height: 30px;
+  min-width: 30px;
+  padding: 0 7px;
+  gap: 4px;
+  white-space: nowrap;
+}
+.files-action-label {
+  display: none;
+}
+@container (min-width: 200px) {
+  [data-testid='new-file'] .files-action-label {
+    display: inline;
+  }
+}
+@container (min-width: 300px) {
+  [data-testid='new-folder'] .files-action-label {
+    display: inline;
+  }
+}
 .name-editor {
   display: flex;
   flex-direction: column;
@@ -1203,37 +1351,87 @@ button {
   color: var(--faint);
   font-style: italic;
 }
-.recovery-health {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 40;
-  max-width: 420px;
-}
 .tree-unportable {
   display: inline-flex;
   color: var(--warn);
 }
 
 /* ── Preview (S04.3, S05.3) ────────────────────────────── */
+.preview-header {
+  /* Wraps instead of clipping in a narrow pane; never scrolls. */
+  height: auto;
+  min-height: 40px;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  padding-block: 4px;
+}
+.preview-header > .state-pill {
+  margin-left: 0;
+}
+.preview-annotate-slot {
+  display: contents;
+}
+.preview-annotate-slot > .annotate-entry {
+  margin-left: auto;
+}
 .preview-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
+  margin-left: auto;
+}
+.preview-annotate-slot ~ .preview-actions {
+  margin-left: 0;
+}
+.preview-actions > .icon-button {
+  margin-left: 0;
+}
+/* The one primary action of the preview: Start, or Refresh while a page is shown. */
+.preview-primary {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.preview-primary:hover {
+  filter: brightness(1.08);
+}
+.preview-header .preview-stop {
+  height: 30px;
+  padding: 0 10px;
 }
 .preview-console {
-  /* Gives way first when the pane is short (the stage keeps its minimum). */
+  /* At least its heading and two lines (one line while the console is empty); grows to 140 px only when the pane
+     has room for that next to the stage. */
   flex: 0 1 auto;
-  min-height: 26px; /* one line of the console stays visible */
-  max-height: 120px;
-  margin: 0 10px 10px;
+  min-height: 50px;
+  max-height: clamp(76px, 100% - 400px, 140px);
+  margin: 0 10px 8px;
   overflow: auto;
   border-top: 1px solid var(--line);
   font-family: var(--font-mono, monospace);
   font-size: 12px;
 }
+.preview-console:has(.preview-console-list) {
+  min-height: 76px;
+}
+/* While an annotation step is open it gets the room: the console keeps its heading (with the error count). */
+.preview:has(> .annotations:not([data-mode='idle'])) > .preview-console {
+  min-height: 30px;
+}
 .preview-console-empty,
 .preview-console-dropped {
-  margin: 6px 0;
+  margin: 2px 0;
   color: var(--muted);
 }
 .preview-console-list {
@@ -1270,11 +1468,13 @@ button {
 }
 
 /* ── S17.1: Problems panel ─────────────────────────────── */
+/* Sized to its content up to 260 px: an empty or one-row list does not take space from the editor and the preview. */
 .problems-panel:not([hidden]) {
   display: flex;
   flex-direction: column;
-  flex: 0 1 260px;
-  min-height: 100px;
+  flex: 0 1 auto;
+  min-height: var(--problems-panel-min, 100px);
+  max-height: 260px;
 }
 .problems-panel .panel-header {
   gap: 8px;
@@ -1418,14 +1618,11 @@ button {
   color: var(--muted);
 }
 /* The page showing and the way back to the entry page (a broken link must never trap the preview). */
-/* The rows between the preview header and the stage: they scroll when the window is short (the stage keeps its
-   minimum height). */
+/* The rows between the preview header and the stage: always at their natural size (the stage gives way instead). */
 .preview-chrome {
-  flex: 0 1 auto;
-  min-height: 0;
+  flex: none;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
 }
 .preview-chrome > * {
   flex: none;
@@ -1461,8 +1658,10 @@ button {
 .preview-page-missing > svg {
   color: var(--warn);
 }
-.preview-location .quiet-button {
+.preview-location .quiet-button,
+.preview-toolbar .quiet-button {
   height: 26px;
+  padding: 0 8px;
 }
 .preview-toolbar .quiet-button:disabled,
 .preview-advanced .quiet-button:disabled {
@@ -1503,20 +1702,27 @@ button {
 }
 .preview-notices {
   flex: none;
-  margin: 6px 10px 0;
+  margin: 4px 10px 0;
 }
 .preview-notice {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 4px;
-  padding: 4px 4px 4px 10px;
+  margin: 0 0 2px;
+  padding: 2px 2px 2px 10px;
   border-radius: var(--radius-control);
   background: var(--raised);
   font-size: 12px;
 }
 .preview-notice > span {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.preview-notice > .quiet-button {
+  flex: none;
+  height: 24px;
+  padding: 0 8px;
 }
 
 /* ── S22.4: problem card (PLAN §9) · S22.5: one-click fix result ── */
@@ -1568,10 +1774,37 @@ button {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  gap: 4px 8px;
+  min-height: 28px;
+  padding: 2px 0;
   background: var(--panel);
   font-family: var(--font-ui);
+}
+.preview-console-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+/* Not colour alone: a warning icon and the number in words. */
+.preview-console-errors {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 600;
+}
+.preview-console-toolbar .quiet-button {
+  height: 24px;
+  padding: 0 8px;
+}
+.preview-console-toolbar .quiet-button:first-of-type {
+  margin-left: auto;
 }
 .preview-console-filter {
   display: inline-flex;

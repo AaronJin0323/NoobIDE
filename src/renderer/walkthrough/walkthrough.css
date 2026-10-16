@@ -1,9 +1,19 @@
 /* S23 walkthrough strip, final task card and glossary. Colours come only from the theme tokens. */
+.workbench {
+  /* The band's minimum: its padding plus one line of the step check and the row of buttons. styles.css reserves this
+     much in the window's vertical budget, so Next / Back never leave the screen. */
+  --walkthrough-min: 88px;
+}
+.workbench.narrow {
+  --walkthrough-min: 76px;
+}
 .walkthrough {
-  /* Gives way when the window is short (the editor and the preview keep their minimum, styles.css .workbench): the
-     step text scrolls inside the band while the progress check and the buttons on the side stay in view. */
+  /* Gives way when the window is short (with the open Problems list, before the editor and the preview): the step
+     text scrolls inside the band while the progress check and the buttons on the side always stay in view. The
+     shrink factor must stay 1: a factor below 1 makes flexbox remove only that share of the overflow, and the band
+     then stays taller than its minimum and pushes the status strip off the window. */
   flex: 0 1 auto;
-  min-height: 88px;
+  min-height: var(--walkthrough-min);
   display: flex;
   gap: 8px 24px;
   margin: var(--gap) var(--gap) 0 72px;
@@ -14,15 +24,16 @@
   background: var(--panel);
 }
 .walkthrough-main {
-  flex: 1 1 420px;
+  flex: 1 1 0;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
 }
 .walkthrough-side {
-  flex: 0 1 360px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
   min-height: 0;
-  overflow-y: auto; /* a short band: wrapped buttons scroll (and focus brings them into view) instead of being cut */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -60,16 +71,26 @@
 .walkthrough-check {
   margin: 0;
   color: var(--muted);
+  /* One line, so the buttons below never move out of the band (screen readers still get the whole status text). */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .walkthrough-check.is-done {
   color: var(--text);
   font-weight: 600;
 }
+/* Back / Show me / Next / Close: one row that never wraps out of the band. */
 .walkthrough-actions {
+  flex: none;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
+}
+.walkthrough-actions > button {
+  flex: none;
+  white-space: nowrap;
 }
 .walkthrough-actions .primary-button {
   margin-top: 0;
@@ -80,10 +101,23 @@
   outline: 3px dashed var(--accent);
   outline-offset: 2px;
 }
+/* Narrow window: the text above, the check and the buttons in one row below it (the row always stays). The band
+   keeps clear of the rail column, which may reach down beside it in a short window. */
 .workbench.narrow .walkthrough {
-  flex-wrap: wrap;
-  overflow-y: auto;
-  margin-left: var(--gap);
+  flex-direction: column;
+}
+.workbench.narrow .walkthrough-main {
+  flex: 1 1 auto;
+}
+.workbench.narrow .walkthrough-side {
+  flex: none;
+  max-width: none;
+  flex-direction: row;
+  align-items: center;
+}
+.workbench.narrow .walkthrough-check {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .glossary-dialog {

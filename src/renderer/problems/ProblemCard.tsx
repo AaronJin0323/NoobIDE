@@ -4,6 +4,7 @@ import { renderExplanation } from '../../diagnostics/rules/engine';
 import { useI18n } from '../i18n/I18nProvider';
 import type { Locale, MessageKey } from '../i18n/index';
 import { fixActionOf, type ReplaceTextAction } from './fix-model';
+import { AiIcon } from '../ai/ai-icons';
 
 export interface ProblemCardProps {
   record: ProblemRecord;
@@ -30,9 +31,10 @@ export const SOURCE_TAG: Record<ProblemRecord['source'], MessageKey> = {
 };
 
 /**
- * The problem card (S22.4, PLAN §9 example, wireframe 3): where (file, line), what was reported, the plain-language
- * explanation — worded as a possibility unless the rule is certain — the possible causes and the checks, then the
- * actions: the one-click fix when the did-you-mean rule found exactly one name (S22.5), Go to code, Show original error.
+ * The problem card (S22.4, PLAN §9 example, wireframe 3): where (file, line) and what was reported, then the
+ * actions (right under the head, so they are in view in a short panel), then the plain-language explanation — worded
+ * as a possibility unless the rule is certain — the possible causes and the checks. The actions: the one-click fix
+ * when the did-you-mean rule found exactly one name (S22.5), Fix with AI, Go to code, Show original error, Ask AI.
  * The original error is always one click away and is shown verbatim.
  */
 export function ProblemCard(props: ProblemCardProps) {
@@ -89,29 +91,7 @@ export function ProblemCardBody({
           <span className="problem-count">{` ${t('problems.card.count').replace('{n}', String(record.count))}`}</span>
         )}
       </p>
-      <p className="problem-card-text" data-testid="problem-explanation">
-        {text.explanation}
-      </p>
-      {text.causesHeading && (
-        <div className="problem-card-list">
-          <p className="problem-card-heading">{text.causesHeading}</p>
-          <ul data-testid="problem-causes">
-            {text.causes.map((cause, i) => (
-              <li key={i}>{cause}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {text.checksHeading && (
-        <div className="problem-card-list">
-          <p className="problem-card-heading">{text.checksHeading}</p>
-          <ul data-testid="problem-checks">
-            {text.checks.map((check, i) => (
-              <li key={i}>{check}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* The actions come right after the head, so they are in view in a short panel without scrolling. */}
       <div className="problem-actions">
         {fix && (
           <button
@@ -122,6 +102,18 @@ export function ProblemCardBody({
             onClick={() => onFix?.(record, fix)}
           >
             {labelOf.get(fix)}
+          </button>
+        )}
+        {onFixWithAi && record.file && record.line !== undefined && (
+          <button
+            type="button"
+            className="ai-entry"
+            data-testid="problem-fix-ai"
+            title={t('problems.card.fixWithAiHint')}
+            onClick={() => onFixWithAi(record, text.title)}
+          >
+            <AiIcon />
+            {t('problems.card.fixWithAi')}
           </button>
         )}
         {explanation.actions.map((action) => {
@@ -161,29 +153,42 @@ export function ProblemCardBody({
           }
           return null;
         })}
-        {onFixWithAi && record.file && record.line !== undefined && (
-          <button
-            type="button"
-            className="secondary-button"
-            data-testid="problem-fix-ai"
-            title={t('problems.card.fixWithAiHint')}
-            onClick={() => onFixWithAi(record, text.title)}
-          >
-            {t('problems.card.fixWithAi')}
-          </button>
-        )}
         {onAskAi && (
           <button
             type="button"
-            className="quiet-button"
+            className="quiet-button problem-ask-ai"
             data-testid="problem-ask-ai"
             title={t('problems.card.askAiHint')}
             onClick={() => onAskAi(record, text.title)}
           >
+            <AiIcon />
             {t('problems.card.askAi')}
           </button>
         )}
       </div>
+      <p className="problem-card-text" data-testid="problem-explanation">
+        {text.explanation}
+      </p>
+      {text.causesHeading && (
+        <div className="problem-card-list">
+          <p className="problem-card-heading">{text.causesHeading}</p>
+          <ul data-testid="problem-causes">
+            {text.causes.map((cause, i) => (
+              <li key={i}>{cause}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {text.checksHeading && (
+        <div className="problem-card-list">
+          <p className="problem-card-heading">{text.checksHeading}</p>
+          <ul data-testid="problem-checks">
+            {text.checks.map((check, i) => (
+              <li key={i}>{check}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {originalOpen && <OriginalError id={originalId} record={record} locale={locale} t={t} />}
     </div>
   );

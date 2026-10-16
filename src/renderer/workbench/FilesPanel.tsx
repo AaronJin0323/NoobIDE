@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import type { NoobideApi, OpenedProject, TreeEntry } from '../../shared/ipc/contract';
@@ -40,6 +40,8 @@ interface FilesPanelProps {
   fileOps: FileOpsHooks;
   /** S13: extra context-menu commands for a row (e.g. "set as entry page"), labels as message keys. */
   extraMenuItems?: ((entry: TreeEntry) => readonly ExtraMenuItem[]) | undefined;
+  /** Bumped by the workbench to start a new file from outside the panel (the narrow window's top-bar button). */
+  newFileRequest?: number | undefined;
 }
 
 /** A context-menu command contributed by the workbench (S13.2). */
@@ -71,6 +73,7 @@ export function FilesPanel({
   platform,
   fileOps,
   extraMenuItems,
+  newFileRequest,
 }: FilesPanelProps) {
   const { t } = useI18n();
   const [editing, setEditing] = useState<TreeEditing | null>(null);
@@ -104,6 +107,12 @@ export function FilesPanel({
     setEditError(null);
     setEditing({ mode: 'create', parent, kind });
   };
+
+  const startCreateRef = useRef(startCreate);
+  startCreateRef.current = startCreate;
+  useEffect(() => {
+    if (newFileRequest) startCreateRef.current('file');
+  }, [newFileRequest]);
 
   const startRename = (entry: TreeEntry) => {
     setOpError(null);
@@ -260,23 +269,31 @@ export function FilesPanel({
             <>
               <button
                 type="button"
-                className="icon-button"
+                className="quiet-button files-action"
                 aria-label={t('files.newFile')}
                 title={t('files.newFile')}
                 data-testid="new-file"
                 onClick={() => startCreate('file')}
               >
                 <NewFileIcon />
+                {/* Shown when the panel has room (styles.css container query); the name stays in aria-label. */}
+                <span className="files-action-label" aria-hidden="true">
+                  {t('files.newFile')}
+                </span>
               </button>
               <button
                 type="button"
-                className="icon-button"
+                className="quiet-button files-action"
                 aria-label={t('files.newFolder')}
                 title={t('files.newFolder')}
                 data-testid="new-folder"
                 onClick={() => startCreate('directory')}
               >
                 <NewFolderIcon />
+                {/* Shown when the panel has room (styles.css container query); the name stays in aria-label. */}
+                <span className="files-action-label" aria-hidden="true">
+                  {t('files.newFolder')}
+                </span>
               </button>
             </>
           )}

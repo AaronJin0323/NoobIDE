@@ -239,14 +239,27 @@ test('no workbench console errors during part 1', () => {
 const strip = () => page.getByTestId('annotations-strip');
 const items = () => strip().getByTestId('annotation-item');
 
-/** Opens the strip's three ways to annotate (the Annotate button) if they are not shown yet. */
+/**
+ * Opens the three ways to annotate with the "Annotate page" entry, which sits in the preview header row (a key
+ * feature: always visible, never inside a scrolling area), if they are not shown yet.
+ */
 async function openAnnotate(): Promise<void> {
-  const menu = strip().getByTestId('annotate-menu');
+  const menu = page.getByTestId('preview-header').getByTestId('annotate-menu');
+  await expect(menu).toBeVisible();
+  await expect(menu).toHaveAttribute('data-available', 'true');
   if ((await menu.getAttribute('aria-expanded')) !== 'true') await menu.click();
+  await expect(strip().getByTestId('annotate-ways')).toBeVisible();
+}
+
+/** Opens the annotations list ("View annotations (N)" in the header) if it is closed. */
+async function openList(): Promise<void> {
+  const toggle = page.getByTestId('preview-header').getByTestId('annotations-toggle');
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  await expect(strip().getByTestId('annotations-panel')).toBeVisible();
 }
 
 test('annotate a button with the mouse; it is listed with its HTML and CSS location (S41.5/S41.7)', async () => {
-  await expect(strip()).toBeVisible();
+  await expect(strip()).toBeAttached(); // zero height while idle with the list closed
   await openAnnotate();
   await strip().getByTestId('annotate-pick').click();
   await expect(strip().getByTestId('annotate-status')).toHaveText('请在预览中点击一个元素，按 Esc 取消');
@@ -368,6 +381,9 @@ test('annotations survive a restart (S41.7)', async () => {
     .toMatch(/running|stopped|idle/);
   if ((await page.getByTestId('preview-start').count()) > 0) await page.getByTestId('preview-start').click();
   await waitForPreviewState(page, 'running');
+  // The header entry shows how many annotations this page has; the list opens from "View annotations (3)".
+  await expect(page.getByTestId('annotations-count')).toContainText('3');
+  await openList();
   await expect(items()).toHaveCount(3);
   await expect(items().first()).toContainText('把这个按钮变大一点');
   // The agent's edit changed the padding in place, so the rule's location is the same.

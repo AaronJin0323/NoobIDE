@@ -172,6 +172,15 @@
         "Every verified defect from the six-area assessment (data safety, security, S41-S43 integration, i18n/a11y, platform/release, hands-on beginner journey) is fixed with a test or recorded as an owner decision",
         "npm run verify and the full e2e suite are green on Windows x64"
       ]
+    },
+    {
+      "id": "M16",
+      "title": "Key features always visible (owner request 2026-10-16)",
+      "plan_refs": "harness/PROGRESS.md Session 23; AGENTS.md invariants",
+      "exit_criteria": [
+        "Every key beginner feature (save, preview controls, annotations, Problems, console, AI chat/fix/inline edit, lessons, new file) is visible and reachable without scrolling at 1280x720 content with walkthrough and Problems open, and the status strip stays on screen down to the minimum window",
+        "npm run verify and the full e2e suite are green on Windows x64"
+      ]
     }
   ],
   "sessions": [
@@ -643,6 +652,16 @@
         "S43"
       ],
       "plan_refs": "harness/PROGRESS.md Session 21"
+    },
+    {
+      "id": "S45",
+      "milestone": "M16",
+      "title": "Key features always visible",
+      "goal": "Audit every key feature for being hidden, clipped, scrolled away or menu-only (read-only subagents per area), then fix each case and make the key entry points prominent.",
+      "depends_on": [
+        "S44"
+      ],
+      "plan_refs": "harness/PROGRESS.md Session 23"
     }
   ],
   "features": [
@@ -3929,6 +3948,99 @@
       "depends_on": [],
       "status": "done",
       "evidence": "src/renderer/editor/model-registry.test.ts forwardsEdits (2 new tests) + recovery.spec.ts (restore-and-quit x5, journal empty after quit) 16/16 x2; full e2e 311 passed before the review tweaks; verify green"
+    },
+    {
+      "id": "S45.1",
+      "session": "S45",
+      "milestone": "M16",
+      "title": "Verify is green again after the half-landed S44/S45 HIG commit",
+      "description": "",
+      "acceptance": [
+        "Every file a110002 touched is back at its 3222c89 content; the commit's versions are kept in docs/archive/s44-s45-hig/ with a README, outside build, typecheck, lint and tests",
+        "npm run verify green"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S45.2",
+      "session": "S45",
+      "milestone": "M16",
+      "title": "Annotate is a prominent, always-visible preview control",
+      "description": "",
+      "acceptance": [
+        "An Annotate button with icon and count sits in the preview header row at every pane width; when the preview is not running it stays visible and says why",
+        "At 1280x720 content with Problems open the Annotate button is inside the viewport without scrolling (e2e)",
+        "An active annotation step keeps its Confirm/Save/Cancel actions visible"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S45.3",
+      "session": "S45",
+      "milestone": "M16",
+      "title": "The preview pane never hides its controls in a short or narrow pane",
+      "description": "",
+      "acceptance": [
+        "Header and toolbar never scroll away; the stage gives way first while keeping the 200 px view at 1280x720 with walkthrough and Problems open",
+        "Header actions wrap instead of clipping; stage empty-state buttons are never clipped",
+        "The console shows a heading with an error count at all times and keeps its toolbar and two lines whenever no annotation step is open (during a step only the heading is kept so the step's actions fit)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S45.4",
+      "session": "S45",
+      "milestone": "M16",
+      "title": "AI entry points are always reachable",
+      "description": "",
+      "acceptance": [
+        "The chat composer textarea and Send/Stop are never clipped; the chat header keeps Close and New chat visible",
+        "Fix with AI is offered on the collapsed problem row and before the explanation in the card",
+        "A visible Edit with AI button opens inline edit; inline-edit Accept/Reject are visible in the review phase"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S45.5",
+      "session": "S45",
+      "milestone": "M16",
+      "title": "The workbench frame keeps key controls on screen",
+      "description": "",
+      "acceptance": [
+        "The status strip and Problems toggle stay inside the window down to 640x480 with walkthrough and Problems open (e2e)",
+        "An empty Problems panel sizes to its content; floating notices stack above the status strip and never cover it",
+        "A visible Save button calls the same save as Ctrl+S; a Lessons rail button reopens the walkthrough; the AI rail button stays visible when AI is not set up"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S45.9",
+      "session": "S45",
+      "milestone": "M16",
+      "title": "Rebuild the S44/S45 HIG refinement from docs/archive/s44-s45-hig",
+      "description": "",
+      "acceptance": [
+        "Each archived part is either rebuilt with its tests passing or recorded as dropped, without moving Annotate or the Add-context buttons into menus"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
     }
   ]
 }

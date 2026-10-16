@@ -3,9 +3,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { Annotation, AnnotationTarget } from '../../shared/ipc/annotations-contract';
 import { translate, type Locale, type MessageKey } from '../i18n/index';
-import { AnnotationsStripView, type AnnotationsStripOps } from './AnnotationsStrip';
+import { AnnotateEntryView, AnnotationsStripView, type AnnotationsStripOps } from './AnnotationsStrip';
 import {
   INITIAL_ANNOTATIONS,
+  annotateEntry,
   annotationsReducer,
   focusAfter,
   focusStateOf,
@@ -66,6 +67,7 @@ function render(
     ...INITIAL_ANNOTATIONS,
     projectId: 'p1',
     loaded: true,
+    expanded: true,
     items: [item('a', 'found'), item('b', 'not-found')],
     ...overrides,
   };
@@ -82,21 +84,94 @@ function render(
   );
 }
 
+function renderEntry(overrides: Partial<AnnotationsState> = {}, options: { locale?: Locale; running?: boolean } = {}) {
+  const state: AnnotationsState = {
+    ...INITIAL_ANNOTATIONS,
+    projectId: 'p1',
+    loaded: true,
+    items: [item('a', 'found'), item('b', 'not-found')],
+    ...overrides,
+  };
+  return renderToStaticMarkup(
+    createElement(AnnotateEntryView, {
+      state,
+      dispatch: noop,
+      t: (key: MessageKey) => translate(options.locale ?? 'zh-CN', key),
+      running: options.running ?? true,
+      pagePath: '',
+      ids: { list: 'list-id', ways: 'ways-id' },
+      reasonId: 'reason-id',
+    }),
+  );
+}
+
+describe('the Annotate entry in the preview header (key feature, always shown)', () => {
+  it('is one primary "Annotate page" button with the count, and one separate "View annotations (N)" toggle', () => {
+    const html = renderEntry();
+    expect(html.match(/data-testid="annotate-menu"/g)).toHaveLength(1);
+    expect(html.match(/data-testid="annotations-toggle"/g)).toHaveLength(1);
+    expect(html).toContain('class="annotate-button"');
+    expect(html).toMatch(/data-testid="annotate-menu"[^>]*><svg/); // an icon next to the words
+    expect(html).toContain('<span>标注页面</span>');
+    expect(html).toContain('data-testid="annotations-count"');
+    expect(html).toContain('这个页面有 2 条标注');
+    expect(html).toContain('查看标注（2）');
+    expect(html).toContain('aria-controls="list-id"');
+    expect(html).not.toContain('aria-disabled');
+    // Exactly two buttons: no second control labelled 标注 for the same purpose.
+    expect(html.match(/<button/g)).toHaveLength(2);
+    const en = renderEntry({}, { locale: 'en' });
+    expect(en).toContain('Annotate page');
+    expect(en).toContain('View annotations (2)');
+  });
+
+  it('stays rendered when the preview is not running: disabled-looking, focusable, with the reason', () => {
+    const html = renderEntry({}, { running: false });
+    expect(html).toContain('data-testid="annotate-menu"');
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).not.toContain(' disabled=""'); // still focusable
+    expect(html).toContain('aria-describedby="reason-id"');
+    expect(html).toMatch(/id="reason-id"[^>]*>先启动预览再标注</);
+    expect(html).toContain('title="先启动预览再标注"');
+    expect(renderEntry({}, { running: false, locale: 'en' })).toContain('Start the preview first, then annotate');
+  });
+
+  it('opens the ways only when it can start a pick, and says why not during a step', () => {
+    expect(renderEntry({ menuOpen: true })).toContain('aria-expanded="true" aria-controls="ways-id"');
+    expect(renderEntry({ menuOpen: true }, { running: false })).toContain('aria-expanded="false"');
+    expect(renderEntry({ mode: { kind: 'picking' } })).toContain('正在标注：请先完成或取消当前这一步');
+    expect(annotateEntry(true, { kind: 'idle' })).toEqual({ available: true, reason: null });
+    expect(annotateEntry(false, { kind: 'idle' })).toEqual({
+      available: false,
+      reason: 'annotations.entry.needsPreview',
+    });
+    expect(annotateEntry(true, { kind: 'loading' }).reason).toBe('annotations.entry.busy');
+  });
+
+  it('the list starts collapsed (the entry shows the count instead)', () => {
+    expect(INITIAL_ANNOTATIONS.expanded).toBe(false);
+    expect(renderEntry({ expanded: false })).toContain('aria-expanded="false" aria-controls="list-id"');
+  });
+});
+
 describe('AnnotationsStripView (S41.5)', () => {
   it('lists the annotations with a numbered list and every action', () => {
     const html = render();
     expect(html.match(/data-testid="annotation-item"/g)).toHaveLength(2);
     expect(html).toContain('<ol');
-    for (const id of [
-      'annotation-show',
-      'annotation-edit',
-      'annotation-delete',
-      'annotate-menu',
-      'annotations-toggle',
-    ]) {
+    for (const id of ['annotation-show', 'annotation-edit', 'annotation-delete', 'annotations-scope-page']) {
       expect(html).toContain(`data-testid="${id}"`);
     }
-    expect(html).toContain('aria-expanded="true"');
+    // The entry lives in the header, not in the strip: no duplicate Annotate control here.
+    expect(html).not.toContain('data-testid="annotate-menu"');
+    expect(html).not.toContain('data-testid="annotations-toggle"');
+  });
+
+  it('is empty (zero height) when idle with the list closed', () => {
+    const html = render({ expanded: false });
+    expect(html).toContain('data-mode="idle"');
+    expect(html).toMatch(/data-testid="annotations-panel" hidden=""/);
+    expect(html).not.toContain('annotate-ways');
   });
 
   it('offers Ask AI only when the prop is given', () => {
@@ -125,17 +200,18 @@ describe('AnnotationsStripView (S41.5)', () => {
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
   });
 
-  it('hides Annotate when the preview is not running, and Show is disabled', () => {
-    const html = render({}, { running: false });
-    expect(html).not.toContain('annotate-menu');
+  it('Show is disabled when the preview is not running, and the ways are not offered', () => {
+    const html = render({ menuOpen: true }, { running: false });
+    expect(html).not.toContain('annotate-ways');
     expect(html).toMatch(/data-testid="annotation-show" disabled=""/);
   });
 
-  it('offers the three ways of annotating when the menu is open', () => {
+  it('offers the three ways of annotating when the menu is open, with a way to close them', () => {
     const html = render({ menuOpen: true });
     expect(html).toContain('在页面上点选');
     expect(html).toContain('从列表中选择');
     expect(html).toContain('框选一块区域');
+    expect(html).toContain('data-testid="annotate-ways-close"');
   });
 
   it('announces pick mode in a live region with a Cancel button', () => {
@@ -163,6 +239,10 @@ describe('AnnotationsStripView (S41.5)', () => {
     expect(html).toContain('data-testid="annotation-note-input"');
     expect(html).toContain('placeholder="例如：把这个按钮变大一点"');
     expect(html).toMatch(/data-testid="annotation-save" disabled=""/);
+    // Save and Cancel sit in the step's action row (sticky, so they are never scrolled away).
+    expect(html).toMatch(
+      /class="annotations-actions"><button type="button" class="annotations-primary" data-testid="annotation-save"/,
+    );
   });
 
   it('drawing: the picture and a canvas reachable by keyboard', () => {
@@ -178,6 +258,9 @@ describe('AnnotationsStripView (S41.5)', () => {
     expect(html).toContain('tabindex="0"');
     expect(html).toContain('已框选：120×40');
     expect(html).toContain('data-testid="annotation-region-confirm"');
+    // The picture is fitted into a frame that takes the stage's place; Confirm is outside the frame.
+    expect(html).toMatch(/class="annotation-region-frame"><div[^>]*data-testid="annotation-region-canvas"/);
+    expect(html).toContain('data-mode="drawing"');
   });
 
   it('delete asks for confirmation inline', () => {

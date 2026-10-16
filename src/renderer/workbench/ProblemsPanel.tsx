@@ -13,6 +13,7 @@ import {
 } from '../problems/problems-view';
 import { CheckIcon, SeverityIcon } from '../problems/problem-icons';
 import { ChevronDownIcon, UncheckedIcon } from './icons';
+import { AiIcon } from '../ai/ai-icons';
 
 interface ProblemsPanelProps {
   open: boolean;
@@ -26,6 +27,11 @@ interface ProblemsPanelProps {
   renderDetails?: ((record: ProblemRecord) => ReactNode) | undefined;
   /** S22.5: the latest one-click fix, kept above the lists until cleared (the fixed problem may leave the list). */
   fixCard?: ReactNode;
+  /**
+   * S35.2: "Fix with AI" right on a problem's row (located problems only), so the AI fix is in view without opening
+   * the problem first. Absent while AI is not offered.
+   */
+  onFixWithAi?: ((record: ProblemRecord, title: string) => void) | undefined;
 }
 
 const SECTION_LABEL: Record<SectionId, MessageKey> = {
@@ -59,6 +65,7 @@ export function ProblemsPanel({
   onClearResolved,
   renderDetails,
   fixCard,
+  onFixWithAi,
 }: ProblemsPanelProps) {
   const { t, locale } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
@@ -147,6 +154,7 @@ export function ProblemsPanel({
                           expanded={selected === record.id}
                           onToggle={() => setSelected((id) => (id === record.id ? null : record.id))}
                           details={selected === record.id && renderDetails ? renderDetails(record) : null}
+                          onFixWithAi={onFixWithAi}
                         />
                       ))}
                     </ul>
@@ -196,12 +204,14 @@ function ProblemRow({
   expanded,
   onToggle,
   details,
+  onFixWithAi,
 }: {
   record: ProblemRecord;
   title: string;
   expanded: boolean;
   onToggle: () => void;
   details: ReactNode;
+  onFixWithAi?: ((record: ProblemRecord, title: string) => void) | undefined;
 }) {
   const { t } = useI18n();
   const where = record.file
@@ -216,23 +226,40 @@ function ProblemRow({
       data-source={record.source}
       data-code={record.code}
     >
-      <button
-        type="button"
-        className="problem-summary"
-        aria-expanded={expanded}
-        aria-controls={detailsId}
-        data-testid="problem-summary"
-        onClick={onToggle}
-      >
-        <span className="problem-severity">
-          <SeverityIcon severity={record.severity} />
-          {t(SEVERITY_LABEL[record.severity])}
-        </span>
-        {where && <span className="problem-where">{where}</span>}
-        <span className="problem-title">{title}</span>
-        {record.count > 1 && <span className="problem-count">{`×${record.count}`}</span>}
-        {record.stale && <span className="problem-stale">{t('problems.stale')}</span>}
-      </button>
+      {/* The row's AI fix is a sibling of the summary toggle, never inside it (no nested controls). While the row is
+          expanded, the card shows the same action right under its head. */}
+      <div className="problem-row-line">
+        <button
+          type="button"
+          className="problem-summary"
+          aria-expanded={expanded}
+          aria-controls={detailsId}
+          data-testid="problem-summary"
+          onClick={onToggle}
+        >
+          <span className="problem-severity">
+            <SeverityIcon severity={record.severity} />
+            {t(SEVERITY_LABEL[record.severity])}
+          </span>
+          {where && <span className="problem-where">{where}</span>}
+          <span className="problem-title">{title}</span>
+          {record.count > 1 && <span className="problem-count">{`×${record.count}`}</span>}
+          {record.stale && <span className="problem-stale">{t('problems.stale')}</span>}
+        </button>
+        {onFixWithAi && !expanded && record.file && record.line !== undefined && (
+          <button
+            type="button"
+            className="ai-entry"
+            aria-label={t('problems.row.fixWithAiLabel').replace('{title}', title)}
+            title={t('problems.card.fixWithAiHint')}
+            data-testid="problem-row-fix-ai"
+            onClick={() => onFixWithAi(record, title)}
+          >
+            <AiIcon />
+            {t('problems.card.fixWithAi')}
+          </button>
+        )}
+      </div>
       {expanded && (
         <div className="problem-details" id={detailsId} data-testid="problem-details">
           {details}

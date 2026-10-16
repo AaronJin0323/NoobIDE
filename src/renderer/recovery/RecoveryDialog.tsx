@@ -29,7 +29,6 @@ import type { JournalHealth } from './journal-scheduler';
  */
 interface RecoveryDialogProps {
   bridge: NoobideApi | undefined;
-  health: JournalHealth;
   /** Makes `project` the workbench's project; false when the current file could not be saved first. */
   onProjectOpened(project: OpenedProject): Promise<boolean>;
   /**
@@ -69,7 +68,22 @@ interface Notice {
   readonly vars?: Readonly<Record<string, string | number>>;
 }
 
-export function RecoveryDialog({ bridge, health, onProjectOpened, onRestore, onCleared }: RecoveryDialogProps) {
+/**
+ * The journal could not be written: crash recovery is not protecting the edits right now. Rendered by the workbench
+ * inside its notice stack (above the status strip, never over the preview or another notice).
+ */
+export function JournalHealthNotice({ health }: { health: JournalHealth }) {
+  const { t } = useI18n();
+  if (health === null) return null;
+  return (
+    <p className="inline-alert save-alert recovery-health" role="alert" data-testid="journal-health">
+      <WarningIcon size={15} />
+      {t('recovery.journalFailed')}
+    </p>
+  );
+}
+
+export function RecoveryDialog({ bridge, onProjectOpened, onRestore, onCleared }: RecoveryDialogProps) {
   const { t, locale } = useI18n();
   const [pending, setPending] = useState<PendingRecovery | null>(null);
   const [open, setOpen] = useState(false);
@@ -377,12 +391,6 @@ export function RecoveryDialog({ bridge, health, onProjectOpened, onRestore, onC
 
   return (
     <>
-      {health !== null && (
-        <p className="inline-alert save-alert recovery-health" role="alert" data-testid="journal-health">
-          <WarningIcon size={15} />
-          {t('recovery.journalFailed')}
-        </p>
-      )}
       {open && pending && (
         <div className="recovery-backdrop">
           <div
