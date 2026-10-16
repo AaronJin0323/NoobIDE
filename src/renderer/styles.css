@@ -207,6 +207,28 @@ input[type='radio'] {
   padding: 0 12px 0 20px;
   background: transparent;
 }
+/* Integrated title bar (Windows, macOS): the top bar is where the window is dragged from (double-click maximises);
+   controls in it stay clickable. Windows draws its caption buttons over the right end (the Window Controls Overlay
+   reports where), macOS its traffic lights at the left. */
+.topbar[data-frame='windows'],
+.topbar[data-frame='mac'] {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+.topbar[data-frame='windows'] {
+  padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px);
+}
+.topbar[data-frame='mac'] {
+  padding-left: 88px;
+}
+.topbar :is(button, a, input, select, textarea, [role='menu'], [role='status'], [tabindex]),
+.dialog-backdrop,
+.recovery-backdrop,
+.palette-backdrop,
+.context-menu,
+.app-notice-stack {
+  -webkit-app-region: no-drag;
+}
 .app-mark {
   flex: none;
   display: flex;

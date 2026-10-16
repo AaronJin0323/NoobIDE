@@ -66,7 +66,15 @@ export function TopBar({
     if (saveHadFocus) statusRef.current?.focus();
   }, [saveHadFocus]);
   return (
-    <header className="region topbar" role="banner" aria-label={t('region.topbar')} data-testid="region-topbar">
+    // The top bar is also the window's title bar (no native one on Windows/macOS): `data-frame` reserves room for the
+    // window controls and makes the bar the drag area.
+    <header
+      className="region topbar"
+      role="banner"
+      aria-label={t('region.topbar')}
+      data-testid="region-topbar"
+      data-frame={platform}
+    >
       <span className="app-mark" aria-hidden="true">
         <NoobIdeMark />
       </span>
