@@ -3,6 +3,33 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 23 (side session) — 2026-10-16 — Logo and brand colour (owner request)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/noobide-logo-theme-e36f86`
+(node_modules junctioned to the main checkout).
+
+**Done**
+
+- **Logo:** a rounded square with a white `< • >` mark, an HTML tag holding one dot (the first thing you write).
+  Vector originals in `resources/brand/` (`noobide-logo.svg` tile, `noobide-mark.svg` single-colour mark).
+  `scripts/make-icons.mjs` now draws the same geometry; `icon.png/.icns/.ico` regenerated (checked at 1024, 32
+  and 16 px). The welcome screen shows the logo above its title (`NoobIdeLogo` in `workbench/icons.tsx`,
+  decorative, coloured from `--accent` / `--on-accent`).
+- **Brand colour:** the accent is now blue `#1D6CF0` instead of the prototype's purple `#6E5BFF`, in both
+  schemes, with matching accentText, accentSoft, focus, selection, lineHighlight and the ambient glass field
+  (`src/renderer/theme/tokens.ts`). White on the accent is 4.71:1; tokens.test.ts passes. Syntax colours are
+  unchanged (keywords stay violet in the editor).
+
+**Evidence:** `vitest run src/renderer/theme src/renderer/welcome tests/integration`: 56 files, 696 passed.
+
+**Problems:** `npm run verify` is red **at the base commit df242a0** (main), before this change: typecheck errors
+in `ai/AddContextMenu.tsx`, `PreviewMoreMenu.tsx`, `notice.test.ts`, `button-hierarchy.test.ts`, and failing
+`Sheet.test.ts`, `commands.test.ts`, `notice.test.ts`, `button-hierarchy.test.ts`. The S44/S45 merge looks
+incomplete (missing i18n keys and exports). None of these files are touched here.
+
+**Next up:** fix the broken S44/S45 merge on main so verify is green again; then the owner checks the new icon in a
+packaged build on both platforms.
+
 ## Session 22 (side session) — 2026-10-16 — CI: the three load-sensitive preview specs (S05.8, S05.7, S38.1)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/interesting-hopper-188b01`

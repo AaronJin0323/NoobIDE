@@ -252,3 +252,22 @@ export const SearchIcon = ({ size }: { size?: number }) => (
     <path d="M10.5 10.5L14 14" />
   </Icon>
 );
+
+/** The NoobIDE logo (resources/brand/noobide-logo.svg): accent tile with a "< • >" mark. Decorative. */
+export const NoobIdeLogo = ({ size = 40 }: { size?: number }) => (
+  <svg
+    className="noobide-logo"
+    width={size}
+    height={size}
+    viewBox="100 100 824 824"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <rect className="noobide-logo-tile" x="100" y="100" width="824" height="824" rx="185" />
+    <g className="noobide-logo-glyph" fill="none" strokeWidth="88" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="356,352 216,512 356,672" />
+      <polyline points="668,352 808,512 668,672" />
+      <circle cx="512" cy="512" r="64" stroke="none" />
+    </g>
+  </svg>
+);

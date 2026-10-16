@@ -15,6 +15,19 @@
   flex: 1 1 320px;
   min-width: 0;
 }
+.welcome-start .noobide-logo {
+  display: block;
+  margin-bottom: 14px;
+}
+.noobide-logo-tile {
+  fill: var(--accent);
+}
+.noobide-logo-glyph {
+  stroke: var(--on-accent);
+}
+.noobide-logo-glyph circle {
+  fill: var(--on-accent);
+}
 .welcome-title {
   margin: 0 0 6px;
   font-size: 20px;
