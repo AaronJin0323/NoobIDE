@@ -1,3 +1,4 @@
+import { isImeKey } from '../workbench/ime';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type {
   CreateProjectApi,
@@ -186,6 +187,7 @@ export function CreateProjectDialog({ api, onCreated, onCancel }: CreateProjectD
                 aria-invalid={view.messageKind === 'error'}
                 onChange={(event) => setName(event.target.value)}
                 onKeyDown={(event) => {
+                  if (isImeKey(event.nativeEvent)) return;
                   if (event.key === 'Enter') {
                     event.preventDefault();
                     void create();

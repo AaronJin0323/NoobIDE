@@ -284,6 +284,45 @@ test('"Fix with AI" on a page problem: diff, Accept, resolved after the preview 
   await page.getByTestId('switch-language').click();
 });
 
+test('IME text stays intact and candidate keys do not send or close the inline editor', async () => {
+  await openFile(page, 'index.html');
+  await selectLine(3);
+  await page.keyboard.press(`${mod}+i`);
+  const input = zone().getByTestId('inline-edit-input');
+  await expect(input).toBeFocused();
+  // Check immediately within input dispatch: a cross-root controlled field rolls back before its parent effect.
+  const immediate = await input.evaluate((element) => {
+    const field = element as HTMLTextAreaElement;
+    field.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+    setter.call(field, '把标题改成蓝色');
+    field.setSelectionRange(2, 2);
+    field.dispatchEvent(
+      new InputEvent('input', { bubbles: true, data: '蓝色', inputType: 'insertCompositionText', isComposing: true }),
+    );
+    return { value: field.value, caret: field.selectionStart };
+  });
+  expect(immediate).toEqual({ value: '把标题改成蓝色', caret: 2 });
+  for (const key of ['Enter', 'Escape']) {
+    await input.dispatchEvent('keydown', { key, isComposing: true });
+    await expect(zone()).toHaveAttribute('data-phase', 'instruction');
+  }
+  await input.dispatchEvent('compositionend', { data: '蓝色' });
+  for (const key of ['Enter', 'Escape']) {
+    await input.dispatchEvent('keydown', { key, keyCode: 229, isComposing: false });
+    await expect(zone()).toHaveAttribute('data-phase', 'instruction');
+  }
+  await expect(input).toHaveValue('把标题改成蓝色');
+  expect(await input.evaluate((field) => (field as HTMLTextAreaElement).selectionStart)).toBe(2);
+  await input.press('End');
+  await input.press('Shift+Enter');
+  await expect(input).toHaveValue('把标题改成蓝色\n');
+  await input.press('Enter');
+  await expect(zone()).toHaveAttribute('data-phase', 'review');
+  await page.keyboard.press('Escape');
+  await expect(zone()).toHaveCount(0);
+});
+
 test('no console errors during the AI edit run', () => {
   expect(consoleErrors).toEqual([]);
 });
