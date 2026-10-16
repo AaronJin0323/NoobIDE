@@ -35,6 +35,11 @@ pass). Main's new filled buttons (AI Send, annotate button and badge, annotation
 action) were moved to `accentFill` + rim as well, so no text is drawn white on the dark scheme's near-white
 `accent`. `npm run verify` is green on the merged tree.
 
+**CI fix (PR #4, windows-x64):** `src/ai/usage-store.test.ts` timed out: its retention check recorded ~70 days
+one atomic write at a time (209 ms locally, over 5 s on the Windows runner); the timed-out loop kept moving the
+shared clock and failed the next test (`day: 2026-12-12`). The test now seeds the old days into the file and
+records one more day (30 ms, same assertions plus the newest day kept; it fails when retention is widened).
+
 **Next up:** the owner checks the new icon in a packaged build on both platforms.
 
 ## Session 24 (side session) — 2026-10-16 — main red after a110002: confirmed fixed by the archive restore
