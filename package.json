@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "A beginner-friendly desktop IDE for HTML / CSS / JavaScript.",
+  "license": "MIT",
   "type": "module",
   "main": ".vite/build/main.cjs",
   "engines": {

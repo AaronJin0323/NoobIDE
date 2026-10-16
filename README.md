@@ -34,3 +34,8 @@ To steer it, name a session or feature: "Do S03" or "Only S04.1 today".
 `npm run session -- status` lists open owner tasks (H.x): devices, accounts, user studies and go/no-go calls. When
 you finish one: `node harness/session.mjs set H.1 done --owner --evidence "what was decided"`. Manual hardware checks
 waiting for you are in [harness/MANUAL-CHECKS.md](harness/MANUAL-CHECKS.md).
+
+## License
+
+NoobIDE is released under the [MIT License](LICENSE). The licenses of bundled third-party packages ship with the app
+in `THIRD_PARTY_NOTICES.txt` (opened from About).
