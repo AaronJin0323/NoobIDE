@@ -30,6 +30,7 @@ import {
 // S15.3 viewport width; S15.5/S15.6 overlays above the native view.
 import { MOBILE_WIDTH, OVERLAY_SELECTOR, coveredBy, viewRect, type ViewportWidth } from './preview-viewport';
 import { setPreviewCommandTarget } from './preview-commands';
+import { createTypingReporter } from './typing-reporter';
 // S41.5: annotations strip (decision 0030), in the layout flow under the toolbar.
 import type { Annotation } from '../../shared/ipc/annotations-contract';
 import { AnnotationsStrip } from '../annotations/AnnotationsStrip';
@@ -297,17 +298,17 @@ export function PreviewPane({
   const live = status.state !== 'stopped';
   useEffect(() => {
     if (!bridge?.typing || !live) return undefined;
-    let last = 0;
+    const reporter = createTypingReporter(() => void bridge.typing?.(), TYPING_THROTTLE_MS);
     const onKey = (event: KeyboardEvent) => {
       if (!(event.target instanceof Element) || !event.target.closest('.monaco-editor')) return;
       if (!isTypingKey(event)) return;
-      const now = Date.now();
-      if (now - last < TYPING_THROTTLE_MS) return;
-      last = now;
-      void bridge.typing?.();
+      reporter.key();
     };
     window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      reporter.dispose();
+    };
   }, [bridge, live]);
 
   // --- toolbar actions (also the S15.4 commands) ---
