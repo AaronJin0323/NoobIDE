@@ -19,6 +19,7 @@ import { searchEn } from './search'; // S51
 import { fileManagementEn } from './file-management'; // S52
 import { noticesEn } from './notices'; // S50.2
 import { imageViewerEn } from './image-viewer'; // S52.6
+import { motionEn } from './motion'; // S47
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -346,6 +347,7 @@ export const en: Record<MessageKey, string> = {
   ...journeyEn, // beginner-journey fixes: preview page path, missing-page page, editor overflow menu
   ...searchEn, // S51 find, replace and quick open
   ...fileManagementEn, // S52 move, copy, multi-select, import, image viewer
+  ...motionEn, // S47 motion and detail
   ...noticesEn, // S50.2 app notices
   ...imageViewerEn, // S52.6 image viewer tab
   // --- S18.3 formatting ---
