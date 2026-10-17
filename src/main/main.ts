@@ -362,6 +362,26 @@ function start(): void {
     // S14.4/S14.2: preview trust and one-time notes in app data (never inside a project).
     const previewStore = new PreviewStore({ file: appDataPath(appData, 'preview'), log: logger });
     const openProjects = projects;
+    // S52.1 e2e: hold folder listings (a slow disk on demand) to prove Move to… acts on an Enter pressed before its
+    // folder list arrived. Nothing is listed differently; the hook only delays.
+    let listingHold: { promise: Promise<void>; release: () => void } | null = null;
+    const listDirNow = projects.listDir.bind(projects);
+    projects.listDir = async (request) => {
+      if (listingHold) await listingHold.promise;
+      return listDirNow(request);
+    };
+    Object.assign((globalThis as { __noobideTestHooks?: object }).__noobideTestHooks ?? {}, {
+      holdListings: () => {
+        if (listingHold) return;
+        let release = () => {};
+        const promise = new Promise<void>((resolve) => (release = resolve));
+        listingHold = { promise, release };
+      },
+      releaseListings: () => {
+        listingHold?.release();
+        listingHold = null;
+      },
+    });
     registerIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       projects,
