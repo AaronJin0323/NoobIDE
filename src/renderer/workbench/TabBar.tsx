@@ -4,7 +4,9 @@ import type { MessageKey } from '../i18n/index';
 import type { OpenTab } from './document-state';
 import { saveStatus, type SaveStatus } from './save-machine';
 import { scrollBehavior, useReducedMotion } from '../theme/motion';
-import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, SaveStateIcon } from './icons';
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon, ListIcon, SaveStateIcon } from './icons';
+import { allTabsRows, focusAfterClose } from './all-tabs'; // S49.5
+import { useRovingFocus } from './useRovingFocus'; // S49.5
 import { fileRoleDetailKey, fileRoleFor, fileRoleLabelKey } from './file-role';
 import { fill } from './file-op-messages';
 
@@ -244,6 +246,175 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
         >
           <ChevronRightIcon />
         </button>
+      )}
+      {/* S49.5: every open file in one list, with its state word, closable from there. */}
+      <AllTabs
+        tabs={tabs}
+        active={active}
+        shown={overflowing}
+        onActivate={(relPath) => focusAndShow(relPath)}
+        onClose={onClose}
+      />
+    </div>
+  );
+}
+
+/**
+ * S49.5: the "All tabs" button (offered while the strip overflows) and its list: one row per open file in tab
+ * order — name, folder, state word (Saved included), a check on the shown tab — and a close button per row. The list
+ * is one tab stop (the arrows move, Delete closes the focused row's file); Escape or a click outside closes it and
+ * the focus goes back to the button. Closing a file with unsaved edits goes through the usual close path.
+ */
+function AllTabs({
+  tabs,
+  active,
+  shown,
+  onActivate,
+  onClose,
+}: {
+  tabs: readonly OpenTab[];
+  active: string | null;
+  shown: boolean;
+  onActivate: (relPath: string) => void;
+  onClose: (relPath: string) => void;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<number | null>(null);
+  const listId = 'all-tabs-list';
+  const roving = useRovingFocus<HTMLUListElement>({ orientation: 'both', items: ':scope > li > button' });
+  const rows = allTabsRows(tabs, active);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!panel.current?.contains(target) && !button.current?.contains(target)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
+  }, [open]);
+
+  // On open the shown file's row takes the focus; after a close from the list, the row that took its place.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const openers = [...(panel.current?.querySelectorAll<HTMLButtonElement>('.all-tabs-open') ?? [])];
+    if (openers.length === 0) {
+      setOpen(false);
+      button.current?.focus();
+      return;
+    }
+    const index = pendingFocus.current;
+    if (index === null) return;
+    pendingFocus.current = null;
+    openers[Math.min(index, openers.length - 1)]?.focus({ preventScroll: true });
+  }, [open, tabs.length]);
+
+  if (!shown && !open) return null;
+
+  const close = (focusButton: boolean) => {
+    setOpen(false);
+    if (focusButton) button.current?.focus();
+  };
+  const closeRow = (index: number) => {
+    const row = rows[index];
+    if (!row) return;
+    pendingFocus.current = focusAfterClose(index, rows.length - 1);
+    onClose(row.relPath);
+  };
+
+  return (
+    <div className="all-tabs">
+      <button
+        ref={button}
+        type="button"
+        className="tabs-all"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-label={fill(t('tabs.all.title'), { n: String(tabs.length) })}
+        title={fill(t('tabs.all.title'), { n: String(tabs.length) })}
+        data-testid="tabs-all"
+        onClick={() => {
+          if (!open)
+            pendingFocus.current = Math.max(
+              0,
+              rows.findIndex((row) => row.current),
+            );
+          setOpen((value) => !value);
+        }}
+      >
+        <ListIcon />
+      </button>
+      {open && (
+        <div
+          ref={panel}
+          id={listId}
+          className="app-menu-list app-menu-list-end all-tabs-list"
+          role="dialog"
+          aria-label={t('tabs.all.menu')}
+          data-testid="all-tabs-list"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              event.stopPropagation();
+              close(true);
+            }
+          }}
+        >
+          <ul className="all-tabs-rows" {...roving}>
+            {rows.map((row, index) => {
+              const state = t(row.stateKey);
+              return (
+                <li key={row.relPath} className="all-tabs-row" data-path={row.relPath} data-state={row.status}>
+                  <button
+                    type="button"
+                    className="app-menu-item all-tabs-open"
+                    aria-current={row.current ? 'true' : undefined}
+                    aria-keyshortcuts="Delete"
+                    title={row.relPath}
+                    data-testid="all-tabs-open"
+                    onClick={() => {
+                      close(false);
+                      onActivate(row.relPath);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Delete') {
+                        event.preventDefault();
+                        closeRow(index);
+                      }
+                    }}
+                  >
+                    <span className="all-tabs-check" aria-hidden="true">
+                      {row.current && <CheckIcon />}
+                    </span>
+                    <span className="all-tabs-name">
+                      {row.name}
+                      {row.current && <span className="sr-only">{` (${t('tabs.all.current')})`}</span>}
+                    </span>
+                    {row.folder && <span className="all-tabs-folder">{row.folder}</span>}
+                    <span className="all-tabs-state" data-testid="all-tabs-state">
+                      {row.status !== 'clean' && row.status !== 'saved' && <SaveStateIcon state={row.status} />}
+                      {state}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button all-tabs-close"
+                    aria-label={fill(t('tabs.all.close'), { name: row.relPath })}
+                    title={fill(t('tabs.all.close'), { name: row.relPath })}
+                    data-testid="all-tabs-close"
+                    onClick={() => closeRow(index)}
+                  >
+                    <CloseIcon />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </div>
   );

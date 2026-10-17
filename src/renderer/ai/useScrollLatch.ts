@@ -16,13 +16,13 @@ const INPUT_EVENTS = ['wheel', 'touchstart', 'touchmove', 'keydown', 'pointerdow
 
 /**
  * S48.1: binds the scroll latch to a scroll container. `content` changes whenever the log gains content (a cheap
- * signature, not the content itself), `entry` names the entry that changed, and a new `reset` (e.g. another
+ * signature, not the content itself), `entry` names the entry (or, S49.4, the entries) that changed, and a new `reset` (e.g. another
  * conversation) pins again. Returns the Jump-to-latest view and the action that jumps.
  */
 export function useScrollLatch(
   scroller: RefObject<HTMLElement | null>,
   content: string,
-  entry: string | null,
+  entry: string | readonly string[] | null,
   reset: string,
 ): JumpView & { readonly jump: () => void } {
   const latch = useRef<LatchState>(INITIAL_LATCH);

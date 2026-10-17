@@ -5,7 +5,15 @@ import { otherLocale, translate, type Locale, type MessageKey } from '../i18n/in
 import type { CommandId } from '../../shared/commands';
 import { SearchIcon } from '../workbench/icons';
 import { SheetFrame } from '../workbench/Sheet';
-import { PALETTE_KEYWORDS, keywordList, moveSelection, searchPalette, type PaletteEntry } from './palette-model';
+import {
+  PALETTE_KEYWORDS,
+  keywordList,
+  moveSelection,
+  recentLead,
+  searchPalette,
+  type PaletteEntry,
+  type PaletteMatch,
+} from './palette-model';
 import { rankFiles } from './quick-open-model';
 
 export interface PaletteCommand {
@@ -50,6 +58,8 @@ interface CommandPaletteProps {
   files?: { readonly paths: readonly string[]; readonly recent: readonly string[] } | undefined;
   /** S51.5: a file was chosen; the palette closes and the file opens in a tab. */
   onOpenFile?: ((relPath: string) => void) | undefined;
+  /** S49.5: command ids last run from the palette, newest first (app data). */
+  recents?: readonly string[];
 }
 
 /**
@@ -59,7 +69,7 @@ interface CommandPaletteProps {
  * follows ↑/↓, and Enter runs it. Typing in Chinese through an
  * input method never runs anything mid-composition. Only commands that can run are listed — nothing pretends.
  */
-export function CommandPalette({ commands, onClose, files, onOpenFile }: CommandPaletteProps) {
+export function CommandPalette({ commands, onClose, files, onOpenFile, recents = [] }: CommandPaletteProps) {
   const { t, locale } = useI18n();
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
@@ -78,9 +88,11 @@ export function CommandPalette({ commands, onClose, files, onOpenFile }: Command
     [filesMode, files, query],
   );
   const commandMatches = useMemo(
-    () => (filesMode ? [] : searchPalette(entries, commandQuery)),
-    [filesMode, entries, commandQuery],
+    () => (filesMode ? [] : searchPalette(entries, commandQuery, recents)),
+    [filesMode, entries, commandQuery, recents],
   );
+  // S49.5: with an empty command query the recently run commands come first, under a "Recent" group.
+  const lead = filesMode ? 0 : recentLead(commandMatches, recents, commandQuery);
   const count = filesMode ? fileMatches.length : commandMatches.length;
   const checkedOf = useMemo(() => new Map(commands.map((c) => [c.id, c.checked])), [commands]);
   const active = count === 0 ? -1 : Math.min(selected, count - 1);
@@ -133,6 +145,35 @@ export function CommandPalette({ commands, onClose, files, onOpenFile }: Command
         count: t('palette.count'),
         keys: t('palette.keys'),
       };
+
+  const renderOption = (match: PaletteMatch, index: number) => {
+    const checked = checkedOf.get(match.entry.id) ?? null;
+    return (
+      <li
+        key={match.entry.id}
+        id={optionId(index)}
+        role="option"
+        aria-selected={index === active}
+        aria-checked={checked === null ? undefined : checked}
+        className="palette-option"
+        data-testid={`palette-${match.entry.id}`}
+        onMouseMove={() => index !== active && setSelected(index)}
+        onClick={() => onClose(match.entry.id)}
+      >
+        {/* The current choice carries a check mark, not only a colour */}
+        <span className="palette-check" aria-hidden="true">
+          {checked ? '✓' : ''}
+        </span>
+        <span className="palette-text">
+          <span className="palette-label">{match.entry.label}</span>
+          {match.viaOther && (
+            <span className="palette-other">{t('palette.other').replace('{label}', match.entry.otherLabel)}</span>
+          )}
+        </span>
+        {match.entry.shortcut && <kbd className="kbd">{match.entry.shortcut}</kbd>}
+      </li>
+    );
+  };
 
   return (
     <SheetFrame
@@ -204,36 +245,22 @@ export function CommandPalette({ commands, onClose, files, onOpenFile }: Command
         </ul>
       ) : count > 0 ? (
         <ul ref={list} id={listId} className="palette-list" role="listbox" aria-label={text.results}>
-          {commandMatches.map((match, index) => {
-            const checked = checkedOf.get(match.entry.id) ?? null;
-            return (
-              <li
-                key={match.entry.id}
-                id={optionId(index)}
-                role="option"
-                aria-selected={index === active}
-                aria-checked={checked === null ? undefined : checked}
-                className="palette-option"
-                data-testid={`palette-${match.entry.id}`}
-                onMouseMove={() => index !== active && setSelected(index)}
-                onClick={() => onClose(match.entry.id)}
-              >
-                {/* The current choice carries a check mark, not only a colour */}
-                <span className="palette-check" aria-hidden="true">
-                  {checked ? '✓' : ''}
-                </span>
-                <span className="palette-text">
-                  <span className="palette-label">{match.entry.label}</span>
-                  {match.viaOther && (
-                    <span className="palette-other">
-                      {t('palette.other').replace('{label}', match.entry.otherLabel)}
-                    </span>
-                  )}
-                </span>
-                {match.entry.shortcut && <kbd className="kbd">{match.entry.shortcut}</kbd>}
-              </li>
-            );
-          })}
+          {lead > 0 && (
+            <li
+              role="group"
+              className="palette-recent-group"
+              aria-label={t('palette.recent')}
+              data-testid="palette-recent"
+            >
+              <div className="palette-group" aria-hidden="true">
+                {t('palette.recent')}
+              </div>
+              <ul role="none" className="palette-group-list">
+                {commandMatches.slice(0, lead).map((match, index) => renderOption(match, index))}
+              </ul>
+            </li>
+          )}
+          {commandMatches.slice(lead).map((match, index) => renderOption(match, index + lead))}
         </ul>
       ) : (
         <p className="palette-empty" data-testid="palette-empty">

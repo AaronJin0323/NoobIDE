@@ -6,6 +6,7 @@
  */
 import type { CommandId } from '../../shared/commands';
 import type { MessageKey } from '../i18n/index';
+import { PALETTE_RECENTS_MAX } from '../../shared/settings';
 
 /** What the matcher reads of an entry (S48.4: the chat's @file list matches files with it too). */
 export interface MatchEntry {
@@ -89,10 +90,27 @@ function score(query: string, label: string): number | null {
   return null;
 }
 
-/** The entries matching `query`, best first; the registry order breaks ties. Empty query: every entry. */
-export function searchPalette<E extends MatchEntry>(entries: readonly E[], query: string): PaletteMatch<E>[] {
+/**
+ * The entries matching `query`, best first; among equally good matches the more recently run command comes first
+ * (S49.5), then the registry order. Empty query: every entry, the recently run ones first (newest first). Generic
+ * over the entry (S48.4: the chat's @file list ranks files with it too; entries without an `id` have no recency).
+ */
+export function searchPalette<E extends MatchEntry & { readonly id?: string }>(
+  entries: readonly E[],
+  query: string,
+  recents: readonly string[] = [],
+): PaletteMatch<E>[] {
   const q = normalize(query);
-  if (q === '') return entries.map((entry) => ({ entry, viaOther: false }));
+  const recency = (entry: E) => {
+    const at = entry.id === undefined ? -1 : recents.indexOf(entry.id);
+    return at === -1 ? Infinity : at;
+  };
+  if (q === '') {
+    const all = entries.map((entry, order) => ({ entry, order, recent: recency(entry) }));
+    return all
+      .sort((a, b) => a.recent - b.recent || a.order - b.order)
+      .map(({ entry }) => ({ entry, viaOther: false }));
+  }
   const ranked: { match: PaletteMatch<E>; rank: number; order: number }[] = [];
   entries.forEach((entry, order) => {
     const own = score(q, entry.label);
@@ -108,7 +126,21 @@ export function searchPalette<E extends MatchEntry>(entries: readonly E[], query
     const rank = viaOther ? (other as number) + 0.5 : Math.min(own, other === null ? Infinity : other + 0.5);
     ranked.push({ match: { entry, viaOther }, rank, order });
   });
-  return ranked.sort((a, b) => a.rank - b.rank || a.order - b.order).map((r) => r.match);
+  return ranked
+    .sort((a, b) => a.rank - b.rank || recency(a.match.entry) - recency(b.match.entry) || a.order - b.order)
+    .map((r) => r.match);
+}
+
+/** S49.5: `id` was just run from the palette: it moves to the front; the list keeps the newest PALETTE_RECENTS_MAX. */
+export function recordRecent(recents: readonly string[], id: string, max = PALETTE_RECENTS_MAX): string[] {
+  return [id, ...recents.filter((other) => other !== id)].slice(0, max);
+}
+
+/** S49.5: the number of leading results the palette shows under "Recent" (only for an empty query). */
+export function recentLead(matches: readonly PaletteMatch[], recents: readonly string[], query: string): number {
+  if (normalize(query) !== '') return 0;
+  const lead = matches.findIndex((match) => !recents.includes(match.entry.id));
+  return lead === -1 ? matches.length : lead;
 }
 
 /** Arrow-key movement through the results, wrapping at both ends. */

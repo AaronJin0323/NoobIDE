@@ -5189,8 +5189,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/roving-focus.test.ts (10 tests: arrows per orientation, Home/End/PageUp/PageDown, loop, RTL, stop selection) + roving-groups.test.ts (5 groups wired: rail vertical; narrow switch, preview toolbar, viewport switch, chat add-context, proposal rows horizontal) + tests/e2e/roving-focus.spec.ts (5 tests on the packaged build: one tab stop per group, arrows/Home/End/wrap, Tab leaves, F6 order and landing on the stop, axe clean with a live proposal) + a11y.spec (5 passed: F6 order unchanged) + verify green @ b9c71e4"
     },
     {
       "id": "S49.3",
@@ -5219,8 +5219,8 @@
       "depends_on": [
         "S48.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/console-model.test.ts (7 tests: case-insensitive, Chinese and full-width search, detail/place match, blank query, 200-line window untouched, copy text of a line and of all visible) + scroll-latch.test.ts (multi-key batches) + tests/e2e/console-tools.spec.ts (5 tests on the packaged build: pinned follow, scrolled reader stays put with Jump to latest '5 行新输出' then back to the end, search incl. 点击 and no-match text, Copy line / Copy all visible via the clipboard and one tab stop for the copy buttons, 200-line window) + preview/isolation/problems/layout/key-features/permissions/runtime-problems/ai-agent/ai-chat e2e 63 passed + verify green @ 164b913"
     },
     {
       "id": "S49.5",
@@ -5233,8 +5233,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/commands/palette-model.test.ts (4 recents tests: empty query newest first, unknown ids skipped, recency only breaks ties, newest eight) + src/shared/settings.test.ts (paletteRecents validation, app-data settings) + src/renderer/workbench/all-tabs.test.ts (3 tests: tab order/folders/current, a state word for every save state, focus after close) + tests/e2e/palette-recents.spec.ts (2 tests on the packaged build: recents group first and still there after a restart from the same app data, axe clean; All tabs at 960 px: 7 rows with state words incl. 保存失败, shown row checked and focused, arrows/Enter/Escape, close by × and Delete, axe clean) + tabs/glass/commands/file-copy/key-features/a11y e2e 49 passed + verify green @ 81a9a0e"
     },
     {
       "id": "S49.6",
@@ -5247,8 +5247,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/container-ladder.test.ts (5 tests: named containers preview-toolbar / composer-chin, tiers <480/<384/<320 per container, hidden hints and secondary actions, 4rem ellipsis + icon-only labels, max(6rem, calc(100cqw - 4rem)), 32px hit boxes with equal negative margin-block) + tests/e2e/container-ladder.spec.ts (3 tests on the packaged build: tiers of the preview header/toolbar and the composer chin, accessible names kept, 32px hit targets with rows not growing, click on the transparent band) + key-features-visible.spec (preview Start/Refresh, entry, viewport switch on screen at all five sizes) + full e2e 421 passed / 4 skipped + verify green @ 4a0a2bc"
     },
     {
       "id": "S50.1",

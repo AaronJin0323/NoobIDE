@@ -20,6 +20,7 @@ import { fileManagementEn } from './file-management'; // S52
 import { noticesEn } from './notices'; // S50.2
 import { imageViewerEn } from './image-viewer'; // S52.6
 import { aiComposerEn } from './ai-composer'; // S48.4/S48.6/S48.7
+import { navigationEn } from './navigation'; // S49.4 / S49.5
 import { motionEn } from './motion'; // S47
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
@@ -352,6 +353,7 @@ export const en: Record<MessageKey, string> = {
   ...noticesEn, // S50.2 app notices
   ...imageViewerEn, // S52.6 image viewer tab
   ...aiComposerEn, // S48.4/S48.6/S48.7 chat composer, long messages, drafts and backoff
+  ...navigationEn, // S49.4 / S49.5 console search and copy, palette recents, All tabs
   // --- S18.3 formatting ---
   'format.button': 'Format',
   'format.title': 'Format the code: indentation and line breaks ({shortcut})',

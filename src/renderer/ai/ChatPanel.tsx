@@ -26,6 +26,7 @@ import { useComposerSuggestions, type ComposerSources } from './ComposerSuggesti
 import { CopyMessageButton, MessageActions, ReaskButton, UserPrompt } from './ChatMessage';
 import { RetryControls, causeText } from './RetryControls';
 import { canRetry } from './chat-controller';
+import { RovingGroup } from '../workbench/RovingGroup'; // S49.2
 import { StepsFold, groupAnswer } from './StepsFold';
 import { staggerStyle } from '../theme/stagger';
 import { StatusDot } from '../theme/StatusDot';
@@ -535,7 +536,7 @@ export function ChatPanelView({
               </p>
             )}
             {projectId !== null && (
-              <div className="ai-context-add">
+              <RovingGroup className="ai-context-add">
                 <button
                   type="button"
                   className="quiet-button"
@@ -560,7 +561,7 @@ export function ChatPanelView({
                 >
                   {t('ai.chat.context.addPreview')}
                 </button>
-              </div>
+              </RovingGroup>
             )}
           </div>
           <p className="ai-notice" role="status" data-testid="ai-notice">
@@ -643,7 +644,7 @@ export function ChatPanelView({
                 disabled={!canSend}
               >
                 <AiIcon size={16} />
-                {t('ai.chat.send')}
+                <span className="cq-label">{t('ai.chat.send')}</span>
               </button>
             )}
           </div>

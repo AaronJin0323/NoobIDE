@@ -232,9 +232,10 @@ test('at the default 1280×800 window the tabs keep the header; Format and zoom 
   try {
     await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(1280);
     for (const file of ['index.html', 'style.css', 'script.js']) await openFile(page, file);
-    // The strip gets most of the editor header (it was 159 px next to History, Format and zoom).
+    // The strip gets most of the editor header (it was 159 px next to History, Format and zoom). S49.5: the strip is
+    // the tabs with their overflow controls (the chevrons and the All-tabs button shown while the tabs overflow).
     const widths = await page.evaluate(() => ({
-      strip: document.querySelector('[data-testid="tab-bar"]')!.getBoundingClientRect().width,
+      strip: document.querySelector('.tabs-strip')!.getBoundingClientRect().width,
       header: document.querySelector('.tabs-header')!.getBoundingClientRect().width,
     }));
     expect(widths.strip, JSON.stringify(widths)).toBeGreaterThan(widths.header * 0.55);

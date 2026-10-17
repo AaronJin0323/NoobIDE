@@ -6,6 +6,7 @@ import type { MessageKey } from '../i18n/index';
 import { fill } from '../recovery/format';
 import { diffLines } from '../recovery/line-diff';
 import { WarningIcon } from '../workbench/icons';
+import { RovingGroup } from '../workbench/RovingGroup'; // S49.2
 import type { ApplyFailure } from './agent-apply';
 import { saveErrorKey } from '../workbench/file-op-messages';
 import type { ChangeView } from './agent-decisions';
@@ -123,7 +124,7 @@ export function ProposalReview(props: ProposalReviewProps) {
               <ChangeBody change={change} />
               <ChangeDetails change={change} view={view} />
               {view.state === 'pending' && (
-                <div className="agent-change-actions">
+                <RovingGroup className="agent-change-actions">
                   <button
                     type="button"
                     className={primary === index ? 'primary-button' : 'secondary-button'}
@@ -144,14 +145,14 @@ export function ProposalReview(props: ProposalReviewProps) {
                   >
                     {t('agent.change.reject')}
                   </button>
-                </div>
+                </RovingGroup>
               )}
             </li>
           );
         })}
       </ol>
       {pending > 1 && (
-        <div className="agent-proposal-actions">
+        <RovingGroup className="agent-proposal-actions">
           <button
             type="button"
             className={primary === 'all' ? 'primary-button' : 'secondary-button'}
@@ -170,7 +171,7 @@ export function ProposalReview(props: ProposalReviewProps) {
           >
             {t('agent.rejectAll')}
           </button>
-        </div>
+        </RovingGroup>
       )}
     </section>
   );

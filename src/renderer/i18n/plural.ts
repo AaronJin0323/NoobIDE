@@ -38,6 +38,9 @@ export const ONE_FORMS: Partial<Record<'zh-CN' | 'en', Partial<Record<MessageKey
     'ai.chat.jumpPending': '{n} new message',
     'ai.backoff.minutes': '{n} minute', // S48.7
     'ai.backoff.seconds': '{n} second',
+    'preview.console.jumpPending': '{n} new line', // S49.4
+    'preview.console.copied': 'Copied {n} line', // S49.4
+    'preview.console.copyAll.title': 'Copy the {n} line shown now (after the filter and the search)', // S49.4
     'ai.history.skipped': '{n} saved chat could not be read (damaged, or saved by a newer NoobIDE) and was skipped.',
     'ai.history.revoke.ask': 'This project also has {n} saved AI chat. Delete it too?',
     'ai.history.revoke.deleted': '{n} chat deleted.',

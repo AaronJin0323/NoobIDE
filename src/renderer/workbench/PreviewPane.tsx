@@ -8,6 +8,7 @@ import type {
   RefreshMode,
 } from '../../shared/ipc/preview-contract';
 import { useI18n } from '../i18n/I18nProvider';
+import { RovingGroup } from './RovingGroup'; // S49.2
 import type { MessageKey } from '../i18n/index';
 import { MonitorIcon, PlayIcon, RefreshIcon, RevealIcon, StopIcon, WarningIcon } from './icons';
 // S17.3: console view (levels, filter, clear, page-load attribution) on the same bounded log model.
@@ -522,7 +523,7 @@ export function PreviewPane({
         {projectId !== null && annotations && (
           <span className="preview-annotate-slot" ref={setEntrySlot} data-testid="preview-annotate-slot" />
         )}
-        <div className="preview-actions" role="toolbar" aria-label={t('preview.toolbar')}>
+        <RovingGroup className="preview-actions" role="toolbar" aria-label={t('preview.toolbar')}>
           {projectId !== null && (
             <button
               type="button"
@@ -537,24 +538,43 @@ export function PreviewPane({
             </button>
           )}
           {actions.start && (
-            <button type="button" className="preview-primary" data-testid="preview-start" onClick={start}>
+            <button
+              type="button"
+              className="preview-primary"
+              data-testid="preview-start"
+              title={t('preview.start')}
+              onClick={start}
+            >
               <PlayIcon />
-              {t('preview.start')}
+              {/* S49.6: the narrowest tiers show the icon only; the words stay the button's name. */}
+              <span className="cq-label">{t('preview.start')}</span>
             </button>
           )}
           {actions.reload && (
-            <button type="button" className="preview-primary" data-testid="preview-reload" onClick={refresh}>
+            <button
+              type="button"
+              className="preview-primary"
+              data-testid="preview-reload"
+              title={t('preview.reload')}
+              onClick={refresh}
+            >
               <RefreshIcon />
-              {t('preview.reload')}
+              <span className="cq-label">{t('preview.reload')}</span>
             </button>
           )}
           {actions.stop && (
-            <button type="button" className="quiet-button preview-stop" data-testid="preview-stop" onClick={stop}>
+            <button
+              type="button"
+              className="quiet-button preview-stop"
+              data-testid="preview-stop"
+              title={t('preview.stop')}
+              onClick={stop}
+            >
               <StopIcon />
-              {t('preview.stop')}
+              <span className="cq-label">{t('preview.stop')}</span>
             </button>
           )}
-        </div>
+        </RovingGroup>
       </div>
       {/* The rows between the header and the stage: always at their natural size, never scrolled away. When the
           window is short the stage gives way (styles.css .preview-stage), not these controls. */}
@@ -624,7 +644,7 @@ export function PreviewPane({
               <label htmlFor={refreshId}>{t('preview.refreshMode')}</label>
             </span>
             {/* S15.3: honest labels — "width", and a note that this is not phone emulation. */}
-            <span
+            <RovingGroup
               className="viewport-switch"
               role="group"
               aria-label={t('preview.viewport.label')}
@@ -649,7 +669,7 @@ export function PreviewPane({
               <span id="preview-viewport-note" className="viewport-note" hidden={viewport !== 'mobile'}>
                 {t('preview.viewport.note')}
               </span>
-            </span>
+            </RovingGroup>
             <button
               type="button"
               className="quiet-button"

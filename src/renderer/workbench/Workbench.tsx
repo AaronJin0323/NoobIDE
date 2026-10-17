@@ -117,6 +117,7 @@ import type { AppMenuItem } from './AppMenu';
 import { CommandPalette, type PaletteCommand } from '../commands/CommandPalette'; // S40.5
 import type { ComposerSources } from '../ai/ComposerSuggestions'; // S48.4
 import { listProjectFiles } from '../ai/project-files'; // S48.4
+import { usePaletteRecents } from '../commands/usePaletteRecents'; // S49.5
 import { useDensity, useThemeChoice } from '../theme/ThemeProvider'; // S24.4, S50.4
 import { focusRegion } from '../commands/focus-regions'; // S24.3
 import { openAbout } from './about'; // S28.1
@@ -1447,6 +1448,7 @@ export function Workbench() {
   };
   // S40.5: the command palette lists what can run at the moment it opens; the chosen command runs after it closed.
   const [palette, setPalette] = useState<readonly PaletteCommand[] | null>(null);
+  const paletteRecents = usePaletteRecents(bridge?.settings); // S49.5
   // S51.5: the palette opened as quick open (files mode), the file chosen there, and the recently opened files.
   const [paletteFiles, setPaletteFiles] = useState(false);
   const paletteOpenFile = useRef<string | null>(null);
@@ -1976,7 +1978,9 @@ export function Workbench() {
       {palette && (
         <CommandPalette
           commands={palette}
+          recents={paletteRecents.recents}
           onClose={(id) => {
+            if (id) paletteRecents.record(id);
             paletteRun.current = id;
             setPalette(null);
             setPaletteFiles(false);

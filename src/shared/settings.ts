@@ -23,6 +23,9 @@ export type DensityChoice = (typeof DENSITY_CHOICES)[number];
 
 export const EDITOR_FONT_SIZE = { min: 10, max: 32, default: 16 } as const;
 
+/** S49.5: how many commands run from the palette it remembers (newest first). */
+export const PALETTE_RECENTS_MAX = 8;
+
 export interface AppSettings {
   readonly version: typeof SETTINGS_VERSION;
   readonly locale: SettingsLocale;
@@ -39,6 +42,11 @@ export interface AppSettings {
   readonly emmetHintShown: boolean;
   /** S53.4: an explicit save formats the file first (off by default). */
   readonly formatOnSave: boolean;
+  /**
+   * S49.5: command ids last run from the command palette, newest first, at most PALETTE_RECENTS_MAX. Per user (app
+   * data), never in a project. Ids this version does not know are kept here and skipped by the palette.
+   */
+  readonly paletteRecents: readonly string[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -51,6 +59,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   emmet: true,
   emmetHintShown: false,
   formatOnSave: false,
+  paletteRecents: [],
 };
 
 /** What the renderer may change. Validated field by field in main (parseSettingsPatch). */
@@ -131,6 +140,7 @@ function pickSettings(raw: Raw): { settings: AppSettings; resetFields: string[] 
     emmet: pick('emmet', isBoolean),
     emmetHintShown: pick('emmetHintShown', isBoolean),
     formatOnSave: pick('formatOnSave', isBoolean),
+    paletteRecents: pick('paletteRecents', isPaletteRecents),
   };
   return { settings, resetFields };
 }
@@ -157,6 +167,16 @@ export function isDensityChoice(value: unknown): value is DensityChoice {
 
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
 
+/** S49.5: a short list of distinct command-id-shaped strings (`toggle-problems`); the registry check is the palette's. */
+export function isPaletteRecents(value: unknown): value is readonly string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= PALETTE_RECENTS_MAX &&
+    value.every((id) => typeof id === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(id)) &&
+    new Set(value).size === value.length
+  );
+}
+
 /** Settings that are plain on/off switches. */
 const BOOLEAN_KEYS: readonly string[] = ['restoreSession', 'emmet', 'emmetHintShown', 'formatOnSave'];
 
@@ -182,7 +202,8 @@ export function parseSettingsPatch(payload: unknown): SettingsPatch | null {
       (key === 'theme' && isThemeChoice(value)) ||
       (key === 'density' && isDensityChoice(value)) ||
       (key === 'editorFontSize' && isFontSize(value)) ||
-      (BOOLEAN_KEYS.includes(key) && isBoolean(value));
+      (BOOLEAN_KEYS.includes(key) && isBoolean(value)) ||
+      (key === 'paletteRecents' && isPaletteRecents(value));
     if (!valid) return null;
     patch[key] = value;
   }

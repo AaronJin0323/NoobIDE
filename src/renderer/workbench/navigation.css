@@ -1,0 +1,347 @@
+/* M18 Track C (S49.4–S49.6): console pinning, search and copy; the All-tabs list; the container-query ladder.
+   Loaded after styles.css (main.tsx), so these rules extend the base ones without touching their blocks. */
+
+/* ── S49.4: console — the toolbar stays put, the list scrolls (the scroll latch watches the list only) ── */
+.preview-console {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.preview-console-toolbar,
+.preview-console-dropped {
+  flex: none;
+}
+.preview-console-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.preview-console-search {
+  width: 10rem;
+  min-width: 6rem;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+.preview-console-search:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.preview-console-toolbar .preview-console-search {
+  margin-left: auto;
+}
+.preview-console-toolbar .preview-console-search + .quiet-button {
+  margin-left: 0;
+}
+.preview-console-toolbar .quiet-button {
+  gap: 4px;
+}
+.preview-console-copied {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+/* A narrow preview pane keeps the console's tools on as few rows as it can: Copy all visible becomes its icon (the
+   words stay its name) and the search field gets shorter, so the lines keep their room. */
+.preview-console-toolbar {
+  container: console-tools / inline-size;
+}
+@container console-tools (width < 480px) {
+  .preview-console-search {
+    width: 6rem;
+  }
+  .preview-console-toolbar .cq-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+/* Copy line: quiet until the row is hovered or the button has the keyboard focus (the list is one tab stop). */
+.preview-console-line {
+  align-items: flex-start;
+}
+.preview-console-line .preview-console-copy {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: -2px 0 -2px auto;
+  opacity: 0;
+}
+.preview-console-line:hover .preview-console-copy,
+.preview-console-copy:focus-visible {
+  opacity: 1;
+}
+.preview-console-copy:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.preview-console-jump {
+  position: sticky;
+  bottom: 4px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: calc(100% - 16px);
+  margin: 4px auto 0;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.preview-console-jump:hover {
+  background: var(--hover-soft);
+}
+.preview-console-jump:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.preview-console-jump-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── S49.5: palette "Recent" group; the tab bar's All-tabs list ── */
+.palette-recent-group {
+  margin: 0 0 4px;
+  padding: 0 0 4px;
+  border-bottom: 1px solid var(--line);
+}
+.palette-group {
+  padding: 4px 6px 2px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.palette-group-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.all-tabs {
+  position: relative;
+  flex: none;
+}
+/* Icon-only beside the chevrons (the strip keeps its width); its name is "所有标签 / All tabs" (title, label). */
+.tabs-all {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  color: var(--text);
+  cursor: pointer;
+}
+.tabs-all:hover {
+  background: var(--hover);
+}
+.tabs-all[aria-expanded='true'] {
+  background: var(--hover);
+  box-shadow: var(--ring-selected);
+}
+.tabs-all:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.all-tabs-list {
+  min-width: 280px;
+  max-width: min(480px, 90vw);
+  max-height: min(420px, 70vh);
+  overflow-y: auto;
+}
+.all-tabs-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.all-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.all-tabs-open {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.all-tabs-check {
+  display: inline-flex;
+  flex: none;
+  width: 14px;
+}
+.all-tabs-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.all-tabs-folder {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.all-tabs-state {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.all-tabs-close {
+  flex: none;
+  margin-left: 0;
+}
+.all-tabs-open:hover :is(.all-tabs-folder, .all-tabs-state),
+.all-tabs-open:focus-visible :is(.all-tabs-folder, .all-tabs-state) {
+  color: inherit;
+}
+.all-tabs-close:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* ── S49.6: container-query ladder and hit-box compensation ──
+   The preview header, the preview toolbar row and the chat composer's chin are named containers. Tiers by their own
+   width (not the window's): >= 576px everything; < 480px no keyboard hints or secondary actions; < 384px icon-only buttons and 4rem labels with an ellipsis; < 320px 4px padding and
+   fields capped at max(6rem, 100cqw - 4rem). Every control drawn shorter than 32px in these rows gets a 32px hit
+   target from transparent block borders taken back with a negative margin-block, so the visual row never grows. */
+.preview-header,
+.preview-toolbar {
+  container: preview-toolbar / inline-size;
+}
+.ai-composer-row {
+  container: composer-chin / inline-size;
+}
+
+/* Hit boxes: the fill and the inset ring sit in the padding box (28px or less); the border box (the hit target) is
+   32px. */
+.preview-actions > .icon-button {
+  height: 32px;
+  margin-block: -2px;
+  border-block: 2px solid transparent;
+  background-clip: padding-box;
+}
+.preview-toolbar .quiet-button,
+.preview-location .quiet-button {
+  height: 32px;
+  margin-block: -3px;
+  border-block: 3px solid transparent;
+  background-clip: padding-box;
+}
+.preview-toolbar .preview-select {
+  height: 32px;
+  margin-block: -2px;
+  border-block: 2px solid transparent;
+  background-clip: padding-box;
+}
+/* The outline is S50.3's inset ring (drawn inside the padding box), so hover, pressed and focus keep their rings. */
+.preview-toolbar .viewport-choice {
+  height: 32px;
+  margin-block: -4px;
+  border-block: 4px solid transparent;
+  background-clip: padding-box;
+}
+
+/* < 480px: no keyboard hints, no secondary actions. The preview rows have neither: each of their buttons is the
+   only visible way to its action (Open in browser, Advanced → DevTools / clear data) and the save note is S54.3's
+   required status, so the preview's first step is the icon-only tier below. */
+@container composer-chin (width < 480px) {
+  .ai-hint {
+    display: none;
+  }
+}
+
+/* < 384px: icon-only buttons (the words stay their accessible name), 4rem labels with an ellipsis. */
+@container preview-toolbar (width < 384px) {
+  .cq-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .preview-primary,
+  .preview-stop {
+    padding-inline: 8px;
+  }
+  .viewport-choice,
+  .preview-field > label,
+  .state-pill {
+    max-width: 4rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+@container composer-chin (width < 384px) {
+  .cq-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .ai-composer-row .ai-send {
+    padding-inline: 8px;
+  }
+  .ai-composer-row .secondary-button {
+    max-width: 4rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* < 320px: the controls' inline padding drops to 4px; fields never wider than the row minus room for one button. */
+@container preview-toolbar (width < 320px) {
+  .preview-primary,
+  .preview-stop,
+  .quiet-button,
+  .viewport-choice,
+  .preview-select {
+    padding-inline: 4px;
+  }
+  .preview-select,
+  .preview-page-path,
+  .preview-location {
+    max-width: max(6rem, calc(100cqw - 4rem));
+  }
+}
+@container composer-chin (width < 320px) {
+  .ai-composer-row .ai-send,
+  .ai-composer-row .secondary-button {
+    padding-inline: 4px;
+    max-width: max(6rem, calc(100cqw - 4rem));
+  }
+}

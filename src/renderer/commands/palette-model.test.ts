@@ -5,6 +5,8 @@ import {
   keywordList,
   moveSelection,
   normalize,
+  recentLead,
+  recordRecent,
   searchPalette,
   type PaletteEntry,
 } from './palette-model';
@@ -106,5 +108,47 @@ describe('keywords: other words for a command', () => {
     ];
     expect(searchPalette(entries, 'save').map((m) => m.entry.id)).toEqual(['save', 'new-project']);
     expect(keywordList('a b，c、d, e')).toEqual(['a', 'b', 'c', 'd', 'e']);
+  });
+});
+
+describe('palette recents (S49.5)', () => {
+  const list: PaletteEntry[] = [
+    { id: 'open-folder', label: 'Open folder', otherLabel: '打开文件夹', shortcut: null },
+    { id: 'save', label: 'Save', otherLabel: '保存', shortcut: null },
+    { id: 'close-tab', label: 'Save and close tab', otherLabel: '保存并关闭', shortcut: null },
+    { id: 'toggle-problems', label: 'Show problems', otherLabel: '显示问题', shortcut: null },
+  ];
+  const ids = (found: { entry: PaletteEntry }[]) => found.map((m) => m.entry.id);
+
+  it('an empty query lists the recently run commands first, newest first, then the rest in registry order', () => {
+    const recents = ['toggle-problems', 'save'];
+    const found = searchPalette(list, '', recents);
+    expect(ids(found)).toEqual(['toggle-problems', 'save', 'open-folder', 'close-tab']);
+    expect(recentLead(found, recents, '')).toBe(2);
+    expect(recentLead(found, recents, '  ')).toBe(2);
+  });
+
+  it('skips remembered ids that cannot run now (or that this version does not know)', () => {
+    const recents = ['zoom-in', 'gone-command', 'close-tab'];
+    const found = searchPalette(list, '', recents);
+    expect(ids(found)).toEqual(['close-tab', 'open-folder', 'save', 'toggle-problems']);
+    expect(recentLead(found, recents, '')).toBe(1);
+  });
+
+  it('with a query the match quality decides first; recency only breaks ties', () => {
+    // "save" starts both labels: equally good, the more recent wins.
+    expect(ids(searchPalette(list, 'save', ['close-tab']))).toEqual(['close-tab', 'save']);
+    expect(ids(searchPalette(list, 'save', []))).toEqual(['save', 'close-tab']);
+    // A recent command that matches worse stays behind.
+    expect(ids(searchPalette(list, 'problems', ['save']))[0]).toBe('toggle-problems');
+    expect(recentLead(searchPalette(list, 'save', ['save']), ['save'], 'save')).toBe(0);
+  });
+
+  it('recording moves the command to the front and keeps the newest eight', () => {
+    expect(recordRecent([], 'save')).toEqual(['save']);
+    expect(recordRecent(['a', 'save', 'b'], 'save')).toEqual(['save', 'a', 'b']);
+    const full = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    expect(recordRecent(full, 'i')).toEqual(['i', 'a', 'b', 'c', 'd', 'e', 'f', 'g']);
+    expect(recordRecent(full, 'i')).toHaveLength(8);
   });
 });
