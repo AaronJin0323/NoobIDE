@@ -56,6 +56,72 @@ are green). None of the four files is in this diff; nothing was changed for it h
 1. Merge this PR after PR #23 and, for a green Windows unit step on a slow runner, after PR #28 (S58.3).
 2. S58.4 (Windows E2E intermittents) and S58.5 (owner decision) remain open in S58.
 
+## Session 43 (side session) — 2026-10-17 — S58.3: perf budgets enforced locally, reported on hosted runners
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/hopeful-gates-e43ecf`
+(merged `origin/claude/ci-failures-optimization-f08cd1` first for the S58 plan and backlog). Parallel to S58.1, S58.2,
+S58.4 and S58.6; touched none of their files (`ci.yml`, `playwright.config.ts`, `e2e.mjs`, the E2E specs).
+
+**Done**
+
+- S58.3 — Inventory of every `toBeLessThan(OrEqual)` assertion (36 files) and every explicit test timeout in the unit
+  and integration suites in `docs/perf/ci-runners.md`, each classified as performance budget / functional timeout /
+  not timing. Six budgets moved to a new `perf` Vitest project (`vitest.perf.config.ts`, `tests/perf/*.perf.test.ts`,
+  `npm run test:perf`, one file at a time on one worker): `completion-latency` and `completion-perf` (git mv), the
+  5 000-line indentation timing, the 256 KB symbol-extraction timing, the problem store's 100k-event CPU bound and the
+  watcher's mass-delete event-loop lag; the correctness halves of the last four stay in their original files. The
+  default `npm test` excludes the project, so no p95/median/lag assertion is left in the required CI matrix. Every
+  budget is read through `tests/perf/budget.ts` → `checkBudget(name, value, budget)`: enforced on developer machines,
+  and on GitHub Actions (`GITHUB_ACTIONS`) recorded to `reports/perf/<platform>-<arch>.json` and the job summary,
+  failing only on an error or a result more than 5× over budget. `harness/verify.mjs` gained a `perf` gate after
+  `test` (skipped with `--quick`). `.github/workflows/perf.yml` (push to `main`, nightly 03:17 UTC, dispatch;
+  windows-latest x64 + macos-14 arm64; the same pinned action SHAs as ci.yml; `contents: read`; uploads
+  `reports/perf/`; not a required check, never on pull requests) with `tests/integration/perf-workflow.test.ts`, and
+  `tests/integration/perf-budget.test.ts` for the helper's two modes. Disk-heavy functional tests retimed for a starved
+  runner: history-groups 5 s → 60 s per test, history-store's 125-write case 30 s → 180 s, the watcher's rescan 20 s →
+  60 s. Two watcher cases that reported one event too many in run 39018194387 were test pauses racing the rename wait
+  (60 ms against 150 ms: the hold expired between the rewrite and the test's raw event, so the watcher rightly added a
+  `changed`); the scripted tests now use a 1 s wait, `idle()` before the file returns and 5 s polls, and the
+  "folder with files" case watches with a 500 ms debounce. The watcher itself is unchanged. ADR 0038; a new
+  docs/testing.md section and convention line; docs/perf/completion-latency.md points at the new paths.
+
+**Evidence:** `npm run test:perf` 6 files / 7 tests green (dev numbers in docs/perf/ci-runners.md §3); tightened
+budget proof: with the class-items budget set to 0.2 ms, `node harness/verify.mjs` ended `✘ perf FAIL` with
+`perf budget "completion provider: class items p95": measured 0.44 ms, over the 0.2 ms budget (enforced on developer
+machines)`, and the same tightened budget under `GITHUB_ACTIONS=true` passed with the job-summary row
+`0.48 ms | 0.2 ms | 2.39× | over budget (reported)`; a 0.01 ms budget (5.14×) failed in report mode with "over 5× the
+… budget". Restored to 10 ms. `tests/integration/perf-budget.test.ts` (8) + `perf-workflow.test.ts` (7) green;
+watcher / history-groups / history-store 145 tests green; `npm run verify` green including the new gate (see commit).
+Hosted `perf.yml` run: not yet (owner steps in MANUAL-CHECKS.md#S58.3) → S58.3 set to `needs_manual_check`.
+
+**Decisions:** ADR 0038 (two modes, 5× floor in report mode, functional timeouts sized ≥ 4× local and ≥ 1.5× the
+longest hosted duration — for the two files that timed out the hosted figure dominates, since that runner was 20–30×
+slower on disk writes, not 4×). Report mode is detected from `GITHUB_ACTIONS`, overridable with
+`NOOBIDE_PERF_MODE`. `perf.yml` sets `ELECTRON_SKIP_BINARY_DOWNLOAD=1` because no perf test imports Electron
+(structurally checked). The CPU-time problem-store bound moved too although it is load-robust: it is a throughput
+budget by the inventory's definition.
+
+**Problems / risks:** The worktree started with an empty `node_modules` (modules resolved from `D:\NoobIDE`
+through the directory walk), which made `e2e-shards.test.ts` and `third-party-notices.test.ts` red before any
+change; `npm ci` in the worktree fixed it — a worktree session must run `npm ci` first, as AGENTS.md says. The
+merge of main 65edc2a (PR 7 after PR 20) left `walkthrough-model.test.ts` red on main itself: two S06.6 tests expected the panel view without the `compact` field S47.6 added; fixed here in the test (three expectations, one line each) so PR 28 can be green — not S58.3 scope, flagged to the owner. The hosted numbers are informational; nobody is forced to read them (mitigation: job summary
+on every `main` push, ci-runners.md §3 to be filled by the owner, S58.5 / ADR 0037). A runner more than 5× slower
+than the dev machine still fails a nightly perf run (acceptable: not required). docs/testing.md now mentions S58.2's
+`tests/e2e/shards.json`, which exists only once that branch merges.
+
+**Owner action needed:** MANUAL-CHECKS.md#S58.3 after the merge to `main` (check the first `perf.yml` run on both
+targets, paste the two tables into docs/perf/ci-runners.md §3), then `set S58.3 done`.
+
+**Next up**
+
+1. Merge S58.1–S58.4 and S58.6; the S58.3 branch does not touch `ci.yml`, so it merges cleanly beside S58.1.
+2. S58.5 (nightly measurements) after the owner answers plan §6 item 4; the perf workflow is the natural home for it.
+3. Fill docs/perf/ci-runners.md §3 from the first hosted reports and revisit the 5× factor with real data.
+
+**Ideas / backlog candidates:** a `scripts/perf-compare.mjs` that diffs two `reports/perf/*.json` files (dev vs
+hosted, run vs run) and flags drifts; self-hosted runners with known hardware for publishable numbers (ADR 0038
+option 4).
+
 ## Session 42 (side session) — 2026-10-18 — PR #23 green on hosted CI: macOS cursor keys, CDP traces, Windows contention (S53/S57)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, own worktree on branch `claude/m19-s53-s57-editor-4026ce`

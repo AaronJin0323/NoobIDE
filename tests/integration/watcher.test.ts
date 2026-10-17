@@ -181,43 +181,50 @@ describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
   });
 
   it('pairs the halves of a folder rename that arrive in different batches (FSEvents NoDefer on a busy machine)', async () => {
-    const raw = await startScripted({ debounceMs: 20, renameWaitMs: 300 });
+    // Rename wait 1 s against a 120 ms pause: the pause may overrun several times on a starved runner (S58.3).
+    const raw = await startScripted({ debounceMs: 20, renameWaitMs: 1000 });
     await rename(p('子 文件夹'), p('pages'));
     raw('子 文件夹'); // delivered at once…
     await new Promise((r) => setTimeout(r, 120)); // …the new name only after more than one debounce
     await watcher.idle();
     expect(events).toEqual([]); // the deletion waits for its partner
     raw('pages');
-    await expect.poll(() => events).toEqual([{ type: 'renamed', from: '子 文件夹', to: 'pages', caseOnly: false }]);
+    await expect
+      .poll(() => events, { timeout: 5000 })
+      .toEqual([{ type: 'renamed', from: '子 文件夹', to: 'pages', caseOnly: false }]);
     // The files inside are tracked under the new name.
     events = [];
     await rm(p('pages', '页面 二.html'));
     raw('pages/页面 二.html');
-    await expect.poll(() => events).toEqual([{ type: 'deleted', relPath: 'pages/页面 二.html' }]);
+    await expect.poll(() => events, { timeout: 5000 }).toEqual([{ type: 'deleted', relPath: 'pages/页面 二.html' }]);
     await new Promise((r) => setTimeout(r, 400));
     await watcher.idle();
     expect(events).toHaveLength(1);
   });
 
   it('pairs a file move whose halves arrive in different batches', async () => {
-    const raw = await startScripted({ debounceMs: 20, renameWaitMs: 300 });
+    const raw = await startScripted({ debounceMs: 20, renameWaitMs: 1000 });
     await rename(p('index.html'), p('子 文件夹', 'index.html'));
     raw('index.html');
     await new Promise((r) => setTimeout(r, 120));
     raw('子 文件夹/index.html');
     await expect
-      .poll(() => events)
+      .poll(() => events, { timeout: 5000 })
       .toEqual([{ type: 'renamed', from: 'index.html', to: '子 文件夹/index.html', caseOnly: false }]);
   });
 
   it('reports a deletion without a partner once its wait is over; a file back within the wait as deleted, then created', async () => {
-    const raw = await startScripted({ debounceMs: 20, renameWaitMs: 150 });
+    // The rename wait (1 s) is far longer than the test's own pauses (60–80 ms): on a starved CI runner a pause can
+    // overrun several times (run 39018194387: the 60 ms pause outlived a 150 ms wait, the hold expired between the
+    // rewrite and its raw event, and the watcher rightly reported deleted, created *and* changed — 3 events). The
+    // waits below are functional timeouts for a slow runner, not speed budgets (S58.3).
+    const raw = await startScripted({ debounceMs: 20, renameWaitMs: 1000 });
     await rm(p('index.html'));
     raw('index.html');
     await new Promise((r) => setTimeout(r, 80));
     await watcher.idle();
-    expect(events).toEqual([]);
-    await expect.poll(() => events).toEqual([{ type: 'deleted', relPath: 'index.html' }]);
+    expect(events).toEqual([]); // the deletion waits for its partner
+    await expect.poll(() => events, { timeout: 5000 }).toEqual([{ type: 'deleted', relPath: 'index.html' }]);
     await new Promise((r) => setTimeout(r, 300));
     await watcher.idle();
     expect(events).toHaveLength(1);
@@ -227,10 +234,11 @@ describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
     await rm(p('子 文件夹', '页面 二.html'));
     raw('子 文件夹/页面 二.html');
     await new Promise((r) => setTimeout(r, 60));
+    await watcher.idle(); // the deletion is classified (and held) before the file comes back
     await writeFile(p('子 文件夹', '页面 二.html'), '<p>新</p>\n');
     raw('子 文件夹/页面 二.html');
     await expect
-      .poll(() => events)
+      .poll(() => events, { timeout: 5000 })
       .toEqual([
         { type: 'deleted', relPath: '子 文件夹/页面 二.html' },
         { type: 'created', relPath: '子 文件夹/页面 二.html' },
@@ -241,6 +249,14 @@ describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
   });
 
   it('reports a new folder with files as the folder only, then later changes inside it', async () => {
+    // "Together" means within one debounced batch. The default 80 ms debounce is shorter than a slow CI disk needs
+    // between the mkdir and the write (run 39018194387 reported the folder, then the file), so this test watches with
+    // a longer quiet period; expectEvents still waits for whatever the OS delivers.
+    watcher.close();
+    events = [];
+    watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { debounceMs: 500 });
+    await watcher.start();
+    await new Promise((r) => setTimeout(r, 150));
     await mkdir(p('图片'));
     await writeFile(p('图片', 'a.svg'), '<svg/>');
     await expectEvents([{ type: 'created', relPath: '图片' }]);
@@ -298,7 +314,7 @@ describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
 });
 
 describe('bounded cost and recovery (review findings 5, 7, 11)', () => {
-  it('a mass delete becomes one rescan and never blocks the main process for long', async () => {
+  it('a mass delete becomes one rescan (its event-loop lag budget: tests/perf/watcher-mass-delete.perf.test.ts)', async () => {
     watcher.close();
     await mkdir(p('many'));
     await Promise.all(Array.from({ length: 3000 }, (_, i) => writeFile(p('many', `f${i}.txt`), '')));
@@ -311,32 +327,18 @@ describe('bounded cost and recovery (review findings 5, 7, 11)', () => {
     await new Promise((r) => setTimeout(r, 400));
     await watcher.idle();
     events = [];
-    // Measure event-loop stalls while the deletes are classified.
-    let maxLag = 0;
-    let last = Date.now();
-    const probe = setInterval(() => {
-      const now = Date.now();
-      maxLag = Math.max(maxLag, now - last - 10);
-      last = now;
-    }, 10);
-    try {
-      // The deletes run in a child process, as another program would: only the watcher's own work may stall this
-      // event loop (deleting 3000 files from here measured the test's I/O on slow runners, not the watcher).
-      await removeElsewhere(p('many'), 3000);
-      const deadline = Date.now() + 8000;
-      // Wait until the deletes are fully classified: on Windows a rescan can already happen while the other process
-      // is still deleting, and the remaining deletes arrive in later batches.
-      while ((!events.some((e) => e.type === 'rescan') || watcher.snapshotSize >= 10) && Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 25));
-        await watcher.idle();
-      }
-    } finally {
-      clearInterval(probe);
+    // The deletes run in a child process, as another program would. Wait until they are fully classified: on Windows
+    // a rescan can already happen while the other process is still deleting, and the remaining deletes arrive in
+    // later batches. The deadline is a functional timeout (the rescan must arrive), not a speed budget (S58.3).
+    await removeElsewhere(p('many'), 3000);
+    const deadline = Date.now() + 20_000;
+    while ((!events.some((e) => e.type === 'rescan') || watcher.snapshotSize >= 10) && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 25));
+      await watcher.idle();
     }
     expect(events).toContainEqual({ type: 'rescan' });
-    expect(maxLag).toBeLessThan(500);
     expect(watcher.snapshotSize).toBeLessThan(10);
-  }, 20000);
+  }, 60_000);
 
   it('releases its snapshot on close', async () => {
     expect(watcher.snapshotSize).toBeGreaterThan(0);
