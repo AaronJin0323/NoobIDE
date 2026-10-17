@@ -5,6 +5,7 @@
     "a11y.spec.ts": 2,
     "ai-agent.spec.ts": 2,
     "ai-chat-engine.spec.ts": 1,
+    "ai-composer.spec.ts": 2,
     "ai-chat.spec.ts": 1,
     "ai-edit.spec.ts": 1,
     "ai-history.spec.ts": 2,

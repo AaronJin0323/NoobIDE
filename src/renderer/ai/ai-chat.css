@@ -533,3 +533,80 @@
 .ai-composer .ai-preview-thumbnail {
   max-height: 6rem;
 }
+
+/* ── S48.4 composer: the `/` command list and the `@` file list, between the context and the input. The active
+   option is the accent fill plus a ring (never colour alone); the list scrolls inside the composer. ── */
+.ai-composer > .ai-suggest {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 14rem;
+  margin: 0 0 2px -4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+.ai-suggest-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.ai-suggest-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 2px 8px 2px 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.ai-suggest-option[aria-selected='true'] {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  box-shadow: var(--ring-accent);
+}
+.ai-suggest-sigil {
+  flex: none;
+  width: 1.2em;
+  color: var(--muted);
+  text-align: center;
+}
+.ai-suggest-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.ai-suggest-label,
+.ai-suggest-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-suggest-detail {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.ai-suggest-option[aria-selected='true'] .ai-suggest-sigil,
+.ai-suggest-option[aria-selected='true'] .ai-suggest-detail,
+.ai-suggest-option[aria-selected='true'] .kbd {
+  color: inherit;
+}
+.ai-suggest-empty,
+.ai-suggest-hint {
+  margin: 2px 6px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.ai-suggest-hint {
+  flex: none;
+  padding-top: 2px;
+  border-top: 1px solid var(--line);
+}
+/* ── end S48.4 ── */

@@ -109,6 +109,8 @@ import { LOCALES, type Locale } from '../i18n/index';
 import { revealLabelKey } from '../../platform/labels';
 import type { AppMenuItem } from './AppMenu';
 import { CommandPalette, type PaletteCommand } from '../commands/CommandPalette'; // S40.5
+import type { ComposerSources } from '../ai/ComposerSuggestions'; // S48.4
+import { listProjectFiles } from '../ai/project-files'; // S48.4
 import { useThemeChoice } from '../theme/ThemeProvider'; // S24.4
 import { focusRegion } from '../commands/focus-regions'; // S24.3
 import { openAbout } from './about'; // S28.1
@@ -1192,7 +1194,29 @@ export function Workbench() {
   );
   // S31.4: the reusable consent prompt fills the chat's consent slot.
   const aiConsent = useMemo(() => (bridge?.ai ? aiConsentRenderer(bridge.ai) : undefined), [bridge]);
+  // S48.4: the composer's `/` list is the palette's list of commands that can run now (filled in below, once the
+  // registry's context exists); its `@` list is the project index's files (or a bounded walk while it loads).
+  const paletteCommandsRef = useRef<() => readonly PaletteCommand[]>(() => []);
+  const runCommandRef = useRef<(id: CommandId) => void>(() => undefined);
+  const projectIndexRef = useRef(projectIndex);
+  projectIndexRef.current = projectIndex;
+  const aiComposer = useMemo<ComposerSources>(
+    () => ({
+      commands: () => paletteCommandsRef.current(),
+      runCommand: (id) => runCommandRef.current(id),
+      projectFiles: async () => {
+        const project = docRef.current.project;
+        if (!project || !bridge) return [];
+        const indexed = projectIndexRef.current?.fileList() ?? [];
+        return indexed.length > 0
+          ? indexed
+          : listProjectFiles((request) => bridge.workspace.listDir(request), project.projectId);
+      },
+    }),
+    [bridge],
+  );
   const ai = useAiChat(doc.project?.projectId ?? null, aiHost, {
+    composer: aiComposer,
     extensions: agentExtensions,
     ...(aiConsent ? { consent: aiConsent } : {}),
   });
@@ -1373,18 +1397,20 @@ export function Workbench() {
           'files-add-image': () => runFileCommand('add-image'),
         }
       : {}),
-    'command-palette': () =>
-      setPalette(
-        COMMAND_IDS.filter((id) => id !== 'command-palette' && canRunRef.current(id)).map((id) => ({
-          id,
-          label: commandById(id).label,
-          shortcut: commandShortcutLabel(id, platform),
-          checked: commandChecked(id, { ...commandContext, modalOpen: false }),
-        })),
-      ),
+    'command-palette': () => setPalette(paletteCommands()),
   };
+  function paletteCommands(): PaletteCommand[] {
+    return COMMAND_IDS.filter((id) => id !== 'command-palette' && canRunRef.current(id)).map((id) => ({
+      id,
+      label: commandById(id).label,
+      shortcut: commandShortcutLabel(id, platform),
+      checked: commandChecked(id, { ...commandContext, modalOpen: false }),
+    }));
+  }
   const commands = useCommands(platform, commandContext, commandHandlers);
   canRunRef.current = commands.canRun;
+  paletteCommandsRef.current = paletteCommands; // S48.4
+  runCommandRef.current = (id) => void commands.run(id);
   useEffect(() => {
     // After the palette left the DOM (it is a modal, and commands wait while one is open).
     const id = paletteRun.current;

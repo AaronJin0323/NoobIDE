@@ -12,6 +12,7 @@ import { ChatPanel, type PastChatsSlot } from './ChatPanel';
 import { aiHistoryBridge, ChatHistorySync } from './chat-history';
 import { SavedChatsList } from './SavedChatsList';
 import { ConsentPlaceholder } from './ConsentPlaceholder';
+import type { ComposerSources } from './ComposerSuggestions';
 
 const noSubscribe = () => () => undefined;
 const noState = () => null;
@@ -29,6 +30,8 @@ export interface AiWorkbenchHost {
 export interface UseAiChatOptions {
   /** S34+: agent turns, step and proposal rendering (see chat-extensions.ts). */
   readonly extensions?: AiChatExtensions;
+  /** S48.4: the composer's `/` command list and `@` file list. */
+  readonly composer?: ComposerSources;
   /** S31's consent component; defaults to the placeholder. */
   readonly consent?: AiConsentRenderer;
 }
@@ -201,6 +204,7 @@ export function useAiChat(projectId: string | null, host: AiWorkbenchHost, optio
         onOpenSettings={aiSettingsAvailable() ? () => openAiSettings() : undefined}
         extensions={options.extensions}
         pastChats={pastChats}
+        composer={options.composer}
       />
     ) : null;
 

@@ -16,6 +16,7 @@ import { annotationsEn } from './annotations'; // S41.5
 import { journeyEn } from './journey'; // beginner-journey fixes
 import { fileManagementEn } from './file-management'; // S52
 import { imageViewerEn } from './image-viewer'; // S52.6
+import { aiComposerEn } from './ai-composer'; // S48.4/S48.6/S48.7
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -352,6 +353,7 @@ export const en: Record<MessageKey, string> = {
   ...journeyEn, // beginner-journey fixes: preview page path, missing-page page, editor overflow menu
   ...fileManagementEn, // S52 move, copy, multi-select, import, image viewer
   ...imageViewerEn, // S52.6 image viewer tab
+  ...aiComposerEn, // S48.4/S48.6/S48.7 chat composer, long messages, drafts and backoff
   // --- S18.3 formatting ---
   'format.button': 'Format',
   'format.title': 'Format the code: indentation and line breaks ({shortcut})',

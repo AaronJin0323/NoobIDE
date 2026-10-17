@@ -1,6 +1,6 @@
 import { isImeKey } from '../workbench/ime';
 import { useEffect, useRef, type ReactNode } from 'react';
-import type { MessageKey } from '../i18n/index';
+import type { Locale, MessageKey } from '../i18n/index';
 import { useI18n } from '../i18n/I18nProvider';
 import { fill } from '../recovery/format';
 import {
@@ -22,6 +22,7 @@ import { Markdown, type MarkdownLabels } from './Markdown';
 import { AiIcon, CloseIcon, JumpLatestIcon, NewChatIcon, PastChatsIcon } from './ai-icons';
 import { SavedProposal } from './SavedChatsList';
 import { useScrollLatch } from './useScrollLatch';
+import { useComposerSuggestions, type ComposerSources } from './ComposerSuggestions';
 import './ai-chat.css';
 
 /** `count` picks the singular form of a counted message (i18n/plural.ts). */
@@ -36,6 +37,8 @@ export interface ChatPanelActions {
   setKind(kind: TurnKind): void;
   removeChip(id: string): void;
   addCurrentFile(): boolean;
+  /** S48.4: an accepted @file mention becomes a file chip. */
+  addFile?(relPath: string): void;
   addSelection(): boolean;
   /** S38.2: adds a Preview chip (snapshot of the running preview). */
   addPreview(): Promise<boolean>;
@@ -55,6 +58,8 @@ export interface ChatPanelProps {
   readonly extensions?: AiChatExtensions | undefined;
   /** S39.1: saved chats of the open project (absent without a project or a history bridge). */
   readonly pastChats?: PastChatsSlot | undefined;
+  /** S48.4: the `/` command list and the `@` file list (absent: typing / or @ is just text). */
+  readonly composer?: ComposerSources | undefined;
 }
 
 /** S39.1: the "Past chats" button, the list shown in place of the conversation, and the history notice. */
@@ -66,8 +71,8 @@ export interface PastChatsSlot {
 }
 
 export function ChatPanel(props: ChatPanelProps) {
-  const { t } = useI18n();
-  return <ChatPanelView {...props} t={t} />;
+  const { t, locale } = useI18n();
+  return <ChatPanelView {...props} t={t} locale={locale} />;
 }
 
 const STATE_TEXT: Partial<Record<ChatState['availability']['kind'], MessageKey>> = {
@@ -151,8 +156,10 @@ export function ChatPanelView({
   onOpenSettings,
   extensions,
   pastChats,
+  composer,
   t,
-}: ChatPanelProps & { t: Translate }) {
+  locale = 'zh-CN',
+}: ChatPanelProps & { t: Translate; locale?: Locale }) {
   const key = projectKeyOf(projectId);
   const draft = draftOf(state, key);
   const conversation = activeConversation(state, key);
@@ -163,6 +170,16 @@ export function ChatPanelView({
   const grow = growByCss() ? 'css' : 'mirror';
   const input = useRef<HTMLTextAreaElement>(null);
   const body = useRef<HTMLDivElement>(null);
+  const suggest = useComposerSuggestions({
+    prompt: draft.prompt,
+    setPrompt: (prompt) => actions.setPrompt(prompt),
+    input,
+    sources: composer,
+    addFile: (relPath) => actions.addFile?.(relPath),
+    projectId,
+    t,
+    locale,
+  });
 
   useEffect(() => {
     if (state.focusSeq === 0) return;
@@ -494,6 +511,7 @@ export function ChatPanelView({
             </p>
           )}
           {/* S48.2: grows with its content (field-sizing, or the hidden mirror where that is unsupported). */}
+          {suggest.list /* S48.4 */}
           <div className="ai-input-grow" data-grow={grow}>
             <textarea
               ref={input}
@@ -503,8 +521,15 @@ export function ChatPanelView({
               aria-describedby="ai-input-hint"
               data-testid="ai-input"
               value={draft.prompt}
-              onChange={(event) => actions.setPrompt(event.target.value)}
+              {...suggest.inputProps}
+              {...suggest.focusProps}
+              onChange={(event) => {
+                suggest.trackCaret(event.target);
+                actions.setPrompt(event.target.value);
+              }}
+              onSelect={(event) => suggest.trackCaret(event.currentTarget)}
               onKeyDown={(event) => {
+                if (suggest.onKeyDown(event)) return;
                 if (event.key !== 'Enter' || event.shiftKey || isImeKey(event.nativeEvent)) return;
                 event.preventDefault();
                 if (canSend) void actions.send();
@@ -520,6 +545,7 @@ export function ChatPanelView({
           <div className="ai-composer-row">
             <p className="ai-hint" id="ai-input-hint">
               {t('ai.chat.inputHint')}
+              {composer && ` ${t('ai.composer.triggerHint')}`}
             </p>
             {running ? (
               <button

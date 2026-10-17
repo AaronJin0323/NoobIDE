@@ -236,6 +236,11 @@ export class AiChatController {
     this.addChip({ kind: 'file', relPath: file });
     return true;
   }
+  /** S48.4: an accepted @file mention in the composer: a file chip (the same chip as "Add current file"). */
+  addFile(relPath: string): void {
+    if (!this.host.projectId()) return;
+    this.addChip({ kind: 'file', relPath });
+  }
   /** "Add selected code": false (with a notice) when nothing is selected. */
   addSelection(): boolean {
     const selection = this.host.selection();
