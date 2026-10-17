@@ -40,6 +40,10 @@ export interface FileTreeCommands {
   onDelete?(entry: TreeEntry): void;
   onContextMenu?(entry: TreeEntry, anchor: { x: number; y: number }): void;
   onReveal?(entry: TreeEntry): void;
+  /** S52.2: Ctrl/Cmd+C, Ctrl/Cmd+V (into the row's folder) and Ctrl/Cmd+D on the focused row. */
+  onCopy?(entry: TreeEntry): void;
+  onPaste?(entry: TreeEntry): void;
+  onDuplicate?(entry: TreeEntry): void;
   /** Enter/click on an entry whose name Windows or macOS cannot represent: explain instead of opening. */
   onUnportable?(entry: TreeEntry): void;
   /** S52.1: rows dragged onto a folder (or onto a file: its folder; onto the empty area: the project root). */
@@ -246,6 +250,15 @@ export function FileTree(props: FileTreeProps) {
     } else if (command === 'delete' && c.onDelete) {
       event.preventDefault();
       c.onDelete(row.entry);
+    } else if (command === 'copy' && c.onCopy) {
+      event.preventDefault();
+      c.onCopy(row.entry);
+    } else if (command === 'paste' && c.onPaste) {
+      event.preventDefault();
+      c.onPaste(row.entry);
+    } else if (command === 'duplicate' && c.onDuplicate) {
+      event.preventDefault();
+      c.onDuplicate(row.entry);
     } else if (command === 'reveal' && c.onReveal) {
       event.preventDefault();
       c.onReveal(row.entry);

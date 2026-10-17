@@ -234,6 +234,7 @@ const api: NoobideApi = {
   // S52: move, copy/paste/duplicate, multi-select trash, import and the image viewer.
   fileOps: {
     moveEntries: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.moveEntries, request),
+    copyEntries: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.copyEntries, request),
   },
 };
 

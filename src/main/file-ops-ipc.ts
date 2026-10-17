@@ -1,6 +1,6 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { toIpcResult, type IpcResult } from '../shared/ipc/contract';
-import { FILE_OPS_CHANNELS, parseMoveEntriesRequest } from '../shared/ipc/file-ops-contract';
+import { FILE_OPS_CHANNELS, parseCopyEntriesRequest, parseMoveEntriesRequest } from '../shared/ipc/file-ops-contract';
 import type { ProjectService } from '../workspace/project-service';
 import { isTrustedSender, senderInfo } from './ipc';
 
@@ -11,7 +11,7 @@ import { isTrustedSender, senderInfo } from './ipc';
  */
 export interface FileOpsIpcDeps {
   readonly allowedOrigin: string;
-  readonly projects: Pick<ProjectService, 'moveEntries'>;
+  readonly projects: Pick<ProjectService, 'moveEntries' | 'copyEntries'>;
 }
 
 const FORBIDDEN = { ok: false, code: 'forbidden-sender', message: 'sender is not the workbench' } as const;
@@ -34,5 +34,8 @@ export function registerFileOpsIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: F
 
   handle(FILE_OPS_CHANNELS.moveEntries, parseMoveEntriesRequest, async (request) =>
     toIpcResult(await deps.projects.moveEntries(request)),
+  );
+  handle(FILE_OPS_CHANNELS.copyEntries, parseCopyEntriesRequest, async (request) =>
+    toIpcResult(await deps.projects.copyEntries(request)),
   );
 }

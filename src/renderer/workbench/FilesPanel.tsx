@@ -11,7 +11,7 @@ import { FolderIcon, NewFileIcon, NewFolderIcon, SmallFolderIcon, WarningIcon } 
 import { TreeContextMenu, type MenuItem } from './TreeContextMenu';
 import type { FileOpsApi } from '../../shared/ipc/file-ops-contract';
 import { MoveDialog } from './MoveDialog';
-import { folderLabel, outermostSources } from './move-model';
+import { dropFolder, folderLabel, outermostSources } from './move-model';
 
 /** What a file operation did to paths the editor may have open (S08.3: open tabs follow renames and deletions). */
 export type FilesChange =
@@ -47,7 +47,12 @@ interface FilesPanelProps {
   extraMenuItems?: ((entry: TreeEntry) => readonly ExtraMenuItem[]) | undefined;
   /** Bumped by the workbench to start a new file from outside the panel (the narrow window's top-bar button). */
   newFileRequest?: number | undefined;
+  /** S52.1/S52.2: a palette command on the tree's selection, bumped by the workbench. */
+  fileCommand?: { readonly id: number; readonly command: FileCommand } | undefined;
 }
+
+/** S52.1/S52.2: file commands the palette runs on the tree's selection. */
+export type FileCommand = 'copy' | 'paste' | 'duplicate' | 'move-to';
 
 /** A context-menu command contributed by the workbench (S13.2). */
 export interface ExtraMenuItem {
@@ -80,6 +85,7 @@ export function FilesPanel({
   extraMenuItems,
   newFileRequest,
   fileOpsApi,
+  fileCommand,
 }: FilesPanelProps) {
   const { t } = useI18n();
   const [editing, setEditing] = useState<TreeEditing | null>(null);
@@ -90,6 +96,8 @@ export function FilesPanel({
   const [moveFor, setMoveFor] = useState<readonly TreeEntry[] | null>(null);
   /** S52.1: what the last operation did, announced as text. */
   const [notice, setNotice] = useState<string | null>(null);
+  /** S52.2: entries copied with Copy (in NoobIDE only; the OS clipboard is not touched), for one project only. */
+  const clipboard = useRef<{ readonly projectId: string; readonly entries: readonly TreeEntry[] } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<TreeEntry | null>(null);
   /** `items`: S52.3 — the entries of a selection that were not handled, each with its cause. */
   const [opError, setOpError] = useState<{ text: string; detail: string; items?: readonly string[] } | null>(null);
@@ -286,6 +294,112 @@ export function FilesPanel({
     }
   };
 
+  // --- S52.2: copy, paste and duplicate ---
+  const copyToClipboard = (entries: readonly TreeEntry[]) => {
+    const copyable = entries.filter((e) => !e.unportable && !e.isLink);
+    if (!projectId) return;
+    if (copyable.length === 0) {
+      setNotice(null);
+      setOpError({ text: t('op.link'), detail: '' });
+      return;
+    }
+    clipboard.current = { projectId, entries: copyable };
+    setOpError(null);
+    setNotice(
+      copyable.length === 1
+        ? fill(t('copy.copied'), { name: copyable[0]?.name ?? '' })
+        : fill(t('copy.copiedMany'), { n: String(copyable.length) }),
+    );
+  };
+
+  /**
+   * Copies entries into `folder` (`paste`) or next to themselves (`duplicate`). Main never overwrites: a taken name
+   * gets a copy name, and a copy that fails half-way removes what it made. Each failure is listed with its cause.
+   */
+  const copyEntries = async (entries: readonly TreeEntry[], folder: string, mode: 'paste' | 'duplicate') => {
+    if (!fileOpsApi || !projectId || busy.current || entries.length === 0) return;
+    busy.current = true;
+    setOpError(null);
+    setNotice(null);
+    try {
+      const sources = outermostSources(entries);
+      const result = await fileOpsApi.copyEntries({
+        projectId,
+        from: sources.map((e) => e.relPath),
+        toFolder: mode === 'duplicate' ? '' : folder,
+        mode,
+      });
+      if (!result.ok) {
+        setOpError({ text: opErrorMessage(t, result.code, result.message, ''), detail: result.message });
+        return;
+      }
+      const { copied, failed } = result.value;
+      const first = copied[0];
+      if (first) {
+        const source = sources.find((e) => e.relPath === first.from);
+        const name = first.to.slice(first.to.lastIndexOf('/') + 1);
+        if (source) selected.current = { ...source, name, relPath: first.to, isLink: false };
+        reload([...new Set(copied.map((c) => parentOf(c.to)))], first.to);
+        const skipped = copied.reduce((n, c) => n + c.skippedLinks, 0);
+        const done =
+          copied.length === 1 ? fill(t('copy.done'), { name }) : fill(t('copy.doneMany'), { n: String(copied.length) });
+        setNotice(skipped > 0 ? `${done} ${fill(t('copy.skippedLinks'), { n: String(skipped) })}` : done);
+      }
+      if (failed.length > 0) {
+        setOpError({
+          text: fill(t('copy.partial'), { n: String(failed.length) }),
+          detail: '',
+          items: failed.map((f) => {
+            const name = f.relPath.slice(f.relPath.lastIndexOf('/') + 1);
+            const why =
+              f.code === 'op-failed' && f.message === 'link'
+                ? t('op.link')
+                : opErrorMessage(t, f.code, f.message, name);
+            return `${name}: ${why}`;
+          }),
+        });
+      }
+    } catch {
+      setOpError({ text: t('op.generic'), detail: '' });
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  const pasteInto = (target: TreeEntry | null) => {
+    // A copy made in another project is not pasted here: its paths mean other files in this one.
+    const copied = clipboard.current;
+    const entries = copied && copied.projectId === projectId ? copied.entries : null;
+    if (!entries) {
+      setOpError({ text: fill(t('copy.nothing'), { key: treeShortcutLabel(platform, 'copy') }), detail: '' });
+      return;
+    }
+    void copyEntries(entries, dropFolder(target), 'paste');
+  };
+
+  /** The entries a palette command acts on: the tree's selection. */
+  const selection = (): TreeEntry[] => (selected.current ? [selected.current] : []);
+
+  const fileCommandRef = useRef<(command: FileCommand) => void>(() => undefined);
+  fileCommandRef.current = (command) => {
+    const entries = selection();
+    if (command === 'paste') {
+      pasteInto(entries[0] ?? null);
+      return;
+    }
+    if (entries.length === 0) {
+      setOpError({ text: t('copy.noSelection'), detail: '' });
+      return;
+    }
+    if (command === 'copy') copyToClipboard(entries);
+    else if (command === 'duplicate') void copyEntries(entries, '', 'duplicate');
+    else setMoveFor(entries);
+  };
+  useEffect(() => {
+    if (fileCommand) fileCommandRef.current(fileCommand.command);
+  }, [fileCommand]);
+  // --- end S52.2 ---
+
   const reveal = (entry: TreeEntry | null) => {
     if (!api || !projectId) return;
     void api.revealEntry({ projectId, relPath: entry?.relPath ?? '' }).then((result) => {
@@ -310,7 +424,31 @@ export function FilesPanel({
         run: () => startRename(entry),
       },
       ...(fileOpsApi && !entry.unportable
-        ? [{ id: 'move-to', label: t('menu.moveTo'), run: () => setMoveFor([entry]) }]
+        ? [
+            {
+              id: 'copy',
+              label: t('menu.copy'),
+              shortcut: treeShortcutLabel(platform, 'copy'),
+              run: () => copyToClipboard([entry]),
+            },
+            ...(clipboard.current?.projectId === projectId
+              ? [
+                  {
+                    id: 'paste',
+                    label: t('menu.paste'),
+                    shortcut: treeShortcutLabel(platform, 'paste'),
+                    run: () => pasteInto(entry),
+                  },
+                ]
+              : []),
+            {
+              id: 'duplicate',
+              label: t('menu.duplicate'),
+              shortcut: treeShortcutLabel(platform, 'duplicate'),
+              run: () => void copyEntries([entry], '', 'duplicate'),
+            },
+            { id: 'move-to', label: t('menu.moveTo'), run: () => setMoveFor([entry]) },
+          ]
         : []),
       {
         id: 'delete',
@@ -441,7 +579,14 @@ export function FilesPanel({
               selected.current = entry;
             }}
             projectName={project.name}
-            {...(fileOpsApi ? { onMoveDrop: (sources, folder) => void moveEntries(sources, folder) } : {})}
+            {...(fileOpsApi
+              ? {
+                  onMoveDrop: (sources, folder) => void moveEntries(sources, folder),
+                  onCopy: (entry) => copyToClipboard([entry]),
+                  onPaste: (entry) => pasteInto(entry),
+                  onDuplicate: (entry) => void copyEntries([entry], '', 'duplicate'),
+                }
+              : {})}
           />
         </div>
       ) : (

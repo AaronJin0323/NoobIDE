@@ -62,6 +62,11 @@ export const COMMAND_IDS = [
   'ai-inline-edit',
   // S40.5 command palette (search every command that applies now)
   'command-palette',
+  // S52.1/S52.2 file management on the file tree's selection (tree keys: Ctrl/Cmd+C/V/D)
+  'files-copy',
+  'files-paste',
+  'files-duplicate',
+  'files-move-to',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -188,6 +193,12 @@ export const COMMANDS: readonly CommandDefinition[] = [
     keys: { all: { key: 'p', primary: true, shift: true } },
     when: noModal,
   },
+  // S52.1/S52.2: act on the file tree's selection. No global keys: Ctrl/Cmd+C/V/D belong to the code editor; the
+  // tree binds them while it has the focus (src/platform/labels treeCommandForKey).
+  { id: 'files-copy', label: 'command.files.copy', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'files-paste', label: 'command.files.paste', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'files-duplicate', label: 'command.files.duplicate', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'files-move-to', label: 'command.files.moveTo', when: (c) => c.hasProject && !c.modalOpen },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));

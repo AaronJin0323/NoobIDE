@@ -4,7 +4,7 @@ import type { FileContent, FileVersion, OpenedProject } from '../../shared/ipc/c
 import { useMediaQuery } from '../theme/useMediaQuery';
 import { TopBar } from './TopBar';
 import { Rail } from './Rail';
-import { FilesPanel, type ExtraMenuItem, type FileOpsHooks } from './FilesPanel';
+import { FilesPanel, type ExtraMenuItem, type FileCommand, type FileOpsHooks } from './FilesPanel';
 import { isSameOrBelow } from './file-tree-model';
 import { EditorPane, type SaveCopyNotice } from './EditorPane';
 import { PreviewPane } from './PreviewPane';
@@ -145,6 +145,9 @@ export function Workbench() {
   const visible = visibleRegions(layout, narrow);
   /** Bumped by the narrow window's top-bar "New file" button: the files panel starts a new file (key-features pass). */
   const [newFileRequest, setNewFileRequest] = useState(0);
+  /** S52.1/S52.2: palette commands on the file tree's selection. */
+  const [fileCommand, setFileCommand] = useState<{ id: number; command: FileCommand } | undefined>(undefined);
+  const runFileCommand = (command: FileCommand) => setFileCommand((last) => ({ id: (last?.id ?? 0) + 1, command }));
 
   // Async handlers read the latest state without being re-created on every keystroke.
   const docRef = useRef(doc);
@@ -1140,6 +1143,15 @@ export function Workbench() {
     // S32.1: AI ghost-text suggestions on / off (offered only when the AI bridge exists)
     'toggle-inline-ai': aiBridge() ? () => toggleInlineAi(docRef.current.project?.projectId ?? null) : undefined,
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
+    // S52.1/S52.2: file commands on the tree's selection (the panel explains when nothing is selected)
+    ...(bridge?.fileOps
+      ? {
+          'files-copy': () => runFileCommand('copy'),
+          'files-paste': () => runFileCommand('paste'),
+          'files-duplicate': () => runFileCommand('duplicate'),
+          'files-move-to': () => runFileCommand('move-to'),
+        }
+      : {}),
     'command-palette': () =>
       setPalette(
         COMMAND_IDS.filter((id) => id !== 'command-palette' && canRunRef.current(id)).map((id) => ({
@@ -1294,6 +1306,7 @@ export function Workbench() {
           fileOps={fileOps}
           extraMenuItems={extraMenuItems}
           newFileRequest={newFileRequest}
+          fileCommand={fileCommand}
         />
         {!narrow && visible.files && (
           <Splitter

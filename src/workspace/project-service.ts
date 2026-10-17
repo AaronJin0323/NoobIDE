@@ -39,8 +39,16 @@ import { FileInUseError, replaceFileAtomic, writeFileAtomic, type AtomicWriteOpt
 import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
 import { protectedFolderCauseOf } from '../platform/protected-folders';
 import { listDirectory } from './tree';
-import { createEntry, moveEntry, renameEntry, resolveEntry, trashEntry } from './file-ops';
-import type { BatchFailure, MovedEntry, MoveEntriesRequest, MoveEntriesResult } from '../shared/ipc/file-ops-contract';
+import { copyEntry, createEntry, moveEntry, renameEntry, resolveEntry, trashEntry } from './file-ops';
+import type {
+  BatchFailure,
+  CopiedEntry,
+  CopyEntriesRequest,
+  CopyEntriesResult,
+  MovedEntry,
+  MoveEntriesRequest,
+  MoveEntriesResult,
+} from '../shared/ipc/file-ops-contract';
 import { isListedEntry } from './listing-filter';
 import { decodeForDisplay, decodeText, encodeText, hasMixedEol } from './text-codec';
 
@@ -176,6 +184,23 @@ export class ProjectService {
       await this.followMove(root, result.value.from, result.value.to);
     }
     return ok({ moved, failed });
+  }
+
+  /**
+   * S52.2: copies a selection (paste into a folder, or duplicate each entry next to itself). Entries inside another
+   * selected folder are copied with it. Each entry is copied on its own; a failure is listed with its cause.
+   */
+  async copyEntries(request: CopyEntriesRequest): Promise<Result<CopyEntriesResult, FileOpError>> {
+    const root = this.rootOf(request.projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    const copied: CopiedEntry[] = [];
+    const failed: BatchFailure[] = [];
+    for (const from of outermost(request.from)) {
+      const result = await copyEntry(root, from, request.toFolder, request.mode);
+      if (result.ok) copied.push(result.value);
+      else failed.push({ relPath: from, code: result.code, message: result.message });
+    }
+    return ok({ copied, failed });
   }
 
   /** History and recovery copies follow a rename or move; their failures never undo or fail the move itself. */

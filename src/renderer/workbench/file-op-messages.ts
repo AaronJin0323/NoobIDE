@@ -96,6 +96,8 @@ export function opErrorMessage(
       return t('op.intoItself');
     case 'not-a-folder':
       return t('op.notAFolder'); // S52.1
+    case 'too-large':
+      return t('op.tooLarge'); // S52.2
     case 'not-found':
       return t('op.notFound');
     case 'permission-denied':

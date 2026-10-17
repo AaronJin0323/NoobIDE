@@ -4501,8 +4501,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/file-names.test.ts (copyName: copy, copy 2, copy of a copy, case, long names, Chinese), tests/integration/file-copy.test.ts (16: byte-identical binary, recursive folders, never overwrite, links skipped, into-itself, junction outside, fault tests ENOSPC mid-stream/EEXIST race/EACCES/size limit), src/platform/labels.test.ts, tests/e2e/file-copy.spec.ts (6: context menu, Ctrl/Cmd+C/V/D, palette copy/paste/duplicate); subagent review findings 1-6 fixed"
     },
     {
       "id": "S52.3",

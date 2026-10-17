@@ -308,6 +308,8 @@ export type FileOpError =
   | 'into-itself'
   /** S52.1: the destination of a move is not a folder. */
   | 'not-a-folder'
+  /** S52.2/S52.4: over a size limit; message names it. */
+  | 'too-large'
   | 'permission-denied'
   /** S25.3: blocked by the OS privacy protection (see OpenFolderError). */
   | 'protected-folder'

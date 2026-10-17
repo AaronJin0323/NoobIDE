@@ -12,6 +12,8 @@ import { isListedRelPath, isPortableRelPath, isProjectId, type FileOpError, type
 export const FILE_OPS_CHANNELS = {
   /** S52.1/S52.3: moves entries into a folder of the project. */
   moveEntries: 'workspace:move-entries',
+  /** S52.2: copy/paste into a folder, or duplicate next to the original. */
+  copyEntries: 'workspace:copy-entries',
 } as const;
 
 /** Most entries one request may name (a selection in the tree). */
@@ -43,7 +45,32 @@ export interface MoveEntriesResult {
   readonly failed: readonly BatchFailure[];
 }
 
+/**
+ * S52.2: `paste` copies into `toFolder` (the original name when it is free there, else a copy name); `duplicate`
+ * copies each entry next to itself as `name copy.ext` (`toFolder` must be `''` and is not used).
+ */
+export interface CopyEntriesRequest {
+  readonly projectId: string;
+  readonly from: readonly string[];
+  readonly toFolder: string;
+  readonly mode: 'paste' | 'duplicate';
+}
+
+export interface CopiedEntry {
+  readonly from: string;
+  readonly to: string;
+  /** Links inside a copied folder are not copied; how many were left out. */
+  readonly skippedLinks: number;
+}
+
+export interface CopyEntriesResult {
+  readonly copied: readonly CopiedEntry[];
+  readonly failed: readonly BatchFailure[];
+}
+
 export interface FileOpsApi {
+  /** S52.2: copies files and folders byte for byte; never overwrites, a failed copy removes only what it made. */
+  copyEntries(request: CopyEntriesRequest): Promise<IpcResult<CopyEntriesResult, FileOpError>>;
   /** S52.1/S52.3: moves files and folders; an existing target is refused per entry, never overwritten. */
   moveEntries(request: MoveEntriesRequest): Promise<IpcResult<MoveEntriesResult, FileOpError>>;
 }
@@ -69,4 +96,12 @@ export function parseMoveEntriesRequest(payload: unknown): MoveEntriesRequest | 
   const { projectId, from, toFolder } = payload;
   if (!isProjectId(projectId) || !isEntryList(from) || !isFolderPath(toFolder)) return null;
   return { projectId, from: [...from], toFolder };
+}
+
+export function parseCopyEntriesRequest(payload: unknown): CopyEntriesRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'from', 'toFolder', 'mode'])) return null;
+  const { projectId, from, toFolder, mode } = payload;
+  if (!isProjectId(projectId) || !isEntryList(from) || !isFolderPath(toFolder)) return null;
+  if (mode !== 'paste' && !(mode === 'duplicate' && toFolder === '')) return null;
+  return { projectId, from: [...from], toFolder, mode };
 }
