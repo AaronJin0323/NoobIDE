@@ -67,6 +67,9 @@ export const COMMAND_IDS = [
   'files-paste',
   'files-duplicate',
   'files-move-to',
+  // S52.4 import from outside the project
+  'files-add',
+  'files-add-image',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -199,6 +202,8 @@ export const COMMANDS: readonly CommandDefinition[] = [
   { id: 'files-paste', label: 'command.files.paste', when: (c) => c.hasProject && !c.modalOpen },
   { id: 'files-duplicate', label: 'command.files.duplicate', when: (c) => c.hasProject && !c.modalOpen },
   { id: 'files-move-to', label: 'command.files.moveTo', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'files-add', label: 'command.files.addFiles', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'files-add-image', label: 'command.files.addImage', when: (c) => c.hasProject && !c.modalOpen },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));

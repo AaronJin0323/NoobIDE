@@ -2,7 +2,9 @@ import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { toIpcResult, type IpcResult } from '../shared/ipc/contract';
 import {
   FILE_OPS_CHANNELS,
+  parseChooseImportRequest,
   parseCopyEntriesRequest,
+  parseImportEntriesRequest,
   parseImageInfoRequest,
   parseMoveEntriesRequest,
   parseTrashEntriesRequest,
@@ -10,6 +12,21 @@ import {
 import type { ProjectService } from '../workspace/project-service';
 import { isTrustedSender, senderInfo } from './ipc';
 import { projectImageInfo } from './project-images'; // S52.6
+import { randomBytes } from 'node:crypto';
+import { inspectSources, importEntry, type ImportSource } from '../workspace/import-files'; // S52.4
+import type { ImportKind } from '../shared/import-rules';
+import { MAX_IMPORT_ITEMS, type ImportCandidate } from '../shared/ipc/file-ops-contract';
+
+/** S52.4: an entry from outside the project, chosen in a dialog (or dropped, S52.5) by one window. */
+interface ChosenEntry {
+  readonly windowId: number;
+  readonly projectId: string;
+  readonly kind: ImportKind;
+  readonly path: string;
+  readonly at: number;
+}
+const PICK_TTL_MS = 30 * 60 * 1000;
+const MAX_PICKS = 1000;
 
 /**
  * IPC handlers of S52 file management (file-ops-contract.ts). The same checks as every other handler, in the same
@@ -21,6 +38,14 @@ export interface FileOpsIpcDeps {
   readonly projects: Pick<ProjectService, 'moveEntries' | 'copyEntries' | 'trashEntries'>;
   /** S52.6: the real root of an open project (image sizes for the viewer). */
   rootOf?(projectId: string): string | undefined;
+  /** S52.4: the native open dialog of the sender's window; null when cancelled. */
+  chooseImportPaths?(
+    event: IpcMainInvokeEvent,
+    options: { readonly kind: ImportKind; readonly title: string; readonly filterName: string },
+  ): Promise<readonly string[] | null>;
+  /** Random ids for chosen entries (tests pass a counter). */
+  newId?(): string;
+  now?(): number;
   /** Electron's shell.trashItem: moves to the OS trash, never deletes permanently. */
   trashItem(fullPath: string): Promise<void>;
 }
@@ -52,6 +77,72 @@ export function registerFileOpsIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: F
   handle(FILE_OPS_CHANNELS.trashEntries, parseTrashEntriesRequest, async (request) =>
     toIpcResult(await deps.projects.trashEntries(request, deps.trashItem)),
   );
+  // --- S52.4/S52.5: entries from outside the project, kept in main by id (their paths never reach the renderer) ---
+  const picks = new Map<string, ChosenEntry>();
+  const now = deps.now ?? Date.now;
+  const newId = deps.newId ?? (() => randomBytes(12).toString('base64url'));
+  /** Keeps the entries for this window and project; older ones expire, at most MAX_PICKS per window. */
+  const remember = (
+    event: IpcMainInvokeEvent,
+    projectId: string,
+    kind: ImportKind,
+    sources: readonly ImportSource[],
+  ) => {
+    const at = now();
+    for (const [id, pick] of picks) if (at - pick.at > PICK_TTL_MS) picks.delete(id);
+    const own = [...picks].filter(([, pick]) => pick.windowId === event.sender.id);
+    for (const [id] of own.slice(0, Math.max(0, own.length + sources.length - MAX_PICKS))) picks.delete(id);
+    return sources.map((source): ImportCandidate => {
+      const id = newId();
+      picks.set(id, { windowId: event.sender.id, projectId, kind, path: source.path, at });
+      return {
+        id,
+        name: source.name,
+        kind: source.kind,
+        bytes: source.bytes,
+        refusal: source.refusal,
+        ...(source.detail ? { detail: source.detail } : {}),
+      };
+    });
+  };
+  /** Registers entries from outside (also used by the S52.5 drop) and returns them as candidates. */
+  const registerSources = async (
+    event: IpcMainInvokeEvent,
+    projectId: string,
+    kind: ImportKind,
+    paths: readonly string[],
+  ) => remember(event, projectId, kind, await inspectSources(paths.slice(0, MAX_IMPORT_ITEMS), kind));
+
+  handle(FILE_OPS_CHANNELS.chooseImport, parseChooseImportRequest, async (request, event) => {
+    if (deps.rootOf?.(request.projectId) === undefined || !deps.chooseImportPaths) {
+      return { ok: false, code: 'unknown-project', message: 'project is not open' };
+    }
+    const paths = await deps.chooseImportPaths(event, request);
+    if (paths === null) return { ok: true, value: null };
+    return { ok: true, value: await registerSources(event, request.projectId, request.kind, paths) };
+  });
+
+  handle(FILE_OPS_CHANNELS.importEntries, parseImportEntriesRequest, async (request, event) => {
+    const root = deps.rootOf?.(request.projectId);
+    if (root === undefined) return { ok: false, code: 'unknown-project', message: 'project is not open' };
+    const imported: { id: string; relPath: string; skippedLinks: number }[] = [];
+    const failed: { id: string; code: string; message: string }[] = [];
+    for (const item of request.items) {
+      const pick = picks.get(item.id);
+      // Only this window's entries for this project; an expired or foreign id copies nothing.
+      if (!pick || pick.windowId !== event.sender.id || pick.projectId !== request.projectId) {
+        failed.push({ id: item.id, code: 'unknown-id', message: 'chosen entry expired' });
+        continue;
+      }
+      const result = await importEntry(root, pick.path, request.toFolder, item.name, pick.kind);
+      if (result.ok) {
+        imported.push({ id: item.id, ...result.value });
+        picks.delete(item.id);
+      } else failed.push({ id: item.id, code: result.code, message: result.message });
+    }
+    return { ok: true, value: { imported, failed } };
+  });
+
   handle(FILE_OPS_CHANNELS.imageInfo, parseImageInfoRequest, async ({ projectId, relPath }) => {
     const root = deps.rootOf?.(projectId);
     if (root === undefined) return { ok: false, code: 'unknown-project', message: 'project is not open' };

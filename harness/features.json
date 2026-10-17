@@ -4535,8 +4535,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/file-import.test.ts (14: copy not move/link incl. nlink, recursive folders, exists/case-conflict never overwritten + user rename, refused types incl. renamed .exe and macOS .app bundle, folders holding programs/oversized files, size cap, junction destination outside, into-itself, pick ids scoped to window+project, per-item invalid name), src/shared/import-rules.test.ts, src/renderer/workbench/import-messages.test.ts (messages name 50.0 MB / 10000 files or 2 GB / the ending), tests/e2e/file-import.spec.ts (4: Add image…, rename on collision, skip, path completion in <img src> + rendered 2px wide in the preview); subagent review findings 1-9 fixed"
     },
     {
       "id": "S52.5",

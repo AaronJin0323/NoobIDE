@@ -237,6 +237,8 @@ const api: NoobideApi = {
     copyEntries: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.copyEntries, request),
     trashEntries: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.trashEntries, request),
     imageInfo: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.imageInfo, request),
+    chooseImport: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.chooseImport, request),
+    importEntries: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.importEntries, request),
   },
 };
 

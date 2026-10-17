@@ -9,6 +9,7 @@
  */
 import { isListedRelPath, isPortableRelPath, isProjectId, type FileOpError, type IpcResult } from './contract';
 import { isImagePath } from '../image-files';
+import type { ImportKind, ImportRefusal } from '../import-rules';
 
 export const FILE_OPS_CHANNELS = {
   /** S52.1/S52.3: moves entries into a folder of the project. */
@@ -19,6 +20,10 @@ export const FILE_OPS_CHANNELS = {
   trashEntries: 'workspace:trash-entries',
   /** S52.6: the byte size of a project image for the image viewer tab (the picture comes by the app protocol). */
   imageInfo: 'workspace:image-info',
+  /** S52.4: the native "Add files…"/"Add image…" dialog; the chosen entries stay in main under ids. */
+  chooseImport: 'workspace:choose-import',
+  /** S52.4/S52.5: copies chosen or dropped entries into a project folder under the names the user confirmed. */
+  importEntries: 'workspace:import-entries',
 } as const;
 
 /** Most entries one request may name (a selection in the tree). */
@@ -91,7 +96,48 @@ export interface ImageInfo {
   readonly mtimeMs: number;
 }
 
+/** S52.4: what the native dialog shows; the renderer passes the translated texts (main has no UI strings). */
+export interface ChooseImportRequest {
+  readonly projectId: string;
+  readonly kind: ImportKind;
+  readonly title: string;
+  readonly filterName: string;
+}
+
+/** An entry from outside the project, chosen or dropped, as main saw it. Its path never leaves main. */
+export interface ImportCandidate {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: 'file' | 'directory' | 'other';
+  readonly bytes: number;
+  /** Why it cannot be added at all (renaming does not help), or null. */
+  readonly refusal: ImportRefusal | null;
+  /** For a folder refused because of something inside: that path, relative to the folder. */
+  readonly detail?: string;
+}
+
+export interface ImportEntriesRequest {
+  readonly projectId: string;
+  readonly toFolder: string;
+  /** Candidate ids with the name each gets in the folder (the original, or one the user typed). */
+  readonly items: readonly { readonly id: string; readonly name: string }[];
+}
+
+export interface ImportEntriesResult {
+  readonly imported: readonly { readonly id: string; readonly relPath: string; readonly skippedLinks: number }[];
+  /** `exists` / `case-conflict` carry the existing name: the user renames or skips, nothing is overwritten. */
+  readonly failed: readonly {
+    readonly id: string;
+    readonly code: FileOpError | ImportRefusal | 'unknown-id';
+    readonly message: string;
+  }[];
+}
+
 export interface FileOpsApi {
+  /** S52.4: shows the native dialog; null when cancelled. Every chosen entry is listed, refused ones with why. */
+  chooseImport(request: ChooseImportRequest): Promise<IpcResult<readonly ImportCandidate[] | null, FileOpError>>;
+  /** S52.4/S52.5: copies candidates into a folder; never links, moves or overwrites. */
+  importEntries(request: ImportEntriesRequest): Promise<IpcResult<ImportEntriesResult, FileOpError>>;
   /** S52.6: size of a png/jpg/gif/svg/webp/ico inside the project; anything else is refused. */
   imageInfo(request: {
     readonly projectId: string;
@@ -147,4 +193,37 @@ export function parseImageInfoRequest(payload: unknown): { projectId: string; re
   if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath'])) return null;
   const { projectId, relPath } = payload;
   return isProjectId(projectId) && isPortableRelPath(relPath) && isImagePath(relPath) ? { projectId, relPath } : null;
+}
+
+/** Ids main gives chosen and dropped entries (random, url-safe). */
+export const IMPORT_ID = /^[A-Za-z0-9_-]{8,64}$/;
+/** Most entries one dialog or drop may bring in. */
+export const MAX_IMPORT_ITEMS = 200;
+
+const isShortText = (value: unknown): value is string => typeof value === 'string' && value.length <= 200;
+
+export function parseChooseImportRequest(payload: unknown): ChooseImportRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'kind', 'title', 'filterName'])) return null;
+  const { projectId, kind, title, filterName } = payload;
+  if (!isProjectId(projectId) || (kind !== 'files' && kind !== 'image')) return null;
+  return isShortText(title) && isShortText(filterName) ? { projectId, kind, title, filterName } : null;
+}
+
+export function parseImportEntriesRequest(payload: unknown): ImportEntriesRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'toFolder', 'items'])) return null;
+  const { projectId, toFolder, items } = payload;
+  if (!isProjectId(projectId) || !isFolderPath(toFolder) || !Array.isArray(items)) return null;
+  if (items.length === 0 || items.length > MAX_IMPORT_ITEMS) return null;
+  const out: { id: string; name: string }[] = [];
+  for (const item of items) {
+    if (!isRecord(item) || !hasExactKeys(item, ['id', 'name'])) return null;
+    const { id, name } = item;
+    // One name in the folder, not a path. Its Windows/macOS rules are checked by main per item (`invalid-name`
+    // asks the user for another name), so a file named `aux.png` on a Mac does not fail the whole batch.
+    if (typeof id !== 'string' || !IMPORT_ID.test(id) || typeof name !== 'string') return null;
+    if (name === '' || name.length > 255 || /[/\\\0]/.test(name) || name === '.' || name === '..') return null;
+    out.push({ id, name });
+  }
+  if (new Set(out.map((i) => i.id)).size !== out.length) return null;
+  return { projectId, toFolder, items: out };
 }

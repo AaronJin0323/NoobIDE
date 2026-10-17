@@ -3,6 +3,7 @@ import { link, lstat, mkdir, open, readdir, rename, rmdir, stat, unlink } from '
 import { createReadStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
+import { COPY_LIMITS } from '../shared/copy-limits';
 import type { FileOpError } from '../shared/ipc/contract';
 import { checkFileName, copyName, sameName } from '../shared/file-names';
 import { err, ok, type Result } from '../shared/result';
@@ -85,7 +86,7 @@ export async function resolveEntry(
 }
 
 /** A new name must be valid on Windows and macOS alike; the message lists the problems (src/shared/file-names). */
-function checkName(name: string): Result<null, FileOpError> {
+export function checkName(name: string): Result<null, FileOpError> {
   const check = checkFileName(name);
   return check.ok ? ok(null) : err('invalid-name', check.problems.join(','));
 }
@@ -365,7 +366,7 @@ export const realCopyFs: CopyFs = {
 };
 
 /** S52.2: a copy larger than this (files or bytes, counted before anything is written) is refused. */
-export const COPY_LIMITS = { maxEntries: 10_000, maxBytes: 2 * 1024 * 1024 * 1024 } as const;
+export { COPY_LIMITS } from '../shared/copy-limits';
 
 /**
  * Copies one file without ever replacing anything: the target is created with `wx` (so "we created it" is certain),
@@ -383,7 +384,7 @@ export async function copyFileExclusive(from: string, to: string): Promise<void>
 }
 
 /** Counts what a copy would create (links are not followed), stopping as soon as a limit is passed. */
-async function measure(source: string, fs: CopyFs): Promise<{ entries: number; bytes: number }> {
+export async function measure(source: string, fs: CopyFs = realCopyFs): Promise<{ entries: number; bytes: number }> {
   const total = { entries: 0, bytes: 0 };
   const walk = async (p: string): Promise<void> => {
     if (total.entries > COPY_LIMITS.maxEntries || total.bytes > COPY_LIMITS.maxBytes) return;
@@ -466,16 +467,30 @@ export async function copyEntry(
   } catch (e) {
     return err(opErrorCode(e), errorCode(e), e);
   }
-  const target = path.join(dest.path, newName);
+  const copied = await copyNew(source.value, path.join(dest.path, newName), fs);
+  if (!copied.ok) return copied;
+  return ok({ from, to: real === '' ? newName : `${real}${SEP}${newName}`, skippedLinks: copied.value.skippedLinks });
+}
+
+/**
+ * Copies `source` (a file or folder, links inside not followed) to `target`, which must not exist yet: never
+ * overwrites, and a failure half-way removes exactly what was created and reports the cause. Shared by copy/paste
+ * (S52.2) and import from outside the project (S52.4, S52.5).
+ */
+export async function copyNew(
+  source: string,
+  target: string,
+  fs: CopyFs = realCopyFs,
+): Promise<Result<{ skippedLinks: number }, FileOpError>> {
   const created: { path: string; directory: boolean }[] = [];
   const counts = { skippedLinks: 0 };
   try {
-    await copyTree(source.value, target, fs, created, counts);
+    await copyTree(source, target, fs, created, counts);
   } catch (e) {
     const leftover = await rollback(created, fs);
     return err(opErrorCode(e), leftover === 0 ? errorCode(e) : `${errorCode(e)}; ${leftover} left`, e);
   }
-  return ok({ from, to: real === '' ? newName : `${real}${SEP}${newName}`, skippedLinks: counts.skippedLinks });
+  return ok({ skippedLinks: counts.skippedLinks });
 }
 
 async function copyTree(

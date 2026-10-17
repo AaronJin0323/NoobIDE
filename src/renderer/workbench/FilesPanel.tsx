@@ -9,7 +9,12 @@ import { fill, nameProblemMessage, opErrorMessage, protectedFolderMessage } from
 import { parentOf } from './file-tree-model';
 import { FolderIcon, NewFileIcon, NewFolderIcon, SmallFolderIcon, WarningIcon } from './icons';
 import { TreeContextMenu, type MenuItem } from './TreeContextMenu';
-import { MAX_BATCH_ENTRIES, type FileOpsApi } from '../../shared/ipc/file-ops-contract';
+import { MAX_BATCH_ENTRIES, type FileOpsApi, type ImportCandidate } from '../../shared/ipc/file-ops-contract';
+import type { FileOpError } from '../../shared/ipc/contract';
+import type { ImportKind } from '../../shared/import-rules';
+import { copyName, sameName } from '../../shared/file-names';
+import { ImportNameDialog } from './ImportNameDialog';
+import { importRefusalMessage, isImportRefusal, needsNewName } from './import-messages';
 import { MoveDialog } from './MoveDialog';
 import { dropFolder, folderLabel, outermostSources } from './move-model';
 
@@ -52,7 +57,7 @@ interface FilesPanelProps {
 }
 
 /** S52.1/S52.2: file commands the palette runs on the tree's selection. */
-export type FileCommand = 'copy' | 'paste' | 'duplicate' | 'move-to';
+export type FileCommand = 'copy' | 'paste' | 'duplicate' | 'move-to' | 'add-files' | 'add-image';
 
 /** A context-menu command contributed by the workbench (S13.2). */
 export interface ExtraMenuItem {
@@ -100,6 +105,14 @@ export function FilesPanel({
   const clipboard = useRef<{ readonly projectId: string; readonly entries: readonly TreeEntry[] } | null>(null);
   /** The entries the delete confirmation is open for (S52.3: a selection of several). */
   const [confirmDelete, setConfirmDelete] = useState<readonly TreeEntry[] | null>(null);
+  /** S52.4: an added file whose name is taken (or invalid): the user renames or skips it. */
+  const [nameAsk, setNameAsk] = useState<{
+    readonly name: string;
+    readonly existing: string | null;
+    readonly folder: string;
+    readonly isFolder: boolean;
+    readonly resolve: (name: string | null) => void;
+  } | null>(null);
   /** S52.3: the tree's visible selection, in tree order. */
   const selectionEntries = useRef<readonly TreeEntry[]>([]);
   /** `items`: S52.3 — the entries of a selection that were not handled, each with its cause. */
@@ -463,8 +476,95 @@ export function FilesPanel({
   const selection = (): readonly TreeEntry[] =>
     selectionEntries.current.length > 0 ? selectionEntries.current : selected.current ? [selected.current] : [];
 
+  // --- S52.4: add files and images from outside the project ---
+  const askName = (name: string, existing: string | null, folder: string, isFolder: boolean) =>
+    new Promise<string | null>((resolve) => setNameAsk({ name, existing, folder, isFolder, resolve }));
+
+  /**
+   * Copies outside entries (chosen in the dialog, or dropped: S52.5) into `folder`. Refused ones are explained with
+   * the limit or type; a taken or invalid name asks the user for another name or to skip, one file at a time;
+   * nothing in the project is ever overwritten.
+   */
+  const runImport = async (candidates: readonly ImportCandidate[], folder: string) => {
+    if (!fileOpsApi || !projectId || busy.current || candidates.length === 0) return;
+    busy.current = true;
+    setOpError(null);
+    setNotice(null);
+    const folderName = folderLabel(folder, project?.name ?? '');
+    const problems: string[] = [];
+    const imported: string[] = [];
+    try {
+      for (const c of candidates) {
+        if (c.refusal) problems.push(importRefusalMessage(t, c.refusal, c.name, c.kind, c.detail));
+      }
+      let queue = candidates.filter((c) => c.refusal === null).map((c) => ({ c, name: c.name }));
+      while (queue.length > 0) {
+        const result = await fileOpsApi.importEntries({
+          projectId,
+          toFolder: folder,
+          items: queue.map((q) => ({ id: q.c.id, name: q.name })),
+        });
+        if (!result.ok) {
+          problems.push(opErrorMessage(t, result.code, result.message, ''));
+          break;
+        }
+        imported.push(...result.value.imported.map((i) => i.relPath));
+        const next: typeof queue = [];
+        for (const failure of result.value.failed) {
+          const q = queue.find((x) => x.c.id === failure.id);
+          if (!q) continue;
+          if (needsNewName(failure.code)) {
+            const existing = failure.code === 'invalid-name' ? null : failure.message;
+            const name = await askName(q.name, existing, folderName, q.c.kind === 'directory');
+            if (name !== null) next.push({ c: q.c, name });
+          } else if (isImportRefusal(failure.code)) {
+            problems.push(importRefusalMessage(t, failure.code, q.name, q.c.kind));
+          } else if (failure.code === 'unknown-id') {
+            problems.push(fill(t('import.expired'), { name: q.name }));
+          } else {
+            problems.push(`${q.name}: ${opErrorMessage(t, failure.code as FileOpError, failure.message, q.name)}`);
+          }
+        }
+        queue = next;
+      }
+      if (imported.length > 0) {
+        const first = imported[0];
+        reload([folder], first);
+        setNotice(fill(t('import.done'), { n: String(imported.length), folder: folderName }));
+      }
+      if (problems.length > 0) {
+        setOpError({ text: fill(t('import.partial'), { n: String(problems.length) }), detail: '', items: problems });
+      }
+    } catch {
+      setOpError({ text: t('op.generic'), detail: '' });
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  /** "Add files…" / "Add image…": the native dialog in main, then the copy into `folder`. */
+  const startImport = async (kind: ImportKind, folder: string) => {
+    if (!fileOpsApi || !projectId || busy.current) return; // one import (and its name questions) at a time
+    const chosen = await fileOpsApi.chooseImport({
+      projectId,
+      kind,
+      title: t(kind === 'image' ? 'import.imageDialogTitle' : 'import.dialogTitle'),
+      filterName: t('import.imageFilter'),
+    });
+    if (!chosen.ok) {
+      setOpError({ text: opErrorMessage(t, chosen.code, chosen.message, ''), detail: chosen.message });
+      return;
+    }
+    if (chosen.value) await runImport(chosen.value, folder);
+  };
+  // --- end S52.4 ---
+
   const fileCommandRef = useRef<(command: FileCommand) => void>(() => undefined);
   fileCommandRef.current = (command) => {
+    if (command === 'add-files' || command === 'add-image') {
+      void startImport(command === 'add-image' ? 'image' : 'files', targetFolder());
+      return;
+    }
     const entries = selection();
     if (command === 'paste') {
       pasteInto(entries[0] ?? null);
@@ -531,6 +631,9 @@ export function FilesPanel({
               run: () => void copyEntries(targets(entry), '', 'duplicate'),
             },
             { id: 'move-to', label: t('menu.moveTo'), run: () => setMoveFor(targets(entry)) },
+            // S52.4: into this folder (or the folder this file is in)
+            { id: 'add-files', label: t('menu.addFiles'), run: () => void startImport('files', dropFolder(entry)) },
+            { id: 'add-image', label: t('menu.addImage'), run: () => void startImport('image', dropFolder(entry)) },
           ]
         : []),
       {
@@ -702,6 +805,30 @@ export function FilesPanel({
       <p className="sr-only" role="status" aria-live="polite" data-testid="file-op-notice">
         {notice ?? ''}
       </p>
+      {nameAsk && (
+        <ImportNameDialog
+          name={nameAsk.name}
+          existing={nameAsk.existing}
+          folder={nameAsk.folder}
+          suggestion={
+            nameAsk.existing === null
+              ? nameAsk.name
+              : copyName(
+                  nameAsk.name,
+                  (c) => !sameName(c, nameAsk.existing ?? '', false),
+                  nameAsk.isFolder ? 'directory' : 'file',
+                )
+          }
+          onRename={(name) => {
+            setNameAsk(null);
+            nameAsk.resolve(name);
+          }}
+          onSkip={() => {
+            setNameAsk(null);
+            nameAsk.resolve(null);
+          }}
+        />
+      )}
       {moveFor && api && project && (
         <MoveDialog
           projectId={project.projectId}

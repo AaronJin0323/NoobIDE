@@ -1232,6 +1232,8 @@ export function Workbench() {
           'files-paste': () => runFileCommand('paste'),
           'files-duplicate': () => runFileCommand('duplicate'),
           'files-move-to': () => runFileCommand('move-to'),
+          'files-add': () => runFileCommand('add-files'), // S52.4
+          'files-add-image': () => runFileCommand('add-image'),
         }
       : {}),
     'command-palette': () =>

@@ -22,6 +22,7 @@ import { isWindows } from '../platform/labels';
 import { currentSquirrelAction, runSquirrelAction } from '../platform/squirrel';
 import { APP_ENTRY_URL, APP_ORIGIN, APP_SCHEME } from './app-asset';
 import { serveProjectImage } from './project-images'; // S52.6
+import { IMAGE_DIALOG_EXTENSIONS } from '../shared/import-rules'; // S52.4
 import { handleAppProtocol, registerAppSchemePrivileges } from './app-protocol';
 import { buildCsp } from './csp';
 import {
@@ -448,6 +449,17 @@ function start(): void {
       projects: openProjects,
       trashItem: (fullPath) => shell.trashItem(fullPath), // S52.3: the OS trash, never a permanent delete
       rootOf: (projectId) => openProjects.rootOf(projectId), // S52.6
+      // S52.4: "Add files…" / "Add image…" (texts translated by the renderer; images filtered by ending)
+      async chooseImportPaths(event, { kind, title, filterName }) {
+        const owner = BrowserWindow.fromWebContents(event.sender);
+        const options = {
+          title,
+          properties: ['openFile' as const, 'multiSelections' as const],
+          ...(kind === 'image' ? { filters: [{ name: filterName, extensions: [...IMAGE_DIALOG_EXTENSIONS] }] } : {}),
+        };
+        const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options);
+        return result.canceled ? null : result.filePaths;
+      },
     });
     // S41.4: preview annotations, kept per project in app data (never in the project folder).
     registerAnnotationsIpcHandlers(ipcMain, {
