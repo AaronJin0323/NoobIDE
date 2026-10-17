@@ -35,6 +35,35 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 
 ## Open checks
 
+### S50.1 — CI runs less: path filter, draft gating, static gates once, no PR installers
+
+- **Platform:** GitHub Actions (hosted runners), repository AaronJin0323/NoobIDE
+- **Build:** branch `claude/dreamy-feistel-668709` merged into `main` (the workflow runs from the PR's own copy of
+  `.github/workflows/ci.yml`, so the PR that carries this change is itself the first check of steps 2–3)
+- **Steps:**
+  1. Open the PR for this branch as a **draft**. Expected on the Checks tab: `Classify changes` and `Static gates`
+     run (about 2 min); every `… (shard n/2)` job and both required checks `windows-x64` / `macos-arm64` are
+     skipped, and the PR's merge box shows the two required checks as "Expected — waiting for status" (pending,
+     not red). Push a second commit to the draft: again only the two ubuntu jobs run.
+  2. Mark the PR **ready for review**. Expected: a new `CI` run starts on the `ready_for_review` event; the four
+     OS jobs run; `windows-x64` and `macos-arm64` go green; no `Make installers` / `Inspect binary
+architectures` / `Upload installers` step runs (they show as skipped) and the run has no `noobide-*`
+     artifact. Note the run's wall-clock time against the 20.5 min baseline of plan §2.
+  3. Merge. Expected on the `main` push run: all four OS jobs run, `Make installers` runs on shard 1 of each
+     target and the run uploads `noobide-windows-x64` and `noobide-macos-arm64`.
+  4. Open a **docs-only** PR (e.g. a one-line edit to `docs/testing.md` or `harness/PROGRESS.md`, not a draft).
+     Expected: `Classify changes` logs `kind=docs-only`; the OS jobs are skipped; `Static gates` runs;
+     `windows-x64` and `macos-arm64` both pass, and the PR is mergeable in under 3 minutes.
+  5. On the same docs-only PR add a lint error to a `.ts` file under `src/` and push. Expected: `Classify
+changes` logs `kind=code`, `Static gates` fails on the Lint step within about 2 minutes, both required
+     checks fail (the gate's log line shows `static=failure`), and the OS jobs run but cannot turn the gates green.
+     Revert the commit (or close the PR).
+  6. Run `node scripts/ci-timings.mjs --runs 10` (S50.6) once ten runs exist after the merge and record the
+     median wall-clock of code PR runs and docs-only runs in `docs/ci/`.
+- **Expected:** steps 1–5 behave as described; the two required check names in the Protect main ruleset
+  (id 25212312) are unchanged and still required.
+- **Result:** _(owner fills in: pass/fail, notes, date)_
+
 ### S46.9 — Integrated title bar
 
 - **Platform:** Windows 11 x64 and macOS on Apple Silicon

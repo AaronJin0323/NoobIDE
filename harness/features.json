@@ -4308,8 +4308,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "tests/integration/ci-workflow.test.ts (32) + ci-changes.test.ts (24), verify green; owner steps in harness/MANUAL-CHECKS.md#S50.1 (Actions only run on GitHub)"
     },
     {
       "id": "S50.2",
