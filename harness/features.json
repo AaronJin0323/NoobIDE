@@ -4715,8 +4715,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/product/explanation-rules-16-25.md: H.6 has no data (no docs/research/study-1.md), so the criterion's default set; each of rules 16-25 records trigger, evidence (static/runtime), certainty + uncertainty wording, the rule 1-15 it must not duplicate, and the quick fix policy for S55.3; checked against both S55.1 criteria"
     },
     {
       "id": "S55.2",
