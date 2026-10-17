@@ -56,9 +56,31 @@ export function verifyMacDmg(file, { run = defaultRun, teamId = '' } = {}) {
   return { file, ok: checks.every((c) => c.ok), checks };
 }
 
+/**
+ * Delays before each retry when signtool could not open the file at all (ERROR_SHARING_VIOLATION, "The file is being
+ * used by another process"): on Windows a freshly written executable is held for a moment by the antivirus scanner or
+ * the indexer, exactly as the atomic save's rename is (src/recovery/atomic-file.ts). Only that error is retried — a
+ * signature that fails to verify is reported at once — and after the last attempt the error is reported as it is.
+ */
+export const SHARING_VIOLATION_BACKOFF_MS = [500, 1000, 2000, 4000];
+const SHARING_VIOLATION = /SignTool Error: The file is being used by another process/;
+
+/** Blocks the current thread for `ms` (the verifier is synchronous: spawnSync, one file after another). */
+function defaultSleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 /** signtool verify /pa /v on one file. */
-export function verifyWindowsFile(file, { run = defaultRun, signtool = 'signtool.exe' } = {}) {
-  const r = run(signtool, ['verify', '/pa', '/v', file]);
+export function verifyWindowsFile(
+  file,
+  { run = defaultRun, signtool = 'signtool.exe', sleep = defaultSleep, backoffMs = SHARING_VIOLATION_BACKOFF_MS } = {},
+) {
+  let r = run(signtool, ['verify', '/pa', '/v', file]);
+  for (const delay of backoffMs) {
+    if (!SHARING_VIOLATION.test(output(r))) break;
+    sleep(delay);
+    r = run(signtool, ['verify', '/pa', '/v', file]);
+  }
   const text = output(r);
   const verified = r.status === 0 && /Successfully verified:/.test(text);
   const errors = /Number of errors:\s*(\d+)/.exec(text)?.[1];
