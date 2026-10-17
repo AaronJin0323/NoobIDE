@@ -69,6 +69,19 @@ describe('file tree commands (S08.3, S08.5)', () => {
     expect(treeShortcutLabel('mac', 'delete')).toBe('⌘⌫');
     expect(treeShortcutLabel('mac', 'reveal')).toBe('⌥⌘R');
   });
+
+  it('binds copy, paste and duplicate to the primary modifier only (S52.2)', () => {
+    expect(treeCommandForKey('windows', key('c', { ctrlKey: true }))).toBe('copy');
+    expect(treeCommandForKey('windows', key('V', { ctrlKey: true }))).toBe('paste');
+    expect(treeCommandForKey('windows', key('d', { ctrlKey: true }))).toBe('duplicate');
+    expect(treeCommandForKey('windows', key('c', { metaKey: true }))).toBeNull();
+    expect(treeCommandForKey('windows', key('c', { ctrlKey: true, shiftKey: true }))).toBeNull();
+    expect(treeCommandForKey('mac', key('c', { metaKey: true }))).toBe('copy');
+    expect(treeCommandForKey('mac', key('d', { metaKey: true }))).toBe('duplicate');
+    expect(treeCommandForKey('mac', key('c', { ctrlKey: true }))).toBeNull();
+    expect(treeShortcutLabel('windows', 'duplicate')).toBe('Ctrl+D');
+    expect(treeShortcutLabel('mac', 'paste')).toBe('⌘V');
+  });
 });
 
 describe('formatShortcutLabel (S18.3)', () => {

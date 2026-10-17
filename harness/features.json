@@ -4574,8 +4574,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/file-move.test.ts (18: Chinese paths with spaces, exists/case-conflict/into-itself/junction outside/not-a-folder, history+journal follow, IPC checks), src/renderer/workbench/{tab-move,disk-sync-move,move-model,document-state}.test.ts, tests/e2e/file-move.spec.ts (6: Move to… keyboard, drag file/folder, into-itself, exists, external move) + related e2e 61/61; subagent review findings 1-9 fixed"
     },
     {
       "id": "S52.2",
@@ -4590,8 +4590,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/file-names.test.ts (copyName: copy, copy 2, copy of a copy, case, long names, Chinese), tests/integration/file-copy.test.ts (16: byte-identical binary, recursive folders, never overwrite, links skipped, into-itself, junction outside, fault tests ENOSPC mid-stream/EEXIST race/EACCES/size limit), src/platform/labels.test.ts, tests/e2e/file-copy.spec.ts (6: context menu, Ctrl/Cmd+C/V/D, palette copy/paste/duplicate); subagent review findings 1-6 fixed"
     },
     {
       "id": "S52.3",
@@ -4608,8 +4608,8 @@
       "depends_on": [
         "S52.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/file-tree-model.test.ts (multi-select: toggle, range, Shift/Ctrl arrows, select all, focus keeps selection, follows moves, collapsed rows drop out), tests/integration/file-trash-many.test.ts (4: OS trash per item, partial failure listed, history snapshots, contract), tests/e2e/file-multi-select.spec.ts (7: Ctrl/Cmd/Shift-click + live count + axe, Shift+arrows, Space, Ctrl/Cmd+A, drag of a selection, keyboard-only Move to…/Duplicate/context-menu trash, Delete with partial failure); subagent review findings 1-5, 8 fixed"
     },
     {
       "id": "S52.4",
@@ -4624,8 +4624,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/file-import.test.ts (14: copy not move/link incl. nlink, recursive folders, exists/case-conflict never overwritten + user rename, refused types incl. renamed .exe and macOS .app bundle, folders holding programs/oversized files, size cap, junction destination outside, into-itself, pick ids scoped to window+project, per-item invalid name), src/shared/import-rules.test.ts, src/renderer/workbench/import-messages.test.ts (messages name 50.0 MB / 10000 files or 2 GB / the ending), tests/e2e/file-import.spec.ts (4: Add image…, rename on collision, skip, path completion in <img src> + rendered 2px wide in the preview); subagent review findings 1-9 fixed"
     },
     {
       "id": "S52.5",
@@ -4641,8 +4641,8 @@
       "depends_on": [
         "S52.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "drop handling implemented (FileTree Files drop → preload webUtils.getPathForFile → workspace:register-dropped → S52.4 import); tested on Windows x64 with a synthetic drop: tests/e2e/file-drop.spec.ts (3) + tests/integration/file-import.test.ts (drop IPC); real Explorer/Finder drag: steps in harness/MANUAL-CHECKS.md#S52.5"
     },
     {
       "id": "S52.6",
@@ -4657,8 +4657,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/image-files.test.ts (types incl. dotfiles refused, URL round-trip, relativeHref/imgTag), tests/integration/project-images.test.ts (9: app-protocol project host, realpath/junction refusal, NTFS stream/device/encoded traversal refused, SVG CSP sandbox no script-src, imageInfo + contract), src/main/csp.test.ts, document-state tests, tests/e2e/image-viewer.spec.ts (8: png/gif/svg/jpg/webp/ico with pixel+byte size, font refusal, SVG script never runs, copy tag/path relative to the HTML tab, en labels, external change/move); subagent review findings 1-6, 8 fixed"
     },
     {
       "id": "S53.1",

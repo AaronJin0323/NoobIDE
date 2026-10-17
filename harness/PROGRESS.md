@@ -51,6 +51,68 @@ just not optimal.
 **Next up:** the other M19 sessions; merging the six M19 branches needs only `harness/features.json` status fields and
 this file reconciled.
 
+## Session 37 (side session) — 2026-10-17 — S52 complete file management (M19)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s52-files-402d45` (based on
+824b6fa, the M19 backlog records). Parallel to the S51, S53+S57, S54, S55 and S56 sessions; renumber this entry at
+merge if another branch also took "Session 37".
+
+**Done**
+
+- S52.1 — Move files and folders: `moveEntry` in `src/workspace/file-ops.ts` (destination realpath-checked and
+  reported as its real path, existing names refused), `workspace:move-entries` (`src/shared/ipc/file-ops-contract.ts`,
+  `src/main/file-ops-ipc.ts`); local history and recovery copies follow renames and moves (`SnapshotStore.movePath`,
+  `RecoveryJournal.movePath`, decision 0006 updated); tabs re-keyed in place with unsaved text and journal buffer
+  (`src/renderer/workbench/tab-move.ts`); watcher replay of external moves by content hash (`DiskSync.replayMove`);
+  tree drag-and-drop and the "Move to…" dialog (`MoveDialog.tsx`, `move-model.ts`).
+- S52.2 — Copy, paste, duplicate: `copyEntry`/`copyNew` (exclusive create, stream copy, rollback of only what was
+  created, size limits), `copyName` in `src/shared/file-names.ts`, context menu, Ctrl/Cmd+C/V/D in the tree, palette.
+- S52.3 — Multi-select: selection model in `file-tree-model.ts` (toggle, range, Space, Ctrl/Cmd+A, announced count),
+  trash/move/copy on the selection, `workspace:trash-entries` (OS trash per item, partial failures listed).
+- S52.4 — "Add files…" / "Add image…": `src/workspace/import-files.ts`, `src/shared/import-rules.ts`, native dialog in
+  main with per-window pick ids (paths never reach the renderer), rename-or-skip dialog (`ImportNameDialog.tsx`).
+- S52.5 — Drop from Explorer/Finder onto the tree: preload `webUtils.getPathForFile` → `workspace:register-dropped` →
+  the S52.4 import. Set to `needs_manual_check` (a real OS drag cannot be automated).
+- S52.6 — Image viewer tab: app protocol `project` host (`src/main/project-images.ts`, realpath-checked, sandboxed CSP
+  so SVG scripts never run, never the preview server), `ImageView.tsx` with pixel/byte size and "Copy <img> tag" /
+  "Copy relative path".
+
+**Evidence:** integration tests `tests/integration/file-{move,copy,trash-many,import}.test.ts` and
+`project-images.test.ts`; unit tests beside the code; e2e `tests/e2e/file-{move,copy,multi-select,import,drop}.spec.ts`
+and `image-viewer.spec.ts`, plus the tree/tabs/session/recovery/history/a11y/smoke/commands specs, all green on
+Windows x64; `npm run verify` green. Each feature was reviewed by a subagent against its criteria and the AGENTS.md
+invariants before it was marked done; all medium findings were fixed (see the commit messages).
+
+**Decisions:** One cross-platform copy-name rule ("name copy.ext", "name copy 2.ext") instead of Explorer's
+"- Copy", because projects move between Windows and macOS. Moves save dirty buffers first (as rename did), then
+re-key the tabs; the editor's undo history does not survive a move (new model uri). Image sizes come from a small IPC
+call, not a fetch (no CORS needed, `connect-src` unchanged); only `img-src` gains `noobide://project`. Import refuses
+programs, scripts and shortcuts (also macOS `.app`/`.pkg` bundles and folders holding them), files over 50 MB, and
+folders over 10 000 files / 2 GB. `workspace:register-dropped` (S52.5) is the first channel where the renderer
+names absolute paths outside the project: main only reads them (inspect, then copy after the user confirms names);
+preload takes them from `webUtils.getPathForFile`, which gives a path only for files the OS handed over; the e2e path
+override is wired only with `NOOBIDE_E2E_DROP=1`.
+
+**Problems / risks:** The shared `D:\NoobIDE\node_modules` was emptied during the session (another session's
+install); this worktree switched to its own `npm ci` (junction removed, lockfile unchanged). The watcher pairs an
+external move only when both halves land in one batch (S07.3); otherwise the tab is kept and marked deleted (the
+criterion's fallback). The project-image host trusts hard links inside the project and has a small realpath/read
+window (documented in `project-images.ts`; only the trusted workbench can ask). `tests/e2e/smoke.spec.ts` lists the
+bridge keys: other M19 branches that add an API must merge that list.
+
+**Owner action needed:** S52.5 manual check on Windows x64 (Explorer) and Apple Silicon macOS (Finder):
+`harness/MANUAL-CHECKS.md#S52.5`.
+
+**Next up**
+
+1. Merge the M19 branches (expect conflicts in `harness/features.json`, PROGRESS.md, `src/shared/commands.ts`,
+   `contract.ts`, `preload.ts`, `main.ts`, `Workbench.tsx`, the i18n spread lines and `smoke.spec.ts`).
+2. Run the S52.5 manual check.
+
+**Ideas / backlog candidates:** progress and cancel for very large copies and imports; Cut (Ctrl/Cmd+X) in the tree;
+relinking history for moves made outside NoobIDE (content-hash relink, decision 0006 option 2); an image tab that
+also shows where the image is used.
+
 ## Session 43 (side session) — 2026-10-17 — S58.3: perf budgets enforced locally, reported on hosted runners
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/hopeful-gates-e43ecf`

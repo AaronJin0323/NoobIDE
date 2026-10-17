@@ -62,6 +62,14 @@ export const COMMAND_IDS = [
   'ai-inline-edit',
   // S40.5 command palette (search every command that applies now)
   'command-palette',
+  // S52.1/S52.2 file management on the file tree's selection (tree keys: Ctrl/Cmd+C/V/D)
+  'files-copy',
+  'files-paste',
+  'files-duplicate',
+  'files-move-to',
+  // S52.4 import from outside the project
+  'files-add',
+  'files-add-image',
   // S53 HTML/CSS authoring aids (Edit menu)
   'toggle-emmet',
   'wrap-with-tag',
@@ -212,6 +220,14 @@ export const COMMANDS: readonly CommandDefinition[] = [
     keys: { all: { key: 'p', primary: true, shift: true } },
     when: noModal,
   },
+  // S52.1/S52.2: act on the file tree's selection. No global keys: Ctrl/Cmd+C/V/D belong to the code editor; the
+  // tree binds them while it has the focus (src/platform/labels treeCommandForKey).
+  { id: 'files-copy', label: 'command.files.copy', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'files-paste', label: 'command.files.paste', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'files-duplicate', label: 'command.files.duplicate', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'files-move-to', label: 'command.files.moveTo', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'files-add', label: 'command.files.addFiles', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'files-add-image', label: 'command.files.addImage', when: (c) => c.hasProject && !c.modalOpen },
   // S53.1: Emmet abbreviations on Tab (an app setting; on by default).
   { id: 'toggle-emmet', label: 'command.toggleEmmet', checked: (c) => c.emmet === true, toggle: true },
   // S53.2: wraps the selection in an HTML tag (both tag names linked).

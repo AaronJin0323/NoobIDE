@@ -18,6 +18,7 @@ import { activeEditor } from '../editor/editor-handle';
 import { withShortcut } from '../commands/useCommands'; // S24.1
 import { formatShortcutLabel } from '../../platform/labels';
 import { saveErrorKey } from './file-op-messages';
+import { ImageView } from './ImageView'; // S52.6
 import { publishCursor } from './editor-status-state'; // S47.5: the caret shows in the global status strip
 import { ColorPickerHost } from '../editor/ColorPicker'; // S53.3: the colour picker dialog, hosted by the pane
 
@@ -62,6 +63,8 @@ interface EditorPaneProps {
   welcome?: ReactNode;
   /** S21.3: opens the local history of the active file. */
   onShowHistory?: ((relPath: string) => void) | undefined;
+  /** S52.6: the HTML file the image viewer's copied paths are relative to (the last HTML tab shown). */
+  lastHtml?: string | null | undefined;
 }
 
 function openErrorKey(code: string): MessageKey {
@@ -94,21 +97,25 @@ export function EditorPane(props: EditorPaneProps) {
   }, [comparingPath, tabs]);
   const comparing = tab !== null && comparingPath === tab.relPath && tab.save.conflict && !!tab.conflictDisk;
   const notice = copyNotice && tab && copyNotice.relPath === tab.relPath ? copyNotice : null;
-  const editorFile = tab
-    ? {
-        uri: tab.uri,
-        language: languageForPath(tab.relPath),
-        initialValue: tab.content.text,
-        eol: tab.content.eol,
-        readOnly: (tab.content.readOnly ?? false) || props.lockedPaths.some((path) => isSameOrBelow(tab.relPath, path)),
-        // S32.1: AI suggestions need to know which project file this is.
-        projectId: project?.projectId,
-        relPath: tab.relPath,
-        encoding: tab.content.encoding,
-      }
-    : !project
-      ? { uri: 'inmemory://noobide/welcome.html', language: 'html', initialValue: SAMPLE_HTML }
-      : null;
+  const imageTab = tab?.image ? tab : null; // S52.6: shown in the image viewer, not in the code editor
+  const editorFile = imageTab
+    ? null
+    : tab
+      ? {
+          uri: tab.uri,
+          language: languageForPath(tab.relPath),
+          initialValue: tab.content.text,
+          eol: tab.content.eol,
+          readOnly:
+            (tab.content.readOnly ?? false) || props.lockedPaths.some((path) => isSameOrBelow(tab.relPath, path)),
+          // S32.1: AI suggestions need to know which project file this is.
+          projectId: project?.projectId,
+          relPath: tab.relPath,
+          encoding: tab.content.encoding,
+        }
+      : !project
+        ? { uri: 'inmemory://noobide/welcome.html', language: 'html', initialValue: SAMPLE_HTML }
+        : null;
   // S47.5: no code on screen, no caret in the status strip (the editor publishes the next position when it mounts).
   const hasEditor = editorFile !== null;
   useEffect(() => {
@@ -134,7 +141,7 @@ export function EditorPane(props: EditorPaneProps) {
             {t('editor.sampleBadge')}
           </span>
         )}
-        {tab && props.onShowHistory && (
+        {tab && !imageTab && props.onShowHistory && (
           <button
             type="button"
             className="quiet-button history-button"
@@ -257,6 +264,15 @@ export function EditorPane(props: EditorPaneProps) {
               }
             />
           </Suspense>
+        </div>
+      ) : imageTab?.image ? (
+        <div className="editor-surface" id="editor-surface" role="tabpanel">
+          <ImageView
+            relPath={imageTab.relPath}
+            url={imageTab.uri}
+            bytes={imageTab.image.bytes}
+            htmlRelPath={props.lastHtml ?? null}
+          />
         </div>
       ) : editorFile ? (
         <div className="editor-surface" id="editor-surface" role="tabpanel">

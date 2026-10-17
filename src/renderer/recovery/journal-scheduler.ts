@@ -57,6 +57,11 @@ export class JournalScheduler {
     private readonly onHealth: (health: JournalHealth) => void = () => undefined,
   ) {}
 
+  /** S52.1: the buffer being journaled, so a tab that follows a move continues the same record. */
+  get current(): JournalBuffer | null {
+    return this.buffer;
+  }
+
   /** A file was loaded into the editor (or restored). Forgets any unsent edit of the previous buffer. */
   begin(buffer: JournalBuffer | null): void {
     this.cancel();
@@ -104,12 +109,15 @@ export class JournalScheduler {
       .catch(() => undefined);
   }
 
-  /** Sends the unsent copy now (also used when the window is about to close). */
-  async flush(): Promise<void> {
+  /**
+   * Sends the unsent copy now (also used when the window is about to close). Resolves true when the newest copy is
+   * in the journal (or there was nothing to send), false when the write failed.
+   */
+  async flush(): Promise<boolean> {
     const buffer = this.buffer;
     const pending = this.pending;
     this.cancel();
-    if (!buffer || !pending) return;
+    if (!buffer || !pending) return true;
     let failure: string | null;
     try {
       const result = await this.sink.record({
@@ -124,7 +132,7 @@ export class JournalScheduler {
     } catch {
       failure = 'write-failed';
     }
-    if (this.buffer !== buffer) return; // another file was loaded meanwhile
+    if (this.buffer !== buffer) return failure === null; // another file was loaded meanwhile
     this.onHealth(failure);
     if (failure === null) {
       this.retryDelay = JOURNAL_RETRY_MS;
@@ -135,6 +143,7 @@ export class JournalScheduler {
       this.timer = this.timers.setTimeout(() => void this.flush(), this.retryDelay);
       this.retryDelay = Math.min(this.retryDelay * 2, JOURNAL_RETRY_MAX_MS);
     }
+    return failure === null;
   }
 
   /** Sends the current text again (e.g. after the journal was cleared while this buffer has unsaved edits). */
