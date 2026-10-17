@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import { fill, nameProblemMessage } from './file-op-messages';
 import { isImeKey } from './ime';
@@ -31,7 +31,8 @@ export function ImportNameDialog({ name, existing, folder, suggestion, onRename,
   const problem = nameProblemMessage(t, value);
   const unchanged = existing !== null && sameName(value, existing, false); // still the name that is taken
 
-  useEffect(() => {
+  // Before the first paint (see Sheet): Enter right after the dialog appears adds under the proposed name.
+  useLayoutEffect(() => {
     input.current?.focus();
     input.current?.select();
   }, []);

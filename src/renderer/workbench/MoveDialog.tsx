@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { NoobideApi, TreeEntry } from '../../shared/ipc/contract';
 import { fill } from './file-op-messages';
@@ -39,7 +39,7 @@ export function MoveDialog({ projectId, projectName, sources, name, listDir, onM
   // "type the filter, press Enter" never silently does nothing on a slow disk. Typing again forgets it.
   const [enterPending, setEnterPending] = useState(false);
 
-  useEffect(() => input.current?.focus(), []);
+  useLayoutEffect(() => input.current?.focus(), []); // before the first paint (see Sheet)
 
   // Lists the folders breadth first with the tree's own listing (same filters: no dotfolders, links not followed).
   useEffect(() => {

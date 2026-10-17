@@ -90,23 +90,36 @@ async function start(exe: string): Promise<Running> {
     // page too, and while its first navigation is still pending it answers nothing (seen for minutes on a loaded
     // Mac): connecting then times out with no hint why. So first wait, over plain HTTP that attaches to nothing,
     // until the workbench is there and no page is between about:blank and its first document.
-    await expect
-      .poll(
-        async () => {
-          const targets = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()) as {
-            type: string;
-            title: string;
-            url: string;
-          }[];
-          const pages = targets.filter((t) => t.type === 'page');
-          if (!pages.some((p) => p.url.startsWith('noobide://app/'))) return 'no workbench page yet';
-          const pending = pages.filter((p) => p.title === 'about:blank' && p.url !== 'about:blank');
-          return pending.length === 0 ? 'settled' : `still loading: ${pending.map((p) => p.url).join(', ')}`;
-        },
-        { message: 'pages of the started app', timeout: 90_000 },
-      )
-      .toBe('settled');
-    browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout: 60_000 });
+    const settled = () =>
+      expect
+        .poll(
+          async () => {
+            const targets = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()) as {
+              type: string;
+              title: string;
+              url: string;
+            }[];
+            const pages = targets.filter((t) => t.type === 'page');
+            if (!pages.some((p) => p.url.startsWith('noobide://app/'))) return 'no workbench page yet';
+            const pending = pages.filter((p) => p.title === 'about:blank' && p.url !== 'about:blank');
+            return pending.length === 0 ? 'settled' : `still loading: ${pending.map((p) => p.url).join(', ')}`;
+          },
+          { message: 'pages of the started app', timeout: 90_000 },
+        )
+        .toBe('settled');
+    // Even with every page settled, attaching sometimes hangs after the websocket connects (hosted macOS, twice in a
+    // day). A hang is retried with the pages checked again, three times at most, so one stuck attach does not fail
+    // the run; a launch that never becomes attachable still fails with the Playwright error.
+    for (let attempt = 1; ; attempt += 1) {
+      await settled();
+      try {
+        browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout: 30_000 });
+        break;
+      } catch (error) {
+        if (attempt >= 3) throw error;
+        console.log(`upgrade: attaching over CDP timed out (attempt ${attempt}); checking the pages and retrying`);
+      }
+    }
     let page: Page | undefined;
     await expect
       .poll(
@@ -171,7 +184,7 @@ test.afterAll(async () => {
 
 test('packaged vN → vN+1 keeps settings, session, history and recent projects; vN again still reads them', async () => {
   test.skip(process.platform !== 'darwin', 'macOS packaged upgrade; Windows: harness/MANUAL-CHECKS.md#S28.4');
-  test.setTimeout(240_000);
+  test.setTimeout(360_000); // three launches, each allowed up to three CDP attach attempts
   const current = packagedExecutable();
   const next = nextExecutable();
   expect(current, 'packaged vN in out/ (npm run test:e2e builds it)').toBeDefined();
