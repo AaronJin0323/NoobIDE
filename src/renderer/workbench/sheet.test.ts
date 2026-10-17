@@ -204,7 +204,8 @@ describe('every modal dialog uses the shared sheet', () => {
     );
     expect(html).toMatch(/^<div class="palette-backdrop" data-testid="palette-backdrop">/);
     expect(html).toMatch(
-      /<div class="palette" role="dialog" aria-modal="true" aria-labelledby="[^"]+" data-testid="command-palette" data-sheet="">/,
+      // S51.5 adds data-mode (files | commands) after the frame's own attributes.
+      /<div class="palette" role="dialog" aria-modal="true" aria-labelledby="[^"]+" data-testid="command-palette" data-sheet=""[^>]*>/,
     );
   });
 

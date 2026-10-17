@@ -145,6 +145,11 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       role('paste', 'menu.paste'),
       role('selectAll', 'menu.selectAll'),
       SEPARATOR,
+      command('find'), // S51.1
+      command('replace'),
+      command('find-in-files'), // S51.3
+      command('replace-in-files'), // S51.4
+      SEPARATOR,
       command('wrap-with-tag'), // S53.2
       command('edit-color'), // S53.3
       SEPARATOR,
@@ -167,6 +172,7 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
     label: t('menu.view'),
     items: [
       command('command-palette'), // S40.5
+      command('quick-open'), // S51.5
       SEPARATOR,
       command('toggle-files'),
       command('toggle-problems'),

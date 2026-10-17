@@ -69,6 +69,17 @@ describe('native menus (S24.2)', () => {
     expect(commandItem(build('mac'), 'close-project').accelerator).toBeNull();
   });
 
+  it('puts find and replace in the Edit menu with each platform’s keys (S51.1)', () => {
+    const editIds = (menus: MenuEntry[]) =>
+      submenu(menus, 'Edit').items.flatMap((e) => (e.kind === 'command' ? [e.id] : []));
+    expect(editIds(build('mac'))).toEqual(expect.arrayContaining(['find', 'replace']));
+    expect(editIds(build('windows'))).toEqual(expect.arrayContaining(['find', 'replace']));
+    expect(commandItem(build('windows'), 'replace')).toMatchObject({ label: 'Replace', accelerator: 'Ctrl+H' });
+    expect(commandItem(build('mac'), 'replace').accelerator).toBe('Alt+Cmd+F');
+    expect(commandItem(build('mac', EDITING, 'zh-CN'), 'find')).toMatchObject({ label: '查找', accelerator: 'Cmd+F' });
+    expect(commandItem(build('windows', INITIAL_COMMAND_CONTEXT), 'find').enabled).toBe(false);
+  });
+
   it('offers the theme as a choice with the current one checked (S24.4)', () => {
     const dark = build('windows', { ...EDITING, theme: 'dark' });
     expect(commandItem(dark, 'theme-dark')).toMatchObject({ label: 'Dark theme', checked: true });

@@ -12,6 +12,7 @@ import { AI_CHANNELS, AI_EVENT_CHANNEL, type AiEvent } from '../shared/ipc/ai-co
 import { AI_HISTORY_CHANNELS } from '../shared/ipc/ai-history-contract'; // S39
 import { AI_DRAFT_CHANNELS } from '../shared/ipc/ai-draft-contract'; // S48.7
 import { ANNOTATION_CHANNELS } from '../shared/ipc/annotations-contract'; // S41
+import { SEARCH_CHANNELS } from '../shared/ipc/search-contract'; // S51.2
 import { CHECKPOINT_CHANNELS } from '../shared/ipc/checkpoints-contract'; // S56
 import { FILE_OPS_CHANNELS, MAX_IMPORT_ITEMS } from '../shared/ipc/file-ops-contract'; // S52
 
@@ -238,6 +239,11 @@ const api: NoobideApi = {
     highlight: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.highlight, request),
     context: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.context, request),
   },
+  // S51.2: project search (find in files).
+  search: {
+    run: (request) => ipcRenderer.invoke(SEARCH_CHANNELS.run, request),
+    cancel: (request) => ipcRenderer.invoke(SEARCH_CHANNELS.cancel, request),
+  },
   // S56: project checkpoints (app data, decision 0041).
   checkpoints: {
     list: (request) => ipcRenderer.invoke(CHECKPOINT_CHANNELS.list, request),
@@ -291,6 +297,7 @@ contextBridge.exposeInMainWorld(
     aiHistory: Object.freeze(api.aiHistory), // S39
     aiDrafts: Object.freeze(api.aiDrafts), // S48.7
     annotations: Object.freeze(api.annotations), // S41
+    search: Object.freeze(api.search), // S51.2
     checkpoints: Object.freeze(api.checkpoints), // S56
     fileOps: Object.freeze(api.fileOps), // S52
   }),
