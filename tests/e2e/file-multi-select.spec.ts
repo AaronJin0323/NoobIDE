@@ -135,8 +135,9 @@ test('the context menu trashes the whole selection, keyboard only (S52.3)', asyn
   await page.keyboard.press('Tab'); // focus starts on Cancel; Tab reaches the confirm button
   await page.keyboard.press('Enter');
   await expect.poll(() => readdir(root)).not.toContain('style copy.css');
-  // 四 号 copy.css is not locked by the fake trash (only 四 号.css is): both went to the trash.
-  expect(await readdir(root)).not.toContain('四 号 copy.css');
+  // 四 号 copy.css is not locked by the fake trash (only 四 号.css is): both went to the trash. The files go one
+  // after the other, so the second may still be on its way when the first is gone (seen on a hosted Windows runner).
+  await expect.poll(() => readdir(root)).not.toContain('四 号 copy.css');
   await expect(page.getByTestId('file-op-notice')).toContainText('2 项');
 });
 
