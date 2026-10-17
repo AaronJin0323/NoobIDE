@@ -171,11 +171,12 @@ export function ConsoleView({ log, onClear }: { log: LogView; onClear: () => voi
               className="quiet-button"
               data-testid="console-copy-all"
               disabled={lines.length === 0}
+              aria-label={t('preview.console.copyAll')}
               title={fill(t('preview.console.copyAll.title', lines.length), { n: lines.length })}
               onClick={() => copy(lines.map((row) => row.words))}
             >
               <CopyIcon />
-              {t('preview.console.copyAll')}
+              <span className="cq-label">{t('preview.console.copyAll')}</span>
             </button>
             <button
               type="button"

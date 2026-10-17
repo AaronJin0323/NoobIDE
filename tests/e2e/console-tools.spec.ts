@@ -128,3 +128,21 @@ test('the 200-line window is unchanged', async () => {
   await page.getByTestId('console-search').fill('');
   await expect(lines()).toHaveCount(200);
 });
+
+test('on a narrow pane the tools stay compact: Copy all visible shows its icon and keeps its name', async () => {
+  const toolbar = page.getByTestId('console-head');
+  const copyAll = page.getByTestId('console-copy-all');
+  const clipped = () => copyAll.locator('.cq-label').evaluate((el) => el.getBoundingClientRect().width <= 1);
+  const width = (px: string) =>
+    toolbar.evaluate((el, w) => {
+      (el as HTMLElement).style.width = w;
+    }, px);
+  await width('600px');
+  expect(await clipped()).toBe(false);
+  await width('400px');
+  expect(await clipped()).toBe(true);
+  await expect(copyAll).toHaveAccessibleName('复制显示的全部');
+  await toolbar.evaluate((el) => {
+    (el as HTMLElement).style.width = '';
+  });
+});

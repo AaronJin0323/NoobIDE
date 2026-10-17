@@ -49,6 +49,7 @@ describe('container-query ladder (S49.6)', () => {
   it('names the preview toolbar rows and the composer chin as inline-size containers', () => {
     const named = all.filter((r) => r.container === null && prop(r.body, 'container'));
     expect(named.map((r) => [r.selector.replace(/\s+/g, ' '), prop(r.body, 'container')])).toEqual([
+      ['.preview-console-toolbar', 'console-tools / inline-size'], // S49.4's tools on a narrow pane
       ['.preview-header, .preview-toolbar', 'preview-toolbar / inline-size'],
       ['.ai-composer-row', 'composer-chin / inline-size'],
     ]);

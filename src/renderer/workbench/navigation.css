@@ -49,6 +49,24 @@
   color: var(--muted);
   font-size: var(--text-xs);
 }
+/* A narrow preview pane keeps the console's tools on as few rows as it can: Copy all visible becomes its icon (the
+   words stay its name) and the search field gets shorter, so the lines keep their room. */
+.preview-console-toolbar {
+  container: console-tools / inline-size;
+}
+@container console-tools (width < 480px) {
+  .preview-console-search {
+    width: 6rem;
+  }
+  .preview-console-toolbar .cq-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
 /* Copy line: quiet until the row is hovered or the button has the keyboard focus (the list is one tab stop). */
 .preview-console-line {
   align-items: flex-start;
