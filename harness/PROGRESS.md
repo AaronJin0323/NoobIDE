@@ -3,6 +3,92 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 36 (side session) — 2026-10-17 — S55: explanation rules 16–25 and quick fixes (M19)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s55-rules-e287fc` (from
+824b6fa), one of six parallel M19 sessions (S51, S52, S53+S57, S54, S55, S56).
+
+**Done**
+
+- **S55.1** `docs/product/explanation-rules-16-25.md`. H.6 has no data (`docs/research/study-1.md` does not exist),
+  so the criterion's default set is used unchanged. Each rule records its trigger, its evidence (static or
+  runtime), its certainty and uncertainty wording, the rule 1–15 it must not duplicate, and its quick-fix policy.
+- **S55.2** Rules 16–25 on the S22 engine (`src/diagnostics/rules/beginner.ts`), fed by NoobIDE's new static
+  checks (`src/diagnostics/beginner-checks.ts`): broken relative src/href, case-only reference mismatch, duplicate
+  id, `<img>` without alt, stray closing tag, unitless CSS length, selector-prefix mistakes, and assignment in an
+  if/while condition. Two runtime rules: an inline `on…` handler calling an undefined function (before rule 1),
+  and a script reading an element that exists but comes later (before rule 3). In the editor the findings become
+  `noobide-beginner` warning markers for files of the open project (`src/renderer/problems/beginner-checks-monaco.ts`,
+  loaded by useProjectIndex). The marker message quotes the facts, and `beginnerFacts` reads them back into
+  `record.data`. ProblemDetails now gives the rules the project files and the HTML ids/classes.
+- **S55.3** Quick fixes on the problem card and in the editor lightbulb (`quick-fix-monaco.ts`, Ctrl/Cmd+.), with
+  the same rules and the same label. The fixes: change a broken path to the one similar or case-matching file;
+  create a missing .html/.css/.js file from a template; add `alt=""`; rename a stray `</x>` to the never-closed
+  element; drop or add the `#`/`.` prefix to a defined id/class. They follow the S22.5 pipeline (fix-model /
+  fix-host / useProblemFix / FixCard): one editor edit, the file's atomic save pipeline (autosave, journal, local
+  history), card Undo plus editor Ctrl+Z, and "resolved" only after a re-check. Creating a file uses the
+  workspace's exclusive `createEntry` and never overwrites. A lightbulb fix opens the Problems panel to announce
+  the result as text and keeps focus in the editor.
+
+**Evidence:** `tests/fixtures/beginner-rules` holds a positive and a negative fixture per rule, plus a shared
+case-project and case pairs. `rules-16-25.test.ts` runs every fixture through markerToProblem → explain with the
+honesty checks in zh-CN and en. It also tests rule 24 against `folderNameIssues` / `scanPortability`; both now use
+`portableNameKey` from `src/shared/portability.ts`. Other unit tests: `beginner-checks.test.ts`, `quick-fix.test.ts`
+(per-fix unambiguity, verdict, re-check-on-save, quiet templates) and `fix-host.test.ts` (exact span, stale guard,
+create exclusive / exists / failed / save-failed). Integration: `tests/integration/quick-fix.test.ts` (real
+createEntry + writeFileAtomic on a Chinese path with spaces: never overwrites, a failed save keeps the edit and is
+never resolved, a stale finding is not re-fixed). e2e: `tests/e2e/beginner-quick-fix.spec.ts` (7 tests: every card
+fix from the keyboard in zh-CN/en, the save, the local-history version, editor Ctrl+Z, card Undo, the lightbulb via
+Ctrl+. with focus kept in the editor, no console errors). The e2e set problems, problem-card, runtime-problems,
+not-found, a11y, walkthrough, templates, smart-editing, history and quick-fix passed (74) on Windows. `npm run
+verify` is green.
+
+**Honesty review (PLAN §9, S55.2 criterion):** I checked every new text by hand, on top of the machine checks in
+honesty.ts. A cause is stated as fact only for rules 17, 18, 19 (no open element) and 20, where the stated thing
+is browser behaviour or a visible fact: an id repeats, the attribute is missing, the browser ignores the
+declaration. Even there the guessed part is hedged ("you may have meant 100px"). Rules 16, 19 (open element), 21,
+22, 23, 24 and 25 are `likely`/`possible` and worded with 可能/很可能 / may/likely, each with checks. Rule 16 says
+the file list can lag the disk. Rule 24 says the page may still work on Windows/macOS. No text claims a fix is
+certain, and the original message stays on every card.
+
+**Decisions**
+
+- No fix for rules 17, 20, 21, 22 and 25, and no "close the tag" for rule 14: none of them has an unambiguous
+  target (see the doc).
+- "Create file" is offered only when the target folder already holds a file. The index lists files only, so an
+  empty folder is not seen. This is conservative.
+- Rule 22 now explains the "id exists" case that rule 3 used to give a single timing cause. The rule 3 test now
+  calls `nullElementRule` directly and asserts that the built-in order gives rule 22.
+- The Monaco modules import from `monaco-setup` and are loaded only through useProjectIndex, like smart-monaco.
+  Importing `monaco-editor/editor` directly from a dynamically imported module started editors without their
+  services: "depends on UNKNOWN service" console errors and a broken problem-card e2e.
+- `tests/fixtures/static-diagnostics` gained `style.css`, `script.js` and `images/product.svg`, so `clean.html`'s
+  links resolve and it stays quiet.
+- The e2e spec is named `beginner-quick-fix.spec.ts` so the two Playwright shards keep their expected split
+  (`tests/integration/e2e-shards.test.ts`). Parallel M19 sessions that add specs may need the same care.
+
+**Subagent review of S55.3** (required for features that write user files). It found no invariant violation. Fixed
+before marking done:
+
+1. A create-file fix whose save failed could turn "resolved" when the page was saved. Now `recheckOnSave` re-checks
+   save-failed only on a save of the fixed file itself.
+2. A stale finding could be "fixed" again within the 500 ms marker delay. Now `reportsNow` re-runs the checks on
+   the current text and needs the same finding at the same column before any edit or create.
+3. Upper-case closing tags never matched. The closing tag's spelling is now kept.
+4. Create failures lost their cause. A new `create-failed` reason keeps the file-op error text.
+5. Rule 21 also took undefined names in inline `<script>` blocks. It now needs the on… frame.
+
+Not fixed (low risk, noted for later): the project could switch during createFile; the created path counts as
+existing in later re-checks even if deleted; a lightbulb choice while another fix is applying only opens the panel.
+
+**Problems / risks:** The baseline `verify` was red once from a flaky `tests/integration/watcher.test.ts` under the
+load of six parallel sessions; it passes on its own. Expect merge conflicts with the other M19 branches in
+`harness/features.json`, PROGRESS.md, `Workbench.tsx` (S55.3 adds createFile/locale to fixHost, the quick-fix
+handler, FixCard `takeFocus`) and `useProjectIndex.ts`. Not run on macOS.
+
+**Next up:** Merge the M19 branches; then the remaining M19 sessions per `node harness/session.mjs next --all`. When
+H.6 reports, compare its hesitations with rules 16–25 (supersede through new features, never edit silently).
+
 ## Session 35 (side session) — 2026-10-17 — M19 backlog records for S51–S57 (owner approval of review §4)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/dazzling-shtern-8a5721`, based

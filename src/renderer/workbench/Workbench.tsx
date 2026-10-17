@@ -57,6 +57,7 @@ import { ProblemDetails } from '../problems/ProblemDetails';
 import { FixCard } from '../problems/FixCard';
 import { createFixHost } from '../problems/fix-host';
 import { useProblemFix } from '../problems/useProblemFix';
+import { setQuickFixHandler } from '../problems/quick-fix-handler';
 import { usePreviewLoads } from '../problems/usePreviewLoads';
 import { activeEditor, requestReveal } from '../editor/editor-handle';
 // S23: onboarding walkthrough, final task and glossary
@@ -124,7 +125,9 @@ export function Workbench() {
   const bridge = window.noobide;
   const platform = bridge?.platform ?? 'other';
   const [layout, dispatchLayout] = useReducer(layoutReducer, INITIAL_LAYOUT);
-  const { t } = useI18n(); // S13.4: splitter labels
+  const { t, locale } = useI18n(); // S13.4: splitter labels; S55.3: created-file template
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
   const [doc, dispatch] = useReducer(documentReducer, INITIAL_DOCUMENT_STATE);
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [copyNotice, setCopyNotice] = useState<SaveCopyNotice | null>(null);
@@ -880,11 +883,31 @@ export function Workbench() {
         recordEdit,
         uriOf: (relPath) => docRef.current.tabs.find((tab) => tab.relPath === relPath)?.uri,
         savedFiles: savedFiles.current,
+        // S55.3: "create the missing file" — the file tree's own create (empty, never over anything that exists).
+        async createFile(relPath) {
+          const projectId = docRef.current.project?.projectId;
+          if (!bridge || !projectId) return { ok: false, code: 'unknown-project' };
+          const result = await bridge.workspace.createEntry({ projectId, relPath, kind: 'file' });
+          return result.ok ? { ok: true } : { ok: false, code: result.code };
+        },
+        locale: () => localeRef.current,
       }),
-    [openFile, recordEdit],
+    [openFile, recordEdit, bridge],
   );
   const previewLoads = usePreviewLoads(bridge);
   const problemFix = useProblemFix(fixHost, runtimeProblems.records, previewLoads);
+  // S55.3: a fix chosen in the editor's lightbulb runs the same problem fix; the Problems panel opens to show its
+  // result as text (the fix card), and the keyboard stays in the editor.
+  const problemsOpenRef = useRef(visible.problemsPanel);
+  problemsOpenRef.current = visible.problemsPanel;
+  const applyFix = problemFix.apply;
+  useEffect(() => {
+    setQuickFixHandler((record, action, origin) => {
+      if (origin === 'lightbulb' && !problemsOpenRef.current) dispatchLayout({ type: 'toggleProblems' });
+      applyFix(record, action, origin);
+    });
+    return () => setQuickFixHandler(null);
+  }, [applyFix]);
   // A fix belongs to its project: another project starts without one.
   const clearFix = problemFix.clear;
   useEffect(() => clearFix(), [doc.project?.projectId, clearFix]);
@@ -1361,7 +1384,13 @@ export function Workbench() {
         fixCard={
           <>
             {problemFix.fix && (
-              <FixCard fix={problemFix.fix} serial={problemFix.serial} actions={problemFix} onGoTo={goTo} />
+              <FixCard
+                fix={problemFix.fix}
+                serial={problemFix.serial}
+                takeFocus={problemFix.origin === 'card'}
+                actions={problemFix}
+                onGoTo={goTo}
+              />
             )}
             {aiFix.fix /* S35.2 */ && <AiFixCard fix={aiFix.fix} serial={aiFix.serial} actions={aiFix} onGoTo={goTo} />}
           </>

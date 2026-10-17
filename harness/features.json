@@ -4752,8 +4752,8 @@
       "depends_on": [
         "S55.2"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "Card + lightbulb quick fixes (fix-model/fix-host/useProblemFix/FixCard, quick-fix-monaco.ts): unit fix-host.test (exact span, stale guard, create exclusive/exists/failed/save-failed) + quick-fix.test (per-fix unambiguity, verdict, recheckOnSave); integration tests/integration/quick-fix.test.ts (real createEntry+writeFileAtomic: never overwrites, failed save kept and never resolved); e2e tests/e2e/beginner-quick-fix.spec.ts (7: card fixes by keyboard zh-CN+en, saved + local-history version, Ctrl+Z, card Undo, lightbulb Ctrl+. keeps editor focus, status as text); subagent review findings 1-5 fixed; verify green"
     },
     {
       "id": "S56.1",

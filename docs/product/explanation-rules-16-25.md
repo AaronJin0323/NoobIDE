@@ -118,7 +118,8 @@ larger than the check limit).
 ### 21. Inline handler calling an undefined function (`inline-handler-undefined`)
 
 - **Trigger:** a runtime `ReferenceError: x is not defined` thrown from an inline event-handler attribute. The stack
-  frame is `HTML…Element.on<event>`, or the reported file is an `.html` page.
+  frame is `HTML…Element.on<event>` (or, without any stack, the reported file is an `.html` page). An undefined
+  name in an inline `<script>` of a page stays rule 1.
 - **Evidence:** runtime.
 - **Certainty:** `possible`. Causes, each worded as a possibility: the function is declared in a `type="module"`
   script (module functions are not global), the script that declares it is not loaded or is loaded after the

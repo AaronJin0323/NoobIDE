@@ -226,6 +226,27 @@ describe('rules 16–25: details and fixes (S55.3 inputs)', () => {
   });
 });
 
+describe('rule 21 takes only the inline-handler case (review fix)', () => {
+  it('an undefined name in an inline <script> of a page stays rule 1', () => {
+    const r = createProblemRecord(
+      {
+        source: 'runtime',
+        severity: 'error',
+        projectId: 'p',
+        file: 'index.html',
+        line: 20,
+        column: 5,
+        code: 'ReferenceError',
+        message: 'Uncaught ReferenceError: total is not defined',
+        stack: 'ReferenceError: total is not defined\n    at http://127.0.0.1:5173/index.html:20:5',
+        at: 1,
+      },
+      'inline-script',
+    );
+    expect(explain(r).ruleId).toBe('undefined-name');
+  });
+});
+
 describe('rule 24 agrees with the portability scan (src/workspace/portability-scan.ts)', () => {
   it.each(cases.casePairs)('$reference vs $file', (pair) => {
     const file = pair.fileNfd ? pair.file.normalize('NFD') : pair.file;

@@ -403,7 +403,11 @@ export function checkBeginnerHtml(text: string, facts: BeginnerFacts = {}): Begi
         'html-mismatched-close',
         tag.nameStart,
         tag.nameStart + tag.name.length,
-        beginnerMessages.mismatchedClose(tag.name, expected?.name, pairs),
+        beginnerMessages.mismatchedClose(
+          text.slice(tag.nameStart, tag.nameStart + tag.name.length),
+          expected?.name,
+          pairs,
+        ),
       ),
     );
   }

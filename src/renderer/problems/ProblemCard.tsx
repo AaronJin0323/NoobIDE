@@ -3,7 +3,7 @@ import type { ProblemExplanation, ProblemRecord } from '../../shared/problem';
 import { renderExplanation } from '../../diagnostics/rules/engine';
 import { useI18n } from '../i18n/I18nProvider';
 import type { Locale, MessageKey } from '../i18n/index';
-import { fixActionOf, type ReplaceTextAction } from './fix-model';
+import { fixActionOf, type FixAction } from './fix-model';
 import { AiIcon } from '../ai/ai-icons';
 
 export interface ProblemCardProps {
@@ -12,7 +12,7 @@ export interface ProblemCardProps {
   /** Opens the file and puts the cursor on the reported line and column (S17.2). */
   onGoTo: (target: { file: string; line: number; column?: number }) => void;
   /** S22.5: applies the one-click fix. Absent: no fix is offered. */
-  onFix?: ((record: ProblemRecord, action: ReplaceTextAction) => void) | undefined;
+  onFix?: ((record: ProblemRecord, action: FixAction) => void) | undefined;
   /** S22.5: a fix is being applied; the fix button waits. */
   fixBusy?: boolean | undefined;
   /** S33.2: opens the AI chat about this problem (with the card's title); absent while AI is not offered. */

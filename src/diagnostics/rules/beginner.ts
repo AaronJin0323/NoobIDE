@@ -249,7 +249,8 @@ export const inlineHandlerRule: Rule = {
     const found = undefinedName(record);
     if (!found) return null;
     const fromHtml = /\.html?$/i.test(record.file ?? '');
-    if (!INLINE_FRAME.test(record.originalStack ?? '') && !fromHtml) return null;
+    // An inline <script> in the page is rule 1's: only the on… handler frame (or no stack at all) is rule 21's.
+    if (!INLINE_FRAME.test(record.originalStack ?? '') && !(fromHtml && !record.originalStack)) return null;
     const { name } = found;
     return {
       certainty: 'possible',
