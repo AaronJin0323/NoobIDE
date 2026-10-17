@@ -13,7 +13,7 @@ the latest entry to the next session, so write it for a reader with zero context
 - **S50.1 One Sheet.** `Sheet.tsx` gained `SheetFrame` (backdrop, modal dialog element, Escape/Tab trap, focus
   return, covered state); `Sheet` builds on it and the command palette now renders on it too (no own shell left;
   the scan test lost its palette exception). Height cap `--sheet-max-h: calc(100dvh - 2 * max(32px,
-  var(--titlebar-inset)))` with `--titlebar-inset: 52px` for sheets and the palette. `sheet-stack.ts` tracks open
+var(--titlebar-inset)))` with `--titlebar-inset: 52px` for sheets and the palette. `sheet-stack.ts` tracks open
   sheets: a covered one gets `data-covered` (2px blur + `opacity(0.85)`; brightness filters are banned by the design
   rules) and only the front one answers Escape/Tab — before, About over the glossary closed both on one Escape.
   S45.9 superseded by S50.1; the archive README lists what was rebuilt or dropped (PreviewMoreMenu, AddContextMenu).
