@@ -60,7 +60,12 @@ afterEach(async () => {
   await rm(tmp, { recursive: true, force: true });
 });
 
-describe('browsing versions (S21.3)', () => {
+// Every test here does real, fsynced snapshot writes: milliseconds on an idle machine, but a hosted Windows runner with
+// the CPU saturated pushed one restore sequence past vitest's 5 s default (PR #14 CI). The timeout is only a hang guard;
+// no assertion below depends on machine speed.
+const REAL_IO = { timeout: 60_000 };
+
+describe('browsing versions (S21.3)', REAL_IO, () => {
   it('lists files with history, deleted ones flagged, and versions newest first with their reason', async () => {
     await writeFile(path.join(root, 'index.html'), '<h1>3</h1>\n');
     await store.snapshot(root, 'index.html', enc('<h1>1</h1>\n'), 'before-save');
@@ -118,7 +123,7 @@ describe('browsing versions (S21.3)', () => {
   });
 });
 
-describe('restoring (S21.3)', () => {
+describe('restoring (S21.3)', REAL_IO, () => {
   it('before-restore keeps what is on disk now as a version', async () => {
     await writeFile(path.join(root, 'index.html'), '<h1>now</h1>\n');
     await store.snapshot(root, 'index.html', enc('<h1>old</h1>\n'), 'after-save');
@@ -219,7 +224,7 @@ describe('restoring (S21.3)', () => {
   });
 });
 
-describe('storage, orphans, clear and reveal (S21.4, ADR 0006)', () => {
+describe('storage, orphans, clear and reveal (S21.4, ADR 0006)', REAL_IO, () => {
   it('a renamed project folder leaves its history listed as orphaned, with its size, until it is cleared', async () => {
     await mkdir(path.join(tmp, '网页 练习', '旧 项目'));
     const oldRoot = await realpath(path.join(tmp, '网页 练习', '旧 项目'));

@@ -93,7 +93,9 @@ describe('lazy directory listing (S07.2)', () => {
     });
   });
 
-  it('stops at the per-folder limit and says so', async () => {
+  // Writes MAX_DIR_ENTRIES + 1 files on the real disk: well under a second here, but past vitest's 5 s default on a
+  // hosted Windows runner with the CPU saturated (PR #14 CI). The timeout is only a hang guard; the assertions are unchanged.
+  it('stops at the per-folder limit and says so', { timeout: 60_000 }, async () => {
     const big = path.join(root, 'big');
     await mkdir(big);
     await Promise.all(Array.from({ length: MAX_DIR_ENTRIES + 1 }, (_, i) => writeFile(path.join(big, `f${i}`), '')));

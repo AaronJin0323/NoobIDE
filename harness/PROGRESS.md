@@ -63,7 +63,200 @@ editor-scoped, so a file-tree F2 (S52) does not collide.
 **Ideas / backlog candidates:** Emmet items in the suggestion list (VS Code style) so Tab works with it open; wrap
 with tag as an Emmet abbreviation; colour swatches inside HTML `<style>` blocks (needs a provider of our own).
 
-## Session 35 (side session) — 2026-10-17 — M19 backlog records for S51–S57 (owner approval of review §4)
+## Session 37 (side session) — 2026-10-17 — S49.1 splitter physics (M18 Track C1)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s49-splitter-physics-c88bff`
+(node_modules junctioned to the main checkout), started from the M18 plan session in parallel with S47.1, S48 and
+S49.3 (their files untouched).
+
+**Done**
+
+- `workbench/splitter-model.ts` (pure): 4 px dead zone (`DRAG_DEAD_ZONE`), Escape → start value, double-click
+  defaults (files 220, share 0.5), files collapse under 120 px (`FILES_COLLAPSE_BELOW`; collapsed keeps the drag's
+  start width so the toggle reopens at it), aria-valuetext in words (`layout.filesWidthText`,
+  `layout.filesCollapsedText`, `layout.editorShareText`, zh-CN + en). New layout action `dragFiles` puts the layout in
+  exactly the toggle-files state (unit-tested equal), so the rail button reflects it.
+- `Splitter.tsx`: drag via the model, Escape listener on window (capture) while pressed, `onDoubleClick` reset,
+  `onPhase` (idle/pressed/dragging), `onDrag` separate from keyboard `onChange` (Home/End never collapse).
+  Workbench keeps the files divider mounted while a drag has collapsed the panel, so it can be dragged back out.
+- `PreviewPane` prop `resizing`: on press it asks for a picture with the existing S41.5 `annotations.regionShot` IPC
+  (no new channel; main takes it only while the view is shown; requested in a layout effect so it reaches main before
+  the bounds that hide the view); while dragging the native view is hidden (`data-resizing`) and the picture
+  (`preview-resize-shot`, alt text in both locales) fills the stage; without one the stage shows its usual content.
+  Release or Escape gives the live view back.
+
+**Evidence:** `splitter-model.test.ts` (8 tests); `tests/e2e/layout-splitters.spec.ts` 5/5 on the packaged build;
+preview-layout, session, key-features-visible, preview-annotations, a11y e2e 36/36; `npm run verify` green.
+
+**Decisions:** The S38.1 AI snapshot channel was not reused: it builds an outline and is tied to the chat; the S41.5
+region shot is the same `capturePage` picture with no side effects. Playwright mouse events go to the renderer, so
+the e2e proves the cover/picture/live states and final share; that a real OS pointer is not swallowed by the native
+view follows from the view being hidden after the dead zone (could be added to a manual check later).
+
+**CI shard placement (follow-up on PR #18):** macOS verify failed `tests/integration/e2e-shards.test.ts`
+(preview-isolation landed in shard 1/2). Playwright splits by _non-skipped_ tests, and on macOS ai-keychain is
+skipped at file level, so the macOS split point is one test lower than Windows'; with the spec named
+`splitter-physics.spec.ts` (sorting after the preview files) the PR merge ref put preview-isolation at test 165
+against a macOS split at 166. Renamed to `layout-splitters.spec.ts` (sorts before the preview files, ADR 0035's
+file-order lever): on the merged tree preview-isolation now starts at 177 (macOS, split 169) / 178 (Windows, split
+170), a margin of 8. Spec files added after `preview-isolation` move the split by half their tests; keep that margin
+in mind.
+
+**Next up:** the rest of S49 (S49.2+), then S50. Tab drag-to-reorder can now reuse `splitter-model` dead-zone logic.
+
+## Session 35 (side session) — 2026-10-17 — S48.1–S48.3 chat panel engine: scroll latch, growing composer, IME stage 2
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s48-chat-core-9b1e35` cut from
+the M18 plan commit a049ce5 (node_modules junctioned to the main checkout). Run in parallel with S47.1, S49.1 and
+S49.3 sessions on other files; Splitter/Workbench/PreviewPane/FileTree/TabBar/CodeEditor/styles.css untouched.
+
+**Done**
+
+- S48.1 — `src/renderer/ai/scroll-latch.ts` (pure model: 150 ms quiet, 40 px re-follow, 120 px jump threshold,
+  behavior 'auto', pending entries counted by key) + `useScrollLatch.ts` (binds it to any scroll container; meant
+  for the console in S49.4). ChatPanel no longer calls scrollIntoView: `.ai-body` (the scroller around the role=log
+  list) is latched, `overflow-anchor: none`, and a floating "回到最新 / Jump to latest" button (JumpLatestIcon in
+  ai-icons.tsx, word, `role=status` count "1 条新消息" in tabular-nums) shows when unpinned and > 120 px up.
+- S48.2 — the `.ai-input` textarea sits in a one-cell grid (`.ai-input-grow`): `field-sizing: content` where
+  `CSS.supports` says so, otherwise an aria-hidden mirror span with the text plus a trailing space sizes the cell.
+  44 px → `min(40svh, 200px)`, `resize: none`, rows=1; key handling unchanged.
+- S48.3 — `workbench/ime.ts` is now a guard object (`createImeGuard`, default instance behind `isImeKey`):
+  compositionend time recorded by `installImeGuard(window)` (main.tsx, before createRoot, capture phase); on WebKit
+  (`navigator.vendor` contains Apple, read per key) Enter within 500 ms is the IME's unless Ctrl/Cmd is held, and
+  Escape within 500 ms likewise; an IME-owned Escape is stopped with stopImmediatePropagation at the window (not
+  cancelled), so no dialog/panel listener sees it. All existing callers unchanged (extend, not fork); a structural
+  test pins that chat, inline edit, rename, wizard, palette, annotation notes and dialogs use the one guard.
+  MANUAL-CHECKS.md S35.4 gains step 5 (macOS Pinyin).
+
+**Evidence:** unit: scroll-latch.test.ts (8), chat-panel.test.ts S48.2 block (3), ime.test.ts (8). Electron e2e on the
+packaged build (`npm run package`, then `npx playwright test -c tests/e2e/playwright.config.ts <spec>`): new
+`tests/e2e/ai-chat-engine.spec.ts` (S48.1 wheel-up during a 300-chunk fake stream keeps scrollTop within 1 px, jump
+follows again; S48.2 six lines at 1280x720; S48.3 chat + palette under a WebKit vendor), extended S35.4 case in
+`ai-edit.spec.ts`; 69 passed across ai-chat-engine, ai-edit, file-tree, welcome, commands, preview-annotations,
+ai-prompt, glass, ai-chat (plus ai-history/ai-agent/ai-preview/a11y/key-features-visible earlier). `npm run verify`
+green after each feature.
+
+**Decisions:** the latch watches `.ai-body` (the existing scroller) rather than moving overflow onto the role=log
+element, to keep the Past chats list and state messages in the same box. The pending count counts entries (turns)
+that received content, so one streaming answer reads "1 new message". Stage-2 Escape is limited to WebKit like
+Enter; on Chromium a cancelling Escape already arrives as 229/isComposing and is stopped by stage 1.
+
+**Problems / risks:** WebKit behaviour is simulated in Electron by overriding `Navigator.prototype.vendor`; the real
+macOS candidate window is unverified (MANUAL-CHECKS S35.4 step 5). The mirror fallback is only unit-tested (Electron
+44 supports field-sizing). Node's EventTarget does not remove capture listeners registered with a boolean, hence the
+`{ capture: true }` object in ime.ts.
+
+**Owner action needed:** run MANUAL-CHECKS.md S35.4 step 5 on an Apple Silicon Mac when convenient.
+
+**Next up**
+
+1. Merge with S47.1 (branch `claude/beautiful-shirley-d2ba80`): `.ai-jump` animates with `var(--dur-fast)
+var(--ease-out)`, so its duration rule passes; add `.ai-jump` to `tests/e2e/reduced-motion.spec.ts` there, and
+   the local `prefers-reduced-motion` block in ai-chat.css can go once glass.css zeroes `--dur-*`.
+2. S48.4 (slash commands, @file mentions) builds on S48.3's guard for its list's Escape; S49.4 reuses
+   `useScrollLatch` for the console.
+
+**Ideas / backlog candidates:** none new.
+
+## Session 36 (side session) — 2026-10-17 — File tree type-ahead and file-type icons (S49.3)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s49-tree-typeahead-icons-8a9c6d`
+(node_modules junctioned), started from the M18 plan session alongside S47.1, S48 and S49.1.
+
+**Done**
+
+- `file-tree-model.ts`: pure `typeAheadChar` (one printable character, no Ctrl/Alt/Meta; a space only continues a
+  buffer) and `typeAheadTarget` (next visible row whose NFC-normalised, lower-cased name starts with the buffer,
+  wrapping; a one-character buffer starts after the selection, a longer one keeps a still-matching row, a repeated
+  character cycles). `TYPE_AHEAD_RESET_MS = 1000`.
+- `FileTree.tsx` wires it: only on a treeitem target, never while the NameEditor is open, IME-guarded with
+  `ime.ts isImeKey`; arrow/Home/End keys clear the buffer. Selection and focus move together (roving tabindex).
+- `icons.tsx`: `iconForName` (html/htm, css, js/mjs/cjs, json, png/jpg/jpeg/gif/svg/webp/ico, woff/woff2/ttf/otf,
+  txt/md, other; dotfiles and extensionless names are other) and eight 16 px glyphs on the shared IconBase.
+  `TreeFileIcon` takes an optional `name`; icons stay aria-hidden, accessible names and the role label unchanged.
+  No CSS change was needed.
+
+**Evidence:** unit tests in `file-tree-model.test.ts` and `icons.test.ts`; `tests/e2e/file-tree-typeahead.spec.ts`
+(4 tests) and `file-tree.spec.ts` (15) pass on the packaged app; `npm run verify` green (2752 tests).
+
+**Decisions:** Chinese characters in the e2e are dispatched as keydown events on the focused row because Playwright
+only presses US-layout keys.
+
+**Problems / risks:** With a Chinese IME active, a non-editable tree row receives raw letters, not composed text,
+so pinyin cannot reach a Chinese name by type-ahead; matching works for whatever characters arrive as keydowns. A
+hidden composition input on the tree would close that gap (candidate below).
+
+**Next up:** the rest of S49 (S49.1 splitter runs in its own session) and the other M18 features.
+
+**Ideas / backlog candidates:** type-ahead via a hidden composition field so IME-committed text (pinyin → 中文)
+selects rows; optional pinyin-initial matching.
+
+## Session 34 (side session) — 2026-10-17 — UI/UX improvement plan from the Claude Desktop study (M18)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/noobide-ui-ux-improvements-50c047`
+(node_modules junctioned to the main checkout). Owner request: go through Caho1/open-claude-ui, find what NoobIDE's
+UI/UX can take from it, and make it a plan on a new branch.
+
+**Done**
+
+- Two read-only subagents: one catalogued the source repo (v1 chapters 01–08, v2 chapters 01–06, all 30 code
+  samples) with its concrete constants; one surveyed the NoobIDE renderer (tokens, motion, layout, every component,
+  a11y, responsiveness, test conventions, open M16/M17 items). Their findings were reconciled against decision 0034,
+  the design-rules scan and the AGENTS.md invariants.
+- `docs/product/ui-ux-improvement-plan.md`: what the source is and how far to trust it, where NoobIDE already
+  stands, rules for transplanting, four tracks of improvements with sources and acceptance (A motion/scroll
+  edges/type, B AI chat engine, C layout physics/navigation, D dialogs/notices/surfaces/density), what is
+  deliberately not copied, owner decisions, backlog mapping and verification strategy.
+- Backlog: milestone M18, sessions S47–S50, features S47.1–S50.5 (24, all todo). No existing feature or criterion
+  was changed. Three real defects are recorded for S48/S50: the chat log scrolls to the end on every streamed
+  chunk (ChatPanel.tsx:168), the composer does not grow, and success/info notices use the danger fill.
+
+**Evidence:** `node harness/session.mjs check` OK (246 features, 51 sessions); `npm run verify` green before and
+after (2734 tests; one verify run had a transient unit-test failure under load whose name was not captured, and the
+standalone vitest run and the next verify passed). No product code changed. PR #14 CI: Windows shard 2 failed
+in walkthrough.spec.ts:80 with ENOENT reading walkthrough.json — the poll read the file before the store's first
+atomic write landed; the spec's reader now returns undefined until the file exists (tests only, 12/12 pass locally
+on the package). The next run failed verify on both shard-1 jobs in
+completion-latency.test.ts (S43.6): p95 12.8 ms (Windows) / 10.9 ms (macOS) against the 10 ms budget, and main's own run
+at the branch point failed it at 21.4 ms, while the dev machine measures 0.9 ms. The test now judges the best of up to
+three 60-run batches (a descheduled worker inflates a whole batch; the budget and the S43.6 criterion are unchanged;
+docs/perf/completion-latency.md notes the method). The run after that timed out tests/integration/history-groups.test.ts
+"keeps the newest groups within the limit" at vitest's 5 s default (5.2 s on the Windows runner: 103 atomic index writes;
+Session 20 had already seen it fail under a saturated CPU); it now carries the same 60 s real-IO hang guard as
+history-triggers.test.ts, assertions unchanged. The fourth run failed only not-found.spec.ts:105 (the Session 26 locale
+flake): the English 404 navigation raced main's adoption of the new locale, which happens after the settings write;
+the spec now waits for settings.json to hold the locale before navigating (tests only, 2/2 pass locally on the package). The fifth run failed
+watcher.test.ts "entries that came and went within one batch": the scripted test awaited real disk work between the
+raw reports it delivers with a 20 ms debounce, so on the saturated runner the batch classified mid-sequence (folder
+"created") and idle() could not wait for the unfired second timer; the disk work now runs first and the reports are
+delivered back to back, which is the premise the test states (tests only, 21/21 three runs). The sixth run (now carrying
+S48 and S49.3) timed out history-ipc.test.ts "the content kept before a restore survives the save" at the 5 s default;
+all three describes in that file do fsynced snapshot writes and now carry the 60 s real-IO hang guard. The seventh run timed out
+tree.test.ts "stops at the per-folder limit" (MAX_DIR_ENTRIES + 1 real files) at the 5 s default; it now carries the
+60 s hang guard. Seven distinct hosted-runner flakes in seven runs of one PR: the common thread is tests that assume an
+idle machine. PR #20 (another session) fixes an overlapping set, including completion-latency.test.ts; whichever
+merges second resolves that file.
+
+**Decisions:** Nothing from the source is copied as code, class strings or assets (Tailwind, Framer Motion,
+clay accent, CDN Storybook); only mechanisms and constants, each given one home as a token or tested constant.
+Preview-iframe hardening from the source does not apply (NoobIDE's bridge is main-process console-message).
+
+**Problems / risks:** The source repo contradicts itself on several numbers (button ladders, spring names,
+sweep durations); the plan names one value per token. Warm vs cool canvas, auto-dismiss, density default and
+the scope of mentions are owner decisions (plan §8) before S47 starts.
+
+**Owner action needed:** Read plan §8 and decide the four questions; then S47 can start (S48–S50 can run in
+parallel worktrees after S47).
+
+**Next up**
+
+1. Owner decisions on plan §8, then S47.1 (motion tokens + reduced-motion gate) as the first feature.
+2. Suggested first sitting after that: S48.1 → S48.2 → S50.2 (the three defects).
+
+**Ideas / backlog candidates:** tab drag-to-reorder once S49.1's drag model exists; floating selection pill;
+bottom-sheet chat in narrow windows; native Mica/vibrancy behind --bg (plan §7).
+
+## Session 35 (parallel lane) — 2026-10-17 — M19 backlog records for S51–S57 (owner approval of review §4)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/dazzling-shtern-8a5721`, based
 on `claude/noobide-vs-mainstream-ides-310020` (review commit d5c3990).
@@ -97,7 +290,7 @@ without a superseding feature. S53.1 needs the Emmet package decision (review §
 
 **Ideas / backlog candidates:** none new.
 
-## Session 34 (side session) — 2026-10-17 — Functional gap assessment vs VS Code / IntelliJ (S01.6, owner request)
+## Session 34 (parallel lane) — 2026-10-17 — Functional gap assessment vs VS Code / IntelliJ (S01.6, owner request)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch
 `claude/noobide-vs-mainstream-ides-310020` (node_modules junctioned to the main checkout).
