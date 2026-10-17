@@ -14,6 +14,7 @@
     "ai-prompt.spec.ts": 2,
     "ai-settings.spec.ts": 1,
     "app-startup-restore.spec.ts": 1,
+    "beginner-quick-fix.spec.ts": 2,
     "commands.spec.ts": 2,
     "distribution.spec.ts": 1,
     "editing.spec.ts": 1,
