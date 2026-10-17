@@ -48,6 +48,10 @@ export interface WalkthroughState {
   readonly task: FinalTaskStatus;
   /** What the final task started from, or null. */
   readonly taskBaseline: string | null;
+  /** S47.6: the user chose the compact one-line band (remembered across starts). */
+  readonly compact: boolean;
+  /** S47.6: steps whose full text has been shown once; the band is compact only for those. */
+  readonly viewed: readonly WalkthroughStepId[];
 }
 
 export const DEFAULT_WALKTHROUGH: WalkthroughState = {
@@ -58,6 +62,8 @@ export const DEFAULT_WALKTHROUGH: WalkthroughState = {
   baseline: null,
   task: 'not-started',
   taskBaseline: null,
+  compact: false,
+  viewed: [],
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -70,6 +76,7 @@ const oneOf =
 export const isWalkthroughStep = oneOf(WALKTHROUGH_STEPS);
 const isStatus = oneOf(WALKTHROUGH_STATUSES);
 const isTaskStatus = oneOf(FINAL_TASK_STATUSES);
+const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
 const isBaseline = (value: unknown): value is string | null =>
   value === null || (typeof value === 'string' && value.length <= MAX_BASELINE_LENGTH);
 const isCompleted = (value: unknown): value is WalkthroughStepId[] =>
@@ -102,17 +109,30 @@ export function loadWalkthroughState(raw: unknown): WalkthroughState {
     baseline: pick('baseline', isBaseline),
     task: pick('task', isTaskStatus),
     taskBaseline: pick('taskBaseline', isBaseline),
+    // S47.6 (a file from before it has neither: full band, nothing viewed)
+    compact: pick('compact', isBoolean),
+    viewed: orderSteps(pick('viewed', isCompleted)),
   };
 }
 
-const KEYS = ['version', 'status', 'step', 'completed', 'baseline', 'task', 'taskBaseline'] as const;
+const KEYS = [
+  'version',
+  'status',
+  'step',
+  'completed',
+  'baseline',
+  'task',
+  'taskBaseline',
+  'compact',
+  'viewed',
+] as const;
 
 /** Strict IPC check: exactly the known keys, each valid. Anything else is rejected (null). */
 export function parseWalkthroughState(payload: unknown): WalkthroughState | null {
   if (!isRecord(payload)) return null;
   const keys = Object.keys(payload);
   if (keys.length !== KEYS.length || !KEYS.every((key) => Object.hasOwn(payload, key))) return null;
-  const { version, status, step, completed, baseline, task, taskBaseline } = payload;
+  const { version, status, step, completed, baseline, task, taskBaseline, compact, viewed } = payload;
   if (
     version !== WALKTHROUGH_VERSION ||
     !isStatus(status) ||
@@ -120,9 +140,21 @@ export function parseWalkthroughState(payload: unknown): WalkthroughState | null
     !isCompleted(completed) ||
     !isBaseline(baseline) ||
     !isTaskStatus(task) ||
-    !isBaseline(taskBaseline)
+    !isBaseline(taskBaseline) ||
+    !isBoolean(compact) ||
+    !isCompleted(viewed)
   ) {
     return null;
   }
-  return { version, status, step, completed: orderSteps(completed), baseline, task, taskBaseline };
+  return {
+    version,
+    status,
+    step,
+    completed: orderSteps(completed),
+    baseline,
+    task,
+    taskBaseline,
+    compact,
+    viewed: orderSteps(viewed),
+  };
 }

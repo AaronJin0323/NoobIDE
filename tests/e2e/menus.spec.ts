@@ -1,7 +1,7 @@
 import { rm } from 'node:fs/promises';
 import { expect, test, type ElectronApplication } from '@playwright/test';
 import { launchApp } from './launch';
-import { makeProject, openProject } from './project';
+import { makeProject, openProject, switchLanguage } from './project';
 
 /**
  * S24.2 native menus and window lifecycle, end to end. The menu bar is read and clicked through Electron's Menu API
@@ -92,7 +92,7 @@ test('the menu bar follows the platform, the interface language and the command 
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   // Switching the interface language re-translates the native menus.
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect.poll(async () => (await menuItem(app, 'close-project'))?.label).toBe('Close project');
   expect((await readMenu(app)).map((m) => m.label)).toContain('Edit');
 

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { ProblemRecord } from '../../src/shared/problem';
 import { launchApp } from './launch';
-import { collectConsoleErrors, openFile } from './project';
+import { collectConsoleErrors, openFile, switchLanguage } from './project';
 import { evalInPreview, waitForPreviewState } from './preview-helpers';
 
 /**
@@ -38,8 +38,16 @@ async function start(userData: string) {
   await app.evaluate(({ app: electronApp }, docs) => electronApp.setPath('documents', docs), documents);
 }
 
+/**
+ * S47.4: the glossary is in the help/more menu; lessons are in the project menu, which exists only with a project —
+ * without one the rail's labelled Lessons button runs the same command (key features are never only in a menu).
+ */
 async function menu(id: string) {
-  await page.getByTestId('app-menu').click();
+  if (id === 'help-walkthrough' && (await page.getByTestId('project-menu').count()) === 0) {
+    await page.getByTestId('rail-lessons').click();
+    return;
+  }
+  await page.getByTestId(id === 'help-walkthrough' ? 'project-menu' : 'app-menu').click();
   await page.getByTestId(`menu-${id}`).click();
 }
 
@@ -116,7 +124,9 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     // Close (skip the walkthrough): hidden, stored as closed; Help reopens it at the first step not done yet.
     await page.getByTestId('walkthrough-close').click();
     await expect(panel()).toHaveCount(0);
-    await expect.poll(async () => (await stored(userData()))?.status).toBe('closed');
+    // The store writes atomically (temp file + rename): between the two the file is briefly absent, so a read that
+    // fails is 'not yet', not a failure (seen once on the Windows CI runner).
+    await expect.poll(async () => (await stored(userData()).catch(() => null))?.status).toBe('closed');
     await menu('help-walkthrough');
     await expect(panel()).toHaveAttribute('data-step', 'create');
     // The rail's labelled "课程" button runs the same command: lessons are never only in a menu.
@@ -126,22 +136,91 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await expect(panel()).toHaveAttribute('data-step', 'create');
   });
 
-  test('progress survives a restart', async () => {
+  test("S47.6: the band folds to one line (step · title · Show me · Next); a step's first view is always full", async () => {
+    // Full on this first view of "create": the text, the location, the terms, the check line.
+    const band = panel();
+    await expect(band).toHaveAttribute('data-compact', 'false');
+    await expect(page.getByTestId('walkthrough-body')).toBeVisible();
+    await page.getByTestId('walkthrough-compact').click();
+    await expect(band).toHaveAttribute('data-compact', 'true');
+    await expect(page.getByTestId('walkthrough-body')).toHaveCount(0);
+    await expect(page.getByTestId('walkthrough-check')).toHaveCount(0);
+    // One line, at most 56 px: the step, the title, Show me and Next share one row.
+    const box = (await band.boundingBox())!;
+    expect(box.height).toBeLessThanOrEqual(56);
+    const rows = new Set<number>();
+    for (const id of ['walkthrough-progress', 'walkthrough-title', 'walkthrough-show', 'walkthrough-next']) {
+      const r = (await page.getByTestId(id).boundingBox())!;
+      expect(r.y >= box.y && r.y + r.height <= box.y + box.height, `${id} inside the band`).toBe(true);
+      rows.add(Math.round(r.y + r.height / 2));
+    }
+    expect(Math.max(...rows) - Math.min(...rows)).toBeLessThanOrEqual(4);
+    await expect(page.getByTestId('walkthrough-progress')).toHaveText('第 1 步，共 8 步');
+    await expect(page.getByTestId('walkthrough-title')).toHaveText('创建你的第一个网页');
+    await expect(next()).toHaveText('跳过这一步'); // the done state is the button's own label
+    await expect.poll(async () => (await stored(userData())).compact).toBe(true);
+
+    // A step seen before folds too (files and heading were visited above); a step never seen shows in full even
+    // while compact is chosen.
     await next().click();
+    await expect(band).toHaveAttribute('data-step', 'files');
+    await expect(band).toHaveAttribute('data-compact', 'true');
     await next().click();
+    await expect(band).toHaveAttribute('data-step', 'heading');
+    await expect(band).toHaveAttribute('data-compact', 'true');
+    await next().click();
+    await expect(band).toHaveAttribute('data-step', 'style');
+    await expect(band).toHaveAttribute('data-compact', 'false');
+    await expect(page.getByTestId('walkthrough-body')).toBeVisible();
+    await page.getByTestId('walkthrough-back').click();
+    await expect(band).toHaveAttribute('data-step', 'heading');
+    await expect(band).toHaveAttribute('data-compact', 'true');
+    // Expand: the full text comes back on every step until the user folds it again.
+    await page.getByTestId('walkthrough-expand').click();
+    await expect(band).toHaveAttribute('data-compact', 'false');
+    await expect.poll(async () => (await stored(userData())).compact).toBe(false);
+    await page.getByTestId('walkthrough-compact').click();
+    await expect(band).toHaveAttribute('data-compact', 'true');
+  });
+
+  test('progress and the compact choice survive a restart', async () => {
     await expect(panel()).toHaveAttribute('data-step', 'heading');
+    await expect(panel()).toHaveAttribute('data-compact', 'true');
     await expect.poll(async () => (await stored(userData()))?.step).toBe('heading');
+    // The compact choice is saved asynchronously after the click above; wait for it before the restart.
+    await expect.poll(async () => (await stored(userData()))?.compact).toBe(true);
     await app.close();
     await start(userData());
     await expect(panel()).toHaveAttribute('data-step', 'heading');
     await expect(page.getByTestId('walkthrough-progress')).toHaveText('第 3 步，共 8 步');
     await expect.poll(anchored).toEqual([]); // no project open: the heading step's file is not there to point at
+    // S47.6: the compact choice came back with the progress (a step seen before folds); a never-seen step stays full.
+    await expect(panel()).toHaveAttribute('data-compact', 'true');
+    expect((await panel().boundingBox())!.height).toBeLessThanOrEqual(56);
+    await next().click(); // style: seen above, folds
+    await expect(panel()).toHaveAttribute('data-step', 'style');
+    await expect(panel()).toHaveAttribute('data-compact', 'true');
+    await next().click(); // interaction: never seen, full
+    await expect(panel()).toHaveAttribute('data-step', 'interaction');
+    await expect(panel()).toHaveAttribute('data-compact', 'false');
+    await page.getByTestId('walkthrough-back').click(); // from the full band; the compact one has Show me and Next only
+    await expect(panel()).toHaveAttribute('data-step', 'style');
+    await expect(panel()).toHaveAttribute('data-compact', 'true');
+    await page.getByTestId('walkthrough-expand').click();
+    await expect(panel()).toHaveAttribute('data-compact', 'false');
+    await page.getByTestId('walkthrough-back').click();
+    await expect(panel()).toHaveAttribute('data-step', 'heading');
   });
 
   test('standard terms in a step link to the glossary, which keeps the terms as they are (S23.4)', async () => {
     await page.getByTestId('walkthrough-back').click(); // "meet the files" links HTML, CSS, JavaScript
-    await expect(page.getByTestId('walkthrough-term')).toHaveText(['HTML', 'CSS', 'JavaScript']);
-    await page.getByTestId('walkthrough-term').filter({ hasText: 'CSS' }).click();
+    // S47.6: in zh-CN a chip shows the Chinese name and the standard term; the glossary keeps the term itself.
+    await expect(page.getByTestId('walkthrough-term')).toHaveText([
+      '超文本标记语言 HTML',
+      '层叠样式表 CSS',
+      'JavaScript 脚本语言',
+    ]);
+    await page.locator('[data-testid="walkthrough-term"][data-term="CSS"]').click();
     const glossary = page.getByTestId('glossary');
     await expect(glossary).toBeVisible();
     await expect(glossary).toHaveAttribute('aria-modal', 'true');
@@ -161,9 +240,10 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await page.getByTestId('glossary-search').fill('没有这种词');
     await expect(page.getByTestId('glossary-empty')).toHaveText('没有找到这个术语。');
     await page.getByTestId('glossary-close').click();
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
     await expect(page.getByTestId('walkthrough-title')).toHaveText('Meet the three files');
     await expect(next()).toHaveText('Skip this step');
+    await expect(page.getByTestId('walkthrough-term')).toHaveText(['HTML', 'CSS', 'JavaScript']); // en: the term alone
     await menu('help-glossary');
     await expect(page.getByRole('heading', { name: 'Glossary' })).toBeVisible();
     await page.getByTestId('glossary-search').fill('selector');
@@ -171,7 +251,7 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await expect(selector.getByTestId('glossary-term')).toHaveText('selector');
     await expect(selector).toContainText('which elements the style applies to');
     await page.keyboard.press('Escape');
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
     await page.getByTestId('walkthrough-close').click();
     expect(consoleErrors).toEqual([]);
     await app.close();
@@ -191,7 +271,7 @@ test.describe('the PLAN §2 journey (S23.2) and the final task (S23.3)', () => {
     await page.getByTestId('welcome-create').click();
     await page.getByTestId('wizard-create').click();
     projectRoot = path.join(documents, 'NoobIDE 项目', '我的第一个网页');
-    await expect(page.getByTestId('project-path')).toHaveText(projectRoot);
+    await expect(page.getByTestId('project-name')).toHaveAttribute('title', projectRoot);
     await waitForPreviewState(page, 'running');
     await expect(panel()).toHaveAttribute('data-step', 'files');
     await page.getByTestId('walkthrough-back').click();
@@ -313,17 +393,17 @@ test.describe('the PLAN §2 journey (S23.2) and the final task (S23.3)', () => {
   test('reopen: closing the app and opening it again restores the project and completes the journey', async () => {
     await expect(panel()).toHaveAttribute('data-step', 'reopen');
     await expect(panel()).toHaveAttribute('data-done', 'false');
-    await expect.poll(anchored).toEqual(['project-path']);
+    await expect.poll(anchored).toEqual(['project-menu']); // S47.4: the path is the name's tooltip and a line of the menu
     await page.waitForTimeout(800); // tabs and layout are written 300 ms after the last change
     expect(consoleErrors).toEqual([]);
     await app.close();
 
     await start(userData());
-    await expect(page.getByTestId('project-path')).toHaveText(projectRoot);
+    await expect(page.getByTestId('project-name')).toHaveAttribute('title', projectRoot);
     await expect(page.locator('[data-testid="tab"][data-path="script.js"]')).toHaveCount(1);
     await expect(panel()).toHaveAttribute('data-step', 'reopen');
     await expect(panel()).toHaveAttribute('data-done', 'true');
-    await expect(next()).toHaveText('完成导览');
+    await expect(next()).toHaveText('完成课程');
     const state = await stored(userData());
     expect(state.completed).toEqual([
       'create',

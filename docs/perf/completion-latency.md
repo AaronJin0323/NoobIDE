@@ -4,7 +4,8 @@ Budget (decision [0032](../decisions/0032-smart-suggestions.md)): NoobIDE's own 
 classes, paths, snippets) computes its items in **≤ 10 ms p95** for a project of 200 HTML/CSS files and 2 000 classes,
 and a project id is listed **≤ 500 ms** after typing the trigger character.
 
-Measured on the Windows x64 dev machine (Windows 11, 32 logical cores), 2026-10-16.
+Measured on the Windows x64 dev machine (Windows 11, 32 logical cores), 2026-10-16 (unit numbers re-measured
+2026-10-17).
 
 ## Provider work (unit)
 
@@ -12,16 +13,17 @@ Measured on the Windows x64 dev machine (Windows 11, 32 logical cores), 2026-10-
 (10 classes each) + 300 images = 500 files, 200 of them indexed, 2 100 classes. Per request: find the context in a
 2 000-character window, merge the project's names (open files' unsaved edits included), build one item per class; and
 for a path request, list `../images/` relative to a page. 60 measured runs each, after 10 warm-up runs; since 2026-10-17
-the test judges the best of up to three such batches, because on hosted CI runners (3–4 vCPUs shared by four vitest
-workers) one descheduling inflated a whole batch to 11–21 ms p95 while the dev machine measures below 1 ms. Reproduce
-with `npm run test:perf` (`NOOBIDE_PERF_PRINT=1` prints every batch); the numbers land in
-`reports/perf/<platform>-<arch>.json` (budgets enforced on developer machines, reported on GitHub Actions —
-docs/perf/ci-runners.md, decision 0038).
+the test judges the best of up to five such batches (S06.6), because on hosted CI runners (3–4 vCPUs shared by four
+vitest workers) one descheduling inflated a whole batch to 11–21 ms p95 while the dev machine measures below 1 ms;
+contention and GC pauses add time to a sample and never remove any, so the quietest batch is the closest measurement of
+the provider's own cost, and every batch is judged against the unchanged budget. Reproduce with `npm run test:perf`
+(`NOOBIDE_PERF_PRINT=1` prints every batch); the numbers land in `reports/perf/<platform>-<arch>.json` (budgets enforced
+on developer machines, reported on GitHub Actions — docs/perf/ci-runners.md, decision 0038).
 
-| Request                         | p95     | Budget |
-| ------------------------------- | ------- | ------ |
-| `querySelector('.c-4` (classes) | 0.91 ms | 10 ms  |
-| `<img src="../images/` (paths)  | 0.44 ms | 10 ms  |
+| Request                         | p95 (best batch) | Budget |
+| ------------------------------- | ---------------- | ------ |
+| `querySelector('.c-4` (classes) | 0.54 ms          | 10 ms  |
+| `<img src="../images/` (paths)  | 0.23 ms          | 10 ms  |
 
 Symbol extraction runs once per file read, not per request: 200 files (≈ 3 200 classes) take ≈ 2.6 ms in total
 (`tests/perf/completion-perf.perf.test.ts`). Indentation detection of a 5 000-line file takes ≈ 0.3 ms (JS) / ≈ 1.4 ms (HTML with

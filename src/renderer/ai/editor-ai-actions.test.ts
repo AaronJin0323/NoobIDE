@@ -46,10 +46,10 @@ describe('Edit with AI / Explain under the code (editor status bar)', () => {
   it('shows the sparkle, the written label and the shortcut on each platform', () => {
     const win = html([editAction(), explainAction()]);
     expect(win).toMatch(
-      /class="ai-entry"[^>]*data-testid="editor-ai-edit"[^>]*><svg[^]*?<\/svg><span class="editor-ai-edit-label">AI 编辑<\/span><kbd/,
+      /class="ai-entry"[^>]*data-testid="editor-ai-edit"[^>]*><svg[^]*?<\/svg><span class="editor-ai-edit-label">AI 修改<\/span><kbd/,
     );
     expect(win).toContain('>Ctrl+I</kbd>');
-    expect(win).toContain('title="用 AI 修改这段代码 (Ctrl+I)"');
+    expect(win).toContain('title="AI 修改 (Ctrl+I)"');
     expect(win).toContain('aria-keyshortcuts="Control+I"');
     expect(win).toContain('aria-label="让 AI 解释这段代码"');
     const mac = html([editAction()], { platform: 'mac', locale: 'en' });

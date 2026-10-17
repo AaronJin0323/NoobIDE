@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { ProblemRecord } from '../../src/shared/problem';
 import { launchApp, repoRoot } from './launch';
-import { collectConsoleErrors, makeProject, openFile, openProject } from './project';
+import { collectConsoleErrors, makeProject, openFile, openProject, switchLanguage } from './project';
 import { evalInPreview } from './preview-helpers';
 import { DOC_END, DOC_START } from './keys';
 
@@ -176,12 +176,12 @@ test('the panel lists static, runtime and resource problems in separate sections
   await expect(toggle()).toContainText('3 个错误');
 
   // English UI: same structure, translated labels.
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(section('static')).toContainText('Code check');
   await expect(section('runtime')).toContainText('While the page runs');
   await expect(section('resource')).toContainText('Loading files');
   await expect(toggle()).toContainText('Problems · 3 errors');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
 });
 
 test('Go to code opens the file at the reported line and column and focuses the editor (S17.2)', async () => {
