@@ -62,6 +62,38 @@ skips items that are not rendered.
 1. Remaining M18 sessions (S47.2–S47.5, S48.4–S48.8, S50) land through their PRs; S49 is complete.
 2. When S48.4 adds kbd hints to the chin, give them the `.ai-hint`-like hiding at < 480 px in navigation.css.
 
+## Session 46 (side session) — 2026-10-18 — S47.1 landed on main; M18 fanned out to five sessions
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/noobide-next-steps-b77935`.
+
+**Done**
+
+- S47.1 (motion tokens, reduced-motion gate) was merged by PR #16 into the M18 plan branch only and never reached
+  main. Merged that branch here (kept S53.2 `linkedEditing` next to the motion options in CodeEditor.tsx, kept
+  both PROGRESS entries) and registered `reduced-motion.spec.ts` in `tests/e2e/shards.json` (S58 manifest).
+- macOS shard 2 on PR #32 failed `ai-prompt.spec.ts` "without an AI key…": the test cleared the key and pressed
+  Enter 287 ms later while the renderer still held the stale "key stored" status. The test now polls a new
+  read-only editor test hook, `aiPromptsEnabled` (the flag /ai Enter reads), until it is false before typing.
+- windows-x64 shard 2 then failed `file-multi-select.spec.ts`: Move to… ignored an Enter pressed before its folder
+  list had loaded (a real bug on a slow disk). MoveDialog now remembers that Enter and moves once the list
+  arrives; typing again forgets it. New main test hooks `holdListings`/`releaseListings` (delay only) and a
+  file-move.spec test that fails without the fix and passes 3/3 with it.
+- windows-x64 shard 2 later failed the S05.3 console-flood stress test: "20 workers" missed its stall budget by
+  10 ms because that budget reused one baseline taken earlier, while the runner alone stalled main ~1.5 s. Retry
+  windows now re-measure the 20-worker baseline right before they run, as the iframe cases already do; the budget is
+  still 200 ms over the larger baseline and never lower than before.
+- macOS shard 2 on PR #37 failed `file-multi-select.spec.ts` (trash by keyboard): the previous test waited for the
+  Ctrl/Cmd+D copies on disk only, so the row order was read before the watcher had listed the second copy.
+  `focusByKeyboard` now waits for both rows first (3/3 local repeats green).
+- Started five parallel M18 sessions, each from this branch with its own PR to main: S47.2–S47.5, S48.4/S48.6/S48.7,
+  S48.5/S48.8, S49.2/S49.4–S49.6, S50.1–S50.5.
+
+**Evidence:** `npm run verify` green (3149 tests); PR #32 hosted matrix.
+
+**Decisions:** the owner (2026-10-18) lets agents open PRs, fix CI and merge into main without asking.
+
+**Next up:** the five M18 sessions merge their PRs; the open M19 PRs #22 (S51), #26 (S55) and #27 (S56).
+
 ## Session S48b (side session) — 2026-10-18 — Chat code blocks and proposal tones (S48.5, S48.8)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m18-s48-blocks-0f6df9` (cut
