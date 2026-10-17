@@ -68,6 +68,8 @@ export class AgentDecisionStore {
   /** Turns with at least one applied change in this window (their cards offer undo). */
   private readonly applied = new Set<string>();
   private readonly undone = new Map<string, UndoTurnResult>();
+  /** S56.3: proposals whose automatic "before AI changes" checkpoint was taken (once per proposal). */
+  private readonly checkpointed = new Set<string>();
   private readonly listeners = new Set<() => void>();
   private working = false;
   private version = 0;
@@ -153,6 +155,11 @@ export class AgentDecisionStore {
       return;
     }
     this.setView(proposal, index, { state: 'applying' });
+    if (!this.checkpointed.has(proposal.proposalId)) {
+      // S56.3: the whole project is kept once, right before the proposal's first change lands.
+      this.checkpointed.add(proposal.proposalId);
+      await ctx.host.checkpointBeforeAi?.(proposal.label).catch(() => undefined);
+    }
     const result = await applyChange(ctx.host, change, { id: proposal.requestId, label: proposal.label });
     if (result.ok) {
       this.applied.add(proposal.requestId);

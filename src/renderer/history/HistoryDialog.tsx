@@ -46,6 +46,11 @@ interface HistoryDialogProps {
    * files changed since are skipped and named). Null when another change is running. Absent: no undo offered.
    */
   onUndoGroup?(group: HistoryGroup): Promise<GroupUndoOutcome | null>;
+  /**
+   * S56.3: right before any restore from this window (a version, a deleted file, an agent turn undone) — takes an
+   * automatic project checkpoint named after `what`. Never fails the restore.
+   */
+  beforeRestore?(what: string): Promise<void>;
   onClose(): void;
 }
 
@@ -61,7 +66,17 @@ type Confirm = 'project' | 'all' | { readonly orphan: string } | null;
  * restore or a clear is running, so its result stays visible); a first Escape only cancels an open confirmation.
  */
 export function HistoryDialog(props: HistoryDialogProps) {
-  const { api, project, initialRelPath, currentText, onRestore, onRestoredDeleted, onUndoGroup, onClose } = props;
+  const {
+    api,
+    project,
+    initialRelPath,
+    currentText,
+    onRestore,
+    onRestoredDeleted,
+    onUndoGroup,
+    beforeRestore,
+    onClose,
+  } = props;
   const { t, locale } = useI18n();
   const dialogRef = useRef<HTMLDivElement>(null);
   const [files, setFiles] = useState<readonly HistoryFile[] | null>(null);
@@ -200,6 +215,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
     setBusy(true);
     setNotice(null);
     try {
+      await beforeRestore?.(content.relPath).catch(() => undefined); // S56.3
       if (content.exists) {
         const outcome = await onRestore(content.relPath, content.version.text);
         setNotice({ kind: outcome === 'restored' ? 'ok' : 'error', text: t(restoreOutcomeKey(outcome)) });
@@ -229,6 +245,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
     setUndoing(group.id);
     setNotice(null);
     try {
+      await beforeRestore?.(group.files.join(', ')).catch(() => undefined); // S56.3
       const outcome = await onUndoGroup(group);
       if (outcome === null) {
         setNotice({ kind: 'error', text: t('history.group.undoBusy') });
@@ -308,6 +325,10 @@ export function HistoryDialog(props: HistoryDialogProps) {
       testId="history-dialog"
       closeTestId="history-close"
     >
+      {/* S56.4: local history is per file; the whole project is the checkpoints window's. */}
+      <p className="dialog-hint" data-testid="history-checkpoint-note">
+        {t('history.checkpointNote')}
+      </p>
       {notice && (
         <p
           className={notice.kind === 'error' ? 'inline-alert history-notice' : 'history-notice history-ok'}
@@ -584,7 +605,8 @@ export function HistoryDialog(props: HistoryDialogProps) {
   );
 }
 
-function VersionDiff({ diff }: { diff: LineDiff }) {
+/** The line diff of a version (also used by the Checkpoints window, S56.2: same "+ comes back" semantics). */
+export function VersionDiff({ diff }: { diff: LineDiff }) {
   const { t } = useI18n();
   const summary: MessageKey | null = diff.identical ? 'history.identical' : null;
   return (

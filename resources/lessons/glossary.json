@@ -113,7 +113,10 @@
     },
     {
       "term": "function",
-      "zh-CN": { "name": "函数", "text": "一段起了名字、可以反复执行的代码，比如点击按钮时运行的 function () { … }。" },
+      "zh-CN": {
+        "name": "函数",
+        "text": "一段起了名字、可以反复执行的代码，比如点击按钮时运行的 function () { … }。"
+      },
       "en": {
         "name": "function",
         "text": "A named piece of code that can run again and again, such as the function () { … } that runs when a button is clicked."
@@ -143,7 +146,10 @@
     },
     {
       "term": "console",
-      "zh-CN": { "name": "控制台", "text": "显示网页运行时输出和错误的地方。console.log(...) 写的内容会出现在这里。" },
+      "zh-CN": {
+        "name": "控制台",
+        "text": "显示网页运行时输出和错误的地方。console.log(...) 写的内容会出现在这里。"
+      },
       "en": {
         "name": "console",
         "text": "Where a running page's output and errors appear. Whatever console.log(...) writes shows up here."
@@ -162,7 +168,10 @@
     },
     {
       "term": "preview",
-      "zh-CN": { "name": "预览", "text": "窗口右边显示网页实际效果的地方。文件保存成功后，预览会自动刷新。" },
+      "zh-CN": {
+        "name": "预览",
+        "text": "窗口右边显示网页实际效果的地方。文件保存成功后，预览会自动刷新。"
+      },
       "en": {
         "name": "preview",
         "text": "The area on the right that shows how the webpage really looks. It refreshes after a file is saved successfully."
@@ -183,16 +192,41 @@
       "term": "local history",
       "zh-CN": {
         "name": "历史版本",
-        "text": "NoobIDE 在你电脑上为每次保存留下的旧版本。可以比较差异，也可以恢复到以前的版本。它和撤销（Ctrl+Z）不是一回事。"
+        "text": "NoobIDE 在你电脑上为每个文件自动留下的旧版本（每次保存时）。一次看一个文件，可以比较差异并恢复。它和撤销（Ctrl+Z）不一样，也不是整个项目的检查点。"
       },
       "en": {
         "name": "local history",
-        "text": "Earlier saved versions NoobIDE keeps on your computer. You can compare them and restore one. It is not the same thing as undo (Ctrl+Z)."
+        "text": "Earlier versions of each file that NoobIDE keeps automatically on your computer whenever you save. You look at one file at a time, compare and restore. It is not undo (Ctrl+Z), and not a checkpoint of the whole project."
+      }
+    },
+    {
+      "term": "checkpoint",
+      "zh-CN": {
+        "name": "检查点",
+        "text": "由你命名、记下整个项目此刻所有文件的一份记录（在做 AI 修改或恢复之前也会自动保存一个）。以后可以和现在的项目比较，或把整个项目还原回去。它保存在你的电脑上、NoobIDE 自己的数据文件夹里，不是 Git 这样的版本控制，也不能代替备份。"
+      },
+      "en": {
+        "name": "checkpoint",
+        "text": "A record of every file of the whole project at one moment, under a name you choose (NoobIDE also takes one automatically before AI changes and restores). Later you can compare the project with it or restore the whole project. It is kept on your computer in NoobIDE’s own data folder; it is not version control like Git, and not a backup."
+      }
+    },
+    {
+      "term": "undo",
+      "zh-CN": {
+        "name": "撤销",
+        "text": "在编辑器里退回你刚才的修改（Ctrl+Z，Mac 上是 ⌘Z），只针对正在编辑的那个文件。关闭文件后就不能再撤销了；那时可以用本地历史或检查点。"
+      },
+      "en": {
+        "name": "undo",
+        "text": "Takes back your last edits in the editor (Ctrl+Z, ⌘Z on a Mac), only in the file you are editing. Once the file is closed it cannot be undone any more; then local history or a checkpoint can help."
       }
     },
     {
       "term": "diff",
-      "zh-CN": { "name": "差异", "text": "两个版本之间哪些行被加上、哪些行被去掉的对比。" },
+      "zh-CN": {
+        "name": "差异",
+        "text": "两个版本之间哪些行被加上、哪些行被去掉的对比。"
+      },
       "en": {
         "name": "diff",
         "text": "A comparison of two versions showing which lines were added and which were removed."
