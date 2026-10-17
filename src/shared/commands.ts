@@ -70,6 +70,17 @@ export const COMMAND_IDS = [
   // S52.4 import from outside the project
   'files-add',
   'files-add-image',
+  // S53 HTML/CSS authoring aids (Edit menu)
+  'toggle-emmet',
+  'wrap-with-tag',
+  'edit-color',
+  'toggle-line-comment',
+  'toggle-block-comment',
+  'toggle-format-on-save',
+  // S57 JavaScript navigation and rename
+  'go-to-definition',
+  'find-references',
+  'rename-symbol',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -82,7 +93,13 @@ export interface CommandContext {
   readonly modalOpen: boolean;
   /** S24.4: the theme choice, shown as the checked theme command. */
   readonly theme: ThemeChoice;
+  /** S53: editor switches shown as checked menu items (absent: off). */
+  readonly emmet?: boolean;
+  readonly formatOnSave?: boolean;
 }
+
+/** Context keys that may be left out (switches; absent means off). */
+const OPTIONAL_CONTEXT_KEYS = ['emmet', 'formatOnSave'] as const;
 
 export const INITIAL_COMMAND_CONTEXT: CommandContext = {
   hasProject: false,
@@ -99,6 +116,13 @@ export interface CommandDefinition {
   readonly when?: (context: CommandContext) => boolean;
   /** A choice among several (radio item in menus): whether it is the current one. */
   readonly checked?: (context: CommandContext) => boolean;
+  /** S53: `checked` is an on/off switch (checkbox item in menus), not one choice of several. */
+  readonly toggle?: true;
+  /**
+   * S53: the shortcut belongs to the code editor: it runs the command only while the focus is in the editor (a text
+   * field keeps its own key). Menus and the command palette run the command any time.
+   */
+  readonly scope?: 'editor';
 }
 
 const noModal = (c: CommandContext) => !c.modalOpen;
@@ -204,6 +228,55 @@ export const COMMANDS: readonly CommandDefinition[] = [
   { id: 'files-move-to', label: 'command.files.moveTo', when: (c) => c.hasProject && !c.modalOpen },
   { id: 'files-add', label: 'command.files.addFiles', when: (c) => c.hasProject && !c.modalOpen },
   { id: 'files-add-image', label: 'command.files.addImage', when: (c) => c.hasProject && !c.modalOpen },
+  // S53.1: Emmet abbreviations on Tab (an app setting; on by default).
+  { id: 'toggle-emmet', label: 'command.toggleEmmet', checked: (c) => c.emmet === true, toggle: true },
+  // S53.2: wraps the selection in an HTML tag (both tag names linked).
+  { id: 'wrap-with-tag', label: 'command.wrapWithTag', when: (c) => c.hasActiveTab && !c.modalOpen },
+  // S53.3: the colour picker for the CSS colour value at the cursor.
+  { id: 'edit-color', label: 'command.editColor', when: (c) => c.hasActiveTab && !c.modalOpen },
+  // S53.4: comment toggles (Monaco's own actions, now in the Edit menu and the palette) and format on save.
+  {
+    id: 'toggle-line-comment',
+    label: 'command.toggleLineComment',
+    keys: { all: { key: '/', primary: true } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+    scope: 'editor',
+  },
+  {
+    id: 'toggle-block-comment',
+    label: 'command.toggleBlockComment',
+    keys: { all: { key: 'a', shift: true, alt: true } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+    scope: 'editor',
+  },
+  {
+    id: 'toggle-format-on-save',
+    label: 'command.toggleFormatOnSave',
+    checked: (c) => c.formatOnSave === true,
+    toggle: true,
+  },
+  // S57: JavaScript navigation (F12 / Shift+F12) and rename (F2), as in other editors; the keys belong to the editor.
+  {
+    id: 'go-to-definition',
+    label: 'command.goToDefinition',
+    keys: { all: { key: 'F12' } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+    scope: 'editor',
+  },
+  {
+    id: 'find-references',
+    label: 'command.findReferences',
+    keys: { all: { key: 'F12', shift: true } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+    scope: 'editor',
+  },
+  {
+    id: 'rename-symbol',
+    label: 'command.renameSymbol',
+    keys: { all: { key: 'F2' } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+    scope: 'editor',
+  },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));
@@ -275,13 +348,26 @@ export function commandChecked(id: CommandId, context: CommandContext): boolean 
   return checked ? checked(context) : null;
 }
 
+/** S53: whether the command's shortcut only applies while the focus is in the code editor. */
+export function commandIsEditorScoped(id: CommandId): boolean {
+  return commandById(id).scope === 'editor';
+}
+
+/** S53: whether the command is an on/off switch (checkbox) rather than one choice of several (radio). */
+export function commandIsToggle(id: CommandId): boolean {
+  return commandById(id).toggle === true;
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** IPC payload check for the context the renderer reports to main: exactly the known keys, each valid. */
 export function parseCommandContext(payload: unknown): CommandContext | null {
   if (!isRecord(payload)) return null;
-  const keys = Object.keys(payload).sort();
+  const optional: readonly string[] = OPTIONAL_CONTEXT_KEYS;
+  const keys = Object.keys(payload)
+    .filter((key) => !optional.includes(key))
+    .sort();
   const expected = Object.keys(INITIAL_COMMAND_CONTEXT).sort();
   if (keys.length !== expected.length || keys.some((key, i) => key !== expected[i])) return null;
   const { hasProject, hasActiveTab, modalOpen, theme } = payload;
@@ -289,5 +375,17 @@ export function parseCommandContext(payload: unknown): CommandContext | null {
     return null;
   }
   if (!isThemeChoice(theme)) return null;
-  return { hasProject, hasActiveTab, modalOpen, theme };
+  const context: { -readonly [K in keyof CommandContext]: CommandContext[K] } = {
+    hasProject,
+    hasActiveTab,
+    modalOpen,
+    theme,
+  };
+  for (const key of OPTIONAL_CONTEXT_KEYS) {
+    const value = payload[key];
+    if (value === undefined) continue;
+    if (typeof value !== 'boolean') return null;
+    context[key] = value;
+  }
+  return context;
 }

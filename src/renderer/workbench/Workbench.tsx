@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react';
+import { editorPrefs, loadEditorPrefs, setEditorPrefs, useEditorPrefs } from '../editor/editor-prefs'; // S53
+import { openColorPicker } from '../editor/cursor-color'; // S53.3
+import { saveWithFormat } from './format-on-save'; // S53.4
+import { reportFormatOnSaveFailure } from './FormatSaveNotice';
+import { useJsNavigation, type RenameDeps } from './useJsNavigation'; // S57
+import { languageForPath } from '../editor/language';
 import { useAppMenuItems, useCommands, type CommandHandlers } from '../commands/useCommands'; // S24.1
 import type { FileContent, FileVersion, OpenedProject } from '../../shared/ipc/contract';
 import { useMediaQuery } from '../theme/useMediaQuery';
@@ -227,6 +233,9 @@ export function Workbench() {
     if (settingsLoaded.current) void bridge?.settings?.update({ editorFontSize: fontSize });
   }, [bridge, fontSize]);
   // --- end S13.1 ---
+  // S53: the editor switches (Emmet on Tab, format on save) come from the same settings.
+  useEffect(() => void loadEditorPrefs(bridge?.settings), [bridge]);
+  const editorSwitches = useEditorPrefs();
   // --- S13.2: "set as entry page" writes .noobide/project.json (the only file NoobIDE writes into a project) ---
   const [entryNotice, setEntryNotice] = useState<EntryNoticeState | null>(null);
   const extraMenuItems = useCallback(
@@ -474,9 +483,11 @@ export function Workbench() {
     dropTab(relPath);
   }, []);
 
+  // S53.4: an explicit save formats first when "Format on save" is on (format-on-save.ts); autosave never does.
   const saveActive = useCallback(() => {
-    const saver = saverOf(docRef.current.active);
-    if (!saver) return;
+    const tab = activeTab(docRef.current);
+    const saver = saverOf(tab?.relPath);
+    if (!tab || !saver) return;
     // S47.3: over a conflict or a deleted file nothing is ever written on its own (S11.2, S11.3); the save command
     // (Ctrl+S and the top-bar Save button) then moves the focus to the banner's first choice instead of doing nothing.
     const { conflict, deleted } = saver.state;
@@ -486,7 +497,17 @@ export function Workbench() {
         ?.focus();
       return;
     }
-    void saver.save();
+    const editor = activeEditor();
+    reportFormatOnSaveFailure(null);
+    void saveWithFormat({
+      enabled: editorPrefs().formatOnSave,
+      format: async () =>
+        editor?.shownUri() === tab.uri && editor.formatForSave
+          ? editor.formatForSave()
+          : { ok: false, reason: 'unsupported' },
+      save: () => saver.save(),
+      onFormatFailed: reportFormatOnSaveFailure,
+    });
   }, []);
 
   const saveCopy = useCallback(async () => {
@@ -1029,6 +1050,79 @@ export function Workbench() {
     if (pendingGoTo && doc.docError?.relPath === pendingGoTo.file) setPendingGoTo(null);
   }, [pendingGoTo, doc.docError]);
   // --- end S17.2 ---
+  // --- S57.2: rename across the project's scripts, through each file's tab and saver (rename-apply.ts) ---
+  const renameProject = doc.project;
+  const renameDeps = useMemo<RenameDeps | null>(() => {
+    if (!bridge || !renameProject) return null;
+    const tabOf = (relPath: string) => docRef.current.tabs.find((open) => open.relPath === relPath);
+    const sameProject = () => docRef.current.project?.projectId === renameProject.projectId;
+    return {
+      host: {
+        open: async (relPath) => {
+          if (!sameProject()) return null;
+          await openFile(relPath, { quiet: true, background: true }); // a closed file is read from disk now
+          const tab = await eventually(() => tabOf(relPath));
+          const saver = saverOf(relPath);
+          if (!tab || !saver || !sameProject()) return null;
+          const blocked =
+            saver.state.conflict ||
+            saver.state.deleted ||
+            Boolean(tab.content.readOnly) ||
+            reloading.current.has(relPath) ||
+            lockedRef.current.some((p) => isSameOrBelow(relPath, p));
+          return { text: saver.text, blocked };
+        },
+        replace: async (relPath, before, after) => {
+          const saver = saverOf(relPath);
+          const tab = tabOf(relPath);
+          if (!saver || !tab || !sameProject()) return false;
+          const editor = await editorModels();
+          // A tab opened in the background has no model until it is shown: create it now, so the rename is an
+          // undoable edit of that tab (the editor uses this model when the tab is shown).
+          editor.models.acquire({
+            uri: tab.uri,
+            language: languageForPath(relPath),
+            text: saver.text,
+            eol: tab.content.eol,
+          });
+          if (
+            saver !== saverOf(relPath) ||
+            reloading.current.has(relPath) ||
+            saver.state.conflict ||
+            !sameText(saver.text, before)
+          ) {
+            return false;
+          }
+          const applied = await editor.replaceModelText(tab.uri, after);
+          if (applied === null || saver !== saverOf(relPath)) return false;
+          // The editor reports the edit only for the model it shows; a background tab's edit is recorded here.
+          if (saver.text !== applied) recordEdit(relPath, applied);
+          return true;
+        },
+        // Another project's tab of the same name is never saved by this rename.
+        save: async (relPath) => (sameProject() ? ((await saverOf(relPath)?.save()) ?? false) : false),
+      },
+      htmlPages: async () => {
+        // Every page must be read: a page that was not could use the name (inline script, onclick).
+        if (renameProject.truncated) return { ok: false, reason: 'incomplete-project' };
+        const pages: { relPath: string; text: string }[] = [];
+        for (const file of renameProject.files) {
+          if (!/\.html?$/i.test(file.relPath)) continue;
+          const open = saverOf(file.relPath);
+          if (open) {
+            pages.push({ relPath: file.relPath, text: open.text });
+            continue;
+          }
+          const read = await bridge.workspace.readFile({ projectId: renameProject.projectId, relPath: file.relPath });
+          if (!read.ok) return { ok: false, reason: 'pages-unknown' };
+          pages.push({ relPath: file.relPath, text: read.value.text });
+        }
+        return { ok: true, pages };
+      },
+    };
+  }, [bridge, renameProject, openFile, recordEdit]);
+  // --- end S57.2 ---
+  const jsNavigation = useJsNavigation(goTo, renameDeps); // S57: F12 / Shift+F12 / F2 across the project's scripts
 
   // --- S22.4/S22.5: problem card explained with the facts of its location; one-click fix of a misspelled name, as
   // an ordinary editor edit saved through the file's own save pipeline (problems/fix-host.ts). ---
@@ -1215,8 +1309,11 @@ export function Workbench() {
       aboutOpen.open ||
       aiSettingsOpen.open ||
       glossaryFor !== null ||
-      palette !== null,
+      palette !== null ||
+      jsNavigation.open,
     theme: theme.choice, // S24.4
+    emmet: editorSwitches.emmet, // S53.1
+    formatOnSave: editorSwitches.formatOnSave, // S53.4
   };
   const commandHandlers: CommandHandlers = {
     'new-project': bridge?.createProject ? () => setWizardOpen(true) : undefined,
@@ -1254,6 +1351,16 @@ export function Workbench() {
     'ai-inline-edit': inlineEdit.shown ? inlineEdit.start : undefined, // S35.1
     // S32.1: AI ghost-text suggestions on / off (offered only when the AI bridge exists)
     'toggle-inline-ai': aiBridge() ? () => toggleInlineAi(docRef.current.project?.projectId ?? null) : undefined,
+    'toggle-emmet': () => setEditorPrefs({ emmet: !editorPrefs().emmet }), // S53.1
+    'wrap-with-tag': () => void activeEditor()?.runAction?.('noobide.wrapWithTag'), // S53.2
+    'edit-color': openColorPicker, // S53.3
+    // S53.4
+    'toggle-line-comment': () => void activeEditor()?.runAction?.('noobide.toggleLineComment'),
+    'toggle-block-comment': () => void activeEditor()?.runAction?.('noobide.toggleBlockComment'),
+    'toggle-format-on-save': () => setEditorPrefs({ formatOnSave: !editorPrefs().formatOnSave }),
+    'go-to-definition': jsNavigation.goToDefinition, // S57.1
+    'find-references': jsNavigation.findReferences,
+    'rename-symbol': jsNavigation.renameSymbol, // S57.2
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
     // S52.1/S52.2: file commands on the tree's selection (the panel explains when nothing is selected)
     ...(bridge?.fileOps
@@ -1646,6 +1753,7 @@ export function Workbench() {
         />
       )}
       {aboutOpen.open && <AboutDialog onClose={aboutOpen.close} />}
+      {jsNavigation.dialog /* S57.1 */}
       {palette && (
         <CommandPalette
           commands={palette}

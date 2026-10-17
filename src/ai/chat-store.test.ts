@@ -56,7 +56,10 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-describe('AiChatStore (S39.1)', () => {
+// Every test writes several chats atomically (temp file, flush, rename): a correctness check, not a speed check. On a
+// hosted Windows runner under load one save took over a second (run 39033368439), so the file gets the same budget as
+// history-store.test.ts instead of Vitest's 5 s default.
+describe('AiChatStore (S39.1)', { timeout: 30_000 }, () => {
   it('saves a chat in app data under the project hash, never in the project folder, and reads it back', async () => {
     const s = store();
     const saved = await s.save(root, chat(1, [turn(`${SECRET} 你好`)]));

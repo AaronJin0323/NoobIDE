@@ -26,6 +26,11 @@ function fakeDefaults() {
         calls.push('js.eager');
         seen.eager = v;
       },
+      modeConfiguration: { hovers: true, definitions: true },
+      setModeConfiguration: (c) => {
+        calls.push('js.mode');
+        seen.mode = c;
+      },
     },
     css: {
       setOptions: (o) => {
@@ -48,7 +53,9 @@ describe('language configuration (S18.1)', () => {
   it('configures JavaScript and CSS services', () => {
     const { defaults, calls, seen } = fakeDefaults();
     configureLanguages(defaults);
-    expect(calls).toEqual(['js.compiler', 'js.diagnostics', 'js.eager', 'css', 'html']);
+    expect(calls).toEqual(['js.compiler', 'js.diagnostics', 'js.eager', 'js.mode', 'css', 'html']);
+    // S57: Monaco's own definition / references / rename are off; everything else is kept.
+    expect(seen.mode).toEqual({ hovers: true, definitions: false, references: false, rename: false });
     expect(seen.compiler).toEqual(JS_COMPILER_OPTIONS);
     expect(seen.diagnostics).toEqual(JS_DIAGNOSTICS_OPTIONS);
     expect(seen.eager).toBe(true);
