@@ -7,6 +7,11 @@ import type { MessageKey } from './zh-CN';
  */
 export const ONE_FORMS: Partial<Record<'zh-CN' | 'en', Partial<Record<MessageKey, string>>>> = {
   en: {
+    'search.count.matches': '{n} result', // S51.3
+    'search.count.files': 'in {n} file',
+    'replace.apply': 'Replace {n} match', // S51.4
+    'replace.done': 'Replaced in {n} file. It can be undone in its editor (Ctrl/Cmd+Z).',
+    'replace.failedTitle': '{n} file was not changed:',
     'checkpoints.saved': 'Checkpoint “{name}” saved ({files} file).',
     'checkpoints.unchanged': '{n} other file is unchanged.',
     'checkpoints.restore.summary': '{n} file will be written back.',

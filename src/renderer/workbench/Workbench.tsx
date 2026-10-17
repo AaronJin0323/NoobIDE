@@ -142,6 +142,9 @@ import { useInlineEdit, type InlineEditHost } from '../ai/useInlineEdit';
 import { setEditorContextActionGroup } from '../editor/editor-handle';
 import { useAiFix, type AiFixHost } from '../problems/useAiFix';
 import { AiFixCard } from '../problems/AiFixCard';
+import { useFindInFiles } from '../search/useFindInFiles'; // S51.3
+import type { ReplaceHost } from '../search/replace-apply'; // S51.4
+import { pushRecent } from '../commands/quick-open-model'; // S51.5
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -1355,6 +1358,61 @@ export function Workbench() {
     [],
   );
 
+  // --- S51.4: replace in files reaches each file through its editor tab and save pipeline — the S34.2 agent host's
+  // replaceOpenText (one undo step, journaled, atomic save + version check + local history). The preview's automatic
+  // refresh is held with the S14.2 typing pause while the files are written, so the page reloads once at the end. ---
+  const replaceHost = useMemo<ReplaceHost | undefined>(() => {
+    if (!bridge) return undefined;
+    return {
+      prepare: async (relPath, planProject) => {
+        // A plan belongs to the project it was searched in; another project may have files of the same names.
+        const project = docRef.current.project;
+        if (!project || project.projectId !== planProject) return { error: 'project-changed' };
+        if (narrow) dispatchLayout({ type: 'showNarrowView', view: 'code' }); // the change lands where it is seen
+        await openFile(relPath);
+        if (docRef.current.project?.projectId !== planProject) return { error: 'project-changed' };
+        const tab = await eventually(() => docRef.current.tabs.find((open) => open.relPath === relPath));
+        const info = tab ? agentHostRef.current?.openTab(relPath) : undefined;
+        if (!info) return { error: 'open-failed' };
+        if (info.readOnly) return { error: 'read-only' };
+        if (info.blocked) return { error: 'blocked' };
+        return { text: info.text };
+      },
+      commit: async (relPath, before, after, planProject) => {
+        const host = agentHostRef.current;
+        if (!host || docRef.current.project?.projectId !== planProject) return { ok: false, code: 'project-changed' };
+        // A rename, move or trash may have started since prepare: the file is left alone (S08 lock).
+        if (lockedRef.current.some((locked) => isSameOrBelow(relPath, locked))) return { ok: false, code: 'blocked' };
+        const failure = await host.replaceOpenText(relPath, before, after);
+        if (failure === null) return { ok: true };
+        // The editor model did not take the change: nothing was edited, so it is not a failed save.
+        if (failure.code === 'write-failed' && failure.detail === 'editor') return { ok: false, code: 'editor-failed' };
+        return { ok: false, code: failure.code };
+      },
+      holdPreview: () => {
+        const pause = () => void bridge.preview.typing?.();
+        pause();
+        const timer = setInterval(pause, 150);
+        return () => {
+          clearInterval(timer);
+          pause(); // the one refresh follows the typing pause after the last save
+        };
+      },
+    };
+  }, [bridge, openFile, narrow]);
+  // --- end S51.4 ---
+  // --- S51.3: find in files (bottom region, beside Problems); open buffers are searched instead of the disk copy ---
+  const findInFiles = useFindInFiles({
+    api: bridge?.search,
+    projectId: doc.project?.projectId ?? null,
+    openBuffers: () => [...savers.current].map(([relPath, saver]) => ({ relPath, text: saver.text })),
+    onOpenHit: goTo,
+    problemsOpen: visible.problemsPanel,
+    closeProblems: () => dispatchLayout({ type: 'toggleProblems' }),
+    replaceHost, // S51.4
+  });
+  // --- end S51.3 ---
+
   // --- S24.1: command registry. Shortcuts (⌘S / Ctrl+S everywhere in the window, Ctrl+Tab, ⌘/Ctrl with + − 0 for
   // the code font, …), the in-window menu and its hints all come from src/shared/commands. ---
   const theme = useThemeChoice();
@@ -1366,6 +1424,10 @@ export function Workbench() {
   // S40.5: the command palette lists what can run at the moment it opens; the chosen command runs after it closed.
   const [palette, setPalette] = useState<readonly PaletteCommand[] | null>(null);
   const paletteRecents = usePaletteRecents(bridge?.settings); // S49.5
+  // S51.5: the palette opened as quick open (files mode), the file chosen there, and the recently opened files.
+  const [paletteFiles, setPaletteFiles] = useState(false);
+  const paletteOpenFile = useRef<string | null>(null);
+  const [recentFiles, setRecentFiles] = useState<readonly string[]>([]);
   const paletteRun = useRef<CommandId | null>(null);
   const canRunRef = useRef<(id: CommandId) => boolean>(() => false);
   const commandContext: CommandContext = {
@@ -1385,6 +1447,15 @@ export function Workbench() {
     formatOnSave: editorSwitches.formatOnSave, // S53.4
     compact: density.density === 'compact', // S50.4
   };
+  const openPalette = () =>
+    setPalette(
+      COMMAND_IDS.filter((id) => id !== 'command-palette' && canRunRef.current(id)).map((id) => ({
+        id,
+        label: commandById(id).label,
+        shortcut: commandShortcutLabel(id, platform),
+        checked: commandChecked(id, { ...commandContext, modalOpen: false }),
+      })),
+    );
   const commandHandlers: CommandHandlers = {
     'new-project': bridge?.createProject ? () => setWizardOpen(true) : undefined,
     'open-folder': bridge ? () => void openFolder() : undefined,
@@ -1424,6 +1495,11 @@ export function Workbench() {
     'ai-inline-edit': inlineEdit.shown ? inlineEdit.start : undefined, // S35.1
     // S32.1: AI ghost-text suggestions on / off (offered only when the AI bridge exists)
     'toggle-inline-ai': aiBridge() ? () => toggleInlineAi(docRef.current.project?.projectId ?? null) : undefined,
+    // S51.1: Monaco's find / replace widget on the file on screen
+    find: () => activeEditor()?.openFind?.('find'),
+    replace: () => activeEditor()?.openFind?.('replace'),
+    'find-in-files': bridge?.search ? findInFiles.show : undefined, // S51.3
+    'replace-in-files': bridge?.search ? findInFiles.showReplace : undefined, // S51.4
     'toggle-emmet': () => setEditorPrefs({ emmet: !editorPrefs().emmet }), // S53.1
     'wrap-with-tag': () => void activeEditor()?.runAction?.('noobide.wrapWithTag'), // S53.2
     'edit-color': openColorPicker, // S53.3
@@ -1435,6 +1511,15 @@ export function Workbench() {
     'find-references': jsNavigation.findReferences,
     'rename-symbol': jsNavigation.renameSymbol, // S57.2
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
+    // S51.5: the same palette, searching the project's files first
+    'quick-open': () => {
+      setPaletteFiles(true);
+      openPalette();
+    },
+    'command-palette': () => {
+      setPaletteFiles(false);
+      openPalette();
+    },
     // S52.1/S52.2: file commands on the tree's selection (the panel explains when nothing is selected)
     ...(bridge?.fileOps
       ? {
@@ -1446,25 +1531,28 @@ export function Workbench() {
           'files-add-image': () => runFileCommand('add-image'),
         }
       : {}),
-    'command-palette': () =>
-      setPalette(
-        COMMAND_IDS.filter((id) => id !== 'command-palette' && canRunRef.current(id)).map((id) => ({
-          id,
-          label: commandById(id).label,
-          shortcut: commandShortcutLabel(id, platform),
-          checked: commandChecked(id, { ...commandContext, modalOpen: false }),
-        })),
-      ),
   };
   const commands = useCommands(platform, commandContext, commandHandlers);
   canRunRef.current = commands.canRun;
   useEffect(() => {
     // After the palette left the DOM (it is a modal, and commands wait while one is open).
+    if (palette !== null) return;
+    // S51.5: a file chosen in quick open opens once the palette left the DOM (focus is back where it was).
+    const file = paletteOpenFile.current;
+    paletteOpenFile.current = null;
+    if (file !== null) void openFile(file);
     const id = paletteRun.current;
-    if (palette !== null || id === null) return;
+    if (id === null) return;
     paletteRun.current = null;
     commands.run(id);
-  }, [palette, commands]);
+  }, [palette, commands, openFile]);
+  // S51.5: recently opened files (most recent first) for quick open's empty query; a new project starts empty.
+  const recentProjectId = doc.project?.projectId;
+  useEffect(() => setRecentFiles([]), [recentProjectId]);
+  const activeFile = doc.active;
+  useEffect(() => {
+    if (activeFile !== null) setRecentFiles((recent) => pushRecent(recent, activeFile));
+  }, [activeFile]);
   // S47.4: two menus. The project menu (close, reveal, history, lessons) next to the project name; the help/more
   // menu (theme, language, AI, glossary, logs, settings) at the end of the top bar. Reveal and the language choice
   // are not registry commands (a platform label, and a choice that re-renders everything), so they are added here.
@@ -1754,6 +1842,8 @@ export function Workbench() {
         projectOpen={project !== null}
         view={problemsView}
         onClearResolved={runtimeProblems.clearResolved}
+        searchPanel={findInFiles.panel} // S51.3
+        searchToggle={bridge?.search ? findInFiles.stripButton : undefined}
         onFixWithAi={inlineEdit.shown ? (record, title) => void inlineEdit.fixProblem(record, title) : undefined}
         renderDetails={(record) => (
           <ProblemDetails
@@ -1861,6 +1951,21 @@ export function Workbench() {
             if (id) paletteRecents.record(id);
             paletteRun.current = id;
             setPalette(null);
+            setPaletteFiles(false);
+          }}
+          // S51.5: quick open lists the project index's files (S43.4)
+          files={
+            paletteFiles
+              ? {
+                  paths: projectIndex?.fileList() ?? doc.project?.files.map((f) => f.relPath) ?? [],
+                  recent: recentFiles,
+                }
+              : undefined
+          }
+          onOpenFile={(relPath) => {
+            paletteOpenFile.current = relPath;
+            setPalette(null);
+            setPaletteFiles(false);
           }}
         />
       )}

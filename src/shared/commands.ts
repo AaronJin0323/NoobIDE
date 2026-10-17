@@ -66,6 +66,15 @@ export const COMMAND_IDS = [
   'ai-inline-edit',
   // S40.5 command palette (search every command that applies now)
   'command-palette',
+  // S51.1 find and replace in the current file (Monaco's find widget)
+  'find',
+  'replace',
+  // S51.3 find in files (bottom panel)
+  'find-in-files',
+  // S51.4 replace in files (the same panel with its replace row)
+  'replace-in-files',
+  // S51.5 quick open (the command palette's files mode)
+  'quick-open',
   // S52.1/S52.2 file management on the file tree's selection (tree keys: Ctrl/Cmd+C/V/D)
   'files-copy',
   'files-paste',
@@ -229,6 +238,40 @@ export const COMMANDS: readonly CommandDefinition[] = [
     label: 'command.palette',
     keys: { all: { key: 'p', primary: true, shift: true } },
     when: noModal,
+  },
+  // S51.1: the code editor's find and replace — Ctrl/Cmd+F, and Ctrl+H on Windows / ⌥⌘F on macOS like other editors.
+  {
+    id: 'find',
+    label: 'command.find',
+    keys: { all: { key: 'f', primary: true } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+  },
+  {
+    id: 'replace',
+    label: 'command.replace',
+    keys: { windows: { key: 'h', primary: true }, mac: { key: 'f', primary: true, alt: true } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+  },
+  // S51.3: the find-in-files panel in the bottom region (Ctrl/Cmd+Shift+F, as in other editors).
+  {
+    id: 'find-in-files',
+    label: 'command.findInFiles',
+    keys: { all: { key: 'f', primary: true, shift: true } },
+    when: noModal,
+  },
+  // S51.4: the same panel with its replace row open (Ctrl/Cmd+Shift+H, as in other editors).
+  {
+    id: 'replace-in-files',
+    label: 'command.replaceInFiles',
+    keys: { all: { key: 'h', primary: true, shift: true } },
+    when: noModal,
+  },
+  // S51.5: quick open — Ctrl/Cmd+P opens the palette on the project's files; ">" switches to the commands.
+  {
+    id: 'quick-open',
+    label: 'command.quickOpen',
+    keys: { all: { key: 'p', primary: true } },
+    when: (c) => c.hasProject && !c.modalOpen,
   },
   // S52.1/S52.2: act on the file tree's selection. No global keys: Ctrl/Cmd+C/V/D belong to the code editor; the
   // tree binds them while it has the focus (src/platform/labels treeCommandForKey).
