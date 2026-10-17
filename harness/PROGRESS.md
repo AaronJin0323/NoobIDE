@@ -43,7 +43,10 @@ shell, tabs, file-tree, glass, reduced-motion all green locally on the packaged 
 **Decisions:** Exit motion for removed elements is a DOM-level inert copy rather than delayed unmounting, so state,
 focus and the accessibility tree still change at once and no sibling component had to learn a presence API.
 Problems sections became foldable (none were) to give the grid-rows collapsible its third home. Default fold of the
-steps group after an answer is open (existing tests and beginners expect to see the steps).
+steps group after an answer is open (existing tests and beginners expect to see the steps). The preview pill's
+status dot breathes three times when the page starts and then rests: an endless pulse kept the workbench
+compositing every frame while the preview runs (battery; on GPU-less macOS runners it starved the preview page and
+failed preview-isolation's baselines on every run). The chat's thinking dot loops, as it only lives during an answer.
 
 **Problems / risks:** A closed fold's `overflow-clip-margin` counted as scrollable overflow (preview-layout caught
 the preview chrome "scrolling" by 4 px); closed folds now use a 0 px margin. `isVisible()` right after closing a
