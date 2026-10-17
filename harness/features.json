@@ -5111,8 +5111,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/ai/chat-composer.test.ts S48.6 (6 tests: 300px threshold model, CSS 300px + 3rem mask fade, renderToStaticMarkup action rows with group/button names in zh-CN and en, none while streaming, opacity 0 + :hover/:focus-within reveal, never display:none); tests/e2e/ai-composer.spec.ts S48.6 on the packaged build (40-line question collapsed <=300px, 展开全文 + icon, aria-expanded, 收起 restores; row opacity 0 -> Tab reaches Copy and Ask again (opacity 1) -> Ask again refills the composer; hover reveals; axeScan serious/critical = []) @ e1778ab"
     },
     {
       "id": "S48.7",
@@ -5126,7 +5126,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
