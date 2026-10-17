@@ -112,4 +112,50 @@ describe('command registry (S24.1)', () => {
     expect(commandChecked('theme-system', INITIAL_COMMAND_CONTEXT)).toBe(true);
     expect(commandChecked('save', light)).toBeNull();
   });
+
+  it('registers find and replace once, with per-platform keys and both languages (S51.1)', () => {
+    for (const id of ['find', 'replace'] as const) {
+      expect(COMMANDS.filter((c) => c.id === id)).toHaveLength(1);
+    }
+    expect(zhCN['command.find']).toBe('查找');
+    expect(en['command.find']).toBe('Find');
+    expect(zhCN['command.replace']).toBe('替换');
+    expect(en['command.replace']).toBe('Replace');
+    expect(commandShortcutLabel('find', 'windows')).toBe('Ctrl+F');
+    expect(commandShortcutLabel('find', 'mac')).toBe('⌘F');
+    expect(commandShortcutLabel('replace', 'windows')).toBe('Ctrl+H');
+    expect(commandShortcutLabel('replace', 'mac')).toBe('⌥⌘F');
+    expect(commandForKeyStroke('windows', key('h', { ctrl: true }))).toBe('replace');
+    expect(commandForKeyStroke('mac', key('h', { meta: true }))).toBeNull(); // ⌘H hides the app on macOS
+    // ⌥ changes the produced character on macOS (⌥⌘F gives "ƒ"); the physical key still counts.
+    expect(commandForKeyStroke('mac', { ...key('ƒ', { meta: true, alt: true }), code: 'KeyF' })).toBe('replace');
+    expect(commandForKeyStroke('mac', key('f', { meta: true }))).toBe('find');
+    const editing = { hasProject: true, hasActiveTab: true, modalOpen: false, theme: 'system' as const };
+    expect(isCommandEnabled('find', editing)).toBe(true);
+    expect(isCommandEnabled('find', { ...editing, hasActiveTab: false })).toBe(false);
+    expect(isCommandEnabled('replace', { ...editing, modalOpen: true })).toBe(false);
+  });
+
+  it('find and replace in files: Ctrl/Cmd+Shift+F and Ctrl/Cmd+Shift+H, with a project or without (S51.3, S51.4)', () => {
+    expect(commandShortcutLabel('find-in-files', 'windows')).toBe('Ctrl+Shift+F');
+    expect(commandShortcutLabel('find-in-files', 'mac')).toBe('⇧⌘F');
+    expect(commandShortcutLabel('replace-in-files', 'windows')).toBe('Ctrl+Shift+H');
+    expect(commandShortcutLabel('replace-in-files', 'mac')).toBe('⇧⌘H');
+    expect(en['command.findInFiles']).toBe('Find in Files');
+    expect(zhCN['command.replaceInFiles']).toBe('在文件中替换');
+    // Without a project the panel explains how to start (it opens, but has nothing to search).
+    expect(isCommandEnabled('find-in-files', INITIAL_COMMAND_CONTEXT)).toBe(true);
+    expect(isCommandEnabled('replace-in-files', { ...INITIAL_COMMAND_CONTEXT, modalOpen: true })).toBe(false);
+  });
+
+  it('quick open is Ctrl/Cmd+P and needs a project (S51.5)', () => {
+    expect(commandShortcutLabel('quick-open', 'windows')).toBe('Ctrl+P');
+    expect(commandShortcutLabel('quick-open', 'mac')).toBe('⌘P');
+    expect(commandForKeyStroke('windows', key('p', { ctrl: true }))).toBe('quick-open');
+    expect(commandForKeyStroke('windows', key('p', { ctrl: true, shift: true }))).toBe('command-palette');
+    expect(zhCN['command.quickOpen']).toBe('按名称打开文件…');
+    expect(en['command.quickOpen']).toBe('Go to File…');
+    expect(isCommandEnabled('quick-open', INITIAL_COMMAND_CONTEXT)).toBe(false);
+    expect(isCommandEnabled('quick-open', { ...INITIAL_COMMAND_CONTEXT, hasProject: true })).toBe(true);
+  });
 });

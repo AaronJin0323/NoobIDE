@@ -77,6 +77,7 @@ import type { ThemeChoice } from '../shared/settings';
 // S24.2: native menus from the command registry, and the platform's window lifecycle
 import { AppMenuController } from './app-menu';
 import { registerCommandIpcHandlers } from './commands-ipc';
+import { registerSearchHandlers } from './search-ipc'; // S51.2
 import { installWindowLifecycle } from './window-lifecycle';
 import { setupAi } from './ai-main'; // S31 AI assistant (decision 0025)
 import { secureStorageFor } from '../platform/secure-storage';
@@ -518,6 +519,11 @@ function start(): void {
       setContext: (senderId, context) => appMenu.setContext(senderId, context),
     });
     // --- end S24.2 ---
+    // S51.2: project search (find / replace in files), one search per window, inside the open project's root.
+    registerSearchHandlers(ipcMain, {
+      allowedOrigin: devOrigin ?? APP_ORIGIN,
+      rootOf: (projectId) => projects?.rootOf(projectId),
+    });
     registerAppDataIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       settings: {

@@ -32,6 +32,7 @@ import type { WalkthroughApi } from './walkthrough-contract'; // S23
 import type { ProblemsApi } from './problems-contract'; // S16.2
 import type { AiApi } from './ai-contract'; // S31 AI assistant (decision 0025)
 import type { AiHistoryApi } from './ai-history-contract'; // S39 saved chats and token usage
+import type { SearchApi } from './search-contract'; // S51.2 project search
 import type { FileOpsApi } from './file-ops-contract'; // S52 move, copy, import, image viewer
 
 export const IPC_API_VERSION = 1;
@@ -442,6 +443,8 @@ export interface NoobideApi {
   readonly aiHistory?: AiHistoryApi;
   /** S41: preview annotations (annotations-contract.ts, decision 0030). */
   readonly annotations?: AnnotationsApi;
+  /** S51.2: project search for find / replace in files (search-contract.ts). */
+  readonly search?: SearchApi;
   /** S52: move, copy/paste/duplicate, multi-select trash, import and the image viewer (file-ops-contract.ts). */
   readonly fileOps?: FileOpsApi;
 }

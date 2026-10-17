@@ -28,6 +28,7 @@ timeout in `src/**/*.test.ts` and `tests/integration/**/*.test.ts`, classified a
 | `src/renderer/editor/project-symbols.test.ts:75`                | < 500 ms: symbols of a 256 KB document                    | performance budget      | `tests/perf/project-symbols.perf.test.ts`; the correctness half of the case stays             |
 | `src/diagnostics/store.test.ts:131`                             | best-of-3 CPU time < 2 s for 100k events                  | performance budget      | `tests/perf/problem-store.perf.test.ts` (CPU time, so robust to load, but a throughput bound) |
 | `tests/integration/watcher.test.ts:337`                         | max event-loop lag < 500 ms during a 3 000-file delete    | performance budget      | `tests/perf/watcher-mass-delete.perf.test.ts`; the rescan + snapshot check stays              |
+| `tests/integration/project-search.test.ts:220-225` (S51.2)      | search of 2 000 files < 1 s, max event-loop gap < 100 ms  | performance budget      | `tests/perf/project-search.perf.test.ts`; the 2 000-file functional case stays (PR #22)       |
 | `src/ai/fake-provider.test.ts:156`                              | cancelling a slow fake stream returns in < 5 s            | functional timeout      | stays (the script is paced in ms; 5 s is the "did not hang" bound)                            |
 | `src/preview/page-snapshot.test.ts:203`                         | a 50 ms outline timeout fires in < 1 s                    | functional timeout      | stays (20× headroom over the timer it checks)                                                 |
 | `tests/integration/wake-recovery.test.ts:151`                   | `answers(300)` gives up in < 2 s on a silent socket       | functional timeout      | stays (6.7× headroom over the probe's own 300 ms)                                             |
@@ -115,16 +116,19 @@ the watcher; the fixes change only the tests' waits.
 `perf.yml` uploads `reports/perf/<platform>-<arch>.json` (one per target, 90 days) and writes the same table to the
 job summary. Fill this section from the first runs on `main`; until then the dev-machine baseline is the only data:
 
-| Measurement (name in the report)                        | Budget  | Dev machine (2026-10-17) |
-| ------------------------------------------------------- | ------- | ------------------------ |
-| completion provider: class items p95                    | 10 ms   | 0.50 ms                  |
-| completion provider: path items p95                     | 10 ms   | 0.31 ms                  |
-| symbol extraction: 200 files + context + filter, median | 50 ms   | 2.5 ms                   |
-| completion context on a 2 000-char window, median       | 50 ms   | 0.03 ms                  |
-| indentation detection: 5 000-line file, median          | 20 ms   | 0.41 ms                  |
-| symbol extraction: 256 KB HTML document                 | 500 ms  | 4.6 ms                   |
-| problem store: 100k console events, best-of-3 CPU time  | 2000 ms | 31 ms                    |
-| watcher: max event-loop lag during a 3 000-file delete  | 500 ms  | 283 ms                   |
+| Measurement (name in the report)                                | Budget  | Dev machine (2026-10-17) |
+| --------------------------------------------------------------- | ------- | ------------------------ |
+| completion provider: class items p95                            | 10 ms   | 0.50 ms                  |
+| completion provider: path items p95                             | 10 ms   | 0.31 ms                  |
+| symbol extraction: 200 files + context + filter, median         | 50 ms   | 2.5 ms                   |
+| completion context on a 2 000-char window, median               | 50 ms   | 0.03 ms                  |
+| indentation detection: 5 000-line file, median                  | 20 ms   | 0.41 ms                  |
+| symbol extraction: 256 KB HTML document                         | 500 ms  | 4.6 ms                   |
+| problem store: 100k console events, best-of-3 CPU time          | 2000 ms | 31 ms                    |
+| watcher: max event-loop lag during a 3 000-file delete          | 500 ms  | 283 ms                   |
+| project search: 2 000 files with Chinese paths, 200 hits        | 1000 ms | 202 ms                   |
+| project search: max event-loop gap during the 2 000-file search | 100 ms  | 5.4 ms                   |
+| project search: 2 000 files, common word cut at the match cap   | 1000 ms | 24 ms                    |
 
 The hosted macOS figure that started this (21.4 ms p95 against 10 ms, run 39011559538) would now be recorded as
 "over budget (reported)" at 2.14× and would not fail the run; 50 ms would.

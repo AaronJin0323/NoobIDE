@@ -234,6 +234,11 @@ export function CodeEditor({
         const uri = uriOf();
         return uri ? createEditZone(editor, uri, lines ?? null) : null; // S35
       },
+      // S51.1: the command registry's find / replace (menus, palette, shortcuts) open Monaco's own widget.
+      openFind: (mode) => {
+        editor.focus();
+        void editor.getAction(mode === 'find' ? 'actions.find' : 'editor.action.startFindReplaceAction')?.run();
+      },
       runAction: async (id) => {
         editor.focus();
         await editor.getAction(id)?.run();

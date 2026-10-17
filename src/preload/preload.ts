@@ -11,6 +11,7 @@ import type { ProblemRecord } from '../shared/problem';
 import { AI_CHANNELS, AI_EVENT_CHANNEL, type AiEvent } from '../shared/ipc/ai-contract'; // S31
 import { AI_HISTORY_CHANNELS } from '../shared/ipc/ai-history-contract'; // S39
 import { ANNOTATION_CHANNELS } from '../shared/ipc/annotations-contract'; // S41
+import { SEARCH_CHANNELS } from '../shared/ipc/search-contract'; // S51.2
 import { FILE_OPS_CHANNELS, MAX_IMPORT_ITEMS } from '../shared/ipc/file-ops-contract'; // S52
 
 /**
@@ -231,6 +232,11 @@ const api: NoobideApi = {
     highlight: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.highlight, request),
     context: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.context, request),
   },
+  // S51.2: project search (find in files).
+  search: {
+    run: (request) => ipcRenderer.invoke(SEARCH_CHANNELS.run, request),
+    cancel: (request) => ipcRenderer.invoke(SEARCH_CHANNELS.cancel, request),
+  },
   // S52: move, copy/paste/duplicate, multi-select trash, import and the image viewer.
   fileOps: {
     moveEntries: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.moveEntries, request),
@@ -273,6 +279,7 @@ contextBridge.exposeInMainWorld(
     ai: Object.freeze(api.ai), // S31
     aiHistory: Object.freeze(api.aiHistory), // S39
     annotations: Object.freeze(api.annotations), // S41
+    search: Object.freeze(api.search), // S51.2
     fileOps: Object.freeze(api.fileOps), // S52
   }),
 );

@@ -2401,6 +2401,230 @@ select.text-field {
   font-size: var(--text-xs);
 }
 
+/* ── S51.3: find in files (bottom region, beside Problems) ── */
+/* The panel reuses .problems-panel (the reserve, margins and divider of the bottom region) and is a little taller. */
+.search-panel:not([hidden]) {
+  max-height: 320px;
+}
+.search-header-actions {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.search-header-actions .icon-button {
+  margin-left: 0;
+}
+.search-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0 12px 8px;
+}
+.search-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--muted);
+}
+.search-field:focus-within {
+  border-color: var(--focus);
+}
+.search-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-md);
+  outline-color: transparent;
+}
+/* A toggle: pressed shows the selected ring and the hover fill (a shape, not only a colour), plus aria-pressed. */
+.search-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.search-toggle:hover:not(:disabled, [aria-pressed='true']) {
+  background: var(--hover-soft);
+  color: var(--text);
+}
+.search-toggle[aria-pressed='true'] {
+  background: var(--hover);
+  box-shadow: var(--ring-selected);
+  color: var(--text);
+}
+.search-toggle:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.search-status {
+  margin: 6px 2px 2px;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.search-results {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.search-file {
+  margin-top: 6px;
+}
+.search-file-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text);
+}
+.search-file-folder {
+  overflow: hidden;
+  color: var(--muted);
+  font-weight: var(--weight-regular);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-hits {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.search-hit-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.search-hit {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.search-hit:hover {
+  background: var(--hover-soft);
+}
+.search-hit:focus-visible {
+  background: var(--hover);
+}
+.search-hit-line {
+  flex: none;
+  min-width: 52px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.search-hit-text {
+  overflow: hidden;
+  font-family: var(--font-code);
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+/* The match: highlighted and underlined, so it is found without telling colours apart. */
+.search-hit-mark {
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.search-truncated {
+  margin: 8px 2px 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+/* ── S51.4: replace in files ── */
+.replace-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.replace-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.replace-field {
+  flex: 1;
+  min-width: 0;
+}
+.replace-hint {
+  margin: 0 2px;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.replace-summary p {
+  margin: 2px;
+  font-size: var(--text-sm);
+}
+.replace-failed {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: var(--text-sm);
+}
+.replace-failed-path {
+  margin-right: 6px;
+  font-weight: var(--weight-medium);
+}
+.replace-check {
+  flex: none;
+  margin: 0 2px;
+}
+/* Old text struck through, new text underlined: the change reads without colour. */
+.search-hit-old {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.search-hit-new {
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── S51.5: quick open — "recently opened" tag on a file in the palette (text, not a colour) ── */
+.palette-recent {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.palette-option[aria-selected='true'] .palette-recent {
+  color: inherit;
+}
+
 /* S52.1 "Move to…" dialog: the folder list reuses the palette's option look inside a sheet. */
 .move-dialog {
   display: flex;
