@@ -3,6 +3,77 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 35 (side session) — 2026-10-17 — S50.1: CI runs less (path filter, draft gating, static gates once, no PR installers)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/dreamy-feistel-668709`
+(fast-forwarded onto `claude/ci-failures-optimization-f08cd1`, which carries the plan and the S50 backlog).
+
+**Done**
+
+- S50.1 — `.github/workflows/ci.yml` now has four jobs. `changes` (ubuntu, fetch-depth 0) runs the new
+  `scripts/ci-changes.mjs`, which diffs `<base>...HEAD` (PR base sha, or `github.event.before` for a push; a
+  missing, all-zero or undiffable base counts as `code`) and writes output `kind` = `code` | `docs-only`.
+  `static` (ubuntu, every push, drafts included) runs harness check, typecheck, lint, format:check and the three
+  platform-independent workflow tests (`ci-workflow`, `ci-changes`, `release-workflow`) with
+  `ELECTRON_SKIP_BINARY_DOWNLOAD=1`. The OS `build` matrix needs `changes`, runs only when
+  `kind == 'code'` and the event is not a draft PR, and replaces `npm run verify` with `node harness/session.mjs
+check` + `npm test` (not `verify --quick`: that still runs typecheck, which `static` has already proved).
+  Make installers / Inspect binary architectures / Upload installers additionally require `push` or
+  `workflow_dispatch`. The `complete` gates keep the names `windows-x64` / `macos-arm64`, need
+  `[changes, static, build]`, and pass only when changes and static succeeded and build succeeded or was skipped
+  for a docs-only push; any failure or cancellation fails them.
+- `pull_request` now lists `types: [opened, synchronize, reopened, ready_for_review]`: the default set omits
+  `ready_for_review`, so marking a draft ready would never have started the matrix.
+- `tests/integration/ci-workflow.test.ts` parses all four jobs (the `block()` helper now takes a job name), asserts
+  every condition above, the gate env vars, that the OS jobs repeat no static gate, that the same three pinned
+  action SHAs are the only ones used, and executes the gate's inline `node -e` expression against a 13-row truth
+  table. `tests/integration/ci-changes.test.ts` covers the classifier on path lists (no git) and the base-sha
+  selection.
+- AGENTS.md "Close the session": open PRs as drafts, mark them ready at the end.
+- `harness/MANUAL-CHECKS.md#S50.1`: six owner steps (draft PR → ready → merge; docs-only PR; lint error on a PR;
+  timing measurement).
+
+**Evidence:** `npx vitest run tests/integration/ci-workflow.test.ts tests/integration/ci-changes.test.ts` (32 + 24
+tests); `node scripts/ci-changes.mjs` run locally for the three event shapes (no base → `code`; push base
+`HEAD~1` → `code` because `harness/features.json` changed; PR base `HEAD` → `docs-only`); `npm run verify`
+green at this commit. Feature set to `needs_manual_check`: the workflow only runs on GitHub.
+
+**Decisions:**
+
+- Draft PRs: the gate jobs are _skipped_ on drafts (`if: always() && !(pull_request && draft)`) rather than
+  failing, so the required checks show "Expected — waiting for status" (pending, not mergeable), as plan §4 item 4
+  describes. A red gate on every draft push would read as a failure to fix.
+- The OS jobs call `harness check` and `npm test` directly instead of `npm run verify -- --quick`, because
+  `--quick` still includes typecheck (40–60 s per OS job, already proved once on ubuntu). `verify.mjs` is S50.3's
+  file and was not changed.
+- The `changes` job uses no Node setup step: ubuntu-latest ships Node ≥ 20 and the script needs only `git`.
+- Classifier rule: `src/ tests/ scripts/ resources/ .github/` subtrees, `harness/*.mjs`, `harness/features.json`,
+  `package.json`, `package-lock.json`, and root-level `*.config.*` are code; everything else (docs/, *.md,
+  PROGRESS.md, MANUAL-CHECKS.md, dotfiles) is docs. A `features.json` edit is code on purpose: the harness check
+  in `static` would catch a bad backlog, but the matrix also depends on it through `e2e-shards`/source-backlog.
+
+**Problems / risks:**
+
+- Not run on GitHub Actions from this machine. The PR carrying this change exercises steps 1–3 of the manual
+  check by itself (the workflow runs from the PR's own copy of `ci.yml`).
+- `ELECTRON_SKIP_BINARY_DOWNLOAD=1` on the static job's `npm ci`: none of the five static steps loads Electron,
+  but if a future test added to that step imports `electron`, the step fails with a missing-binary error; the
+  `ci-workflow` test rejects such imports in the listed files.
+- A force-push to `main` (unknown `before`) classifies as `code`, i.e. the full matrix, which is the safe side.
+
+**Owner action needed:** run `harness/MANUAL-CHECKS.md#S50.1` (open this PR as a draft, mark it ready, merge;
+then one docs-only PR), confirm plan §6 decisions 1–2 (drafts skip the matrix; installers only on `main` and
+dispatch), then `node harness/session.mjs set S50.1 done --evidence "manual: …"`.
+
+**Next up**
+
+1. S50.6 (timing tool + ADR 0037) and S50.2–S50.4 continue in their own sessions; after merge, measure ten runs
+   with `scripts/ci-timings.mjs` and compare against plan §2 (target: code PR < 12 min, docs-only PR < 3 min).
+2. S50.5 once the owner answers plan §6 item 4.
+
+**Ideas / backlog candidates:** cache `node_modules` keyed on `package-lock.json` for the OS jobs (saves the
+`npm ci` + Electron download, ≈1 min per job) once the static job proves stable.
+
 ## Session 34 (side session) — 2026-10-17 — CI failure triage and speed-up plan (M20 / S50, owner request)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/ci-failures-optimization-f08cd1`.
