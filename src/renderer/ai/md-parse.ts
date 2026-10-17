@@ -28,10 +28,48 @@ export type MdBlock =
     }
   | { readonly type: 'quote'; readonly children: readonly MdInline[] }
   | { readonly type: 'rule' }
-  /** `closed` is false while the closing fence has not arrived (streaming) or was never sent. */
-  | { readonly type: 'code'; readonly lang: string; readonly text: string; readonly closed: boolean };
+  /**
+   * `closed` is false while the closing fence has not arrived (streaming) or was never sent. `lang` is lowercase;
+   * `file` is the file name the info string gives (S48.5: ```js app.js, ```js title="app.js", ```app.js), else ''.
+   */
+  | {
+      readonly type: 'code';
+      readonly lang: string;
+      readonly file: string;
+      readonly text: string;
+      readonly closed: boolean;
+    };
 
-const FENCE = /^ {0,3}(`{3,}|~{3,})\s*([^`\s]*)[^`]*$/;
+const FENCE = /^ {0,3}(`{3,}|~{3,})\s*([^`]*)$/;
+const LANG = /^[a-z0-9_+#-]{1,32}$/i;
+/** A file name or project path with an extension; no quotes, spaces or characters a path cannot hold. */
+const FILE = /^(?!.*\.\.)[^\s"'<>|*?`]{1,256}\.[a-z0-9]{1,10}$/i;
+
+/** S48.5: the language and file name of a fence's info string (`js`, `js app.js`, `js:app.js`, `js title="app.js"`). */
+export function fenceInfo(info: string): { readonly lang: string; readonly file: string } {
+  const words = info.trim().split(/\s+/).filter(Boolean);
+  let lang = '';
+  let file = '';
+  const first = words[0] ?? '';
+  const colon = /^([^:]+):(.+)$/.exec(first);
+  if (colon && LANG.test(colon[1] ?? '') && FILE.test(colon[2] ?? '')) {
+    lang = colon[1] ?? '';
+    file = colon[2] ?? '';
+  } else if (LANG.test(first)) {
+    lang = first;
+  } else if (FILE.test(first)) {
+    file = first;
+    lang = /\.([a-z0-9]+)$/i.exec(first)?.[1] ?? '';
+  }
+  for (const word of words.slice(1)) {
+    if (file) break;
+    const attr = /^(?:title|file|filename|name)=["']?([^"']+)["']?$/i.exec(word);
+    const candidate = attr ? (attr[1] ?? '') : word;
+    if (FILE.test(candidate)) file = candidate;
+  }
+  return { lang: lang.toLowerCase(), file: file.replace(/\\/g, '/') };
+}
+
 const HEADING = /^ {0,3}(#{1,6})(?:\s+(.*?))?\s*#*\s*$/;
 const RULE = /^ {0,3}([-*_])(?:\s*\1){2,}\s*$/;
 const BULLET = /^ {0,3}[-*+]\s+(.*)$/;
@@ -63,7 +101,7 @@ export function parseMarkdown(source: string): MdBlock[] {
     const fence = FENCE.exec(line);
     if (fence) {
       const marker = fence[1] ?? '```';
-      const lang = fence[2] ?? '';
+      const { lang, file } = fenceInfo(fence[2] ?? '');
       const body: string[] = [];
       let closed = false;
       i += 1;
@@ -78,7 +116,7 @@ export function parseMarkdown(source: string): MdBlock[] {
         body.push(inner);
         i += 1;
       }
-      blocks.push({ type: 'code', lang, text: body.join('\n'), closed });
+      blocks.push({ type: 'code', lang, file, text: body.join('\n'), closed });
       continue;
     }
     if (RULE.test(line)) {
