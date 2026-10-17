@@ -36,6 +36,7 @@ from `main` @ `65edc2a`. Started by the top session after PR #23's macOS failure
 **Evidence:** `tests/integration/e2e-keys.test.ts` (3 tests: detector on a sample spec, keys.ts shape, 70 files under
 tests/e2e scanned with zero hits); `npm run verify` green @ the S58.7 commit; the fourteen swept specs on Windows with
 `npm run test:e2e -- tests/e2e/ai-inline.spec.ts … tests/e2e/tabs.spec.ts`: 123 passed, 0 failed, 4.5 min (packaged app).
+After the js-navigation fix: `npm run test:e2e -- tests/e2e/js-navigation.spec.ts` on Windows: 6 passed, 0 failed (packaged app).
 
 **Decisions:** The guard forbids `Control+Home` / `Meta+Home` (and End) as well as the `ControlOrMeta` form: a
 spec that spells the Windows chord out passes on Windows and fails on macOS the same way. keys.ts stays the single
@@ -47,7 +48,15 @@ branch of keys.ts — the PR #23 fix did, in run 39033368439's successors). PR #
 failed on windows-x64 shard 1 in the unit step, not in E2E: four 5 s / 20 s timeouts (create-project, history-groups,
 recovery-journal, the watcher mass-delete test and its afterEach hook) on a run where the unit suite took 79 s against
 ≈20 s on the dev machine — the starved-runner class S58.3 owns (PR #28 resizes exactly those files; its Windows shards
-are green). None of the four files is in this diff; nothing was changed for it here beyond merging main.
+are green). None of the four files is in this diff; nothing was changed for it here beyond merging main (PR #28
+landed and was merged in). The second run (39041732247, after main took PR #23 and PR #28) failed only macOS shard 2:
+`js-navigation.spec.ts` "Shift+F12 lists every use" could not click `app.js` in the tree because the previous test's
+navigation sheet was still open. That test polls F12 until `config.js` opens; on the slow runner an early press came
+before the service knew the closed file and answered with the 转到定义 "not found" notice, a later press opened the
+file anyway, and the notice stayed up (the artifact's page snapshot shows it). Test-side fix in the poll: a visible
+navigation dialog is closed with Escape before the next press, and the test asserts no dialog is left. Product
+question for S57's owner, not changed here: F12 before the project scripts are indexed says "not found" instead of
+waiting.
 
 **Owner action needed:** None.
 
