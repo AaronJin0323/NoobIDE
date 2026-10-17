@@ -4412,8 +4412,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/main/search-ipc.test.ts (payload, sender frame, invalid regex typed error, cancellation: new search cancels previous, no stale results) + src/shared/search.test.ts + tests/integration/project-search.test.ts (9: grouping/line/column/context, ignore.ts, binary/non-UTF-8/size cap, realpath root + junctions, match cap truncated, buffers win, cancel, 2000 Chinese-path files ~140-185 ms with max event-loop gap ~6 ms on Windows x64)"
     },
     {
       "id": "S51.3",
