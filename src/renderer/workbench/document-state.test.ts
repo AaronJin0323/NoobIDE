@@ -162,3 +162,55 @@ describe('file operations (S08.3)', () => {
     expect(activeSaveStatus(state)).toBeNull();
   });
 });
+
+describe('tabs follow a move (S52.1)', () => {
+  const moved = (from: string, to: string): DocumentAction => ({ type: 'tabMoved', from, to, content: file(to) });
+
+  it('keeps the tab in its place, visible, with its save state, under the new path and uri', () => {
+    const state = run(
+      ...opened('index.html', '子 文件夹/页面 二.html', 'style.css'),
+      { type: 'saveState', relPath: '子 文件夹/页面 二.html', save: dirty },
+      { type: 'activate', relPath: '子 文件夹/页面 二.html' },
+      moved('子 文件夹/页面 二.html', '图片 素材/子 文件夹/页面 二.html'),
+    );
+    expect(state.tabs.map((tab) => tab.relPath)).toEqual([
+      'index.html',
+      '图片 素材/子 文件夹/页面 二.html',
+      'style.css',
+    ]);
+    expect(state.active).toBe('图片 素材/子 文件夹/页面 二.html');
+    expect(state.tabs[1]?.uri).toBe(file('图片 素材/子 文件夹/页面 二.html').uri);
+    expect(state.tabs[1]?.save).toEqual(dirty);
+  });
+
+  it('a background tab moves without becoming visible', () => {
+    const state = run(...opened('a.html', 'b.html'), moved('a.html', 'x/a.html'));
+    expect(state.active).toBe('b.html');
+    expect(state.tabs.map((tab) => tab.relPath)).toEqual(['x/a.html', 'b.html']);
+  });
+
+  it('never merges into a tab already open at the new path, and ignores unknown tabs', () => {
+    const before = run(...opened('a.html', 'x/a.html'));
+    expect(documentReducer(before, moved('a.html', 'x/a.html'))).toBe(before);
+    expect(documentReducer(before, moved('missing.html', 'y.html'))).toBe(before);
+  });
+});
+
+describe('image viewer tabs (S52.6)', () => {
+  const url = 'noobide://project/3f1c2a9e-8b7d-4c6e-9f00-1a2b3c4d5e6f/%E5%9B%BE.png?v=1';
+  it('an image opens as a read-only tab with its size and the app-protocol URL as its uri', () => {
+    const state = run(...opened('index.html'), { type: 'imageLoaded', relPath: '图 一.png', url, bytes: 1234 });
+    const tab = activeTab(state);
+    expect(tab).toMatchObject({ relPath: '图 一.png', uri: url, image: { bytes: 1234 } });
+    expect(tab?.content).toMatchObject({ text: '', readOnly: true, uri: url });
+    expect(state.tabs.map((t) => t.relPath)).toEqual(['index.html', '图 一.png']);
+  });
+
+  it('opening it again only shows it; a background restore does not take the visible tab', () => {
+    let state = run(...opened('index.html'), { type: 'imageLoaded', relPath: 'a.png', url, bytes: 1 });
+    state = documentReducer(state, { type: 'activate', relPath: 'index.html' });
+    state = documentReducer(state, { type: 'imageLoaded', relPath: 'a.png', url, bytes: 1, background: true });
+    expect(state.tabs).toHaveLength(2);
+    expect(state.active).toBe('index.html');
+  });
+});
