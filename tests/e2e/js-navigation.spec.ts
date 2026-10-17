@@ -55,12 +55,22 @@ test.afterAll(async () => {
 test('F12 opens the closed script where the function is declared (S57.1)', async () => {
   await cursorTo(1, 3); // in "greet"
   await expect(tabOf(page, 'config.js')).toHaveCount(0); // not open: the service knows it as a closed file
+  // On a slow runner the service may not know the closed file yet: an early F12 then answers with the "not found"
+  // notice on the navigation sheet, and a later press still opens the file while the notice stays up (run
+  // 39041732247, macOS). Close such a notice before retrying, so the test leaves no dialog behind.
+  const dialog = page.getByTestId('navigation-dialog');
   await expect
     .poll(async () => {
       await page.keyboard.press('F12');
-      return (await tabOf(page, 'config.js').count()) > 0;
+      if ((await tabOf(page, 'config.js').count()) > 0) return true;
+      if (await dialog.isVisible()) {
+        await page.keyboard.press('Escape');
+        await expect(dialog).toBeHidden();
+      }
+      return false;
     })
     .toBe(true);
+  await expect(dialog).toBeHidden();
   await expect(tabOf(page, 'config.js')).toHaveAttribute('aria-selected', 'true');
   await expect(cursor()).toHaveText('行 1, 列 10');
 });

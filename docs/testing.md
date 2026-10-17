@@ -45,6 +45,12 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
   short window locally with `NOOBIDE_E2E_WINDOW=1024x660 npm run test:e2e`.
 - Platform-specific tests use `describe.runIf(...)` with the helpers from `src/platform`, and the reason is written
   in the test name.
+- Editor shortcuts that differ by platform come from `tests/e2e/keys.ts`: `DOC_START` / `DOC_END` for the document
+  start and end (Monaco binds Ctrl+Home / Ctrl+End on Windows and Linux but ⌘↑ / ⌘↓ on macOS, where
+  `ControlOrMeta+Home` moves nothing inside the editor and the spec passes only while the cursor already sits on
+  line 1) and `FIND_REPLACE` for find and replace (⌘H hides the app). `tests/integration/e2e-keys.test.ts` fails on
+  any literal `ControlOrMeta`/`Control`/`Meta` + `Home`/`End` chord under `tests/e2e` outside `keys.ts`. A plain
+  `Home` / `End` / `Shift+Home` on one line, or in an ordinary input or list, is the same key everywhere and stays.
 - A flaky test is a bug: fix it or quarantine it with a linked feature, never delete it silently.
 - Hosted runners (S06.5, S06.6) have few cores and deschedule any process at any time, for seconds. A test must not
   assume that a fixed delay, a page's own timer or a "load then click" sequence orders events the way it does on a
@@ -56,9 +62,6 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
 - A unit or integration test that is bound by the disk or by an external tool (atomic writes, `signtool`) is a
   correctness check, not a speed check: give its `describe` a timeout sized for a hosted Windows runner under load
   (`history-store.test.ts`, `chat-store.test.ts` 30 s; the real-signtool checks 60 s) instead of Vitest's 5 s default.
-- Monaco binds Ctrl+Home / Ctrl+End on Windows and Linux but ⌘↑ / ⌘↓ on macOS, and `ControlOrMeta+Home` moves nothing
-  there: an E2E test that goes to the start or end of the document presses `DOC_START` / `DOC_END` from
-  `tests/e2e/keys.ts`. A test that happened to start at line 1 hides the mistake until a later step does not.
 - E2E tests that drive the packaged app over CDP (`upgrade.spec.ts`, `authoring-offline.spec.ts`) keep the trace's
   action timeline but turn its DOM snapshots and screenshots off (`test.use({ trace: { … } })`): starting those installs
   hooks in every page of the app, and a page whose first navigation is still pending (the restored project's preview

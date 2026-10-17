@@ -5410,6 +5410,23 @@
       "depends_on": [],
       "status": "done",
       "evidence": "tests/integration/ci-timings.test.ts (19 tests: §2 table reproduced from tests/fixtures/ci for run 39015143213 within 5 s; failing step + first error line for 39011559538; job-summary formatter); node scripts/ci-timings.mjs --runs 20 output pasted as baseline in docs/decisions/0037-ci-stability-and-speed.md; scripts/e2e.mjs appends the E2E summary via scripts/e2e-summary.mjs; verify green"
+    },
+    {
+      "id": "S58.7",
+      "session": "S58",
+      "milestone": "M20",
+      "title": "Document start/end keys in E2E specs go through keys.ts (macOS Monaco bindings)",
+      "description": "Run 39033368439 (PR #23) failed on macOS because ControlOrMeta+Home moves nothing inside Monaco there (it binds ⌘↑ / ⌘↓, not ⌘Home / ⌘End). Every spec presses DOC_START / DOC_END from tests/e2e/keys.ts and an integration guard keeps the literal out. Owns tests/integration/e2e-keys.test.ts and the keys bullet in docs/testing.md; touches tests/e2e specs only to replace the chord.",
+      "acceptance": [
+        "No file under tests/e2e other than keys.ts contains the literal ControlOrMeta+Home or ControlOrMeta+End (nor Control+Home/End or Meta+Home/End): editor-bound presses use DOC_START / DOC_END; a press aimed at an ordinary input or list keeps its plain key with a comment saying why",
+        "tests/integration/e2e-keys.test.ts reads every .ts file under tests/e2e and fails, naming file and line, when such a literal appears outside keys.ts; a unit case proves the detector on a sample spec",
+        "docs/testing.md states the rule next to the other E2E conventions",
+        "The touched specs pass locally on Windows with npm run test:e2e -- <spec files> and npm run verify is green"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "tests/integration/e2e-keys.test.ts (3 tests: detector sample, keys.ts shape, 70 files under tests/e2e scanned, 0 hits); npm run verify green; npm run test:e2e on the 14 swept specs (ai-inline … tabs) on Windows: 123 passed / 0 failed, 4.5 min"
     }
   ]
 }
