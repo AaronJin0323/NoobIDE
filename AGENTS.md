@@ -59,6 +59,8 @@ npm run verify                   # must be green BEFORE you change anything
 2. Append an entry to the top of `harness/PROGRESS.md` using the template there: what was done, evidence,
    decisions, problems, and an explicit **Next up**.
 3. Commit with a message like `S07.2: lazy directory tree model` (one commit per feature is ideal).
+   Open pull requests as **drafts** and mark them ready for review only at the end of the session: CI runs the
+   OS build matrix only for ready PRs (S58.1), so intermediate pushes cost one small ubuntu `static` job each.
 4. Tell the owner, in a few lines: features completed, anything needing their action (owner tasks, manual checks,
    decisions), and the next session.
 
