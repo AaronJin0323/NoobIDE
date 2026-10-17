@@ -4264,6 +4264,38 @@
       "evidence": "window-options.test.ts (frame/overlay/height), tabs + key-features-visible e2e green, Windows capture checked; drag/snap/recolour/macOS steps in harness/MANUAL-CHECKS.md#S46.9"
     },
     {
+      "id": "S06.5",
+      "session": "S06",
+      "milestone": "M1",
+      "title": "Reduce CI latency without dropping coverage",
+      "description": "Owner request: improve CI taking over 30 minutes.",
+      "acceptance": [
+        "Both target platforms run the complete E2E suite across two isolated shards with one worker each; an aggregate gate requires every shard to pass",
+        "Superseded CI runs are cancelled; installers reuse the tested package; only macOS builds the next-version upgrade fixture",
+        "Automated checks prove shard coverage is disjoint and complete, workflow ordering and artifact uniqueness; timing reports and rollout instructions are documented"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "Local verify: 2734 passed/15 skipped; source-timestamp console flood E2E passed with 754/754 messages captured and source excess 158 versus unchanged 260 bound. Both shards cover all tests; report path checked. Hosted PR checks required before merge."
+    },
+    {
+      "id": "S28.7",
+      "session": "S28",
+      "milestone": "M7",
+      "title": "Continuous delivery to draft GitHub Releases",
+      "description": "Owner request: set up CD for NoobIDE.",
+      "acceptance": [
+        "Version-tag builds deliver a draft release only after both native builds, verification, E2E, architecture and signature checks succeed; branch dispatch remains artifact-only",
+        "Delivery requires both platforms, includes SHA256 checksums and explicit signing labels, and never overwrites existing releases",
+        "Write permission is confined to delivery; setup, dry-run, retry and public-release requirements are documented and covered by automated regression checks"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "npm run verify green: 2758 passed/15 skipped; delivery fixture and release workflow regressions; watcher timing recheck passed unchanged. docs/release/delivery.md + ADR 0036. Hosted draft and signed acceptance remain rollout checks."
+    },
+    {
       "id": "S35.4",
       "session": "S35",
       "milestone": "M9",

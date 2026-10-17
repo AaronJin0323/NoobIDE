@@ -45,6 +45,19 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
   in the test name.
 - A flaky test is a bug: fix it or quarantine it with a linked feature, never delete it silently.
 
+## CI shards and timing (S06.5)
+
+CI runs two E2E shards on separate runners for each OS; each desktop keeps one Playwright worker.
+Reproduce either selection with `npm run test:e2e -- --shard=1/2` or `--shard=2/2`.
+After a successful build, `npm run test:e2e -- --no-build --shard=2/2` reuses it. Never run these
+commands concurrently in the same checkout: they share build output and a desktop.
+
+Each shard uploads `e2e-report-<target>-<shard>` containing `results.json`, including durations and
+failures. Compare job queue delay separately from execution time. The required checks `windows-x64`
+and `macos-arm64` now aggregate all four jobs; installers are produced once per OS from the tested
+package. A missing or failed shard cannot pass either required check. See ADR 0035 for the baseline
+and the first hosted-run comparison procedure.
+
 ## Required failure cases (PLAN §11) — tracked in S26
 
 Chinese characters and spaces in paths · external file changes · read-only directories · failed saves · JavaScript

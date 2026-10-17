@@ -24,10 +24,13 @@ if (!process.argv.includes('--no-build')) {
   // first so the normal build below leaves .vite/ with package.json's own version.
   const { version } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
   const [major, minor, patch] = version.split(/[.+-]/).map(Number);
-  run(npx, ['electron-forge', 'package'], {
-    NOOBIDE_BUILD_VERSION: `${major}.${minor}.${patch + 1}`,
-    NOOBIDE_OUT_DIR: path.join(root, 'out', 'upgrade-next'),
-  });
+  // The packaged upgrade test is macOS-only; Windows installation upgrades have a separate manual check.
+  if (process.platform === 'darwin') {
+    run(npx, ['electron-forge', 'package'], {
+      NOOBIDE_BUILD_VERSION: `${major}.${minor}.${patch + 1}`,
+      NOOBIDE_OUT_DIR: path.join(root, 'out', 'upgrade-next'),
+    });
+  }
   run(npx, ['electron-forge', 'package']);
 }
 
