@@ -64,6 +64,25 @@ changes` logs `kind=code`, `Static gates` fails on the Lint step within about 2 
   (id 25212312) are unchanged and still required.
 - **Result:** _(owner fills in: pass/fail, notes, date)_
 
+### S50.2 — Time-balanced E2E shards on hosted runners (first CI run after merge)
+
+- **Platform:** GitHub Actions, both OS jobs (windows-x64 and macos-arm64, shards 1 and 2)
+- **Build:** the first `CI` run of `main` after the S50.2 merge (or the PR run of the S50.2 branch)
+- **Steps:**
+  1. Open the run and check the four "Run E2E" steps: each logs `shard N/2: 29 spec files from tests/e2e/shards.json`
+     and no `warning: add … to tests/e2e/shards.json` line.
+  2. Download the four `e2e-report-<target>-<shard>` artifacts and compare `stats.duration` of the two shards per OS
+     (`node -e "console.log(require(./results.json).stats.duration/1000)"` in each folder), or run
+     `node scripts/ci-timings.mjs --runs 1` once S50.6 has landed.
+  3. To regenerate the manifest from those reports:
+     `node scripts/e2e-shards.mjs balance <folder-with-the-four-results.json-files>`, then commit
+     `tests/e2e/shards.json`.
+  4. Trace check (once, on any PR): make one E2E test fail on purpose, push, and confirm the
+     `e2e-results-<target>-<shard>` artifact contains `trace.zip` and a `test-failed-1.png` for that test.
+- **Expected:** the two shards of each OS finish within 60 s of each other (local estimate from run 39015143213:
+  macOS 413 s vs 422 s, Windows 380 s vs 371 s of summed test time); a failed test ships its trace.
+- **Result:** _(owner fills in: run URL, per-shard durations, date)_
+
 ### S46.9 — Integrated title bar
 
 - **Platform:** Windows 11 x64 and macOS on Apple Silicon
