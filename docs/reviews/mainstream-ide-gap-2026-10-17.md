@@ -159,13 +159,13 @@ engineering reading of PLAN §2 and §4; the study may reorder items 3–7 and s
 
 ## 4. Improvement plan
 
-Proposed as a new milestone **M18 — Everyday editing parity (PLAN §12 v0.2)** with sessions S47–S53, to be added to
+Proposed as a new milestone **M19 — Everyday editing parity (PLAN §12 v0.2)** with sessions S51–S57 (M18 and S47–S50 are taken by the UI/UX refinement work on PR #14, so the ids here start after them), to be added to
 `harness/features.json` on the owner's say-so so that verify tracks them. Order follows the ranking; each session is
 a solo-developer estimate at PLAN's "30 productive hours per week" and includes tests. Every session must keep the
 AGENTS.md invariants: atomic never-overwrite writes, trash not delete, preview isolation, restricted IPC,
 `src/platform` for OS differences, i18n for every string, no network.
 
-### S47 — Find, replace and quick open (≈1 week) — P1
+### S51 — Find, replace and quick open (≈1 week) — P1
 
 - Surface Monaco find/replace: Edit menu items, palette commands, `Ctrl/Cmd+F`, `Ctrl+H` / `⌥⌘F`, and "replace"
   obeying the file's indentation and the save pipeline (a replace-all is one undo step and one history snapshot).
@@ -179,7 +179,7 @@ AGENTS.md invariants: atomic never-overwrite writes, trash not delete, preview i
   blocked); e2e: replace a class name across three files, preview refreshes once, local history has a snapshot per
   file; keyboard-only operation; zh-CN and en strings.
 
-### S48 — Complete file management (≈1.5 weeks) — P1
+### S52 — Complete file management (≈1.5 weeks) — P1
 
 - Move: drag-and-drop in the tree and a "Move to…" dialog; folders too; collisions are refused like rename (S08.4).
   Open tabs, models, recovery journal entries and history identity follow the new path (decision 0006).
@@ -194,7 +194,7 @@ AGENTS.md invariants: atomic never-overwrite writes, trash not delete, preview i
   e2e: drop an image, insert it with completion, see it in the preview; a11y: all operations reachable from the
   context menu and keyboard.
 
-### S49 — HTML/CSS authoring aids (≈1 week) — P2
+### S53 — HTML/CSS authoring aids (≈1 week) — P2
 
 - Emmet expansion for HTML and CSS on Tab, with a status-bar hint the first time it fires; decision record for
   the package choice (pure JS, pinned, licence checked) and an off switch.
@@ -205,7 +205,7 @@ AGENTS.md invariants: atomic never-overwrite writes, trash not delete, preview i
 - Acceptance: new rows in `docs/capabilities.md` backed by cases in `tests/fixtures/lang-capabilities/cases.json`;
   e2e in the packaged app offline.
 
-### S50 — CSS without reload (≈1 week) — P2
+### S54 — CSS without reload (≈1 week) — P2
 
 - When a save touches only `.css` files and the page is running, replace the matching `<link>` stylesheet(s) through
   the existing preview protocol in the isolated world; full reload remains the path for HTML/JS and for any
@@ -214,7 +214,7 @@ AGENTS.md invariants: atomic never-overwrite writes, trash not delete, preview i
 - Acceptance: e2e proves form input and scroll position survive a colour change; fault test proves a broken CSS file
   falls back to reload and reports the problem; console flood limits unchanged.
 
-### S51 — More beginner checks and quick fixes (≈1.5 weeks) — P2
+### S55 — More beginner checks and quick fixes (≈1.5 weeks) — P2
 
 - Rules 16–25 chosen from the H.6 study where available, otherwise: broken relative `src`/`href`, duplicate `id`,
   missing `alt`, unclosed/mismatched tag, unknown CSS property, missing unit, `onclick` referencing an undefined
@@ -225,7 +225,7 @@ AGENTS.md invariants: atomic never-overwrite writes, trash not delete, preview i
   autosaved, snapshotted).
 - Acceptance: each rule has a positive and a negative fixture; explanation texts reviewed for honesty (PLAN §9).
 
-### S52 — Project checkpoints (≈1 week) — P2
+### S56 — Project checkpoints (≈1 week) — P2
 
 - "Save a checkpoint" names a whole-project snapshot in app data (reusing the S21 store, content-addressed to avoid
   duplicates); list, compare file-by-file, restore all or one file; a checkpoint is taken automatically before an
@@ -233,17 +233,17 @@ AGENTS.md invariants: atomic never-overwrite writes, trash not delete, preview i
 - Acceptance: integration tests for size limits and corruption tolerance; e2e: checkpoint, break three files,
   restore, preview shows the old page; wording distinguishes checkpoint from local history and from undo.
 
-### S53 — JavaScript navigation and rename (≈1 week) — P2
+### S57 — JavaScript navigation and rename (≈1 week) — P2
 
 - Go to definition, find references and rename inside the project's scripts, limited to what the TS worker proves;
   HTML inline `<script>` stays unclaimed unless a case passes. Rename is applied through the save pipeline across
-  files with a preview, like S47's replace.
+  files with a preview, like S51's replace.
 - Acceptance: capability cases for definition/references/rename across two files; a case that documents the known
   limit (inline scripts) so help text cannot over-claim.
 
 ### Later, unchanged from PLAN §12
 
-- **v0.3 Git** after S52 shows whether beginners use checkpoints: status, diff, commit, history with the same
+- **v0.3 Git** after S56 shows whether beginners use checkpoints: status, diff, commit, history with the same
   diff-before-action pattern; remote auth later.
 - **v0.4 Frameworks and terminal**, **v0.5 Debugger**: entry criteria in PLAN §12 still apply; nothing in this
   review argues for pulling them forward.
@@ -254,15 +254,15 @@ AGENTS.md invariants: atomic never-overwrite writes, trash not delete, preview i
 
 | Order | Session                     | Why here                                                               |
 | ----- | --------------------------- | ---------------------------------------------------------------------- |
-| 1     | S47 Find/replace/quick open | Closes a PLAN §4 v1 requirement; smallest and unblocks multi-file work |
-| 2     | S48 File management         | Day-one blocker for any page with images                               |
-| 3     | S49 Authoring aids          | Cheap wins that make the editor feel like what tutorials show          |
-| 4     | S51 Checks and fixes        | Builds directly on the product's strongest differentiator              |
-| 5     | S50 CSS without reload      | Highest technical risk of the set; isolate it after the quick wins     |
-| 6     | S52 Checkpoints             | Prerequisite mental model for v0.3 Git                                 |
-| 7     | S53 JS navigation           | Lowest beginner urgency of the P2 set                                  |
+| 1     | S51 Find/replace/quick open | Closes a PLAN §4 v1 requirement; smallest and unblocks multi-file work |
+| 2     | S52 File management         | Day-one blocker for any page with images                               |
+| 3     | S53 Authoring aids          | Cheap wins that make the editor feel like what tutorials show          |
+| 4     | S55 Checks and fixes        | Builds directly on the product's strongest differentiator              |
+| 5     | S54 CSS without reload      | Highest technical risk of the set; isolate it after the quick wins     |
+| 6     | S56 Checkpoints             | Prerequisite mental model for v0.3 Git                                 |
+| 7     | S57 JS navigation           | Lowest beginner urgency of the P2 set                                  |
 
-Total: roughly 8 weeks solo. It fits PLAN §12's 3–6 week v0.2 estimate only if S50 and S53 slip to a v0.2.1.
+Total: roughly 8 weeks solo. It fits PLAN §12's 3–6 week v0.2 estimate only if S54 and S57 slip to a v0.2.1.
 
 ## 5. Not recommended (and why)
 
@@ -277,7 +277,7 @@ Total: roughly 8 weeks solo. It fits PLAN §12's 3–6 week v0.2 estimate only i
 
 ## 6. Owner decisions needed
 
-1. Approve M18/S47–S53 for `features.json` (adding is allowed; nothing is removed or weakened).
-2. Decide whether v0.2 waits for the H.6 beginner study or starts with S47/S48, which the study is unlikely to
+1. Approve M19/S51–S57 for `features.json` (adding is allowed; nothing is removed or weakened).
+2. Decide whether v0.2 waits for the H.6 beginner study or starts with S51/S52, which the study is unlikely to
    reorder.
-3. Package policy for Emmet (S49): a pure-JS dependency is allowed by AGENTS.md but still needs a decision record.
+3. Package policy for Emmet (S53): a pure-JS dependency is allowed by AGENTS.md but still needs a decision record.

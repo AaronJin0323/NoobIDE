@@ -12,17 +12,17 @@ the latest entry to the next session, so write it for a reader with zero context
 `docs/reviews/mainstream-ide-gap-2026-10-17.md`: what is shipped (by milestone), what NoobIDE does that VS Code and
 WebStorm do not, a six-area gap matrix (files, editing, preview/debug, diagnostics, VCS/terminal/extensibility,
 shell) with each NoobIDE status tied to a feature id or source file, a ranked list of gaps by beginner impact, and
-a candidate milestone M18 (sessions S47–S53: find/replace/quick open, complete file management incl. move/import/
+a candidate milestone M19 (sessions S51–S57: find/replace/quick open, complete file management incl. move/import/
 image viewer, Emmet + linked tags + colour picker, CSS without reload, more checks and quick fixes, project
 checkpoints, JS navigation/rename) with acceptance sketches and estimates. Recorded as feature S01.6 (agent-check),
-mirroring S01.5. No runtime code changed; nothing added to the backlog beyond S01.6.
+mirroring S01.5. No runtime code changed; nothing added to the backlog beyond S01.6. Numbering corrected the same day: M18 and S47–S50 belong to the UI/UX refinement work on PR #14, so the proposal uses M19 / S51–S57.
 
 **Evidence:** S01.6 evidence string; `npm run verify -- --quick` green (see commit). Key findings verified in source:
 `file-ops.ts` exports only create/rename/trash (no move/copy/import); `commands.ts` has no find/replace or quick-open
 command; binary files are refused by `text-codec.ts` with no image viewer; one Monaco instance (no split editor);
 a single `BrowserWindow`; go-to-definition/rename explicitly unclaimed in `docs/capabilities.md`.
 
-**Decisions:** None binding. Proposed sequence S47 → S48 → S49 → S51 → S50 → S52 → S53; owner to approve M18 before
+**Decisions:** None binding. Proposed sequence S51 → S52 → S53 → S55 → S54 → S56 → S57; owner to approve M19 before
 it enters `features.json`. Recommended against copying VS Code settings sprawl, a marketplace, an early debugger, or
 a Theia/Code-OSS migration (reasons in the review §5).
 
@@ -32,7 +32,7 @@ todo and may reorder P2 items. VS Code / JetBrains facts are general product kno
 **Ideas / backlog candidates:** "Export project as zip to share" as the beginner-sized publish step; a status-bar
 hint the first time Emmet or linked editing fires.
 
-**Next up:** Owner decisions in review §6 (approve M18/S47–S53; start v0.2 with S47/S48 or wait for H.6). Otherwise
+**Next up:** Owner decisions in review §6 (approve M19/S51–S57; start v0.2 with S51/S52 or wait for H.6). Otherwise
 M7 release items remain the current blocked front.
 
 ## Session 33 (side session) — 2026-10-17 — Hosted CI failure follow-up (S06.5)
