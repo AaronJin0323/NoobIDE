@@ -26,6 +26,9 @@ import { useComposerSuggestions, type ComposerSources } from './ComposerSuggesti
 import { CopyMessageButton, MessageActions, ReaskButton, UserPrompt } from './ChatMessage';
 import { RetryControls, causeText } from './RetryControls';
 import { canRetry } from './chat-controller';
+import { StepsFold, groupAnswer } from './StepsFold';
+import { staggerStyle } from '../theme/stagger';
+import { StatusDot } from '../theme/StatusDot';
 import './ai-chat.css';
 
 /** `count` picks the singular form of a counted message (i18n/plural.ts). */
@@ -380,7 +383,22 @@ export function ChatPanelView({
                     </div>
                     <div className="ai-msg ai-msg-answer" aria-busy={isRunning} data-testid="ai-answer">
                       <p className="ai-who">{t('ai.chat.assistant')}</p>
-                      {turn.parts.map((part, i) => renderPart(part, turn, i))}
+                      {groupAnswer(turn.parts).map((item) =>
+                        item.kind === 'part' ? (
+                          renderPart(item.part, turn, item.index)
+                        ) : (
+                          // S47.2: consecutive steps fold into one group, held open while the answer streams.
+                          <StepsFold
+                            key={`steps-${item.start}`}
+                            count={item.steps.length}
+                            live={isRunning}
+                            label={t('ai.chat.steps')}
+                            heldLabel={t('ai.chat.stepsHeld')}
+                          >
+                            {item.steps.map((step, j) => renderPart(step, turn, item.start + j))}
+                          </StepsFold>
+                        ),
+                      )}
                       {turn.error && (
                         <div className="ai-error" role="alert" data-testid="ai-error" data-code={turn.error.code}>
                           <p>{errorExplanation(t, turn.error.code)}</p>
@@ -403,6 +421,7 @@ export function ChatPanelView({
                       )}
                       {statusKey && (
                         <p className="ai-turn-status" data-testid="ai-turn-status">
+                          {isRunning && <StatusDot pulse /> /* S47.4: thinking, next to the word */}
                           {t(statusKey)}
                         </p>
                       )}
@@ -468,10 +487,16 @@ export function ChatPanelView({
             </p>
             {draft.chips.length > 0 ? (
               <ul className="ai-chips" data-testid="ai-chips">
-                {draft.chips.map((chip) => {
+                {draft.chips.map((chip, index) => {
                   const label = contextLabel(t, chip.item);
                   return (
-                    <li key={chip.id} className="ai-chip" data-testid="ai-chip" data-kind={chip.item.kind}>
+                    <li
+                      key={chip.id}
+                      className="ai-chip"
+                      data-testid="ai-chip"
+                      data-kind={chip.item.kind}
+                      style={staggerStyle(index)} // S47.2: chips enter one after another
+                    >
                       <span className="ai-chip-label">{label}</span>
                       {chip.item.kind === 'annotation' && (
                         <details className="ai-chip-preview" data-testid="ai-annotation-details">

@@ -4993,8 +4993,8 @@
       "depends_on": [
         "S47.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/theme/motion-layer.test.ts (11: exit slots, ghost lifetime, token-only motion, grid 0fr/1fr Collapsible, steps fold held open while streaming via renderToStaticMarkup, 30 ms chip stagger capped at 8) + tests/e2e/motion.spec.ts (Problems enter/exit with display allow-discrete, walkthrough exit ghost, Advanced + Problems section grid folds, narrow drawer, reduced motion static) + key-features-visible/preview-layout/problems/ai-chat/ai-agent/shell e2e green; verify green"
     },
     {
       "id": "S47.3",
@@ -5010,8 +5010,8 @@
       "depends_on": [
         "S47.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/theme/scroll-edges.test.ts (6: edgeFade model 0 within 2 px of either end, 32 px ramp to 28 px, native @supports detection, seven-stop ladder parity with motion.css, scroll(self) timeline + tab strip) + tests/e2e/motion.spec.ts S47.3 light + dark (tree: no mask on a short list, --edge-top 28px and the 5 % stop once scrolled, bottom fade 0 at the end); verify green"
     },
     {
       "id": "S47.4",
@@ -5026,8 +5026,8 @@
       "depends_on": [
         "S47.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/theme/feedback.test.ts (7: tabular-nums on strip counts, caret, badges, console errors, pending messages and usage; 6 px status dot pulsing over --dur-pulse 1200ms, static under the reduced-motion gate, renderToStaticMarkup next to the word on the preview running pill and the chat thinking state; Copied saved-check-decay hold-to-75 % over --dur-decay 2500ms = COPIED_MS) + tests/e2e/motion.spec.ts S47.4 (running pill dot 6x6 status-pulse 1.2s, none under reduced motion; tabular-nums computed) + ai-chat.spec green; verify green"
     },
     {
       "id": "S47.5",
@@ -5041,8 +5041,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/theme/type-details.test.ts (6: .path-text + every path/file/URL class get overflow-wrap:anywhere/word-break:normal/min-width:0, no break-all anywhere, balance on dialog + welcome headings, pretty on prose, one inline-icon rule -0.125em/-0.075em + 1lh lead icons with the margin-top nudges removed, PingFang SC + Microsoft YaHei in --font-ui and --font-code) + tests/e2e/motion.spec.ts S47.5 (a Chinese name with spaces stays one line in the 220 px tree and its tab); verify green"
     },
     {
       "id": "S48.1",

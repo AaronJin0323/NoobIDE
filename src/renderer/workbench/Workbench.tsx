@@ -143,6 +143,7 @@ import { useInlineEdit, type InlineEditHost } from '../ai/useInlineEdit';
 import { setEditorContextActionGroup } from '../editor/editor-handle';
 import { useAiFix, type AiFixHost } from '../problems/useAiFix';
 import { AiFixCard } from '../problems/AiFixCard';
+import { useExitMotion } from '../theme/exit-motion';
 import { useFindInFiles } from '../search/useFindInFiles'; // S51.3
 import type { ReplaceHost } from '../search/replace-apply'; // S51.4
 import { pushRecent } from '../commands/quick-open-model'; // S51.5
@@ -1688,9 +1689,13 @@ export function Workbench() {
   }, [bridge, layoutKey]);
   // --- end S13.4 ---
 
+  // S47.2: the walkthrough band, the chat panel and app notices leave with an exit (theme/exit-motion.ts).
+  const workbenchRef = useRef<HTMLDivElement>(null);
+  useExitMotion(workbenchRef);
+
   const project = doc.project;
   return (
-    <div className={narrow ? 'workbench narrow' : 'workbench'}>
+    <div ref={workbenchRef} className={narrow ? 'workbench narrow' : 'workbench'}>
       <TopBar
         platform={platform}
         project={project}

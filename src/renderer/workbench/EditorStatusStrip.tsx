@@ -90,7 +90,10 @@ export function EditorStatusStrip({ tab, hasEditor, projectId }: EditorStatusStr
           {fill(t('nav.indexing.status'), { command: t(navWait) })}
         </span>
       )}
-      <span data-testid="cursor-position">{`${t('editor.line')} ${cursor.line}, ${t('editor.column')} ${cursor.column}`}</span>
+      <span
+        className="status-cursor"
+        data-testid="cursor-position"
+      >{`${t('editor.line')} ${cursor.line}, ${t('editor.column')} ${cursor.column}`}</span>
       {inlineAi && (
         // The suggestions toggle: the same command as the palette's, its state as a short word (the full sentence and
         // the command's name are the tooltip).
