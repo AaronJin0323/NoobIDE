@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { installFormatHook, onBeforeFormat, type FormattingRegistry, type PreFormatEvent } from './format-hook';
+import {
+  installFormatHook,
+  onBeforeFormat,
+  onFormatOutcome,
+  type FormatOutcomeEvent,
+  type FormattingRegistry,
+  type PreFormatEvent,
+} from './format-hook';
 
 class Provider {
   displayName = 'css';
@@ -70,5 +77,27 @@ describe('pre-format hook (S18.3)', () => {
     const doc = registered[0]?.provider as unknown as Provider;
     expect(doc.provideDocumentFormattingEdits.call(doc, model('x') as never)).toEqual(['edit']);
     off();
+  });
+
+  it('reports how document formatting ended: edits, nothing, a rejection or a throw (S53.4)', async () => {
+    const { registry, registered } = fakeRegistry();
+    installFormatHook(registry);
+    const answers: unknown[] = [Promise.resolve(['edit']), Promise.resolve(null), Promise.reject(new Error('x'))];
+    registry.registerDocumentFormattingEditProvider('css', {
+      provideDocumentFormattingEdits: () => {
+        if (answers.length === 0) throw new Error('worker gone');
+        return answers.shift();
+      },
+    });
+    const outcomes: FormatOutcomeEvent[] = [];
+    const off = onFormatOutcome((e) => outcomes.push(e));
+    const doc = registered[0]?.provider as unknown as { provideDocumentFormattingEdits(m: unknown): unknown };
+    for (let i = 0; i < 3; i += 1)
+      await Promise.resolve(doc.provideDocumentFormattingEdits(model('a{}'))).catch(() => 0);
+    expect(() => doc.provideDocumentFormattingEdits(model('a{}'))).toThrow('worker gone');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    off();
+    expect(outcomes.map((o) => o.ok)).toEqual([true, false, false, false]);
+    expect(outcomes[0]?.uri).toBe('file:///p/a.css');
   });
 });

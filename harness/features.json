@@ -4630,8 +4630,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "7 comment cases (html/css/js, uncomment, block, <style>, <script>) pass in packaged app offline; embedded-comment.test.ts (4); tests/integration/format-on-save.test.ts (5: off default, formatted bytes, failure/throw/timeout saves unformatted + reason); format-hook.test.ts outcome; tests/e2e/authoring.spec.ts S53.4 (menu toggle, format on save + one undo) pass; verify green"
     },
     {
       "id": "S53.5",

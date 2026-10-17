@@ -27,6 +27,8 @@ import { attachAiPrompts, refreshAiPromptMarkers } from '../ai/ai-prompt-monaco'
 import { attachEmmet } from './emmet-monaco';
 // S53.2: linked tag editing and "Wrap with tag".
 import { attachAuthoring, replaceColorAtCursor } from './authoring-monaco';
+import { onFormatOutcome } from './format-hook';
+import type { FormatOutcome } from '../workbench/format-on-save';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -86,6 +88,29 @@ function selectionIn(editor: monaco.editor.IStandaloneCodeEditor, uri: string | 
       ? selection.endLineNumber - 1
       : selection.endLineNumber;
   return { uri, startLine: selection.startLineNumber, endLine, text };
+}
+
+/** S53.4: formats the model on screen with its language's formatter; the outcome comes from the format hook. */
+async function formatForSave(editor: monaco.editor.IStandaloneCodeEditor): Promise<FormatOutcome> {
+  const model = editor.getModel();
+  const action = editor.getAction('editor.action.formatDocument');
+  const formattable = model && ['html', 'css', 'javascript'].includes(model.getLanguageId());
+  if (!model || !formattable || !action?.isSupported() || editor.getOption(monaco.editor.EditorOption.readOnly)) {
+    return { ok: false, reason: 'unsupported' };
+  }
+  const uri = model.uri.toString();
+  let ok: boolean | null = null;
+  const off = onFormatOutcome((event) => {
+    if (event.uri === uri) ok = event.ok;
+  });
+  try {
+    await action.run();
+  } catch {
+    return { ok: false, reason: 'failed' };
+  } finally {
+    off();
+  }
+  return ok === false ? { ok: false, reason: 'failed' } : { ok: true };
 }
 
 /**
@@ -215,6 +240,7 @@ export function CodeEditor({
         return replaceColorAtCursor(editor, rgba); // S53.3
       },
       focus: () => editor.focus(),
+      formatForSave: () => formatForSave(editor), // S53.4
     });
     // --- end S17.2 / S18.3 ---
     // S33.2: context-menu actions of the workbench ("Ask AI to explain this code").

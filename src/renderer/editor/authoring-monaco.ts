@@ -7,9 +7,13 @@ import { monaco } from './monaco-setup';
 import { linkedTagRanges, wrapSnippet } from './tag-match';
 import { colorAt, formatColor, type Rgba } from './css-colors';
 import { publishCursorColor } from './cursor-color';
+import { htmlRegionAt } from './completion-context';
+import { toggleBlockComment, toggleLineComments, type EmbeddedKind } from './embedded-comment';
 import { DEFAULT_LOCALE, isLocale, translate, type MessageKey } from '../i18n/index';
 
 export const WRAP_WITH_TAG_ACTION_ID = 'noobide.wrapWithTag';
+export const LINE_COMMENT_ACTION_ID = 'noobide.toggleLineComment';
+export const BLOCK_COMMENT_ACTION_ID = 'noobide.toggleBlockComment';
 
 const t = (key: MessageKey) => {
   const lang = document.documentElement.lang;
@@ -54,6 +58,50 @@ export function wrapWithTag(editor: monaco.editor.ICodeEditor): boolean {
   editor.focus();
   snippets.insert(wrapSnippet(model.getValueInRange(selection)));
   return true;
+}
+
+/** S53.4: the `<script>` / `<style>` region the whole selection is in (an HTML page), or null. */
+function embeddedRegion(model: monaco.editor.ITextModel, selection: monaco.Selection): EmbeddedKind | null {
+  if (model.getLanguageId() !== 'html') return null;
+  const text = model.getValue();
+  const at = (line: number, column: number) => htmlRegionAt(text, model.getOffsetAt({ lineNumber: line, column }));
+  const startColumn = Math.max(1, model.getLineFirstNonWhitespaceColumn(selection.startLineNumber));
+  const start = at(selection.startLineNumber, startColumn);
+  const end = at(selection.endLineNumber, selection.endColumn);
+  return start === end && start !== 'markup' ? start : null;
+}
+
+/**
+ * S53.4: toggles comments with the syntax of where the cursor is — `//` and `/* *\/` inside an HTML page's
+ * `<script>` and `<style>` (Monaco would write `<!-- -->` there), Monaco's own toggle everywhere else. One undo step.
+ */
+export async function toggleComment(editor: monaco.editor.ICodeEditor, block: boolean): Promise<void> {
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  if (!model || !selection || editor.getOption(monaco.editor.EditorOption.readOnly)) return;
+  const region = embeddedRegion(model, selection);
+  if (!region) {
+    await editor.getAction(block ? 'editor.action.blockComment' : 'editor.action.commentLine')?.run();
+    return;
+  }
+  let range: monaco.Range;
+  let text: string;
+  if (block && !selection.isEmpty()) {
+    range = selection;
+    text = toggleBlockComment(model.getValueInRange(selection));
+  } else {
+    // A selection that ends at the start of a line does not include that line.
+    const endLine =
+      selection.endColumn === 1 && selection.endLineNumber > selection.startLineNumber
+        ? selection.endLineNumber - 1
+        : selection.endLineNumber;
+    range = new monaco.Range(selection.startLineNumber, 1, endLine, model.getLineMaxColumn(endLine));
+    const lines = model.getValueInRange(range).split(/\r?\n/);
+    text = toggleLineComments(lines, region).join(model.getEOL());
+  }
+  editor.pushUndoStop();
+  editor.executeEdits('noobide.comment', [{ range, text }]);
+  editor.pushUndoStop();
 }
 
 /** S53.3: the CSS colour value at the cursor (CSS files; Monaco's swatches are shown for the same files). */
@@ -103,6 +151,21 @@ export function attachAuthoring(
       label: t('command.wrapWithTag'),
       precondition: "editorLangId == 'html' && !editorReadonly",
       run: () => void wrapWithTag(editor),
+    }),
+    // S53.4: the editor's own Ctrl/Cmd+/ and Shift+Alt+A go through the same toggle as the menu and palette.
+    editor.addAction({
+      id: LINE_COMMENT_ACTION_ID,
+      label: t('command.toggleLineComment'),
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash],
+      precondition: '!editorReadonly',
+      run: () => toggleComment(editor, false),
+    }),
+    editor.addAction({
+      id: BLOCK_COMMENT_ACTION_ID,
+      label: t('command.toggleBlockComment'),
+      keybindings: [monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyA],
+      precondition: '!editorReadonly',
+      run: () => toggleComment(editor, true),
     }),
     editor.onDidChangeCursorPosition(publish),
     editor.onDidChangeModelContent(publish),

@@ -23,6 +23,7 @@ import { IndentStatus } from './IndentStatus'; // S43.2
 import { EditorAiActions } from '../ai/EditorAiActions';
 import { EmmetHint } from '../editor/EmmetHint'; // S53.1
 import { ColorPickerHost, ColorStatus } from '../editor/ColorPicker'; // S53.3
+import { FormatSaveNotice } from './FormatSaveNotice'; // S53.4
 
 const FORMATTABLE = new Set(['html', 'css', 'javascript']);
 
@@ -300,6 +301,7 @@ export function EditorPane(props: EditorPaneProps) {
           <IndentStatus />
           <EmmetHint />
           <ColorStatus />
+          <FormatSaveNotice />
           <span data-testid="cursor-position">{`${t('editor.line')} ${cursor.line}, ${t('editor.column')} ${cursor.column}`}</span>
           {inlineAi && (
             <span className="editor-status-ai" data-testid="inline-ai-state" data-state={inlineAi}>

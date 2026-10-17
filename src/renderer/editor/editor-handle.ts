@@ -5,6 +5,8 @@
  * CodeEditor registers the live editor; reveal requests for a file that is not on screen yet are kept until the
  * editor shows that file (Go to code opens the file first, S17.2).
  */
+import type { FormatOutcome } from '../workbench/format-on-save';
+
 export interface RevealTarget {
   /** The workbench's model URI string (OpenTab.uri). */
   readonly uri: string;
@@ -37,6 +39,8 @@ export interface EditorAccess {
   setColor?(rgba: { readonly r: number; readonly g: number; readonly b: number; readonly a: number }): boolean;
   /** Moves the keyboard focus into the editor. */
   focus?(): void;
+  /** S53.4: formats the file on screen for a save and says how it went (format-on-save.ts). */
+  formatForSave?(): Promise<FormatOutcome>;
 }
 
 /**

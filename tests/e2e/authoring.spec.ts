@@ -203,3 +203,42 @@ test('the colour at the cursor has its value as text; the picker works from the 
   await expect.poll(() => documentText(editor())).toContain('#c0392b');
   expect(consoleErrors).toEqual([]);
 });
+
+test('Edit › Toggle line comment works from the menu as well as Ctrl/Cmd+/ (S53.4)', async () => {
+  await openFile(page, 'style.css');
+  await focusEditor(page);
+  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press('ArrowDown');
+  await clickMenuItem('toggle-line-comment');
+  await expect.poll(() => documentText(editor())).toContain('/* color: #c0392b; */');
+  await focusEditor(page);
+  await page.keyboard.press('ControlOrMeta+Slash');
+  await expect.poll(() => documentText(editor())).not.toContain('/*');
+});
+
+test('Format on save: off by default; when on, the saved bytes are formatted and one undo restores (S53.4)', async () => {
+  const stored = await page.evaluate(() => window.noobide?.settings?.get());
+  expect(stored?.ok && stored.value.settings.formatOnSave).toBe(false);
+  // Written to disk first: typed markup would be auto-closed by the editor.
+  await writeFile(path.join(root, 'messy.html'), '<ul><li>One</li></ul>');
+  await openFile(page, 'messy.html');
+  await focusEditor(page);
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type(' ');
+  await page.keyboard.press('ControlOrMeta+S');
+  await expect.poll(() => onDisk('messy.html')).toBe('<ul><li>One</li></ul> ');
+  await runCommand('toggle-format-on-save');
+  const checked = await app.evaluate(
+    ({ Menu }) => Menu.getApplicationMenu()?.getMenuItemById('toggle-format-on-save')?.checked,
+  );
+  expect(checked).toBe(true);
+  await focusEditor(page);
+  await page.keyboard.press('ControlOrMeta+S');
+  await expect.poll(() => onDisk('messy.html')).toBe('<ul>\n  <li>One</li>\n</ul>\n');
+  await expect(page.getByTestId('format-on-save-notice')).toHaveCount(0);
+  // Format + save was one undo step: one Ctrl/Cmd+Z gives back the text as typed.
+  await page.keyboard.press('ControlOrMeta+Z');
+  await expect.poll(() => documentText(editor())).toContain('<ul><li>One</li></ul> ');
+  await runCommand('toggle-format-on-save'); // back to the default for the other tests
+  expect(consoleErrors).toEqual([]);
+});

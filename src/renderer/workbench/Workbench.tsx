@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react';
 import { editorPrefs, loadEditorPrefs, setEditorPrefs, useEditorPrefs } from '../editor/editor-prefs'; // S53
 import { openColorPicker } from '../editor/cursor-color'; // S53.3
+import { saveWithFormat } from './format-on-save'; // S53.4
+import { reportFormatOnSaveFailure } from './FormatSaveNotice';
 import { useAppMenuItems, useCommands, type CommandHandlers } from '../commands/useCommands'; // S24.1
 import type { FileContent, FileVersion, OpenedProject } from '../../shared/ipc/contract';
 import { useMediaQuery } from '../theme/useMediaQuery';
@@ -419,7 +421,23 @@ export function Workbench() {
     dropTab(relPath);
   }, []);
 
-  const saveActive = useCallback(() => void saverOf(docRef.current.active)?.save(), []);
+  // S53.4: an explicit save formats first when "Format on save" is on (format-on-save.ts); autosave never does.
+  const saveActive = useCallback(() => {
+    const tab = activeTab(docRef.current);
+    const saver = saverOf(tab?.relPath);
+    if (!tab || !saver) return;
+    const editor = activeEditor();
+    reportFormatOnSaveFailure(null);
+    void saveWithFormat({
+      enabled: editorPrefs().formatOnSave,
+      format: async () =>
+        editor?.shownUri() === tab.uri && editor.formatForSave
+          ? editor.formatForSave()
+          : { ok: false, reason: 'unsupported' },
+      save: () => saver.save(),
+      onFormatFailed: reportFormatOnSaveFailure,
+    });
+  }, []);
 
   const saveCopy = useCallback(async () => {
     const project = docRef.current.project;
@@ -1055,6 +1073,7 @@ export function Workbench() {
       palette !== null,
     theme: theme.choice, // S24.4
     emmet: editorSwitches.emmet, // S53.1
+    formatOnSave: editorSwitches.formatOnSave, // S53.4
   };
   const commandHandlers: CommandHandlers = {
     'new-project': bridge?.createProject ? () => setWizardOpen(true) : undefined,
@@ -1095,6 +1114,10 @@ export function Workbench() {
     'toggle-emmet': () => setEditorPrefs({ emmet: !editorPrefs().emmet }), // S53.1
     'wrap-with-tag': () => void activeEditor()?.runAction?.('noobide.wrapWithTag'), // S53.2
     'edit-color': openColorPicker, // S53.3
+    // S53.4
+    'toggle-line-comment': () => void activeEditor()?.runAction?.('noobide.toggleLineComment'),
+    'toggle-block-comment': () => void activeEditor()?.runAction?.('noobide.toggleBlockComment'),
+    'toggle-format-on-save': () => setEditorPrefs({ formatOnSave: !editorPrefs().formatOnSave }),
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
     'command-palette': () =>
       setPalette(

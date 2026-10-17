@@ -66,6 +66,9 @@ export const COMMAND_IDS = [
   'toggle-emmet',
   'wrap-with-tag',
   'edit-color',
+  'toggle-line-comment',
+  'toggle-block-comment',
+  'toggle-format-on-save',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -103,6 +106,11 @@ export interface CommandDefinition {
   readonly checked?: (context: CommandContext) => boolean;
   /** S53: `checked` is an on/off switch (checkbox item in menus), not one choice of several. */
   readonly toggle?: true;
+  /**
+   * S53: the shortcut belongs to the code editor: it runs the command only while the focus is in the editor (a text
+   * field keeps its own key). Menus and the command palette run the command any time.
+   */
+  readonly scope?: 'editor';
 }
 
 const noModal = (c: CommandContext) => !c.modalOpen;
@@ -206,6 +214,27 @@ export const COMMANDS: readonly CommandDefinition[] = [
   { id: 'wrap-with-tag', label: 'command.wrapWithTag', when: (c) => c.hasActiveTab && !c.modalOpen },
   // S53.3: the colour picker for the CSS colour value at the cursor.
   { id: 'edit-color', label: 'command.editColor', when: (c) => c.hasActiveTab && !c.modalOpen },
+  // S53.4: comment toggles (Monaco's own actions, now in the Edit menu and the palette) and format on save.
+  {
+    id: 'toggle-line-comment',
+    label: 'command.toggleLineComment',
+    keys: { all: { key: '/', primary: true } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+    scope: 'editor',
+  },
+  {
+    id: 'toggle-block-comment',
+    label: 'command.toggleBlockComment',
+    keys: { all: { key: 'a', shift: true, alt: true } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+    scope: 'editor',
+  },
+  {
+    id: 'toggle-format-on-save',
+    label: 'command.toggleFormatOnSave',
+    checked: (c) => c.formatOnSave === true,
+    toggle: true,
+  },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));
@@ -269,6 +298,11 @@ export const APP_MENU_COMMANDS: readonly (CommandId | '-')[] = [
 export function commandChecked(id: CommandId, context: CommandContext): boolean | null {
   const checked = commandById(id).checked;
   return checked ? checked(context) : null;
+}
+
+/** S53: whether the command's shortcut only applies while the focus is in the code editor. */
+export function commandIsEditorScoped(id: CommandId): boolean {
+  return commandById(id).scope === 'editor';
 }
 
 /** S53: whether the command is an on/off switch (checkbox) rather than one choice of several (radio). */

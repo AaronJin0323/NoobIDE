@@ -153,6 +153,29 @@ Indentation above); the cases below run with 2 spaces.
 | CSS rules get one declaration per line      | `h1{color:red;margin:0}` → expanded rule      | `css-format`  |
 | JavaScript gets standard spacing and indent | `function add(a,b){` → `function add(a, b) {` | `js-format`   |
 
+## Comments (S53.4)
+
+Edit › **切换行注释 / Toggle line comment** (Ctrl+/ on Windows, ⌘/ on macOS) and **切换块注释 / Toggle block comment**
+(Shift+Alt+A / ⇧⌥A), also in the command palette, use the syntax of the place the cursor is in: inside an HTML page's
+`<style>` and `<script>` they write CSS and JavaScript comments, not `<!-- -->`. One undo step each.
+
+| Capability                                   | Example                            | Case                                                 |
+| -------------------------------------------- | ---------------------------------- | ---------------------------------------------------- |
+| HTML line comment                            | `<p>Hi</p>` → `<!-- <p>Hi</p> -->` | `html-toggle-comment`                                |
+| CSS line comment                             | `a { … }` → `/* a { … } */`        | `css-toggle-comment`                                 |
+| JavaScript line comment, and uncomment       | `let a = 1;` ↔ `// let a = 1;`     | `js-toggle-line-comment`, `js-toggle-line-uncomment` |
+| JavaScript block comment around a selection  | `a` → `/* a */`                    | `js-toggle-block-comment`                            |
+| CSS comment inside an HTML page's `<style>`  | `a { … }` → `/* a { … } */`        | `html-style-block-toggle-comment`                    |
+| JavaScript comment inside an HTML `<script>` | `let a = 1;` → `// let a = 1;`     | `html-script-toggle-comment`                         |
+
+## Format on save (S53.4)
+
+Edit › **保存时整理格式 / Format on save** is **off** by default. When it is on, an explicit save (Ctrl+S / ⌘S, the Save
+button, File › Save) formats an HTML, CSS or JavaScript file with the formatter above and then saves it: the bytes on
+disk are the formatted text, and one undo gives back the text as it was before the save. Autosave never formats. If
+the formatter fails or takes more than 3 seconds, the file is saved as it was and the status bar says why
+(`tests/integration/format-on-save.test.ts`, `tests/e2e/authoring.spec.ts`).
+
 ## Not claimed
 
 These are **not** validated and must not be presented as features: the language services' own completion inside

@@ -146,6 +146,11 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       SEPARATOR,
       command('wrap-with-tag'), // S53.2
       command('edit-color'), // S53.3
+      SEPARATOR,
+      command('toggle-line-comment'), // S53.4
+      command('toggle-block-comment'),
+      SEPARATOR,
+      command('toggle-format-on-save'), // S53.4
       command('toggle-emmet'), // S53.1
       SEPARATOR,
       command('toggle-inline-ai'), // S32.1

@@ -499,6 +499,62 @@
       "typeText": "rgb(255, 99, 71)",
       "text": "a { color: tea|l; }\n",
       "expectText": "a { color: #ff6347; }\n"
+    },
+    {
+      "id": "html-toggle-comment",
+      "language": "html",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "<p>Hi|</p>\n",
+      "expectText": "<!-- <p>Hi</p> -->\n"
+    },
+    {
+      "id": "css-toggle-comment",
+      "language": "css",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "a { color: red;| }\n",
+      "expectText": "/* a { color: red; } */\n"
+    },
+    {
+      "id": "js-toggle-line-comment",
+      "language": "javascript",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "let a = 1;|\n",
+      "expectText": "// let a = 1;\n"
+    },
+    {
+      "id": "js-toggle-line-uncomment",
+      "language": "javascript",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "// let a = 1;|\n",
+      "expectText": "let a = 1;\n"
+    },
+    {
+      "id": "js-toggle-block-comment",
+      "language": "javascript",
+      "kind": "edit",
+      "action": "noobide.toggleBlockComment",
+      "text": "let |a| = 1;\n",
+      "expectText": "let /* a */ = 1;\n"
+    },
+    {
+      "id": "html-style-block-toggle-comment",
+      "language": "html",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "<style>\n  a { color: red; }|\n</style>\n",
+      "expectText": "<style>\n  /* a { color: red; } */\n</style>\n"
+    },
+    {
+      "id": "html-script-toggle-comment",
+      "language": "html",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "<script>\n  let a = 1;|\n</script>\n",
+      "expectText": "<script>\n  // let a = 1;\n</script>\n"
     }
   ]
 }
