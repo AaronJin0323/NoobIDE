@@ -35,6 +35,97 @@ the latest entry to the next session, so write it for a reader with zero context
 
 **Next up:** the five M18 sessions merge their PRs; the open M19 PRs #22 (S51), #26 (S55) and #27 (S56).
 
+## Session S48b (side session) — 2026-10-18 — Chat code blocks and proposal tones (S48.5, S48.8)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m18-s48-blocks-0f6df9` (cut
+from the M18 plan branch with S47.1), PR #37. One of five parallel M18 sessions; the composer session owns the rest
+of ChatPanel.
+
+**Done**
+
+- **S48.5** `md-parse.ts` reads the fence info string into a lowercase `lang` and an optional `file`
+  (` ```js app.js`, ` ```js:app.js`, `title="app.js"`, ` ```app.js`; no `..`, no markup). `Markdown.tsx` code blocks:
+  caption = the language as written in lowercase (a localised word when none), the file name (sr-only "File: …"),
+  an `aria-hidden` line gutter outside `<code>` (`tabular-nums`, `user-select: none`), `white-space: pre` with
+  horizontal scroll. Colours: `code-highlight-monaco.ts` (lazy chunk) loads the language with `colorize` and
+  tokenizes with `monaco.editor.tokenize`; `code-highlight.ts` (pure) resolves each token type against the editor's
+  own `buildMonacoTheme(scheme).rules` the way Monaco matches dotted prefixes, so chat code uses the editor colours
+  of the current scheme; results are cached; `<code>`'s text content stays exactly the code. Actions Copy /
+  Insert at cursor / Replace selection (a named group, Tab-reachable; `aria-disabled` but focusable without an open
+  text file, then they say what to do). Insert/replace go through `EditorAccess.insertCode` (new): one
+  `executeEdits` between undo stops → the ordinary `onChange` → saver path (dirty state, journal, Save); outcomes
+  `ok | no-editor | read-only | no-selection` with a sentence each in zh-CN and en. Wired via `AiWorkbenchHost`
+  (`codeEditorOpen`, `insertCode`) and a `codeBlocks` prop on ChatPanel (scheme from `useColorScheme`).
+- **S48.8** `proposal-tone.ts`: pending→attention, applying→running, applied→ok, failed→danger, rejected→muted,
+  expired→quiet, each with its own icon shape (`ProposalStateIcon`) and the existing state word. Only an attention
+  change has the accent border; the badge uses `--ok-soft/--danger-soft/--raised` fills. One primary action per
+  card: the only pending change's Accept, or Accept all when several are pending (per-change Accept becomes
+  secondary). Each change has two closed `<details>`: what it changes (file, action, lines from `changedLines`) and
+  the result (lines added/removed — moved here from the always-visible summary — and the save state).
+
+**Evidence:** `chat-code-blocks.test.ts` (11), `proposal-tone.test.ts` (9, both locales), `markdown.test.ts`;
+`tests/e2e/ai-chat-code.spec.ts` 5/5 on the packaged build (shard 2); ai-chat, ai-agent, preview-annotations, a11y
+e2e green; verify green.
+
+**Decisions:** Colours come from Monaco's tokenizer plus NoobIDE's theme rules rather than the `mtkN` classes of
+`colorize` HTML: no HTML string is ever parsed or injected, and the static markup carries real colours per scheme.
+Token types that only the inherited base theme colours (e.g. `delimiter`) fall back to the text colour in chat.
+Insert at cursor moves the focus into the editor (the result is visible and Undo works at once).
+
+**Next up**
+
+1. Remaining M18 features in the sibling sessions (S48.4/S48.6/S48.7 composer, S47.2–S47.5, S49.x, S50.x).
+
+## Session 38 (side session) — 2026-10-17 — Motion token ladder and reduced-motion gate (S47.1)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/beautiful-shirley-d2ba80`,
+fast-forwarded onto the M18 plan commit (a049ce5); node_modules junctioned to the main checkout.
+
+**Done**
+
+- `styles.css :root`: `--dur-instant 60ms`, `--dur-fast 120ms`, `--dur-base 200ms`, `--dur-sheet 300ms`,
+  `--dur-slow 450ms`; purpose-named curves `--ease-swift` (hover), `--ease-expand` (grid accordions), `--ease-enter`
+  (block entry) beside `--ease-out/-smooth/-snappy`. The only literal left in the renderer (tree twisty `0.1s`) now
+  uses tokens.
+- One reduced-motion gate: the `prefers-reduced-motion` block in `glass.css` zeroes every `--dur-*` token and keeps
+  the overlay swap to `glass-fade`. `theme/motion.ts` (`REDUCED_MOTION_QUERY`, `useReducedMotion`, `scrollBehavior`,
+  `editorMotionOptions`) carries the same query to script: the TabBar chevrons scroll with `auto` instead of
+  `smooth`, and Monaco's `smoothScrolling` is on normally and off under the query (live, via `updateOptions`;
+  mirrored in `data-smooth-scrolling` on the editor host for e2e).
+- `design-rules.test.ts`: two new rules (no literal duration, no literal `cubic-bezier()/linear()/steps()` or
+  keyword curve in transition/animation declarations; `linear` alone stays allowed for scroll timelines), motion
+  tokens may only be defined in `styles.css` (the gate may set `--dur-*: 0ms`), and a check that they all live in
+  its `:root` block. Every existing rule kept.
+- `tests/e2e/reduced-motion.spec.ts`: a no-preference control proves the recorder (`transitionrun` /
+  `animationstart` with computed durations) sees the menu pop; under `reducedMotion: 'reduce'` the tokens compute to
+  0, the menu and glossary dialog use `glass-fade` at 0s, no timed transition or animation runs while a menu, a
+  dialog, the files-panel toggle (Ctrl+B) or the tab strip scroll happen, the strip moves in the same task as the
+  click, and lifting the preference brings back the glide and Monaco's smooth scrolling.
+
+**Evidence:** verify green (unit incl. design-rules 18 + motion 3); reduced-motion.spec.ts 4/4 three runs in a row; full `npm run test:e2e -- --no-build` 327 passed, 4 skipped (platform-gated), glass.spec and tabs.spec included.
+
+**Decisions:** The gate lives in glass.css (loaded after styles.css) so the overlay swap wins the cascade; one block,
+not one per file. Monaco smooth scrolling is now on for users without the preference (plan A1 implies it).
+
+**Problems / risks:** Chromium serialises a `0ms` custom property as `0s`; the e2e compares numerically.
+
+**CI follow-up (PR #16):** hosted shards 2/2 (Windows and macOS) failed the panel-toggle case: Monaco's own
+stylesheet fades its scrollbars in (`opacity 0.1s`), which the token gate did not reach (on the runners' smaller
+window the toggle resized the editor and showed a scrollbar). The gate now pins `transition-duration` /
+`animation-duration` inside `.monaco-editor` and `.monaco-scrollable-element` to `var(--dur-instant)` (0ms under
+reduce); the spec gained a deterministic editor-scroll case with a no-preference control. Reproduced locally
+before the fix (vertical + horizontal scrollbar `0.1s`), green 6/6 runs after; glass, tabs and editing specs green.
+Merged the plan branch (S48.1–S48.3, S49.3, test-robustness fixes) first. Second round: the hosted Windows
+runner scrolls even `behavior: 'smooth'` at once (OS animation effects off), so the "glide is back" check now
+asserts the behaviour the app passes to `scrollBy` (`auto` under reduce, `smooth` without) and that the strip ends
+up scrolled, not that nothing moved in the same task. Merged the plan branch again (S49.1).
+
+**Next up**
+
+1. S47.2 (panel, drawer and notice enter/exit) on top of these tokens; every new animation must use `--dur-*`
+   so the gate covers it, and add its case to reduced-motion.spec.ts.
+2. Other M18 sessions (S48–S50) can branch from this commit.
+
 ## Session 42 (side session) — 2026-10-18 — PR #26 (S55) green on hosted CI: walkthrough reopen race
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree `relaxed-pike-b23d7f` tracking
@@ -294,56 +385,6 @@ run is the real proof for the "worker still starting" part of the single press (
 
 1. S51–S56 of M19 remain open (see Session 36 and the sibling side sessions).
 2. Re-sync with main whenever GitHub reports a conflict: the M19 PRs are landing in parallel.
-
-## Session 38 (side session) — 2026-10-17 — Motion token ladder and reduced-motion gate (S47.1)
-
-**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/beautiful-shirley-d2ba80`,
-fast-forwarded onto the M18 plan commit (a049ce5); node_modules junctioned to the main checkout.
-
-**Done**
-
-- `styles.css :root`: `--dur-instant 60ms`, `--dur-fast 120ms`, `--dur-base 200ms`, `--dur-sheet 300ms`,
-  `--dur-slow 450ms`; purpose-named curves `--ease-swift` (hover), `--ease-expand` (grid accordions), `--ease-enter`
-  (block entry) beside `--ease-out/-smooth/-snappy`. The only literal left in the renderer (tree twisty `0.1s`) now
-  uses tokens.
-- One reduced-motion gate: the `prefers-reduced-motion` block in `glass.css` zeroes every `--dur-*` token and keeps
-  the overlay swap to `glass-fade`. `theme/motion.ts` (`REDUCED_MOTION_QUERY`, `useReducedMotion`, `scrollBehavior`,
-  `editorMotionOptions`) carries the same query to script: the TabBar chevrons scroll with `auto` instead of
-  `smooth`, and Monaco's `smoothScrolling` is on normally and off under the query (live, via `updateOptions`;
-  mirrored in `data-smooth-scrolling` on the editor host for e2e).
-- `design-rules.test.ts`: two new rules (no literal duration, no literal `cubic-bezier()/linear()/steps()` or
-  keyword curve in transition/animation declarations; `linear` alone stays allowed for scroll timelines), motion
-  tokens may only be defined in `styles.css` (the gate may set `--dur-*: 0ms`), and a check that they all live in
-  its `:root` block. Every existing rule kept.
-- `tests/e2e/reduced-motion.spec.ts`: a no-preference control proves the recorder (`transitionrun` /
-  `animationstart` with computed durations) sees the menu pop; under `reducedMotion: 'reduce'` the tokens compute to
-  0, the menu and glossary dialog use `glass-fade` at 0s, no timed transition or animation runs while a menu, a
-  dialog, the files-panel toggle (Ctrl+B) or the tab strip scroll happen, the strip moves in the same task as the
-  click, and lifting the preference brings back the glide and Monaco's smooth scrolling.
-
-**Evidence:** verify green (unit incl. design-rules 18 + motion 3); reduced-motion.spec.ts 4/4 three runs in a row; full `npm run test:e2e -- --no-build` 327 passed, 4 skipped (platform-gated), glass.spec and tabs.spec included.
-
-**Decisions:** The gate lives in glass.css (loaded after styles.css) so the overlay swap wins the cascade; one block,
-not one per file. Monaco smooth scrolling is now on for users without the preference (plan A1 implies it).
-
-**Problems / risks:** Chromium serialises a `0ms` custom property as `0s`; the e2e compares numerically.
-
-**CI follow-up (PR #16):** hosted shards 2/2 (Windows and macOS) failed the panel-toggle case: Monaco's own
-stylesheet fades its scrollbars in (`opacity 0.1s`), which the token gate did not reach (on the runners' smaller
-window the toggle resized the editor and showed a scrollbar). The gate now pins `transition-duration` /
-`animation-duration` inside `.monaco-editor` and `.monaco-scrollable-element` to `var(--dur-instant)` (0ms under
-reduce); the spec gained a deterministic editor-scroll case with a no-preference control. Reproduced locally
-before the fix (vertical + horizontal scrollbar `0.1s`), green 6/6 runs after; glass, tabs and editing specs green.
-Merged the plan branch (S48.1–S48.3, S49.3, test-robustness fixes) first. Second round: the hosted Windows
-runner scrolls even `behavior: 'smooth'` at once (OS animation effects off), so the "glide is back" check now
-asserts the behaviour the app passes to `scrollBy` (`auto` under reduce, `smooth` without) and that the strip ends
-up scrolled, not that nothing moved in the same task. Merged the plan branch again (S49.1).
-
-**Next up**
-
-1. S47.2 (panel, drawer and notice enter/exit) on top of these tokens; every new animation must use `--dur-*`
-   so the gate covers it, and add its case to reduced-motion.spec.ts.
-2. Other M18 sessions (S48–S50) can branch from this commit.
 
 ## Session S54 (side session) — 2026-10-17 — CSS without reload (S54.1–S54.3)
 

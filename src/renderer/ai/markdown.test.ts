@@ -30,13 +30,13 @@ describe('Markdown subset parser (S33.1)', () => {
     expect(blocks[1]).toEqual({ type: 'paragraph', children: [{ type: 'text', text: '第一段\n第二行' }] });
     expect(blocks[2]).toMatchObject({ ordered: false, items: [[{ text: '一' }], [{ text: '二\n续行' }]] });
     expect(blocks[3]).toMatchObject({ ordered: true, start: 3 });
-    expect(blocks[6]).toEqual({ type: 'code', lang: 'js', text: 'let a = 1;\n\nlet b;', closed: true });
+    expect(blocks[6]).toEqual({ type: 'code', lang: 'js', file: '', text: 'let a = 1;\n\nlet b;', closed: true });
   });
 
   it('treats an unclosed fence as code that is still arriving', () => {
     expect(parseMarkdown('看：\n```html\n<p>半')).toEqual([
       { type: 'paragraph', children: [{ type: 'text', text: '看：' }] },
-      { type: 'code', lang: 'html', text: '<p>半', closed: false },
+      { type: 'code', lang: 'html', file: '', text: '<p>半', closed: false },
     ]);
   });
 

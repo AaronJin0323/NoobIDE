@@ -18,7 +18,7 @@ import {
 import type { AiChatExtensions, AiConsentRenderer } from './chat-extensions';
 import { contextLabel, errorExplanation, providerName } from './chat-text';
 import { withKeyStore } from './ai-status';
-import { Markdown, type MarkdownLabels } from './Markdown';
+import { Markdown, type MarkdownCode, type MarkdownLabels } from './Markdown';
 import { AiIcon, CloseIcon, JumpLatestIcon, NewChatIcon, PastChatsIcon } from './ai-icons';
 import { SavedProposal } from './SavedChatsList';
 import { useScrollLatch } from './useScrollLatch';
@@ -55,6 +55,8 @@ export interface ChatPanelProps {
   readonly extensions?: AiChatExtensions | undefined;
   /** S39.1: saved chats of the open project (absent without a project or a history bridge). */
   readonly pastChats?: PastChatsSlot | undefined;
+  /** S48.5: code blocks coloured in the current scheme, with Insert at cursor / Replace selection into the editor. */
+  readonly codeBlocks?: MarkdownCode | undefined;
 }
 
 /** S39.1: the "Past chats" button, the list shown in place of the conversation, and the history notice. */
@@ -76,6 +78,15 @@ const STATE_TEXT: Partial<Record<ChatState['availability']['kind'], MessageKey>>
   disabled: 'ai.state.disabled',
   'no-key': 'ai.state.noKey',
   'no-secure-storage': 'ai.state.noSecureStorage',
+};
+
+/** S48.5: what Insert at cursor / Replace selection say afterwards. */
+const CODE_OUTCOME_TEXT: Record<'insert' | 'replace' | 'no-editor' | 'read-only' | 'no-selection', MessageKey> = {
+  insert: 'ai.chat.code.inserted',
+  replace: 'ai.chat.code.replaced',
+  'no-editor': 'ai.chat.code.noEditor',
+  'read-only': 'ai.chat.code.readOnly',
+  'no-selection': 'ai.chat.code.noSelection',
 };
 
 function turnStatusKey(turn: ChatTurn): MessageKey | null {
@@ -151,6 +162,7 @@ export function ChatPanelView({
   onOpenSettings,
   extensions,
   pastChats,
+  codeBlocks,
   t,
 }: ChatPanelProps & { t: Translate }) {
   const key = projectKeyOf(projectId);
@@ -191,7 +203,12 @@ export function ChatPanelView({
     copy: t('ai.chat.copyCode'),
     copied: t('ai.chat.copied'),
     copyFailed: t('ai.chat.copyFailed'),
-    codeCaption: (lang) => (lang ? fill(t('ai.chat.codeLang'), { lang }) : t('ai.chat.code')),
+    // S48.5: the language as the fence names it, in lowercase; a localised word when it names none.
+    codeCaption: (lang) => lang || t('ai.chat.code'),
+    codeFile: (file) => fill(t('ai.chat.codeFile'), { file }),
+    insert: t('ai.chat.insertCode'),
+    replace: t('ai.chat.replaceCode'),
+    outcome: (outcome, mode) => t(CODE_OUTCOME_TEXT[outcome === 'ok' ? mode : outcome]),
   };
 
   const settingsHelp = onOpenSettings ? (
@@ -209,7 +226,7 @@ export function ChatPanelView({
   const renderPart = (part: TurnPart, turn: ChatTurn, i: number): ReactNode => {
     switch (part.kind) {
       case 'text':
-        return <Markdown key={i} source={part.text} labels={labels} />;
+        return <Markdown key={i} source={part.text} labels={labels} code={codeBlocks} />;
       case 'step':
         return (
           // The summary is a sentence in the user's language; the tool id is for tests and styling only.
