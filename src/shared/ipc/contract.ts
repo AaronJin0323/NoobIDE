@@ -33,6 +33,7 @@ import type { WalkthroughApi } from './walkthrough-contract'; // S23
 import type { ProblemsApi } from './problems-contract'; // S16.2
 import type { AiApi } from './ai-contract'; // S31 AI assistant (decision 0025)
 import type { AiHistoryApi } from './ai-history-contract'; // S39 saved chats and token usage
+import type { AiDraftApi } from './ai-draft-contract'; // S48.7 unsent chat drafts
 import type { SearchApi } from './search-contract'; // S51.2 project search
 import type { FileOpsApi } from './file-ops-contract'; // S52 move, copy, import, image viewer
 
@@ -442,6 +443,8 @@ export interface NoobideApi {
   readonly ai?: AiApi;
   /** S39: saved chats per project (app data) and token usage with the optional daily budget. */
   readonly aiHistory?: AiHistoryApi;
+  /** S48.7: the chat composer's unsent drafts. */
+  readonly aiDrafts?: AiDraftApi;
   /** S41: preview annotations (annotations-contract.ts, decision 0030). */
   readonly annotations?: AnnotationsApi;
   /** S51.2: project search for find / replace in files (search-contract.ts). */

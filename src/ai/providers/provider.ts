@@ -114,10 +114,29 @@ export class ProviderError extends Error {
     message: string,
     /** HTTP status when there was one. */
     readonly status?: number,
+    /** S48.7: the provider's Retry-After (seconds), when it sent one with a 429 or 503. */
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = 'ProviderError';
   }
+}
+
+/** Longest Retry-After honoured (seconds); the renderer's backoff caps the wait at 600 s anyway. */
+const MAX_RETRY_AFTER = 3600;
+
+/**
+ * S48.7: a response's Retry-After header (delta seconds or an HTTP date) in whole seconds, or undefined when there is
+ * none or it is not readable. Only the header is read, never a body.
+ */
+export function retryAfterOf(headers: unknown, now: number = Date.now()): number | undefined {
+  const get = (headers as { get?: unknown } | null | undefined)?.get;
+  if (typeof get !== 'function') return undefined;
+  const value = (get as (name: string) => unknown).call(headers, 'retry-after');
+  if (typeof value !== 'string' || value.trim() === '') return undefined;
+  const seconds = /^\d+(\.\d+)?$/.test(value.trim()) ? Number(value.trim()) : (Date.parse(value) - now) / 1000;
+  if (!Number.isFinite(seconds)) return undefined;
+  return Math.min(MAX_RETRY_AFTER, Math.max(0, Math.ceil(seconds)));
 }
 
 export interface AiProvider {
@@ -178,4 +197,18 @@ export function toolInputProblem(
 /** Abort reasons and SDK aborts both become 'cancelled'. */
 export function isAbort(signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true;
+}
+
+/**
+ * S48.7: per-request SDK options. Chat and agent turns are retried by the chat's visible backoff (429 / 503, at most
+ * three times, with a countdown), so the SDK must not retry them on its own first; inline and edit keep its retries.
+ */
+export function requestOptions(request: { readonly purpose: string; readonly signal?: AbortSignal | undefined }): {
+  signal?: AbortSignal;
+  maxRetries?: number;
+} {
+  return {
+    ...(request.signal ? { signal: request.signal } : {}),
+    ...(request.purpose === 'chat' || request.purpose === 'agent' ? { maxRetries: 0 } : {}),
+  };
 }

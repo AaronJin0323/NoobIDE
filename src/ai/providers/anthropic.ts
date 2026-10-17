@@ -11,6 +11,8 @@ import type { AiModelInfo } from '../../shared/ipc/ai-contract';
 import { guardedFetch, PROVIDER_ORIGINS, SILENT_LOGGER } from './egress';
 import {
   ProviderError,
+  requestOptions,
+  retryAfterOf,
   toolInputProblem,
   type AiProvider,
   type ProviderEvent,
@@ -45,7 +47,7 @@ export interface AnthropicClientLike {
     readonly messages: {
       stream(
         params: Anthropic.Beta.Messages.MessageCreateParamsStreaming | Record<string, unknown>,
-        options?: { signal?: AbortSignal },
+        options?: { signal?: AbortSignal; maxRetries?: number },
       ): AsyncIterable<BetaRawMessageStreamEvent> & { finalMessage(): Promise<BetaMessage> };
     };
   };
@@ -83,7 +85,8 @@ export function createAnthropicClient(apiKey: string, transport?: typeof fetch):
 }
 
 export function createAnthropicProvider(apiKey: string, options: AnthropicProviderOptions = {}): AiProvider {
-  // maxRetries: the SDK retries 408/409/429/5xx and connection errors twice by default; keep that.
+  // maxRetries: the SDK retries 408/409/429/5xx and connection errors twice by default; kept for inline and edit.
+  // Chat and agent turns use maxRetries 0: the chat's own backoff (S48.7) retries them visibly, at most three times.
   const client: AnthropicClientLike =
     options.client ?? (createAnthropicClient(apiKey, options.fetch) as unknown as AnthropicClientLike);
 
@@ -203,7 +206,7 @@ async function* streamTurn(client: AnthropicClientLike, request: ProviderStreamR
 
   let final: BetaMessage;
   try {
-    const stream = client.beta.messages.stream(params, request.signal ? { signal: request.signal } : {});
+    const stream = client.beta.messages.stream(params, requestOptions(request));
     // Iteration and the final read are wrapped together: with eager input streaming, unparseable tool JSON rejects
     // whichever of them is awaited when the block closes.
     for await (const event of stream) {
@@ -262,12 +265,14 @@ export function mapAnthropicError(e: unknown, signal?: AbortSignal): ProviderErr
   if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
     return new ProviderError('unauthorized', `anthropic ${e.status}`, e.status);
   }
-  if (e instanceof Anthropic.RateLimitError) return new ProviderError('rate-limited', 'anthropic 429', 429);
+  if (e instanceof Anthropic.RateLimitError) {
+    return new ProviderError('rate-limited', 'anthropic 429', 429, retryAfterOf(e.headers));
+  }
   if (e instanceof Anthropic.NotFoundError) return new ProviderError('model-not-found', 'anthropic 404', 404);
   if (e instanceof Anthropic.APIConnectionError) return new ProviderError('offline', 'anthropic connection failed');
   if (e instanceof Anthropic.APIError) {
     if (e.status === 413) return new ProviderError('context-too-large', 'anthropic 413', 413);
-    return new ProviderError('provider-error', `anthropic ${e.status ?? 'error'}`, e.status);
+    return new ProviderError('provider-error', `anthropic ${e.status ?? 'error'}`, e.status, retryAfterOf(e.headers));
   }
   // Not an API error: the SDK could not parse a streamed tool input (eager input streaming). Re-issue the turn.
   if (e instanceof Anthropic.AnthropicError || e instanceof SyntaxError) {

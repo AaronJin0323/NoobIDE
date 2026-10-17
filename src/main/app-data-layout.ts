@@ -31,6 +31,8 @@ export const APP_DATA_ENTRIES = {
   aiChats: 'ai-chats',
   /** AI token use per day and provider, and the optional daily budget (S39.2). Token counts only. */
   aiUsage: 'ai-usage.json',
+  /** Unsent chat drafts: one file per project (hash of its real root), one for chats without a project (S48.7). */
+  aiDrafts: 'ai-drafts',
   /** Preview annotations: one file per project (hash of its real root) (S41.4, decision 0030). */
   annotations: 'annotations',
   /** Unsaved-edit journal for crash recovery (S12): one record per dirty buffer. */

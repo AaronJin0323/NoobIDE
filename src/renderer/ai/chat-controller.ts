@@ -11,6 +11,7 @@
  */
 import type { AiApi, AiChatMessage, AiContextItem, AiEvent, AiRequest } from '../../shared/ipc/ai-contract';
 import type { AnnotationContext } from '../../shared/ipc/annotations-contract';
+import { planRetry } from './backoff';
 import {
   INITIAL_CHAT_STATE,
   activeConversation,
@@ -22,6 +23,7 @@ import {
   runningTurn,
   type ChatAction,
   type ChatChip,
+  type ChatDraft,
   type ChatMode,
   type ChatState,
   type ChatTurn,
@@ -95,6 +97,21 @@ export const defaultRequestBuilder: RequestBuilder = (input) => {
 
 const MAX_EARLY_EVENTS = 2000;
 
+/** S48.7: time and chance for the backoff (tests pass a fake clock). */
+export interface ChatClock {
+  now(): number;
+  random(): number;
+  setTimeout(run: () => void, ms: number): unknown;
+  clearTimeout(handle: unknown): void;
+}
+
+export const REAL_CLOCK: ChatClock = {
+  now: () => Date.now(),
+  random: () => Math.random(),
+  setTimeout: (run, ms) => setTimeout(run, ms),
+  clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+};
+
 export class AiChatController {
   private state: ChatState = INITIAL_CHAT_STATE;
   private readonly listeners = new Set<() => void>();
@@ -105,11 +122,14 @@ export class AiChatController {
   /** Turns whose Stop was pressed before their request id arrived. */
   private readonly stopOnAssign = new Set<string>();
   private statusSeq = 0;
+  /** S48.7: automatic retries waiting, per turn. */
+  private readonly retryTimers = new Map<string, unknown>();
 
   constructor(
     private readonly api: AiApi | undefined,
     private host: AiChatHost,
     private buildRequest: RequestBuilder = defaultRequestBuilder,
+    private readonly clock: ChatClock = REAL_CLOCK,
   ) {
     if (!api) this.state = { ...this.state, availability: { kind: 'unavailable' } };
   }
@@ -142,6 +162,8 @@ export class AiChatController {
   dispose(): void {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    for (const timer of this.retryTimers.values()) this.clock.clearTimeout(timer);
+    this.retryTimers.clear();
   }
 
   private nextId(prefix: string): string {
@@ -236,6 +258,11 @@ export class AiChatController {
     this.addChip({ kind: 'file', relPath: file });
     return true;
   }
+  /** S48.4: an accepted @file mention in the composer: a file chip (the same chip as "Add current file"). */
+  addFile(relPath: string): void {
+    if (!this.host.projectId()) return;
+    this.addChip({ kind: 'file', relPath });
+  }
   /** "Add selected code": false (with a notice) when nothing is selected. */
   addSelection(): boolean {
     const selection = this.host.selection();
@@ -286,6 +313,14 @@ export class AiChatController {
   }
   selectConversation(id: string): void {
     this.dispatch({ type: 'selectConversation', projectKey: this.key, id });
+  }
+  /** S48.7: a draft kept in app data comes back (draft-sync.ts); it never replaces what was typed meanwhile. */
+  restoreDraft(projectId: string | null, conversationId: string | null, draft: ChatDraft): void {
+    this.dispatch({ type: 'restoreDraft', projectKey: projectKeyOf(projectId), conversationId, draft });
+  }
+  /** A short status line under the chips (by message key). */
+  showNotice(notice: string): void {
+    this.dispatch({ type: 'notice', notice });
   }
   /** S39.1: shows a reopened saved chat (chat-history.ts builds it). */
   restoreConversation(conversation: Conversation): void {
@@ -385,7 +420,93 @@ export class AiChatController {
       parts: [],
     };
     const conversationId = conversation?.id ?? this.nextId('conv');
+    for (const earlier of conversation?.turns ?? []) this.cancelRetryTimer(earlier.id);
     this.dispatch({ type: 'turnStarted', projectKey: key, conversationId, turn });
+    await this.run(turn.id, request, key, projectId);
+  }
+
+  /**
+   * S48.7 Retry: asks a failed question again in place, with exactly what it was sent with. Only the last question of
+   * its conversation, while nothing else there is running, and never one that proposed changes (those may have been
+   * applied). `automatic` is the backoff's own retry; a Retry by hand cancels a waiting one.
+   */
+  async retry(turnId: string, automatic = false): Promise<void> {
+    this.cancelRetryTimer(turnId);
+    if (!this.api) return;
+    const conversation = this.state.conversations.find((c) => c.turns.at(-1)?.id === turnId);
+    const turn = conversation?.turns.at(-1);
+    if (!conversation || !turn || !canRetry(turn)) return;
+    const key = conversation.projectKey;
+    const projectId = key === '' ? null : key;
+    // A project that is no longer open cannot be asked about.
+    if (projectId !== null && this.host.projectId() !== projectId) return this.giveUp(turn);
+    await this.refreshStatus();
+    const availability = this.state.availability;
+    if (availability.kind !== 'ready') return this.giveUp(turn);
+    if (projectId && !availability.consent) {
+      if (this.key === key) this.dispatch({ type: 'consent', projectKey: key });
+      return this.giveUp(turn);
+    }
+    const current = this.state.conversations.find((c) => c.id === conversation.id);
+    if (current?.turns.at(-1)?.id !== turnId || current.turns.at(-1)?.status !== 'error') return;
+    const request = this.buildRequest({
+      kind: turn.kind,
+      projectId,
+      prompt: turn.prompt,
+      mode: turn.mode,
+      history: historyOf(current),
+      context: turn.context,
+      locale: this.host.locale(),
+    });
+    if (!request) return;
+    this.dispatch({ type: 'retryStarted', turnId, automatic });
+    await this.run(turnId, request, key, projectId);
+  }
+
+  /** The waiting automatic retry is dropped; the manual Retry stays. */
+  private giveUp(turn: ChatTurn): void {
+    if (turn.retry?.dueAt)
+      this.dispatch({ type: 'retryScheduled', turnId: turn.id, retry: { ...turn.retry, dueAt: null } });
+  }
+
+  private cancelRetryTimer(turnId: string): void {
+    const timer = this.retryTimers.get(turnId);
+    if (timer === undefined) return;
+    this.clock.clearTimeout(timer);
+    this.retryTimers.delete(turnId);
+  }
+
+  /** S48.7: after a failure, a 429 or 503 waits and retries by itself (backoff.ts); anything else waits for Retry. */
+  private afterFailure(turnId: string): void {
+    const turn = this.state.conversations.flatMap((c) => c.turns).find((t) => t.id === turnId);
+    if (!turn || turn.status !== 'error' || !turn.error || !canRetry(turn)) return;
+    const automatic = turn.retry?.automatic ?? 0;
+    const plan = planRetry(turn.error, automatic, this.clock.random());
+    if (plan.kind === 'manual') {
+      if (plan.cause !== null) {
+        this.dispatch({ type: 'retryScheduled', turnId, retry: { automatic, dueAt: null, cause: plan.cause } });
+      }
+      return;
+    }
+    this.dispatch({
+      type: 'retryScheduled',
+      turnId,
+      retry: { automatic, dueAt: this.clock.now() + plan.delayMs, cause: plan.cause },
+    });
+    this.cancelRetryTimer(turnId);
+    this.retryTimers.set(
+      turnId,
+      this.clock.setTimeout(() => {
+        this.retryTimers.delete(turnId);
+        void this.retry(turnId, true);
+      }, plan.delayMs),
+    );
+  }
+
+  /** Starts the request of a turn already in the conversation ('sending'); the answer streams in afterwards. */
+  private async run(turnId: string, request: AiRequest, key: string, projectId: string | null): Promise<void> {
+    const turn = { id: turnId };
+    if (!this.api) return;
     let result: Awaited<ReturnType<AiApi['request']>>;
     try {
       result = await this.api.request(request);
@@ -399,13 +520,14 @@ export class AiChatController {
         void this.refreshStatus();
       }
       this.dropEarly();
+      this.afterFailure(turn.id);
       return;
     }
     const { requestId } = result.value;
     this.dispatch({ type: 'requestAssigned', turnId: turn.id, requestId });
     const early = this.early.filter((event) => event.requestId === requestId);
     this.early = this.early.filter((event) => event.requestId !== requestId);
-    for (const event of early) this.dispatch({ type: 'event', event });
+    for (const event of early) this.handleEvent(event);
     this.dropEarly();
     if (this.stopOnAssign.delete(turn.id)) void this.stop();
   }
@@ -444,14 +566,26 @@ export class AiChatController {
     if (!this.sending()) this.early = [];
   }
 
+  private handleEvent(event: AiEvent): void {
+    this.dispatch({ type: 'event', event });
+    if (event.type !== 'error') return;
+    const turn = this.state.conversations.flatMap((c) => c.turns).find((t) => t.requestId === event.requestId);
+    if (turn) this.afterFailure(turn.id);
+  }
+
   private onEvent(event: AiEvent): void {
     if (this.knownRequest(event.requestId)) {
-      this.dispatch({ type: 'event', event });
+      this.handleEvent(event);
     } else if (this.sending() && this.early.length < MAX_EARLY_EVENTS) {
       this.early.push(event);
     }
     // Otherwise: another feature's request (inline completion, edit): not ours.
   }
+}
+
+/** S48.7: a failed question can be asked again unless it proposed changes (they may have been applied). */
+export function canRetry(turn: ChatTurn): boolean {
+  return turn.status === 'error' && !turn.parts.some((part) => part.kind === 'proposal');
 }
 
 export function selectionItem(selection: SelectionContext): AiContextItem {

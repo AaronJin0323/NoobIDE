@@ -111,7 +111,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
     terminal = true; // before emitting: a throwing listener cannot cause a second terminal event
     options.emit(event);
   };
-  const fail = (code: AiErrorCode) => finish({ requestId, type: 'error', code, message: errorMessage(locale, code) });
+  const fail = (code: AiErrorCode, http?: { status?: number; retryAfterSeconds?: number }) =>
+    finish({ requestId, type: 'error', code, message: errorMessage(locale, code), ...http });
   const usage = { inputTokens: 0, outputTokens: 0 };
   let workedMs = 0;
   let textEmitted = false;
@@ -272,7 +273,12 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<void> {
   } catch (e) {
     if (signal.aborted) return fail('cancelled');
     if (e instanceof BudgetExhausted) return fail('budget-exhausted');
-    if (e instanceof ModelPortError) return fail(e.code);
+    if (e instanceof ModelPortError) {
+      return fail(e.code, {
+        ...(e.status !== undefined ? { status: e.status } : {}),
+        ...(e.retryAfterSeconds !== undefined ? { retryAfterSeconds: e.retryAfterSeconds } : {}),
+      });
+    }
     return fail('provider-error');
   } finally {
     // Guarantees exactly one terminal event even if a branch above returned without one.

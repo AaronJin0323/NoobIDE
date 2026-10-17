@@ -111,6 +111,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       problems: Object.keys(((w.noobide as { problems?: object } | undefined)?.problems ?? {}) as object),
       ai: Object.keys(((w.noobide as { ai?: object } | undefined)?.ai ?? {}) as object),
       aiHistory: Object.keys(((w.noobide as { aiHistory?: object } | undefined)?.aiHistory ?? {}) as object),
+      aiDrafts: Object.keys(((w.noobide as { aiDrafts?: object } | undefined)?.aiDrafts ?? {}) as object),
       annotations: Object.keys(((w.noobide as { annotations?: object } | undefined)?.annotations ?? {}) as object),
       search: Object.keys(((w.noobide as { search?: object } | undefined)?.search ?? {}) as object),
       checkpoints: Object.keys(((w.noobide as { checkpoints?: object } | undefined)?.checkpoints ?? {}) as object),
@@ -145,6 +146,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'problems', // S16.2: runtime problems of the preview (read-only list + clear resolved)
       'ai', // S31: AI assistant (decision 0025); the key is write-only, never returned
       'aiHistory', // S39: saved chats (app data, by project id) and token usage
+      'aiDrafts', // S48.7: unsent chat drafts per conversation (app data, by project id)
       'annotations', // S41: preview annotations (decision 0030); targets stay in main, saved by pick id
       'search', // S51.2: project search for find / replace in files (validated in main, one search per window)
       'checkpoints', // S56: project checkpoints (app data, decision 0041); restores go through the save pipeline
@@ -244,6 +246,8 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'usage',
       'setDailyBudget',
     ],
+    // S48.7: unsent chat drafts (contract src/shared/ipc/ai-draft-contract.ts).
+    aiDrafts: ['getDrafts', 'saveDraft'],
     // S41: preview annotations (contract src/shared/ipc/annotations-contract.ts).
     annotations: [
       'list',

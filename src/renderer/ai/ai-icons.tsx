@@ -51,6 +51,29 @@ export const JumpLatestIcon = () => (
   </IconBase>
 );
 
+/** S48.6 Show more / less: a chevron (turned by CSS while expanded). */
+export const MoreIcon = () => (
+  <IconBase size={14}>
+    <path d="M4 6l4 4 4-4" />
+  </IconBase>
+);
+
+/** S48.6 Copy a message: two overlapping sheets. */
+export const CopyIcon = () => (
+  <IconBase size={14}>
+    <rect x={5.5} y={5.5} width={8} height={8} rx={1.5} />
+    <path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5" />
+  </IconBase>
+);
+
+/** S48.6 Ask again / S48.7 Retry: a circular arrow. */
+export const ReaskIcon = () => (
+  <IconBase size={14}>
+    <path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2" />
+    <path d="M12 2.5v2.8H9.2" />
+  </IconBase>
+);
+
 /**
  * S48.8: one shape per proposal state (proposal-tone.ts), so a change's state never depends on its colour: a ring
  * with a centre (waiting for you), a small dot (applying), a check, a warning triangle, a cross, a dashed circle.

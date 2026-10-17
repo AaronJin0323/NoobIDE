@@ -52,7 +52,13 @@ export type FakeStep =
   | { readonly type: 'text'; readonly text: string }
   | { readonly type: 'delay'; readonly ms: number }
   | { readonly type: 'tool-call'; readonly name: string; readonly input: unknown; readonly id?: string }
-  | { readonly type: 'error'; readonly code: ProviderErrorCode };
+  /** S48.7: `status` (e.g. 503) and `retryAfter` (seconds) reproduce a provider's HTTP failure. */
+  | {
+      readonly type: 'error';
+      readonly code: ProviderErrorCode;
+      readonly status?: number;
+      readonly retryAfter?: number;
+    };
 
 export interface FakeTurn {
   readonly match?: string;
@@ -113,7 +119,16 @@ function parseStep(raw: unknown): FakeStep | null {
       ...(typeof raw.id === 'string' ? { id: raw.id } : {}),
     };
   }
-  if (raw.type === 'error' && isCode(raw.code)) return { type: 'error', code: raw.code };
+  if (raw.type === 'error' && isCode(raw.code)) {
+    const status = Number.isInteger(raw.status) && (raw.status as number) >= 400 && (raw.status as number) < 600;
+    const retryAfter = typeof raw.retryAfter === 'number' && raw.retryAfter >= 0 && raw.retryAfter <= 3600;
+    return {
+      type: 'error',
+      code: raw.code,
+      ...(status ? { status: raw.status as number } : {}),
+      ...(retryAfter ? { retryAfter: raw.retryAfter as number } : {}),
+    };
+  }
   return null;
 }
 
@@ -322,8 +337,9 @@ export function createFakeProviders(script: FakeScript): FakeProviderHub {
               text += step.text;
               yield { type: 'text', text: step.text };
             } else if (step.type === 'delay') await sleep(step.ms, request.signal);
-            else if (step.type === 'error') throw new ProviderError(step.code, `fake ${step.code}`);
-            else {
+            else if (step.type === 'error') {
+              throw new ProviderError(step.code, `fake ${step.status ?? step.code}`, step.status, step.retryAfter);
+            } else {
               callCounter += 1;
               calls.push({ id: step.id ?? `fake-call-${callCounter}`, name: step.name, input: step.input });
             }

@@ -8,16 +8,20 @@ import type { CommandId } from '../../shared/commands';
 import type { MessageKey } from '../i18n/index';
 import { PALETTE_RECENTS_MAX } from '../../shared/settings';
 
-export interface PaletteEntry {
-  readonly id: CommandId;
+/** What the matcher reads of an entry (S48.4: the chat's @file list matches files with it too). */
+export interface MatchEntry {
   /** In the interface language. */
   readonly label: string;
   /** The same command in the other interface language. */
   readonly otherLabel: string;
-  /** `⌘S` / `Ctrl+S`, or null. */
-  readonly shortcut: string | null;
   /** Other words people use for the command, in both languages ("create" for New project). */
   readonly keywords?: readonly string[];
+}
+
+export interface PaletteEntry extends MatchEntry {
+  readonly id: CommandId;
+  /** `⌘S` / `Ctrl+S`, or null. */
+  readonly shortcut: string | null;
 }
 
 /**
@@ -44,8 +48,8 @@ function keywordScore(query: string, keywords: readonly string[] | undefined): n
   return best;
 }
 
-export interface PaletteMatch {
-  readonly entry: PaletteEntry;
+export interface PaletteMatch<E extends MatchEntry = PaletteEntry> {
+  readonly entry: E;
   /** Matched only through the other language's label: the palette shows that label as a hint. */
   readonly viaOther: boolean;
 }
@@ -88,16 +92,17 @@ function score(query: string, label: string): number | null {
 
 /**
  * The entries matching `query`, best first; among equally good matches the more recently run command comes first
- * (S49.5), then the registry order. Empty query: every entry, the recently run ones first (newest first).
+ * (S49.5), then the registry order. Empty query: every entry, the recently run ones first (newest first). Generic
+ * over the entry (S48.4: the chat's @file list ranks files with it too; entries without an `id` have no recency).
  */
-export function searchPalette(
-  entries: readonly PaletteEntry[],
+export function searchPalette<E extends MatchEntry & { readonly id?: string }>(
+  entries: readonly E[],
   query: string,
   recents: readonly string[] = [],
-): PaletteMatch[] {
+): PaletteMatch<E>[] {
   const q = normalize(query);
-  const recency = (entry: PaletteEntry) => {
-    const at = recents.indexOf(entry.id);
+  const recency = (entry: E) => {
+    const at = entry.id === undefined ? -1 : recents.indexOf(entry.id);
     return at === -1 ? Infinity : at;
   };
   if (q === '') {
@@ -106,7 +111,7 @@ export function searchPalette(
       .sort((a, b) => a.recent - b.recent || a.order - b.order)
       .map(({ entry }) => ({ entry, viaOther: false }));
   }
-  const ranked: { match: PaletteMatch; rank: number; order: number }[] = [];
+  const ranked: { match: PaletteMatch<E>; rank: number; order: number }[] = [];
   entries.forEach((entry, order) => {
     const own = score(q, entry.label);
     const other = score(q, entry.otherLabel);

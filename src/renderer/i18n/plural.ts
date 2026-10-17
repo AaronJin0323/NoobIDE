@@ -36,6 +36,8 @@ export const ONE_FORMS: Partial<Record<'zh-CN' | 'en', Partial<Record<MessageKey
     'ai.chat.proposal.unsupported':
       'The AI wants to change {n} file, but this version cannot show the changes here. No file was changed.',
     'ai.chat.jumpPending': '{n} new message',
+    'ai.backoff.minutes': '{n} minute', // S48.7
+    'ai.backoff.seconds': '{n} second',
     'preview.console.jumpPending': '{n} new line', // S49.4
     'preview.console.copied': 'Copied {n} line', // S49.4
     'preview.console.copyAll.title': 'Copy the {n} line shown now (after the filter and the search)', // S49.4
