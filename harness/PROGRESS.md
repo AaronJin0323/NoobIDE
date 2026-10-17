@@ -68,6 +68,7 @@ hint the first time Emmet or linked editing fires.
 
 **Next up:** Owner decisions in review §6 (approve M19/S51–S57; start v0.2 with S51/S52 or wait for H.6). Otherwise
 M7 release items remain the current blocked front.
+
 ## Session 34 (side session) — 2026-10-17 — Hosted CI flakes on main and PR #15 (S06.6)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/laughing-brattain-d2dcf0`.
