@@ -10,6 +10,8 @@ import { RovingGroup } from '../workbench/RovingGroup'; // S49.2
 import type { ApplyFailure } from './agent-apply';
 import { saveErrorKey } from '../workbench/file-op-messages';
 import type { ChangeView } from './agent-decisions';
+import { ProposalStateIcon } from './ai-icons';
+import { changedLines, primaryIndex, toneOf, type ProposalState } from './proposal-tone';
 
 /** What a change shows: its decision state, or `expired` when the turn ended before a decision. */
 export type ReviewView = ChangeView | { readonly state: 'expired'; readonly failure?: undefined };
@@ -70,6 +72,8 @@ export function ProposalReview(props: ProposalReviewProps) {
   const { t } = useI18n();
   const baseId = useId();
   const pending = views.filter((v) => v.state === 'pending').length;
+  // S48.8: the card has one primary action — the only pending change's Accept, or Accept all for several.
+  const primary = primaryIndex(views);
   return (
     <section
       className="agent-proposal"
@@ -82,12 +86,14 @@ export function ProposalReview(props: ProposalReviewProps) {
       <ol className="agent-changes">
         {changes.map((change, index) => {
           const view = views[index] ?? { state: 'pending' };
+          const { tone, icon } = toneOf(view.state);
           return (
             <li
               key={index}
               className="agent-change"
               data-testid="agent-change"
               data-state={view.state}
+              data-tone={tone}
               data-path={change.relPath}
             >
               <div className="agent-change-head">
@@ -108,19 +114,20 @@ export function ProposalReview(props: ProposalReviewProps) {
                     )}
                   </span>
                 )}
-                <span className="agent-change-state" role="status" data-testid="agent-change-state">
-                  {view.state === 'failed' && <WarningIcon />}
+                <span className="agent-change-state" role="status" data-testid="agent-change-state" data-tone={tone}>
+                  <ProposalStateIcon icon={icon} />
                   {view.state === 'failed'
                     ? fill(t(STATE_KEY.failed), { reason: failureText(t, view.failure) })
                     : t(STATE_KEY[view.state])}
                 </span>
               </div>
               <ChangeBody change={change} />
+              <ChangeDetails change={change} view={view} />
               {view.state === 'pending' && (
                 <RovingGroup className="agent-change-actions">
                   <button
                     type="button"
-                    className="primary-button"
+                    className={primary === index ? 'primary-button' : 'secondary-button'}
                     data-testid="agent-accept"
                     aria-describedby={`${baseId}-${index}`}
                     disabled={busy}
@@ -148,7 +155,7 @@ export function ProposalReview(props: ProposalReviewProps) {
         <RovingGroup className="agent-proposal-actions">
           <button
             type="button"
-            className="primary-button"
+            className={primary === 'all' ? 'primary-button' : 'secondary-button'}
             data-testid="agent-accept-all"
             disabled={busy}
             onClick={props.onAcceptAll}
@@ -188,12 +195,8 @@ function ChangeBody({ change }: { change: AiFileChange }) {
   if (change.kind === 'rename') return <p className="dialog-hint">{t('agent.rename.note')}</p>;
   if (change.kind === 'delete') return <p className="dialog-hint">{t('agent.delete.note')}</p>;
   const original = change.kind === 'edit' ? change.before : '';
-  const counts = diffLines(original, change.after);
   return (
     <>
-      <p className="dialog-hint agent-diff-summary" data-testid="agent-diff-summary">
-        {`${fill(t('agent.diff.added', counts.added), { n: counts.added })} · ${fill(t('agent.diff.removed', counts.removed), { n: counts.removed })}`}
-      </p>
       <Suspense fallback={<p className="dialog-hint">{t('agent.diff.loading')}</p>}>
         <ProposalDiff
           relPath={change.relPath}
@@ -203,5 +206,75 @@ function ChangeBody({ change }: { change: AiFileChange }) {
         />
       </Suspense>
     </>
+  );
+}
+
+const RESULT_KEY: Record<ProposalState, MessageKey> = {
+  pending: 'agent.result.pending',
+  applying: 'agent.result.applying',
+  applied: 'agent.result.applied',
+  failed: 'agent.result.failed',
+  rejected: 'agent.result.rejected',
+  expired: 'agent.result.expired',
+};
+
+const KIND_KEY: Record<AiFileChange['kind'], MessageKey> = {
+  edit: 'agent.kind.edit',
+  create: 'agent.kind.create',
+  rename: 'agent.kind.rename',
+  delete: 'agent.kind.delete',
+};
+
+/**
+ * S48.8: the change's structured input (file, action, lines) and its result (lines changed, save state), each a
+ * native disclosure that starts closed: the card leads with the state and the diff, the facts are one click away.
+ */
+function ChangeDetails({ change, view }: { change: AiFileChange; view: ReviewView }) {
+  const { t } = useI18n();
+  const text = change.kind === 'edit' || change.kind === 'create' ? change.after : null;
+  const original = change.kind === 'edit' ? change.before : '';
+  const range = text === null ? null : changedLines(original, text);
+  const where =
+    range === null
+      ? t('agent.details.wholeFile')
+      : range.from === range.to
+        ? fill(t('agent.details.line'), { from: range.from })
+        : fill(t('agent.details.lines'), { from: range.from, to: range.to });
+  const counts = text === null ? null : diffLines(original, text);
+  return (
+    <div className="agent-change-details">
+      <details data-testid="agent-change-input">
+        <summary>{t('agent.details.input')}</summary>
+        <dl>
+          <dt>{t('agent.details.file')}</dt>
+          <dd className="agent-change-path">
+            {change.kind === 'rename' ? `${change.relPath} → ${change.to}` : change.relPath}
+          </dd>
+          <dt>{t('agent.details.action')}</dt>
+          <dd>{t(KIND_KEY[change.kind])}</dd>
+          <dt>{t('agent.details.where')}</dt>
+          <dd>{where}</dd>
+        </dl>
+      </details>
+      <details data-testid="agent-change-result">
+        <summary>{t('agent.details.result')}</summary>
+        <dl>
+          {counts && (
+            <>
+              <dt>{t('agent.details.changed')}</dt>
+              <dd data-testid="agent-diff-summary">
+                {`${fill(t('agent.diff.added', counts.added), { n: counts.added })} · ${fill(t('agent.diff.removed', counts.removed), { n: counts.removed })}`}
+              </dd>
+            </>
+          )}
+          <dt>{t('agent.details.saved')}</dt>
+          <dd>
+            {view.state === 'failed'
+              ? fill(t(RESULT_KEY.failed), { reason: failureText(t, view.failure) })
+              : t(RESULT_KEY[view.state])}
+          </dd>
+        </dl>
+      </details>
+    </div>
   );
 }
