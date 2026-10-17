@@ -11,5 +11,8 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [['list'], ['json', { outputFile: '../../reports/e2e/results.json' }]],
+  // S58.2: a failed test leaves its trace and screenshot in outputDir, which CI uploads on failure
+  // (e2e-results-<target>-<shard>). retries stay 0: a flaky test is a bug (docs/testing.md).
+  use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
   outputDir: '../../test-results/e2e',
 });
