@@ -43,6 +43,12 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
   short window locally with `NOOBIDE_E2E_WINDOW=1024x660 npm run test:e2e`.
 - Platform-specific tests use `describe.runIf(...)` with the helpers from `src/platform`, and the reason is written
   in the test name.
+- Editor shortcuts that differ by platform come from `tests/e2e/keys.ts`: `DOC_START` / `DOC_END` for the document
+  start and end (Monaco binds Ctrl+Home / Ctrl+End on Windows and Linux but ⌘↑ / ⌘↓ on macOS, where
+  `ControlOrMeta+Home` moves nothing inside the editor and the spec passes only while the cursor already sits on
+  line 1) and `FIND_REPLACE` for find and replace (⌘H hides the app). `tests/integration/e2e-keys.test.ts` fails on
+  any literal `ControlOrMeta`/`Control`/`Meta` + `Home`/`End` chord under `tests/e2e` outside `keys.ts`. A plain
+  `Home` / `End` / `Shift+Home` on one line, or in an ordinary input or list, is the same key everywhere and stays.
 - A flaky test is a bug: fix it or quarantine it with a linked feature, never delete it silently.
 - Hosted runners (S06.5, S06.6) have few cores and deschedule any process at any time, for seconds. A test must not
   assume that a fixed delay, a page's own timer or a "load then click" sequence orders events the way it does on a

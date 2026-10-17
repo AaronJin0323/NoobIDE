@@ -3,6 +3,55 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 44 (side session) — 2026-10-18 — S58.7 document start/end keys guarded in the E2E suite
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/clever-ishizaka-83a7cd` cut
+from `main` @ `65edc2a`. Started by the top session after PR #23's macOS failures (run 39033368439): Playwright's
+`ControlOrMeta+Home` / `ControlOrMeta+End` moves nothing inside Monaco on macOS (it binds ⌘↑ / ⌘↓, never ⌘Home /
+⌘End), so a spec pressing the literal passes there only while its cursor already sits on line 1.
+
+**Done**
+
+- S58.7 — Document start/end keys in E2E specs go through `keys.ts`, with a guard.
+  - **The sweep was already on main.** Commit `0df27f8` ("e2e: express platform-neutral requirements on macOS",
+    merged through `73a27e8`) had replaced the chord in every spec PR #23's note lists (ai-inline, encodings,
+    external-change, file-tree, files, language-workbench, preview-isolation, preview-manager, problems, recovery, save,
+    smart-editing, smoke, tabs) and in `project.ts` with `DOC_START` / `DOC_END`; at `65edc2a` the literal
+    survives only in the doc comment of `tests/e2e/keys.ts`. No spec needed a change, and no press of the chord aimed
+    at an ordinary input or list exists: the plain `Home` / `End` / `Shift+Home` presses (line start/end, the
+    rename input, the file-tree list) are the same key on every platform and stay as they are.
+  - **Guard.** `tests/integration/e2e-keys.test.ts` (new) walks every `.ts` file under `tests/e2e` (specs and
+    helpers) and fails, naming file and line, on any literal `ControlOrMeta` / `Control` / `Meta` + `Home` / `End`
+    chord outside `keys.ts` — the two chords the task names and the two platform-specific spellings that would be the
+    same mistake. A unit case proves the detector on a sample spec (plain `Home`, `input.press('End')` and
+    `press(DOC_START)` are not hits); a third case pins `keys.ts` to the chords Monaco binds on the running platform.
+  - **Rule.** `docs/testing.md` gains a conventions bullet next to the window-size and platform rules: shortcuts that
+    differ by platform come from `keys.ts`, the guard enforces it, plain `Home` / `End` stay.
+  - **Backlog.** S58.7 added to S58 (M20) with the four criteria above; it owns the guard and the docs bullet.
+- Verify was red on `main` @ `65edc2a`: the S06.6 merge (`1d10ca2`) added three `panelView` expectations in
+  `walkthrough-model.test.ts` after S47.6 (`2f9aa32`) had given the step view a `compact` field. Test-only fix in
+  its own commit (`3cdb443`); the model is unchanged. The PR #23 and PR #26 notes say the top session is fixing the
+  same two lines on main — expect an identical-content merge, no conflict.
+
+**Evidence:** `tests/integration/e2e-keys.test.ts` (3 tests: detector on a sample spec, keys.ts shape, 70 files under
+tests/e2e scanned with zero hits); `npm run verify` green @ the S58.7 commit; the fourteen swept specs on Windows with
+`npm run test:e2e -- tests/e2e/ai-inline.spec.ts … tests/e2e/tabs.spec.ts`: 123 passed, 0 failed, 4.5 min (packaged app).
+
+**Decisions:** The guard forbids `Control+Home` / `Meta+Home` (and End) as well as the `ControlOrMeta` form: a
+spec that spells the Windows chord out passes on Windows and fails on macOS the same way. keys.ts stays the single
+exception rather than an allow-list comment per spec. No ADR: a test convention, recorded in docs/testing.md.
+
+**Problems / risks:** None in the sweep. The hosted macOS run is the real proof of the rule; this session ran the
+swept specs on Windows only (there the chord is `Control+Home`, so a Windows pass does not by itself prove the macOS
+branch of keys.ts — the PR #23 fix did, in run 39033368439's successors).
+
+**Owner action needed:** None.
+
+**Next up**
+
+1. Merge this PR after PR #23; then the top session's own walkthrough-model fix on main is redundant.
+2. S58.4 (Windows E2E intermittents) and S58.5 (owner decision) remain open in S58.
+
 ## Session 32 (side session) — 2026-10-16 — S47.5 one status row, S47.6 compact walkthrough
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/s47-5-6-frame-93b3b8` cut
