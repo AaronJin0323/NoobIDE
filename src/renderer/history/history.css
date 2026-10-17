@@ -109,10 +109,6 @@
 .history-restore .primary-button {
   margin-top: 0;
 }
-.history-restore .primary-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 .history-storage {
   display: flex;
   flex-direction: column;

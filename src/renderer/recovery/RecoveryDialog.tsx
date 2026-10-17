@@ -11,6 +11,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { WarningIcon } from '../workbench/icons';
 import { Sheet, sheetButtonClass } from '../workbench/Sheet';
+import { Notice as NoticeView } from '../workbench/Notice';
 import { rendererPlatform } from '../workbench/file-op-messages';
 import { protectedFolderKey } from '../../platform/labels';
 import { fill, formatBytes } from './format';
@@ -78,11 +79,16 @@ interface Notice {
 export function JournalHealthNotice({ health }: { health: JournalHealth }) {
   const { t } = useI18n();
   if (health === null) return null;
+  // S50.2: on the shared Notice; it stays while the journal is failing (no dismiss, no timer).
   return (
-    <p className="inline-alert save-alert recovery-health" role="alert" data-testid="journal-health">
-      <WarningIcon size={16} />
-      {t('recovery.journalFailed')}
-    </p>
+    <NoticeView
+      tone="danger"
+      role="alert"
+      testId="journal-health"
+      className="recovery-health"
+      title={t('notice.journal.title')}
+      body={t('notice.journal.body')}
+    />
   );
 }
 

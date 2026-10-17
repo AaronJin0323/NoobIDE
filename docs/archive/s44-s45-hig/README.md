@@ -14,3 +14,16 @@ must always be visible"):
 - `PreviewMoreMenu.tsx` puts Annotate inside the ⋯ More menu and hides the annotations strip until an annotation
   exists.
 - `AddContextMenu.tsx` folds the chat's three Add-context buttons into an icon-only "+" menu.
+
+## Status (S50.1, 2026-10-18)
+
+Backlog feature S45.9 is superseded by S50.1. The archived parts are accounted for as follows:
+
+- `Sheet.tsx` / `Sheet.test.ts` — rebuilt on the calm rules as `src/renderer/workbench/Sheet.tsx` (S49.1 shell, S50.1:
+  the shared `SheetFrame` the command palette also uses, the `calc(100dvh - 2 × max(32px, titlebar inset))` height
+  cap and the 2px blur plus dim of a covered sheet); tests in `sheet.test.ts` and `tests/e2e/sheets.spec.ts`.
+- `Notice.tsx` / `notice.test.ts` / `i18n/notices.ts` — rebuilt by S50.2.
+- `PreviewMoreMenu.tsx` and `AddContextMenu.tsx` — **dropped** (owner request 2026-10-16: Annotate and the
+  Add-context buttons stay visible, never inside a menu).
+- `header-fit.ts`, the per-area CSS files and the archived e2e specs — dropped; the container-query ladder of S49.6
+  and the calm stylesheet replace them.

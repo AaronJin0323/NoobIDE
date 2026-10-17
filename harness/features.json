@@ -4238,8 +4238,9 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "superseded",
+      "evidence": "",
+      "superseded_by": "S50.1"
     },
     {
       "id": "S46.1",
@@ -5261,8 +5262,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/sheet.test.ts (S50.1: palette on the shared SheetFrame, height cap token + rule, covered stack model, blur+dim rule; 1206 renderer tests) + tests/e2e/sheets.spec.ts (3: height cap at 900x520, About over Glossary blurs/dims it with Escape/Tab owned by the front sheet and focus returned, palette modal/Escape/Tab/focus) + glass/distribution/commands/a11y e2e green; S45.9 superseded"
     },
     {
       "id": "S50.2",
@@ -5275,8 +5276,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/notice.test.ts (18: anatomy order, closed disclosure, one primary last, 4 tone shapes, only danger has the danger fill; Entry success/failure, Transfer, Settings, JournalHealth rendered in zh-CN and en; title/sentence copy rules; no timers in the sources) + portability/settings/project-config/recovery/key-features-visible e2e green (KFV now asserts the notice stays until dismissed); useAutoDismiss removed"
     },
     {
       "id": "S50.3",
@@ -5289,8 +5290,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/design-rules.test.ts (S50.3 block, 6 tests: selector-aware scan — no border change on :hover/:active/[aria-selected|current|pressed|checked|expanded]/.selected and no opacity on :disabled in any stylesheet, forced-colours exempt; --ring-line/--ring-hover tokens; --shadow-overlay = var(--overlay-rim) + color-mix with --panel; dark :root --overlay-rim inner glass-stroke highlight; disabled buttons muted + ring; selected tab --raised; template card hover fill + ring, no scale) + glass/glass-visual/theme/tabs/templates/a11y/key-features-visible/sheets/js-navigation/preview-annotations/reduced-motion e2e green"
     },
     {
       "id": "S50.4",
@@ -5303,8 +5304,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/settings.test.ts (density default comfortable, persisted, validated), src/shared/commands.test.ts (density-comfortable/compact radio choice via optional compact context, help menu), src/platform/menu-template.test.ts (View menu, checked), src/renderer/design-rules.test.ts (S50.4: :root 32/32/8 and :root[data-density='compact'] 28/28/6 match theme/density.ts DENSITY_TOKENS, calm rules pass, controls/rows read the tokens) + tests/e2e/key-features-visible.spec.ts (all five sizes at both densities; compact chosen from the palette and back from the native View menu, settings.json density checked) + commands e2e green"
     },
     {
       "id": "S50.5",
@@ -5317,8 +5318,8 @@
       ],
       "verify": "manual-mac",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "src/main/window-options.test.ts (3 S50.5 tests: centred within 0.5pt in the zoomed 52px bar at every 5% step from 80% to 150%, inside the zoomed 88px reserve; recompute on zoom-changed after the zoom applies and after each load) + main.ts wiring for macOS; physical check in harness/MANUAL-CHECKS.md#S50.5 (next to S46.9)"
     },
     {
       "id": "S58.1",

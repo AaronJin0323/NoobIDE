@@ -14,6 +14,8 @@ import { I18nProvider } from '../i18n/I18nProvider';
 import { ConfirmDialog } from './ConfirmDialog';
 import { tabWrapTarget } from './focus-trap';
 import { escapeAction, Sheet, sheetButtonClass, type SheetProps } from './Sheet';
+import { createSheetStack, isCovered } from './sheet-stack';
+import { CommandPalette } from '../commands/CommandPalette';
 
 function render(props: Partial<SheetProps> & { children?: ReactNode }): string {
   return renderToStaticMarkup(
@@ -187,15 +189,23 @@ describe('every modal dialog uses the shared sheet', () => {
   const files = readdirSync(renderer, { recursive: true, encoding: 'utf8' })
     .filter((f) => f.endsWith('.tsx') && !f.includes('.test.'))
     .map((f) => path.join(renderer, f));
-  /** The command palette is a search field with a list, not a titled dialog (S40.5); it keeps its own shell. */
-  const ownShell = new Set(['commands/CommandPalette.tsx']);
-
-  it('no component other than Sheet sets aria-modal itself', () => {
+  it('no component other than Sheet sets aria-modal itself (S50.1: the palette too uses the shared frame)', () => {
     const own = files
       .filter((f) => /aria-modal/.test(readFileSync(f, 'utf8')))
       .map((f) => path.relative(renderer, f).split(path.sep).join('/'))
-      .filter((f) => f !== 'workbench/Sheet.tsx' && !ownShell.has(f));
+      .filter((f) => f !== 'workbench/Sheet.tsx');
     expect(own).toEqual([]);
+  });
+
+  it('the command palette renders on the shared sheet frame (S50.1)', () => {
+    expect(readFileSync(path.join(renderer, 'commands/CommandPalette.tsx'), 'utf8')).toMatch(/<SheetFrame\b/);
+    const html = renderToStaticMarkup(
+      h(I18nProvider, null, h(CommandPalette, { commands: [], onClose: () => undefined })),
+    );
+    expect(html).toMatch(/^<div class="palette-backdrop" data-testid="palette-backdrop">/);
+    expect(html).toMatch(
+      /<div class="palette" role="dialog" aria-modal="true" aria-labelledby="[^"]+" data-testid="command-palette" data-sheet="">/,
+    );
   });
 
   it.each([
@@ -228,5 +238,50 @@ describe('every modal dialog uses the shared sheet', () => {
         expect(cancelAt, `${file} ${id}: Cancel before the verb`).toBeGreaterThan(source.lastIndexOf('? (', at));
       }
     }
+  });
+});
+
+describe('sheet height and nesting (S50.1)', () => {
+  const dir = path.dirname(fileURLToPath(import.meta.url));
+  const styles = readFileSync(path.join(dir, '..', 'styles.css'), 'utf8');
+  const glass = readFileSync(path.join(dir, '..', 'glass.css'), 'utf8');
+
+  it('caps every sheet and the palette at calc(100dvh - 2 * max(32px, titlebar inset))', () => {
+    expect(styles).toContain('--titlebar-inset: 52px;');
+    expect(styles).toContain('--sheet-max-h: calc(100dvh - 2 * max(32px, var(--titlebar-inset)));');
+    expect(styles).toMatch(/\.dialog \{[^}]*max-height: min\(100%, var\(--sheet-max-h\)\);/);
+    expect(glass).toMatch(/\.palette \{[^}]*max-height: min\(520px, var\(--sheet-max-h\)\);/);
+  });
+
+  it('blurs a covered sheet by 2px and dims it', () => {
+    expect(styles).toMatch(
+      /\.dialog\[data-covered\],\s*\.palette\[data-covered\] \{\s*filter: blur\(2px\) opacity\(0\.85\);/,
+    );
+  });
+
+  it('a sheet is covered while one opened after it is open, and only then', () => {
+    expect(isCovered([1, 2], 1)).toBe(true);
+    expect(isCovered([1, 2], 2)).toBe(false);
+    expect(isCovered([1], 3)).toBe(false);
+    const stack = createSheetStack();
+    const seen = vi.fn();
+    stack.subscribe(seen);
+    stack.open(1);
+    expect(stack.covered(1)).toBe(false);
+    stack.open(2);
+    expect(stack.covered(1)).toBe(true);
+    expect(stack.covered(2)).toBe(false);
+    stack.close(2);
+    expect(stack.covered(1)).toBe(false);
+    stack.close(2); // closing twice changes nothing
+    expect(seen).toHaveBeenCalledTimes(3);
+  });
+
+  it('marks nothing covered when rendered alone', () => {
+    expect(
+      renderToStaticMarkup(
+        h(Sheet, { title: 'T', closeLabel: 'Close', testId: 's', onClose: () => undefined, children: null }),
+      ),
+    ).not.toContain('data-covered');
   });
 });

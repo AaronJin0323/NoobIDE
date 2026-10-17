@@ -18,7 +18,7 @@ import {
   shell,
 } from 'electron';
 import { platformId } from '../platform/index';
-import { isWindows } from '../platform/labels';
+import { isMac, isWindows } from '../platform/labels';
 import { currentSquirrelAction, runSquirrelAction } from '../platform/squirrel';
 import { APP_ENTRY_URL, APP_ORIGIN, APP_SCHEME } from './app-asset';
 import { serveProjectImage } from './project-images'; // S52.6
@@ -69,6 +69,7 @@ import type { WebContents } from 'electron';
 import { resolveTemplatesDir } from '../workspace/templates'; // S20.2
 import {
   createWorkbenchWindowOptions,
+  keepTrafficLightsCentred,
   insecurePreferences,
   titleBarOverlay,
   windowColorScheme,
@@ -226,6 +227,16 @@ function start(): void {
     const win = new BrowserWindow(options);
     hardenWorkbenchContents(win.webContents, devOrigin ?? APP_ORIGIN);
     win.once('ready-to-show', () => win.show());
+    // S50.5: the traffic lights stay centred in the top bar when the page zoom changes.
+    if (isMac(platformId())) {
+      keepTrafficLightsCentred({
+        onZoomChanged: (listener) => win.webContents.on('zoom-changed', listener),
+        onLoaded: (listener) => win.webContents.on('did-finish-load', listener),
+        zoomFactor: () => win.webContents.getZoomFactor(),
+        setPosition: (position) => win.setWindowButtonPosition(position),
+        alive: () => !win.isDestroyed(),
+      });
+    }
     const contentsId = win.webContents.id;
     closeGuards.set(
       contentsId,
