@@ -5227,8 +5227,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/container-ladder.test.ts (5 tests: named containers preview-toolbar / composer-chin, tiers <480/<384/<320 per container, hidden hints and secondary actions, 4rem ellipsis + icon-only labels, max(6rem, calc(100cqw - 4rem)), 32px hit boxes with equal negative margin-block) + tests/e2e/container-ladder.spec.ts (3 tests on the packaged build: tiers of the preview header/toolbar and the composer chin, accessible names kept, 32px hit targets with rows not growing, click on the transparent band) + key-features-visible.spec (preview Start/Refresh, entry, viewport switch on screen at all five sizes) + full e2e 421 passed / 4 skipped + verify green @ 4a0a2bc"
     },
     {
       "id": "S50.1",
