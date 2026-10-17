@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 48 (side session) — 2026-10-18 — Context menu focus jumped back to the first item on re-render
+## Session 48 (side session) — 2026-10-18 — Focus races on main: context menu, dialogs, CDP attach
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/tree-menu-focus` from main @ 3637774.
 
@@ -17,10 +17,20 @@ the latest entry to the next session, so write it for a reader with zero context
   `onClose` from a ref. The indentation menu (IndentStatus) uses the same component and gets the fix too.
 - `file-tree.spec.ts`: a new test opens the menu, moves to the third item, changes the open file on disk (the editor
   reloads it) and checks the focus stays. It fails on the old code and passes with the fix.
+- Dialog focus before the first paint: `Sheet` moved focus in from a `useEffect`, after the dialog was painted, so
+  an Enter pressed the moment a dialog appeared could be lost. main CI (macOS, after PR #35) failed `file-drop.spec`
+  this way: the "名称已被使用" dialog stayed open with its proposed name. `Sheet`, `ImportNameDialog` and
+  `MoveDialog` now move focus in a layout effect; the file-drop test checks that the name field already has focus
+  when the dialog becomes visible.
+- `upgrade.spec` (macOS, packaged): attaching over CDP hung after the websocket connected on main and on PR #34. The
+  attach is now retried up to three times (30 s each), with the pages checked again in between; test timeout 360 s.
+  macOS-only, so it is proven by the hosted run, not locally.
 
-**Evidence:** file-tree.spec 48/48 (3 repeats) with the fix, the new test failing without it; verify green.
+**Evidence:** file-tree.spec 48/48 (3 repeats) with the menu fix, the new test failing without it; full e2e suite
+487 passed / 4 skipped on Windows x64 with all three changes; verify green.
 
-**Next up:** PR #33 (S48.4/S48.6/S48.7) is the last open M18 PR.
+**Next up:** M18 is complete on main except S50.5 (needs a physical Apple Silicon Mac, harness/MANUAL-CHECKS.md).
+Watch main CI after this lands; the remaining flake seen recently is ai-inline.spec on macOS.
 
 ## Session S48c (side session) — 2026-10-18 — Chat composer, long messages, zero-loss drafts and backoff (S48.4, S48.6, S48.7)
 

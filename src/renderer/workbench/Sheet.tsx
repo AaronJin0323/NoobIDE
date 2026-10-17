@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type MouseEvent, type ReactNode, type RefObject } from 'react';
+import { useId, useLayoutEffect, useRef, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import { focusableIn, useModalKeys, useReturnFocus } from './focus-trap';
 import { CloseIcon } from './icons';
 import { useSheetLayer } from './sheet-stack';
@@ -196,9 +196,11 @@ export function Sheet({
   const ref = sheetRef ?? own;
   const closeButton = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
+  // A layout effect, so the sheet is never painted without focus inside it: an Enter or Escape pressed the moment it
+  // appears (a quick typist, a hosted test runner) reaches the sheet instead of what was behind it.
+  useLayoutEffect(() => {
     const sheet = ref.current;
-    // Children's effects ran first: a field or row that took focus keeps it.
+    // Children's layout effects ran first: a field or row that took focus keeps it.
     if (!sheet || sheet.contains(document.activeElement)) return;
     const content = sheet.querySelector<HTMLElement>('.sheet-content');
     const target =
