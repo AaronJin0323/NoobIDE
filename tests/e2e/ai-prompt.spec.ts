@@ -320,6 +320,18 @@ test('without an AI key an /ai line is ordinary text: Enter breaks the line, no 
     window.dispatchEvent(new Event('noobide:ai-status-changed'));
   });
   await openFile(page, 'index.html');
+  // The renderer re-reads the AI status asynchronously after the event. Wait until the editor's /ai handling (the
+  // flag its Enter key reads) is off before typing; otherwise a slow runner still takes over Enter with the stale
+  // "key stored" status.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as unknown as { __noobideEditorTestHooks: { aiPromptsEnabled(): boolean } }
+        ).__noobideEditorTestHooks.aiPromptsEnabled(),
+      ),
+    )
+    .toBe(false);
   await expect.poll(hints).toBe('');
   await lineEnd(5);
   await page.keyboard.press('Enter');

@@ -547,10 +547,11 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   expect(churnOnly.max).toBeLessThan(1_500);
   // And for eight busy workers at once: on the 4-vCPU Windows runner they alone stalled main 0.7–3 s (CI run
   // 38805786307), console or not; the same code with a no-op instead of the log call is the baseline.
-  const workersOnly = await measureMainStall(
-    app,
-    previewId,
-    `new Promise((resolve) => {
+  const measureWorkersOnly = () =>
+    measureMainStall(
+      app,
+      previewId,
+      `new Promise((resolve) => {
       const code = ${JSON.stringify(`${loop('void i')} postMessage('done');`)};
       const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
       const workers = [];
@@ -562,7 +563,8 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
       }
       setTimeout(() => { workers.forEach((w) => w.terminate()); resolve(done === ${MAX_GUARDED_SCOPES} ? 'finished' : 'done: ' + done); }, ${LOOP_MS + 5_000});
     })`,
-  );
+    );
+  const workersOnly = await measureWorkersOnly();
   console.log(`20 workers at once without console output (baseline): longest main stall ${workersOnly.max} ms`);
   expect(workersOnly.result).toBe('finished');
   expect(workersOnly.max).toBeLessThan(5_000);
@@ -601,6 +603,21 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
     // The best window, measured against its own budget.
     expect(Math.min(...stalls.map((s, k) => s - budgets[k]!)), name).toBeLessThan(0);
   };
+  // "20 workers" on a hosted runner: the baseline alone stalls main 1–1.5 s and drifts between windows, so a retry
+  // re-measures it right before its window. The budget never drops below the first baseline; it is 200 ms over the
+  // larger of the two, as before.
+  // One budget per bestOf call (each loop below counts its own windows).
+  const workersBudget = () => {
+    let budgetWindows = 0;
+    return async () => {
+      budgetWindows += 1;
+      if (budgetWindows === 1) return stallBudget('20 workers');
+      const fresh = await measureWorkersOnly();
+      expect(fresh.result).toBe('finished');
+      console.log(`20 workers at once without console output (baseline, window ${budgetWindows}): ${fresh.max} ms`);
+      return 200 + Math.max(workersOnly.max, fresh.max);
+    };
+  };
   for (const [name, code] of bypasses) {
     await bestOf(
       name,
@@ -613,6 +630,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
         expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name));
       },
       (run) => run.max,
+      name.startsWith('20 workers') ? workersBudget() : undefined,
     );
   }
   // Nothing needed stopping.
@@ -703,7 +721,11 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
         expect(run.sourceBacklog, name).toBeLessThanOrEqual(MOST_AT_ONCE);
       },
       (run) => run.unexplained,
-      throughTop[name] === undefined ? undefined : () => slowMainBaseline(name, throughTop[name]!),
+      throughTop[name] !== undefined
+        ? () => slowMainBaseline(name, throughTop[name]!)
+        : name.startsWith('20 workers')
+          ? workersBudget()
+          : undefined,
     );
   }
 
