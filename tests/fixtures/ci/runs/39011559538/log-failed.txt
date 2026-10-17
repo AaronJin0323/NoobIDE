@@ -1,0 +1,55 @@
+macos-arm64 (shard 1/2)	UNKNOWN STEP	﻿2026-10-17T06:53:18.1231730Z Current runner version: '2.337.0'
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:53:18.1250170Z ##[group]Runner Image Provisioner
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:53:18.1250770Z Hosted Compute Agent
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.0682250Z ^[[31m⎯⎯⎯⎯⎯⎯⎯^[[39m^[[1m^[[41m Failed Tests 1 ^[[49m^[[22m^[[31m⎯⎯⎯⎯⎯⎯⎯^[[39m
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.0682850Z 
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.0684250Z ^[[41m^[[1m FAIL ^[[22m^[[49m src/renderer/editor/completion-latency.test.ts^[[2m > ^[[22mcompletion latency budget (S43.6)^[[2m > ^[[22ma selector and a path request each take <= 10 ms p95 on a 200-file project
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.0689090Z ^[[31m^[[1mAssertionError^[[22m: expected 21.368790999999987 to be less than or equal to 10^[[39m
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.0690150Z ^[[36m ^[[2m❯^[[22m src/renderer/editor/completion-latency.test.ts:^[[2m63:24^[[22m^[[39m
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.0724190Z     ^[[90m 61|^[[39m       console.log(JSON.stringify({ selectorP95: p95(selector), pathP95…
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.0815920Z 
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.0845510Z 
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.0908340Z ##[error]AssertionError: expected 21.368790999999987 to be less than or equal to 10
+macos-arm64 (shard 1/2)	UNKNOWN STEP	 ❯ src/renderer/editor/completion-latency.test.ts:63:24
+macos-arm64 (shard 1/2)	UNKNOWN STEP	
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.1425540Z 
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.1425970Z verify FAILED (test). Fix before starting new work or ending the session.
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.1604760Z ##[error]Process completed with exit code 1.
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.1791180Z ##[group]Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.1791640Z with:
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.1793780Z   archive: true
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.1793970Z ##[endgroup]
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.5616800Z ##[error]No files were found with the provided path: reports/e2e/. No artifacts will be uploaded.
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.5799450Z ##[group]Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+macos-arm64 (shard 1/2)	UNKNOWN STEP	2026-10-17T06:54:58.5799990Z with:
+windows-x64 (shard 2/2)	UNKNOWN STEP	﻿2026-10-17T06:53:13.2477247Z Current runner version: '2.337.0'
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T06:53:13.2512573Z ##[group]Runner Image Provisioner
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T06:53:13.2513731Z Hosted Compute Agent
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1168280Z   1) tests\e2e\walkthrough.spec.ts:80:3 › walkthrough engine and glossary (S23.1, S23.4) › Help opens the walkthrough; steps are anchored, skippable and keyboard-reachable; it can be closed and revisited 
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1169029Z 
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1169307Z     Error: expect(locator).toHaveAttribute(expected) failed
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1169546Z 
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1169712Z     Locator: getByTestId('walkthrough')
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1170104Z     Expected: "create"
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1170561Z     Timeout: 20000ms
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1170939Z     Error: element(s) not found
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1171127Z 
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1171225Z     Call log:
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1181432Z   11 did not run
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.1181652Z   148 passed (8.0m)
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.2318139Z ##[error]Process completed with exit code 1.
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.2529510Z ##[group]Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+windows-x64 (shard 2/2)	UNKNOWN STEP	2026-10-17T07:04:05.2530103Z with:
+windows-x64	Require every platform and shard	﻿2026-10-17T07:04:34.9974855Z ##[group]Run node -e "if (process.env.BUILD_RESULT !== 'success') process.exit(1)"
+windows-x64	Require every platform and shard	2026-10-17T07:04:34.9976116Z ^[[36;1mnode -e "if (process.env.BUILD_RESULT !== 'success') process.exit(1)"^[[0m
+windows-x64	Require every platform and shard	2026-10-17T07:04:35.0744981Z shell: /usr/bin/bash -e {0}
+windows-x64	Require every platform and shard	2026-10-17T07:04:35.0746782Z   BUILD_RESULT: failure
+windows-x64	Require every platform and shard	2026-10-17T07:04:35.0747356Z ##[endgroup]
+windows-x64	Require every platform and shard	2026-10-17T07:04:35.2677666Z ##[error]Process completed with exit code 1.
+macos-arm64	Require every platform and shard	﻿2026-10-17T07:04:34.9716406Z ##[group]Run node -e "if (process.env.BUILD_RESULT !== 'success') process.exit(1)"
+macos-arm64	Require every platform and shard	2026-10-17T07:04:34.9717662Z ^[[36;1mnode -e "if (process.env.BUILD_RESULT !== 'success') process.exit(1)"^[[0m
+macos-arm64	Require every platform and shard	2026-10-17T07:04:35.0696891Z shell: /usr/bin/bash -e {0}
+macos-arm64	Require every platform and shard	2026-10-17T07:04:35.0698899Z   BUILD_RESULT: failure
+macos-arm64	Require every platform and shard	2026-10-17T07:04:35.0699564Z ##[endgroup]
+macos-arm64	Require every platform and shard	2026-10-17T07:04:37.4223217Z ##[error]Process completed with exit code 1.
+

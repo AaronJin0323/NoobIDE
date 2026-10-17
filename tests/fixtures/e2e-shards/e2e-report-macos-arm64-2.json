@@ -1,0 +1,2609 @@
+{
+ "_source": "GitHub Actions run 39015143213 (2026-10-17), artifact e2e-report-macos-arm64-2, trimmed to suite tree + per-result durations",
+ "config": {
+  "shard": {
+   "current": 2,
+   "total": 2
+  }
+ },
+ "stats": {
+  "startTime": "2026-10-17T08:01:49.116Z",
+  "duration": 541787.2760000001,
+  "expected": 161,
+  "skipped": 0,
+  "unexpected": 0,
+  "flaky": 0
+ },
+ "suites": [
+  {
+   "title": "preview-isolation.spec.ts",
+   "file": "preview-isolation.spec.ts",
+   "specs": [
+    {
+     "title": "an endless loop runs in another process and does not block typing; Stop destroys and recreates the view (S05.1)",
+     "file": "preview-isolation.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 10430
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "unresponsive state: Stop recovers, and Chromium’s unresponsive event is handled (S05.2)",
+     "file": "preview-isolation.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 525
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a console flood keeps the log bounded, every keystroke lands and main never stalls (S05.3, S05.7)",
+     "file": "preview-isolation.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 100589
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "uncaught exception, console error, 404 and module load failure produce raw records (S05.4)",
+     "file": "preview-isolation.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1048
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "records keep arriving while DevTools is open on the preview (S05.4 coexistence)",
+     "file": "preview-isolation.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1259
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a malicious page cannot read local files, other loopback services or the IDE (S05.5)",
+     "file": "preview-isolation.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 621
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "alert, confirm, prompt, print and beforeunload cannot block the IDE, refresh or Stop (S05.5)",
+     "file": "preview-isolation.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1385
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no workbench console errors during the isolation run",
+     "file": "preview-isolation.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "preview-layout.spec.ts",
+   "file": "preview-layout.spec.ts",
+   "specs": [
+    {
+     "title": "S15.1: dividers drag with the mouse, the view follows, sizes and the collapsed files panel persist",
+     "file": "preview-layout.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5164
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "S15.2: below the width threshold the Code / Preview switch moves the native view with it",
+     "file": "preview-layout.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 578
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "S15.3: the mobile choice changes only the width, and says so",
+     "file": "preview-layout.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 525
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "S15.6: dialogs and menus drawn over the preview hide the view while they are open",
+     "file": "preview-layout.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1290
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "S15.6: keyboard focus goes into the page with Enter and comes back with F6 / Shift+F6",
+     "file": "preview-layout.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 4557
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "S15.6: the view follows the window into and out of fullscreen",
+     "file": "preview-layout.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1600
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a 1280×800 window with the walkthrough and Problems open keeps a usable preview (zh-CN and en)",
+     "file": "preview-layout.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1162
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "S15.5/S15.6: at scale factor 1.5 the view stays on the stage and divider sizes persist exactly",
+     "file": "preview-layout.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5327
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "S15.5/S15.6: at scale factor 2 the view stays on the stage and divider sizes persist exactly",
+     "file": "preview-layout.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 6837
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "preview-manager.spec.ts",
+   "file": "preview-manager.spec.ts",
+   "specs": [
+    {
+     "title": "an opened folder asks for \"Start preview\" once; the choice is kept in app data (S14.4)",
+     "file": "preview-manager.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 888
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "one server per open project, shut down on switch and close; ownership is checked (S14.6)",
+     "file": "preview-manager.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1349
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Refresh (button and ⌘R/Ctrl+R command) starts a new page-load generation; the reload note shows once (S14.1, S15.4)",
+     "file": "preview-manager.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 255
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "automatic refresh waits for a typing pause; manual mode only marks the page as outdated (S14.2)",
+     "file": "preview-manager.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2920
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the entry picker lists the pages, defaults to index.html and stores the choice in project.json (S14.3)",
+     "file": "preview-manager.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 702
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "each project has its own preview storage; \"Clear preview data\" clears only this project’s (S14.5)",
+     "file": "preview-manager.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1840
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "\"Open in browser\" hands the OS a one-time grant URL and explains the separate storage (S15.4)",
+     "file": "preview-manager.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 101
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "developer tools open from the Advanced panel (S15.4)",
+     "file": "preview-manager.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1016
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no workbench console errors during the preview manager run",
+     "file": "preview-manager.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "preview-no-page.spec.ts",
+   "file": "preview-no-page.spec.ts",
+   "specs": [
+    {
+     "title": "a project without any .html page is explained instead of showing 404, and nothing is renamed by itself",
+     "file": "preview-no-page.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 471
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "\"rename to home.html\" renames on click, an open tab follows, and the preview shows the page",
+     "file": "preview-no-page.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 583
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "preview-permissions.spec.ts",
+   "file": "preview-permissions.spec.ts",
+   "specs": [
+    {
+     "title": "every permission request of the page is refused at once, without an OS prompt (S25.4)",
+     "file": "preview-permissions.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5062
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "preview-snapshot.spec.ts",
+   "file": "preview-snapshot.spec.ts",
+   "specs": [
+    {
+     "title": "an ordinary page: path, title, outline and screenshot, and isolation is unchanged (S38.1)",
+     "file": "preview-snapshot.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 477
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a page that tampers with DOM prototypes cannot change the outline or notice it (S38.1)",
+     "file": "preview-snapshot.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 82
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a huge DOM gives a bounded snapshot within the time budget and main keeps answering (S38.1)",
+     "file": "preview-snapshot.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3515
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "200 000 elements before the first item: the visit limit ends the walk within the budget (S38.1)",
+     "file": "preview-snapshot.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 6828
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a busy page gives \"not available\" within the budget; an unresponsive one at once (S38.1)",
+     "file": "preview-snapshot.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 9130
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "an endless loop gives \"not available\" within the budget; Stop and Start recover (S38.1)",
+     "file": "preview-snapshot.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5286
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "preview.spec.ts",
+   "file": "preview.spec.ts",
+   "specs": [
+    {
+     "title": "a project is not run until the user starts the preview (PLAN §8)",
+     "file": "preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 181
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the multi-file fixture loads with zero failed requests (S04.2)",
+     "file": "preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1575
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the preview view is sandboxed, has no preload or Node, uses a per-project partition (S04.3)",
+     "file": "preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 21
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the view follows the preview pane when the window and the layout change (S04.3)",
+     "file": "preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 706
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "window.open is denied and off-origin navigation is blocked (S04.3)",
+     "file": "preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1126
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "edit → save → the preview shows the new heading (S04.4)",
+     "file": "preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 449
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a failed save does not refresh the preview and shows \"preview not updated\" (S10.5)",
+     "file": "preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1317
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Stop destroys the view and shuts the server down; switching projects stops the preview",
+     "file": "preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 975
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no workbench console errors during the preview run",
+     "file": "preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "problem-card.spec.ts",
+   "file": "problem-card.spec.ts",
+   "specs": [
+    {
+     "title": "the card shows file, line, explanation, checks, Go to code and Show original in zh-CN and en (S22.4)",
+     "file": "problem-card.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1767
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "several or no similar declared names: no fix, the normal explanation and Go to code (S22.5)",
+     "file": "problem-card.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 688
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "fix from the keyboard: only that span changes, saved atomically, resolved after re-check; card Undo (S22.5)",
+     "file": "problem-card.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2590
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the fix is a normal editor edit: Ctrl/Cmd+Z in the editor takes it back (S22.5)",
+     "file": "problem-card.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1724
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a failed save keeps the edit, shows the save failure and never shows resolved; a retry resolves it (S22.5)",
+     "file": "problem-card.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3055
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a problem from the running page is resolved only after the preview reloaded without it (S22.5)",
+     "file": "problem-card.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1549
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors during the problem card run",
+     "file": "problem-card.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a fix applied to a background tab whose save fails is journaled and survives a forced kill (S22.5, S12)",
+     "file": "problem-card.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 4997
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "problems.spec.ts",
+   "file": "problems.spec.ts",
+   "specs": [
+    {
+     "title": "language-service markers become static problem records, and fixing clears them (S19.1)",
+     "file": "problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5553
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "beginner tuning: noisy-but-valid code stays quiet; undefined names and syntax errors are kept (S19.2)",
+     "file": "problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 6779
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "problems appear in the status strip without opening the panel or taking focus; announced politely (S17.1)",
+     "file": "problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5739
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the panel lists static, runtime and resource problems in separate sections with counts (S17.1)",
+     "file": "problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 756
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Go to code opens the file at the reported line and column and focuses the editor (S17.2)",
+     "file": "problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1447
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Show original error reveals the exact message, stack and where it came from (S17.2)",
+     "file": "problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 286
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "console view: levels, filter, clear, and attribution to the current page load (S17.3)",
+     "file": "problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 484
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors during the problems run",
+     "file": "problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "project-config.spec.ts",
+   "file": "project-config.spec.ts",
+   "specs": [
+    {
+     "title": "\"set as entry page\" stores a relative entry in .noobide/project.json only (S13.2)",
+     "file": "project-config.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 828
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the preview opens the entry page; without .noobide it opens index.html (S13.2)",
+     "file": "project-config.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 853
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a folder without index.html previews its first page instead of 404",
+     "file": "project-config.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 317
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "recent-projects.spec.ts",
+   "file": "recent-projects.spec.ts",
+   "specs": [
+    {
+     "title": "a project opened once is on the welcome screen after reopening the app, and opens from there (S13.3)",
+     "file": "recent-projects.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5088
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "closing a project stops its preview, server and watcher and shows the welcome screen (S13.3)",
+     "file": "recent-projects.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1500
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a missing folder is shown as unavailable and can only be removed from the list (S13.3)",
+     "file": "recent-projects.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5049
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "recovery.spec.ts",
+   "file": "recovery.spec.ts",
+   "specs": [
+    {
+     "title": "a dirty buffer is journaled outside the project within 2 s and removed after saving (S12.1)",
+     "file": "recovery.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3934
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "after a forced termination the relaunched app offers the edits with a diff and restores them (S12.2)",
+     "file": "recovery.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 8539
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "restoring never saves a restored copy silently; each copy opens in its own tab (S12.2, S09)",
+     "file": "recovery.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 9644
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "\"decide later\" keeps the copy; the clear-data control removes it (S12.3)",
+     "file": "recovery.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 9549
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a project restored at startup and quit at once leaves no crash copy and no changed file",
+     "file": "recovery.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 13439
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "copies of a moved project folder can be read, saved elsewhere and discarded (decision 0033)",
+     "file": "recovery.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 6908
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "pointing at the folder’s new location brings back the normal review and restore (decision 0033)",
+     "file": "recovery.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5842
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors during the recovery run",
+     "file": "recovery.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "runtime-problems.spec.ts",
+   "file": "runtime-problems.spec.ts",
+   "specs": [
+    {
+     "title": "syntax errors, exceptions, rejections, console errors and module failures map to project files (S16.2)",
+     "file": "runtime-problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1086
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "resource failures carry the requested path and the initiator file (S16.4)",
+     "file": "runtime-problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 6
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a refresh starts a new generation; problems that did not happen again are marked stale (S16.3)",
+     "file": "runtime-problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 296
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a flood of console errors is rate limited and capped; repeats collapse with counts; errors survive (S16.5)",
+     "file": "runtime-problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 25385
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "an error in a script from another website is recorded without a location, and explained (S16.6)",
+     "file": "runtime-problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 844
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors in the workbench during the runtime problems run",
+     "file": "runtime-problems.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "save.spec.ts",
+   "file": "save.spec.ts",
+   "specs": [
+    {
+     "title": "edits are saved automatically after a typing pause, without Ctrl/Cmd+S (S10.2)",
+     "file": "save.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2201
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a CRLF file with a BOM keeps both, byte for byte, when edited and saved",
+     "file": "save.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 286
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a file with mixed line endings says what saving will do before anything is written",
+     "file": "save.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 93
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a failed save shows the reason with retry and save-elsewhere; the copy keeps the edits (S10.3)",
+     "file": "save.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2147
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "closing the window with a failing save keeps the window open and the edits (S10.6)",
+     "file": "save.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3499
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "closing the window saves unsaved edits first (S10.6)",
+     "file": "save.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 616
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "quitting the app saves unsaved edits first (S10.6)",
+     "file": "save.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3352
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "after a refused close, \"close without saving\" closes the window and leaves the file as it was (S10.6)",
+     "file": "save.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 4058
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "session.spec.ts",
+   "file": "session.spec.ts",
+   "specs": [
+    {
+     "title": "reopening restores the project, its tabs, the active tab and the layout sizes (S13.4)",
+     "file": "session.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 6323
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "crash recovery takes precedence over session restore (S13.4 + S12)",
+     "file": "session.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 4036
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "settings.spec.ts",
+   "file": "settings.spec.ts",
+   "specs": [
+    {
+     "title": "the interface language and code zoom persist across a restart (S13.1)",
+     "file": "settings.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5077
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a corrupt settings file is backed up, reset to defaults and explained (S13.1)",
+     "file": "settings.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 4232
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "shell.spec.ts",
+   "file": "shell.spec.ts",
+   "specs": [
+    {
+     "title": "shell and editor follow the system colour scheme together (S30.1, S30.2)",
+     "file": "shell.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 444
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a language switch after a scheme change keeps the editor on the current theme (S30.2)",
+     "file": "shell.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 398
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "problems is collapsed into the status strip and toggles from strip, rail and keyboard (S30.3)",
+     "file": "shell.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 135
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "rail toggles the files panel (S30.3)",
+     "file": "shell.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 69
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "placeholder states are honest and every control works (S30.3)",
+     "file": "shell.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 43
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "editor and preview split the remaining width equally (S30.3)",
+     "file": "shell.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 18
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "narrow window: files collapse and a Code / Preview switch shows one view (S30.4)",
+     "file": "shell.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 328
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors during the shell run",
+     "file": "shell.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "sleep-wake.spec.ts",
+   "file": "sleep-wake.spec.ts",
+   "specs": [
+    {
+     "title": "a healthy wake rescans the tree and leaves a working preview alone (no reload)",
+     "file": "sleep-wake.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1903
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the server socket died during sleep: the preview restarts on the same port and says so",
+     "file": "sleep-wake.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1994
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a page that stops responding after the wake is restarted; unsaved edits survive and save",
+     "file": "sleep-wake.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5691
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a page that was already hung before the sleep is left alone (Stop still works)",
+     "file": "sleep-wake.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 9266
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "smart-editing.spec.ts",
+   "file": "smart-editing.spec.ts",
+   "specs": [
+    {
+     "title": "a tab-indented file is detected; Enter and auto-close indent with a tab (S43.1, S43.2)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 851
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a 4-space file indents with four spaces; Format keeps four (S43.2)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2385
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "pasting tab-indented code into a 2-space file re-indents it; Ctrl+Z restores the paste (S43.2)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 425
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a whole-line paste (copied with nothing selected) never re-indents the line under the cursor (S43.2)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 271
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "converting a 4-space file to Spaces 2 changes every level (S43.2)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1194
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the status bar menu overrides, converts and detects again, from the keyboard (S43.2)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1013
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "JavaScript selector strings suggest the project ids and classes (S43.5)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2506
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "CSS selectors suggest ids and classes from the HTML (S43.5)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 339
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "src, href and import suggest project files relative to the current file (S43.5)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3418
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a beginner snippet inserts a click listener on a real project element (S43.5)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 533
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "latency: a project id is listed within 500 ms of typing the trigger (S43.6)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 7110
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a new empty file follows the project convention (S43.3)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1059
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a project with no indentation evidence uses the template default (S43.3)",
+     "file": "smart-editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 244
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "smoke.spec.ts",
+   "file": "smoke.spec.ts",
+   "specs": [
+    {
+     "title": "opens one window titled NoobIDE from the noobide:// app origin (S02.1)",
+     "file": "smoke.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 24
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "renders the five workbench regions (S02.3)",
+     "file": "smoke.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 46
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Monaco highlights HTML with every request local (S02.4, S02.6)",
+     "file": "smoke.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 354
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "typing into the editor keeps highlighting (S02.4)",
+     "file": "smoke.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 362
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "renderer has no Node, eval is blocked by the CSP, webPreferences are secure (S02.2)",
+     "file": "smoke.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 433
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "language switch: zh-CN default, en on click, kept across a reload (S02.5)",
+     "file": "smoke.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 571
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors during the whole run (S02.6)",
+     "file": "smoke.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "tabs.spec.ts",
+   "file": "tabs.spec.ts",
+   "specs": [
+    {
+     "title": "each opened file becomes a tab in a tablist with a single tab stop (S09.2)",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 686
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "folding, cursor and scroll position survive a tab switch (S09.1)",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1691
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the undo stack survives a tab switch (S09.1)",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 742
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "closing a tab disposes its model: reopening starts from disk with a fresh undo stack (S09.1)",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 594
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "an unsaved tab says so with an icon and text (S09.2)",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1619
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a failed save shows on its tab with an icon and text, not colour alone (S09.2)",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1627
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Ctrl+Tab and Ctrl+Shift+Tab cycle through tabs (S09.2)",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 223
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "arrow keys move between tabs and Delete closes the focused one (S09.2)",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 188
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "middle-click closes a tab (S09.2)",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 77
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "when the tabs overflow the strip, the active tab is scrolled into view and every tab takes clicks (S09.2)",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2175
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "at the default 1280×800 window the tabs keep the header; Format and zoom sit behind Editor options",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 624
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors during the tab run",
+     "file": "tabs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "templates.spec.ts",
+   "file": "templates.spec.ts",
+   "specs": [
+    {
+     "title": "personal-intro previews offline with zero problems and working buttons (S20.1)",
+     "file": "templates.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1136
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "product-showcase previews offline with zero problems and working buttons (S20.1)",
+     "file": "templates.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 437
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "button-counter previews offline with zero problems and working buttons (S20.1)",
+     "file": "templates.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 402
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "packaged app contains the templates as plain files next to app.asar (S20.1)",
+     "file": "templates.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 11
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "theme.spec.ts",
+   "file": "theme.spec.ts",
+   "specs": [
+    {
+     "title": "the theme choice and the code zoom persist across a restart (S24.4)",
+     "file": "theme.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5890
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "upgrade.spec.ts",
+   "file": "upgrade.spec.ts",
+   "specs": [
+    {
+     "title": "packaged vN → vN+1 keeps settings, session, history and recent projects; vN again still reads them",
+     "file": "upgrade.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 32329
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "walkthrough.spec.ts",
+   "file": "walkthrough.spec.ts",
+   "specs": [],
+   "suites": [
+    {
+     "title": "walkthrough engine and glossary (S23.1, S23.4)",
+     "file": "walkthrough.spec.ts",
+     "specs": [
+      {
+       "title": "Help opens the walkthrough; steps are anchored, skippable and keyboard-reachable; it can be closed and revisited",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 2502
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "progress survives a restart",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 1703
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "standard terms in a step link to the glossary, which keeps the terms as they are (S23.4)",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 1322
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the PLAN §2 journey (S23.2) and the final task (S23.3)",
+     "file": "walkthrough.spec.ts",
+     "specs": [
+      {
+       "title": "create: the first project made with the wizard starts the walkthrough inside it",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 2222
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "meet the files: opening index.html, style.css and script.js completes the step",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 285
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "heading: the saved heading change is detected and the preview shows it",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 914
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "style: a changed colour is detected and visible in the preview",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 335
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "interaction: the changed button text is detected, and clicking the button in the preview shows it",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 250
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "deliberate error: a misspelled variable is detected and the problem shows file, line, explanation and original error",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 1749
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "restore: going back to the version before the mistake through local history is detected",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 1587
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "reopen: closing the app and opening it again restores the project and completes the journey",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 3668
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "final task: the goal only, no hints; completion is detected from the saved files (S23.3)",
+       "file": "walkthrough.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 1852
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "welcome.spec.ts",
+   "file": "welcome.spec.ts",
+   "specs": [
+    {
+     "title": "the welcome screen offers one prominent create action and open folder; the sample stays visible",
+     "file": "welcome.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 27
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the wizard shows the three templates, the default selected, and the exact folder and files it will create",
+     "file": "welcome.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 395
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "focus stays inside the wizard, and Escape cancels without creating anything",
+     "file": "welcome.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 126
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "illegal names and existing folders are explained and Create stays disabled; nothing is overwritten",
+     "file": "welcome.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1295
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "create from another template in a chosen folder: the project opens with its entry page and a running preview",
+     "file": "welcome.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1232
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the default location is created with the first project; the wizard follows the interface language",
+     "file": "welcome.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3408
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "workers.spec.ts",
+   "file": "workers.spec.ts",
+   "specs": [
+    {
+     "title": "Monaco CSS and TypeScript workers answer in the production build (S02.4)",
+     "file": "workers.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 8252
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
