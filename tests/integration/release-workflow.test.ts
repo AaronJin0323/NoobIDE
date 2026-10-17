@@ -247,17 +247,23 @@ describe('release.yml', () => {
 // Real signtool on a Windows machine with the SDK (the dev machine; CI runners have it too): a Microsoft-signed
 // binary passes and an unsigned one fails, so the output parsing is checked against the real tool, not only mocks.
 const signtool = os.platform() === 'win32' ? findSigntool() : '';
-describe.runIf(signtool !== '' && existsSync(signtool))('verify-signing against the real signtool', () => {
-  it('passes signtool.exe itself (Microsoft-signed, timestamped)', () => {
-    const r = verifyWindowsFile(signtool, { signtool });
-    expect(r.ok, JSON.stringify(r.checks)).toBe(true);
-  });
-  it('fails an unsigned PE file', () => {
-    const unsigned = path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe');
-    if (!existsSync(unsigned)) return;
-    const r = verifyWindowsFile(unsigned, { signtool });
-    if (r.checks[0]?.ok) return; // a future Electron may ship a signed electron.exe; nothing to assert then
-    expect(r.ok).toBe(false);
-    expect(r.checks[0]?.detail).toMatch(/SignTool Error: No signature found/);
-  });
-});
+// signtool builds and checks the certificate chains (revocation data may be fetched over the network) and the runner may
+// be descheduled: 18 s was seen on a hosted Windows runner (run 39033368439). A correctness check, not a speed check.
+describe.runIf(signtool !== '' && existsSync(signtool))(
+  'verify-signing against the real signtool',
+  { timeout: 60_000 },
+  () => {
+    it('passes signtool.exe itself (Microsoft-signed, timestamped)', () => {
+      const r = verifyWindowsFile(signtool, { signtool });
+      expect(r.ok, JSON.stringify(r.checks)).toBe(true);
+    });
+    it('fails an unsigned PE file', () => {
+      const unsigned = path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe');
+      if (!existsSync(unsigned)) return;
+      const r = verifyWindowsFile(unsigned, { signtool });
+      if (r.checks[0]?.ok) return; // a future Electron may ship a signed electron.exe; nothing to assert then
+      expect(r.ok).toBe(false);
+      expect(r.checks[0]?.detail).toMatch(/SignTool Error: No signature found/);
+    });
+  },
+);

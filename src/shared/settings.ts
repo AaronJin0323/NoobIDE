@@ -27,6 +27,12 @@ export interface AppSettings {
   readonly editorFontSize: number;
   /** Reopen the last project, its tabs and the layout on a normal start (S13.4). */
   readonly restoreSession: boolean;
+  /** S53.1: Tab expands Emmet abbreviations in HTML and CSS (Edit menu → Emmet abbreviations on Tab). */
+  readonly emmet: boolean;
+  /** S53.1: the one-time status-bar hint after the first expansion has been shown. */
+  readonly emmetHintShown: boolean;
+  /** S53.4: an explicit save formats the file first (off by default). */
+  readonly formatOnSave: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -35,6 +41,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
   editorFontSize: EDITOR_FONT_SIZE.default,
   restoreSession: true,
+  emmet: true,
+  emmetHintShown: false,
+  formatOnSave: false,
 };
 
 /** What the renderer may change. Validated field by field in main (parseSettingsPatch). */
@@ -110,7 +119,10 @@ function pickSettings(raw: Raw): { settings: AppSettings; resetFields: string[] 
     locale: pick('locale', isSettingsLocale),
     theme: pick('theme', isThemeChoice),
     editorFontSize: pick('editorFontSize', isFontSize),
-    restoreSession: pick('restoreSession', (v) => typeof v === 'boolean'),
+    restoreSession: pick('restoreSession', isBoolean),
+    emmet: pick('emmet', isBoolean),
+    emmetHintShown: pick('emmetHintShown', isBoolean),
+    formatOnSave: pick('formatOnSave', isBoolean),
   };
   return { settings, resetFields };
 }
@@ -130,6 +142,11 @@ export function isSettingsLocale(value: unknown): value is SettingsLocale {
 export function isThemeChoice(value: unknown): value is ThemeChoice {
   return typeof value === 'string' && (THEME_CHOICES as readonly string[]).includes(value);
 }
+
+const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
+
+/** Settings that are plain on/off switches. */
+const BOOLEAN_KEYS: readonly string[] = ['restoreSession', 'emmet', 'emmetHintShown', 'formatOnSave'];
 
 function isFontSize(value: unknown): value is number {
   return (
@@ -152,7 +169,7 @@ export function parseSettingsPatch(payload: unknown): SettingsPatch | null {
       (key === 'locale' && isSettingsLocale(value)) ||
       (key === 'theme' && isThemeChoice(value)) ||
       (key === 'editorFontSize' && isFontSize(value)) ||
-      (key === 'restoreSession' && typeof value === 'boolean');
+      (BOOLEAN_KEYS.includes(key) && isBoolean(value));
     if (!valid) return null;
     patch[key] = value;
   }

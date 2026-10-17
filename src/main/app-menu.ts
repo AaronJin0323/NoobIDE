@@ -44,7 +44,7 @@ export function toElectronTemplate(
             onCommand(entry.id, window, event?.triggeredByAccelerator === true),
         };
         if (entry.checked !== undefined) {
-          item.type = 'radio';
+          item.type = entry.toggle ? 'checkbox' : 'radio';
           item.checked = entry.checked;
         }
         if (entry.accelerator !== null) {

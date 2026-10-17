@@ -28,7 +28,11 @@ export const SECRET_ROUTES: {
 };
 export function defaultRun(cmd: string, args: string[]): RunResult;
 export function verifyMacDmg(file: string, opts?: { run?: Run; teamId?: string }): FileResult;
-export function verifyWindowsFile(file: string, opts?: { run?: Run; signtool?: string }): FileResult;
+export const SHARING_VIOLATION_BACKOFF_MS: readonly number[];
+export function verifyWindowsFile(
+  file: string,
+  opts?: { run?: Run; signtool?: string; sleep?: (ms: number) => void; backoffMs?: readonly number[] },
+): FileResult;
 export function findSigntool(opts?: { env?: Env; fs?: FsLike }): string;
 export function defaultArtifacts(platform: string, opts?: { root?: string; fs?: FsLike }): string[];
 export function signingStatus(
