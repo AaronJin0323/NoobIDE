@@ -1,4 +1,5 @@
-import { IconBase } from '../workbench/icons';
+import { IconBase, WarningIcon } from '../workbench/icons';
+import type { ProposalIcon } from './proposal-tone';
 import './ai-entry.css';
 
 /**
@@ -72,3 +73,45 @@ export const ReaskIcon = () => (
     <path d="M12 2.5v2.8H9.2" />
   </IconBase>
 );
+
+/**
+ * S48.8: one shape per proposal state (proposal-tone.ts), so a change's state never depends on its colour: a ring
+ * with a centre (waiting for you), a small dot (applying), a check, a warning triangle, a cross, a dashed circle.
+ */
+export function ProposalStateIcon({ icon }: { icon: ProposalIcon }) {
+  switch (icon) {
+    case 'pending':
+      return (
+        <IconBase size={14}>
+          <circle cx="8" cy="8" r="5.5" />
+          <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none" />
+        </IconBase>
+      );
+    case 'dot':
+      return (
+        <IconBase size={14}>
+          <circle cx="8" cy="8" r="3" fill="currentColor" stroke="none" />
+        </IconBase>
+      );
+    case 'check':
+      return (
+        <IconBase size={14}>
+          <path d="M3 8.5l3 3 7-7" />
+        </IconBase>
+      );
+    case 'warning':
+      return <WarningIcon />;
+    case 'cross':
+      return (
+        <IconBase size={14}>
+          <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
+        </IconBase>
+      );
+    case 'dashed':
+      return (
+        <IconBase size={14}>
+          <circle cx="8" cy="8" r="5.5" strokeDasharray="2 2" />
+        </IconBase>
+      );
+  }
+}

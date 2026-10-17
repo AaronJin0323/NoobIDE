@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'r
 import type { ProblemRecord } from '../../shared/problem';
 import type { Annotation } from '../../shared/ipc/annotations-contract';
 import { fill } from '../recovery/format';
-import { setEditorContextActions, type EditorSelection } from '../editor/editor-handle';
+import {
+  setEditorContextActions,
+  type CodeInsertMode,
+  type CodeInsertOutcome,
+  type EditorSelection,
+} from '../editor/editor-handle';
+import { useColorScheme } from '../theme/ThemeProvider';
 import { useI18n } from '../i18n/I18nProvider';
 import { aiBridge, aiSettingsAvailable, AI_STATUS_CHANGED_EVENT, openAiSettings } from './ai-bridge';
 import { AiChatController, type AiChatHost, type SelectionContext } from './chat-controller';
@@ -26,6 +32,10 @@ export interface AiWorkbenchHost {
   relPathOf(uri: string): string | undefined;
   /** The editor's current selection (editor-handle), or null. */
   editorSelection(): EditorSelection | null;
+  /** S48.5: a text file is open in the code editor (read while rendering); chat code can then go into it. */
+  codeEditorOpen?(): boolean;
+  /** S48.5: puts chat code into the editor on screen through its ordinary edit path (editor-handle insertCode). */
+  insertCode?(text: string, mode: CodeInsertMode): CodeInsertOutcome;
 }
 
 export interface UseAiChatOptions {
@@ -44,6 +54,7 @@ export interface UseAiChatOptions {
  */
 export function useAiChat(projectId: string | null, host: AiWorkbenchHost, options: UseAiChatOptions = {}) {
   const { t, locale } = useI18n();
+  const scheme = useColorScheme(); // S48.5: code blocks are coloured in the current theme
   const api = useMemo(() => aiBridge(), []);
   const hostRef = useRef(host);
   hostRef.current = host;
@@ -229,6 +240,15 @@ export function useAiChat(projectId: string | null, host: AiWorkbenchHost, optio
         extensions={options.extensions}
         pastChats={pastChats}
         composer={options.composer}
+        codeBlocks={{
+          scheme,
+          edit: host.insertCode
+            ? {
+                available: host.codeEditorOpen?.() ?? false,
+                apply: (text, mode) => hostRef.current.insertCode?.(text, mode) ?? 'no-editor',
+              }
+            : undefined,
+        }}
       />
     ) : null;
 

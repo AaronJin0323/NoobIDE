@@ -10,6 +10,8 @@ import {
   registerEditor,
   subscribeEditorContextActions,
   takePendingReveal,
+  type CodeInsertMode,
+  type CodeInsertOutcome,
   type EditorSelection,
   type RevealTarget,
 } from './editor-handle';
@@ -91,6 +93,32 @@ function selectionIn(editor: monaco.editor.IStandaloneCodeEditor, uri: string | 
       ? selection.endLineNumber - 1
       : selection.endLineNumber;
   return { uri, startLine: selection.startLineNumber, endLine, text };
+}
+
+/** S48.5: chat code at the cursor or over the selection, as one undo step (an ordinary edit for the saver). */
+function insertCodeIn(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  uri: string | null,
+  text: string,
+  mode: CodeInsertMode,
+): CodeInsertOutcome {
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  if (!uri || !model || !selection) return 'no-editor';
+  if (editor.getOption(monaco.editor.EditorOption.readOnly)) return 'read-only';
+  if (mode === 'replace' && selection.isEmpty()) return 'no-selection';
+  const position = selection.getPosition();
+  const range = mode === 'replace' ? selection : monaco.Range.fromPositions(position, position);
+  const start = model.getOffsetAt(range.getStartPosition());
+  editor.pushUndoStop();
+  editor.executeEdits('noobide.chatCode', [{ range, text, forceMoveMarkers: true }]);
+  editor.pushUndoStop();
+  // The model normalises line endings; place the cursor after what actually went in.
+  const end = model.getPositionAt(start + text.replace(/\r?\n/g, model.getEOL()).length);
+  editor.setSelection(monaco.Range.fromPositions(end, end));
+  editor.revealPositionInCenterIfOutsideViewport(end);
+  editor.focus();
+  return 'ok';
 }
 
 /** S53.4: formats the model on screen with its language's formatter; the outcome comes from the format hook. */
@@ -246,6 +274,7 @@ export function CodeEditor({
         return replaceColorAtCursor(editor, rgba); // S53.3
       },
       focus: () => editor.focus(),
+      insertCode: (text, mode) => insertCodeIn(editor, uriOf(), text, mode), // S48.5
       formatForSave: () => formatForSave(editor), // S53.4
       navigate: async (query) => {
         const model = editor.getModel();
