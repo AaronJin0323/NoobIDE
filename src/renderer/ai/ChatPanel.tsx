@@ -23,6 +23,7 @@ import { AiIcon, CloseIcon, JumpLatestIcon, NewChatIcon, PastChatsIcon } from '.
 import { SavedProposal } from './SavedChatsList';
 import { useScrollLatch } from './useScrollLatch';
 import { useComposerSuggestions, type ComposerSources } from './ComposerSuggestions';
+import { CopyMessageButton, MessageActions, ReaskButton, UserPrompt } from './ChatMessage';
 import './ai-chat.css';
 
 /** `count` picks the singular form of a counted message (i18n/plural.ts). */
@@ -219,6 +220,15 @@ export function ChatPanelView({
     <p className="ai-hint">{t('ai.settingsWhere')}</p>
   );
 
+  // S48.6 "Ask again": the question goes back into the composer (nothing is sent until the user sends).
+  const reask = (prompt: string) => {
+    actions.setPrompt(prompt);
+    const area = input.current;
+    if (!area) return;
+    area.focus();
+    requestAnimationFrame(() => area.setSelectionRange(area.value.length, area.value.length));
+  };
+
   const stateKey = STATE_TEXT[availability.kind];
   const showConsent = ready && projectId !== null && state.consentFor === key;
   const canSend = ready && draft.prompt.trim() !== '' && !running && !showConsent;
@@ -326,18 +336,26 @@ export function ChatPanelView({
                 const isRunning = turn.status === 'sending' || turn.status === 'streaming';
                 return (
                   <article key={turn.id} className="ai-turn" data-testid="ai-turn" data-status={turn.status}>
-                    <div className="ai-msg ai-msg-user">
-                      <p className="ai-who">{t('ai.chat.you')}</p>
-                      <p className="ai-prompt" data-testid="ai-prompt">
-                        {turn.prompt}
-                      </p>
-                      <p className="ai-sent-with" data-testid="ai-sent-with">
-                        {turn.context.length > 0
-                          ? fill(t('ai.chat.sentWith'), {
-                              items: turn.context.map((item) => contextLabel(t, item)).join(t('ai.chat.separator')),
-                            })
-                          : t('ai.chat.sentNothing')}
-                      </p>
+                    {/* S48.6: the user's bubble (long ones collapse) and its quiet action row. */}
+                    <div className="ai-msg-group ai-msg-group-user">
+                      <div className="ai-msg ai-msg-user">
+                        <p className="ai-who">{t('ai.chat.you')}</p>
+                        <UserPrompt text={turn.prompt} t={t} />
+                        <p className="ai-sent-with" data-testid="ai-sent-with">
+                          {turn.context.length > 0
+                            ? fill(t('ai.chat.sentWith'), {
+                                items: turn.context.map((item) => contextLabel(t, item)).join(t('ai.chat.separator')),
+                              })
+                            : t('ai.chat.sentNothing')}
+                        </p>
+                      </div>
+                      <MessageActions
+                        t={t}
+                        actions={[
+                          <CopyMessageButton key="copy" text={turn.prompt} t={t} />,
+                          <ReaskButton key="reask" t={t} onReask={() => reask(turn.prompt)} />,
+                        ]}
+                      />
                     </div>
                     <div className="ai-msg ai-msg-answer" aria-busy={isRunning} data-testid="ai-answer">
                       <p className="ai-who">{t('ai.chat.assistant')}</p>
@@ -366,6 +384,12 @@ export function ChatPanelView({
                             output: turn.usage.outputTokens.toLocaleString(),
                           })}
                         </p>
+                      )}
+                      {!isRunning && answerText(turn) !== '' && (
+                        <MessageActions
+                          t={t}
+                          actions={[<CopyMessageButton key="copy" text={answerText(turn)} t={t} />]}
+                        />
                       )}
                     </div>
                   </article>

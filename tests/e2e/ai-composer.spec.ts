@@ -1,5 +1,6 @@
 import { rm } from 'node:fs/promises';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import { axeScan } from './a11y-helpers';
 import { launchApp } from './launch';
 import { collectConsoleErrors, makeProject, openProject } from './project';
 
@@ -126,6 +127,57 @@ test.describe('AI chat composer (S48.4)', () => {
     await expect(panel().getByTestId('ai-chip')).toHaveCount(before);
     await input().press('Enter');
     await expect(input()).toHaveValue('index.html ');
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('a long question collapses behind Show more; the action row appears on hover and on focus (S48.6)', async () => {
+    const long = Array.from({ length: 40 }, (_, i) => `第 ${i + 1} 行：一段很长的问题。`).join('\n');
+    await input().fill(long);
+    await input().press('Enter');
+    const consent = panel().getByTestId('ai-consent-allow');
+    await expect(consent.or(panel().getByTestId('ai-turn')).first()).toBeVisible();
+    if (await consent.isVisible()) await consent.click();
+    const turn = panel().getByTestId('ai-turn').last();
+    await expect(turn).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
+
+    const prompt = turn.getByTestId('ai-prompt');
+    await expect(prompt).toHaveAttribute('data-collapse', 'collapsed');
+    const cut = await prompt.evaluate((el) => el.getBoundingClientRect().height);
+    expect(cut).toBeLessThanOrEqual(300);
+    const more = turn.getByTestId('ai-show-more');
+    await expect(more).toHaveText('展开全文');
+    await expect(more.locator('svg')).toHaveCount(1);
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await more.click();
+    await expect(prompt).toHaveAttribute('data-collapse', 'expanded');
+    await expect(more).toHaveAttribute('aria-expanded', 'true');
+    await expect(more).toHaveText('收起');
+    expect(await prompt.evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThan(300);
+    await more.click();
+    await expect(prompt).toHaveAttribute('data-collapse', 'collapsed');
+
+    // The action row: invisible until hovered; Tab reaches its buttons and reveals it.
+    const row = turn.getByTestId('ai-msg-actions').first();
+    const opacity = () => row.evaluate((el) => Number(getComputedStyle(el).opacity));
+    await input().focus(); // the Show-more button is inside the message: focus elsewhere first
+    await page.mouse.move(0, 0);
+    await expect.poll(opacity).toBe(0);
+    await more.focus();
+    await page.keyboard.press('Tab');
+    await expect(row.getByTestId('ai-msg-copy')).toBeFocused();
+    await expect.poll(opacity).toBe(1);
+    await page.keyboard.press('Tab');
+    await expect(row.getByTestId('ai-msg-reask')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(input()).toHaveValue(long);
+    await expect(input()).toBeFocused();
+    await input().fill('');
+    await page.mouse.move(0, 0);
+    await expect.poll(opacity).toBe(0);
+    await turn.getByTestId('ai-sent-with').hover();
+    await expect.poll(opacity).toBe(1);
+
+    expect(await axeScan(page)).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
 });

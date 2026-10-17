@@ -12,6 +12,13 @@ export const aiComposerZhCN = {
   'ai.composer.noFiles': '没有匹配的文件。',
   'ai.composer.listHint': '↑↓ 选择，Enter 或 Tab 确定，Esc 关闭列表。',
   'ai.composer.folderRoot': '项目根目录',
+  // ── S48.6 长消息和消息操作 ──
+  'ai.message.showMore': '展开全文',
+  'ai.message.showLess': '收起',
+  'ai.message.actions': '消息操作',
+  'ai.message.copy': '复制这条消息',
+  'ai.message.reask': '再问一次',
+  'ai.message.reaskHint': '再问一次：把这个问题放回输入框，可以改一改再发送',
 };
 
 export const aiComposerEn: Record<keyof typeof aiComposerZhCN, string> = {
@@ -23,4 +30,10 @@ export const aiComposerEn: Record<keyof typeof aiComposerZhCN, string> = {
   'ai.composer.noFiles': 'No matching file.',
   'ai.composer.listHint': '↑↓ to choose, Enter or Tab to accept, Esc to close the list.',
   'ai.composer.folderRoot': 'Project folder',
+  'ai.message.showMore': 'Show more',
+  'ai.message.showLess': 'Show less',
+  'ai.message.actions': 'Message actions',
+  'ai.message.copy': 'Copy this message',
+  'ai.message.reask': 'Ask again',
+  'ai.message.reaskHint': 'Ask again: puts this question back in the box, so you can change it before sending',
 };

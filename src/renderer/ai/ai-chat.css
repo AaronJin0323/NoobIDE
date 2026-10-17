@@ -610,3 +610,89 @@
   border-top: 1px solid var(--line);
 }
 /* ── end S48.4 ── */
+
+/* ── S48.6 long messages and quiet per-message actions. A user message over 300px is cut behind a 3rem fade (a mask,
+   so the bubble's own fill shows through in both themes) with a Show-more control: a word and a chevron. ── */
+.ai-msg-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ai-msg-group-user {
+  align-items: flex-end;
+}
+.ai-prompt[data-collapse='collapsed'] {
+  max-height: 300px;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 3rem), transparent);
+}
+.ai-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 0;
+  padding: 2px 6px 2px 2px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+.ai-more:hover {
+  background: var(--hover-soft);
+}
+.ai-more:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.ai-more svg {
+  transition: rotate var(--dur-fast) var(--ease-smooth);
+}
+.ai-more[aria-expanded='true'] svg {
+  rotate: 180deg;
+}
+/* Out of sight until the message is hovered; the keyboard reveals it (focus-within), so Tab always reaches it. */
+.ai-msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 24px;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-smooth);
+}
+.ai-msg-group:hover > .ai-msg-actions,
+.ai-msg-group:focus-within > .ai-msg-actions,
+.ai-msg-answer:hover > .ai-msg-actions,
+.ai-msg-answer:focus-within > .ai-msg-actions {
+  opacity: 1;
+}
+/* Touch screens have no hover: the row is simply there. */
+@media (hover: none) {
+  .ai-msg-actions {
+    opacity: 1;
+  }
+}
+.ai-msg-actions .ai-msg-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  min-width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0 4px;
+  color: var(--muted);
+}
+.ai-msg-actions .ai-msg-action:hover {
+  color: var(--text);
+}
+.ai-msg-action-status {
+  font-size: var(--text-xs);
+}
+.ai-msg-action-status:empty {
+  display: none;
+}
+/* ── end S48.6 ── */
