@@ -536,21 +536,40 @@ export function PreviewPane({
             </button>
           )}
           {actions.start && (
-            <button type="button" className="preview-primary" data-testid="preview-start" onClick={start}>
+            <button
+              type="button"
+              className="preview-primary"
+              data-testid="preview-start"
+              title={t('preview.start')}
+              onClick={start}
+            >
               <PlayIcon />
-              {t('preview.start')}
+              {/* S49.6: the narrowest tiers show the icon only; the words stay the button's name. */}
+              <span className="cq-label">{t('preview.start')}</span>
             </button>
           )}
           {actions.reload && (
-            <button type="button" className="preview-primary" data-testid="preview-reload" onClick={refresh}>
+            <button
+              type="button"
+              className="preview-primary"
+              data-testid="preview-reload"
+              title={t('preview.reload')}
+              onClick={refresh}
+            >
               <RefreshIcon />
-              {t('preview.reload')}
+              <span className="cq-label">{t('preview.reload')}</span>
             </button>
           )}
           {actions.stop && (
-            <button type="button" className="quiet-button preview-stop" data-testid="preview-stop" onClick={stop}>
+            <button
+              type="button"
+              className="quiet-button preview-stop"
+              data-testid="preview-stop"
+              title={t('preview.stop')}
+              onClick={stop}
+            >
               <StopIcon />
-              {t('preview.stop')}
+              <span className="cq-label">{t('preview.stop')}</span>
             </button>
           )}
         </RovingGroup>

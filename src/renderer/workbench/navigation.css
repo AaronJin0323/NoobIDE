@@ -210,3 +210,141 @@
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
+
+/* ── S49.6: container-query ladder and hit-box compensation ──
+   The preview header, the preview toolbar row and the chat composer's chin are named containers. Tiers by their own
+   width (not the window's): >= 576px everything; < 480px no keyboard hints or secondary actions (each is also a
+   command in the palette); < 384px icon-only buttons and 4rem labels with an ellipsis; < 320px 4px padding and
+   fields capped at max(6rem, 100cqw - 4rem). Every control drawn shorter than 32px in these rows gets a 32px hit
+   target from transparent block borders taken back with a negative margin-block, so the visual row never grows. */
+.preview-header,
+.preview-toolbar {
+  container: preview-toolbar / inline-size;
+}
+.ai-composer-row {
+  container: composer-chin / inline-size;
+}
+
+/* Hit boxes: the fill and the ring sit in the padding box (28px or less); the border box (the hit target) is 32px. */
+.preview-actions > .icon-button {
+  height: 32px;
+  margin-block: -2px;
+  border-block: 2px solid transparent;
+  background-clip: padding-box;
+}
+.preview-toolbar .quiet-button,
+.preview-location .quiet-button {
+  height: 32px;
+  margin-block: -3px;
+  border-block: 3px solid transparent;
+  background-clip: padding-box;
+}
+.preview-toolbar .preview-select {
+  height: 32px;
+  margin-block: -2px;
+  border-width: 2px 0;
+  border-color: transparent;
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.preview-toolbar .preview-select:hover:not(:disabled) {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--muted);
+}
+.preview-toolbar .preview-select:focus {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--focus);
+}
+.preview-toolbar .viewport-choice,
+.preview-toolbar .viewport-choice[aria-pressed='true'] {
+  height: 32px;
+  margin-block: -4px;
+  border-width: 4px 0;
+  border-color: transparent;
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+/* Not colour alone (S15.3): the chosen width keeps its outline in the text colour and the strong label. */
+.preview-toolbar .viewport-choice[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/* < 480px: no keyboard hints, no secondary actions. */
+@container preview-toolbar (width < 480px) {
+  [data-testid='preview-open-external'],
+  [data-testid='preview-advanced'],
+  .preview-save-update {
+    display: none;
+  }
+}
+@container composer-chin (width < 480px) {
+  .ai-hint {
+    display: none;
+  }
+}
+
+/* < 384px: icon-only buttons (the words stay their accessible name), 4rem labels with an ellipsis. */
+@container preview-toolbar (width < 384px) {
+  .cq-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .preview-primary,
+  .preview-stop {
+    padding-inline: 8px;
+  }
+  .viewport-choice,
+  .preview-field > label,
+  .state-pill {
+    max-width: 4rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+@container composer-chin (width < 384px) {
+  .cq-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .ai-composer-row .ai-send {
+    padding-inline: 8px;
+  }
+  .ai-composer-row .secondary-button {
+    max-width: 4rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* < 320px: the controls' inline padding drops to 4px; fields never wider than the row minus room for one button. */
+@container preview-toolbar (width < 320px) {
+  .preview-primary,
+  .preview-stop,
+  .quiet-button,
+  .viewport-choice,
+  .preview-select {
+    padding-inline: 4px;
+  }
+  .preview-select,
+  .preview-page-path,
+  .preview-location {
+    max-width: max(6rem, calc(100cqw - 4rem));
+  }
+}
+@container composer-chin (width < 320px) {
+  .ai-composer-row .ai-send,
+  .ai-composer-row .secondary-button {
+    padding-inline: 4px;
+    max-width: max(6rem, calc(100cqw - 4rem));
+  }
+}

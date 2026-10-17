@@ -540,7 +540,7 @@ export function ChatPanelView({
                 disabled={!canSend}
               >
                 <AiIcon size={16} />
-                {t('ai.chat.send')}
+                <span className="cq-label">{t('ai.chat.send')}</span>
               </button>
             )}
           </div>
