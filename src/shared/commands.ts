@@ -62,6 +62,8 @@ export const COMMAND_IDS = [
   'ai-inline-edit',
   // S40.5 command palette (search every command that applies now)
   'command-palette',
+  // S53 HTML/CSS authoring aids (Edit menu)
+  'toggle-emmet',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -74,7 +76,13 @@ export interface CommandContext {
   readonly modalOpen: boolean;
   /** S24.4: the theme choice, shown as the checked theme command. */
   readonly theme: ThemeChoice;
+  /** S53: editor switches shown as checked menu items (absent: off). */
+  readonly emmet?: boolean;
+  readonly formatOnSave?: boolean;
 }
+
+/** Context keys that may be left out (switches; absent means off). */
+const OPTIONAL_CONTEXT_KEYS = ['emmet', 'formatOnSave'] as const;
 
 export const INITIAL_COMMAND_CONTEXT: CommandContext = {
   hasProject: false,
@@ -91,6 +99,8 @@ export interface CommandDefinition {
   readonly when?: (context: CommandContext) => boolean;
   /** A choice among several (radio item in menus): whether it is the current one. */
   readonly checked?: (context: CommandContext) => boolean;
+  /** S53: `checked` is an on/off switch (checkbox item in menus), not one choice of several. */
+  readonly toggle?: true;
 }
 
 const noModal = (c: CommandContext) => !c.modalOpen;
@@ -188,6 +198,8 @@ export const COMMANDS: readonly CommandDefinition[] = [
     keys: { all: { key: 'p', primary: true, shift: true } },
     when: noModal,
   },
+  // S53.1: Emmet abbreviations on Tab (an app setting; on by default).
+  { id: 'toggle-emmet', label: 'command.toggleEmmet', checked: (c) => c.emmet === true, toggle: true },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));
@@ -253,13 +265,21 @@ export function commandChecked(id: CommandId, context: CommandContext): boolean 
   return checked ? checked(context) : null;
 }
 
+/** S53: whether the command is an on/off switch (checkbox) rather than one choice of several (radio). */
+export function commandIsToggle(id: CommandId): boolean {
+  return commandById(id).toggle === true;
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** IPC payload check for the context the renderer reports to main: exactly the known keys, each valid. */
 export function parseCommandContext(payload: unknown): CommandContext | null {
   if (!isRecord(payload)) return null;
-  const keys = Object.keys(payload).sort();
+  const optional: readonly string[] = OPTIONAL_CONTEXT_KEYS;
+  const keys = Object.keys(payload)
+    .filter((key) => !optional.includes(key))
+    .sort();
   const expected = Object.keys(INITIAL_COMMAND_CONTEXT).sort();
   if (keys.length !== expected.length || keys.some((key, i) => key !== expected[i])) return null;
   const { hasProject, hasActiveTab, modalOpen, theme } = payload;
@@ -267,5 +287,17 @@ export function parseCommandContext(payload: unknown): CommandContext | null {
     return null;
   }
   if (!isThemeChoice(theme)) return null;
-  return { hasProject, hasActiveTab, modalOpen, theme };
+  const context: { -readonly [K in keyof CommandContext]: CommandContext[K] } = {
+    hasProject,
+    hasActiveTab,
+    modalOpen,
+    theme,
+  };
+  for (const key of OPTIONAL_CONTEXT_KEYS) {
+    const value = payload[key];
+    if (value === undefined) continue;
+    if (typeof value !== 'boolean') return null;
+    context[key] = value;
+  }
+  return context;
 }

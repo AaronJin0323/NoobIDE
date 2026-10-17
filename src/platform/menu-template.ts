@@ -14,6 +14,7 @@ import { isMac, type PlatformId } from './labels';
 import {
   commandById,
   commandChecked,
+  commandIsToggle,
   commandKeybinding,
   isCommandEnabled,
   type CommandContext,
@@ -54,6 +55,8 @@ export type MenuEntry =
       readonly enabled: boolean;
       /** S24.4: a choice (radio item) and whether it is the current one. */
       readonly checked?: boolean;
+      /** S53: `checked` is an on/off switch (checkbox item). */
+      readonly toggle?: boolean;
     }
   | { readonly kind: 'role'; readonly role: MenuRole; readonly label: string; readonly accelerator?: string }
   | { readonly kind: 'separator' }
@@ -87,6 +90,7 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       accelerator: binding ? keybindingAccelerator(binding, platform) : null,
       enabled: isCommandEnabled(id, context),
       ...(checked === null ? {} : { checked }),
+      ...(checked !== null && commandIsToggle(id) ? { toggle: true } : {}),
     };
   };
   const role = (r: MenuRole, label: MessageKey, accelerator?: string): MenuEntry =>
@@ -139,6 +143,8 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       role('copy', 'menu.copy'),
       role('paste', 'menu.paste'),
       role('selectAll', 'menu.selectAll'),
+      SEPARATOR,
+      command('toggle-emmet'), // S53.1
       SEPARATOR,
       command('toggle-inline-ai'), // S32.1
     ],

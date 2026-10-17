@@ -4584,8 +4584,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/decisions/0039-emmet.md (emmet 2.4.11 MIT, pinned, 75.4 KB min / 27.2 KB gz measured); emmet-expand.test.ts (9) + 6 html/css-emmet-* capability cases pass in packaged app offline (tests/e2e/language.spec.ts); tests/e2e/authoring.spec.ts S53.1 (hint + Edit menu switch) pass; verify green"
     },
     {
       "id": "S53.2",

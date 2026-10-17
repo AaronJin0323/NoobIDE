@@ -1,5 +1,5 @@
 {
-  "$comment": "Language capability suite (S18.1, S18.2). Each case is run inside the real (packaged) app by src/renderer/editor/capability-probe.ts: '|' marks the cursor. completion: every label in 'expect' must be offered. hover: the hover text must contain every 'expect' string. format: the formatted document must equal 'expectText'. docs/capabilities.md may only list case ids from this file, and the e2e suite requires every case to pass.",
+  "$comment": "Language capability suite (S18.1, S18.2). Each case is run inside the real (packaged) app by src/renderer/editor/capability-probe.ts: '|' marks the cursor. completion: every label in 'expect' must be offered. hover: the hover text must contain every 'expect' string. format: the formatted document must equal 'expectText'. edit (S53): 'action' runs at the cursor (two '|' mark a selection) and the document must equal 'expectText'. colors (S53.3): the colour texts that get a swatch. definition / references / rename (S57): NoobIDE's JavaScript navigation; 'closedFiles' are project files that are not open (extra libraries). docs/capabilities.md may only list case ids from this file, and the e2e suite requires every case to pass.",
   "cases": [
     {
       "id": "html-tag-completion",
@@ -367,6 +367,54 @@
       "expect": [
         "click"
       ]
+    },
+    {
+      "id": "html-emmet-nested",
+      "language": "html",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "<body>\n  ul>li*3|\n</body>\n",
+      "expectText": "<body>\n  <ul>\n    <li></li>\n    <li></li>\n    <li></li>\n  </ul>\n</body>\n"
+    },
+    {
+      "id": "html-emmet-class",
+      "language": "html",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "<body>\n  .card|\n</body>\n",
+      "expectText": "<body>\n  <div class=\"card\"></div>\n</body>\n"
+    },
+    {
+      "id": "html-emmet-style-block",
+      "language": "html",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "<style>\n  body { m10| }\n</style>\n",
+      "expectText": "<style>\n  body { margin: 10px; }\n</style>\n"
+    },
+    {
+      "id": "css-emmet-property",
+      "language": "css",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "a {\n  m10|\n}\n",
+      "expectText": "a {\n  margin: 10px;\n}\n"
+    },
+    {
+      "id": "html-emmet-plain-word-indents",
+      "language": "html",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "<p>hello|</p>\n",
+      "expectText": "<p>hello  </p>\n"
+    },
+    {
+      "id": "css-emmet-unknown-word-indents",
+      "language": "css",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "a {\n  zz|\n}\n",
+      "expectText": "a {\n  zz  \n}\n"
     }
   ]
 }

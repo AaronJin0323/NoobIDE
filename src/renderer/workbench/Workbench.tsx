@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react';
+import { editorPrefs, loadEditorPrefs, setEditorPrefs, useEditorPrefs } from '../editor/editor-prefs'; // S53
 import { useAppMenuItems, useCommands, type CommandHandlers } from '../commands/useCommands'; // S24.1
 import type { FileContent, FileVersion, OpenedProject } from '../../shared/ipc/contract';
 import { useMediaQuery } from '../theme/useMediaQuery';
@@ -194,6 +195,9 @@ export function Workbench() {
     if (settingsLoaded.current) void bridge?.settings?.update({ editorFontSize: fontSize });
   }, [bridge, fontSize]);
   // --- end S13.1 ---
+  // S53: the editor switches (Emmet on Tab, format on save) come from the same settings.
+  useEffect(() => void loadEditorPrefs(bridge?.settings), [bridge]);
+  const editorSwitches = useEditorPrefs();
   // --- S13.2: "set as entry page" writes .noobide/project.json (the only file NoobIDE writes into a project) ---
   const [entryNotice, setEntryNotice] = useState<EntryNoticeState | null>(null);
   const extraMenuItems = useCallback(
@@ -1049,6 +1053,7 @@ export function Workbench() {
       glossaryFor !== null ||
       palette !== null,
     theme: theme.choice, // S24.4
+    emmet: editorSwitches.emmet, // S53.1
   };
   const commandHandlers: CommandHandlers = {
     'new-project': bridge?.createProject ? () => setWizardOpen(true) : undefined,
@@ -1086,6 +1091,7 @@ export function Workbench() {
     'ai-inline-edit': inlineEdit.shown ? inlineEdit.start : undefined, // S35.1
     // S32.1: AI ghost-text suggestions on / off (offered only when the AI bridge exists)
     'toggle-inline-ai': aiBridge() ? () => toggleInlineAi(docRef.current.project?.projectId ?? null) : undefined,
+    'toggle-emmet': () => setEditorPrefs({ emmet: !editorPrefs().emmet }), // S53.1
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
     'command-palette': () =>
       setPalette(

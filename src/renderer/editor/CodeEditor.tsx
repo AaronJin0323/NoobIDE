@@ -23,6 +23,8 @@ import { createEditZone } from '../ai/edit-zone-monaco';
 import { attachSmartEditing } from './smart-monaco';
 // S42.3: inline `/ai` prompt lines (hint, warning, Enter / Ctrl+Enter / context menu).
 import { attachAiPrompts, refreshAiPromptMarkers } from '../ai/ai-prompt-monaco';
+// S53.1: Emmet abbreviations on Tab (decision 0039).
+import { attachEmmet } from './emmet-monaco';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -179,6 +181,7 @@ export function CodeEditor({
       { dispose: () => caret.dispose() },
       attachInlineAi(editor, () => (uriOf() ? inlineTarget.current : null)),
       attachSmartEditing(editor),
+      attachEmmet(editor),
       attachAiPrompts(editor, () => {
         const uri = uriOf();
         return uri && inlineTarget.current && !inlineTarget.current.readOnly ? uri : null;

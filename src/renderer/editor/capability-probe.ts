@@ -1,5 +1,6 @@
 import { monaco } from './monaco-setup';
-import { cursorOf, extensionOf, type CapabilityCase, type CapabilityResult } from './capability-cases';
+import { extensionOf, selectionOf, type CapabilityCase, type CapabilityResult } from './capability-cases';
+import { expandOrTab } from './emmet-monaco';
 
 /**
  * Runs language capability cases in the real editor (S18.1, S18.2): a real Monaco editor, the bundled language
@@ -38,6 +39,23 @@ function hoverText(host: HTMLElement): string {
     .trim();
 }
 
+/** S53: runs an edit case's action the way the user's key or command does. False: the action did not run. */
+async function runEdit(editor: monaco.editor.IStandaloneCodeEditor, c: CapabilityCase): Promise<boolean> {
+  const action = c.action ?? '';
+  if (action === 'emmet') {
+    expandOrTab(editor, { enabled: true });
+    return true;
+  }
+  const typed = () => {
+    if (c.typeText) editor.trigger('keyboard', 'type', { text: c.typeText });
+  };
+  const run = editor.getAction(action);
+  if (!run) return false;
+  await run.run();
+  typed();
+  return true;
+}
+
 async function runCase(
   editor: monaco.editor.IStandaloneCodeEditor,
   host: HTMLElement,
@@ -49,7 +67,7 @@ async function runCase(
     const language = name.endsWith('.css') ? 'css' : name.endsWith('.html') ? 'html' : 'javascript';
     return monaco.editor.createModel(text, language, monaco.Uri.parse(dir + name));
   });
-  const { text, line, column } = cursorOf(c.text);
+  const { text, start: from, end: to } = selectionOf(c.text);
   const model = monaco.editor.createModel(
     text,
     c.language,
@@ -66,7 +84,13 @@ async function runCase(
     model.updateOptions({ tabSize: 2, insertSpaces: true });
     editor.setModel(model);
     editor.focus();
-    editor.setPosition({ lineNumber: line, column });
+    editor.setSelection(new monaco.Selection(from.line, from.column, to.line, to.column));
+    if (c.kind === 'edit') {
+      const got = await runEdit(editor, c);
+      const want = (c.expectText ?? '').replace(/\r\n/g, '\n');
+      const seen = model.getValue().replace(/\r\n/g, '\n');
+      return result(got && seen === want, seen);
+    }
     if (c.kind === 'completion') {
       let lastTrigger = 0;
       let labels: string[] = [];

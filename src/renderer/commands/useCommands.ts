@@ -62,7 +62,9 @@ export function useCommands(platform: PlatformId, context: CommandContext, handl
   }, [platform, canRun, run]);
 
   // S24.2: main enables the native menu items from this context and sends their choices back by id.
-  const contextKey = `${context.hasProject}|${context.hasActiveTab}|${context.modalOpen}|${context.theme}`;
+  const contextKey =
+    `${context.hasProject}|${context.hasActiveTab}|${context.modalOpen}|${context.theme}` +
+    `|${context.emmet}|${context.formatOnSave}`;
   useEffect(() => {
     void window.noobide?.commands?.setContext({ ...contextRef.current });
   }, [contextKey]);
@@ -83,8 +85,10 @@ export function useAppMenuItems(
     (id) => id === '-' || (handlers[id] !== undefined && isCommandEnabled(id, context)),
   ).join(',');
   const theme = context.theme; // the checked theme item (S24.4)
+  const emmet = context.emmet === true; // S53 switches
+  const formatOnSave = context.formatOnSave === true;
   return useMemo(() => {
-    const checkedIn = { ...INITIAL_COMMAND_CONTEXT, theme };
+    const checkedIn = { ...INITIAL_COMMAND_CONTEXT, theme, emmet, formatOnSave };
     const items: AppMenuItem[] = [];
     let separate = false;
     for (const raw of visible === '' ? [] : visible.split(',')) {
@@ -104,7 +108,7 @@ export function useAppMenuItems(
       separate = false;
     }
     return items;
-  }, [visible, theme, platform, run]);
+  }, [visible, theme, emmet, formatOnSave, platform, run]);
 }
 
 /** A tooltip with the command's shortcut hint from the registry, e.g. `Save (⌘S)` / `Save (Ctrl+S)`. */

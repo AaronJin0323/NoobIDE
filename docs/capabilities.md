@@ -87,6 +87,22 @@ paste (re-indented into the file's style, a separate undo step) and Format use i
 came from, and its menu changes it. Proven by `tests/fixtures/indentation` (19 files, `indent-detect.test.ts`) and
 `tests/e2e/smart-editing.spec.ts`; it is a heuristic, so the status bar always shows the choice.
 
+## Emmet abbreviations (S53.1)
+
+Tab expands an Emmet abbreviation at the end of the text before the cursor (decision 0039). It is on by default and is
+switched off with Edit › **Tab 展开 Emmet 缩写 / Expand Emmet abbreviations with Tab**; the first expansion shows a hint
+in the status bar that names this switch (`tests/e2e/authoring.spec.ts`). Where no abbreviation applies, Tab indents as
+before. With the suggestion list open, Tab accepts the suggestion; press Esc first to expand.
+
+| Capability                                                             | Example                              | Case                             |
+| ---------------------------------------------------------------------- | ------------------------------------ | -------------------------------- |
+| HTML abbreviations expand to nested, repeated elements                 | `ul>li*3` → `<ul>` with three `<li>` | `html-emmet-nested`              |
+| A class abbreviation expands to a `<div>`                              | `.card` → `<div class="card"></div>` | `html-emmet-class`               |
+| CSS abbreviations expand inside a rule (CSS files)                     | `m10` → `margin: 10px;`              | `css-emmet-property`             |
+| CSS abbreviations expand inside an HTML page's `<style>`               | `m10` → `margin: 10px;`              | `html-emmet-style-block`         |
+| A word that is not an HTML element is not expanded; Tab inserts spaces | `hello` + Tab → `hello  `            | `html-emmet-plain-word-indents`  |
+| A word that is not a CSS abbreviation is not expanded                  | `zz` + Tab → `zz  `                  | `css-emmet-unknown-word-indents` |
+
 ## AI suggestions are marked
 
 AI ghost text (S32.1, only when AI is set up) carries an **AI** badge with the accessible name "AI 建议 / AI
