@@ -242,7 +242,8 @@
   container: composer-chin / inline-size;
 }
 
-/* Hit boxes: the fill and the ring sit in the padding box (28px or less); the border box (the hit target) is 32px. */
+/* Hit boxes: the fill and the inset ring sit in the padding box (28px or less); the border box (the hit target) is
+   32px. */
 .preview-actions > .icon-button {
   height: 32px;
   margin-block: -2px;
@@ -259,31 +260,15 @@
 .preview-toolbar .preview-select {
   height: 32px;
   margin-block: -2px;
-  border-width: 2px 0;
-  border-color: transparent;
+  border-block: 2px solid transparent;
   background-clip: padding-box;
-  box-shadow: inset 0 0 0 1px var(--line);
 }
-.preview-toolbar .preview-select:hover:not(:disabled) {
-  border-color: transparent;
-  box-shadow: inset 0 0 0 1px var(--muted);
-}
-.preview-toolbar .preview-select:focus {
-  border-color: transparent;
-  box-shadow: inset 0 0 0 1px var(--focus);
-}
-.preview-toolbar .viewport-choice,
-.preview-toolbar .viewport-choice[aria-pressed='true'] {
+/* The outline is S50.3's inset ring (drawn inside the padding box), so hover, pressed and focus keep their rings. */
+.preview-toolbar .viewport-choice {
   height: 32px;
   margin-block: -4px;
-  border-width: 4px 0;
-  border-color: transparent;
+  border-block: 4px solid transparent;
   background-clip: padding-box;
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-/* Not colour alone (S15.3): the chosen width keeps its outline in the text colour and the strong label. */
-.preview-toolbar .viewport-choice[aria-pressed='true'] {
-  box-shadow: inset 0 0 0 1px currentColor;
 }
 
 /* < 480px: no keyboard hints, no secondary actions. The preview rows have neither: each of their buttons is the
