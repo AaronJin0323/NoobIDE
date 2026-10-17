@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 37 (side session) — 2026-10-17 — Motion token ladder and reduced-motion gate (S47.1)
+## Session 38 (side session) — 2026-10-17 — Motion token ladder and reduced-motion gate (S47.1)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/beautiful-shirley-d2ba80`,
 fast-forwarded onto the M18 plan commit (a049ce5); node_modules junctioned to the main checkout.
@@ -49,6 +49,47 @@ Merged the plan branch (S48.1–S48.3, S49.3, test-robustness fixes) first.
 1. S47.2 (panel, drawer and notice enter/exit) on top of these tokens; every new animation must use `--dur-*`
    so the gate covers it, and add its case to reduced-motion.spec.ts.
 2. Other M18 sessions (S48–S50) can branch from this commit.
+
+## Session 37 (side session) — 2026-10-17 — S49.1 splitter physics (M18 Track C1)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s49-splitter-physics-c88bff`
+(node_modules junctioned to the main checkout), started from the M18 plan session in parallel with S47.1, S48 and
+S49.3 (their files untouched).
+
+**Done**
+
+- `workbench/splitter-model.ts` (pure): 4 px dead zone (`DRAG_DEAD_ZONE`), Escape → start value, double-click
+  defaults (files 220, share 0.5), files collapse under 120 px (`FILES_COLLAPSE_BELOW`; collapsed keeps the drag's
+  start width so the toggle reopens at it), aria-valuetext in words (`layout.filesWidthText`,
+  `layout.filesCollapsedText`, `layout.editorShareText`, zh-CN + en). New layout action `dragFiles` puts the layout in
+  exactly the toggle-files state (unit-tested equal), so the rail button reflects it.
+- `Splitter.tsx`: drag via the model, Escape listener on window (capture) while pressed, `onDoubleClick` reset,
+  `onPhase` (idle/pressed/dragging), `onDrag` separate from keyboard `onChange` (Home/End never collapse).
+  Workbench keeps the files divider mounted while a drag has collapsed the panel, so it can be dragged back out.
+- `PreviewPane` prop `resizing`: on press it asks for a picture with the existing S41.5 `annotations.regionShot` IPC
+  (no new channel; main takes it only while the view is shown; requested in a layout effect so it reaches main before
+  the bounds that hide the view); while dragging the native view is hidden (`data-resizing`) and the picture
+  (`preview-resize-shot`, alt text in both locales) fills the stage; without one the stage shows its usual content.
+  Release or Escape gives the live view back.
+
+**Evidence:** `splitter-model.test.ts` (8 tests); `tests/e2e/layout-splitters.spec.ts` 5/5 on the packaged build;
+preview-layout, session, key-features-visible, preview-annotations, a11y e2e 36/36; `npm run verify` green.
+
+**Decisions:** The S38.1 AI snapshot channel was not reused: it builds an outline and is tied to the chat; the S41.5
+region shot is the same `capturePage` picture with no side effects. Playwright mouse events go to the renderer, so
+the e2e proves the cover/picture/live states and final share; that a real OS pointer is not swallowed by the native
+view follows from the view being hidden after the dead zone (could be added to a manual check later).
+
+**CI shard placement (follow-up on PR #18):** macOS verify failed `tests/integration/e2e-shards.test.ts`
+(preview-isolation landed in shard 1/2). Playwright splits by _non-skipped_ tests, and on macOS ai-keychain is
+skipped at file level, so the macOS split point is one test lower than Windows'; with the spec named
+`splitter-physics.spec.ts` (sorting after the preview files) the PR merge ref put preview-isolation at test 165
+against a macOS split at 166. Renamed to `layout-splitters.spec.ts` (sorts before the preview files, ADR 0035's
+file-order lever): on the merged tree preview-isolation now starts at 177 (macOS, split 169) / 178 (Windows, split
+170), a margin of 8. Spec files added after `preview-isolation` move the split by half their tests; keep that margin
+in mind.
+
+**Next up:** the rest of S49 (S49.2+), then S50. Tab drag-to-reorder can now reuse `splitter-model` dead-zone logic.
 
 ## Session 35 (side session) — 2026-10-17 — S48.1–S48.3 chat panel engine: scroll latch, growing composer, IME stage 2
 
@@ -175,8 +216,13 @@ the spec now waits for settings.json to hold the locale before navigating (tests
 watcher.test.ts "entries that came and went within one batch": the scripted test awaited real disk work between the
 raw reports it delivers with a 20 ms debounce, so on the saturated runner the batch classified mid-sequence (folder
 "created") and idle() could not wait for the unfired second timer; the disk work now runs first and the reports are
-delivered back to back, which is the premise the test states (tests only, 21/21 three runs). Five distinct hosted-runner
-flakes in five runs of a docs-only PR: the common thread is tests that assume an idle machine.
+delivered back to back, which is the premise the test states (tests only, 21/21 three runs). The sixth run (now carrying
+S48 and S49.3) timed out history-ipc.test.ts "the content kept before a restore survives the save" at the 5 s default;
+all three describes in that file do fsynced snapshot writes and now carry the 60 s real-IO hang guard. The seventh run timed out
+tree.test.ts "stops at the per-folder limit" (MAX_DIR_ENTRIES + 1 real files) at the 5 s default; it now carries the
+60 s hang guard. Seven distinct hosted-runner flakes in seven runs of one PR: the common thread is tests that assume an
+idle machine. PR #20 (another session) fixes an overlapping set, including completion-latency.test.ts; whichever
+merges second resolves that file.
 
 **Decisions:** Nothing from the source is copied as code, class strings or assets (Tailwind, Framer Motion,
 clay accent, CDN Storybook); only mechanisms and constants, each given one home as a token or tested constant.
