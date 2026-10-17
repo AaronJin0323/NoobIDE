@@ -25,7 +25,7 @@ S49.3 (their files untouched).
   (`preview-resize-shot`, alt text in both locales) fills the stage; without one the stage shows its usual content.
   Release or Escape gives the live view back.
 
-**Evidence:** `splitter-model.test.ts` (8 tests); `tests/e2e/splitter-physics.spec.ts` 5/5 on the packaged build;
+**Evidence:** `splitter-model.test.ts` (8 tests); `tests/e2e/layout-splitters.spec.ts` 5/5 on the packaged build;
 preview-layout, session, key-features-visible, preview-annotations, a11y e2e 36/36; `npm run verify` green.
 
 **Decisions:** The S38.1 AI snapshot channel was not reused: it builds an outline and is tied to the chat; the S41.5
@@ -33,7 +33,17 @@ region shot is the same `capturePage` picture with no side effects. Playwright m
 the e2e proves the cover/picture/live states and final share; that a real OS pointer is not swallowed by the native
 view follows from the view being hidden after the dead zone (could be added to a manual check later).
 
+**CI shard placement (follow-up on PR #18):** macOS verify failed `tests/integration/e2e-shards.test.ts`
+(preview-isolation landed in shard 1/2). Playwright splits by _non-skipped_ tests, and on macOS ai-keychain is
+skipped at file level, so the macOS split point is one test lower than Windows'; with the spec named
+`splitter-physics.spec.ts` (sorting after the preview files) the PR merge ref put preview-isolation at test 165
+against a macOS split at 166. Renamed to `layout-splitters.spec.ts` (sorts before the preview files, ADR 0035's
+file-order lever): on the merged tree preview-isolation now starts at 177 (macOS, split 169) / 178 (Windows, split
+170), a margin of 8. Spec files added after `preview-isolation` move the split by half their tests; keep that margin
+in mind.
+
 **Next up:** the rest of S49 (S49.2+), then S50. Tab drag-to-reorder can now reuse `splitter-model` dead-zone logic.
+
 ## Session 35 (side session) — 2026-10-17 — S48.1–S48.3 chat panel engine: scroll latch, growing composer, IME stage 2
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s48-chat-core-9b1e35` cut from
