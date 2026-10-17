@@ -1,3 +1,4 @@
+import { isImeKey } from './ime';
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 interface ConfirmDialogProps {
@@ -41,6 +42,7 @@ export function ConfirmDialog({
         data-testid={testId}
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
+          if (isImeKey(event.nativeEvent)) return;
           if (event.key === 'Escape') {
             event.preventDefault();
             onCancel();

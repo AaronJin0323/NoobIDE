@@ -1,3 +1,4 @@
+import { isImeKey } from './ime';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import { nameProblemMessage } from './file-op-messages';
@@ -58,6 +59,7 @@ export function NameEditor({ label, initialName, error, onCommit, onCancel }: Na
         }}
         onKeyDown={(event) => {
           event.stopPropagation(); // the tree's arrow, F2 and Delete keys do not apply while typing a name
+          if (isImeKey(event.nativeEvent)) return;
           if (event.key === 'Enter') {
             event.preventDefault();
             setTouched(true);

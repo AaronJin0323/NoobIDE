@@ -1,3 +1,4 @@
+import { isImeKey } from '../workbench/ime';
 import { useEffect, useId, useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { shortcutLabel, type PlatformId } from '../../platform/labels';
 import { useI18n } from '../i18n/I18nProvider';
@@ -114,7 +115,7 @@ export function InlineEditPanel({
   );
   const status = statusText(t, state, platform);
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== 'Escape') return;
+    if (isImeKey(event.nativeEvent) || event.key !== 'Escape') return;
     event.preventDefault();
     if (state.phase === 'review') actions.reject();
     else actions.close();
@@ -158,10 +159,12 @@ export function InlineEditPanel({
             rows={2}
             placeholder={t('ai.edit.instructionPlaceholder')}
             aria-describedby={hintId}
-            value={state.instruction}
+            // This field lives in a separate React root. Keep the native draft local: a
+            // controlled value round-tripped through the parent effect restores stale text mid-input.
+            defaultValue={state.instruction}
             onChange={(event) => actions.instruction(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+              if (event.key === 'Enter' && !event.shiftKey && !isImeKey(event.nativeEvent)) {
                 event.preventDefault();
                 actions.send();
               }

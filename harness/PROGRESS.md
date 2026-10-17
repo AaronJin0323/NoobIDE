@@ -53,6 +53,36 @@ remains untouched. Sandbox baseline failures passed under normal Windows permiss
 
 **Next up:** Finish draft-release CD (original owner request), then run the updated workflows on GitHub.
 Existing signing credentials and physical-platform acceptance remain owner work.
+## Session 29 (side session) — 2026-10-16 — Chinese input repair (S35.4, owner request)
+
+**Agent:** Codex on Windows x64, existing main checkout.
+
+**Done**
+
+- S35.4: AI inline edit now keeps the native textarea draft instead of round-tripping a controlled value through
+  another React root's effect. This prevents React from restoring stale text during input/composition.
+- Shared IME keyboard guard covers composition and legacy keyCode 229 boundary events in inline AI editing, chat,
+  file naming, project creation, annotations, the command palette, global shortcuts and modal keys. File naming
+  still stops propagation so candidate arrows cannot activate the enclosing tree.
+- Electron regression checks immediate text preservation, candidate Enter/Escape, normal newline/send/close,
+  Chinese file naming and candidate arrow ownership. Added a supplemental native IME checklist.
+
+**Evidence:** `npm run package`; 50 Electron tests across ai-edit, file-tree, ai-chat, welcome, commands and
+preview-annotations; `npm run verify` (2722 passed, 15 skipped; typecheck/lint/format/harness green).
+
+**Decisions:** Keep the AI instruction field's native draft local for its instruction phase; continue reporting
+changes to the existing model. No dependencies or IPC changes.
+
+**Problems / risks:** Sandboxed baseline file-operation tests failed; normal Windows permissions passed. An initial
+file-tree test assertion still expected its pre-edit value; corrected it and reran. Automatic approval briefly
+failed due to quota, then succeeded after the owner asked to continue. Native OS candidate windows and physical
+macOS were not exercised by the synthetic composition tests. Existing untracked `.idea/` is left untouched.
+
+**Owner action needed:** Optional native Pinyin confirmation using `harness/MANUAL-CHECKS.md` S35.4.
+
+**Next up**
+
+1. Resume the harness backlog; S01 remains gated on owner work. Existing platform manual checks remain pending.
 
 ## Session 28 (side session) — 2026-10-16 — Integrated title bar (S46.9, owner request)
 

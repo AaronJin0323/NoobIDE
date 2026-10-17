@@ -1,3 +1,4 @@
+import { isImeKey } from '../workbench/ime';
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { MessageKey } from '../i18n/index';
 import { useI18n } from '../i18n/I18nProvider';
@@ -475,7 +476,7 @@ export function ChatPanelView({
             value={draft.prompt}
             onChange={(event) => actions.setPrompt(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+              if (event.key !== 'Enter' || event.shiftKey || isImeKey(event.nativeEvent)) return;
               event.preventDefault();
               if (canSend) void actions.send();
             }}
