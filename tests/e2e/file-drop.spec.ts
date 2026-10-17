@@ -71,6 +71,11 @@ test('the same collision rules as "Add files…": rename or skip, never overwrit
   await writeFile(path.join(root, '说明 文档.txt'), 'mine');
   await dropOnto(null, [path.join(outside, '说明 文档.txt'), path.join(outside, 'setup.exe')]);
   await expect(page.getByTestId('import-name-dialog')).toBeVisible();
+  // The name field has focus as soon as the dialog is visible (focus moves in before the first paint), so an Enter
+  // pressed right away is not lost (it was on a hosted macOS runner).
+  expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? null)).toBe(
+    'import-name-input',
+  );
   await page.keyboard.press('Enter'); // the proposed "说明 文档 copy.txt"
   await expect(page.getByTestId('file-op-failures')).toContainText('.exe');
   expect(await readFile(path.join(root, '说明 文档.txt'), 'utf8')).toBe('mine');
