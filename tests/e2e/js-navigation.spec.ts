@@ -1,13 +1,22 @@
-import { readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { DOC_START } from './keys';
 import { launchApp } from './launch';
-import { collectConsoleErrors, focusEditor, makeProject, openFile, openProject, tabOf } from './project';
+import {
+  answerFolderDialog,
+  collectConsoleErrors,
+  focusEditor,
+  makeProject,
+  openFile,
+  openProject,
+  tabOf,
+} from './project';
 
 /**
  * S57 JavaScript navigation in the workbench, on a project whose path has Chinese characters and spaces: F12 into a
- * closed script, Shift+F12 across two files, and the explained limit for an HTML page's inline <script>.
+ * closed script, Shift+F12 across two files, the explained limit for an HTML page's inline <script>, and F12 pressed
+ * right after opening a project, before its scripts are indexed.
  */
 test.describe.configure({ mode: 'serial' });
 
@@ -24,6 +33,15 @@ const PAGE =
 
 const cursor = () => page.getByTestId('cursor-position');
 const onDisk = (name: string) => readFile(path.join(root, name), 'utf8');
+
+/** S57.3: the editor test hooks that hold / release the project-script reads (monaco-setup.ts). */
+type HookWindow = {
+  __noobideEditorTestHooks: { holdProjectScriptReads(): void; releaseProjectScriptReads(): void };
+};
+const holdReads = () =>
+  page.evaluate(() => (window as unknown as HookWindow).__noobideEditorTestHooks.holdProjectScriptReads());
+const releaseReads = () =>
+  page.evaluate(() => (window as unknown as HookWindow).__noobideEditorTestHooks.releaseProjectScriptReads());
 
 /** Puts the cursor on `line` (1-based), `column` characters in. */
 async function cursorTo(line: number, column: number): Promise<void> {
@@ -55,23 +73,11 @@ test.afterAll(async () => {
 test('F12 opens the closed script where the function is declared (S57.1)', async () => {
   await cursorTo(1, 3); // in "greet"
   await expect(tabOf(page, 'config.js')).toHaveCount(0); // not open: the service knows it as a closed file
-  // On a slow runner the service may not know the closed file yet: an early F12 then answers with the "not found"
-  // notice on the navigation sheet, and a later press still opens the file while the notice stays up (run
-  // 39041732247, macOS). Close such a notice before retrying, so the test leaves no dialog behind.
-  const dialog = page.getByTestId('navigation-dialog');
-  await expect
-    .poll(async () => {
-      await page.keyboard.press('F12');
-      if ((await tabOf(page, 'config.js').count()) > 0) return true;
-      if (await dialog.isVisible()) {
-        await page.keyboard.press('Escape');
-        await expect(dialog).toBeHidden();
-      }
-      return false;
-    })
-    .toBe(true);
-  await expect(dialog).toBeHidden();
+  // One press: the command waits for the project's scripts to be indexed and for the language service to start, so
+  // there is no "not found" to retry past (before the S57.3 fix this polled F12 and could leave that notice open).
+  await page.keyboard.press('F12');
   await expect(tabOf(page, 'config.js')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('navigation-dialog')).toHaveCount(0);
   await expect(cursor()).toHaveText('行 1, 列 10');
 });
 
@@ -172,5 +178,39 @@ test('F2 on a name of the browser is refused and says why; nothing changes (S57.
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('rename-dialog')).toBeHidden();
   expect(await onDisk('log.js')).toBe('console.log(1);\n');
+  expect(consoleErrors).toEqual([]);
+});
+
+test('F12 pressed right after opening a project waits for its scripts to be indexed (S57.3)', async () => {
+  // On a developer machine the project's scripts are read in milliseconds; on a starved hosted runner it takes seconds
+  // (run 39041732247, macOS: an early F12 answered "not found"). The test hook holds the reads so the press provably
+  // lands while the project is still being indexed; the user must see the wait, never "not found".
+  const second = path.join(tmp, '第二个 项目');
+  await mkdir(second, { recursive: true });
+  await writeFile(path.join(second, 'config.js'), CONFIG);
+  await writeFile(path.join(second, 'app.js'), APP);
+  await holdReads();
+  await answerFolderDialog(app, second);
+  await page.getByTestId('open-other-folder').click();
+  await expect(page.getByTestId('project-name')).toHaveText('第二个 项目');
+  await openFile(page, 'app.js');
+  await expect(tabOf(page, 'config.js')).toHaveCount(0);
+  await focusEditor(page);
+  await page.keyboard.press(DOC_START);
+  await page.keyboard.press('ArrowRight'); // in "greet", column 2
+  await page.keyboard.press('F12');
+  // The command waits: the status strip says so in words, no sheet opens, nothing navigates yet.
+  const note = page.getByTestId('navigation-indexing');
+  await expect(note).toBeVisible();
+  await expect(note).toContainText('转到定义');
+  await expect(note).toHaveAttribute('role', 'status');
+  await expect(page.getByTestId('navigation-dialog')).toHaveCount(0);
+  await expect(tabOf(page, 'config.js')).toHaveCount(0);
+  // The disk "catches up": the same keypress navigates.
+  await releaseReads();
+  await expect(tabOf(page, 'config.js')).toHaveAttribute('aria-selected', 'true');
+  await expect(note).toHaveCount(0);
+  await expect(page.getByTestId('navigation-dialog')).toHaveCount(0);
+  await expect(cursor()).toHaveText('行 1, 列 10');
   expect(consoleErrors).toEqual([]);
 });

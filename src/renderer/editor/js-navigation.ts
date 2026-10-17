@@ -35,6 +35,12 @@ export interface NavigationPaths {
   textOf(fileName: string): string | null;
   /** Whether every project script is known to the service (none left out by the limits). */
   complete(): boolean;
+  /**
+   * Resolves `true` once the project's scripts have all been read into the service, `false` when they still have
+   * not after the bound. Navigation asks before it asks the service, so a keypress right after opening a project waits
+   * for the real answer instead of getting "not found" from a half-read project.
+   */
+  whenIndexed(): Promise<boolean>;
 }
 
 /** 1-based line / column of an offset. */
@@ -106,6 +112,8 @@ export type RenameRefusal =
   | 'built-in'
   /** Some of the project's scripts are not known to the service (limits), so some uses could be missed. */
   | 'incomplete-project'
+  /** The project's scripts were still being read after the wait: a plan now could miss a file. */
+  | 'indexing'
   /** The name is also written in an HTML page (inline script, `onclick="…"`), which the service does not see. */
   | 'used-in-html'
   /** A use is in a file NoobIDE cannot change safely (not a project script, or its text is unknown). */
