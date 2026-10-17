@@ -31,6 +31,12 @@ import { schemaVersionOf } from '../main/json-file';
  * index — per step the version the file had before (`before-ai` snapshot) and the hash of what the turn left — so
  * the History window can undo the whole turn after a reload or a crash. Version 1 indexes are read as they are (no
  * groups) and written as version 2 on the next change; an index of a newer version is never written (see above).
+ *
+ * Shared blobs (S56.1): project checkpoints (checkpoints.ts) keep their file contents as blobs in this same
+ * `objects/` folder, so a file kept by history and by a checkpoint is stored once. The checkpoint store registers
+ * its references with `setPins()`; no blob it pins is ever deleted here (limits, cleanup, clear), and while it cannot
+ * tell what it references (`uncertain`) no blob is deleted at all. It reaches the blobs only through `withBlobs()`,
+ * inside this store's queue.
  */
 
 export type SnapshotReason =
@@ -157,6 +163,36 @@ export interface ProjectHistorySummary {
 }
 
 export type SnapshotError = 'too-large' | 'write-failed';
+
+/** S56.1: blobs another store (project checkpoints) references; `uncertain`: it cannot tell right now. */
+export interface BlobPins {
+  readonly hashes: ReadonlySet<string>;
+  readonly uncertain: boolean;
+}
+
+/** S56.1: blob access for the checkpoint store, valid only inside the `withBlobs()` task that handed it out. */
+export interface BlobAccess {
+  /** Stores `data` unless an intact copy exists (a damaged copy is replaced); returns its SHA-256. */
+  put(data: Uint8Array): Promise<string>;
+  /** A blob's content, hash-verified. */
+  read(hash: string): Promise<Result<Uint8Array, 'not-found' | 'corrupt'>>;
+  /** True when the blob exists and its content matches its hash. */
+  intact(hash: string): Promise<boolean>;
+  /** Deletes those of `hashes` that neither history nor the pins reference (deferred while anything is unsure). */
+  release(hashes: readonly string[]): Promise<void>;
+  /** Rewrites the marker that keeps older NoobIDE versions from deleting these blobs (decision 0038). */
+  writeLegacyPins(hashes: readonly string[]): Promise<void>;
+}
+
+const NO_PINS: BlobPins = { hashes: new Set(), uncertain: false };
+
+/**
+ * S56.1, decision 0038: `index/<LEGACY_PIN_KEY>.json` names every checkpoint blob in an index of a version no
+ * NoobIDE uses. A version that predates checkpoints reads it as "an index from a newer version" and therefore never
+ * deletes a blob it names; this version skips the file (the checkpoint store pins the blobs itself).
+ */
+export const LEGACY_PIN_KEY = '0'.repeat(32);
+const LEGACY_PIN_VERSION = 1000;
 export type HistoryReadError = 'unavailable';
 
 const FORMAT = 'noobide-history';
@@ -237,6 +273,8 @@ export class SnapshotStore {
   private quarantined = 0;
   private readonly refs = new Map<string, { count: number; size: number }>();
   private seq = 0;
+  /** S56.1: references of the checkpoint store (none until it registers). */
+  private pins: () => BlobPins = () => NO_PINS;
 
   constructor(options: HistoryOptions) {
     this.dir = options.dir;
@@ -547,8 +585,19 @@ export class SnapshotStore {
     return this.queue.run(async () => {
       try {
         if (rootPath === undefined) {
-          await rm(this.dir, { recursive: true, force: true });
-          this.invalidate();
+          const pins = this.pins();
+          if (pins.hashes.size === 0 && !pins.uncertain) {
+            await rm(this.dir, { recursive: true, force: true });
+            this.invalidate();
+          } else {
+            // S56.1: checkpoints keep blobs here too; clearing history removes only what nothing else references.
+            await rm(path.join(this.dir, 'index'), { recursive: true, force: true });
+            await rm(path.join(this.dir, 'quarantine'), { recursive: true, force: true });
+            this.invalidate();
+            await this.writeLegacyPins([...pins.hashes]);
+            await this.load();
+            await this.collectGarbage();
+          }
         } else {
           const key = projectKey(rootPath);
           await rm(this.indexPath(key), { force: true });
@@ -570,6 +619,45 @@ export class SnapshotStore {
         this.invalidate();
         return err('clear-failed', errorCode(e), e);
       }
+    });
+  }
+
+  /** S56.1: registers the checkpoint store's blob references (read synchronously before any blob is deleted). */
+  setPins(provider: () => BlobPins): void {
+    this.pins = provider;
+  }
+
+  /** S56.1: runs `task` inside this store's queue with access to the shared blobs. */
+  withBlobs<T>(task: (blobs: BlobAccess) => Promise<T>): Promise<T> {
+    return this.queue.run(async () => {
+      await this.load();
+      return task({
+        put: async (data) => {
+          const hash = sha256Hex(data);
+          await this.ensureBlob(hash, data);
+          return hash;
+        },
+        read: async (hash) => {
+          let data: Buffer;
+          try {
+            data = await fsReadFile(this.blobPath(hash));
+          } catch (e) {
+            return err(errorCode(e) === 'ENOENT' ? 'not-found' : 'corrupt', errorCode(e));
+          }
+          if (sha256Hex(data) !== hash) {
+            this.log('history.blob-corrupt', { hash: hash.slice(0, 12) });
+            return err('corrupt', 'content does not match its hash');
+          }
+          return ok(new Uint8Array(data));
+        },
+        intact: async (hash) =>
+          fsReadFile(this.blobPath(hash)).then(
+            (data) => sha256Hex(data) === hash,
+            () => false,
+          ),
+        release: (hashes) => this.deleteBlobs(hashes),
+        writeLegacyPins: (hashes) => this.writeLegacyPins(hashes),
+      });
     });
   }
 
@@ -622,7 +710,7 @@ export class SnapshotStore {
         continue;
       }
       const key = name.endsWith('.json') ? name.slice(0, -5) : '';
-      if (!PROJECT_KEY.test(key)) continue;
+      if (!PROJECT_KEY.test(key) || key === LEGACY_PIN_KEY) continue;
       await this.loadIndex(key, file);
     }
     const kept = await readdir(path.join(this.dir, 'quarantine')).catch(() => [] as string[]);
@@ -724,6 +812,15 @@ export class SnapshotStore {
     await writeFileAtomic(target, data);
   }
 
+  private async writeLegacyPins(hashes: readonly string[]): Promise<void> {
+    const file = this.indexPath(LEGACY_PIN_KEY);
+    if (hashes.length === 0) await rm(file, { force: true });
+    else {
+      const marker = { format: FORMAT, v: LEGACY_PIN_VERSION, purpose: 'checkpoint-blobs', hashes };
+      await writeFileAtomic(file, JSON.stringify(marker));
+    }
+  }
+
   private async writeIndex(index: ProjectIndex): Promise<void> {
     for (const [rel, list] of Object.entries(index.files)) if (list.length === 0) delete index.files[rel];
     const key = projectKey(index.rootPath);
@@ -789,16 +886,22 @@ export class SnapshotStore {
 
   /** False while some index is unreadable or quarantined: then nothing can be proven unreferenced. */
   private mayDeleteBlobs(): boolean {
-    if (this.unavailable.size === 0 && this.quarantined === 0) return true;
-    this.log('history.gc-deferred', { unavailable: this.unavailable.size, quarantined: this.quarantined });
+    const pinsUncertain = this.pins().uncertain;
+    if (this.unavailable.size === 0 && this.quarantined === 0 && !pinsUncertain) return true;
+    this.log('history.gc-deferred', {
+      unavailable: this.unavailable.size,
+      quarantined: this.quarantined,
+      checkpoints: pinsUncertain,
+    });
     return false;
   }
 
   /** Deletes blobs nobody references — never while deletion is deferred, never protected ones. */
   private async deleteBlobs(hashes: readonly string[]): Promise<void> {
     if (hashes.length === 0 || !this.mayDeleteBlobs()) return;
+    const pinned = this.pins().hashes;
     for (const hash of hashes) {
-      if (this.refs.has(hash) || this.protectedHashes.has(hash)) continue;
+      if (this.refs.has(hash) || this.protectedHashes.has(hash) || pinned.has(hash)) continue;
       await rm(this.blobPath(hash), { force: true }).catch((e: unknown) =>
         this.log('history.gc-failed', { code: errorCode(e) }),
       );
@@ -810,6 +913,7 @@ export class SnapshotStore {
     let removedBlobs = 0;
     let removedBytes = 0;
     if (!this.mayDeleteBlobs()) return { removedBlobs, removedBytes };
+    const pinned = this.pins().hashes;
     const objects = path.join(this.dir, 'objects');
     for (const shard of await readdir(objects).catch(() => [] as string[])) {
       for (const name of await readdir(path.join(objects, shard)).catch(() => [] as string[])) {
@@ -818,7 +922,7 @@ export class SnapshotStore {
           await removeIfStale(file);
           continue;
         }
-        if (this.refs.has(name) || this.protectedHashes.has(name)) continue;
+        if (this.refs.has(name) || this.protectedHashes.has(name) || pinned.has(name)) continue;
         try {
           const { size } = await stat(file);
           await rm(file, { force: true });

@@ -47,6 +47,7 @@ import { consoleLogger } from '../recovery/atomic-file';
 import { RecoveryJournal } from '../recovery/journal';
 import { SnapshotStore } from '../recovery/history';
 import { HistoryTriggers } from '../recovery/history-triggers';
+import { CheckpointStore } from '../recovery/checkpoints'; // S56.1
 import { selfTestOffline, selfTestRequested, selfTestUserDataDir, watchSelfTest, withSelfTestQuery } from './self-test';
 // S13 app data: settings, recent projects, session, logs
 import { registerAppDataIpcHandlers, resolveThirdPartyNotices } from './app-data-ipc';
@@ -345,6 +346,9 @@ function start(): void {
     // --- S21: local history (snapshots around saves) in app data ---
     const history = new SnapshotStore({ dir: appDataPath(appData, 'history'), log: logger });
     const historyTriggers = new HistoryTriggers(history, logger);
+    // S56.1: project checkpoints share history's blobs; loading them lets history's clean-up delete blobs again.
+    const checkpoints = new CheckpointStore({ dir: appDataPath(appData, 'checkpoints'), history, log: logger });
+    void checkpoints.load();
     // --- end S21 ---
     projects = new ProjectService({ history: historyTriggers });
     // S14.4/S14.2: preview trust and one-time notes in app data (never inside a project).
