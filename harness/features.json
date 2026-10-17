@@ -4428,8 +4428,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "chat-panel.test.ts 'auto-growing composer (S48.2)' (3 renderToStaticMarkup/CSS tests: field-sizing path with rows=1, hidden aria-hidden mirror fallback, 44px..min(40svh,200px), resize none); tests/e2e/ai-chat-engine.spec.ts S48.2 on the packaged build at 1280x720 (empty ~44px, six Shift+Enter lines grow >+80px without inner scroll and <=200px, preview column >=200px visible, Enter sends and shrinks back); ai-chat/ai-agent/a11y/key-features-visible/preview-annotations e2e 35 passed; verify green"
     },
     {
       "id": "S48.3",

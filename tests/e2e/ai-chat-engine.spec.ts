@@ -110,4 +110,43 @@ test.describe('AI chat engine (S48)', () => {
     await expect(turn).toHaveAttribute('data-status', 'cancelled', { timeout: 15_000 });
     expect(consoleErrors).toEqual([]);
   });
+
+  test('the composer grows with six lines, the preview column stays visible at 1280x720 (S48.2)', async () => {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setContentSize(1280, 720));
+    await page.waitForFunction(() => window.innerWidth >= 1280 && window.innerHeight >= 720);
+    const height = () => input().evaluate((el) => el.getBoundingClientRect().height);
+
+    await input().fill('');
+    const empty = await height();
+    expect(empty).toBeGreaterThanOrEqual(43.5);
+    expect(empty).toBeLessThanOrEqual(48);
+    expect(await input().evaluate((el) => getComputedStyle(el).resize)).toBe('none');
+
+    await input().click();
+    for (let i = 1; i <= 6; i++) {
+      await page.keyboard.type(`第 ${i} 行`);
+      if (i < 6) await page.keyboard.press('Shift+Enter');
+    }
+    // Shift+Enter made new lines and sent nothing.
+    await expect(input()).toHaveValue(['第 1 行', '第 2 行', '第 3 行', '第 4 行', '第 5 行', '第 6 行'].join('\n'));
+    const turns = await panel().getByTestId('ai-turn').count();
+    const grown = await height();
+    expect(grown).toBeGreaterThan(empty + 80);
+    expect(grown).toBeLessThanOrEqual(200.5);
+    // Six lines fit without an inner scrollbar.
+    expect(await input().evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+
+    const preview = page.getByTestId('region-preview');
+    await expect(preview).toBeVisible();
+    const box = await preview.boundingBox();
+    expect(box && box.width >= 200 && box.height >= 200 && box.x + box.width <= 1280.5).toBe(true);
+    await expect(panel().getByTestId('ai-send')).toBeInViewport({ ratio: 1 });
+
+    // Enter still sends, and the composer goes back to one line.
+    await page.keyboard.press('Enter');
+    await expect(panel().getByTestId('ai-turn')).toHaveCount(turns + 1);
+    await expect(input()).toHaveValue('');
+    await expect.poll(height).toBeLessThanOrEqual(48);
+    expect(consoleErrors).toEqual([]);
+  });
 });

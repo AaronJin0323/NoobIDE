@@ -137,6 +137,11 @@ function PreviewChipDetails({
   );
 }
 
+/** S48.2: whether the engine sizes the composer to its content itself (Chromium 123+); otherwise a mirror does. */
+function growByCss(): boolean {
+  return typeof CSS !== 'undefined' && CSS.supports?.('field-sizing', 'content') === true;
+}
+
 /** The panel with its translation passed in (unit-tested with renderToStaticMarkup). */
 export function ChatPanelView({
   state,
@@ -155,6 +160,7 @@ export function ChatPanelView({
   const running = runningTurn(conversation);
   const availability = state.availability;
   const ready = availability.kind === 'ready';
+  const grow = growByCss() ? 'css' : 'mirror';
   const input = useRef<HTMLTextAreaElement>(null);
   const body = useRef<HTMLDivElement>(null);
 
@@ -487,21 +493,30 @@ export function ChatPanelView({
               {t(`ai.chat.mode.${draft.mode}`)}
             </p>
           )}
-          <textarea
-            ref={input}
-            className="ai-input"
-            rows={3}
-            aria-label={t('ai.chat.input')}
-            aria-describedby="ai-input-hint"
-            data-testid="ai-input"
-            value={draft.prompt}
-            onChange={(event) => actions.setPrompt(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter' || event.shiftKey || isImeKey(event.nativeEvent)) return;
-              event.preventDefault();
-              if (canSend) void actions.send();
-            }}
-          />
+          {/* S48.2: grows with its content (field-sizing, or the hidden mirror where that is unsupported). */}
+          <div className="ai-input-grow" data-grow={grow}>
+            <textarea
+              ref={input}
+              className="ai-input"
+              rows={1}
+              aria-label={t('ai.chat.input')}
+              aria-describedby="ai-input-hint"
+              data-testid="ai-input"
+              value={draft.prompt}
+              onChange={(event) => actions.setPrompt(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || event.shiftKey || isImeKey(event.nativeEvent)) return;
+                event.preventDefault();
+                if (canSend) void actions.send();
+              }}
+            />
+            {grow === 'mirror' && (
+              <span className="ai-input-mirror" aria-hidden="true" data-testid="ai-input-mirror">
+                {/* The trailing space gives a final empty line its height, as the textarea does. */}
+                {`${draft.prompt} `}
+              </span>
+            )}
+          </div>
           <div className="ai-composer-row">
             <p className="ai-hint" id="ai-input-hint">
               {t('ai.chat.inputHint')}
