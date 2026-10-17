@@ -3,6 +3,68 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 36 (side session) — 2026-10-17 — S51 find, replace and quick open (M19)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s51-search-ba5619` (from
+824b6fa, the M19 backlog records). One of six parallel M19 sessions (S51, S52, S53+S57, S54, S55, S56).
+
+**Done**
+
+- S51.1 Find / replace in the current file: commands `find` (Ctrl/Cmd+F) and `replace` (Ctrl+H on Windows, ⌥⌘F on
+  macOS) in `src/shared/commands.ts` with zh-CN/en labels, the native Edit menu and the palette. They open Monaco's own
+  widget through a new `EditorAccess.openFind` (editor-handle.ts / CodeEditor.tsx).
+- S51.2 Project search engine in main: `src/workspace/project-search.ts` (walk from the realpath root, links followed
+  only inside it, ignore.ts honoured, binary / non-UTF-8 / >1 MB files skipped and counted, 2 000-match cap with
+  `truncated`, open buffers win over disk, setImmediate between batches of 16 files, AbortSignal);
+  `src/main/search-ipc.ts` (sender + payload checks, typed `invalid-regex`, one search per window: a new one cancels
+  the old one, which answers `cancelled`); contract `src/shared/ipc/search-contract.ts`; shared matching rules
+  `src/shared/search.ts` (same regex, line/column and replacement on both sides).
+- S51.3 Find-in-files panel (`src/renderer/search/`): bottom region beside Problems (one of the two open at a time),
+  Ctrl/Cmd+Shift+F, toggles with icon + accessible name + aria-pressed + ring, results grouped by file, ↓/↑/Enter,
+  every state explained in zh-CN/en, status-strip button.
+- S51.4 Replace in files: replace row (Ctrl/Cmd+Shift+H) with old→new preview for every match, file and single-match
+  checkboxes, apply via `replace-apply.ts` through each file's editor tab and DocumentSaver (the S34.2 agent host's
+  `replaceOpenText`), summary of applied/failed files.
+- S51.5 Quick open: Ctrl/Cmd+P opens the palette in files mode over the S43.4 index (`quick-open-model.ts`), recent
+  files first, `>` switches to commands, "Go to File…" in the View menu.
+
+**Evidence:** `npm run verify` green (see commit). Unit: `src/shared/search.test.ts`, `src/main/search-ipc.test.ts`,
+`src/renderer/search/search-model.test.ts`, `src/renderer/commands/quick-open-model.test.ts` (worst keystroke ~3 ms
+over 2 001 files), `src/shared/commands.test.ts`, `src/platform/menu-template.test.ts`. Integration:
+`tests/integration/project-search.test.ts` (2 000 Chinese-path files in ~140–185 ms, max event-loop gap ~6 ms),
+`tests/integration/replace-in-files.test.ts`, fault `tests/integration/faults/replace-faults.test.ts` (added to
+docs/release/fault-matrix.md). E2E on Windows x64: `find-replace.spec.ts`, `find-in-files.spec.ts`,
+`find-replace-in-files.spec.ts`, `palette-quick-open.spec.ts` (20 tests), plus commands, menus, problems, a11y,
+key-features-visible, preview-layout, editing, shell (updated S30.3 control list) and glass suites.
+
+**Decisions**
+
+- Replace never writes files directly: every file is opened as a tab and changed as one undoable model edit, then
+  saved by its DocumentSaver (atomic write, S11 version check, local history, journal). A file whose text differs
+  from what the search saw (`textFingerprint`, line endings aside), a plan from another project, or a stale query
+  (kept matches no longer all found) is refused per file with an explanation.
+- One preview refresh per replace: the batch holds the automatic refresh with the existing S14.2 typing-pause signal
+  (`preview.typing`, every 150 ms) and releases it after the last save. No preview code changed.
+- The search panel reuses the `.problems-panel` frame (reserve, margins); it is not rendered while closed, and shows
+  no field or toggles without a project (S30.3: no disabled decoration).
+- E2E specs are named so `tests/integration/e2e-shards.test.ts` keeps preview-isolation in shard 2.
+- Subagent review of S51.4 found three defects (plan used the live query instead of the results' query, plan not
+  tied to the project, long matches could show no preview); all fixed with tests before S51.4 was marked done.
+
+**Problems / risks**
+
+- Replacing across many files opens one tab per file (like the agent apply). A tab's unrelated unsaved edits are
+  saved with the replace (nothing is lost; the user is not told separately).
+- Regex search runs in main's thread per line; a catastrophic-backtracking pattern on a long line can still stall
+  main. Lines are not length-capped. Consider a worker if it shows up.
+- Monaco's find widget is English (its own NLS); NoobIDE labels around it are translated.
+- During the session the shared `D:\NoobIDE\node_modules` was briefly emptied by another process; verify was re-run
+  once it was back.
+
+**Next up:** merge the six M19 branches (conflicts expected in `harness/features.json`, PROGRESS.md, commands.ts,
+menu-template.ts, Workbench.tsx, styles.css, shell.spec's control list; re-run the e2e shard test). Then the next M19
+session per `node harness/session.mjs next`.
+
 ## Session 35 (side session) — 2026-10-17 — M19 backlog records for S51–S57 (owner approval of review §4)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/dazzling-shtern-8a5721`, based
