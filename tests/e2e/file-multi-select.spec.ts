@@ -65,6 +65,10 @@ async function menuByKeyboard(command: string) {
 
 /** Moves the keyboard focus from `from` to `to` with Ctrl/Cmd+arrows (the selection stays). */
 async function focusByKeyboard(from: string, to: string) {
+  // Both rows must be listed before the order is read: files created by the previous step (Ctrl/Cmd+D) reach the
+  // tree through the watcher, and on a slow runner the second copy can arrive after the first is clickable.
+  await expect(treeRow(page, from)).toBeVisible();
+  await expect(treeRow(page, to)).toBeVisible();
   const order = await page.getByTestId('tree-row').evaluateAll((rows) => rows.map((r) => r.getAttribute('data-path')));
   const steps = order.indexOf(to) - order.indexOf(from);
   for (let i = 0; i < Math.abs(steps); i += 1)
