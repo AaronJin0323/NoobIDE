@@ -11,6 +11,7 @@ export function RovingGroup({
   loop,
   rtl,
   items,
+  skipHidden,
   children,
   ...rest
 }: RovingFocusOptions & Omit<HTMLAttributes<HTMLDivElement>, 'onKeyDown' | 'onFocus'> & { children?: ReactNode }) {
@@ -19,6 +20,7 @@ export function RovingGroup({
     ...(loop === undefined ? {} : { loop }),
     ...(rtl === undefined ? {} : { rtl }),
     ...(items === undefined ? {} : { items }),
+    ...(skipHidden === undefined ? {} : { skipHidden }),
   });
   return (
     <div {...rest} {...roving}>

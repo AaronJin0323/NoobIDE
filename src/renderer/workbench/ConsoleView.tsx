@@ -111,6 +111,7 @@ export function ConsoleView({ log, onClear }: { log: LogView; onClear: () => voi
   const roving = useRovingFocus<HTMLOListElement>({
     orientation: 'vertical',
     items: ':scope > li > button.preview-console-copy',
+    skipHidden: false, // up to 200 rows that are never hidden: no forced layout per log batch
   });
 
   return (
