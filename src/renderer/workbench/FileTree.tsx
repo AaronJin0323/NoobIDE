@@ -21,7 +21,10 @@ import {
   parentOf,
   selectionOf,
   visibleSelection,
+  TYPE_AHEAD_RESET_MS,
   treeReducer,
+  typeAheadChar,
+  typeAheadTarget,
   visibleRows,
   type TreeKey,
   type TreeRow,
@@ -35,6 +38,8 @@ import { fileRoleFor, fileRoleLabelKey } from './file-role';
 import { isMac, treeCommandForKey, type PlatformId } from '../../platform/labels';
 import { TREE_DRAG_TYPE, dropFolder, folderLabel, moveRefusal, type MoveSource } from './move-model';
 import { fill } from './file-op-messages';
+import { treeCommandForKey, type PlatformId } from '../../platform/labels';
+import { isImeKey } from './ime';
 
 /** Tree commands the panel handles (rename, delete, context menu: S08.2–S08.5). */
 export interface FileTreeCommands {
@@ -86,7 +91,7 @@ const TREE_KEYS = new Set<string>(['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowL
 /**
  * Accessible project file tree (S08.1): WAI-ARIA tree pattern with a roving tabindex. Arrows move and expand,
  * Enter opens a file or toggles a folder, F2 renames, Delete moves to the trash, Shift+F10 / the context-menu key
- * opens the menu. Folders load lazily (S07.2) and reload on watcher events (S07.3).
+ * opens the menu, and typing a name's first characters selects it (S49.3). Folders load lazily (S07.2) and reload on watcher events (S07.3).
  */
 export function FileTree(props: FileTreeProps) {
   const { api, platform, projectId, activeRelPath, refresh, renamed, editing, onOpenFile, onSelectionChange } = props;
@@ -99,6 +104,8 @@ export function FileTree(props: FileTreeProps) {
   const focusAfterSelect = useRef<string | null>(null);
   const commands = useRef(props);
   commands.current = props;
+  // Type-ahead (S49.3): characters typed within TYPE_AHEAD_RESET_MS of each other form one prefix.
+  const typeAhead = useRef({ buffer: '', at: 0 });
 
   const projectRef = useRef(projectId);
   projectRef.current = projectId;
@@ -278,6 +285,7 @@ export function FileTree(props: FileTreeProps) {
     if (TREE_KEYS.has(event.key)) {
       event.preventDefault();
       focusSelected.current = true;
+      typeAhead.current.buffer = '';
       // S52.3: Shift extends the selection, Ctrl/Cmd moves the focus only.
       const mods = { shift: event.shiftKey, primary: primaryKey(event) };
       const actions = mods.shift || mods.primary ? keyActionWith(state, event.key as TreeKey, mods) : null;
@@ -288,6 +296,21 @@ export function FileTree(props: FileTreeProps) {
       event.preventDefault();
       dispatch({ type: 'selectAll' }); // S52.3
       return;
+    }
+    if (editing === null && !isImeKey(event.nativeEvent) && event.target instanceof HTMLLIElement) {
+      const now = event.timeStamp;
+      const buffer = now - typeAhead.current.at > TYPE_AHEAD_RESET_MS ? '' : typeAhead.current.buffer;
+      const char = typeAheadChar(event, buffer);
+      if (char !== null) {
+        event.preventDefault();
+        typeAhead.current = { buffer: buffer + char, at: now };
+        const target = typeAheadTarget(state, buffer + char);
+        if (target !== null && target !== state.selected) {
+          focusSelected.current = true;
+          dispatch({ type: 'select', relPath: target });
+        }
+        return;
+      }
     }
     if (!row) return;
     // S52.3 (WAI-ARIA multi-select tree): Space toggles the focused row, Shift+Space selects the range up to it.
@@ -560,7 +583,7 @@ function TreeRowItem({
         <span className={expandable ? (expanded ? 'tree-twisty open' : 'tree-twisty') : 'tree-twisty none'}>
           {expandable && <ChevronRightIcon />}
         </span>
-        {entry.kind === 'directory' ? <TreeFolderIcon open={expanded} /> : <TreeFileIcon />}
+        {entry.kind === 'directory' ? <TreeFolderIcon open={expanded} /> : <TreeFileIcon name={entry.name} />}
         {editor ?? (
           <span className="tree-name" id={nameId}>
             {entry.name}

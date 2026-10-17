@@ -312,11 +312,38 @@ test('IME text stays intact and candidate keys do not send or close the inline e
     await input.dispatchEvent('keydown', { key, keyCode: 229, isComposing: false });
     await expect(zone()).toHaveAttribute('data-phase', 'instruction');
   }
+  // S48.3: WebKit (macOS) ends the composition before the confirming keydown, which then has isComposing false and a
+  // real key code. With the engine reported as WebKit, the Enter and Escape right after compositionend stay the IME's;
+  // the Escape is stopped at the window, before any panel or dialog listener sees it.
+  await page.evaluate(() => {
+    const w = window as unknown as { realVendor?: PropertyDescriptor | undefined };
+    w.realVendor = Object.getOwnPropertyDescriptor(Navigator.prototype, 'vendor');
+    Object.defineProperty(Navigator.prototype, 'vendor', { configurable: true, get: () => 'Apple Computer, Inc.' });
+    const seen: string[] = [];
+    (window as unknown as { escapesSeen: string[] }).escapesSeen = seen;
+    document.addEventListener('keydown', (e) => e.key === 'Escape' && seen.push('document'), true);
+  });
+  for (const [key, keyCode] of [
+    ['Enter', 13],
+    ['Escape', 27],
+  ] as const) {
+    await input.dispatchEvent('compositionend', { data: '蓝色' });
+    await input.dispatchEvent('keydown', { key, keyCode, isComposing: false });
+    await expect(zone()).toHaveAttribute('data-phase', 'instruction');
+  }
+  expect(await page.evaluate(() => (window as unknown as { escapesSeen: string[] }).escapesSeen)).toEqual([]);
+  await page.evaluate(() => {
+    // Back to the engine's own (Chromium) vendor.
+    const real = (window as unknown as { realVendor?: PropertyDescriptor | undefined }).realVendor;
+    if (real) Object.defineProperty(Navigator.prototype, 'vendor', real);
+  });
   await expect(input).toHaveValue('把标题改成蓝色');
   expect(await input.evaluate((field) => (field as HTMLTextAreaElement).selectionStart)).toBe(2);
   await input.press('End');
   await input.press('Shift+Enter');
   await expect(input).toHaveValue('把标题改成蓝色\n');
+  // On Chromium (Windows) an Enter right after compositionend is the user's: it sends.
+  await input.dispatchEvent('compositionend', { data: '' });
   await input.press('Enter');
   await expect(zone()).toHaveAttribute('data-phase', 'review');
   await page.keyboard.press('Escape');

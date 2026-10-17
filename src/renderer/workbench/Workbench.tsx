@@ -101,7 +101,8 @@ import { SessionNotice } from './SessionNotice';
 import { TransferNotice } from './TransferNotice'; // S13.5
 import { useI18n } from '../i18n/I18nProvider';
 import { opErrorMessage } from './file-op-messages';
-import { Splitter } from './Splitter';
+import { Splitter, type SplitterPhase } from './Splitter';
+import { SPLITTER_DEFAULTS, editorShareValueText, filesValueText } from './splitter-model';
 import { persistedLayout } from './layout';
 import { EDITOR_SHARE, FILES_WIDTH, MAX_SESSION_TABS } from '../../shared/session';
 import { AboutDialog, useAboutRequests } from './AboutDialog'; // S28.1
@@ -145,6 +146,10 @@ export function Workbench() {
   const aiSettingsOpen = useAiSettingsRequests(); // S31.4: opened by openAiSettings() (menus, the AI chat)
   const narrow = useMediaQuery(NARROW_QUERY);
   const visible = visibleRegions(layout, narrow);
+  // S49.1: a files-divider drag keeps its divider while it has collapsed the panel (so it can be dragged back out);
+  // an editor-divider press tells the preview to take a picture, and its drag covers the native view with it.
+  const [filesDragging, setFilesDragging] = useState(false);
+  const [editorPhase, setEditorPhase] = useState<SplitterPhase>('idle');
   /** Bumped by the narrow window's top-bar "New file" button: the files panel starts a new file (key-features pass). */
   const [newFileRequest, setNewFileRequest] = useState(0);
   /** S52.6: the last HTML tab shown; the image viewer's copied paths are relative to it. */
@@ -1392,7 +1397,7 @@ export function Workbench() {
           newFileRequest={newFileRequest}
           fileCommand={fileCommand}
         />
-        {!narrow && visible.files && (
+        {!narrow && (visible.files || filesDragging) && (
           <Splitter
             label={t('layout.resizeFiles')}
             testId="splitter-files"
@@ -1401,11 +1406,17 @@ export function Workbench() {
               now: layout.filesWidth,
               min: FILES_WIDTH.min,
               max: FILES_WIDTH.max,
-              text: `${layout.filesWidth}px`,
+              text: filesValueText(layout.filesWidth, visible.files, {
+                width: t('layout.filesWidthText'),
+                collapsed: t('layout.filesCollapsedText'),
+              }),
             }}
             step={16}
             dragValue={(start, dx) => start + dx}
             onChange={(width) => dispatchLayout({ type: 'resizeFiles', width })}
+            onDrag={(width, startWidth) => dispatchLayout({ type: 'dragFiles', width, startWidth })}
+            onReset={() => dispatchLayout({ type: 'resizeFiles', width: SPLITTER_DEFAULTS.filesWidth })}
+            onPhase={(phase) => setFilesDragging(phase !== 'idle')}
           />
         )}
         <EditorPane
@@ -1446,7 +1457,7 @@ export function Workbench() {
               now: Math.round(layout.editorShare * 100),
               min: EDITOR_SHARE.min * 100,
               max: EDITOR_SHARE.max * 100,
-              text: `${Math.round(layout.editorShare * 100)}%`,
+              text: editorShareValueText(layout.editorShare, t('layout.editorShareText')),
             }}
             step={0.05}
             dragValue={(start, dx) => {
@@ -1456,12 +1467,15 @@ export function Workbench() {
               return total > 0 ? start + dx / total : start;
             }}
             onChange={(share) => dispatchLayout({ type: 'resizeEditor', share })}
+            onReset={() => dispatchLayout({ type: 'resizeEditor', share: SPLITTER_DEFAULTS.editorShare })}
+            onPhase={setEditorPhase}
           />
         )}
         {/* S04.3 isolated preview (hidden under the narrow-layout files overlay so the native view cannot cover it);
             S10.5: a failed save shows "preview not updated" — refreshes come only from confirmed writes in main. */}
         <PreviewPane
           hidden={!visible.preview}
+          resizing={narrow ? 'idle' : editorPhase}
           covered={
             (narrow && visible.files) ||
             (narrow && ai.panel !== null) || // S33: the chat overlays the column in a narrow window
