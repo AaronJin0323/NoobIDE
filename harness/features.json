@@ -4308,8 +4308,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "tests/integration/ci-workflow.test.ts (32) + ci-changes.test.ts (24), verify green; owner steps in harness/MANUAL-CHECKS.md#S50.1 (Actions only run on GitHub)"
     },
     {
       "id": "S50.2",
@@ -4326,8 +4326,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "tests/integration/e2e-shards.test.ts (10 tests: fixtures from run 39015143213 + real --list coverage); npm run test:e2e -- --shard=2/2 on Windows: 158 passed / 2 skipped / 0 failed, 29 manifest files, 6.1 min; --shard=1/2 --list 167 tests in 29 files; verify green; hosted 60 s check: steps in harness/MANUAL-CHECKS.md#S50.2"
     },
     {
       "id": "S50.3",
@@ -4399,8 +4399,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/ci-timings.test.ts (19 tests: §2 table reproduced from tests/fixtures/ci for run 39015143213 within 5 s; failing step + first error line for 39011559538; job-summary formatter); node scripts/ci-timings.mjs --runs 20 output pasted as baseline in docs/decisions/0037-ci-stability-and-speed.md; scripts/e2e.mjs appends the E2E summary via scripts/e2e-summary.mjs; verify green"
     }
   ]
 }

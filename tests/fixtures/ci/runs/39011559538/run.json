@@ -1,0 +1,586 @@
+{
+  "databaseId": 39011559538,
+  "name": "CI",
+  "displayTitle": "Merge pull request #13 from AaronJin0323/codex/ci-cd-delivery",
+  "url": "https://github.com/AaronJin0323/NoobIDE/actions/runs/39011559538",
+  "createdAt": "2026-10-17T06:53:09Z",
+  "updatedAt": "2026-10-17T07:04:39Z",
+  "status": "completed",
+  "conclusion": "failure",
+  "headBranch": "main",
+  "event": "push",
+  "jobs": [
+    {
+      "name": "macos-arm64 (shard 1/2)",
+      "status": "completed",
+      "conclusion": "failure",
+      "startedAt": "2026-10-17T06:53:17Z",
+      "completedAt": "2026-10-17T06:55:01Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:18Z",
+          "completedAt": "2026-10-17T06:53:20Z"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:20Z",
+          "completedAt": "2026-10-17T06:53:22Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:22Z",
+          "completedAt": "2026-10-17T06:53:26Z"
+        },
+        {
+          "name": "Check runner architecture",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:26Z",
+          "completedAt": "2026-10-17T06:53:26Z"
+        },
+        {
+          "name": "Install dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:26Z",
+          "completedAt": "2026-10-17T06:53:45Z"
+        },
+        {
+          "name": "Fault suite (S26.2)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:45Z",
+          "completedAt": "2026-10-17T06:53:47Z"
+        },
+        {
+          "name": "Upload fault suite report",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:47Z",
+          "completedAt": "2026-10-17T06:53:49Z"
+        },
+        {
+          "name": "Verify (harness, typecheck, lint, format, unit and integration tests)",
+          "status": "completed",
+          "conclusion": "failure",
+          "startedAt": "2026-10-17T06:53:49Z",
+          "completedAt": "2026-10-17T06:54:58Z"
+        },
+        {
+          "name": "End-to-end tests (Playwright + Electron)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T06:54:58Z",
+          "completedAt": "2026-10-17T06:54:58Z"
+        },
+        {
+          "name": "Upload E2E timing report",
+          "status": "completed",
+          "conclusion": "failure",
+          "startedAt": "2026-10-17T06:54:58Z",
+          "completedAt": "2026-10-17T06:54:58Z"
+        },
+        {
+          "name": "Make installers",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T06:54:58Z",
+          "completedAt": "2026-10-17T06:54:58Z"
+        },
+        {
+          "name": "Inspect binary architectures",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T06:54:58Z",
+          "completedAt": "2026-10-17T06:54:58Z"
+        },
+        {
+          "name": "Upload installers",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T06:54:58Z",
+          "completedAt": "2026-10-17T06:54:58Z"
+        },
+        {
+          "name": "Upload e2e results on failure",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:54:58Z",
+          "completedAt": "2026-10-17T06:54:58Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T06:54:58Z",
+          "completedAt": "2026-10-17T06:54:58Z"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:54:58Z",
+          "completedAt": "2026-10-17T06:54:59Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:54:59Z",
+          "completedAt": "2026-10-17T06:54:59Z"
+        }
+      ]
+    },
+    {
+      "name": "macos-arm64 (shard 2/2)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-17T06:53:15Z",
+      "completedAt": "2026-10-17T07:02:10Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:15Z",
+          "completedAt": "2026-10-17T06:53:17Z"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:17Z",
+          "completedAt": "2026-10-17T06:53:19Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:19Z",
+          "completedAt": "2026-10-17T06:53:21Z"
+        },
+        {
+          "name": "Check runner architecture",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:21Z",
+          "completedAt": "2026-10-17T06:53:22Z"
+        },
+        {
+          "name": "Install dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:22Z",
+          "completedAt": "2026-10-17T06:53:34Z"
+        },
+        {
+          "name": "Fault suite (S26.2)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:34Z",
+          "completedAt": "2026-10-17T06:53:35Z"
+        },
+        {
+          "name": "Upload fault suite report",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:35Z",
+          "completedAt": "2026-10-17T06:53:36Z"
+        },
+        {
+          "name": "Verify (harness, typecheck, lint, format, unit and integration tests)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:36Z",
+          "completedAt": "2026-10-17T06:54:19Z"
+        },
+        {
+          "name": "End-to-end tests (Playwright + Electron)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:54:19Z",
+          "completedAt": "2026-10-17T07:02:04Z"
+        },
+        {
+          "name": "Upload E2E timing report",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:02:04Z",
+          "completedAt": "2026-10-17T07:02:05Z"
+        },
+        {
+          "name": "Make installers",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T07:02:05Z",
+          "completedAt": "2026-10-17T07:02:05Z"
+        },
+        {
+          "name": "Inspect binary architectures",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T07:02:05Z",
+          "completedAt": "2026-10-17T07:02:05Z"
+        },
+        {
+          "name": "Upload installers",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T07:02:05Z",
+          "completedAt": "2026-10-17T07:02:05Z"
+        },
+        {
+          "name": "Upload e2e results on failure",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T07:02:05Z",
+          "completedAt": "2026-10-17T07:02:05Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:02:05Z",
+          "completedAt": "2026-10-17T07:02:05Z"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:02:05Z",
+          "completedAt": "2026-10-17T07:02:06Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:02:06Z",
+          "completedAt": "2026-10-17T07:02:08Z"
+        }
+      ]
+    },
+    {
+      "name": "windows-x64 (shard 1/2)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-17T06:53:11Z",
+      "completedAt": "2026-10-17T07:04:31Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:12Z",
+          "completedAt": "2026-10-17T06:53:14Z"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:14Z",
+          "completedAt": "2026-10-17T06:53:22Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:22Z",
+          "completedAt": "2026-10-17T06:53:32Z"
+        },
+        {
+          "name": "Check runner architecture",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:32Z",
+          "completedAt": "2026-10-17T06:53:33Z"
+        },
+        {
+          "name": "Install dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:33Z",
+          "completedAt": "2026-10-17T06:53:52Z"
+        },
+        {
+          "name": "Fault suite (S26.2)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:52Z",
+          "completedAt": "2026-10-17T06:53:56Z"
+        },
+        {
+          "name": "Upload fault suite report",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:56Z",
+          "completedAt": "2026-10-17T06:53:57Z"
+        },
+        {
+          "name": "Verify (harness, typecheck, lint, format, unit and integration tests)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:57Z",
+          "completedAt": "2026-10-17T06:55:35Z"
+        },
+        {
+          "name": "End-to-end tests (Playwright + Electron)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:55:35Z",
+          "completedAt": "2026-10-17T07:02:39Z"
+        },
+        {
+          "name": "Upload E2E timing report",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:02:39Z",
+          "completedAt": "2026-10-17T07:02:40Z"
+        },
+        {
+          "name": "Make installers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:02:40Z",
+          "completedAt": "2026-10-17T07:04:11Z"
+        },
+        {
+          "name": "Inspect binary architectures",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:11Z",
+          "completedAt": "2026-10-17T07:04:12Z"
+        },
+        {
+          "name": "Upload installers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:12Z",
+          "completedAt": "2026-10-17T07:04:27Z"
+        },
+        {
+          "name": "Upload e2e results on failure",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T07:04:27Z",
+          "completedAt": "2026-10-17T07:04:27Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:27Z",
+          "completedAt": "2026-10-17T07:04:28Z"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:28Z",
+          "completedAt": "2026-10-17T07:04:30Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:30Z",
+          "completedAt": "2026-10-17T07:04:30Z"
+        }
+      ]
+    },
+    {
+      "name": "windows-x64 (shard 2/2)",
+      "status": "completed",
+      "conclusion": "failure",
+      "startedAt": "2026-10-17T06:53:12Z",
+      "completedAt": "2026-10-17T07:04:12Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:13Z",
+          "completedAt": "2026-10-17T06:53:15Z"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:15Z",
+          "completedAt": "2026-10-17T06:53:28Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:28Z",
+          "completedAt": "2026-10-17T06:53:44Z"
+        },
+        {
+          "name": "Check runner architecture",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:44Z",
+          "completedAt": "2026-10-17T06:53:44Z"
+        },
+        {
+          "name": "Install dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:53:44Z",
+          "completedAt": "2026-10-17T06:54:02Z"
+        },
+        {
+          "name": "Fault suite (S26.2)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:54:02Z",
+          "completedAt": "2026-10-17T06:54:06Z"
+        },
+        {
+          "name": "Upload fault suite report",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:54:06Z",
+          "completedAt": "2026-10-17T06:54:07Z"
+        },
+        {
+          "name": "Verify (harness, typecheck, lint, format, unit and integration tests)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T06:54:07Z",
+          "completedAt": "2026-10-17T06:55:46Z"
+        },
+        {
+          "name": "End-to-end tests (Playwright + Electron)",
+          "status": "completed",
+          "conclusion": "failure",
+          "startedAt": "2026-10-17T06:55:46Z",
+          "completedAt": "2026-10-17T07:04:05Z"
+        },
+        {
+          "name": "Upload E2E timing report",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:05Z",
+          "completedAt": "2026-10-17T07:04:06Z"
+        },
+        {
+          "name": "Make installers",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T07:04:06Z",
+          "completedAt": "2026-10-17T07:04:06Z"
+        },
+        {
+          "name": "Inspect binary architectures",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T07:04:06Z",
+          "completedAt": "2026-10-17T07:04:06Z"
+        },
+        {
+          "name": "Upload installers",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T07:04:06Z",
+          "completedAt": "2026-10-17T07:04:06Z"
+        },
+        {
+          "name": "Upload e2e results on failure",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:06Z",
+          "completedAt": "2026-10-17T07:04:07Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-17T07:04:07Z",
+          "completedAt": "2026-10-17T07:04:07Z"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:07Z",
+          "completedAt": "2026-10-17T07:04:10Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:10Z",
+          "completedAt": "2026-10-17T07:04:10Z"
+        }
+      ]
+    },
+    {
+      "name": "windows-x64",
+      "status": "completed",
+      "conclusion": "failure",
+      "startedAt": "2026-10-17T07:04:34Z",
+      "completedAt": "2026-10-17T07:04:37Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:34Z",
+          "completedAt": "2026-10-17T07:04:34Z"
+        },
+        {
+          "name": "Require every platform and shard",
+          "status": "completed",
+          "conclusion": "failure",
+          "startedAt": "2026-10-17T07:04:34Z",
+          "completedAt": "2026-10-17T07:04:35Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:35Z",
+          "completedAt": "2026-10-17T07:04:35Z"
+        }
+      ]
+    },
+    {
+      "name": "macos-arm64",
+      "status": "completed",
+      "conclusion": "failure",
+      "startedAt": "2026-10-17T07:04:34Z",
+      "completedAt": "2026-10-17T07:04:38Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:34Z",
+          "completedAt": "2026-10-17T07:04:34Z"
+        },
+        {
+          "name": "Require every platform and shard",
+          "status": "completed",
+          "conclusion": "failure",
+          "startedAt": "2026-10-17T07:04:34Z",
+          "completedAt": "2026-10-17T07:04:37Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-17T07:04:37Z",
+          "completedAt": "2026-10-17T07:04:37Z"
+        }
+      ]
+    }
+  ]
+}

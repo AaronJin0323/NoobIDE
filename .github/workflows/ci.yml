@@ -1,13 +1,23 @@
 # S06.1 — CI build matrix (docs/decisions/0021-ci-matrix-and-arch-inspection.md).
 # Each target is built and tested on its own OS (PLAN §5: no cross-packaging): Windows x64 on windows-latest,
 # Apple Silicon on macos-14 (arm64 runner). Every action is pinned to a full commit SHA; the comment names the tag.
-# tests/integration/ci-workflow.test.ts checks this file's structure (matrix, steps, pinning, permissions).
+#
+# S50.1 — run less (docs/ci/ci-stability-and-speed-plan.md §4): a `changes` job classifies the push as `code` or
+# `docs-only` (scripts/ci-changes.mjs); a `static` job on ubuntu runs the platform-independent gates once for
+# every push; the OS `build` matrix runs only for code changes on non-draft pull requests, pushes to main and
+# manual dispatch, and runs only the platform-dependent gates (harness check + npm test); installers are made
+# only on push to main and workflow_dispatch. The two `complete` gates keep the names the Protect main ruleset
+# requires (windows-x64, macos-arm64) and pass when static succeeded and build succeeded or was skipped for a
+# docs-only push; on a draft PR they stay pending (skipped) rather than red.
+# tests/integration/ci-workflow.test.ts checks this file's structure (jobs, conditions, steps, pinning, permissions).
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+    # ready_for_review is not in the default set: without it a draft marked ready would never run the matrix.
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 # Least privilege: the workflow only reads the repository. Artifacts upload with the run's own token scope.
@@ -19,8 +29,75 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # S50.1: classify the push so docs-only changes (docs/, *.md, PROGRESS.md, MANUAL-CHECKS.md) skip the OS matrix.
+  # fetch-depth 0 so the base commit (PR base, or the previous head of main for a push) is in the clone; a missing
+  # or all-zero base is treated as `code` by the script, never as docs-only.
+  changes:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      kind: ${{ steps.classify.outputs.kind }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify changed paths (code or docs-only)
+        id: classify
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_BEFORE_SHA: ${{ github.event.before }}
+        run: node scripts/ci-changes.mjs
+
+  # S50.1: the gates whose result does not depend on the OS run once, on the cheapest runner, for every push
+  # (drafts and docs-only pushes included), so lint/format/backlog failures report before any OS job finishes.
+  # The e2e-shards test is not here: it needs Playwright on the target OS and stays in `npm test` on the matrix.
+  static:
+    name: Static gates (harness, typecheck, lint, format, workflow tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        env:
+          # No Electron binary is needed for typecheck, lint, prettier, the harness or the workflow tests.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+        run: npm ci
+
+      - name: Harness backlog check
+        run: node harness/session.mjs check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Workflow and classifier tests
+        run: npx vitest run tests/integration/ci-workflow.test.ts tests/integration/ci-changes.test.ts tests/integration/release-workflow.test.ts
+
   build:
     name: ${{ matrix.target }} (shard ${{ matrix.shard }}/2)
+    needs: [changes]
+    # Code changes only, and never for a draft pull request (agent sessions open drafts and mark them ready at the
+    # end, AGENTS.md "Close the session"). Pushes to main and workflow_dispatch are never drafts, so they always run.
+    if: needs.changes.outputs.kind == 'code' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
@@ -70,8 +147,14 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Verify (harness, typecheck, lint, format, unit and integration tests)
-        run: npm run verify
+      # S50.1: the two commands are called directly rather than through `npm run verify -- --quick`, because
+      # --quick still runs typecheck (40–60 s per OS job) that the `static` job has already proved once on this
+      # commit. Only the tests depend on the platform; the harness check is cheap and keeps the backlog honest.
+      - name: Harness backlog check
+        run: node harness/session.mjs check
+
+      - name: Unit and integration tests
+        run: npm test
 
       # No xvfb: Windows and macOS runners have a desktop session, and Playwright drives the Electron binary from
       # node_modules, so no browser download is needed (scripts/e2e.mjs).
@@ -87,16 +170,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # S50.1: installers only on push to main and workflow_dispatch. PR runs still package the app (the E2E suite
+      # needs it) but skip the Squirrel/DMG step, which was 1.5 min on the critical path of every PR push.
       - name: Make installers
-        if: matrix.shard == 1
+        if: matrix.shard == 1 && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: npm run make -- --from-package
 
       - name: Inspect binary architectures
-        if: matrix.shard == 1
+        if: matrix.shard == 1 && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: node scripts/inspect-arch.mjs
 
       - name: Upload installers
-        if: matrix.shard == 1
+        if: matrix.shard == 1 && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: noobide-${{ matrix.target }}
@@ -115,10 +200,13 @@ jobs:
 
   complete:
     # Preserve the required check names in the existing Protect main ruleset.
-    # Each gate requires the whole matrix, so neither can hide a failed or cancelled shard.
+    # Each gate requires the static job and the whole matrix, so neither can hide a failed or cancelled shard.
+    # S50.1: a gate passes when static succeeded and build succeeded, or build was skipped because the push was
+    # docs-only. On a draft pull request the gates are skipped, so the required checks stay pending (not
+    # mergeable yet) instead of red; marking the draft ready re-runs the workflow with the matrix.
     name: ${{ matrix.target }}
-    if: always()
-    needs: build
+    if: always() && !(github.event_name == 'pull_request' && github.event.pull_request.draft == true)
+    needs: [changes, static, build]
     runs-on: ubuntu-latest
     permissions: {}
     strategy:
@@ -126,7 +214,10 @@ jobs:
       matrix:
         target: [windows-x64, macos-arm64]
     steps:
-      - name: Require every platform and shard
+      - name: Require the static gates and every platform shard
         env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          CHANGES_KIND: ${{ needs.changes.outputs.kind }}
+          STATIC_RESULT: ${{ needs.static.result }}
           BUILD_RESULT: ${{ needs.build.result }}
-        run: node -e "if (process.env.BUILD_RESULT !== 'success') process.exit(1)"
+        run: node -e "const e = process.env; const ok = e.CHANGES_RESULT === 'success' && e.STATIC_RESULT === 'success' && (e.BUILD_RESULT === 'success' || (e.BUILD_RESULT === 'skipped' && e.CHANGES_KIND === 'docs-only')); console.log('changes=' + e.CHANGES_RESULT, 'kind=' + e.CHANGES_KIND, 'static=' + e.STATIC_RESULT, 'build=' + e.BUILD_RESULT, 'ok=' + ok); if (!ok) process.exit(1)"
