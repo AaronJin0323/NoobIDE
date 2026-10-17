@@ -3,6 +3,59 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session S47 (side session) — 2026-10-18 — Motion, scroll edges, counters and type details (S47.2–S47.5)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m18-s47-motion-cd915a` (PR #34),
+cut from the M18 plan branch with S47.1. One of five parallel M18 sessions (S47, S48 composer, S48 blocks, S49, S50).
+
+**Done**
+
+- New `src/renderer/motion.css` (imported between styles.css and glass.css, so the one reduced-motion gate wins)
+  holds all of S47.2–S47.5 in scoped blocks; styles.css only gained tokens (`--dur-stagger 30ms`, `--dur-pulse
+  1200ms`, `--dur-decay 2500ms`), lost the two icon nudges and the old 20 px tab masks; glass.css lost the old
+  two-stop scroll mask and its gate zeroes the new tokens and stills the dot and the Copied fade.
+- **S47.2** Enter keyframes (opacity + translate only, `backwards` fill) for the walkthrough band, app notices, the
+  open Problems panel, the chat panel and the narrow files drawer. Exits: a panel hidden by `hidden` keeps its
+  display for the fade (`transition: display … allow-discrete`); a band/panel/notice React removes leaves an inert
+  copy (`theme/exit-motion.ts`: no ids, test ids, live regions or focus; removed on animationend or a capped timer;
+  skipped under reduced motion and when React swaps one band for another). `theme/Collapsible.tsx` folds with
+  grid-template-rows 0fr/1fr (inert + aria-hidden when closed, visibility follows the rows): Problems sections (new
+  heading toggles), preview Advanced, and a new AI steps fold (`ai/StepsFold.tsx`, consecutive steps grouped, held
+  open while the answer streams). Context chips stagger 30 ms, capped at the 8th (`theme/stagger.ts`).
+- **S47.3** Seven-stop ladder (5/15/30/50/70/85/100 % at 15/30/45/60/75/87/100 % of 28 px) on both ends of the
+  tree, problems body, chat log, console (fade starts under its sticky heading), palette list and walkthrough text,
+  via registered `--edge-top/--edge-bottom` lengths driven by `scroll(self)` timelines under `@supports`; the tab
+  strip's hidden side uses the same ladder from TabBar's overflow sensor. `theme/scroll-edges.ts` is the
+  onScroll + ResizeObserver fallback (installed from main.tsx, a no-op in Electron) with the pure `edgeFade` model.
+- **S47.4** tabular-nums on strip counts, caret position, badges, console error count, pending/usage counts; a 6 px
+  `StatusDot` breathing over 1.2 s next to the word on the preview running pill (`PreviewStateIcon`) and the chat
+  thinking status; "Copied" decays (`saved-check-decay`, hold to 75 %) over 2.5 s and gives way on animationend
+  (timer fallback under reduced motion).
+- **S47.5** `text-wrap: balance` on dialog/welcome headings, `pretty` on chat/lesson/problem prose; shared CJK
+  anti-split rule (`.path-text` + every path / file name / URL class); one inline-icon rule (-0.125em, -0.075em in
+  small text, 1lh-tall lead icons in wrapping rows); `--font-code` names Microsoft YaHei after PingFang SC.
+
+**Evidence:** unit `theme/motion-layer.test.ts` (11), `theme/scroll-edges.test.ts` (6), `theme/feedback.test.ts` (7),
+`theme/type-details.test.ts` (6); e2e `tests/e2e/motion.spec.ts` (10, added to shards.json) plus
+key-features-visible, preview-layout, preview-manager, problems, runtime-problems, problem-card, ai-chat, ai-agent,
+shell, tabs, file-tree, glass, reduced-motion all green locally on the packaged build; verify green.
+
+**Decisions:** Exit motion for removed elements is a DOM-level inert copy rather than delayed unmounting, so state,
+focus and the accessibility tree still change at once and no sibling component had to learn a presence API.
+Problems sections became foldable (none were) to give the grid-rows collapsible its third home. Default fold of the
+steps group after an answer is open (existing tests and beginners expect to see the steps).
+
+**Problems / risks:** A closed fold's `overflow-clip-margin` counted as scrollable overflow (preview-layout caught
+the preview chrome "scrolling" by 4 px); closed folds now use a 0 px margin. `isVisible()` right after closing a
+hidden-attribute panel sees it for one `--dur-fast` (tests should use auto-retrying assertions). The watcher perf
+budget failed once while sibling sessions loaded the machine; three re-runs passed.
+
+**Next up**
+
+1. Remaining M18 sessions (S48–S50) merge on top; new motion must use the tokens and land in motion.css or the
+   component's own scoped block.
+2. Owner: a look at the motion on real hardware (Windows and Apple Silicon) is welcome but not required.
+
 ## Session 38 (side session) — 2026-10-17 — Motion token ladder and reduced-motion gate (S47.1)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/beautiful-shirley-d2ba80`,
