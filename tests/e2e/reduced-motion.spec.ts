@@ -103,12 +103,26 @@ const durationsOf = (selector: string) =>
 /** Two painted frames, so animation events of what just appeared are dispatched before it goes away. */
 const frames = () =>
   page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+/**
+ * Waits (up to 2 s) until the recorder saw an animation start. A busy hosted runner can dispatch `animationstart`
+ * of what just appeared later than two frames; closing it first would hide the motion from the control run. An
+ * animation of 0s (reduced motion) fires the event too, so this never waits long under the preference either.
+ */
+const animationStarted = () =>
+  page
+    .waitForFunction(
+      () => (window as unknown as { __motion: Motion[] }).__motion.some((m) => m.type === 'animation'),
+      null,
+      { timeout: 2_000 },
+    )
+    .catch(() => undefined);
 const allZero = (value: string) => value.split(',').every((d) => parseFloat(d) === 0);
 
 async function openAndCloseMenu(): Promise<void> {
   await page.getByTestId('app-menu').hover();
   await page.getByTestId('app-menu').click();
   await expect(page.locator('.app-menu-list')).toBeVisible();
+  await animationStarted();
   await frames();
   await page.keyboard.press('Escape');
   await expect(page.locator('.app-menu-list')).toHaveCount(0);
@@ -119,6 +133,7 @@ async function openAndCloseDialog(): Promise<void> {
   await page.getByTestId('menu-help-glossary').click();
   const glossary = page.getByTestId('glossary');
   await expect(glossary).toBeVisible();
+  await animationStarted();
   await frames();
   await page.keyboard.press('Escape');
   await expect(glossary).toHaveCount(0);
