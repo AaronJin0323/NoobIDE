@@ -100,8 +100,7 @@ export const checkpointsZhCN = {
   'checkpoints.error.read-failed': '有文件或文件夹无法读取，没有保存检查点。',
   'checkpoints.error.damaged': '这个检查点已损坏，无法使用。',
   'checkpoints.error.generic': '操作没有完成，请再试一次。',
-  'history.checkpointNote': '要保存或还原整个项目，请用“项目检查点”。',
-  'history.openCheckpoints': '项目检查点…',
+  'history.checkpointNote': '本地历史一次只看一个文件。要保存或还原整个项目，请用菜单里的“项目检查点…”。',
 } as const;
 
 export const checkpointsEn: Record<keyof typeof checkpointsZhCN, string> = {
@@ -211,6 +210,6 @@ export const checkpointsEn: Record<keyof typeof checkpointsZhCN, string> = {
   'checkpoints.error.read-failed': 'A file or folder could not be read, so no checkpoint was saved.',
   'checkpoints.error.damaged': 'This checkpoint is damaged and cannot be used.',
   'checkpoints.error.generic': 'That did not work. Please try again.',
-  'history.checkpointNote': 'To save or restore the whole project, use Project checkpoints.',
-  'history.openCheckpoints': 'Project checkpoints…',
+  'history.checkpointNote':
+    'Local history works on one file at a time. To save or restore the whole project, use “Project checkpoints…” in the menu.',
 };

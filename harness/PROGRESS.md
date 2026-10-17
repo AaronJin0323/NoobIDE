@@ -3,6 +3,75 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 36 (side session) — 2026-10-17 — S56 project checkpoints (M19)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s56-checkpoints-16aa1e`,
+based on the M19 backlog commit 824b6fa. One of six parallel M19 sessions (S51, S52, S53+S57, S54, S55, S56).
+
+**Done**
+
+- **S56.1 checkpoint store** (`src/recovery/checkpoints.ts`, decision 0038): one manifest per checkpoint in
+  `<userData>/checkpoints/<projectKey>/`, contents as blobs in local history's `objects/` (deduped with history),
+  written through `SnapshotStore.withBlobs()`. Pins (`setPins`) keep history's limits, cleanup and "clear all" away
+  from checkpoint blobs (uncertain until loaded, or while a manifest is unreadable: then no blob is deleted). A
+  legacy-pin marker (`history/index/000…0.json`, v1000) protects them from older NoobIDE versions. Limits are refused
+  with the reason: 2 000 files, 20 MB per file, 200 MB per checkpoint, 1 GB total, 50 named, unsupported names, files
+  changing mid-save. Damaged blobs and manifests affect only their own checkpoint.
+- **S56.2 UI and restore**: `CheckpointsDialog` (the Project checkpoints… command, in-window menu, File menu and
+  palette). It saves, renames, lists and deletes checkpoints, and compares with a file list (added/changed/removed:
+  text plus a mark, not colour alone) and a per-file diff. Restore of everything or of one file
+  (`src/renderer/checkpoints/checkpoint-restore.ts`):
+  - unsaved edits are saved first or kept, by the user's choice;
+  - a safety checkpoint is taken first (`before-checkpoint-restore`, never pruning the checkpoint being restored),
+    and the restore aborts if it cannot be taken;
+  - open plain-text tabs are restored through their tab's save pipeline; everything else goes through main's new
+    atomic `ProjectService.restoreBytes` (expected hash checked twice, local history keeps the replaced version,
+    preview refresh);
+  - each file is written only while it is still the version the user reviewed;
+  - added files go to the OS trash only when the unticked box is ticked.
+- **S56.3 automatic checkpoints**: one per agent proposal before its first change (`AgentApplyHost.checkpointBeforeAi`,
+  `agent-decisions.ts`). One before every History-window restore (a version, a deleted file, an undone turn). Each
+  is labelled with its cause. Pruning (`planAutoPrune`): the latest 20 automatic checkpoints for up to 14 days, the
+  newest always kept, named ones never.
+- **S56.4 wording**: zh-CN/en strings (`src/renderer/i18n/checkpoints.ts`), glossary terms `checkpoint` and `undo`
+  (with `local history` updated), a pointer in the History window, `docs/product/checkpoints.md`. Checkpoint = whole
+  project, named; local history = per file, automatic; undo = in the editor. zh-CN uses 还原 for checkpoints and
+  恢复 for history. No string claims version control or Git.
+
+**Evidence:** `tests/integration/checkpoint-store.test.ts` (20), `checkpoint-restore.test.ts` (14),
+`checkpoint-auto.test.ts` (4), `src/recovery/checkpoints.test.ts` (5), `src/renderer/i18n/checkpoints.test.ts` (12);
+`tests/e2e/checkpoints.spec.ts` (3: save → break three files → restore all → the preview shows the old page; rename
+and delete; history restore takes a checkpoint). The e2e suites checkpoints, history, ai-agent and commands passed
+20/20 on Windows x64. Two subagent reviews each of the store (S56.1) and the restore (S56.2): every blocker was
+fixed and re-checked. `npm run verify` green at the S56.4 commit.
+
+**Decisions:** decision 0038 (shared blobs with pins plus a legacy marker; limits; pruning policy; manifest path
+rules). An automatic checkpoint that cannot be taken does not block an AI change or a history restore, since local
+history keeps the per-file version. A checkpoint restore does abort without its safety checkpoint. `history:clear`
+of everything now keeps blobs that checkpoints pin.
+
+**Problems / risks:**
+
+- A byte write into a clean open tab relies on the S11 watcher to reload it. This covers non-UTF-8 read-only tabs and
+  files with a BOM or CRLF. The reviewer found no data-loss path; it is a known limit.
+- "Clear all history" in a NoobIDE older than S56 still deletes the whole history folder, checkpoint blobs included
+  (decision 0038). Release notes should say so.
+- History's "on disk" usage includes checkpoint blobs.
+- `tests/integration/watcher.test.ts` failed once under load (S07.3, untouched) and passed on three reruns.
+- Expected merge conflicts with the other M19 sessions: `harness/features.json`, `PROGRESS.md`, `src/shared/commands.ts`,
+  `menu-template.ts`, `Workbench.tsx`, `preload.ts`, `contract.ts`, i18n `en.ts`/`zh-CN.ts`/`plural.ts`, and
+  `tests/e2e/commands.spec.ts` (menu list).
+
+**Owner action needed:** none for S56. Note the downgrade caveat above for release notes.
+
+**Next up**
+
+1. The remaining M19 sessions (S51–S55, S57) from their parallel branches, then merge.
+
+**Ideas / backlog candidates:** an "Undo this checkpoint restore" shortcut on the result notice (restore the safety
+checkpoint in one click); show checkpoint usage in the History window's storage section; export a checkpoint as a
+zip (pairs with the publish idea of session 34).
+
 ## Session 35 (side session) — 2026-10-17 — M19 backlog records for S51–S57 (owner approval of review §4)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/dazzling-shtern-8a5721`, based

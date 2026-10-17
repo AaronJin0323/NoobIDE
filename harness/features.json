@@ -4819,8 +4819,8 @@
       "depends_on": [
         "S56.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/i18n/checkpoints.test.ts (12 tests over zh-CN/en strings, glossary entries checkpoint/local history/undo, docs/product/checkpoints.md: three mechanisms kept apart, no checkpoint string claims version control/Git) + docs/product/checkpoints.md checked against the criteria"
     },
     {
       "id": "S57.1",
