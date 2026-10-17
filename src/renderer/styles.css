@@ -41,9 +41,17 @@
   --hover-soft: color-mix(in srgb, var(--hover) 55%, transparent);
   --ring-selected: inset 0 0 0 1px var(--muted);
 
-  /* Motion. "snappy" (a settle with a small overshoot) is for overlays only; controls change colour with "smooth". */
+  /* Motion (S47.1). The only place a literal duration or curve may appear (design-rules.test.ts); the reduced-motion
+     gate in glass.css sets every --dur-* to 0ms. "snappy" (a settle with a small overshoot) is for overlays only;
+     controls change colour with "smooth". */
+  --dur-instant: 60ms;
   --dur-fast: 120ms;
   --dur-base: 200ms;
+  --dur-sheet: 300ms;
+  --dur-slow: 450ms;
+  --ease-swift: cubic-bezier(0.2, 0, 0, 1); /* hover and small state flips: quick start, no tail */
+  --ease-expand: cubic-bezier(0.4, 0, 0.2, 1); /* grid accordions (grid-template-rows 0fr <-> 1fr) */
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1); /* a block entering: lands softly, no overshoot */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-smooth: linear(0, 0.093, 0.277, 0.469, 0.632, 0.758, 0.849, 0.91, 0.949, 0.973, 0.988, 0.995, 0.999, 1);
   --ease-snappy: linear(
@@ -1461,7 +1469,7 @@ input[type='radio'] {
   display: inline-flex;
   width: 12px;
   color: var(--muted);
-  transition: transform 0.1s;
+  transition: transform var(--dur-fast) var(--ease-swift);
 }
 .tree-twisty.open {
   transform: rotate(90deg);

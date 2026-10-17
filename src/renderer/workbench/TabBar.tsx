@@ -3,6 +3,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import type { OpenTab } from './document-state';
 import { saveStatus, type SaveStatus } from './save-machine';
+import { scrollBehavior, useReducedMotion } from '../theme/motion';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, SaveStateIcon } from './icons';
 
 interface TabBarProps {
@@ -35,6 +36,7 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
   const { t } = useI18n();
   const refs = useRef(new Map<string, HTMLButtonElement>());
   const barRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = useReducedMotion();
 
   /** A vertical mouse wheel scrolls the strip sideways (a trackpad already scrolls it horizontally). */
   const onWheel = (event: WheelEvent<HTMLDivElement>) => {
@@ -91,7 +93,9 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
   }, [measure]);
   const scrollStrip = (direction: 1 | -1) => {
     const bar = barRef.current;
-    if (bar) bar.scrollBy({ left: direction * Math.max(80, bar.clientWidth * 0.8), behavior: 'smooth' });
+    // S47.1: the strip glides unless the system asks for reduced motion.
+    if (bar)
+      bar.scrollBy({ left: direction * Math.max(80, bar.clientWidth * 0.8), behavior: scrollBehavior(reducedMotion) });
   };
 
   const focusAndShow = (relPath: string | undefined) => {
