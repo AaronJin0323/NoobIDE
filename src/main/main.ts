@@ -20,7 +20,9 @@ import {
 import { platformId } from '../platform/index';
 import { isWindows } from '../platform/labels';
 import { currentSquirrelAction, runSquirrelAction } from '../platform/squirrel';
-import { APP_ENTRY_URL, APP_ORIGIN } from './app-asset';
+import { APP_ENTRY_URL, APP_ORIGIN, APP_SCHEME } from './app-asset';
+import { serveProjectImage } from './project-images'; // S52.6
+import { IMAGE_DIALOG_EXTENSIONS } from '../shared/import-rules'; // S52.4
 import { handleAppProtocol, registerAppSchemePrivileges } from './app-protocol';
 import { buildCsp } from './csp';
 import {
@@ -83,6 +85,7 @@ import { WakeRecovery } from './wake-recovery'; // S25.1/S25.2
 import { wakeSignals } from '../platform/power-events';
 import { AnnotationStore } from './annotation-store'; // S41.4 preview annotations (decision 0030)
 import { registerAnnotationsIpcHandlers } from './annotations-ipc';
+import { registerFileOpsIpcHandlers } from './file-ops-ipc'; // S52
 
 // Windows installer events: create/remove shortcuts and quit without opening a window (S02.7, S28.4: also quits
 // when Update.exe is missing or hangs). App data and projects are never touched by these events.
@@ -256,11 +259,13 @@ function start(): void {
     installNetworkGuard(ses, devOrigin);
     // S18.1: the offline self-test proves the language services need no network.
     if (selfTestOffline()) ses.enableNetworkEmulation({ offline: true });
-    if (devOrigin) {
-      installDevCsp(ses, devOrigin, buildCsp('development', devOrigin));
-    } else {
-      handleAppProtocol(protocol, path.join(__dirname, '..', 'renderer', MAIN_WINDOW_VITE_NAME));
-    }
+    if (devOrigin) installDevCsp(ses, devOrigin, buildCsp('development', devOrigin));
+    // S52.6: project images for the image viewer tab on the `project` host (development and production alike).
+    handleAppProtocol(
+      protocol,
+      devOrigin ? null : path.join(__dirname, '..', 'renderer', MAIN_WINDOW_VITE_NAME),
+      (request) => serveProjectImage(request, { scheme: APP_SCHEME, rootOf: (id) => projects?.rootOf(id) }),
+    );
     // S25.3: the real known folders, also when Documents/Desktop are redirected (e.g. by OneDrive).
     configureProtectedFolders({
       known: {
@@ -347,7 +352,7 @@ function start(): void {
     const history = new SnapshotStore({ dir: appDataPath(appData, 'history'), log: logger });
     const historyTriggers = new HistoryTriggers(history, logger);
     // --- end S21 ---
-    projects = new ProjectService({ history: historyTriggers });
+    projects = new ProjectService({ history: historyTriggers, journal }); // S52.1: history and copies follow moves
     // S14.4/S14.2: preview trust and one-time notes in app data (never inside a project).
     const previewStore = new PreviewStore({ file: appDataPath(appData, 'preview'), log: logger });
     const openProjects = projects;
@@ -439,6 +444,32 @@ function start(): void {
       },
     });
     registerProblemsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, bridge: problems }); // S16.2
+    // S52: move, copy/paste/duplicate, multi-select trash, import and the image viewer.
+    registerFileOpsIpcHandlers(ipcMain, {
+      allowedOrigin: devOrigin ?? APP_ORIGIN,
+      projects: openProjects,
+      trashItem: (fullPath) => shell.trashItem(fullPath), // S52.3: the OS trash, never a permanent delete
+      rootOf: (projectId) => openProjects.rootOf(projectId), // S52.6
+      // S52.5 e2e only (NOOBIDE_E2E_DROP=1, set by tests/e2e/file-drop.spec.ts): names the OS paths of a synthetic
+      // test drop (see FileOpsIpcDeps.testDropPaths). Not wired in any other run.
+      ...(process.env.NOOBIDE_E2E_DROP === '1'
+        ? {
+            testDropPaths: () =>
+              (globalThis as { __noobideTestHooks?: { dropPaths?: readonly string[] } }).__noobideTestHooks?.dropPaths,
+          }
+        : {}),
+      // S52.4: "Add files…" / "Add image…" (texts translated by the renderer; images filtered by ending)
+      async chooseImportPaths(event, { kind, title, filterName }) {
+        const owner = BrowserWindow.fromWebContents(event.sender);
+        const options = {
+          title,
+          properties: ['openFile' as const, 'multiSelections' as const],
+          ...(kind === 'image' ? { filters: [{ name: filterName, extensions: [...IMAGE_DIALOG_EXTENSIONS] }] } : {}),
+        };
+        const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options);
+        return result.canceled ? null : result.filePaths;
+      },
+    });
     // S41.4: preview annotations, kept per project in app data (never in the project folder).
     registerAnnotationsIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,

@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useId, useReducer, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useReducer,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { NoobideApi, TreeEntry, WatchEvent } from '../../shared/ipc/contract';
 import {
@@ -7,7 +17,10 @@ import {
   foldersToLoad,
   isListing,
   keyAction,
+  keyActionWith,
   parentOf,
+  selectionOf,
+  visibleSelection,
   TYPE_AHEAD_RESET_MS,
   treeReducer,
   typeAheadChar,
@@ -22,7 +35,9 @@ import { createListingTracker, listFolder } from './folder-listing';
 import { protectedFolderMessage } from './file-op-messages';
 import { FileRoleTag } from './FileRole';
 import { fileRoleFor, fileRoleLabelKey } from './file-role';
-import { treeCommandForKey, type PlatformId } from '../../platform/labels';
+import { isMac, treeCommandForKey, type PlatformId } from '../../platform/labels';
+import { TREE_DRAG_TYPE, dropFolder, folderLabel, moveRefusal, type MoveSource } from './move-model';
+import { fill } from './file-op-messages';
 import { isImeKey } from './ime';
 
 /** Tree commands the panel handles (rename, delete, context menu: S08.2–S08.5). */
@@ -32,8 +47,16 @@ export interface FileTreeCommands {
   onDelete?(entry: TreeEntry): void;
   onContextMenu?(entry: TreeEntry, anchor: { x: number; y: number }): void;
   onReveal?(entry: TreeEntry): void;
+  /** S52.2: Ctrl/Cmd+C, Ctrl/Cmd+V (into the row's folder) and Ctrl/Cmd+D on the focused row. */
+  onCopy?(entry: TreeEntry): void;
+  onPaste?(entry: TreeEntry): void;
+  onDuplicate?(entry: TreeEntry): void;
   /** Enter/click on an entry whose name Windows or macOS cannot represent: explain instead of opening. */
   onUnportable?(entry: TreeEntry): void;
+  /** S52.1: rows dragged onto a folder (or onto a file: its folder; onto the empty area: the project root). */
+  onMoveDrop?(sources: readonly TreeEntry[], folder: string): void;
+  /** S52.5: files and folders dropped from Explorer/Finder, to be copied into `folder`. */
+  onFilesDrop?(files: readonly File[], folder: string): void;
 }
 
 /** An inline name field in the tree (S08.2): renaming a row, or naming a new entry inside `parent`. */
@@ -52,10 +75,14 @@ interface FileTreeProps extends FileTreeCommands {
   activeRelPath: string | null;
   /** Bumped by the panel after its own file operations, so the affected folders are listed again. */
   refresh: { readonly id: number; readonly folders: readonly string[]; readonly select?: string } | null;
-  /** Rename/move done by the panel: keep expansion and selection under the new path. */
-  renamed: { readonly id: number; readonly from: string; readonly to: string } | null;
+  /** Renames/moves done by the panel: keep expansion and selection under the new paths. */
+  renamed: { readonly id: number; readonly moves: readonly { readonly from: string; readonly to: string }[] } | null;
+  /** S52.1: the project folder's name, for the drop announcement. */
+  projectName?: string;
   /** Reports the selected entry so header buttons (new file, …) know the target folder. */
   onSelectionChange?(entry: TreeEntry | null): void;
+  /** S52.3: every selected entry that is visible, in tree order (operations on a selection use these). */
+  onSelectionEntries?(entries: readonly TreeEntry[]): void;
 }
 
 const TREE_KEYS = new Set<string>(['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End']);
@@ -119,8 +146,77 @@ export function FileTree(props: FileTreeProps) {
   }, [refresh]);
 
   useEffect(() => {
-    if (renamed) dispatch({ type: 'renamed', from: renamed.from, to: renamed.to });
+    for (const move of renamed?.moves ?? []) dispatch({ type: 'renamed', from: move.from, to: move.to });
   }, [renamed]);
+
+  // --- S52.1: drag rows onto a folder to move them ---
+  /** The rows being dragged (dragover events cannot read the drag data, only its type). */
+  const dragged = useRef<readonly TreeEntry[] | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  /** S52.5: the drag over the tree brings files from outside (copied in) rather than tree rows (moved). */
+  const [dropCopies, setDropCopies] = useState(false);
+  const draggable = (entry: TreeEntry) =>
+    !entry.unportable && entry.kind !== 'link-outside' && entry.kind !== 'link-broken' && editing === null;
+  const onRowDragStart = (entry: TreeEntry, event: DragEvent) => {
+    if (!draggable(entry)) {
+      event.preventDefault();
+      return;
+    }
+    // S52.3: dragging a selected row drags the whole selection; another row drags just itself.
+    const selection = selectedRowsRef.current.map((r) => r.entry);
+    const sources = selection.some((e) => e.relPath === entry.relPath) ? selection.filter(draggable) : [entry];
+    dragged.current = sources;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(TREE_DRAG_TYPE, JSON.stringify(sources.map((e) => e.relPath)));
+  };
+  /** Accepts a drag of our own rows over `target` (null: the empty area) when the folder can take them. */
+  const onDragOverFolder = (target: TreeEntry | null, event: DragEvent) => {
+    const sources = dragged.current;
+    // S52.5: files from Explorer/Finder are copied in (never moved), into the folder under the pointer.
+    if (!sources && event.dataTransfer.types.includes('Files') && commands.current.onFilesDrop) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = 'copy';
+      const folder = dropFolder(target as MoveSource | null);
+      if (dropTarget !== folder) setDropTarget(folder);
+      if (!dropCopies) setDropCopies(true);
+      return;
+    }
+    if (!sources || !event.dataTransfer.types.includes(TREE_DRAG_TYPE)) return;
+    event.stopPropagation();
+    const folder = dropFolder(target as MoveSource | null);
+    if (moveRefusal(sources, folder) !== null) {
+      event.dataTransfer.dropEffect = 'none';
+      if (dropTarget !== null) setDropTarget(null);
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    if (dropTarget !== folder) setDropTarget(folder);
+    if (dropCopies) setDropCopies(false);
+  };
+  const onDropFolder = (target: TreeEntry | null, event: DragEvent) => {
+    const sources = dragged.current;
+    setDropTarget(null);
+    if (!sources && event.dataTransfer.types.includes('Files') && commands.current.onFilesDrop) {
+      event.preventDefault();
+      event.stopPropagation();
+      const files = Array.from(event.dataTransfer.files);
+      if (files.length > 0) commands.current.onFilesDrop(files, dropFolder(target as MoveSource | null));
+      return;
+    }
+    if (!sources || !event.dataTransfer.types.includes(TREE_DRAG_TYPE)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragged.current = null;
+    const folder = dropFolder(target as MoveSource | null);
+    if (moveRefusal(sources, folder) === null) commands.current.onMoveDrop?.(sources, folder);
+  };
+  const onDragEnd = () => {
+    dragged.current = null;
+    setDropTarget(null);
+  };
+  // --- end S52.1 ---
 
   // A new entry is named inside its folder, which must be open to show the field.
   const createIn = editing?.mode === 'create' ? editing.parent : null;
@@ -155,6 +251,19 @@ export function FileTree(props: FileTreeProps) {
     else if (selectedEntry) onSelectionChange?.(selectedEntry);
   }, [onSelectionChange, selectedEntry, state.selected]);
 
+  // S52.3: the visible selection, reported for operations on several entries.
+  const selectedRows = visibleSelection(state);
+  const selectionKey = selectedRows.map((r) => r.entry.relPath).join('\n');
+  const onSelectionEntries = props.onSelectionEntries;
+  const selectedRowsRef = useRef(selectedRows);
+  selectedRowsRef.current = selectedRows;
+  useEffect(() => {
+    onSelectionEntries?.(selectedRowsRef.current.map((r) => r.entry));
+  }, [onSelectionEntries, selectionKey]);
+  const selectedSet = new Set(selectionOf(state));
+  const primaryKey = (event: { metaKey: boolean; ctrlKey: boolean }) =>
+    isMac(platform) ? event.metaKey : event.ctrlKey;
+
   const activate = useCallback(
     (row: TreeRow) => {
       if (row.expandable) dispatch({ type: row.expanded ? 'collapse' : 'expand', relPath: row.entry.relPath });
@@ -176,7 +285,15 @@ export function FileTree(props: FileTreeProps) {
       event.preventDefault();
       focusSelected.current = true;
       typeAhead.current.buffer = '';
-      for (const action of keyAction(state, event.key as TreeKey)) dispatch(action);
+      // S52.3: Shift extends the selection, Ctrl/Cmd moves the focus only.
+      const mods = { shift: event.shiftKey, primary: primaryKey(event) };
+      const actions = mods.shift || mods.primary ? keyActionWith(state, event.key as TreeKey, mods) : null;
+      for (const action of actions ?? keyAction(state, event.key as TreeKey)) dispatch(action);
+      return;
+    }
+    if (primaryKey(event) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      dispatch({ type: 'selectAll' }); // S52.3
       return;
     }
     if (editing === null && !isImeKey(event.nativeEvent) && event.target instanceof HTMLLIElement) {
@@ -195,7 +312,19 @@ export function FileTree(props: FileTreeProps) {
       }
     }
     if (!row) return;
+    // S52.3 (WAI-ARIA multi-select tree): Space toggles the focused row, Shift+Space selects the range up to it.
+    // Ctrl+Space also toggles on Windows; ⌘Space is Spotlight on macOS and never reaches the app.
+    if (event.key === ' ' && !event.altKey) {
+      event.preventDefault();
+      dispatch({ type: event.shiftKey ? 'rangeSelect' : 'toggleSelect', relPath: row.entry.relPath });
+      return;
+    }
     const c = commands.current;
+    // A command on a focused row outside the selection (moved there with Ctrl/Cmd+arrows) acts on that row alone,
+    // and the selection says so: it becomes that row.
+    if (treeCommandForKey(platform, event) !== null && !selectedSet.has(row.entry.relPath)) {
+      dispatch({ type: 'select', relPath: row.entry.relPath });
+    }
     const command = treeCommandForKey(platform, event);
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -206,6 +335,15 @@ export function FileTree(props: FileTreeProps) {
     } else if (command === 'delete' && c.onDelete) {
       event.preventDefault();
       c.onDelete(row.entry);
+    } else if (command === 'copy' && c.onCopy) {
+      event.preventDefault();
+      c.onCopy(row.entry);
+    } else if (command === 'paste' && c.onPaste) {
+      event.preventDefault();
+      c.onPaste(row.entry);
+    } else if (command === 'duplicate' && c.onDuplicate) {
+      event.preventDefault();
+      c.onDuplicate(row.entry);
     } else if (command === 'reveal' && c.onReveal) {
       event.preventDefault();
       c.onReveal(row.entry);
@@ -253,11 +391,17 @@ export function FileTree(props: FileTreeProps) {
   return (
     <>
       <ul
-        className="file-tree"
+        className={dropTarget === '' ? 'file-tree drop-target' : 'file-tree'}
         role="tree"
+        aria-multiselectable="true"
         aria-label={t('files.listLabel')}
         data-testid="file-tree"
         onKeyDown={onKeyDown}
+        onDragOver={(event) => onDragOverFolder(null, event)}
+        onDrop={(event) => onDropFolder(null, event)}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null);
+        }}
       >
         {editing?.mode === 'create' && editing.parent === '' && createRow(1)}
         {rows.map((row) => (
@@ -270,29 +414,55 @@ export function FileTree(props: FileTreeProps) {
                 ? createRow(row.level + 1)
                 : null
             }
-            selected={row.entry.relPath === state.selected}
+            selected={selectedSet.has(row.entry.relPath)}
             active={row.entry.relPath === activeRelPath}
             tabbable={row.entry.relPath === tabStop}
             rowRef={(el) => {
               if (el) rowRefs.current.set(row.entry.relPath, el);
               else rowRefs.current.delete(row.entry.relPath);
             }}
-            onClick={() => {
-              dispatch({ type: 'select', relPath: row.entry.relPath });
-              activate(row);
+            onClick={(event) => {
+              // S52.3: Shift-click selects a range, Ctrl/Cmd-click adds or removes a row; neither opens anything.
+              if (event.shiftKey) dispatch({ type: 'rangeSelect', relPath: row.entry.relPath });
+              else if (primaryKey(event)) dispatch({ type: 'toggleSelect', relPath: row.entry.relPath });
+              else {
+                dispatch({ type: 'select', relPath: row.entry.relPath });
+                activate(row);
+              }
             }}
             onFocus={() => {
               if (stateRef.current.selected !== row.entry.relPath) {
-                dispatch({ type: 'select', relPath: row.entry.relPath });
+                dispatch({ type: 'focus', relPath: row.entry.relPath });
               }
             }}
             onContextMenu={(x, y) => {
-              dispatch({ type: 'select', relPath: row.entry.relPath });
+              // A right-click inside the selection keeps it (the menu acts on all of it); elsewhere it selects one.
+              if (!selectionOf(stateRef.current).includes(row.entry.relPath)) {
+                dispatch({ type: 'select', relPath: row.entry.relPath });
+              } else dispatch({ type: 'focus', relPath: row.entry.relPath });
               commands.current.onContextMenu?.(row.entry, { x, y });
             }}
+            draggable={draggable(row.entry)}
+            dropTarget={dropTarget !== null && dropTarget !== '' && dropTarget === dropFolder(row.entry)}
+            onDragStart={(event) => onRowDragStart(row.entry, event)}
+            onDragOver={(event) => onDragOverFolder(row.entry, event)}
+            onDrop={(event) => onDropFolder(row.entry, event)}
+            onDragEnd={onDragEnd}
           />
         ))}
       </ul>
+      {/* S52.3: how many entries are selected, as text */}
+      <p className="sr-only" role="status" aria-live="polite" data-testid="tree-selection-status">
+        {selectedRows.length > 1 ? fill(t('tree.selectedCount'), { n: String(selectedRows.length) }) : ''}
+      </p>
+      {/* S52.1: where a drop would move the rows, as text (not only the highlight). */}
+      <p className="sr-only" role="status" aria-live="polite" data-testid="tree-drop-status">
+        {dropTarget !== null
+          ? fill(t(dropCopies ? 'import.dropInto' : 'move.dropInto'), {
+              folder: folderLabel(dropTarget, props.projectName ?? ''),
+            })
+          : ''}
+      </p>
       {root.truncated && <p className="empty-detail list-note">{t('tree.truncated')}</p>}
     </>
   );
@@ -329,9 +499,17 @@ interface TreeRowItemProps {
   active: boolean;
   tabbable: boolean;
   rowRef: (el: HTMLLIElement | null) => void;
-  onClick: () => void;
+  onClick: (event: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) => void;
   onFocus: () => void;
   onContextMenu: (x: number, y: number) => void;
+  /** S52.1: drag-and-drop move. */
+  draggable: boolean;
+  /** This row is the folder a drop would move into (or in it, for a file row). */
+  dropTarget: boolean;
+  onDragStart: (event: DragEvent) => void;
+  onDragOver: (event: DragEvent) => void;
+  onDrop: (event: DragEvent) => void;
+  onDragEnd: () => void;
 }
 
 function TreeRowItem({
@@ -345,6 +523,12 @@ function TreeRowItem({
   onClick,
   onFocus,
   onContextMenu,
+  draggable,
+  dropTarget,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: TreeRowItemProps) {
   const { t } = useI18n();
   const { entry, level, expandable, expanded, folder } = row;
@@ -368,7 +552,7 @@ function TreeRowItem({
       <li
         ref={rowRef}
         role="treeitem"
-        className="tree-row"
+        className={dropTarget && entry.kind === 'directory' ? 'tree-row drop-target' : 'tree-row'}
         aria-level={level}
         aria-posinset={row.posInSet}
         aria-setsize={row.setSize}
@@ -389,6 +573,11 @@ function TreeRowItem({
           event.preventDefault();
           onContextMenu(event.clientX, event.clientY);
         }}
+        draggable={draggable}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        onDragEnd={onDragEnd}
       >
         <span className={expandable ? (expanded ? 'tree-twisty open' : 'tree-twisty') : 'tree-twisty none'}>
           {expandable && <ChevronRightIcon />}

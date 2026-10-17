@@ -82,3 +82,33 @@ export function sameName(a: string, b: string, caseSensitive: boolean): boolean 
 export function differsOnlyByCase(a: string, b: string): boolean {
   return a !== b && sameName(a, b, false);
 }
+
+/**
+ * S52.2: the name of a copy (Duplicate, or a paste into a folder that has the name already), the same on every
+ * platform so a project reads alike on Windows and macOS: `page.html` → `page copy.html`, then `page copy 2.html`…
+ * A copy of a copy counts on (`page copy.html` → `page copy 2.html`). Folders keep dots in their names. `isFree`
+ * decides whether a name is taken (callers compare ignoring case, like every file operation). The result always
+ * passes {@link checkFileName}: a long name is shortened before the `copy` suffix.
+ */
+export function copyName(
+  name: string,
+  isFree: (candidate: string) => boolean,
+  kind: 'file' | 'directory' = 'file',
+): string {
+  const dot = kind === 'file' ? name.lastIndexOf('.') : -1;
+  const ext = dot > 0 ? name.slice(dot) : '';
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  // At most 6 digits count as a copy number (a name like `page copy 9007199254740991` is just a name).
+  const numbered = /^(.*) copy(?: (\d{1,6}))?$/.exec(base);
+  const stem = numbered?.[1] ?? base;
+  const first = numbered ? Number(numbered[2] ?? '1') + 1 : 1;
+  const bytes = (s: string) => new TextEncoder().encode(s).length;
+  for (let n = first; n < first + 10_000; n += 1) {
+    const suffix = `${n === 1 ? ' copy' : ` copy ${n}`}${ext}`;
+    let root = stem;
+    while (root.length > 0 && bytes(root) + bytes(suffix) > MAX_NAME_BYTES) root = [...root].slice(0, -1).join('');
+    const candidate = `${root.replace(/[. ]+$/, '')}${suffix}`;
+    if (checkFileName(candidate).ok && isFree(candidate)) return candidate;
+  }
+  throw new Error('no free name for a copy');
+}

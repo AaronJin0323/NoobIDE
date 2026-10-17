@@ -14,6 +14,8 @@ import { paletteZhCN } from './palette'; // S40
 import { annotationsZhCN } from './annotations'; // S41.5
 import { journeyZhCN } from './journey'; // beginner-journey fixes
 import { searchZhCN } from './search'; // S51
+import { fileManagementZhCN } from './file-management'; // S52
+import { imageViewerZhCN } from './image-viewer'; // S52.6
 /**
  * zh-CN is the default locale and the source of truth for message keys (AGENTS.md: i18n invariant).
  * Every key must also exist in en.ts — the type system and i18n.test.ts enforce it.
@@ -335,6 +337,8 @@ export const zhCN = {
   ...annotationsZhCN, // S41.5 preview annotations strip
   ...journeyZhCN, // beginner-journey fixes: preview page path, missing-page page, editor overflow menu
   ...searchZhCN, // S51 find, replace and quick open
+  ...fileManagementZhCN, // S52 move, copy, multi-select, import, image viewer
+  ...imageViewerZhCN, // S52.6 image viewer tab
   // --- S18.3 formatting ---
   'format.button': '整理格式',
   'format.title': '整理代码格式：缩进和换行（{shortcut}）',

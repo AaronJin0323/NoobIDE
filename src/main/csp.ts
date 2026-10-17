@@ -7,6 +7,9 @@
  * - style-src needs 'unsafe-inline' because Monaco creates <style> elements at runtime.
  * - Development adds only what Vite's dev server needs (inline React-refresh preamble, HMR websocket).
  */
+import { APP_SCHEME } from './app-asset';
+import { PROJECT_IMAGE_HOST } from '../shared/image-files';
+
 export type CspMode = 'production' | 'development';
 
 export function buildCsp(mode: CspMode, devServerOrigin?: string): string {
@@ -17,7 +20,8 @@ export function buildCsp(mode: CspMode, devServerOrigin?: string): string {
     'default-src': ["'none'"],
     'script-src': dev ? ["'self'", "'unsafe-inline'"] : ["'self'"],
     'style-src': ["'self'", "'unsafe-inline'"],
-    'img-src': ["'self'", 'data:'],
+    // S52.6: the image viewer's project images (app protocol `project` host, realpath-checked in main).
+    'img-src': ["'self'", 'data:', `${APP_SCHEME}://${PROJECT_IMAGE_HOST}`],
     'font-src': ["'self'", 'data:'],
     'worker-src': ["'self'"],
     'connect-src': dev ? ["'self'", ws] : ["'self'"],
