@@ -3,6 +3,62 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 35 (side session) — 2026-10-17 — CI timing tool, E2E job summary, ADR 0037 (S50.6)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/nervous-nash-544128`
+(fast-forwarded onto e45aed9, the S50 plan commit).
+
+**Done**
+
+- S50.6 — `scripts/ci-timings.mjs` (thin `gh run list` / `gh run view --json` / `gh api …/artifacts` /
+  `gh run download` / `gh run view --log-failed` wrappers, CLI flags `--runs N`, `--failures`, `--json`, `--run <id>`,
+  `--no-artifacts`, `--no-steps`, `--repo`, `--workflow`, `--save DIR`) and `scripts/ci-timings-parse.mjs` (pure:
+  queue delay = job start − run creation, every step's duration, the plan §2 categories, Playwright time from the
+  shard's `e2e-report` artifact, packaging = E2E step − Playwright, failing step + first error line per job from the
+  failed log with gh's `^[[31m` colour codes stripped, median/max aggregate over successful runs). `--save` writes
+  the fixture tree the tests read: `tests/fixtures/ci/runs/<id>/{run.json, e2e-report-<t>-<n>.json, log-failed.txt}`
+  for the green run 39015143213 and the red run 39011559538 (latency budget on macOS + walkthrough race on
+  Windows), trimmed to the fields the parser reads and an error-line excerpt of the log.
+- S50.6 — `scripts/e2e-summary.mjs`: after every Playwright run (pass or fail) `scripts/e2e.mjs` appends the 10
+  slowest spec files and the shard total to `$GITHUB_STEP_SUMMARY` from `reports/e2e/results.json`. The change
+  to `e2e.mjs` is confined to the last lines (status capture + two appended functions); the sharding logic
+  S50.2 owns is untouched.
+- S50.6 — `docs/decisions/0037-ci-stability-and-speed.md`: §1 causes, §2 baseline, the six packages and the S50.1
+  decisions (draft PRs skip the matrix, installers only on `main`, static gates once), consequences, the real
+  20-run baseline output, and a "Measured result" section left as TODO with the command to fill it.
+
+**Evidence:** `tests/integration/ci-timings.test.ts` (19 tests): the parser reproduces the plan §2 table for run
+39015143213 from fixtures (queue 2:33 / 9:21 on the macOS shards, Playwright 7:03 / 7:10 / 7:07 / 9:01, installers
+1:33 on Windows shard 1, job totals 11:24 / 9:29 / 9:31 / 10:59, all within 5 s), names the failing step and first
+error line of run 39011559538, `--failures` lists only red runs, the job-summary formatter lists the 10 slowest files
+slowest-first with the shard total and never throws. `node scripts/ci-timings.mjs --runs 20 --no-steps` ran for real
+(output in ADR 0037 "Baseline"). `npm run verify` green.
+
+**Decisions:** ADR 0037. Two baseline facts the plan's single green run hid, recorded there: macOS shard 1 spends
+14–16 min in Playwright on 8 of 10 completed jobs because `app-startup-restore.spec.ts` takes ~10 min on the
+hosted macOS runner (2:01 on the fast run, 2–4.5 min on Windows), so S50.5 is worth ~10 min of macOS time, not 2;
+and the macOS queue median is 2:33 with a 32-min maximum. The error-line heuristic prefers an `Error:` /
+`AssertionError:` / Vitest `FAIL` line over the generic `##[error]Process completed with exit code 1`, and keeps
+both the FAIL line (names the test) and the assertion that follows it.
+
+**Problems / risks:** `gh run view --log-failed` returns nothing for a run that is still in progress, so such a
+run shows its failing step without an error line. The Playwright column needs the `e2e-report` artifacts, which
+expire after 14 days; older runs show `–`. The in-flight run 39018194387 on the parent branch
+`claude/ci-failures-optimization-f08cd1` failed at Verify on Windows shard 1 (not inspected; not this package).
+
+**Owner action needed:** none for S50.6. Plan §6 decisions 1–4 still open (S50.1/S50.3 default to "yes").
+
+**Next up**
+
+1. Merge S50.1–S50.4; after 20 `CI` runs on top of them run `node scripts/ci-timings.mjs --runs 20 --no-steps`
+   and fill ADR 0037 "Measured result" (the table has the before numbers).
+2. S50.5 once the owner answers plan §6 item 4; the baseline says it saves ~10 min on macOS shard 1 per run.
+3. Check the first hosted run after merge shows the E2E job summary (slowest files table) on all four shards.
+
+**Ideas / backlog candidates:** a `--since <date>` flag and a per-spec-file trend (median per file over N runs,
+from the artifacts) would make `scripts/e2e-shards.mjs balance` (S50.2) and S50.5's smoke-version choice
+evidence-based without opening runs by hand.
+
 ## Session 34 (side session) — 2026-10-17 — CI failure triage and speed-up plan (M20 / S50, owner request)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/ci-failures-optimization-f08cd1`.
