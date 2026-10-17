@@ -495,17 +495,21 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
       `(() => { const report = reportError; ${loop("report(new Error('报告 ' + i)); if (i % 1000 === 0) Promise.reject(i)")} return 'finished'; })()`,
     ],
   ];
-  // What the page's documents (one shared budget, at least one message each) or a set of workers may send in
-  // LOOP_MS, plus summaries (page-guard.ts).
-  const allowed = CONSOLE_BURST + Math.ceil((CONSOLE_LIMIT * LOOP_MS) / 1_000) + 10;
+  // What the page's documents (one shared budget, at least one message each) or a set of workers may send while the
+  // case runs, plus summaries (page-guard.ts). The limiter is a token bucket (burst + rate × time), so the bound is
+  // taken over the window the case actually took (`ms`, never less than LOOP_MS): on a slow macOS runner the iframe
+  // churn case ran 1 583 ms instead of 1 500 and the bucket rightly refilled to 414 messages against a 410 allowance
+  // computed from the nominal window (run 39041994020). The rate and burst themselves are the product's.
+  const allowed = (ms: number) => CONSOLE_BURST + Math.ceil((CONSOLE_LIMIT * Math.max(LOOP_MS, ms)) / 1_000) + 10;
   // Workers: at most MAX_GUARDED_SCOPES start per second and run at once, each with its own small budget.
   const workerWindows = Math.ceil((LOOP_MS + 500) / 1_000) + 1;
-  const allowedFor = (name: string) =>
+  const allowedFor = (name: string, ms: number) =>
     name.startsWith('20 workers')
-      ? MAX_GUARDED_SCOPES * (WORKER_CONSOLE_BURST + Math.ceil((WORKER_CONSOLE_LIMIT * LOOP_MS) / 1_000) + 2)
+      ? MAX_GUARDED_SCOPES *
+        (WORKER_CONSOLE_BURST + Math.ceil((WORKER_CONSOLE_LIMIT * Math.max(LOOP_MS, ms)) / 1_000) + 2)
       : name.startsWith('workers started and ended')
         ? workerWindows * MAX_GUARDED_SCOPES * (WORKER_CONSOLE_BURST + 2)
-        : allowed;
+        : allowed(ms);
   // Creating and removing 200 iframes in one burst costs main (Chromium's browser UI thread) per-frame work that has
   // nothing to do with the console: frame bookkeeping and the DevTools Page events of every frame for the page guard's
   // session and Playwright's. On a 4-vCPU Windows CI runner that alone measured ~0.5 s. The console budget applies on
@@ -610,7 +614,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
           `${name}: ${run.result} after ${run.ms} ms; ${run.messages} messages reached main; longest main stall ${run.max} ms`,
         );
         expect(run.result, name).toBe('finished');
-        expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name));
+        expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name, run.ms));
       },
       (run) => run.max,
     );
@@ -698,7 +702,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
             `longest stall beyond the simulated work ${run.unexplained} ms`,
         );
         expect(run.result, name).toBe('finished');
-        expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name));
+        expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name, run.ms));
         expect(run.sourceMessages, name).toBeGreaterThanOrEqual(run.messages);
         expect(run.sourceBacklog, name).toBeLessThanOrEqual(MOST_AT_ONCE);
       },
