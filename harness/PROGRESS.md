@@ -128,8 +128,10 @@ the spec now waits for settings.json to hold the locale before navigating (tests
 watcher.test.ts "entries that came and went within one batch": the scripted test awaited real disk work between the
 raw reports it delivers with a 20 ms debounce, so on the saturated runner the batch classified mid-sequence (folder
 "created") and idle() could not wait for the unfired second timer; the disk work now runs first and the reports are
-delivered back to back, which is the premise the test states (tests only, 21/21 three runs). Five distinct hosted-runner
-flakes in five runs of a docs-only PR: the common thread is tests that assume an idle machine.
+delivered back to back, which is the premise the test states (tests only, 21/21 three runs). The sixth run (now carrying
+S48 and S49.3) timed out history-ipc.test.ts "the content kept before a restore survives the save" at the 5 s default;
+all three describes in that file do fsynced snapshot writes and now carry the 60 s real-IO hang guard. Six distinct
+hosted-runner flakes in six runs of one PR: the common thread is tests that assume an idle machine.
 
 **Decisions:** Nothing from the source is copied as code, class strings or assets (Tailwind, Framer Motion,
 clay accent, CDN Storybook); only mechanisms and constants, each given one home as a token or tested constant.
