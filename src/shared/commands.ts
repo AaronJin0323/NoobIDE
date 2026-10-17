@@ -62,6 +62,9 @@ export const COMMAND_IDS = [
   'ai-inline-edit',
   // S40.5 command palette (search every command that applies now)
   'command-palette',
+  // S51.1 find and replace in the current file (Monaco's find widget)
+  'find',
+  'replace',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -187,6 +190,19 @@ export const COMMANDS: readonly CommandDefinition[] = [
     label: 'command.palette',
     keys: { all: { key: 'p', primary: true, shift: true } },
     when: noModal,
+  },
+  // S51.1: the code editor's find and replace — Ctrl/Cmd+F, and Ctrl+H on Windows / ⌥⌘F on macOS like other editors.
+  {
+    id: 'find',
+    label: 'command.find',
+    keys: { all: { key: 'f', primary: true } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+  },
+  {
+    id: 'replace',
+    label: 'command.replace',
+    keys: { windows: { key: 'h', primary: true }, mac: { key: 'f', primary: true, alt: true } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
   },
 ];
 

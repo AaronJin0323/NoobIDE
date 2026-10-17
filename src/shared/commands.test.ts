@@ -104,4 +104,27 @@ describe('command registry (S24.1)', () => {
     expect(commandChecked('theme-system', INITIAL_COMMAND_CONTEXT)).toBe(true);
     expect(commandChecked('save', light)).toBeNull();
   });
+
+  it('registers find and replace once, with per-platform keys and both languages (S51.1)', () => {
+    for (const id of ['find', 'replace'] as const) {
+      expect(COMMANDS.filter((c) => c.id === id)).toHaveLength(1);
+    }
+    expect(zhCN['command.find']).toBe('查找');
+    expect(en['command.find']).toBe('Find');
+    expect(zhCN['command.replace']).toBe('替换');
+    expect(en['command.replace']).toBe('Replace');
+    expect(commandShortcutLabel('find', 'windows')).toBe('Ctrl+F');
+    expect(commandShortcutLabel('find', 'mac')).toBe('⌘F');
+    expect(commandShortcutLabel('replace', 'windows')).toBe('Ctrl+H');
+    expect(commandShortcutLabel('replace', 'mac')).toBe('⌥⌘F');
+    expect(commandForKeyStroke('windows', key('h', { ctrl: true }))).toBe('replace');
+    expect(commandForKeyStroke('mac', key('h', { meta: true }))).toBeNull(); // ⌘H hides the app on macOS
+    // ⌥ changes the produced character on macOS (⌥⌘F gives "ƒ"); the physical key still counts.
+    expect(commandForKeyStroke('mac', { ...key('ƒ', { meta: true, alt: true }), code: 'KeyF' })).toBe('replace');
+    expect(commandForKeyStroke('mac', key('f', { meta: true }))).toBe('find');
+    const editing = { hasProject: true, hasActiveTab: true, modalOpen: false, theme: 'system' as const };
+    expect(isCommandEnabled('find', editing)).toBe(true);
+    expect(isCommandEnabled('find', { ...editing, hasActiveTab: false })).toBe(false);
+    expect(isCommandEnabled('replace', { ...editing, modalOpen: true })).toBe(false);
+  });
 });

@@ -1086,6 +1086,9 @@ export function Workbench() {
     'ai-inline-edit': inlineEdit.shown ? inlineEdit.start : undefined, // S35.1
     // S32.1: AI ghost-text suggestions on / off (offered only when the AI bridge exists)
     'toggle-inline-ai': aiBridge() ? () => toggleInlineAi(docRef.current.project?.projectId ?? null) : undefined,
+    // S51.1: Monaco's find / replace widget on the file on screen
+    find: () => activeEditor()?.openFind?.('find'),
+    replace: () => activeEditor()?.openFind?.('replace'),
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
     'command-palette': () =>
       setPalette(

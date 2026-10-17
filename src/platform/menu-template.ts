@@ -140,6 +140,9 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       role('paste', 'menu.paste'),
       role('selectAll', 'menu.selectAll'),
       SEPARATOR,
+      command('find'), // S51.1
+      command('replace'),
+      SEPARATOR,
       command('toggle-inline-ai'), // S32.1
     ],
   };

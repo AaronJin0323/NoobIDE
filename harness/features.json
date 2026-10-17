@@ -4394,8 +4394,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/commands.test.ts + src/platform/menu-template.test.ts (registry, keys, zh-CN/en, Edit menu); tests/e2e/find-replace.spec.ts (5 tests: palette, replace-all one undo step + one after-save history version via autosave, keyboard-only find/next/previous/replace/replace-all with match count text and Monaco live region, native Edit menu) on Windows x64"
     },
     {
       "id": "S51.2",

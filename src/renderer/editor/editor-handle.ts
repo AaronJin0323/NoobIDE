@@ -31,6 +31,8 @@ export interface EditorAccess {
    * closes the previous one.
    */
   openEditZone?(lines?: { readonly startLine: number; readonly endLine: number }): EditZone | null;
+  /** S51.1: opens the editor's find (or find-and-replace) widget on the file on screen and focuses its field. */
+  openFind?(mode: 'find' | 'replace'): void;
 }
 
 /**
