@@ -5299,8 +5299,8 @@
       ],
       "verify": "manual-mac",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "src/main/window-options.test.ts (3 S50.5 tests: centred within 0.5pt in the zoomed 52px bar at every 5% step from 80% to 150%, inside the zoomed 88px reserve; recompute on zoom-changed after the zoom applies and after each load) + main.ts wiring for macOS; physical check in harness/MANUAL-CHECKS.md#S50.5 (next to S46.9)"
     },
     {
       "id": "S58.1",
