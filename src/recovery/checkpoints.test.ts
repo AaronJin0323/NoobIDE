@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CHECKPOINT_LIMITS, planAutoPrune } from './checkpoints';
 
-/** S56.3: the documented pruning policy for automatic checkpoints (docs/decisions/0038, docs/product/checkpoints.md). */
+/** S56.3: the documented pruning policy for automatic checkpoints (docs/decisions/0041, docs/product/checkpoints.md). */
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 1_800_000_000_000;
 const limits = { maxAuto: 3, maxAutoAgeMs: 14 * DAY };

@@ -764,7 +764,7 @@ export class CheckpointStore {
   }
 
   /**
-   * Keeps history's marker for older NoobIDE versions current (decision 0038): they do not know about checkpoints,
+   * Keeps history's marker for older NoobIDE versions current (decision 0041): they do not know about checkpoints,
    * but never delete a blob named by an index from a newer version.
    */
   private async writeLegacyPins(): Promise<void> {

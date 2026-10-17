@@ -1,4 +1,4 @@
-# 0038 — Project checkpoints share local history's blob store
+# 0041 — Project checkpoints share local history's blob store
 
 - **Status:** accepted
 - **Date:** 2026-10-17

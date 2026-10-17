@@ -438,7 +438,7 @@ export interface NoobideApi {
   readonly aiHistory?: AiHistoryApi;
   /** S41: preview annotations (annotations-contract.ts, decision 0030). */
   readonly annotations?: AnnotationsApi;
-  /** S56: project checkpoints in app data (checkpoints-contract.ts, decision 0038). */
+  /** S56: project checkpoints in app data (checkpoints-contract.ts, decision 0041). */
   readonly checkpoints?: CheckpointsApi;
 }
 

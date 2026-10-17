@@ -4858,7 +4858,7 @@
       "verify": "auto",
       "depends_on": [],
       "status": "done",
-      "evidence": "tests/integration/checkpoint-store.test.ts (20 tests: whole project + ignore rules in app data only, dedupe with S21 blobs, limits refused with detail + usage, damaged/missing blob and damaged/unreadable/crafted manifest faults, pins vs history GC) + subagent review (2 rounds, findings fixed) + decision 0038 + verify --quick green"
+      "evidence": "tests/integration/checkpoint-store.test.ts (20 tests: whole project + ignore rules in app data only, dedupe with S21 blobs, limits refused with detail + usage, damaged/missing blob and damaged/unreadable/crafted manifest faults, pins vs history GC) + subagent review (2 rounds, findings fixed) + decision 0041 + verify --quick green"
     },
     {
       "id": "S56.2",

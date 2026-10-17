@@ -231,7 +231,7 @@ const api: NoobideApi = {
     highlight: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.highlight, request),
     context: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.context, request),
   },
-  // S56: project checkpoints (app data, decision 0038).
+  // S56: project checkpoints (app data, decision 0041).
   checkpoints: {
     list: (request) => ipcRenderer.invoke(CHECKPOINT_CHANNELS.list, request),
     create: (request) => ipcRenderer.invoke(CHECKPOINT_CHANNELS.create, request),

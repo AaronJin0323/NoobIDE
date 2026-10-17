@@ -180,14 +180,14 @@ export interface BlobAccess {
   intact(hash: string): Promise<boolean>;
   /** Deletes those of `hashes` that neither history nor the pins reference (deferred while anything is unsure). */
   release(hashes: readonly string[]): Promise<void>;
-  /** Rewrites the marker that keeps older NoobIDE versions from deleting these blobs (decision 0038). */
+  /** Rewrites the marker that keeps older NoobIDE versions from deleting these blobs (decision 0041). */
   writeLegacyPins(hashes: readonly string[]): Promise<void>;
 }
 
 const NO_PINS: BlobPins = { hashes: new Set(), uncertain: false };
 
 /**
- * S56.1, decision 0038: `index/<LEGACY_PIN_KEY>.json` names every checkpoint blob in an index of a version no
+ * S56.1, decision 0041: `index/<LEGACY_PIN_KEY>.json` names every checkpoint blob in an index of a version no
  * NoobIDE uses. A version that predates checkpoints reads it as "an index from a newer version" and therefore never
  * deletes a blob it names; this version skips the file (the checkpoint store pins the blobs itself).
  */

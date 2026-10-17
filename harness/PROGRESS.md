@@ -10,7 +10,7 @@ based on the M19 backlog commit 824b6fa. One of six parallel M19 sessions (S51, 
 
 **Done**
 
-- **S56.1 checkpoint store** (`src/recovery/checkpoints.ts`, decision 0038): one manifest per checkpoint in
+- **S56.1 checkpoint store** (`src/recovery/checkpoints.ts`, decision 0041): one manifest per checkpoint in
   `<userData>/checkpoints/<projectKey>/`, contents as blobs in local history's `objects/` (deduped with history),
   written through `SnapshotStore.withBlobs()`. Pins (`setPins`) keep history's limits, cleanup and "clear all" away
   from checkpoint blobs (uncertain until loaded, or while a manifest is unreadable: then no blob is deleted). A
@@ -45,7 +45,7 @@ and delete; history restore takes a checkpoint). The e2e suites checkpoints, his
 20/20 on Windows x64. Two subagent reviews each of the store (S56.1) and the restore (S56.2): every blocker was
 fixed and re-checked. `npm run verify` green at the S56.4 commit.
 
-**Decisions:** decision 0038 (shared blobs with pins plus a legacy marker; limits; pruning policy; manifest path
+**Decisions:** decision 0041 (shared blobs with pins plus a legacy marker; limits; pruning policy; manifest path
 rules). An automatic checkpoint that cannot be taken does not block an AI change or a history restore, since local
 history keeps the per-file version. A checkpoint restore does abort without its safety checkpoint. `history:clear`
 of everything now keeps blobs that checkpoints pin.
@@ -55,7 +55,7 @@ of everything now keeps blobs that checkpoints pin.
 - A byte write into a clean open tab relies on the S11 watcher to reload it. This covers non-UTF-8 read-only tabs and
   files with a BOM or CRLF. The reviewer found no data-loss path; it is a known limit.
 - "Clear all history" in a NoobIDE older than S56 still deletes the whole history folder, checkpoint blobs included
-  (decision 0038). Release notes should say so.
+  (decision 0041). Release notes should say so.
 - History's "on disk" usage includes checkpoint blobs.
 - `tests/integration/watcher.test.ts` failed once under load (S07.3, untouched) and passed on three reruns.
 - Expected merge conflicts with the other M19 sessions: `harness/features.json`, `PROGRESS.md`, `src/shared/commands.ts`,

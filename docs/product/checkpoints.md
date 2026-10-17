@@ -2,7 +2,7 @@
 
 Feature S56 (PLAN §7, §12 v0.2; review `docs/reviews/mainstream-ide-gap-2026-10-17.md` §4). This page is the
 reference for the Checkpoints window and the source for its in-app wording. Code: `src/recovery/checkpoints.ts`,
-`src/main/checkpoints-ipc.ts`, `src/renderer/checkpoints/`. Design: `docs/decisions/0038-project-checkpoints.md`.
+`src/main/checkpoints-ipc.ts`, `src/renderer/checkpoints/`. Design: `docs/decisions/0041-project-checkpoints.md`.
 
 ## Three different safety nets
 
