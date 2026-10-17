@@ -187,6 +187,8 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await expect(panel()).toHaveAttribute('data-step', 'heading');
     await expect(panel()).toHaveAttribute('data-compact', 'true');
     await expect.poll(async () => (await stored(userData()))?.step).toBe('heading');
+    // The compact choice is saved asynchronously after the click above; wait for it before the restart.
+    await expect.poll(async () => (await stored(userData()))?.compact).toBe(true);
     await app.close();
     await start(userData());
     await expect(panel()).toHaveAttribute('data-step', 'heading');
