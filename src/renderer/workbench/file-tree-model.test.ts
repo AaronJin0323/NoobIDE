@@ -5,6 +5,9 @@ import {
   foldersToLoad,
   isListing,
   keyAction,
+  keyActionWith,
+  selectionOf,
+  visibleSelection,
   treeReducer,
   visibleRows,
   type TreeAction,
@@ -147,5 +150,72 @@ describe('keyboard (S08.1, WAI-ARIA tree pattern)', () => {
     expect(keyAction(at('css'), 'ArrowLeft')).toEqual([{ type: 'collapse', relPath: 'css' }]);
     expect(keyAction(at('css/a.css'), 'ArrowLeft')).toEqual([{ type: 'select', relPath: 'css' }]);
     expect(keyAction(at('index.html'), 'ArrowLeft')).toEqual([]);
+  });
+});
+
+describe('multi-select (S52.3)', () => {
+  const tree = apply(
+    loadedRoot,
+    { type: 'expand', relPath: 'css' },
+    {
+      type: 'loaded',
+      relPath: 'css',
+      entries: [file('css/a.css'), file('css/b.css')],
+      truncated: false,
+    },
+  );
+  // Rows: css, css/a.css, css/b.css, 子 文件夹, index.html
+
+  it('a plain selection is one row; Ctrl/Cmd toggles rows in and out', () => {
+    let state = apply(tree, { type: 'select', relPath: 'css/a.css' });
+    expect(selectionOf(state)).toEqual(['css/a.css']);
+    state = apply(
+      state,
+      { type: 'toggleSelect', relPath: 'index.html' },
+      { type: 'toggleSelect', relPath: '子 文件夹' },
+    );
+    expect(selectionOf(state)).toEqual(['css/a.css', 'index.html', '子 文件夹']);
+    state = apply(state, { type: 'toggleSelect', relPath: 'index.html' });
+    expect(selectionOf(state)).toEqual(['css/a.css', '子 文件夹']);
+    expect(visibleSelection(state).map((r) => r.entry.relPath)).toEqual(['css/a.css', '子 文件夹']);
+    state = apply(state, { type: 'select', relPath: 'css' });
+    expect(selectionOf(state)).toEqual(['css']);
+  });
+
+  it('Shift selects the range from the anchor, in both directions', () => {
+    let state = apply(tree, { type: 'select', relPath: 'css/b.css' }, { type: 'rangeSelect', relPath: 'index.html' });
+    expect(selectionOf(state)).toEqual(['css/b.css', '子 文件夹', 'index.html']);
+    state = apply(state, { type: 'rangeSelect', relPath: 'css' });
+    expect(selectionOf(state)).toEqual(['css', 'css/a.css', 'css/b.css']);
+    expect(state.selected).toBe('css');
+  });
+
+  it('Shift+arrows extend; Ctrl/Cmd+arrows move the focus only; Ctrl/Cmd+A selects every visible row', () => {
+    let state = apply(tree, { type: 'select', relPath: 'css/a.css' });
+    for (const a of keyActionWith(state, 'ArrowDown', { shift: true, primary: false })) state = apply(state, a);
+    for (const a of keyActionWith(state, 'ArrowDown', { shift: true, primary: false })) state = apply(state, a);
+    expect(selectionOf(state)).toEqual(['css/a.css', 'css/b.css', '子 文件夹']);
+    for (const a of keyActionWith(state, 'ArrowDown', { shift: false, primary: true })) state = apply(state, a);
+    expect(state.selected).toBe('index.html');
+    expect(selectionOf(state)).toEqual(['css/a.css', 'css/b.css', '子 文件夹']);
+    state = apply(state, { type: 'toggleSelect', relPath: 'index.html' });
+    expect(selectionOf(state)).toHaveLength(4);
+    expect(keyActionWith(state, 'ArrowRight', { shift: true, primary: false })).toEqual([]);
+    state = apply(state, { type: 'selectAll' });
+    expect(selectionOf(state)).toEqual(['css', 'css/a.css', 'css/b.css', '子 文件夹', 'index.html']);
+  });
+
+  it('a row getting the focus keeps the selection; the selection follows a move', () => {
+    let state = apply(tree, { type: 'select', relPath: 'css/a.css' }, { type: 'toggleSelect', relPath: 'css/b.css' });
+    state = apply(state, { type: 'focus', relPath: 'index.html' });
+    expect(selectionOf(state)).toEqual(['css/a.css', 'css/b.css']);
+    state = apply(state, { type: 'renamed', from: 'css', to: '子 文件夹/css' });
+    expect(selectionOf(state)).toEqual(['子 文件夹/css/a.css', '子 文件夹/css/b.css']);
+  });
+
+  it('rows of a collapsed folder drop out of what an operation acts on', () => {
+    let state = apply(tree, { type: 'select', relPath: 'css/a.css' }, { type: 'toggleSelect', relPath: 'index.html' });
+    state = apply(state, { type: 'collapse', relPath: 'css' });
+    expect(visibleSelection(state).map((r) => r.entry.relPath)).toEqual(['index.html']);
   });
 });

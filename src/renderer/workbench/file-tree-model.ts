@@ -27,6 +27,13 @@ export interface TreeState {
   readonly expanded: readonly string[];
   /** The focused/selected row (roving tabindex), or null before anything is selected. */
   readonly selected: string | null;
+  /**
+   * S52.3: every selected row (the focused row is usually one of them). Absent: just `selected`. Ctrl/Cmd-click and
+   * Ctrl/Cmd+Space toggle a row, Shift-click and Shift+arrows select the range from `anchor`.
+   */
+  readonly selection?: readonly string[];
+  /** S52.3: where a Shift range starts: the last row selected on its own or toggled. */
+  readonly anchor?: string | null;
 }
 
 export const INITIAL_TREE: TreeState = { folders: {}, expanded: [], selected: null };
@@ -39,6 +46,14 @@ export type TreeAction =
   | { type: 'expand'; relPath: string }
   | { type: 'collapse'; relPath: string }
   | { type: 'select'; relPath: string | null }
+  /** S52.3: moves the focus only (Ctrl/Cmd+arrows, a row getting the focus); the selection stays. */
+  | { type: 'focus'; relPath: string }
+  /** S52.3: adds or removes one row from the selection (Ctrl/Cmd-click, Ctrl/Cmd+Space). */
+  | { type: 'toggleSelect'; relPath: string }
+  /** S52.3: selects the visible rows from the anchor to this one (Shift-click, Shift+arrows). */
+  | { type: 'rangeSelect'; relPath: string }
+  /** S52.3: selects every visible row (Ctrl/Cmd+A). */
+  | { type: 'selectAll' }
   /** Forget a folder's children so they are fetched again (watcher events, file operations). */
   | { type: 'invalidate'; relPath: string }
   /** A file or folder was renamed or moved: keep it (and its subtree) expanded/selected under the new path. */
@@ -80,7 +95,41 @@ export function treeReducer(state: TreeState, action: TreeAction): TreeState {
     case 'collapse':
       return { ...state, expanded: state.expanded.filter((p) => p !== action.relPath) };
     case 'select':
-      return { ...state, selected: action.relPath };
+      return {
+        ...state,
+        selected: action.relPath,
+        selection: action.relPath === null ? [] : [action.relPath],
+        anchor: action.relPath,
+      };
+    case 'focus': {
+      const current = selectionOf(state);
+      return {
+        ...state,
+        selected: action.relPath,
+        selection: current.length === 0 ? [action.relPath] : current,
+        anchor: state.anchor ?? action.relPath,
+      };
+    }
+    case 'toggleSelect': {
+      const current = selectionOf(state);
+      const selection = current.includes(action.relPath)
+        ? current.filter((p) => p !== action.relPath)
+        : [...current, action.relPath];
+      return { ...state, selected: action.relPath, selection, anchor: action.relPath };
+    }
+    case 'rangeSelect': {
+      const rows = visibleRows(state).map((r) => r.entry.relPath);
+      const anchor = state.anchor ?? state.selected ?? action.relPath;
+      const from = rows.indexOf(anchor);
+      const to = rows.indexOf(action.relPath);
+      if (to < 0) return state;
+      const selection = from < 0 ? [action.relPath] : rows.slice(Math.min(from, to), Math.max(from, to) + 1);
+      return { ...state, selected: action.relPath, selection, anchor: from < 0 ? action.relPath : anchor };
+    }
+    case 'selectAll': {
+      const rows = visibleRows(state).map((r) => r.entry.relPath);
+      return { ...state, selection: rows, selected: state.selected ?? rows[0] ?? null };
+    }
     case 'invalidate':
       return { ...state, folders: markStale(state.folders, action.relPath) };
     case 'renamed': {
@@ -93,9 +142,27 @@ export function treeReducer(state: TreeState, action: TreeAction): TreeState {
         folders,
         expanded: state.expanded.map((p) => rebase(p, from, to)),
         selected: state.selected === null ? null : rebase(state.selected, from, to),
+        ...(state.selection ? { selection: state.selection.map((p) => rebase(p, from, to)) } : {}),
+        ...(state.anchor !== undefined
+          ? { anchor: state.anchor === null ? null : rebase(state.anchor, from, to) }
+          : {}),
       };
     }
   }
+}
+
+/** S52.3: the selected rows (just the focused one when no multi-selection was made). */
+export function selectionOf(state: TreeState): readonly string[] {
+  return state.selection ?? (state.selected === null ? [] : [state.selected]);
+}
+
+/**
+ * S52.3: the selection as shown: rows that are visible now, in tree order (a row of a collapsed or reloaded folder
+ * drops out, so an operation never acts on something the user cannot see).
+ */
+export function visibleSelection(state: TreeState): TreeRow[] {
+  const selected = new Set(selectionOf(state));
+  return visibleRows(state).filter((r) => selected.has(r.entry.relPath));
 }
 
 /** A loaded folder keeps its rows but is listed again; anything else is forgotten and requested afresh. */
@@ -171,6 +238,27 @@ export function findEntry(state: TreeState, relPath: string): TreeEntry | undefi
 }
 
 export type TreeKey = 'ArrowDown' | 'ArrowUp' | 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End';
+
+/**
+ * S52.3: Shift+Up/Down/Home/End extend the selection from the anchor; Ctrl/Cmd+Up/Down move the focus without
+ * changing the selection (then Ctrl/Cmd+Space toggles the focused row). Other keys behave as {@link keyAction}.
+ */
+export function keyActionWith(
+  state: TreeState,
+  key: TreeKey,
+  mods: { shift: boolean; primary: boolean },
+): TreeAction[] {
+  const actions = keyAction(state, key);
+  if (!mods.shift && !mods.primary) return actions;
+  if (key === 'ArrowLeft' || key === 'ArrowRight') return []; // expanding is not a selection change
+  return actions.map((action) =>
+    action.type === 'select' && action.relPath !== null
+      ? mods.shift
+        ? { type: 'rangeSelect', relPath: action.relPath }
+        : { type: 'focus', relPath: action.relPath }
+      : action,
+  );
+}
 
 /**
  * WAI-ARIA tree keyboard pattern: Up/Down move; Right expands a closed folder or moves to its first child; Left

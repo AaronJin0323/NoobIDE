@@ -252,6 +252,7 @@ describe('IPC (S52.1)', () => {
     registerFileOpsIpcHandlers({ handle: (channel: string, fn: Handler) => void handlers.set(channel, fn) } as never, {
       allowedOrigin: 'noobide://app',
       projects: service,
+      trashItem: async () => undefined,
     });
   });
 

@@ -14,6 +14,8 @@ export const FILE_OPS_CHANNELS = {
   moveEntries: 'workspace:move-entries',
   /** S52.2: copy/paste into a folder, or duplicate next to the original. */
   copyEntries: 'workspace:copy-entries',
+  /** S52.3: moves a selection to the OS trash, item by item. */
+  trashEntries: 'workspace:trash-entries',
 } as const;
 
 /** Most entries one request may name (a selection in the tree). */
@@ -68,7 +70,21 @@ export interface CopyEntriesResult {
   readonly failed: readonly BatchFailure[];
 }
 
+/** S52.3: move every entry to the OS trash (never a permanent delete). The renderer confirms first. */
+export interface TrashEntriesRequest {
+  readonly projectId: string;
+  readonly relPaths: readonly string[];
+}
+
+/** Every entry is either in the trash now or listed as failed with its cause (nothing was deleted then). */
+export interface TrashEntriesResult {
+  readonly trashed: readonly string[];
+  readonly failed: readonly BatchFailure[];
+}
+
 export interface FileOpsApi {
+  /** S52.3: moves files and folders to the OS trash one by one; a partial failure lists what stayed. */
+  trashEntries(request: TrashEntriesRequest): Promise<IpcResult<TrashEntriesResult, FileOpError>>;
   /** S52.2: copies files and folders byte for byte; never overwrites, a failed copy removes only what it made. */
   copyEntries(request: CopyEntriesRequest): Promise<IpcResult<CopyEntriesResult, FileOpError>>;
   /** S52.1/S52.3: moves files and folders; an existing target is refused per entry, never overwritten. */
@@ -104,4 +120,11 @@ export function parseCopyEntriesRequest(payload: unknown): CopyEntriesRequest | 
   if (!isProjectId(projectId) || !isEntryList(from) || !isFolderPath(toFolder)) return null;
   if (mode !== 'paste' && !(mode === 'duplicate' && toFolder === '')) return null;
   return { projectId, from: [...from], toFolder, mode };
+}
+
+export function parseTrashEntriesRequest(payload: unknown): TrashEntriesRequest | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPaths'])) return null;
+  const { projectId, relPaths } = payload;
+  if (!isProjectId(projectId) || !isEntryList(relPaths)) return null;
+  return { projectId, relPaths: [...relPaths] };
 }

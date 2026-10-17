@@ -1,6 +1,11 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { toIpcResult, type IpcResult } from '../shared/ipc/contract';
-import { FILE_OPS_CHANNELS, parseCopyEntriesRequest, parseMoveEntriesRequest } from '../shared/ipc/file-ops-contract';
+import {
+  FILE_OPS_CHANNELS,
+  parseCopyEntriesRequest,
+  parseMoveEntriesRequest,
+  parseTrashEntriesRequest,
+} from '../shared/ipc/file-ops-contract';
 import type { ProjectService } from '../workspace/project-service';
 import { isTrustedSender, senderInfo } from './ipc';
 
@@ -11,7 +16,9 @@ import { isTrustedSender, senderInfo } from './ipc';
  */
 export interface FileOpsIpcDeps {
   readonly allowedOrigin: string;
-  readonly projects: Pick<ProjectService, 'moveEntries' | 'copyEntries'>;
+  readonly projects: Pick<ProjectService, 'moveEntries' | 'copyEntries' | 'trashEntries'>;
+  /** Electron's shell.trashItem: moves to the OS trash, never deletes permanently. */
+  trashItem(fullPath: string): Promise<void>;
 }
 
 const FORBIDDEN = { ok: false, code: 'forbidden-sender', message: 'sender is not the workbench' } as const;
@@ -37,5 +44,8 @@ export function registerFileOpsIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: F
   );
   handle(FILE_OPS_CHANNELS.copyEntries, parseCopyEntriesRequest, async (request) =>
     toIpcResult(await deps.projects.copyEntries(request)),
+  );
+  handle(FILE_OPS_CHANNELS.trashEntries, parseTrashEntriesRequest, async (request) =>
+    toIpcResult(await deps.projects.trashEntries(request, deps.trashItem)),
   );
 }

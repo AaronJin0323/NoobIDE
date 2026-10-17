@@ -17,7 +17,10 @@ import {
   foldersToLoad,
   isListing,
   keyAction,
+  keyActionWith,
   parentOf,
+  selectionOf,
+  visibleSelection,
   treeReducer,
   visibleRows,
   type TreeKey,
@@ -29,7 +32,7 @@ import { createListingTracker, listFolder } from './folder-listing';
 import { protectedFolderMessage } from './file-op-messages';
 import { FileRoleTag } from './FileRole';
 import { fileRoleFor, fileRoleLabelKey } from './file-role';
-import { treeCommandForKey, type PlatformId } from '../../platform/labels';
+import { isMac, treeCommandForKey, type PlatformId } from '../../platform/labels';
 import { TREE_DRAG_TYPE, dropFolder, folderLabel, moveRefusal, type MoveSource } from './move-model';
 import { fill } from './file-op-messages';
 
@@ -72,6 +75,8 @@ interface FileTreeProps extends FileTreeCommands {
   projectName?: string;
   /** Reports the selected entry so header buttons (new file, …) know the target folder. */
   onSelectionChange?(entry: TreeEntry | null): void;
+  /** S52.3: every selected entry that is visible, in tree order (operations on a selection use these). */
+  onSelectionEntries?(entries: readonly TreeEntry[]): void;
 }
 
 const TREE_KEYS = new Set<string>(['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End']);
@@ -147,9 +152,12 @@ export function FileTree(props: FileTreeProps) {
       event.preventDefault();
       return;
     }
-    dragged.current = [entry];
+    // S52.3: dragging a selected row drags the whole selection; another row drags just itself.
+    const selection = selectedRowsRef.current.map((r) => r.entry);
+    const sources = selection.some((e) => e.relPath === entry.relPath) ? selection.filter(draggable) : [entry];
+    dragged.current = sources;
     event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData(TREE_DRAG_TYPE, JSON.stringify([entry.relPath]));
+    event.dataTransfer.setData(TREE_DRAG_TYPE, JSON.stringify(sources.map((e) => e.relPath)));
   };
   /** Accepts a drag of our own rows over `target` (null: the empty area) when the folder can take them. */
   const onDragOverFolder = (target: TreeEntry | null, event: DragEvent) => {
@@ -215,6 +223,19 @@ export function FileTree(props: FileTreeProps) {
     else if (selectedEntry) onSelectionChange?.(selectedEntry);
   }, [onSelectionChange, selectedEntry, state.selected]);
 
+  // S52.3: the visible selection, reported for operations on several entries.
+  const selectedRows = visibleSelection(state);
+  const selectionKey = selectedRows.map((r) => r.entry.relPath).join('\n');
+  const onSelectionEntries = props.onSelectionEntries;
+  const selectedRowsRef = useRef(selectedRows);
+  selectedRowsRef.current = selectedRows;
+  useEffect(() => {
+    onSelectionEntries?.(selectedRowsRef.current.map((r) => r.entry));
+  }, [onSelectionEntries, selectionKey]);
+  const selectedSet = new Set(selectionOf(state));
+  const primaryKey = (event: { metaKey: boolean; ctrlKey: boolean }) =>
+    isMac(platform) ? event.metaKey : event.ctrlKey;
+
   const activate = useCallback(
     (row: TreeRow) => {
       if (row.expandable) dispatch({ type: row.expanded ? 'collapse' : 'expand', relPath: row.entry.relPath });
@@ -235,11 +256,31 @@ export function FileTree(props: FileTreeProps) {
     if (TREE_KEYS.has(event.key)) {
       event.preventDefault();
       focusSelected.current = true;
-      for (const action of keyAction(state, event.key as TreeKey)) dispatch(action);
+      // S52.3: Shift extends the selection, Ctrl/Cmd moves the focus only.
+      const mods = { shift: event.shiftKey, primary: primaryKey(event) };
+      const actions = mods.shift || mods.primary ? keyActionWith(state, event.key as TreeKey, mods) : null;
+      for (const action of actions ?? keyAction(state, event.key as TreeKey)) dispatch(action);
+      return;
+    }
+    if (primaryKey(event) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      dispatch({ type: 'selectAll' }); // S52.3
       return;
     }
     if (!row) return;
+    // S52.3 (WAI-ARIA multi-select tree): Space toggles the focused row, Shift+Space selects the range up to it.
+    // Ctrl+Space also toggles on Windows; ⌘Space is Spotlight on macOS and never reaches the app.
+    if (event.key === ' ' && !event.altKey) {
+      event.preventDefault();
+      dispatch({ type: event.shiftKey ? 'rangeSelect' : 'toggleSelect', relPath: row.entry.relPath });
+      return;
+    }
     const c = commands.current;
+    // A command on a focused row outside the selection (moved there with Ctrl/Cmd+arrows) acts on that row alone,
+    // and the selection says so: it becomes that row.
+    if (treeCommandForKey(platform, event) !== null && !selectedSet.has(row.entry.relPath)) {
+      dispatch({ type: 'select', relPath: row.entry.relPath });
+    }
     const command = treeCommandForKey(platform, event);
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -308,6 +349,7 @@ export function FileTree(props: FileTreeProps) {
       <ul
         className={dropTarget === '' ? 'file-tree drop-target' : 'file-tree'}
         role="tree"
+        aria-multiselectable="true"
         aria-label={t('files.listLabel')}
         data-testid="file-tree"
         onKeyDown={onKeyDown}
@@ -328,24 +370,32 @@ export function FileTree(props: FileTreeProps) {
                 ? createRow(row.level + 1)
                 : null
             }
-            selected={row.entry.relPath === state.selected}
+            selected={selectedSet.has(row.entry.relPath)}
             active={row.entry.relPath === activeRelPath}
             tabbable={row.entry.relPath === tabStop}
             rowRef={(el) => {
               if (el) rowRefs.current.set(row.entry.relPath, el);
               else rowRefs.current.delete(row.entry.relPath);
             }}
-            onClick={() => {
-              dispatch({ type: 'select', relPath: row.entry.relPath });
-              activate(row);
+            onClick={(event) => {
+              // S52.3: Shift-click selects a range, Ctrl/Cmd-click adds or removes a row; neither opens anything.
+              if (event.shiftKey) dispatch({ type: 'rangeSelect', relPath: row.entry.relPath });
+              else if (primaryKey(event)) dispatch({ type: 'toggleSelect', relPath: row.entry.relPath });
+              else {
+                dispatch({ type: 'select', relPath: row.entry.relPath });
+                activate(row);
+              }
             }}
             onFocus={() => {
               if (stateRef.current.selected !== row.entry.relPath) {
-                dispatch({ type: 'select', relPath: row.entry.relPath });
+                dispatch({ type: 'focus', relPath: row.entry.relPath });
               }
             }}
             onContextMenu={(x, y) => {
-              dispatch({ type: 'select', relPath: row.entry.relPath });
+              // A right-click inside the selection keeps it (the menu acts on all of it); elsewhere it selects one.
+              if (!selectionOf(stateRef.current).includes(row.entry.relPath)) {
+                dispatch({ type: 'select', relPath: row.entry.relPath });
+              } else dispatch({ type: 'focus', relPath: row.entry.relPath });
               commands.current.onContextMenu?.(row.entry, { x, y });
             }}
             draggable={draggable(row.entry)}
@@ -357,6 +407,10 @@ export function FileTree(props: FileTreeProps) {
           />
         ))}
       </ul>
+      {/* S52.3: how many entries are selected, as text */}
+      <p className="sr-only" role="status" aria-live="polite" data-testid="tree-selection-status">
+        {selectedRows.length > 1 ? fill(t('tree.selectedCount'), { n: String(selectedRows.length) }) : ''}
+      </p>
       {/* S52.1: where a drop would move the rows, as text (not only the highlight). */}
       <p className="sr-only" role="status" aria-live="polite" data-testid="tree-drop-status">
         {dropTarget !== null
@@ -399,7 +453,7 @@ interface TreeRowItemProps {
   active: boolean;
   tabbable: boolean;
   rowRef: (el: HTMLLIElement | null) => void;
-  onClick: () => void;
+  onClick: (event: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) => void;
   onFocus: () => void;
   onContextMenu: (x: number, y: number) => void;
   /** S52.1: drag-and-drop move. */

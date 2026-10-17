@@ -440,7 +440,11 @@ function start(): void {
     });
     registerProblemsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, bridge: problems }); // S16.2
     // S52: move, copy/paste/duplicate, multi-select trash, import and the image viewer.
-    registerFileOpsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, projects: openProjects });
+    registerFileOpsIpcHandlers(ipcMain, {
+      allowedOrigin: devOrigin ?? APP_ORIGIN,
+      projects: openProjects,
+      trashItem: (fullPath) => shell.trashItem(fullPath), // S52.3: the OS trash, never a permanent delete
+    });
     // S41.4: preview annotations, kept per project in app data (never in the project folder).
     registerAnnotationsIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,

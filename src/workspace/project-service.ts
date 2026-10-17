@@ -45,6 +45,8 @@ import type {
   CopiedEntry,
   CopyEntriesRequest,
   CopyEntriesResult,
+  TrashEntriesRequest,
+  TrashEntriesResult,
   MovedEntry,
   MoveEntriesRequest,
   MoveEntriesResult,
@@ -201,6 +203,26 @@ export class ProjectService {
       else failed.push({ relPath: from, code: result.code, message: result.message });
     }
     return ok({ copied, failed });
+  }
+
+  /**
+   * S52.3: moves a selection to the OS trash, entry by entry (each snapshotted into local history first, like a
+   * single delete). Entries inside another selected folder go with it. A failure leaves that entry where it is and
+   * is listed with its cause; the others are still trashed.
+   */
+  async trashEntries(
+    request: TrashEntriesRequest,
+    trashItem: (fullPath: string) => Promise<void>,
+  ): Promise<Result<TrashEntriesResult, FileOpError>> {
+    if (this.rootOf(request.projectId) === undefined) return err('unknown-project', 'project is not open');
+    const trashed: string[] = [];
+    const failed: BatchFailure[] = [];
+    for (const relPath of outermost(request.relPaths)) {
+      const result = await this.trashEntry({ projectId: request.projectId, relPath }, trashItem);
+      if (result.ok) trashed.push(relPath);
+      else failed.push({ relPath, code: result.code, message: result.message });
+    }
+    return ok({ trashed, failed });
   }
 
   /** History and recovery copies follow a rename or move; their failures never undo or fail the move itself. */

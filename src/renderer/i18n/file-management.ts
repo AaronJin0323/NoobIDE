@@ -39,6 +39,13 @@ export const fileManagementZhCN = {
   'copy.partial': '有 {n} 项没有复制：',
   'copy.skippedLinks': '有 {n} 个链接没有复制（链接可能指向项目外面）。',
   'op.link': '链接不能复制，只能复制普通的文件和文件夹。',
+  // --- S52.3 multi-select ---
+  'tree.selectedCount': '已选择 {n} 项',
+  'op.tooMany': '一次最多处理 {n} 项。请少选一些，分几次做。',
+  'delete.questionMany': '要把这 {n} 项移到{trash}吗？',
+  'delete.more': '还有 {n} 项',
+  'delete.doneMany': '已把 {n} 项移到{trash}。',
+  'delete.partial': '有 {n} 项没有移到{trash}，它们还在原处：',
   'op.tooLarge': '太大了：一次最多复制 10000 个文件或 2 GB。请分几次复制，或者在资源管理器 / 访达里复制。',
 } as const;
 
@@ -77,5 +84,11 @@ export const fileManagementEn: Record<keyof typeof fileManagementZhCN, string> =
   'copy.partial': 'Not copied ({n}):',
   'copy.skippedLinks': '{n} links were not copied (a link may point outside the project).',
   'op.link': 'Links cannot be copied; only ordinary files and folders.',
+  'tree.selectedCount': '{n} items selected',
+  'op.tooMany': 'At most {n} items at a time. Select fewer and do it in parts.',
+  'delete.questionMany': 'Move these {n} items to the {trash}?',
+  'delete.more': 'and {n} more',
+  'delete.doneMany': 'Moved {n} items to the {trash}.',
+  'delete.partial': '{n} items were not moved to the {trash} and are still in place:',
   'op.tooLarge': 'Too large: one copy takes at most 10,000 files or 2 GB. Copy in parts, or in File Explorer / Finder.',
 };

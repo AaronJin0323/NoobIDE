@@ -9,7 +9,7 @@ import { fill, nameProblemMessage, opErrorMessage, protectedFolderMessage } from
 import { parentOf } from './file-tree-model';
 import { FolderIcon, NewFileIcon, NewFolderIcon, SmallFolderIcon, WarningIcon } from './icons';
 import { TreeContextMenu, type MenuItem } from './TreeContextMenu';
-import type { FileOpsApi } from '../../shared/ipc/file-ops-contract';
+import { MAX_BATCH_ENTRIES, type FileOpsApi } from '../../shared/ipc/file-ops-contract';
 import { MoveDialog } from './MoveDialog';
 import { dropFolder, folderLabel, outermostSources } from './move-model';
 
@@ -98,13 +98,20 @@ export function FilesPanel({
   const [notice, setNotice] = useState<string | null>(null);
   /** S52.2: entries copied with Copy (in NoobIDE only; the OS clipboard is not touched), for one project only. */
   const clipboard = useRef<{ readonly projectId: string; readonly entries: readonly TreeEntry[] } | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<TreeEntry | null>(null);
+  /** The entries the delete confirmation is open for (S52.3: a selection of several). */
+  const [confirmDelete, setConfirmDelete] = useState<readonly TreeEntry[] | null>(null);
+  /** S52.3: the tree's visible selection, in tree order. */
+  const selectionEntries = useRef<readonly TreeEntry[]>([]);
   /** `items`: S52.3 — the entries of a selection that were not handled, each with its cause. */
   const [opError, setOpError] = useState<{ text: string; detail: string; items?: readonly string[] } | null>(null);
   const [menu, setMenu] = useState<{ entry: TreeEntry; x: number; y: number } | null>(null);
   const selected = useRef<TreeEntry | null>(null);
   const counter = useRef(0);
   const busy = useRef(false);
+
+  const onSelectionEntries = useCallback((entries: readonly TreeEntry[]) => {
+    selectionEntries.current = entries;
+  }, []);
 
   const reload = useCallback((folders: readonly string[], select?: string) => {
     counter.current += 1;
@@ -206,9 +213,79 @@ export function FilesPanel({
     }
   };
 
+  /**
+   * S52.3: what a command on `entry` acts on: the whole selection when the entry is part of a selection of several,
+   * otherwise the entry alone.
+   */
+  const targets = (entry: TreeEntry): readonly TreeEntry[] => {
+    const selection = selectionEntries.current;
+    return selection.length > 1 && selection.some((e) => e.relPath === entry.relPath) ? selection : [entry];
+  };
+
+  /** S52.3: several entries to the OS trash; every failure is listed with its cause (those entries stay). */
+  const deleteMany = async (entries: readonly TreeEntry[]) => {
+    if (!fileOpsApi || !projectId || busy.current) return;
+    const sources = outermostSources(entries);
+    if (tooMany(sources)) return;
+    busy.current = true;
+    const locked: string[] = [];
+    const problems: string[] = [];
+    try {
+      for (const entry of sources) {
+        if (await fileOps.beforeChange(entry.relPath)) locked.push(entry.relPath);
+        else problems.push(`${entry.name}: ${t('op.saveFirstFailed')}`);
+      }
+      const result = locked.length > 0 ? await fileOpsApi.trashEntries({ projectId, relPaths: locked }) : null;
+      if (result && !result.ok) {
+        for (const relPath of locked) fileOps.cancelled?.(relPath);
+        setOpError({ text: opErrorMessage(t, result.code, result.message, ''), detail: result.message });
+        return;
+      }
+      const trashed = new Set(result?.value.trashed ?? []);
+      for (const relPath of locked) if (!trashed.has(relPath)) fileOps.cancelled?.(relPath);
+      for (const failure of result?.value.failed ?? []) {
+        const name = failure.relPath.slice(failure.relPath.lastIndexOf('/') + 1);
+        const why =
+          failure.code === 'trash-failed'
+            ? fill(t('delete.failed'), { trash })
+            : opErrorMessage(t, failure.code, failure.message, name);
+        problems.push(`${name}: ${why}`);
+      }
+      selected.current = null;
+      const folders = [...new Set(sources.map((e) => parentOf(e.relPath)))];
+      reload([...folders, ...trashed], folders[0] ?? '');
+      for (const relPath of trashed) fileOps.afterChange({ type: 'deleted', relPath });
+      if (trashed.size > 0) setNotice(fill(t('delete.doneMany'), { n: String(trashed.size), trash }));
+      if (problems.length > 0) {
+        setOpError({
+          text: fill(t('delete.partial'), { n: String(problems.length), trash }),
+          detail: '',
+          items: problems,
+        });
+      } else setOpError(null);
+    } catch {
+      for (const relPath of locked) fileOps.cancelled?.(relPath);
+      setOpError({ text: t('op.generic'), detail: '' });
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  /** S52.3: one request takes at most MAX_BATCH_ENTRIES entries; more is explained instead of refused silently. */
+  const tooMany = (sources: readonly TreeEntry[]): boolean => {
+    if (sources.length <= MAX_BATCH_ENTRIES) return false;
+    setOpError({ text: fill(t('op.tooMany'), { n: String(MAX_BATCH_ENTRIES) }), detail: '' });
+    return true;
+  };
+
   const deleteConfirmed = async () => {
-    const entry = confirmDelete;
+    const entries = confirmDelete;
     setConfirmDelete(null);
+    if (entries && entries.length > 1) {
+      await deleteMany(entries);
+      return;
+    }
+    const entry = entries?.[0];
     if (!api || !projectId || !entry) return;
     if (!(await fileOps.beforeChange(entry.relPath))) {
       setOpError({ text: t('op.saveFirstFailed'), detail: entry.relPath });
@@ -244,6 +321,10 @@ export function FilesPanel({
     setOpError(null);
     setNotice(null);
     const sources = outermostSources(entries);
+    if (tooMany(sources)) {
+      busy.current = false;
+      return;
+    }
     const locked: string[] = [];
     const problems: string[] = [];
     try {
@@ -323,6 +404,7 @@ export function FilesPanel({
     setNotice(null);
     try {
       const sources = outermostSources(entries);
+      if (tooMany(sources)) return;
       const result = await fileOpsApi.copyEntries({
         projectId,
         from: sources.map((e) => e.relPath),
@@ -377,8 +459,9 @@ export function FilesPanel({
     void copyEntries(entries, dropFolder(target), 'paste');
   };
 
-  /** The entries a palette command acts on: the tree's selection. */
-  const selection = (): TreeEntry[] => (selected.current ? [selected.current] : []);
+  /** The entries a palette command acts on: the tree's selection (S52.3), else the focused entry. */
+  const selection = (): readonly TreeEntry[] =>
+    selectionEntries.current.length > 0 ? selectionEntries.current : selected.current ? [selected.current] : [];
 
   const fileCommandRef = useRef<(command: FileCommand) => void>(() => undefined);
   fileCommandRef.current = (command) => {
@@ -429,7 +512,7 @@ export function FilesPanel({
               id: 'copy',
               label: t('menu.copy'),
               shortcut: treeShortcutLabel(platform, 'copy'),
-              run: () => copyToClipboard([entry]),
+              run: () => copyToClipboard(targets(entry)),
             },
             ...(clipboard.current?.projectId === projectId
               ? [
@@ -445,16 +528,16 @@ export function FilesPanel({
               id: 'duplicate',
               label: t('menu.duplicate'),
               shortcut: treeShortcutLabel(platform, 'duplicate'),
-              run: () => void copyEntries([entry], '', 'duplicate'),
+              run: () => void copyEntries(targets(entry), '', 'duplicate'),
             },
-            { id: 'move-to', label: t('menu.moveTo'), run: () => setMoveFor([entry]) },
+            { id: 'move-to', label: t('menu.moveTo'), run: () => setMoveFor(targets(entry)) },
           ]
         : []),
       {
         id: 'delete',
         label: t('menu.delete'),
         shortcut: treeShortcutLabel(platform, 'delete'),
-        run: () => setConfirmDelete(entry),
+        run: () => setConfirmDelete(fileOpsApi ? targets(entry) : [entry]),
       },
       {
         id: 'reveal',
@@ -568,7 +651,7 @@ export function FilesPanel({
             onRename={startRename}
             onDelete={(entry) => {
               setOpError(null);
-              setConfirmDelete(entry);
+              setConfirmDelete(fileOpsApi ? targets(entry) : [entry]);
             }}
             onReveal={reveal}
             onUnportable={(entry) =>
@@ -578,13 +661,14 @@ export function FilesPanel({
             onSelectionChange={(entry) => {
               selected.current = entry;
             }}
+            onSelectionEntries={onSelectionEntries}
             projectName={project.name}
             {...(fileOpsApi
               ? {
                   onMoveDrop: (sources, folder) => void moveEntries(sources, folder),
-                  onCopy: (entry) => copyToClipboard([entry]),
+                  onCopy: (entry) => copyToClipboard(targets(entry)),
                   onPaste: (entry) => pasteInto(entry),
-                  onDuplicate: (entry) => void copyEntries([entry], '', 'duplicate'),
+                  onDuplicate: (entry) => void copyEntries(targets(entry), '', 'duplicate'),
                 }
               : {})}
           />
@@ -641,13 +725,25 @@ export function FilesPanel({
           testId="delete-dialog"
           onConfirm={() => void deleteConfirmed()}
           onCancel={() => {
-            const entry = confirmDelete;
+            const entry = confirmDelete[0];
             setConfirmDelete(null);
-            reload([], entry.relPath);
+            if (entry) reload([], entry.relPath);
           }}
         >
-          <p>{fill(t('delete.question'), { name: confirmDelete.name, trash })}</p>
-          {confirmDelete.kind === 'directory' && <p>{t('delete.folderNote')}</p>}
+          {confirmDelete.length === 1 ? (
+            <p>{fill(t('delete.question'), { name: confirmDelete[0]?.name ?? '', trash })}</p>
+          ) : (
+            <>
+              <p>{fill(t('delete.questionMany'), { n: String(confirmDelete.length), trash })}</p>
+              <ul className="alert-list" data-testid="delete-list">
+                {confirmDelete.slice(0, 8).map((e) => (
+                  <li key={e.relPath}>{e.relPath}</li>
+                ))}
+                {confirmDelete.length > 8 && <li>{fill(t('delete.more'), { n: String(confirmDelete.length - 8) })}</li>}
+              </ul>
+            </>
+          )}
+          {confirmDelete.some((e) => e.kind === 'directory') && <p>{t('delete.folderNote')}</p>}
           <p className="dialog-hint">{fill(t('delete.restoreHint'), { trash })}</p>
         </ConfirmDialog>
       )}

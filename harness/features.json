@@ -4519,8 +4519,8 @@
       "depends_on": [
         "S52.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/file-tree-model.test.ts (multi-select: toggle, range, Shift/Ctrl arrows, select all, focus keeps selection, follows moves, collapsed rows drop out), tests/integration/file-trash-many.test.ts (4: OS trash per item, partial failure listed, history snapshots, contract), tests/e2e/file-multi-select.spec.ts (7: Ctrl/Cmd/Shift-click + live count + axe, Shift+arrows, Space, Ctrl/Cmd+A, drag of a selection, keyboard-only Move to…/Duplicate/context-menu trash, Delete with partial failure); subagent review findings 1-5, 8 fixed"
     },
     {
       "id": "S52.4",
@@ -4568,7 +4568,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
