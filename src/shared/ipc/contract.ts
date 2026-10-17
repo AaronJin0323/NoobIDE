@@ -8,6 +8,7 @@
  * relative path, which main resolves and re-checks inside the root (realpath).
  */
 import type { AnnotationsApi } from './annotations-contract';
+import type { CheckpointsApi } from './checkpoints-contract'; // S56
 import type { PlatformId } from '../../platform/labels';
 import type { Result } from '../result';
 // S04 preview: types live in preview-contract.ts; only the API field is added here.
@@ -445,6 +446,8 @@ export interface NoobideApi {
   readonly annotations?: AnnotationsApi;
   /** S51.2: project search for find / replace in files (search-contract.ts). */
   readonly search?: SearchApi;
+  /** S56: project checkpoints in app data (checkpoints-contract.ts, decision 0041). */
+  readonly checkpoints?: CheckpointsApi;
   /** S52: move, copy/paste/duplicate, multi-select trash, import and the image viewer (file-ops-contract.ts). */
   readonly fileOps?: FileOpsApi;
 }
