@@ -9,7 +9,8 @@ are pure functions in `workbench/layout.ts`.
 
 Folders: `workbench/` (shell, file tree, tabs, editor and preview panes, problems, console), `editor/` (Monaco setup,
 model registry, language configuration), `problems/` (problem views and cards, static problems, one-click fix),
-`history/` (local history window), `recovery/` (journal scheduler, restore dialog), `welcome/` (welcome screen and
+`history/` (local history window), `checkpoints/` (S56 project checkpoints window, restore orchestration,
+automatic checkpoints), `recovery/` (journal scheduler, restore dialog), `welcome/` (welcome screen and
 create-project wizard), `walkthrough/` (onboarding and glossary), `commands/` (command hooks and F6 region focus; the registry itself is `src/shared/commands.ts`), `i18n/`
 (zh-CN / en dictionaries), `theme/`, `ai/` (AI features over `window.noobide.ai`, decision 0025: S33 chat panel —
 controller over the typed AI bridge, safe Markdown subset renderer, "Explain this code" / "Ask AI", extension point for

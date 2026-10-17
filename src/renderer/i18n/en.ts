@@ -11,6 +11,7 @@ import { authoringEn } from './authoring'; // S53 / S57
 import { aiEditEn } from './ai-edit'; // S35
 import { aiPromptEn } from './ai-prompt'; // S42
 import { aiHistoryEn } from './ai-history'; // S39
+import { checkpointsEn } from './checkpoints'; // S56
 import { paletteEn } from './palette'; // S40
 import { annotationsEn } from './annotations'; // S41.5
 import { journeyEn } from './journey'; // beginner-journey fixes
@@ -338,6 +339,7 @@ export const en: Record<MessageKey, string> = {
   ...aiEditEn, // S35 AI inline edit and Fix with AI
   ...aiPromptEn, // S42 inline /ai prompt
   ...aiHistoryEn, // S39 saved AI chats and token usage
+  ...checkpointsEn, // S56 project checkpoints
   ...paletteEn, // S40 command palette
   ...annotationsEn, // S41.5 preview annotations strip
   ...journeyEn, // beginner-journey fixes: preview page path, missing-page page, editor overflow menu
