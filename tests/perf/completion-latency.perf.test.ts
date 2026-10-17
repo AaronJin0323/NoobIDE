@@ -1,18 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { completionContextAt } from './completion-context';
-import { suggestPaths } from './path-suggest';
-import { ProjectIndex } from './project-index';
+import { completionContextAt } from '../../src/renderer/editor/completion-context';
+import { suggestPaths } from '../../src/renderer/editor/path-suggest';
+import { ProjectIndex } from '../../src/renderer/editor/project-index';
+import { checkBudget } from './budget';
 
 /**
  * S43.6 latency budget (decision 0032): what the completion provider does per request — merge the project's ids and
  * classes, find the context, build the items — stays within 10 ms p95 for 200 HTML/CSS files and 2 000 classes.
- * Extraction happens once when files are read, not per request; it is measured in completion-perf.test.ts.
+ * Extraction happens once when files are read, not per request; it is measured in completion-perf.perf.test.ts.
  *
  * The budget is the provider's compute cost. On hosted CI runners (3–4 vCPUs shared by four vitest workers) a single
  * descheduling of this worker inflates every sample of a batch (main saw 21 ms p95 against 0.9 ms on the dev
  * machine), so the test measures up to BATCHES independent batches and judges the best one: a batch that fits the
  * budget proves the compute cost does, and a stalled batch is noise, not provider work (contention and GC add time
  * to a sample and never remove any). Every batch is judged against the same, unchanged budget (S06.6).
+ * Perf project (S58.3, ADR 0038): enforced by `npm run verify` on the dev machine, reported on GitHub Actions.
  */
 function project(): Record<string, string> {
   const disk: Record<string, string> = {};
@@ -81,10 +83,15 @@ describe('completion latency budget (S43.6)', () => {
       selectorP95: Math.min(...batches.map((r) => r.selectorP95)),
       pathP95: Math.min(...batches.map((r) => r.pathP95)),
     };
-    // Numbers only (docs/perf/completion-latency.md): NOOBIDE_PERF_PRINT=1 npx vitest run completion-latency
+    // The best batch is what the budget judges (docs/perf/completion-latency.md); the numbers also land in
+    // reports/perf/<platform>-<arch>.json, and every batch in the console when NOOBIDE_PERF_PRINT is set.
     if (process.env.NOOBIDE_PERF_PRINT) console.log(JSON.stringify({ ...best, batches }));
     const perBatch = (key: 'selectorP95' | 'pathP95') => batches.map((r) => r[key].toFixed(2)).join(', ');
-    expect(best.selectorP95, `selector p95 per batch: ${perBatch('selectorP95')} ms`).toBeLessThanOrEqual(BUDGET_MS);
-    expect(best.pathP95, `path p95 per batch: ${perBatch('pathP95')} ms`).toBeLessThanOrEqual(BUDGET_MS);
+    checkBudget('completion provider: class items p95', best.selectorP95, BUDGET_MS, {
+      detail: `selector p95 per batch: ${perBatch('selectorP95')} ms`,
+    });
+    checkBudget('completion provider: path items p95', best.pathP95, BUDGET_MS, {
+      detail: `path p95 per batch: ${perBatch('pathP95')} ms`,
+    });
   });
 });
