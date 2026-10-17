@@ -13,7 +13,9 @@ function setup(disk: Record<string, string>) {
     },
     hasModel: (u) => open.has(u),
     libName: (u) => encodeURI(u),
-    setLibs: (libs) => published.push([...libs]),
+    setLibs: (libs) => {
+      published.push([...libs]);
+    },
   };
   const scripts = new ProjectScripts(host);
   const files = Object.keys(disk).map((relPath) => ({ relPath, uri: uri(relPath) }));
@@ -96,6 +98,98 @@ describe('ProjectScripts (S18.4)', () => {
     const big = setup({ 'a.js': 'let a;', 'big.js': 'x'.repeat(MAX_SCRIPT_CHARS + 1) });
     await big.scripts.open(big.files);
     expect(big.scripts.complete()).toBe(false);
+  });
+
+  it('S57: a navigation that arrives while the project is still being read waits for the index', async () => {
+    // Reads are gated: the test decides when each file "arrives" from main, like IPC on a slow disk.
+    const gates: (() => void)[] = [];
+    const disk = { 'app.js': "greet('a');", 'config.js': 'function greet() {}' };
+    const { scripts, uri } = setup(disk);
+    const slow = new ProjectScripts({
+      read: (rel) =>
+        new Promise((resolve) => {
+          gates.push(() => resolve({ text: disk[rel as keyof typeof disk], uri: uri(rel) }));
+        }),
+      hasModel: () => false,
+      libName: (u) => encodeURI(u),
+      setLibs: () => undefined,
+    });
+    void scripts; // the plain setup is only used for its URI helper
+    const files = Object.keys(disk).map((relPath) => ({ relPath, uri: uri(relPath) }));
+
+    expect(slow.indexing()).toBe(false);
+    expect(await slow.whenIndexed(1000)).toBe(true); // no project: nothing to wait for
+    const opening = slow.open(files);
+    expect(slow.indexing()).toBe(true);
+    expect(slow.relPathOf(uri('app.js'))).toBeNull(); // this is the false "not found" the wait prevents
+
+    // F12 before any file arrived: the answer is pending, not "not found".
+    let settled: boolean | null = null;
+    const wait = slow.whenIndexed(10_000).then((ok) => (settled = ok));
+    await Promise.resolve();
+    expect(settled).toBeNull();
+
+    gates.shift()?.(); // app.js arrives
+    await new Promise((r) => setTimeout(r, 0));
+    expect(settled).toBeNull(); // config.js is still missing: still waiting
+    gates.shift()?.(); // config.js arrives: the index completes after the command was issued
+    await opening;
+    expect(await wait).toBe(true);
+    expect(slow.indexing()).toBe(false);
+    expect(slow.relPathOf(uri('app.js'))).toBe('app.js');
+    expect(slow.relPathOf(encodeURI(uri('config.js')))).toBe('config.js');
+  });
+
+  it('S57: the index counts as ready only once the service has taken the libs (Monaco posts them on a timer)', async () => {
+    let takeLibs: (() => void) | null = null;
+    const scripts = new ProjectScripts({
+      read: async (rel) => ({ text: 'let x;', uri: `file:///p/${rel}` }),
+      hasModel: () => false,
+      libName: (u) => u,
+      setLibs: (libs) =>
+        libs.length === 0
+          ? undefined // the clearing publish at open() needs no wait
+          : new Promise<void>((resolve) => {
+              takeLibs = resolve;
+            }),
+    });
+    let settled: boolean | null = null;
+    const opening = scripts.open([{ relPath: 'a.js', uri: 'file:///p/a.js' }]);
+    const wait = scripts.whenIndexed(10_000).then((ok) => (settled = ok));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(takeLibs).not.toBeNull(); // every file is read and the libs are handed over…
+    expect(settled).toBeNull(); // …but until the service has them, an answer could still miss a file
+    (takeLibs as unknown as () => void)();
+    await opening;
+    expect(await wait).toBe(true);
+  });
+
+  it('S57: the wait is bounded, and a project closed meanwhile releases it', async () => {
+    const disk = { 'a.js': 'let a;' };
+    const { uri } = setup(disk);
+    const files = [{ relPath: 'a.js', uri: uri('a.js') }];
+    const never = new ProjectScripts({
+      read: () => new Promise(() => undefined),
+      hasModel: () => false,
+      libName: (u) => u,
+      setLibs: () => undefined,
+    });
+    // A fake clock: the first call starts the wait, the second finds the deadline passed (no real 10 s).
+    let t = 0;
+    const now = () => (t += 11_000);
+    void never.open(files);
+    expect(await never.whenIndexed(10_000, now)).toBe(false);
+
+    const closed = new ProjectScripts({
+      read: () => new Promise(() => undefined),
+      hasModel: () => false,
+      libName: (u) => u,
+      setLibs: () => undefined,
+    });
+    void closed.open(files);
+    const wait = closed.whenIndexed(10_000);
+    closed.close();
+    expect(await wait).toBe(true); // nothing left to index: the answer is "not a project script", which is right
   });
 
   it('closing the project removes every lib and drops reads still in flight', async () => {
