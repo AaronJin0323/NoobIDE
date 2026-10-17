@@ -10,6 +10,7 @@ import { PROBLEMS_CHANNELS, PROBLEMS_EVENT_CHANNEL } from '../shared/ipc/problem
 import type { ProblemRecord } from '../shared/problem';
 import { AI_CHANNELS, AI_EVENT_CHANNEL, type AiEvent } from '../shared/ipc/ai-contract'; // S31
 import { AI_HISTORY_CHANNELS } from '../shared/ipc/ai-history-contract'; // S39
+import { AI_DRAFT_CHANNELS } from '../shared/ipc/ai-draft-contract'; // S48.7
 import { ANNOTATION_CHANNELS } from '../shared/ipc/annotations-contract'; // S41
 import { FILE_OPS_CHANNELS, MAX_IMPORT_ITEMS } from '../shared/ipc/file-ops-contract'; // S52
 
@@ -217,6 +218,11 @@ const api: NoobideApi = {
     usage: () => ipcRenderer.invoke(AI_HISTORY_CHANNELS.usage),
     setDailyBudget: (request) => ipcRenderer.invoke(AI_HISTORY_CHANNELS.setDailyBudget, request),
   },
+  // S48.7: the chat composer's unsent drafts (app data only).
+  aiDrafts: {
+    getDrafts: (request) => ipcRenderer.invoke(AI_DRAFT_CHANNELS.getDrafts, request),
+    saveDraft: (request) => ipcRenderer.invoke(AI_DRAFT_CHANNELS.saveDraft, request),
+  },
   // S41: preview annotations (decision 0030).
   annotations: {
     list: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.list, request),
@@ -272,6 +278,7 @@ contextBridge.exposeInMainWorld(
     problems: Object.freeze(api.problems), // S16.2
     ai: Object.freeze(api.ai), // S31
     aiHistory: Object.freeze(api.aiHistory), // S39
+    aiDrafts: Object.freeze(api.aiDrafts), // S48.7
     annotations: Object.freeze(api.annotations), // S41
     fileOps: Object.freeze(api.fileOps), // S52
   }),

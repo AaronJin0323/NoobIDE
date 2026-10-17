@@ -19,6 +19,18 @@ export const aiComposerZhCN = {
   'ai.message.copy': '复制这条消息',
   'ai.message.reask': '再问一次',
   'ai.message.reaskHint': '再问一次：把这个问题放回输入框，可以改一改再发送',
+  // ── S48.7 草稿、重试和等待 ──
+  'ai.draft.restored': '已恢复你上次没有发送的内容。',
+  'ai.draft.saveFailed': '没能把草稿保存到磁盘。在 NoobIDE 关闭前，它仍然留在这里。',
+  'ai.retry.button': '重试',
+  'ai.retry.now': '立即重试',
+  'ai.retry.kept': '你的问题还在，按“重试”可以再发送一次。',
+  'ai.backoff.cause429': '原因：AI 服务回复“请求太多”（HTTP 429）。',
+  'ai.backoff.cause503': '原因：AI 服务暂时不可用（HTTP 503）。',
+  'ai.backoff.waiting': '{time}后自动重试（第 {attempt} 次，最多 {max} 次）。',
+  'ai.backoff.minutes': '{n} 分钟',
+  'ai.backoff.seconds': '{n} 秒',
+  'ai.backoff.exhausted': '已经自动重试了 {max} 次，仍然没有成功。等一会儿再按“重试”。',
 };
 
 export const aiComposerEn: Record<keyof typeof aiComposerZhCN, string> = {
@@ -36,4 +48,15 @@ export const aiComposerEn: Record<keyof typeof aiComposerZhCN, string> = {
   'ai.message.copy': 'Copy this message',
   'ai.message.reask': 'Ask again',
   'ai.message.reaskHint': 'Ask again: puts this question back in the box, so you can change it before sending',
+  'ai.draft.restored': 'Restored what you had not sent yet.',
+  'ai.draft.saveFailed': 'Could not keep the draft on disk. It stays here while NoobIDE is open.',
+  'ai.retry.button': 'Retry',
+  'ai.retry.now': 'Retry now',
+  'ai.retry.kept': 'Your question is kept. Press Retry to send it again.',
+  'ai.backoff.cause429': 'Cause: the AI service answered “too many requests” (HTTP 429).',
+  'ai.backoff.cause503': 'Cause: the AI service is temporarily unavailable (HTTP 503).',
+  'ai.backoff.waiting': 'Trying again in {time} (attempt {attempt} of {max}).',
+  'ai.backoff.minutes': '{n} minutes',
+  'ai.backoff.seconds': '{n} seconds',
+  'ai.backoff.exhausted': 'Tried again {max} times automatically without success. Wait a little, then press Retry.',
 };

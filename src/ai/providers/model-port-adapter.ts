@@ -99,7 +99,7 @@ export function toModelPortError(e: unknown): ModelPortError {
   if (e instanceof ModelPortError) return e;
   if (e instanceof ProviderError) {
     const code = PORT_ERRORS.has(e.code as ModelErrorCode) ? (e.code as ModelErrorCode) : 'provider-error';
-    return new ModelPortError(code, e.message);
+    return new ModelPortError(code, e.message, e.status, e.retryAfterSeconds);
   }
   return new ModelPortError('provider-error', e instanceof Error ? e.name : 'unknown error');
 }

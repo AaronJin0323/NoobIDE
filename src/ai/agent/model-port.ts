@@ -112,6 +112,9 @@ export class ModelPortError extends Error {
   constructor(
     readonly code: ModelErrorCode,
     message: string,
+    /** S48.7: the provider's HTTP status and Retry-After, passed on to the error event for the backoff. */
+    readonly status?: number,
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = 'ModelPortError';

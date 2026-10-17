@@ -13,6 +13,7 @@ import { aiHistoryBridge, ChatHistorySync } from './chat-history';
 import { SavedChatsList } from './SavedChatsList';
 import { ConsentPlaceholder } from './ConsentPlaceholder';
 import type { ComposerSources } from './ComposerSuggestions';
+import { aiDraftBridge, DraftSync } from './draft-sync';
 
 const noSubscribe = () => () => undefined;
 const noState = () => null;
@@ -84,6 +85,29 @@ export function useAiChat(projectId: string | null, host: AiWorkbenchHost, optio
   useEffect(() => history?.start(), [history]);
   useEffect(() => history?.projectChanged(), [history, projectId]);
   const historyState = useSyncExternalStore(history?.subscribe ?? noSubscribe, history?.getState ?? noState);
+
+  // S48.7: unsent drafts are kept in app data per conversation and come back after a restart.
+  const draftsRef = useRef<DraftSync | null | undefined>(undefined);
+  if (draftsRef.current === undefined) {
+    const draftApi = aiDraftBridge();
+    draftsRef.current = draftApi
+      ? new DraftSync(
+          draftApi,
+          controller,
+          () => projectRef.current,
+          (id) => history?.savedIdOf(id) ?? null,
+        )
+      : null;
+  }
+  const drafts = draftsRef.current;
+  useEffect(() => drafts?.start(), [drafts]);
+  useEffect(() => void drafts?.projectChanged(), [drafts, projectId]);
+  useEffect(() => {
+    if (!drafts) return undefined;
+    const flush = () => drafts.flushNow();
+    window.addEventListener('beforeunload', flush);
+    return () => window.removeEventListener('beforeunload', flush);
+  }, [drafts]);
 
   // Status (AI on/off, key, the project's consent): on start, per project, when the window regains focus, and when
   // Settings → AI says it changed.

@@ -1,7 +1,8 @@
-import { rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { axeScan } from './a11y-helpers';
-import { launchApp } from './launch';
+import { launchApp, tempRoot } from './launch';
 import { collectConsoleErrors, makeProject, openProject } from './project';
 
 /**
@@ -9,6 +10,29 @@ import { collectConsoleErrors, makeProject, openProject } from './project';
  * Chinese-path fixture project (`子 文件夹/页面 二.html` checks names with spaces and Chinese characters).
  */
 test.describe.configure({ mode: 'serial' });
+
+/**
+ * The built-in turns plus S48.7's: `[[busy]]` fails once with HTTP 503 and then answers (the automatic retry), and
+ * `[[flaky]]` fails once offline and then answers (the manual Retry).
+ */
+const FAKE_SCRIPT = JSON.stringify({
+  includeBuiltin: true,
+  turns: [
+    { match: '[[busy]]', steps: [{ type: 'error', code: 'provider-error', status: 503 }] },
+    { match: '[[busy]]', repeat: true, steps: [{ type: 'text', text: '等到了，这是回答。' }] },
+    { match: '[[flaky]]', steps: [{ type: 'error', code: 'offline' }] },
+    { match: '[[flaky]]', repeat: true, steps: [{ type: 'text', text: '重试成功了。' }] },
+  ],
+});
+
+async function enableAi(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const ai = (window.noobide as unknown as { ai: { setKey(r: { provider: string; key: string }): Promise<unknown> } })
+      .ai;
+    await ai.setKey({ provider: 'anthropic', key: 'fake-key-for-tests' });
+    window.dispatchEvent(new Event('noobide:ai-status-changed'));
+  });
+}
 
 let app: ElectronApplication;
 let page: Page;
@@ -24,18 +48,12 @@ const options = () => suggest().getByTestId('ai-suggest-option');
 test.describe('AI chat composer (S48.4)', () => {
   test.beforeAll(async () => {
     ({ tmp, root } = await makeProject('noobide-e2e-AI-输入-'));
-    app = await launchApp({ NOOBIDE_AI_FAKE: JSON.stringify({ includeBuiltin: true, turns: [] }) });
+    app = await launchApp({ NOOBIDE_AI_FAKE: FAKE_SCRIPT });
     page = await app.firstWindow();
     consoleErrors = collectConsoleErrors(page);
     await page.locator('.monaco-editor .view-lines').waitFor();
     await openProject(app, page, root);
-    await page.evaluate(async () => {
-      const ai = (
-        window.noobide as unknown as { ai: { setKey(r: { provider: string; key: string }): Promise<unknown> } }
-      ).ai;
-      await ai.setKey({ provider: 'anthropic', key: 'fake-key-for-tests' });
-      window.dispatchEvent(new Event('noobide:ai-status-changed'));
-    });
+    await enableAi(page);
     await page.getByTestId('rail-ai').click();
     await expect(panel()).toBeVisible();
     await expect(input()).toBeEditable();
@@ -179,5 +197,104 @@ test.describe('AI chat composer (S48.4)', () => {
 
     expect(await axeScan(page)).toEqual([]);
     expect(consoleErrors).toEqual([]);
+  });
+
+  test('a failed send keeps the question and offers Retry, which asks it again (S48.7)', async () => {
+    await input().fill('[[flaky]] 这个按钮为什么没反应？');
+    await input().press('Enter');
+    const turn = panel().getByTestId('ai-turn').last();
+    await expect(turn).toHaveAttribute('data-status', 'error', { timeout: 30_000 });
+    const turns = await panel().getByTestId('ai-turn').count();
+    await expect(turn.getByTestId('ai-prompt')).toHaveText('[[flaky]] 这个按钮为什么没反应？');
+    await expect(turn.getByTestId('ai-error')).toHaveAttribute('data-code', 'offline');
+    await expect(turn.getByTestId('ai-retry-note')).toHaveText('你的问题还在，按“重试”可以再发送一次。');
+    await expect(turn.getByTestId('ai-retry-countdown')).toHaveCount(0); // offline: no automatic retry
+    const retry = turn.getByTestId('ai-retry-button');
+    await expect(retry).toHaveText('重试');
+    await retry.click();
+    await expect(turn).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
+    await expect(turn.getByTestId('ai-answer')).toContainText('重试成功了。');
+    await expect(panel().getByTestId('ai-turn')).toHaveCount(turns); // asked again in place
+  });
+
+  test('HTTP 503 shows its cause and a worded countdown, then retries by itself (S48.7)', async () => {
+    await input().fill('[[busy]] 帮我看看样式');
+    await input().press('Enter');
+    const turn = panel().getByTestId('ai-turn').last();
+    await expect(turn).toHaveAttribute('data-status', 'error', { timeout: 30_000 });
+    await expect(turn.getByTestId('ai-error-cause')).toHaveText('原因：AI 服务暂时不可用（HTTP 503）。');
+    const countdown = turn.getByTestId('ai-retry-countdown');
+    await expect(countdown).toHaveAttribute('role', 'timer');
+    await expect(countdown).toHaveText(/^[3456] 秒后自动重试（第 1 次，最多 3 次）。$/);
+    await expect(turn.getByTestId('ai-retry-button')).toHaveText('立即重试');
+    // 5 s × jitter (0.85–1.15) later the question goes again by itself and is answered.
+    await expect(turn).toHaveAttribute('data-status', 'done', { timeout: 15_000 });
+    await expect(turn.getByTestId('ai-answer')).toContainText('等到了，这是回答。');
+    await expect(turn.getByTestId('ai-error')).toHaveCount(0);
+    expect(consoleErrors).toEqual([]);
+  });
+});
+
+test.describe('zero-loss drafts across a restart (S48.7)', () => {
+  let userData: string;
+  let draftsTmp: string;
+  let draftsRoot: string;
+
+  test.beforeAll(async () => {
+    ({ tmp: draftsTmp, root: draftsRoot } = await makeProject('noobide-e2e-AI-草稿-'));
+    userData = await mkdtemp(path.join(tempRoot(), 'noobide-e2e-drafts-userdata-'));
+  });
+  test.afterAll(async () => {
+    await rm(draftsTmp, { recursive: true, force: true });
+    await rm(userData, { recursive: true, force: true }).catch(() => undefined);
+  });
+
+  /** The first run opens the project; after a restart the session reopens it (no open file, so no code editor). */
+  async function start(restart: boolean): Promise<{ app: ElectronApplication; page: Page; errors: string[] }> {
+    const started = await launchApp({ NOOBIDE_AI_FAKE: FAKE_SCRIPT }, { userDataDir: userData });
+    const first = await started.firstWindow();
+    const errors = collectConsoleErrors(first);
+    if (!restart) {
+      await first.locator('.monaco-editor .view-lines').waitFor();
+      await openProject(started, first, draftsRoot);
+    }
+    await first.getByTestId('file-tree').waitFor({ timeout: 30_000 });
+    return { app: started, page: first, errors };
+  }
+
+  test('the unsent text is kept in app data (not the project) and restored after a restart', async () => {
+    const before = await readdir(draftsRoot, { recursive: true });
+    const first = await start(false);
+    await enableAi(first.page);
+    await first.page.getByTestId('rail-ai').click();
+    const box = first.page.getByTestId('region-ai').getByTestId('ai-input');
+    await expect(box).toBeEditable();
+    const text = '还没发送的问题：为什么标题是红色的？';
+    await box.fill(text);
+    // Kept 300 ms after the last change, in app data.
+    const draftsDir = path.join(userData, 'ai-drafts');
+    await expect
+      .poll(async () => {
+        const names = await readdir(draftsDir).catch(() => [] as string[]);
+        const texts = await Promise.all(names.map((n) => readFile(path.join(draftsDir, n), 'utf8')));
+        return texts.some((t) => t.includes(text));
+      })
+      .toBe(true);
+    expect(await readdir(draftsRoot, { recursive: true })).toEqual(before); // nothing written into the project
+    expect(first.errors).toEqual([]);
+    await first.app.close();
+
+    const second = await start(true);
+    try {
+      const panelAgain = second.page.getByTestId('region-ai');
+      // The session may reopen the panel too; otherwise open it.
+      if (!(await panelAgain.isVisible())) await second.page.getByTestId('rail-ai').click();
+      await expect(panelAgain.getByTestId('ai-input')).toHaveValue(text);
+      await expect(panelAgain.getByTestId('ai-notice')).toHaveText('已恢复你上次没有发送的内容。');
+      await expect(panelAgain.getByTestId('ai-notice')).toHaveAttribute('role', 'status');
+      expect(second.errors).toEqual([]);
+    } finally {
+      await second.app.close();
+    }
   });
 });

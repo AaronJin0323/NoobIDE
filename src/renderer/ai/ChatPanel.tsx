@@ -24,6 +24,8 @@ import { SavedProposal } from './SavedChatsList';
 import { useScrollLatch } from './useScrollLatch';
 import { useComposerSuggestions, type ComposerSources } from './ComposerSuggestions';
 import { CopyMessageButton, MessageActions, ReaskButton, UserPrompt } from './ChatMessage';
+import { RetryControls, causeText } from './RetryControls';
+import { canRetry } from './chat-controller';
 import './ai-chat.css';
 
 /** `count` picks the singular form of a counted message (i18n/plural.ts). */
@@ -40,6 +42,8 @@ export interface ChatPanelActions {
   addCurrentFile(): boolean;
   /** S48.4: an accepted @file mention becomes a file chip. */
   addFile?(relPath: string): void;
+  /** S48.7: asks a failed question again (Retry, Retry now). */
+  retry?(turnId: string): Promise<void>;
   addSelection(): boolean;
   /** S38.2: adds a Preview chip (snapshot of the running preview). */
   addPreview(): Promise<boolean>;
@@ -363,6 +367,11 @@ export function ChatPanelView({
                       {turn.error && (
                         <div className="ai-error" role="alert" data-testid="ai-error" data-code={turn.error.code}>
                           <p>{errorExplanation(t, turn.error.code)}</p>
+                          {causeText(turn, t) !== null && (
+                            <p className="ai-hint" data-testid="ai-error-cause">
+                              {causeText(turn, t)}
+                            </p>
+                          )}
                           {turn.error.message && (
                             <p className="ai-hint">{fill(t('ai.error.details'), { message: turn.error.message })}</p>
                           )}
@@ -370,6 +379,9 @@ export function ChatPanelView({
                             turn.error.code === 'no-key' ||
                             turn.error.code === 'disabled') &&
                             settingsHelp}
+                          {actions.retry && canRetry(turn) && turn === conversation.turns.at(-1) && (
+                            <RetryControls turn={turn} t={t} onRetry={() => void actions.retry?.(turn.id)} />
+                          )}
                         </div>
                       )}
                       {statusKey && (

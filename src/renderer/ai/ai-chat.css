@@ -696,3 +696,26 @@
   display: none;
 }
 /* ── end S48.6 ── */
+
+/* ── S48.7 Retry and the provider's wait: the sentence first, the button after it (wraps on a narrow panel). ── */
+.ai-retry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 8px;
+}
+.ai-retry p {
+  flex: 1 1 12rem;
+  margin: 0;
+}
+.ai-retry-wait {
+  font-variant-numeric: tabular-nums;
+}
+.ai-retry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+/* ── end S48.7 ── */

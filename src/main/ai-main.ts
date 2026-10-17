@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { IpcMain } from 'electron';
 import { AiChatStore } from '../ai/chat-store';
+import { AiDraftStore } from '../ai/draft-store';
 import { AiConfigStore, AiConsentStore } from '../ai/config-store';
 import { AiUsageStore } from '../ai/usage-store';
 import {
@@ -20,6 +21,7 @@ import { fakeAgentScript } from '../ai/agent/fake-scripts';
 import type { RecoveryLogger } from '../recovery/atomic-file';
 import type { ProjectService } from '../workspace/project-service';
 import { registerAiHistoryIpcHandlers } from './ai-history-ipc';
+import { registerAiDraftIpcHandlers } from './ai-draft-ipc';
 import { registerAiIpcHandlers } from './ai-ipc';
 import type { RecentProjects } from './recent-projects';
 import { appDataPath } from './app-data-layout';
@@ -86,6 +88,8 @@ export interface AiMain {
   /** S39: saved chats per project and token usage (app data). */
   readonly chats: AiChatStore;
   readonly usage: AiUsageStore;
+  /** S48.7: unsent chat drafts (the quit waits for their writes). */
+  readonly drafts: AiDraftStore;
   /** Only with NOOBIDE_AI_FAKE: what the fake provider received (e2e assertions). */
   readonly fake: FakeProviderHub | null;
 }
@@ -125,6 +129,7 @@ export function setupAi(options: AiMainOptions): AiMain {
   const { projects } = options;
   const chats = new AiChatStore({ dir: appDataPath(options.userData, 'aiChats'), log: options.logger });
   const usage = new AiUsageStore({ file: appDataPath(options.userData, 'aiUsage'), log: options.logger });
+  const drafts = new AiDraftStore({ dir: appDataPath(options.userData, 'aiDrafts'), log: options.logger }); // S48.7
   const service = new AiService({
     keys: new KeyStore({ file: appDataPath(options.userData, 'aiKeys'), encryptor, log: options.logger }),
     config: new AiConfigStore({ file: appDataPath(options.userData, 'aiConfig'), log: options.logger }),
@@ -155,10 +160,30 @@ export function setupAi(options: AiMainOptions): AiMain {
   registerAiIpcHandlers(options.ipcMain, { allowedOrigin: options.allowedOrigin, service });
   registerAiHistoryIpcHandlers(options.ipcMain, {
     allowedOrigin: options.allowedOrigin,
-    chats,
+    chats: {
+      list: (root) => chats.list(root),
+      get: (root, id) => chats.get(root, id),
+      save: (root, chat) => chats.save(root, chat),
+      // S48.7: a deleted chat's unsent draft goes with it.
+      delete: async (root, id) => {
+        await drafts.save(root, id, null);
+        return chats.delete(root, id);
+      },
+      count: (root) => chats.count(root),
+      // S48.7: deleting a project's saved chats also forgets its unsent drafts.
+      deleteAll: async (root) => {
+        await drafts.deleteAll(root);
+        return chats.deleteAll(root);
+      },
+    },
     usage,
     rootOf: (projectId) => projects.rootOf(projectId),
     recentRootOf: async (id) => options.recent?.rootOf(id),
   });
-  return { service, chats, usage, fake };
+  registerAiDraftIpcHandlers(options.ipcMain, {
+    allowedOrigin: options.allowedOrigin,
+    drafts,
+    rootOf: (projectId) => projects.rootOf(projectId),
+  });
+  return { service, chats, usage, drafts, fake };
 }
