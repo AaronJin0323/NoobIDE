@@ -35,3 +35,7 @@ Other modules (S04, S05, S15, S16 — decisions 0009, 0010, 0019):
 - `page-snapshot.ts` (S38.1, decision 0026) — a bounded snapshot of the shown page for the AI assistant: outline read
   in an isolated world over the page guard's protocol session, screenshot from `capturePage()`, all from main and
   within time budgets; nothing is added to the page.
+- `css-swap.ts` (S54, decision 0040) — a save of only linked `.css` files replaces those stylesheets' text in place
+  (`CSS.setStyleSheetText` over the page guard's protocol session, DOM domain borrowed from the element picker's
+  counter); no page script, no DOM change, no navigation. Anything else (HTML/JS in the save, `@import`, an iframe, a
+  syntax error, a failure) is the S14.2 full reload, and the status (`saveUpdate`) says which happened and why.
