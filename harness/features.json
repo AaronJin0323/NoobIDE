@@ -192,16 +192,6 @@
       ]
     },
     {
-      "id": "M18",
-      "title": "UI/UX refinement (owner request 2026-10-16)",
-      "plan_refs": "docs/reviews/ui-ux-assessment-2026-10-16.md; PLAN §2, §3, §7, §8, §9; AGENTS.md invariants",
-      "exit_criteria": [
-        "Every P1 and P2 finding of docs/reviews/ui-ux-assessment-2026-10-16.md is either fixed by a done feature or recorded as dropped with a reason",
-        "No key feature moved into a menu; AI-off still removes every AI surface; S46 design rules stay green",
-        "npm run verify and the full e2e suite are green on Windows x64; the owner walks the task script on the refined build (S49.7)"
-      ]
-    },
-    {
       "id": "M19",
       "title": "Everyday editing parity (v0.2) (owner request 2026-10-17)",
       "plan_refs": "docs/reviews/mainstream-ide-gap-2026-10-17.md §4; PLAN §4, §12 v0.2; AGENTS.md invariants",
@@ -211,6 +201,15 @@
         "CSS-only saves restyle the running page without a reload, falling back to a reload that says so; preview isolation is unchanged",
         "Rules 16-25 and their quick fixes, and named project checkpoints, ship with fixtures and wording that keeps checkpoints, local history and undo distinct",
         "npm run verify and the full e2e suite are green on Windows x64; manual checks recorded for Explorer/Finder drag-and-drop"
+      ]
+    },
+    {
+      "id": "M18",
+      "title": "UI/UX refinement from the Claude Desktop study (owner request 2026-10-17)",
+      "plan_refs": "docs/product/ui-ux-improvement-plan.md; docs/product/calm-design-spec.md; docs/decisions/0034-calm-design-language.md; AGENTS.md invariants",
+      "exit_criteria": [
+        "Every P1 item of docs/product/ui-ux-improvement-plan.md is done: chat scroll latch, auto-growing composer, IME stage 2, actionable code blocks, splitter physics, roving focus for toolbars, one Sheet, notice tones, motion tokens with a reduced-motion gate",
+        "design-rules.test.ts enforces the new motion and state rules; npm run verify and the full e2e suite are green on Windows x64; no key-features-visible, axe or reduced-motion regression at 1280x720 and 640x480"
       ]
     }
   ],
@@ -785,32 +784,43 @@
     {
       "id": "S47",
       "milestone": "M18",
-      "title": "UI/UX refinement: frame and first run",
-      "goal": "Assess the UI/UX against PLAN §2/§3 and make the refine plan; then give the welcome the window, stop the top bar and tabs from moving while typing, one name and home per feature, one status row, and a compact walkthrough.",
+      "title": "Motion, scroll edges and type details",
+      "goal": "Install the motion token ladder and a global reduced-motion gate, give panels, drawers and notices an enter/exit, upgrade the scroll-edge masks to the seven-stop curve, and fix counters, wrapping and icon alignment details, all as compositor-only CSS under the calm design rules.",
       "depends_on": [
         "S46"
       ],
-      "plan_refs": "docs/reviews/ui-ux-assessment-2026-10-16.md (S47 table)"
+      "plan_refs": "docs/product/ui-ux-improvement-plan.md §5 Track A"
     },
     {
       "id": "S48",
       "milestone": "M18",
-      "title": "UI/UX refinement: preview, problems and console",
-      "goal": "Two-row preview chrome with one filled action per state, the problem card in PLAN §9 order, one error with one count linked from the console to its card, and a tidier annotations entry.",
+      "title": "AI chat panel engine",
+      "goal": "Make the chat panel behave like a mature streaming client: scroll latch, auto-growing composer, IME stage 2, slash commands and @file mentions, actionable highlighted code blocks, long-message collapse, zero-loss drafts with provider backoff, and one tone per proposal state.",
       "depends_on": [
         "S47"
       ],
-      "plan_refs": "docs/reviews/ui-ux-assessment-2026-10-16.md (S48 table); PLAN §8, §9"
+      "plan_refs": "docs/product/ui-ux-improvement-plan.md §5 Track B"
     },
     {
       "id": "S49",
       "milestone": "M18",
-      "title": "UI/UX refinement: AI, history, dialogs and wording",
-      "goal": "One Sheet shell and one diff review for every dialog, History focused on restoring, AI set-up before the composer, a beginner wording pass with a jargon test, and the owner walk-through.",
+      "title": "Layout physics and navigation",
+      "goal": "Give the splitters dead zones, reset, rollback and collapse; roving focus to every toolbar and group; type-ahead and file-type icons to the tree; pinning, search and copy to the console; recents to the palette; and a container-query ladder with hit-box compensation to the preview toolbar and composer chin.",
       "depends_on": [
         "S47"
       ],
-      "plan_refs": "docs/reviews/ui-ux-assessment-2026-10-16.md (S49 table); PLAN §7, §9"
+      "plan_refs": "docs/product/ui-ux-improvement-plan.md §5 Track C"
+    },
+    {
+      "id": "S50",
+      "milestone": "M18",
+      "title": "Dialogs, notices, surfaces and density",
+      "goal": "Rebuild the archived Sheet and Notice anatomies on the calm rules, fix the notice tones, move state changes to rings so nothing shifts, add a compact/comfortable density setting, and keep the macOS traffic lights centred under zoom.",
+      "depends_on": [
+        "S47",
+        "S45"
+      ],
+      "plan_refs": "docs/product/ui-ux-improvement-plan.md §5 Track D"
     }
   ],
   "features": [
@@ -4899,166 +4909,198 @@
       "id": "S47.1",
       "session": "S47",
       "milestone": "M18",
-      "title": "UI/UX assessment and refine plan",
+      "title": "Motion token ladder and a global reduced-motion gate",
       "description": "",
       "acceptance": [
-        "docs/reviews/ui-ux-assessment-2026-10-16.md assesses the packaged build and the renderer source against PLAN §2, §3, §7, §8, §9 with file:line evidence, states what is good and must be kept, and prioritises findings P1–P3",
-        "The refine plan is registered as sessions S47–S49 with acceptance criteria, a term table for one name per feature, and explicit non-goals (no key feature into menus, AI-off rule, S46 design rules, preview isolation)"
+        "styles.css :root defines --dur-instant 60ms, --dur-fast 120ms, --dur-base 200ms, --dur-sheet 300ms, --dur-slow 450ms and purpose-named easing tokens; no renderer stylesheet contains a literal duration or a literal cubic-bezier/linear outside :root (design-rules test)",
+        "One prefers-reduced-motion block zeroes the duration tokens, swaps overlay keyframes for a fade, turns TabBar smooth scrolling and Monaco smoothScrolling off; an Electron e2e with emulateMedia reduced-motion asserts no transition or animation runs on a menu, a dialog, the tab strip and a panel toggle"
       ],
-      "verify": "agent-check",
+      "verify": "auto",
       "depends_on": [],
-      "status": "done",
-      "evidence": "docs/reviews/ui-ux-assessment-2026-10-16.md (packaged build cfc3232 driven through the journey, three read-only source audits cross-checked); plan registered as M18 / S47–S49 in features.json"
+      "status": "todo",
+      "evidence": ""
     },
     {
       "id": "S47.2",
       "session": "S47",
       "milestone": "M18",
-      "title": "Welcome owns the window",
+      "title": "Panel, drawer and notice enter/exit motion",
       "description": "",
       "acceptance": [
-        "With no project open the welcome fills the editor and preview area; it has exactly one filled button (create first page) and open-folder as a secondary; the files panel empty state has no button; \"the sample is not saved\" appears once (e2e at 1280x800 and 640x480)",
-        "Lessons stays reachable from the welcome; opening or creating a project reveals the full workbench without a layout jump of the top bar (e2e)"
+        "The narrow files drawer, chat panel, walkthrough band, problems panel and app notices enter and exit with a token-timed opacity/translate animation (no scale outside keyframes, no gradient); collapsible groups (problem sections, preview Advanced, AI steps fold) animate with grid-template-rows 0fr/1fr and stay held open while an answer streams",
+        "Context chips enter with a 30ms stagger capped at 8; key-features-visible.spec passes at every size with the walkthrough and Problems open, and the layout FRAME (52/32/8) is unchanged"
       ],
       "verify": "auto",
       "depends_on": [
         "S47.1"
       ],
-      "status": "done",
-      "evidence": "tests/e2e/shell.spec.ts 'S47.2: …' (1280x800 + 640x480 welcome fills editor+preview area, one filled button, files empty state without button, 'not saved' once, Lessons from the welcome, no top-bar box moves on open) + layout.test.ts; e2e shell/welcome/files/walkthrough/recent-projects green on Windows; verify green"
+      "status": "todo",
+      "evidence": ""
     },
     {
       "id": "S47.3",
       "session": "S47",
       "milestone": "M18",
-      "title": "Stable save state and tabs",
+      "title": "Seven-stop scroll-edge masks with a sensor fallback",
       "description": "",
       "acceptance": [
-        "During a typing → autosave cycle no top-bar or tab element changes its bounding box (e2e measures before and after); the save pill lives in a fixed-width slot and shows short words with the full sentence in the banner",
-        "The prominent Save button appears only for failed, conflict, deleted or autosave off, and still calls the same save command as Ctrl+S; the tab dirty state is an icon with a tooltip (unit + e2e)"
+        "The scroll-edge mask is a seven-stop ladder (alpha 5/15/30/50/70/85/100% at 15/30/45/60/75/87/100% of a 28px fade) using animation-timeline: scroll(self) under @supports, with an onScroll + ResizeObserver fallback that sets the fade to 0 within 2px of either end (pure model unit-tested)",
+        "Applied to the file tree, problems body, chat log, console, palette list, walkthrough text and the tab strip; an e2e asserts the mask is absent at the top of a short list and present once scrolled, in both themes"
       ],
       "verify": "auto",
       "depends_on": [
         "S47.1"
       ],
-      "status": "done",
-      "evidence": "tests/e2e/key-features-visible.spec.ts 'S47.3: …' (no Save button while typing; read-only file shows it with the short pill word and the banner sentence; Enter on the focused button saves via the save command and focus lands on the state word; bounding boxes of every top-bar and tab-strip element equal before typing, during the autosave pause and after saved) + a11y-labels.test.ts (saveButtonShown matrix, pill word lengths, tabTooltip) + document-state.test.ts (activeSaveRetrying); e2e key-features/save/tabs/a11y/shell/external-change/files/preview/problem-card/recovery/session/editing green on Windows; verify green"
+      "status": "todo",
+      "evidence": ""
     },
     {
       "id": "S47.4",
       "session": "S47",
       "milestone": "M18",
-      "title": "One name, one home per feature",
+      "title": "Counters and micro-feedback",
       "description": "",
       "acceptance": [
-        "The term table of the assessment is encoded as a test over the zh-CN and en catalogues (History, Lessons, Problems, Ask AI, AI edit, AI fix, AI suggestions, Change project, crash recovery, external change) and every rail, menu, palette, tooltip and walkthrough hint agrees with it",
-        "The ⋯ menu splits into a project menu (close, reveal, history, lessons) and a trailing help/more menu (theme, language, AI, glossary, logs, settings); the project path shows on hover and in the project menu, not as a top-bar line; the language switch leaves the top bar (e2e menus, commands, shell green)"
+        "Every changing number (problem and console counts, cursor position, pending-message counts) uses tabular-nums; the chat Copied state decays with a keyframe over 2.5s instead of switching; a 6px status dot with a 1.2s opacity pulse (static under reduced motion) sits next to the word on the preview running state and the chat thinking state (renderToStaticMarkup + design-rules)"
       ],
       "verify": "auto",
       "depends_on": [
         "S47.1"
       ],
-      "status": "done",
-      "evidence": "src/renderer/i18n/terms.test.ts (22 tests: term table over zh-CN/en + retired names), src/shared/commands.test.ts (two menus), tests/e2e/shell.spec.ts 'S47.4: …', commands.spec, a11y.spec; verify green; full e2e 332 tests green on Windows (318 + 4 skipped mac-only + 4 test-side fixes rerun green) @ Session 30"
+      "status": "todo",
+      "evidence": ""
     },
     {
       "id": "S47.5",
       "session": "S47",
       "milestone": "M18",
-      "title": "One status row and fewer bands around the editor",
+      "title": "Type and wrapping details",
       "description": "",
       "acceptance": [
-        "The editor bottom row merges into the global status strip (AI edit, explain, suggestions toggle, indent, caret); F6 reaches it and the walkthrough band and the notice stack (e2e)",
-        "At most one persistent band above the code: the role hint collapses after its first showing per file (tag and tooltip remain), encoding and line-ending notes move to the status strip; notices anchor above the strip and never cover the code, informational notices auto-dismiss, and the \"reopened last project\" notice is removed because the top bar shows the path (e2e)"
+        "Headings in dialogs and the welcome screen use text-wrap: balance, prose (chat, lessons, problem explanations) uses text-wrap: pretty; every path, file name and URL element uses overflow-wrap: anywhere, word-break: normal and min-width: 0 so a Chinese file name with spaces never splits vertically at 220px (unit test on the shared class + e2e on a fixture name with Chinese characters and spaces)",
+        "Inline icons next to text are aligned by one shared rule (-0.125em, -0.075em at 11-12px) and per-component nudges are removed; the UI and code font stacks name PingFang SC and Microsoft YaHei explicitly"
       ],
       "verify": "auto",
-      "depends_on": [
-        "S47.4"
-      ],
-      "status": "done",
-      "evidence": "tests/e2e/key-features-visible.spec.ts 'S47.5: one status row…' (no editor bottom row; region-status in the strip's row, never over the Problems toggle; ≤1 band above the code; entry notice below the code and above the strip; F6 order preview→walkthrough→app-notice-stack→problems→status→topbar; info notice auto-dismiss) + size loop 1280x800…640x480 (indent, caret, AI edit/explain in viewport); a11y.spec F6 order; file-roles.spec 'S47.5: first showing only' (hint collapses, tree tag + tab tooltip keep the role); session.spec (no reopened-project notice); file-role.test.ts (RoleHintMemory), a11y-labels.test.ts (tabTooltip role line); e2e key-features/a11y/shell/file-roles/session/encodings/save/editing/ai-edit/ai-inline/smart-editing/external-change 91 green on Windows; verify green"
-    },
-    {
-      "id": "S47.6",
-      "session": "S47",
-      "milestone": "M18",
-      "title": "Compact walkthrough band",
-      "description": "",
-      "acceptance": [
-        "The walkthrough has a compact state (one line: step n of 8, title, show me, next) toggled by the user and restored across starts; the full state is shown on the first view of each step; the compact band is at most 56 px (e2e)",
-        "Term chips show the Chinese term and the English word in zh-CN; the close hint names the rail button (unit)"
-      ],
-      "verify": "auto",
-      "depends_on": [
-        "S47.1"
-      ],
-      "status": "done",
-      "evidence": "tests/e2e/walkthrough.spec.ts 'S47.6: the band folds to one line…' (compact ≤ 56 px, progress/title/show/next on one row, no body/check, stored compact, seen steps fold, never-seen step full, expand) + 'progress and the compact choice survive a restart' + zh-CN chips 超文本标记语言 HTML / 层叠样式表 CSS / JavaScript 脚本语言, en chips HTML/CSS/JavaScript (13 tests green on Windows); walkthrough-model.test.ts 'compact band (S47.6)' (toggle, first view, close/revisit, termChipLabel, closeHint names rail.lessons), src/shared/walkthrough.test.ts (compact/viewed parse + lenient load), layout.test.ts (compact reserve); e2e key-features/a11y/shell/editing green on the S47.6 build; verify green"
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
     },
     {
       "id": "S48.1",
       "session": "S48",
       "milestone": "M18",
-      "title": "Two-row preview chrome with one filled action per state",
+      "title": "Streaming scroll latch in the chat log",
       "description": "",
       "acceptance": [
-        "Header: title, state pill, one filled action matching the state (Start when stopped or failed, Refresh when running, Stop when unresponsive), the other actions quiet, Annotate, the annotations list toggle and a labelled open-in-browser; toolbar: one page control (entry picker only with more than one page or when away from the entry), auto-refresh, viewport segment, Advanced as a popover; at most two rows at a pane width of 420 px or more (e2e)",
-        "No header element changes position on refresh: Refresh stays and reads busy, Annotate stays enabled and shows a state-specific reason when it cannot be used; the stopped stage has a Start button; the hung-page stage points at a primary Stop (unit + e2e)"
+        "A pure scroll-latch model (unit-tested) unpins on wheel, touch, key or pointer input, re-follows only when the last input is older than 150ms and the log is within 40px of the bottom, and scrolls with behavior auto; ChatPanel no longer calls scrollIntoView unconditionally",
+        "A Jump-to-latest control (icon + word, pending count, both locales) appears when the user is more than 120px from the end; an Electron e2e scrolls up during a fake stream and asserts the viewport stays put, then clicks the control and asserts it follows again"
       ],
       "verify": "auto",
-      "depends_on": [
-        "S47.4"
-      ],
-      "status": "todo",
-      "evidence": ""
+      "depends_on": [],
+      "status": "done",
+      "evidence": "src/renderer/ai/scroll-latch.test.ts (8 tests: 150ms/40px/120px, unpin on input, re-pin, pending count, behavior auto) + useScrollLatch wired into ChatPanel (scrollIntoView removed); tests/e2e/ai-chat-engine.spec.ts S48.1 on the packaged build (wheel-up during fake stream keeps scrollTop within 1px, Jump to latest shows 回到最新 + role=status '1 条新消息', click follows again); ai-chat/ai-history/ai-agent/ai-preview e2e 17 passed; verify green"
     },
     {
       "id": "S48.2",
       "session": "S48",
       "milestone": "M18",
-      "title": "Problem card in PLAN §9 order",
+      "title": "Auto-growing chat composer",
       "description": "",
       "acceptance": [
-        "Card order: head → explanation → checks → actions (the one-click fix or Go to code first and the only primary, Show original, then one AI button) → original error; the open row does not repeat its head; the row-level AI button is quiet (unit + e2e problem-card)",
-        "Empty Problems sections are hidden and section badges count what is listed (unit + e2e problems)"
+        "The composer grows with its content from 44px to min(40svh, 200px) via field-sizing: content with a hidden mirror fallback, the manual resize handle is removed, Enter/Shift+Enter and the IME guard behave as before (chat-panel renderToStaticMarkup test + e2e typing six lines and asserting the height and that the preview column stays visible at 1280x720)"
       ],
       "verify": "auto",
-      "depends_on": [
-        "S47.4"
-      ],
-      "status": "todo",
-      "evidence": ""
+      "depends_on": [],
+      "status": "done",
+      "evidence": "chat-panel.test.ts 'auto-growing composer (S48.2)' (3 renderToStaticMarkup/CSS tests: field-sizing path with rows=1, hidden aria-hidden mirror fallback, 44px..min(40svh,200px), resize none); tests/e2e/ai-chat-engine.spec.ts S48.2 on the packaged build at 1280x720 (empty ~44px, six Shift+Enter lines grow >+80px without inner scroll and <=200px, preview column >=200px visible, Enter sends and shrinks back); ai-chat/ai-agent/a11y/key-features-visible/preview-annotations e2e 35 passed; verify green"
     },
     {
       "id": "S48.3",
       "session": "S48",
       "milestone": "M18",
-      "title": "One error, one count",
+      "title": "IME guard stage 2 and Escape containment",
       "description": "",
       "acceptance": [
-        "A console error that matches a problem offers a link that opens its card; file:line in the console goes to the code; the console badge and the status strip count problems the same deduplicated way and the badge names Problems (e2e runtime-problems)",
-        "IDE notices in the console are labelled as NoobIDE notes and styled apart from page output; the Problems region label is Problems only (unit + e2e)"
+        "workbench/ime.ts records compositionend and, on WebKit, ignores an Enter within 500ms of it unless Ctrl or Cmd is held; an Escape that just closed a candidate list is stopped before it reaches the panel or dialog; the one guard covers chat, inline edit, rename, the wizard, the palette and annotation notes (unit tests with synthetic events)",
+        "The S35.4 Electron regression gains the post-composition Enter and Escape cases; harness/MANUAL-CHECKS.md S35.4 lists the native check for macOS Pinyin"
       ],
       "verify": "auto",
-      "depends_on": [
-        "S48.1"
-      ],
-      "status": "todo",
-      "evidence": ""
+      "depends_on": [],
+      "status": "done",
+      "evidence": "ime.test.ts (8 tests: WebKit Enter within 500ms of compositionend ignored, Ctrl/Cmd+Enter allowed, Escape stage 2, other engines/keys unchanged, installImeGuard stops IME Escape before later window listeners without cancelling it, structural check that chat/inline edit/rename/wizard/palette/annotation notes/dialogs all use the one isImeKey); installed in main.tsx before createRoot; S35.4 regression extended in tests/e2e/ai-edit.spec.ts (post-composition Enter+Escape under a WebKit vendor, Escape never reaches document capture; Chromium Enter after compositionend still sends) + tests/e2e/ai-chat-engine.spec.ts S48.3 (chat Enter ignored, Ctrl+Enter sends, palette Escape contained); 69 e2e passed on the packaged build across ai-chat-engine/ai-edit/file-tree/welcome/commands/preview-annotations/ai-prompt/glass/ai-chat; macOS Pinyin step 5 in MANUAL-CHECKS.md#S35.4; verify green"
     },
     {
       "id": "S48.4",
       "session": "S48",
       "milestone": "M18",
-      "title": "Annotations entry tidy-up",
+      "title": "Slash commands and @file mentions in the composer",
       "description": "",
       "acceptance": [
-        "One count (the badge); click-to-pick is the default with list and box offered from the picking banner; Cancel sits inside the banner; the chooser is anchored to its button; a disabled Annotate shows its reason as visible text (unit + e2e preview-annotations)"
+        "A trigger grammar (unit-tested) opens the command list on / at the start or after whitespace and the project file list on @, strips trailing Latin and CJK punctuation, normalises backslashes, caps mentions at 256 and paths at 1024 characters; the command list reuses the palette registry and matcher",
+        "Up/Down wrap, Enter or Tab accept, Escape closes the list without closing the panel (IME-guarded); an accepted @file becomes an existing context chip and the three Add buttons remain visible (e2e)"
       ],
       "verify": "auto",
       "depends_on": [
-        "S48.1"
+        "S48.3"
       ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S48.5",
+      "session": "S48",
+      "milestone": "M18",
+      "title": "Actionable, highlighted code blocks in chat",
+      "description": "",
+      "acceptance": [
+        "Chat code blocks show a lowercase language caption, an optional file name, a tabular-nums gutter, no wrapping, and syntax colours from the bundled Monaco colorizer in the current theme (no network); renderToStaticMarkup test in both themes",
+        "Copy, Insert at cursor and Replace selection actions are keyboard-reachable with accessible names in both locales; insert and replace are enabled only with an open editor, go through the existing edit path so undo and the save state behave, and are covered by an Electron e2e"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S48.6",
+      "session": "S48",
+      "milestone": "M18",
+      "title": "Long messages collapse and quiet per-message actions",
+      "description": "",
+      "acceptance": [
+        "User messages taller than 300px collapse behind a 3rem fade with a Show-more control (word + icon); a per-message action row (copy, re-ask) is hidden until hover and revealed by focus-within so keyboard users reach it (renderToStaticMarkup + axe)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S48.7",
+      "session": "S48",
+      "milestone": "M18",
+      "title": "Zero-loss drafts and provider backoff",
+      "description": "",
+      "acceptance": [
+        "The unsent composer text and context chips are persisted per conversation in app-data (debounced 300ms, never in the project folder) and restored after a restart with a status line saying so; a failed send keeps the text and offers Retry (integration test on the store + e2e)",
+        "HTTP 429 and 503 trigger a backoff of min(max(base, 5s) * 2^(n-1) * jitter 0.85-1.15, 600s) with a visible countdown in words, at most three automatic retries, then a manual Retry; pure model unit-tested, cause always shown"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S48.8",
+      "session": "S48",
+      "milestone": "M18",
+      "title": "One tone per proposal state",
+      "description": "",
+      "acceptance": [
+        "AgentProposalCard and ProposalReview map pending, applying, applied, failed, rejected and expired to one tone each with icon and word; only a pending change has the prominent border and the single primary action; structured input and result are closed disclosures by default (renderToStaticMarkup tests in both locales, design-rules clean)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
       "status": "todo",
       "evidence": ""
     },
@@ -5066,32 +5108,28 @@
       "id": "S49.1",
       "session": "S49",
       "milestone": "M18",
-      "title": "One Sheet shell for every dialog",
+      "title": "Splitter physics",
       "description": "",
       "acceptance": [
-        "History, Recovery, AI settings, Glossary, confirms and the wizard use one shell: title, Close top-right, Esc, focus trap, Cancel → Primary order, danger style for destructive buttons, widths from 480/720/960; a backdrop click never discards typed input (unit + e2e)",
-        "Recovery traps focus, Esc keeps every record and says so, and \"clear all recovery data\" moves out of the dialog footer (e2e recovery)"
+        "A drag starts only after 4px of pointer movement, double-click resets the files width to 220 and the editor share to 0.5, Escape during a drag restores the start value, and dragging the files splitter under 120px collapses the panel into the same state as toggle-files (pure model unit-tested; aria-valuetext in words)",
+        "After the dead zone the preview is covered and shows the last snapshot until release so the native view never swallows the drag; an Electron e2e drags across the preview and asserts the final share and that the preview is live again"
       ],
       "verify": "auto",
-      "depends_on": [
-        "S47.4"
-      ],
+      "depends_on": [],
       "status": "done",
-      "evidence": "src/renderer/workbench/sheet.test.ts (20 tests) + verify green; e2e on Windows: run 1 (87 passed) recovery, history, ai-settings, ai-history, walkthrough (glossary), welcome (wizard), files, file-tree (delete confirm), a11y, glass, distribution (about), menus, session, problem-card; run 2 after fixes: recovery + file-tree 24 passed incl. new 'Escape, Close and a click outside keep every recovered copy' test. Base 42f3ea4."
+      "evidence": "src/renderer/workbench/splitter-model.test.ts (8 tests: dead zone, Escape, reset defaults, collapse = toggle-files, aria-valuetext zh/en) + tests/e2e/layout-splitters.spec.ts (5 tests on the packaged build: click no-op, drag across the preview covered by the region-shot picture then live again with the expected share, Escape rollback, double-click reset, files collapse/reopen with the rail) + preview-layout/session/key-features-visible/preview-annotations/a11y e2e (36 passed) + verify green"
     },
     {
       "id": "S49.2",
       "session": "S49",
       "milestone": "M18",
-      "title": "History focused on restoring",
+      "title": "Roving focus for toolbars and groups",
       "description": "",
       "acceptance": [
-        "The History dialog is file → version → diff → restore only; AI turns appear as a tag or filter on versions; storage and orphaned-project cleanup move to a settings sheet reachable from the History footer and the menu (e2e history, ai-agent green)"
+        "A shared useRovingFocus hook (Tab/Shift+Tab leave the group, arrows move, Home/End jump, loop and RTL options, only the active item tabbable, preventScroll) is applied to the rail, the Code/Preview switch, the viewport switch, the preview toolbar, the chat add-context group and the proposal action row (unit tests per group, F6 order unchanged, axe clean)"
       ],
       "verify": "auto",
-      "depends_on": [
-        "S49.1"
-      ],
+      "depends_on": [],
       "status": "todo",
       "evidence": ""
     },
@@ -5099,30 +5137,28 @@
       "id": "S49.3",
       "session": "S49",
       "milestone": "M18",
-      "title": "One diff review",
+      "title": "File tree type-ahead and file-type icons",
       "description": "",
       "acceptance": [
-        "Inline edit, agent proposals, conflicts, History and Recovery use one diff component with one legend and the decision buttons above the diff; Esc in inline review returns focus to the editor and keeps the proposal, Reject is explicit (e2e ai-edit, ai-agent, external-change, history, recovery)"
+        "Printable keys select the next row whose name starts with the typed buffer (1s reset, IME-guarded, Chinese names supported) without stealing the keys from rename; icons by extension (html, css, js, json, image, font, text, other) at the one 1.5px stroke live in icons.tsx and the icons test accepts them"
       ],
       "verify": "auto",
-      "depends_on": [
-        "S49.1"
-      ],
-      "status": "todo",
-      "evidence": ""
+      "depends_on": [],
+      "status": "done",
+      "evidence": "src/renderer/workbench/file-tree-model.test.ts (type-ahead: 8 tests, Chinese/spaced/NFD names, wrap, repeat-cycle, modifier/space rules) + icons.test.ts (iconForName mapping, distinct decorative glyphs; all new icons pass the 1.5px/size check) + tests/e2e/file-tree-typeahead.spec.ts (4 tests on the packaged build: prefix, 我的 页面.html / 我们.css / 图片, 1 s reset, modifiers/IME/rename field ignored) + file-tree.spec.ts still green; npm run verify green"
     },
     {
       "id": "S49.4",
       "session": "S49",
       "milestone": "M18",
-      "title": "AI set-up before the composer",
+      "title": "Console pinning, search and copy",
       "description": "",
       "acceptance": [
-        "Without a key the chat panel shows only the set-up card (service → paste key → test) and no composer; Settings shows the three-step connect first and folds models, budget and usage under Advanced; focus starts in the key field; the composer keeps the add-context controls visible and merges kind and mode into one control; usage is shown in settings, not after every answer (e2e ai-chat, ai-settings)"
+        "The console reuses the scroll-latch model with Jump-to-latest and a pending count, a search field filters lines case-insensitively, each row has Copy line and the toolbar has Copy all visible; the 200-line window and the dropped/throttled count are unchanged (unit tests on the filter + e2e)"
       ],
       "verify": "auto",
       "depends_on": [
-        "S49.1"
+        "S48.1"
       ],
       "status": "todo",
       "evidence": ""
@@ -5131,15 +5167,13 @@
       "id": "S49.5",
       "session": "S49",
       "milestone": "M18",
-      "title": "Beginner wording pass",
+      "title": "Palette recents and a tab overflow list",
       "description": "",
       "acceptance": [
-        "The listed jargon (磁盘, token, CRLF/LF, UTF-8, 服务商, 智能体, 内联编辑, session id, 代码 xyz, 单独的安全窗口) is replaced in zh-CN and en and a test rejects those terms outside the glossary; the glossary gains API key, token, model, undo and crash recovery; 撤销 is reserved for Ctrl+Z (unit over the catalogues and glossary)"
+        "The command palette lists the last eight run commands first on an empty query, stored in app-data per user; the tab bar overflow offers an All-tabs menu listing every open file with its state word, each closable from the list (model unit tests + e2e)"
       ],
       "verify": "auto",
-      "depends_on": [
-        "S47.4"
-      ],
+      "depends_on": [],
       "status": "todo",
       "evidence": ""
     },
@@ -5147,33 +5181,84 @@
       "id": "S49.6",
       "session": "S49",
       "milestone": "M18",
-      "title": "Rail and small controls",
+      "title": "Container-query ladder and hit-box compensation",
       "description": "",
       "acceptance": [
-        "Rail toggles show pressed and launchers show current (Lessons shows state while the band is open); Format sits in the editor header; the tab close is keyboard-reachable with a tooltip naming its key; one word for the calm save state; indent source moves to the tooltip (unit + e2e shell, editing)"
+        "The preview toolbar and the composer chin are named containers with four tiers (>=576px full; <480px no kbd hints or secondary actions; <384px icon-only with a 4rem label ellipsis; <320px 4px padding and max-width max(6rem, calc(100cqw - 4rem))); every 28px row control has a hit target of at least 32px via negative margin-block; key-features-visible passes at all five sizes"
       ],
       "verify": "auto",
-      "depends_on": [
-        "S47.5"
-      ],
+      "depends_on": [],
       "status": "todo",
       "evidence": ""
     },
     {
-      "id": "S49.7",
-      "session": "S49",
+      "id": "S50.1",
+      "session": "S50",
       "milestone": "M18",
-      "title": "Owner beginner walk-through of the refined build",
+      "title": "One Sheet for every dialog",
       "description": "",
       "acceptance": [
-        "The owner, or one beginner (H.3), runs docs/product/task-script.md on the refined Windows build; hesitations over 10 s are recorded in docs/research/; any P1 finding that reappears becomes a new feature"
+        "A shared Sheet (rebuilt from docs/archive/s44-s45-hig) provides title, one-line description, scrolling content, trailing actions with Cancel before the default and destructive verbs drawn destructive, Escape, focus trap and return, configurable backdrop close, a max height of calc(100dvh - 2*max(32px, titlebar inset)) and a 2px blur plus dim on the parent of a nested dialog; history, recovery, create-project, delete-confirm, about, glossary, AI settings and the palette use it (renderToStaticMarkup + e2e)",
+        "PreviewMoreMenu and AddContextMenu from the archive stay dropped; S45.9 is closed or superseded by this feature"
       ],
-      "verify": "manual-win",
-      "depends_on": [
-        "S47.6",
-        "S48.4",
-        "S49.6"
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S50.2",
+      "session": "S50",
+      "milestone": "M18",
+      "title": "Notice anatomy and tones",
+      "description": "",
+      "acceptance": [
+        "One Notice component (tone icon, one-line title, at most one sentence, details behind a disclosure, actions trailing with one primary) replaces the hand-built app notices; EntryNotice success and TransferNotice no longer use the danger fill; no notice has a timer unless the owner decides otherwise in the plan (renderToStaticMarkup tests in both locales)"
       ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S50.3",
+      "session": "S50",
+      "milestone": "M18",
+      "title": "Rings, chamfer and shadows within the calm spec",
+      "description": "",
+      "acceptance": [
+        "Selected, current and hover states change inset box-shadow rings, not borders, so rows and tabs never shift (design-rules test: no border change on :hover or [aria-selected]); dark overlays use a 1px inner highlight instead of a lighter border; --shadow-overlay derives from the surface via color-mix; disabled controls use muted text plus an inset 1px line ring instead of opacity .5; the selected tab uses --raised; welcome template cards hover with fill and ring, no scale"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S50.4",
+      "session": "S50",
+      "milestone": "M18",
+      "title": "Compact and comfortable density",
+      "description": "",
+      "acceptance": [
+        "data-density on <html> selects --control-h 28/32, --row-h 28/32 and --radius-control 6/8; the choice is in the View menu and the palette, persisted in settings, default comfortable; key-features-visible.spec runs at both densities and the design-rules test accepts the density tokens"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S50.5",
+      "session": "S50",
+      "milestone": "M18",
+      "title": "macOS traffic lights stay centred under zoom",
+      "description": "",
+      "acceptance": [
+        "setWindowButtonPosition is recomputed on zoom-changed so the lights sit centred in the 52px bar at 80-150% zoom (unit test on the geometry); MANUAL-CHECKS.md lists the physical check next to S46.9"
+      ],
+      "verify": "manual-mac",
+      "depends_on": [],
       "status": "todo",
       "evidence": ""
     }

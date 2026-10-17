@@ -1154,6 +1154,15 @@ input[type='radio'] {
 .preview[data-drawing] > .preview-stage {
   display: none;
 }
+/* S49.1: while the code / preview divider is dragged the native view is hidden and the last picture of the page stands
+   in for it, scaled into the stage. */
+.preview-resize-shot {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  object-fit: contain;
+  object-position: center top;
+}
 /* Stage messages wrap, and their buttons are never clipped. */
 .preview-stage > .empty-state {
   flex: none;

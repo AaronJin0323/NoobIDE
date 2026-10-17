@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { translate, type Locale, type MessageKey } from '../i18n/index';
 import { AI_ERROR_CODES, contextLabel, errorExplanation, providerName } from './chat-text';
 import { ChatPanelView, type ChatPanelActions } from './ChatPanel';
@@ -223,5 +224,50 @@ describe('chat panel (S33.1)', () => {
     expect(extended).toContain('STEP read_file');
     expect(extended).toContain('REVIEW x');
     expect(extended).toContain('data-testid="ai-kind"');
+  });
+});
+
+describe('auto-growing composer (S48.2)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const draft = (prompt: string): Partial<ChatState> => ({
+    drafts: { p1: { prompt, chips: [], mode: 'chat', kind: 'chat' } },
+  });
+  const css = readFileSync(new URL('./ai-chat.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  /** The declarations of the last rule whose selector list is exactly `selector`. */
+  const rule = (selector: string) => {
+    const at = css.lastIndexOf(`\n${selector} {`);
+    expect(at, selector).toBeGreaterThan(-1);
+    return css.slice(at, css.indexOf('}', at));
+  };
+
+  it('grows by field-sizing where supported: one row, no mirror', () => {
+    vi.stubGlobal('CSS', { supports: (p: string, v: string) => p === 'field-sizing' && v === 'content' });
+    const out = render(draft('第一行\n第二行'));
+    expect(out).toContain('data-grow="css"');
+    expect(out).toMatch(/<textarea[^>]*rows="1"[^>]*data-testid="ai-input"/);
+    expect(out).not.toContain('ai-input-mirror');
+  });
+
+  it('falls back to a hidden mirror of the text, with a trailing space so a final empty line counts', () => {
+    const out = render(draft('第一行\n'));
+    expect(out).toContain('data-grow="mirror"');
+    expect(out).toContain(
+      '<span class="ai-input-mirror" aria-hidden="true" data-testid="ai-input-mirror">第一行\n </span>',
+    );
+    // The mirror shares the textarea's grid cell, inside the grow wrapper.
+    expect(out.indexOf('class="ai-input-grow"')).toBeLessThan(out.indexOf('data-testid="ai-input"'));
+    expect(out.indexOf('data-testid="ai-input"')).toBeLessThan(out.indexOf('ai-input-mirror'));
+  });
+
+  it('sizes from 44px to min(40svh, 200px) with no resize handle', () => {
+    const shared = rule('.ai-input,\n.ai-input-mirror');
+    expect(shared).toContain('grid-area: 1 / 1;');
+    expect(shared).toContain('min-height: 44px;');
+    expect(shared).toContain('max-height: min(40svh, 200px);');
+    const input = rule('.ai-input');
+    expect(input).toContain('field-sizing: content;');
+    expect(input).toContain('resize: none;');
+    expect(css).not.toMatch(/resize:\s*vertical/);
+    expect(rule('.ai-input-mirror')).toContain('visibility: hidden;');
   });
 });

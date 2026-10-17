@@ -292,6 +292,11 @@ export const zhCN = {
   'appMenu.closeProject': '关闭项目',
   'layout.resizeFiles': '调整文件面板的宽度',
   'layout.resizeEditor': '调整代码和预览的宽度比例',
+  // S49.1: what the dividers announce, in words; the picture shown on the stage while the preview divider is dragged
+  'layout.filesWidthText': '文件面板宽 {px} 像素',
+  'layout.filesCollapsedText': '文件面板已收起',
+  'layout.editorShareText': '代码占 {code}%，预览占 {preview}%',
+  'layout.resizeSnapshot': '调整宽度时显示的页面画面',
   'transfer.title': '这个项目换到另一个系统（Windows / macOS）时可能会出问题。NoobIDE 没有改动任何文件：',
   'transfer.caseConflict':
     '“{folder}”里的 {names} 只差大小写：在 Windows 和 macOS 上它们会变成同一个文件。请给其中一个换个名称。',

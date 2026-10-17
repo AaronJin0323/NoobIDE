@@ -4,6 +4,7 @@
  * pops over the code in a narrow window, and the narrow default is closed so code gets the space.
  */
 import { EDITOR_SHARE, FILES_WIDTH, type SessionLayout } from '../../shared/session';
+import { filesDragOutcome } from './splitter-model';
 
 export type NarrowView = 'code' | 'preview';
 
@@ -25,6 +26,8 @@ export type LayoutAction =
   // --- S13.4: layout sizes, restored from the session ---
   | { type: 'resizeFiles'; width: number }
   | { type: 'resizeEditor'; share: number }
+  // S49.1: a mouse drag of the files divider (unclamped width): under 120 px it collapses the panel, like toggleFiles
+  | { type: 'dragFiles'; width: number; startWidth: number }
   | { type: 'restoreLayout'; layout: SessionLayout };
 
 /** Problems starts collapsed into the status strip (assessment finding 2: empty regions must not dominate). */
@@ -65,6 +68,10 @@ export function layoutReducer(state: LayoutState, action: LayoutAction): LayoutS
       return { ...state, narrowView: action.view, filesOpenNarrow: false };
     case 'resizeFiles':
       return { ...state, filesWidth: Math.round(clamp(action.width, FILES_WIDTH.min, FILES_WIDTH.max)) };
+    case 'dragFiles': {
+      const outcome = filesDragOutcome(action.width, action.startWidth);
+      return { ...state, filesOpenWide: outcome.open, filesWidth: outcome.width };
+    }
     case 'resizeEditor':
       return {
         ...state,

@@ -42,3 +42,10 @@ export const ExplainIcon = ({ size = 16 }: { size?: number }) => (
     <path d="M6.8 6.2a1.3 1.3 0 1 1 1.8 1.2c-.4.2-.6.5-.6.9v.2M8 10.2v.1" />
   </IconBase>
 );
+
+/** S48.1 "Jump to latest": an arrow down to a line. */
+export const JumpLatestIcon = () => (
+  <IconBase size={14}>
+    <path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3.5 13.5h9" />
+  </IconBase>
+);

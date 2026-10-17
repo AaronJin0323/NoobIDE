@@ -306,6 +306,10 @@ export const en: Record<MessageKey, string> = {
   'appMenu.closeProject': 'Close project',
   'layout.resizeFiles': 'Resize the files panel',
   'layout.resizeEditor': 'Resize code and preview',
+  'layout.filesWidthText': 'Files panel {px} pixels wide',
+  'layout.filesCollapsedText': 'Files panel collapsed',
+  'layout.editorShareText': 'Code {code} percent, preview {preview} percent',
+  'layout.resizeSnapshot': 'Picture of the page while resizing',
   'transfer.title':
     'This project may run into problems on the other system (Windows / macOS). NoobIDE has not changed any file:',
   'transfer.caseConflict':
