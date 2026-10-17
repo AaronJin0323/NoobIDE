@@ -62,6 +62,26 @@ skips items that are not rendered.
 1. Remaining M18 sessions (S47.2–S47.5, S48.4–S48.8, S50) land through their PRs; S49 is complete.
 2. When S48.4 adds kbd hints to the chin, give them the `.ai-hint`-like hiding at < 480 px in navigation.css.
 
+## Session 47 (side session) — 2026-10-18 — Two more hosted-CI e2e races hitting every M18 PR
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/ci-flakes-m18` from main @ c976e3e.
+
+**Done**
+
+- `file-multi-select.spec.ts`: `focusByKeyboard` now walks one Ctrl/Cmd+arrow at a time and re-reads the tree order
+  before each key. Rows created, moved or duplicated by the previous test arrive through the watcher, so a step count
+  read once could be wrong (reproduced locally on main: the moved files were still listed). The trash test also waits
+  for the second trashed file (cherry-picked from the S50 branch, 48aeb4b).
+- `preview-isolation.spec.ts` S05.5: Refresh on the beforeunload page is clicked again if the page did not change,
+  with the preview state logged. The state machine refuses a refresh while the page is marked hung, and a page that
+  just ran alert/confirm/prompt/print can be marked hung for a moment on a hosted runner (failed on PRs #34, #35, #36,
+  screenshot showing "running"). A beforeunload that really blocked refresh still fails every attempt.
+
+**Evidence:** file-multi-select.spec 28/28 (4 repeats), preview-isolation.spec 8/8 locally; verify green.
+
+**Next up:** watch the "S05.5 refresh attempt" log line in CI. If it shows `unresponsive`, decide whether Refresh
+should say why it did nothing while the page is hung.
+
 ## Session 46 (side session) — 2026-10-18 — S47.1 landed on main; M18 fanned out to five sessions
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/noobide-next-steps-b77935`.
