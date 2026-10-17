@@ -32,7 +32,7 @@ export const authoringZhCN = {
   'command.toggleBlockComment': '切换块注释',
   'command.toggleFormatOnSave': '保存时整理格式',
   'formatOnSave.failed': '保存时没能整理格式：格式化工具报告了错误。文件已按原样保存。',
-  'formatOnSave.timeout': '保存时没能整理格式：3 秒内没有完成。文件已按原样保存。',
+  'formatOnSave.timeout': '保存时没能整理格式：{seconds} 秒内没有完成。文件已按原样保存。',
   'formatOnSave.dismiss': '知道了',
 } as const;
 
@@ -65,6 +65,6 @@ export const authoringEn: Record<keyof typeof authoringZhCN, string> = {
   'command.toggleFormatOnSave': 'Format on save',
   'formatOnSave.failed': 'Could not format on save: the formatter reported an error. The file was saved as it was.',
   'formatOnSave.timeout':
-    'Could not format on save: formatting did not finish within 3 seconds. The file was saved as it was.',
+    'Could not format on save: formatting did not finish within {seconds} seconds. The file was saved as it was.',
   'formatOnSave.dismiss': 'Got it',
 };

@@ -110,7 +110,8 @@ async function formatForSave(editor: monaco.editor.IStandaloneCodeEditor): Promi
   } finally {
     off();
   }
-  return ok === false ? { ok: false, reason: 'failed' } : { ok: true };
+  // No answer from the formatter at all (it was never asked) is not a success either.
+  return ok === true ? { ok: true } : { ok: false, reason: 'failed' };
 }
 
 /**

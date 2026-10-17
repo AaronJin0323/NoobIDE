@@ -167,6 +167,7 @@ Edit › **切换行注释 / Toggle line comment** (Ctrl+/ on Windows, ⌘/ on m
 | JavaScript block comment around a selection  | `a` → `/* a */`                    | `js-toggle-block-comment`                            |
 | CSS comment inside an HTML page's `<style>`  | `a { … }` → `/* a { … } */`        | `html-style-block-toggle-comment`                    |
 | JavaScript comment inside an HTML `<script>` | `let a = 1;` → `// let a = 1;`     | `html-script-toggle-comment`                         |
+| Block comment inside an HTML `<script>`      | `let a = 1;` → `/* let a = 1; */`  | `html-script-block-comment`                          |
 
 ## Format on save (S53.4)
 

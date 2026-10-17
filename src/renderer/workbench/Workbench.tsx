@@ -429,7 +429,8 @@ export function Workbench() {
     const editor = activeEditor();
     reportFormatOnSaveFailure(null);
     void saveWithFormat({
-      enabled: editorPrefs().formatOnSave,
+      // A conflict or a deleted file cannot be saved now: the buffer is not reformatted for nothing.
+      enabled: editorPrefs().formatOnSave && !saver.state.conflict && !saver.state.deleted,
       format: async () =>
         editor?.shownUri() === tab.uri && editor.formatForSave
           ? editor.formatForSave()

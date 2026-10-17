@@ -555,6 +555,14 @@
       "action": "noobide.toggleLineComment",
       "text": "<script>\n  let a = 1;|\n</script>\n",
       "expectText": "<script>\n  // let a = 1;\n</script>\n"
+    },
+    {
+      "id": "html-script-block-comment",
+      "language": "html",
+      "kind": "edit",
+      "action": "noobide.toggleBlockComment",
+      "text": "<script>\n  let a = 1;|\n</script>\n",
+      "expectText": "<script>\n  /* let a = 1; */\n</script>\n"
     }
   ]
 }

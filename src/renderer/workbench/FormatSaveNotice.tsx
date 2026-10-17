@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
-import type { FormatFailure } from './format-on-save';
+import { fill } from '../recovery/format';
+import { FORMAT_ON_SAVE_TIMEOUT_MS, type FormatFailure } from './format-on-save';
 
 /** S53.4: why the last save could not format first (the file was saved as it was). Shown until dismissed. */
 let failure: FormatFailure | null = null;
@@ -24,7 +25,9 @@ export function FormatSaveNotice() {
   if (!reason) return null;
   return (
     <span className="editor-status-hint" role="status" data-testid="format-on-save-notice" data-reason={reason}>
-      {t(reason === 'timeout' ? 'formatOnSave.timeout' : 'formatOnSave.failed')}
+      {reason === 'timeout'
+        ? fill(t('formatOnSave.timeout'), { seconds: String(FORMAT_ON_SAVE_TIMEOUT_MS / 1000) })
+        : t('formatOnSave.failed')}
       <button type="button" className="editor-status-hint-dismiss" onClick={() => reportFormatOnSaveFailure(null)}>
         {t('formatOnSave.dismiss')}
       </button>

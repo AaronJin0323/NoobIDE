@@ -52,10 +52,11 @@ function reportOutcome(uri: string, run: () => unknown): unknown {
   }
   if (answer && typeof (answer as PromiseLike<unknown>).then === 'function') {
     (answer as PromiseLike<unknown>).then(
-      (edits) => emitOutcome({ uri, ok: edits !== null && edits !== undefined }),
+      // No edits (null / []) means the document is formatted already: only a rejection is a failure.
+      () => emitOutcome({ uri, ok: true }),
       () => emitOutcome({ uri, ok: false }),
     );
-  } else emitOutcome({ uri, ok: answer !== null && answer !== undefined });
+  } else emitOutcome({ uri, ok: true });
   return answer;
 }
 const listeners = new Set<Listener>();

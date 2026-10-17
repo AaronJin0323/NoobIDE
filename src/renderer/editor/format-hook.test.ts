@@ -79,7 +79,7 @@ describe('pre-format hook (S18.3)', () => {
     off();
   });
 
-  it('reports how document formatting ended: edits, nothing, a rejection or a throw (S53.4)', async () => {
+  it('reports how document formatting ended: edits or none are fine, a rejection or a throw fail (S53.4)', async () => {
     const { registry, registered } = fakeRegistry();
     installFormatHook(registry);
     const answers: unknown[] = [Promise.resolve(['edit']), Promise.resolve(null), Promise.reject(new Error('x'))];
@@ -97,7 +97,7 @@ describe('pre-format hook (S18.3)', () => {
     expect(() => doc.provideDocumentFormattingEdits(model('a{}'))).toThrow('worker gone');
     await new Promise((resolve) => setTimeout(resolve, 0));
     off();
-    expect(outcomes.map((o) => o.ok)).toEqual([true, false, false, false]);
+    expect(outcomes.map((o) => o.ok)).toEqual([true, true, false, false]);
     expect(outcomes[0]?.uri).toBe('file:///p/a.css');
   });
 });

@@ -86,9 +86,18 @@ export async function toggleComment(editor: monaco.editor.ICodeEditor, block: bo
   }
   let range: monaco.Range;
   let text: string;
-  if (block && !selection.isEmpty()) {
-    range = selection;
-    text = toggleBlockComment(model.getValueInRange(selection));
+  if (block) {
+    // Nothing selected: the line's text without its indentation, as Monaco does.
+    const line = selection.startLineNumber;
+    range = selection.isEmpty()
+      ? new monaco.Range(
+          line,
+          Math.max(1, model.getLineFirstNonWhitespaceColumn(line)),
+          line,
+          Math.max(1, model.getLineLastNonWhitespaceColumn(line)),
+        )
+      : selection;
+    text = toggleBlockComment(model.getValueInRange(range));
   } else {
     // A selection that ends at the start of a line does not include that line.
     const endLine =
@@ -100,7 +109,11 @@ export async function toggleComment(editor: monaco.editor.ICodeEditor, block: bo
     text = toggleLineComments(lines, region).join(model.getEOL());
   }
   editor.pushUndoStop();
-  editor.executeEdits('noobide.comment', [{ range, text }]);
+  // The changed text stays selected, so the next toggle acts on the same lines.
+  editor.executeEdits('noobide.comment', [{ range, text }], (inverse) => {
+    const changed = inverse[0]?.range;
+    return changed ? [monaco.Selection.fromRange(changed, monaco.SelectionDirection.LTR)] : null;
+  });
   editor.pushUndoStop();
 }
 

@@ -54,8 +54,9 @@ export function useCommands(platform: PlatformId, context: CommandContext, handl
       if (isImeKey(event)) return; // an input method owns the keys while composing
       const id = commandForKeyStroke(platform, event);
       if (id === null || !canRun(id)) return;
-      // S53: an editor shortcut (Ctrl/Cmd+/) is the editor's only; elsewhere the key does what it does there.
-      if (commandIsEditorScoped(id) && !(event.target instanceof Element && event.target.closest('.monaco-editor'))) {
+      // S53: an editor shortcut (Ctrl/Cmd+/) belongs to the workbench's code editor (not to a read-only diff or
+      // anything else); elsewhere the key does what it does there.
+      if (commandIsEditorScoped(id) && !(event.target instanceof Element && event.target.closest('.code-editor'))) {
         return;
       }
       event.preventDefault();
