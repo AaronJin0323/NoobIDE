@@ -3,6 +3,56 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 38 (side session) — 2026-10-17 — Motion token ladder and reduced-motion gate (S47.1)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/beautiful-shirley-d2ba80`,
+fast-forwarded onto the M18 plan commit (a049ce5); node_modules junctioned to the main checkout.
+
+**Done**
+
+- `styles.css :root`: `--dur-instant 60ms`, `--dur-fast 120ms`, `--dur-base 200ms`, `--dur-sheet 300ms`,
+  `--dur-slow 450ms`; purpose-named curves `--ease-swift` (hover), `--ease-expand` (grid accordions), `--ease-enter`
+  (block entry) beside `--ease-out/-smooth/-snappy`. The only literal left in the renderer (tree twisty `0.1s`) now
+  uses tokens.
+- One reduced-motion gate: the `prefers-reduced-motion` block in `glass.css` zeroes every `--dur-*` token and keeps
+  the overlay swap to `glass-fade`. `theme/motion.ts` (`REDUCED_MOTION_QUERY`, `useReducedMotion`, `scrollBehavior`,
+  `editorMotionOptions`) carries the same query to script: the TabBar chevrons scroll with `auto` instead of
+  `smooth`, and Monaco's `smoothScrolling` is on normally and off under the query (live, via `updateOptions`;
+  mirrored in `data-smooth-scrolling` on the editor host for e2e).
+- `design-rules.test.ts`: two new rules (no literal duration, no literal `cubic-bezier()/linear()/steps()` or
+  keyword curve in transition/animation declarations; `linear` alone stays allowed for scroll timelines), motion
+  tokens may only be defined in `styles.css` (the gate may set `--dur-*: 0ms`), and a check that they all live in
+  its `:root` block. Every existing rule kept.
+- `tests/e2e/reduced-motion.spec.ts`: a no-preference control proves the recorder (`transitionrun` /
+  `animationstart` with computed durations) sees the menu pop; under `reducedMotion: 'reduce'` the tokens compute to
+  0, the menu and glossary dialog use `glass-fade` at 0s, no timed transition or animation runs while a menu, a
+  dialog, the files-panel toggle (Ctrl+B) or the tab strip scroll happen, the strip moves in the same task as the
+  click, and lifting the preference brings back the glide and Monaco's smooth scrolling.
+
+**Evidence:** verify green (unit incl. design-rules 18 + motion 3); reduced-motion.spec.ts 4/4 three runs in a row; full `npm run test:e2e -- --no-build` 327 passed, 4 skipped (platform-gated), glass.spec and tabs.spec included.
+
+**Decisions:** The gate lives in glass.css (loaded after styles.css) so the overlay swap wins the cascade; one block,
+not one per file. Monaco smooth scrolling is now on for users without the preference (plan A1 implies it).
+
+**Problems / risks:** Chromium serialises a `0ms` custom property as `0s`; the e2e compares numerically.
+
+**CI follow-up (PR #16):** hosted shards 2/2 (Windows and macOS) failed the panel-toggle case: Monaco's own
+stylesheet fades its scrollbars in (`opacity 0.1s`), which the token gate did not reach (on the runners' smaller
+window the toggle resized the editor and showed a scrollbar). The gate now pins `transition-duration` /
+`animation-duration` inside `.monaco-editor` and `.monaco-scrollable-element` to `var(--dur-instant)` (0ms under
+reduce); the spec gained a deterministic editor-scroll case with a no-preference control. Reproduced locally
+before the fix (vertical + horizontal scrollbar `0.1s`), green 6/6 runs after; glass, tabs and editing specs green.
+Merged the plan branch (S48.1–S48.3, S49.3, test-robustness fixes) first. Second round: the hosted Windows
+runner scrolls even `behavior: 'smooth'` at once (OS animation effects off), so the "glide is back" check now
+asserts the behaviour the app passes to `scrollBy` (`auto` under reduce, `smooth` without) and that the strip ends
+up scrolled, not that nothing moved in the same task. Merged the plan branch again (S49.1).
+
+**Next up**
+
+1. S47.2 (panel, drawer and notice enter/exit) on top of these tokens; every new animation must use `--dur-*`
+   so the gate covers it, and add its case to reduced-motion.spec.ts.
+2. Other M18 sessions (S48–S50) can branch from this commit.
+
 ## Session 37 (side session) — 2026-10-17 — S49.1 splitter physics (M18 Track C1)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s49-splitter-physics-c88bff`

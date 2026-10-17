@@ -4917,8 +4917,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/design-rules.test.ts (2 new motion rules + token-home check, 18 tests), src/renderer/theme/motion.test.ts (3), tests/e2e/reduced-motion.spec.ts (4, green 3/3 runs on the packaged build), full e2e 327 passed / 4 skipped incl. glass.spec + tabs.spec; verify green"
     },
     {
       "id": "S47.2",
