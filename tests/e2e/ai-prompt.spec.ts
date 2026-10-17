@@ -320,6 +320,10 @@ test('without an AI key an /ai line is ordinary text: Enter breaks the line, no 
     window.dispatchEvent(new Event('noobide:ai-status-changed'));
   });
   await openFile(page, 'index.html');
+  // The renderer re-reads the AI status asynchronously after the event. Wait until it knows there is no key (the
+  // Edit-with-AI action leaves the status line, from the same availability as /ai's Enter handling) before typing;
+  // otherwise a slow runner still takes over Enter with the stale "key stored" status.
+  await expect(page.getByTestId('editor-ai-edit')).toHaveCount(0);
   await expect.poll(hints).toBe('');
   await lineEnd(5);
   await page.keyboard.press('Enter');
