@@ -1,0 +1,196 @@
+import { rm } from 'node:fs/promises';
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import { launchApp } from './launch';
+import { collectConsoleErrors, makeProject, openProject } from './project';
+
+/**
+ * S48 chat panel engine, against the scripted fake provider (decision 0025). The script adds one turn to the
+ * built-in ones: a prompt containing [[long]] streams 300 paragraphs, one every 100 ms (30 s), so the log keeps
+ * growing while the test scrolls; the test stops it when done.
+ */
+const FAKE_SCRIPT = JSON.stringify({
+  includeBuiltin: true,
+  turns: [
+    {
+      match: '[[long]]',
+      repeat: true,
+      steps: Array.from({ length: 300 }, (_, i) => [
+        { type: 'text', text: `第 ${i + 1} 段：这是一段很长的回答，用来测试滚动。\n\n` },
+        { type: 'delay', ms: 100 },
+      ]).flat(),
+    },
+  ],
+});
+
+test.describe.configure({ mode: 'serial' });
+
+let app: ElectronApplication;
+let page: Page;
+let tmp: string;
+let root: string;
+let consoleErrors: string[];
+
+const panel = () => page.getByTestId('region-ai');
+const body = () => panel().getByTestId('ai-body');
+const input = () => panel().getByTestId('ai-input');
+
+/** The log's scroll position, content height and distance from the end. */
+const metrics = () =>
+  body().evaluate((el) => ({
+    top: el.scrollTop,
+    height: el.scrollHeight,
+    fromEnd: el.scrollHeight - el.clientHeight - el.scrollTop,
+  }));
+
+test.describe('AI chat engine (S48)', () => {
+  test.beforeAll(async () => {
+    ({ tmp, root } = await makeProject('noobide-e2e-AI-引擎-'));
+    app = await launchApp({ NOOBIDE_AI_FAKE: FAKE_SCRIPT });
+    page = await app.firstWindow();
+    consoleErrors = collectConsoleErrors(page);
+    await page.locator('.monaco-editor .view-lines').waitFor();
+    await openProject(app, page, root);
+    await page.evaluate(async () => {
+      const ai = (
+        window.noobide as unknown as { ai: { setKey(r: { provider: string; key: string }): Promise<unknown> } }
+      ).ai;
+      await ai.setKey({ provider: 'anthropic', key: 'fake-key-for-tests' });
+      window.dispatchEvent(new Event('noobide:ai-status-changed'));
+    });
+    await page.getByTestId('rail-ai').click();
+    await expect(panel()).toBeVisible();
+    await expect(input()).toBeEditable();
+  });
+
+  test.afterAll(async () => {
+    await app?.close();
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  test('scrolling up during a stream keeps the viewport put; Jump to latest follows again (S48.1)', async () => {
+    await input().fill('请写一个很长的回答 [[long]]');
+    await input().press('Enter');
+    await panel().getByTestId('ai-consent-allow').click();
+    const turn = panel().getByTestId('ai-turn').last();
+    await expect(turn).toHaveAttribute('data-status', 'streaming', { timeout: 30_000 });
+
+    // Pinned: the log follows the stream while it overflows.
+    await expect.poll(async () => (await metrics()).height, { timeout: 15_000 }).toBeGreaterThan(1500);
+    await expect.poll(async () => (await metrics()).fromEnd).toBeLessThanOrEqual(40);
+    await expect(panel().getByTestId('ai-jump')).toHaveCount(0);
+
+    // The reader scrolls up with the wheel: from now on new chunks must not move the viewport.
+    const box = await body().boundingBox();
+    if (!box) throw new Error('chat log has no box');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, -600);
+    await expect.poll(async () => (await metrics()).fromEnd).toBeGreaterThan(400);
+    const before = await metrics();
+    await page.waitForTimeout(1500);
+    const after = await metrics();
+    expect(after.height, 'the stream kept adding content').toBeGreaterThan(before.height + 100);
+    expect(Math.abs(after.top - before.top), 'the viewport stayed put').toBeLessThanOrEqual(1);
+
+    // The control: icon + word, and the count of messages that changed while away, as a status.
+    const jump = panel().getByTestId('ai-jump');
+    await expect(jump).toBeVisible();
+    await expect(jump).toContainText('回到最新');
+    await expect(jump.getByRole('status')).toHaveText('1 条新消息');
+    await expect(jump.locator('svg')).toHaveCount(1);
+    await jump.click();
+    await expect.poll(async () => (await metrics()).fromEnd).toBeLessThanOrEqual(40);
+    await expect(jump).toHaveCount(0);
+    const pinned = await metrics();
+    await page.waitForTimeout(1000);
+    const later = await metrics();
+    expect(later.height, 'still streaming').toBeGreaterThan(pinned.height + 100);
+    expect(later.fromEnd, 'following again').toBeLessThanOrEqual(40);
+
+    await panel().getByTestId('ai-stop').click();
+    await expect(turn).toHaveAttribute('data-status', 'cancelled', { timeout: 15_000 });
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('the composer grows with six lines, the preview column stays visible at 1280x720 (S48.2)', async () => {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setContentSize(1280, 720));
+    await page.waitForFunction(() => window.innerWidth >= 1280 && window.innerHeight >= 720);
+    const height = () => input().evaluate((el) => el.getBoundingClientRect().height);
+
+    await input().fill('');
+    const empty = await height();
+    expect(empty).toBeGreaterThanOrEqual(43.5);
+    expect(empty).toBeLessThanOrEqual(48);
+    expect(await input().evaluate((el) => getComputedStyle(el).resize)).toBe('none');
+
+    await input().click();
+    for (let i = 1; i <= 6; i++) {
+      await page.keyboard.type(`第 ${i} 行`);
+      if (i < 6) await page.keyboard.press('Shift+Enter');
+    }
+    // Shift+Enter made new lines and sent nothing.
+    await expect(input()).toHaveValue(['第 1 行', '第 2 行', '第 3 行', '第 4 行', '第 5 行', '第 6 行'].join('\n'));
+    const turns = await panel().getByTestId('ai-turn').count();
+    const grown = await height();
+    expect(grown).toBeGreaterThan(empty + 80);
+    expect(grown).toBeLessThanOrEqual(200.5);
+    // Six lines fit without an inner scrollbar.
+    expect(await input().evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+
+    const preview = page.getByTestId('region-preview');
+    await expect(preview).toBeVisible();
+    const box = await preview.boundingBox();
+    expect(box && box.width >= 200 && box.height >= 200 && box.x + box.width <= 1280.5).toBe(true);
+    await expect(panel().getByTestId('ai-send')).toBeInViewport({ ratio: 1 });
+
+    // Enter still sends, and the composer goes back to one line.
+    await page.keyboard.press('Enter');
+    await expect(panel().getByTestId('ai-turn')).toHaveCount(turns + 1);
+    await expect(input()).toHaveValue('');
+    await expect.poll(height).toBeLessThanOrEqual(48);
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('on WebKit, Enter and Escape right after compositionend stay the IME’s in chat and the palette (S48.3)', async () => {
+    await expect(panel().getByTestId('ai-turn').last()).not.toHaveAttribute('data-status', /sending|streaming/);
+    // Electron is Chromium; report the engine as WebKit (macOS) the way the guard reads it.
+    await page.evaluate(() => {
+      const w = window as unknown as { realVendor?: PropertyDescriptor | undefined };
+      w.realVendor = Object.getOwnPropertyDescriptor(Navigator.prototype, 'vendor');
+      Object.defineProperty(Navigator.prototype, 'vendor', { configurable: true, get: () => 'Apple Computer, Inc.' });
+    });
+    const turns = panel().getByTestId('ai-turn');
+    const before = await turns.count();
+
+    // Chat: the Enter that confirmed a candidate does not send; Ctrl+Enter right after it is deliberate and sends.
+    await input().fill('输入法测试');
+    await input().dispatchEvent('compositionend', { data: '测试' });
+    await input().dispatchEvent('keydown', { key: 'Enter', keyCode: 13, isComposing: false });
+    await page.waitForTimeout(300);
+    await expect(turns).toHaveCount(before);
+    await expect(input()).toHaveValue('输入法测试');
+    await input().dispatchEvent('compositionend', { data: '测试' });
+    await input().dispatchEvent('keydown', { key: 'Enter', keyCode: 13, isComposing: false, ctrlKey: true });
+    await expect(turns).toHaveCount(before + 1);
+    await expect(turns.last()).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
+
+    // The palette (a modal): the Escape that closed the candidate list does not close it; a later Escape does.
+    await page.getByTestId('open-palette').click();
+    const palette = page.getByTestId('command-palette');
+    const field = palette.getByTestId('palette-input');
+    await expect(field).toBeFocused();
+    await field.dispatchEvent('compositionend', { data: '主题' });
+    await field.dispatchEvent('keydown', { key: 'Escape', keyCode: 27, isComposing: false });
+    await page.waitForTimeout(300);
+    await expect(palette).toBeVisible();
+    await page.waitForTimeout(300); // past the 500 ms grace
+    await field.press('Escape');
+    await expect(palette).toHaveCount(0);
+
+    await page.evaluate(() => {
+      const real = (window as unknown as { realVendor?: PropertyDescriptor | undefined }).realVendor;
+      if (real) Object.defineProperty(Navigator.prototype, 'vendor', real);
+    });
+    expect(await page.evaluate(() => navigator.vendor)).not.toMatch(/Apple/);
+    expect(consoleErrors).toEqual([]);
+  });
+});
