@@ -70,9 +70,9 @@ test('the preview header and toolbar row step down through the tiers', async () 
   expect(await shown(advanced)).toBe(true);
   expect(await labelClipped(reload)).toBe(false);
 
-  await narrow(rows, 470); // < 480: no secondary actions
-  expect(await shown(external)).toBe(false);
-  expect(await shown(advanced)).toBe(false);
+  await narrow(rows, 470); // < 480: the preview rows have no hint or secondary-only action; all stay
+  expect(await shown(external)).toBe(true);
+  expect(await shown(advanced)).toBe(true);
   expect(await labelClipped(reload)).toBe(false);
 
   await narrow(rows, 370); // < 384: icon-only buttons, 4rem labels with an ellipsis

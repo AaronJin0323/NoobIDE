@@ -36,7 +36,11 @@ export function useRovingFocus<T extends HTMLElement = HTMLElement>(
 
   const items = useCallback((): HTMLElement[] => {
     const el = container.current;
-    return el ? [...el.querySelectorAll<HTMLElement>(settings.current.items ?? ROVING_ITEMS)] : [];
+    if (!el) return [];
+    // Items a container query or a parent hides (display: none) are not part of the group.
+    return [...el.querySelectorAll<HTMLElement>(settings.current.items ?? ROVING_ITEMS)].filter(
+      (item) => typeof item.getClientRects !== 'function' || item.getClientRects().length > 0,
+    );
   }, []);
 
   const sync = useCallback(() => {

@@ -213,8 +213,7 @@
 
 /* ── S49.6: container-query ladder and hit-box compensation ──
    The preview header, the preview toolbar row and the chat composer's chin are named containers. Tiers by their own
-   width (not the window's): >= 576px everything; < 480px no keyboard hints or secondary actions (each is also a
-   command in the palette); < 384px icon-only buttons and 4rem labels with an ellipsis; < 320px 4px padding and
+   width (not the window's): >= 576px everything; < 480px no keyboard hints or secondary actions; < 384px icon-only buttons and 4rem labels with an ellipsis; < 320px 4px padding and
    fields capped at max(6rem, 100cqw - 4rem). Every control drawn shorter than 32px in these rows gets a 32px hit
    target from transparent block borders taken back with a negative margin-block, so the visual row never grows. */
 .preview-header,
@@ -269,14 +268,9 @@
   box-shadow: inset 0 0 0 1px currentColor;
 }
 
-/* < 480px: no keyboard hints, no secondary actions. */
-@container preview-toolbar (width < 480px) {
-  [data-testid='preview-open-external'],
-  [data-testid='preview-advanced'],
-  .preview-save-update {
-    display: none;
-  }
-}
+/* < 480px: no keyboard hints, no secondary actions. The preview rows have neither: each of their buttons is the
+   only visible way to its action (Open in browser, Advanced → DevTools / clear data) and the save note is S54.3's
+   required status, so the preview's first step is the icon-only tier below. */
 @container composer-chin (width < 480px) {
   .ai-hint {
     display: none;

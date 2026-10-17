@@ -54,21 +54,31 @@ describe('container-query ladder (S49.6)', () => {
     ]);
   });
 
-  it('has the three narrowing tiers below the full >= 576px row, for both containers', () => {
+  it('has the three narrowing tiers below the full >= 576px row (the preview rows start at < 384px)', () => {
+    const expected: Record<string, string[]> = {
+      'preview-toolbar': ['preview-toolbar (width < 384px)', 'preview-toolbar (width < 320px)'],
+      'composer-chin': [
+        'composer-chin (width < 480px)',
+        'composer-chin (width < 384px)',
+        'composer-chin (width < 320px)',
+      ],
+    };
     for (const name of ['preview-toolbar', 'composer-chin']) {
       const tiers = [...new Set(all.filter((r) => r.container?.startsWith(name)).map((r) => r.container))];
-      expect(tiers, name).toEqual([`${name} (width < 480px)`, `${name} (width < 384px)`, `${name} (width < 320px)`]);
+      expect(tiers, name).toEqual(expected[name]);
     }
     // Nothing is hidden at 480px and wider: the full tier is the default.
     expect(all.some((r) => /width\s*[<>]=?\s*(5\d\d|[6-9]\d\d)px/.test(r.container ?? ''))).toBe(false);
   });
 
-  it('< 480px hides the keyboard hint and the secondary actions; < 384px goes icon-only with 4rem labels', () => {
+  it('< 480px hides the keyboard hint, never a preview action; < 384px goes icon-only with 4rem labels', () => {
     const at = (tier: string) => all.filter((r) => r.container?.endsWith(`(width < ${tier})`));
     const hidden = at('480px').filter((r) => prop(r.body, 'display') === 'none');
-    expect(hidden.map((r) => r.selector).join(',')).toMatch(/preview-open-external/);
-    expect(hidden.map((r) => r.selector).join(',')).toMatch(/preview-advanced/);
-    expect(hidden.map((r) => r.selector).join(',')).toMatch(/\.ai-hint/);
+    expect(hidden.map((r) => r.selector)).toEqual(['.ai-hint']);
+    // Nothing in the preview rows is ever display:none (each button is the only visible way to its action).
+    expect(all.filter((r) => r.container?.startsWith('preview-toolbar') && prop(r.body, 'display') === 'none')).toEqual(
+      [],
+    );
     const narrow = at('384px');
     expect(narrow.filter((r) => r.selector === '.cq-label' && prop(r.body, 'clip-path') === 'inset(50%)')).toHaveLength(
       2,

@@ -32,7 +32,7 @@ from the M18 plan branch with S47.1. One of five parallel M18 sessions (S47, S48
   closes it through the normal close path, Escape/outside click closes the list. `all-tabs.ts` is the pure model.
 - S49.6 — `navigation.css` (new, imported in main.tsx after styles.css; all S49 CSS lives there): named
   containers `preview-toolbar` (preview header + toolbar row) and `composer-chin` (`.ai-composer-row`); tiers
-  < 480 (hide open-in-browser, Advanced, save-update note, the composer's Enter hint), < 384 (`.cq-label` spans
+  < 480 (hide the composer's Enter hint; nothing in the preview rows), < 384 (`.cq-label` spans
   visually hidden → icon-only Start/Refresh/Stop/Send, 4rem ellipsis on viewport choices, field labels, state
   pill, Stop), < 320 (controls' inline padding 4px, fields `max-width: max(6rem, calc(100cqw - 4rem))`). Hit boxes:
   28px (and 24/26px) row controls are 32px border boxes with transparent block borders, `background-clip:
@@ -48,8 +48,10 @@ problems, ai-agent, ai-chat green. `npm run verify` green.
 **Decisions:** Palette recents record commands run _from the palette_ (what the palette can show honestly), stored
 in the existing settings file (no new IPC; main validates). The All-tabs button is icon-only beside the chevrons so
 the strip keeps its width; `tabs.spec`'s 1280 px width check now measures `.tabs-strip` (tabs plus their overflow
-controls). "4px padding" at < 320 px is the controls' inline padding (a container cannot style itself). Hidden
-"secondary actions" are all also palette commands.
+controls). "4px padding" at < 320 px is the controls' inline padding (a container cannot style itself). The preview rows hide nothing at < 480 px (CI on PR #35: on a
+1024×768 window the preview pane is under 480 px, and Open in browser / Advanced are the only visible way to their
+actions; the save note is S54.3's required status); their first step is the icon-only < 384 px tier. The roving hook
+skips items that are not rendered.
 
 **Problems / risks:** Siblings edit ChatPanel.tsx (S48.4/6/7) and ProposalReview.tsx (S48.8): my edits there are the
 `RovingGroup` element swaps and the `.cq-label` span around Send. Conflicts in `main.tsx` (motion.css import) and
