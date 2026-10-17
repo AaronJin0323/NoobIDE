@@ -67,6 +67,7 @@ run is the real proof for the "worker still starting" part of the single press (
 
 1. S51–S56 of M19 remain open (see Session 36 and the sibling side sessions).
 2. When PR #30 lands, drop its Escape guard in `js-navigation.spec.ts` if the merge resurrects it.
+
 ## Session 37 (side session) — 2026-10-17 — S52 complete file management (M19)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s52-files-402d45` (based on
