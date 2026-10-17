@@ -19,6 +19,7 @@ import { withShortcut } from '../commands/useCommands'; // S24.1
 import { formatShortcutLabel } from '../../platform/labels';
 import { saveErrorKey } from './file-op-messages';
 import { publishCursor } from './editor-status-state'; // S47.5: the caret shows in the global status strip
+import { ColorPickerHost } from '../editor/ColorPicker'; // S53.3: the colour picker dialog, hosted by the pane
 
 const FORMATTABLE = new Set(['html', 'css', 'javascript']);
 
@@ -277,6 +278,7 @@ export function EditorPane(props: EditorPaneProps) {
           <p className="empty-detail">{t('editor.pickFile')}</p>
         </div>
       )}
+      <ColorPickerHost />
     </main>
   );
 }

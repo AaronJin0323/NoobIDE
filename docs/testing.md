@@ -59,6 +59,17 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
   and is sized for a runner several times slower than the dev machine: at least 4× the local duration and at least
   1.5× the longest hosted duration seen. Pauses that race a product timer (a debounce, a rename wait) need an order
   of magnitude of margin, not 2×. Inventory and sizing: docs/perf/ci-runners.md.
+- A unit or integration test that is bound by the disk or by an external tool (atomic writes, `signtool`) is a
+  correctness check, not a speed check: give its `describe` a timeout sized for a hosted Windows runner under load
+  (`history-store.test.ts`, `chat-store.test.ts` 30 s; the real-signtool checks 60 s) instead of Vitest's 5 s default.
+- Monaco binds Ctrl+Home / Ctrl+End on Windows and Linux but ⌘↑ / ⌘↓ on macOS, and `ControlOrMeta+Home` moves nothing
+  there: an E2E test that goes to the start or end of the document presses `DOC_START` / `DOC_END` from
+  `tests/e2e/keys.ts`. A test that happened to start at line 1 hides the mistake until a later step does not.
+- E2E tests that drive the packaged app over CDP (`upgrade.spec.ts`, `authoring-offline.spec.ts`) keep the trace's
+  action timeline but turn its DOM snapshots and screenshots off (`test.use({ trace: { … } })`): starting those installs
+  hooks in every page of the app, and a page whose first navigation is still pending (the restored project's preview
+  on a loaded Mac) answers no CDP command until it commits, so the fixture hung for the whole test timeout, outside any
+  step (run 39033368439).
 
 ## CI shards and timing (S06.5)
 

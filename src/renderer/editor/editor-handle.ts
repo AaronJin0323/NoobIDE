@@ -5,6 +5,10 @@
  * CodeEditor registers the live editor; reveal requests for a file that is not on screen yet are kept until the
  * editor shows that file (Go to code opens the file first, S17.2).
  */
+import type { FormatOutcome } from '../workbench/format-on-save';
+import type { NavigationResult } from './js-navigation-monaco';
+import type { RenamePlan } from './js-navigation';
+
 export interface RevealTarget {
   /** The workbench's model URI string (OpenTab.uri). */
   readonly uri: string;
@@ -33,6 +37,20 @@ export interface EditorAccess {
   openEditZone?(lines?: { readonly startLine: number; readonly endLine: number }): EditZone | null;
   /** S51.1: opens the editor's find (or find-and-replace) widget on the file on screen and focuses its field. */
   openFind?(mode: 'find' | 'replace'): void;
+  /** S53: runs an editor action (Monaco's or NoobIDE's, e.g. `noobide.wrapWithTag`) in the file on screen. */
+  runAction?(id: string): Promise<void>;
+  /** S53.3: replaces the CSS colour value at the cursor, keeping its format; false when there is none. */
+  setColor?(rgba: { readonly r: number; readonly g: number; readonly b: number; readonly a: number }): boolean;
+  /** Moves the keyboard focus into the editor. */
+  focus?(): void;
+  /** S53.4: formats the file on screen for a save and says how it went (format-on-save.ts). */
+  formatForSave?(): Promise<FormatOutcome>;
+  /** S57.1: definition / references of the name under the cursor in the file on screen. */
+  navigate?(query: 'definition' | 'references'): Promise<NavigationResult | null>;
+  /** S57: the identifier under the cursor, or null. */
+  nameAtCursor?(): string | null;
+  /** S57.2: the checked rename plan for the name under the cursor. */
+  renamePlan?(newName: string, htmlPages: readonly { relPath: string; text: string }[]): Promise<RenamePlan | null>;
 }
 
 /**

@@ -23,6 +23,14 @@ import { createEditZone } from '../ai/edit-zone-monaco';
 import { attachSmartEditing } from './smart-monaco';
 // S42.3: inline `/ai` prompt lines (hint, warning, Enter / Ctrl+Enter / context menu).
 import { attachAiPrompts, refreshAiPromptMarkers } from '../ai/ai-prompt-monaco';
+// S53.1: Emmet abbreviations on Tab (decision 0039).
+import { attachEmmet } from './emmet-monaco';
+// S53.2: linked tag editing and "Wrap with tag".
+import { attachAuthoring, replaceColorAtCursor } from './authoring-monaco';
+import { onFormatOutcome } from './format-hook';
+import type { FormatOutcome } from '../workbench/format-on-save';
+// S57: JavaScript navigation and rename through the language service.
+import { nameAt, navigate, renamePlanAt } from './js-navigation-monaco';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -84,6 +92,30 @@ function selectionIn(editor: monaco.editor.IStandaloneCodeEditor, uri: string | 
   return { uri, startLine: selection.startLineNumber, endLine, text };
 }
 
+/** S53.4: formats the model on screen with its language's formatter; the outcome comes from the format hook. */
+async function formatForSave(editor: monaco.editor.IStandaloneCodeEditor): Promise<FormatOutcome> {
+  const model = editor.getModel();
+  const action = editor.getAction('editor.action.formatDocument');
+  const formattable = model && ['html', 'css', 'javascript'].includes(model.getLanguageId());
+  if (!model || !formattable || !action?.isSupported() || editor.getOption(monaco.editor.EditorOption.readOnly)) {
+    return { ok: false, reason: 'unsupported' };
+  }
+  const uri = model.uri.toString();
+  let ok: boolean | null = null;
+  const off = onFormatOutcome((event) => {
+    if (event.uri === uri) ok = event.ok;
+  });
+  try {
+    await action.run();
+  } catch {
+    return { ok: false, reason: 'failed' };
+  } finally {
+    off();
+  }
+  // No answer from the formatter at all (it was never asked) is not a success either.
+  return ok === true ? { ok: true } : { ok: false, reason: 'failed' };
+}
+
 /**
  * One Monaco editor for all tabs. A tab switch stores the outgoing view state (cursor, selections, scroll, folding),
  * shows the incoming file's existing model and restores its view state — so undo history, cursor and folds survive.
@@ -141,6 +173,8 @@ export function CodeEditor({
       showFoldingControls: 'always',
       // S32.1: Monaco's hover toolbar has untranslated labels; Tab / Esc / Ctrl+→ (⌘→) work without it.
       inlineSuggest: { enabled: true, showToolbar: 'never' },
+      // S53.2: renaming an opening tag renames its closing tag (pairs from tag-match.ts).
+      linkedEditing: true,
     });
     const caret = new CaretRest({
       setBlinking: (blinking) => editor.updateOptions({ cursorBlinking: blinking ? 'blink' : 'solid' }),
@@ -179,6 +213,8 @@ export function CodeEditor({
       { dispose: () => caret.dispose() },
       attachInlineAi(editor, () => (uriOf() ? inlineTarget.current : null)),
       attachSmartEditing(editor),
+      attachEmmet(editor),
+      attachAuthoring(editor),
       attachAiPrompts(editor, () => {
         const uri = uriOf();
         return uri && inlineTarget.current && !inlineTarget.current.readOnly ? uri : null;
@@ -202,6 +238,31 @@ export function CodeEditor({
       openFind: (mode) => {
         editor.focus();
         void editor.getAction(mode === 'find' ? 'actions.find' : 'editor.action.startFindReplaceAction')?.run();
+      },
+      runAction: async (id) => {
+        editor.focus();
+        await editor.getAction(id)?.run();
+      },
+      setColor: (rgba) => {
+        editor.focus();
+        return replaceColorAtCursor(editor, rgba); // S53.3
+      },
+      focus: () => editor.focus(),
+      formatForSave: () => formatForSave(editor), // S53.4
+      navigate: async (query) => {
+        const model = editor.getModel();
+        const position = editor.getPosition();
+        return model && position ? navigate(query, model, position) : null;
+      },
+      nameAtCursor: () => {
+        const model = editor.getModel();
+        const position = editor.getPosition();
+        return model && position ? nameAt(model, position) : null;
+      },
+      renamePlan: async (newName, htmlPages) => {
+        const model = editor.getModel();
+        const position = editor.getPosition();
+        return model && position ? renamePlanAt(model, position, newName, htmlPages) : null;
       },
     });
     // --- end S17.2 / S18.3 ---

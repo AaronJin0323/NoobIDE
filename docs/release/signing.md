@@ -166,6 +166,10 @@ ID`) and `stapler validate` on the DMG. On Windows it shows `signtool verify` (s
    npm run make && node scripts/verify-signing.mjs
    ```
 
+   On Windows, `signtool verify` reporting "The file is being used by another process" (the antivirus scanner or the
+   indexer still holds a freshly written file) is retried a few times with a short backoff; every other result,
+   including a missing or invalid signature, is reported at once.
+
 ## 4. A real release
 
 Push a tag such as `v0.1.0` from `main` (`git tag v0.1.0 && git push origin v0.1.0`). The same workflow runs and

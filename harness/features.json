@@ -4673,8 +4673,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/decisions/0039-emmet.md (emmet 2.4.11 MIT, pinned, 75.4 KB min / 27.2 KB gz measured); emmet-expand.test.ts (9) + 6 html/css-emmet-* capability cases pass in packaged app offline (tests/e2e/language.spec.ts); tests/e2e/authoring.spec.ts S53.1 (hint + Edit menu switch) pass; verify green"
     },
     {
       "id": "S53.2",
@@ -4688,8 +4688,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tag-match.test.ts (5); cases html-linked-tag-rename, html-linked-tag-closing-side, html-linked-tag-implicit-close-not-linked (does not apply), html-wrap-with-tag pass in packaged app offline (language.spec.ts); tests/e2e/authoring.spec.ts S53.2 (Edit menu wrap, 2 linked cursors, one-step undo, linked rename) pass; verify green"
     },
     {
       "id": "S53.3",
@@ -4704,8 +4704,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "css-colors.test.ts (7); cases css-color-swatches (hex/rgb/hsl/named) and css-color-picker-hex/-rgb/-hsl/-named pass in packaged app offline (language.spec.ts); tests/e2e/authoring.spec.ts S53.3 (swatch accessible name with value, keyboard-only picker, axe clean, one-step undo); docs/capabilities.md Colour hints section; glossary 'Colour value' zh-CN+en; verify green"
     },
     {
       "id": "S53.4",
@@ -4719,8 +4719,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "7 comment cases (html/css/js, uncomment, block, <style>, <script>) pass in packaged app offline; embedded-comment.test.ts (4); tests/integration/format-on-save.test.ts (5: off default, formatted bytes, failure/throw/timeout saves unformatted + reason); format-hook.test.ts outcome; tests/e2e/authoring.spec.ts S53.4 (menu toggle, format on save + one undo) pass; verify green"
     },
     {
       "id": "S53.5",
@@ -4738,8 +4738,8 @@
         "S53.3",
         "S53.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/authoring-offline.spec.ts (3 tests) against out/NoobIDE-win32-x64 packaged binary with proxy+resolver network cut: Emmet Tab, linked tag rename, Ctrl+/ comment, colour picker edit saved; every load/request local, example.com fetch fails; verify green"
     },
     {
       "id": "S54.1",
@@ -4923,8 +4923,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "cases js-definition-closed-file, js-definition-open-file, js-definition-module-import, js-references-two-files, html-inline-script-definition-unsupported pass in packaged app offline; js-navigation.test.ts, project-scripts.test.ts, language-config.test.ts; tests/e2e/js-navigation.spec.ts (4: F12 closed file, Shift+F12 two files, menu+palette, inline script notice); docs/capabilities.md section + Not claimed updated; verify green"
     },
     {
       "id": "S57.2",
@@ -4941,8 +4941,8 @@
       "depends_on": [
         "S57.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "case js-rename-two-files + refusals js-rename-refuses-built-in / -name-used-in-html pass in packaged app offline; tests/integration/rename-apply.test.ts (6: through savers, per-file undo, changed-on-disk refused, conflict at save keeps edit, failed write keeps edit, mid-apply change reverts); js-navigation.test.ts refusals (built-in, incomplete, used-in-html, property, name-taken, invalid, same); tests/e2e/js-navigation.spec.ts F2 preview/apply/undo + refusal; subagent review fixed; verify green"
     },
     {
       "id": "S47.1",
