@@ -2,7 +2,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
-import { collectConsoleErrors, documentText, makeProject, openFile, openProject } from './project';
+import { collectConsoleErrors, documentText, makeProject, openFile, openProject, switchLanguage } from './project';
 
 /**
  * S55.3: quick fixes for rules 16, 18, 19 and 23 on the problem card and in the editor lightbulb, on a project whose
@@ -153,7 +153,7 @@ test('card: create the missing file from a template; it never existed before and
 });
 
 test('card: rename to the defined id in getElementById (en), keyboard only', async () => {
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await openFile(page, 'js/app.js');
   await fixFromCard(
     'js/app.js:1',
@@ -192,7 +192,7 @@ test('lightbulb: Ctrl/Cmd+. offers the same fix with the same label; applying it
   await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(editorText).toContain('<img src="images/logo.png" />');
   await fixCard().getByTestId('problem-fix-clear').click();
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
 });
 
 test('no console errors during the quick-fix run', () => {

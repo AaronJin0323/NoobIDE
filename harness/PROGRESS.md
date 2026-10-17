@@ -32,7 +32,8 @@ under-load evidence and the Help-menu click cause); S58.4's criteria are untouch
 **Problems / risks:** main moved to 65edc2a (PRs #20 and #7) during this session; origin/main is merged into the PR
 branch after the fix commit (features.json union by id, PROGRESS.md both lanes, shards.json). The parent session
 reports that main itself is red on two `walkthrough-model.test.ts` cases (#20 tests vs #7 `compact` field) and is
-fixing them on main; they are not touched here. Not run on macOS (no Mac on the dev machine; the macOS shards were
+fixing them on main; they are not touched here. After the merge the S55 e2e (beginner-quick-fix.spec.ts) clicked the
+language button that S47.4 removed; it now uses the shared switchLanguage() helper like main's other specs (7/7). Not run on macOS (no Mac on the dev machine; the macOS shards were
 green in the same run).
 
 **Owner action needed:** Merge PR #26 from the PR pane once the rerun is green.
