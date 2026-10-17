@@ -311,6 +311,27 @@ test('changes made by other programs appear in the tree (S07.3)', async () => {
   await expect(row('外部 新建.js')).toHaveCount(0, { timeout: 5000 });
 });
 
+test('the context menu keeps its focus while the workbench re-renders under it (S08.5)', async () => {
+  // Open the file, then change it on disk while the menu is open: the editor reloads it, which re-renders the
+  // workbench and the files panel around the menu (a slow runner saw the same while a clicked file was opening).
+  await row('主 样式.css').click();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.view-lines')).toBeVisible();
+  await row('主 样式.css').click();
+  await page.keyboard.press('Shift+F10');
+  const menu = page.getByTestId('tree-menu');
+  await expect(menu.getByRole('menuitem').first()).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  const third = menu.getByRole('menuitem').nth(2);
+  await expect(third).toBeFocused();
+  await writeFile(p('主 样式.css'), 'h1 { color: teal; } /* 菜单打开时的外部修改 */\n');
+  await expect(page.locator('.view-lines')).toContainText('菜单打开时的外部修改');
+  await expect(third).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+});
+
 test('an open file is read-only while it is being moved to the trash: nothing typed meanwhile is lost (S08.3, S10)', async () => {
   await writeFile(p('慢 删除.js'), 'let keep = 1;\n');
   await expect(row('慢 删除.js')).toBeVisible({ timeout: 5000 });

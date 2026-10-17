@@ -3,6 +3,25 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 48 (side session) — 2026-10-18 — Context menu focus jumped back to the first item on re-render
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/tree-menu-focus` from main @ 3637774.
+
+**Done**
+
+- Product fix (S08.5): `TreeContextMenu` focused its first item in an effect that depended on `onClose`. Callers
+  pass a new function on every render, so any workbench re-render while the menu was open (a file opening, an
+  external change reloading the editor) re-ran the effect and threw the keyboard focus back to the first item. main
+  CI after PR #34 failed `file-multi-select.spec` this way: after 20 ArrowDown presses the screenshot still showed
+  "打开" focused while the clicked file was opening. The effect now runs once per opening and reads the latest
+  `onClose` from a ref. The indentation menu (IndentStatus) uses the same component and gets the fix too.
+- `file-tree.spec.ts`: a new test opens the menu, moves to the third item, changes the open file on disk (the editor
+  reloads it) and checks the focus stays. It fails on the old code and passes with the fix.
+
+**Evidence:** file-tree.spec 48/48 (3 repeats) with the fix, the new test failing without it; verify green.
+
+**Next up:** PR #33 (S48.4/S48.6/S48.7) is the last open M18 PR.
+
 ## Session S48c (side session) — 2026-10-18 — Chat composer, long messages, zero-loss drafts and backoff (S48.4, S48.6, S48.7)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m18-s48-composer-071b54` (PR
