@@ -3,6 +3,39 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 35 (side session) — 2026-10-17 — File tree type-ahead and file-type icons (S49.3)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s49-tree-typeahead-icons-8a9c6d`
+(node_modules junctioned), started from the M18 plan session alongside S47.1, S48 and S49.1.
+
+**Done**
+
+- `file-tree-model.ts`: pure `typeAheadChar` (one printable character, no Ctrl/Alt/Meta; a space only continues a
+  buffer) and `typeAheadTarget` (next visible row whose NFC-normalised, lower-cased name starts with the buffer,
+  wrapping; a one-character buffer starts after the selection, a longer one keeps a still-matching row, a repeated
+  character cycles). `TYPE_AHEAD_RESET_MS = 1000`.
+- `FileTree.tsx` wires it: only on a treeitem target, never while the NameEditor is open, IME-guarded with
+  `ime.ts isImeKey`; arrow/Home/End keys clear the buffer. Selection and focus move together (roving tabindex).
+- `icons.tsx`: `iconForName` (html/htm, css, js/mjs/cjs, json, png/jpg/jpeg/gif/svg/webp/ico, woff/woff2/ttf/otf,
+  txt/md, other; dotfiles and extensionless names are other) and eight 16 px glyphs on the shared IconBase.
+  `TreeFileIcon` takes an optional `name`; icons stay aria-hidden, accessible names and the role label unchanged.
+  No CSS change was needed.
+
+**Evidence:** unit tests in `file-tree-model.test.ts` and `icons.test.ts`; `tests/e2e/file-tree-typeahead.spec.ts`
+(4 tests) and `file-tree.spec.ts` (15) pass on the packaged app; `npm run verify` green (2752 tests).
+
+**Decisions:** Chinese characters in the e2e are dispatched as keydown events on the focused row because Playwright
+only presses US-layout keys.
+
+**Problems / risks:** With a Chinese IME active, a non-editable tree row receives raw letters, not composed text,
+so pinyin cannot reach a Chinese name by type-ahead; matching works for whatever characters arrive as keydowns. A
+hidden composition input on the tree would close that gap (candidate below).
+
+**Next up:** the rest of S49 (S49.1 splitter runs in its own session) and the other M18 features.
+
+**Ideas / backlog candidates:** type-ahead via a hidden composition field so IME-committed text (pinyin → 中文)
+selects rows; optional pinyin-initial matching.
+
 ## Session 34 (side session) — 2026-10-17 — UI/UX improvement plan from the Claude Desktop study (M18)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/noobide-ui-ux-improvements-50c047`

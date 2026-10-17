@@ -4561,8 +4561,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/file-tree-model.test.ts (type-ahead: 8 tests, Chinese/spaced/NFD names, wrap, repeat-cycle, modifier/space rules) + icons.test.ts (iconForName mapping, distinct decorative glyphs; all new icons pass the 1.5px/size check) + tests/e2e/file-tree-typeahead.spec.ts (4 tests on the packaged build: prefix, 我的 页面.html / 我们.css / 图片, 1 s reset, modifiers/IME/rename field ignored) + file-tree.spec.ts still green; npm run verify green"
     },
     {
       "id": "S49.4",

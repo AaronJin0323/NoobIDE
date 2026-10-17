@@ -204,3 +204,49 @@ export function keyAction(state: TreeState, key: TreeKey): TreeAction[] {
     }
   }
 }
+
+/** How long type-ahead keeps the typed buffer after the last key (S49.3). */
+export const TYPE_AHEAD_RESET_MS = 1000;
+
+/**
+ * A key that extends the type-ahead buffer: one printable character with no Ctrl/Alt/Meta held. A space only
+ * continues a buffer ("my page"), so it never starts one. IME keys are filtered by the caller (workbench/ime.ts).
+ */
+export function typeAheadChar(
+  event: { readonly key: string; readonly ctrlKey: boolean; readonly altKey: boolean; readonly metaKey: boolean },
+  buffer: string,
+): string | null {
+  if (event.ctrlKey || event.altKey || event.metaKey) return null;
+  if ([...event.key].length !== 1 || /\p{C}/u.test(event.key)) return null;
+  if (event.key === ' ' && buffer === '') return null;
+  return event.key;
+}
+
+const fold = (s: string) => s.normalize('NFC').toLowerCase();
+
+/**
+ * Type-ahead (S49.3): the next visible row whose name starts with `buffer` (case-insensitive, any script),
+ * wrapping around. A one-character buffer starts after the selected row, so pressing a letter again moves on; a
+ * longer buffer keeps the selected row while it still matches. Repeating one character ("ccc") cycles through
+ * the rows starting with it. Returns the row's relPath, or null when nothing matches.
+ */
+export function typeAheadTarget(state: TreeState, buffer: string): string | null {
+  const rows = visibleRows(state);
+  if (rows.length === 0 || buffer === '') return null;
+  const index = rows.findIndex((r) => r.entry.relPath === state.selected);
+  const find = (prefix: string, startAfterSelected: boolean) => {
+    const wanted = fold(prefix);
+    const start = index < 0 ? 0 : startAfterSelected ? index + 1 : index;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[(start + i) % rows.length];
+      if (row && fold(row.entry.name).startsWith(wanted)) return row.entry.relPath;
+    }
+    return null;
+  };
+  const chars = [...buffer];
+  if (chars.length === 1) return find(buffer, true);
+  const exact = find(buffer, false);
+  if (exact !== null) return exact;
+  const first = chars[0] ?? '';
+  return chars.every((c) => fold(c) === fold(first)) ? find(first, true) : null;
+}
