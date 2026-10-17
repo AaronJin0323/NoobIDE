@@ -70,6 +70,35 @@ test('a folder cannot be moved into itself: the dialog shows why (S52.1)', async
   await expect(page.getByTestId('move-dialog')).toHaveCount(0);
 });
 
+test('Enter pressed before the folder list has loaded still moves, once it loads (S52.1)', async () => {
+  await mkdir(path.join(root, '慢 目标'));
+  await writeFile(path.join(root, '慢 文件.txt'), '慢\n');
+  await expect(treeRow(page, '慢 目标')).toBeVisible();
+  await expect(treeRow(page, '慢 文件.txt')).toBeVisible();
+  const hooks = (fn: 'holdListings' | 'releaseListings') =>
+    app.evaluate((_electron, name) => {
+      (
+        globalThis as unknown as { __noobideTestHooks: Record<'holdListings' | 'releaseListings', () => void> }
+      ).__noobideTestHooks[name]();
+    }, fn);
+  await openMenu('慢 文件.txt');
+  await hooks('holdListings');
+  try {
+    await page.locator('[data-command="move-to"]').click();
+    const dialog = page.getByTestId('move-dialog');
+    await expect(dialog.getByRole('combobox')).toBeFocused();
+    await page.keyboard.type('慢');
+    await page.keyboard.press('Enter');
+    // The folders are still being listed: no options yet and nothing moved; the Enter waits for the list.
+    await expect(dialog.getByRole('option')).toHaveCount(0);
+    expect(await readdir(root)).toContain('慢 文件.txt');
+  } finally {
+    await hooks('releaseListings');
+  }
+  await expect(page.getByTestId('move-dialog')).toHaveCount(0);
+  await expect.poll(() => readdir(path.join(root, '慢 目标'))).toEqual(['慢 文件.txt']);
+});
+
 test('dragging a file onto a folder row moves it there (S52.1)', async () => {
   await openFile(page, 'script.js');
   await treeRow(page, 'script.js').dragTo(treeRow(page, '子 文件夹'));

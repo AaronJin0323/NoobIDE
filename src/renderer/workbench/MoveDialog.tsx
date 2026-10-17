@@ -35,6 +35,9 @@ export function MoveDialog({ projectId, projectName, sources, name, listDir, onM
   const [truncated, setTruncated] = useState(false);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
+  // Enter pressed while the folders are still being listed: remembered and acted on once they arrive, so a quick
+  // "type the filter, press Enter" never silently does nothing on a slow disk. Typing again forgets it.
+  const [enterPending, setEnterPending] = useState(false);
 
   useEffect(() => input.current?.focus(), []);
 
@@ -80,6 +83,13 @@ export function MoveDialog({ projectId, projectName, sources, name, listDir, onM
     if (folder !== undefined && refusals[index] === null) onMove(folder);
   };
 
+  useEffect(() => {
+    if (!enterPending || folders === null) return;
+    setEnterPending(false);
+    const folder = shown[active];
+    if (folder !== undefined && refusals[active] === null) onMove(folder);
+  }, [enterPending, folders, shown, active, refusals, onMove]);
+
   // Escape and Tab belong to the sheet (close, stay inside); the list keys are handled here.
   const onKeyDown = (event: KeyboardEvent) => {
     if (isImeKey(event.nativeEvent)) return;
@@ -100,7 +110,8 @@ export function MoveDialog({ projectId, projectName, sources, name, listDir, onM
         else return;
         break;
       case 'Enter':
-        choose(active);
+        if (folders === null) setEnterPending(true);
+        else choose(active);
         break;
       default:
         return;
@@ -167,6 +178,7 @@ export function MoveDialog({ projectId, projectName, sources, name, listDir, onM
           onChange={(event) => {
             setQuery(event.target.value);
             setSelected(0);
+            setEnterPending(false);
           }}
         />
         {folders === null ? (
