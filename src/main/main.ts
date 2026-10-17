@@ -449,6 +449,14 @@ function start(): void {
       projects: openProjects,
       trashItem: (fullPath) => shell.trashItem(fullPath), // S52.3: the OS trash, never a permanent delete
       rootOf: (projectId) => openProjects.rootOf(projectId), // S52.6
+      // S52.5 e2e only (NOOBIDE_E2E_DROP=1, set by tests/e2e/file-drop.spec.ts): names the OS paths of a synthetic
+      // test drop (see FileOpsIpcDeps.testDropPaths). Not wired in any other run.
+      ...(process.env.NOOBIDE_E2E_DROP === '1'
+        ? {
+            testDropPaths: () =>
+              (globalThis as { __noobideTestHooks?: { dropPaths?: readonly string[] } }).__noobideTestHooks?.dropPaths,
+          }
+        : {}),
       // S52.4: "Add files…" / "Add image…" (texts translated by the renderer; images filtered by ending)
       async chooseImportPaths(event, { kind, title, filterName }) {
         const owner = BrowserWindow.fromWebContents(event.sender);

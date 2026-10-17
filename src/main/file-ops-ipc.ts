@@ -5,6 +5,7 @@ import {
   parseChooseImportRequest,
   parseCopyEntriesRequest,
   parseImportEntriesRequest,
+  parseRegisterDroppedRequest,
   parseImageInfoRequest,
   parseMoveEntriesRequest,
   parseTrashEntriesRequest,
@@ -13,6 +14,7 @@ import type { ProjectService } from '../workspace/project-service';
 import { isTrustedSender, senderInfo } from './ipc';
 import { projectImageInfo } from './project-images'; // S52.6
 import { randomBytes } from 'node:crypto';
+import path from 'node:path';
 import { inspectSources, importEntry, type ImportSource } from '../workspace/import-files'; // S52.4
 import type { ImportKind } from '../shared/import-rules';
 import { MAX_IMPORT_ITEMS, type ImportCandidate } from '../shared/ipc/file-ops-contract';
@@ -43,6 +45,11 @@ export interface FileOpsIpcDeps {
     event: IpcMainInvokeEvent,
     options: { readonly kind: ImportKind; readonly title: string; readonly filterName: string },
   ): Promise<readonly string[] | null>;
+  /**
+   * S52.5, e2e only: Playwright cannot drag from Explorer/Finder, and the synthetic File objects of a test drop have
+   * no OS path, so the test names them here through main's test hook. Only main code can set it, never a page.
+   */
+  testDropPaths?(): readonly string[] | undefined;
   /** Random ids for chosen entries (tests pass a counter). */
   newId?(): string;
   now?(): number;
@@ -120,6 +127,17 @@ export function registerFileOpsIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: F
     const paths = await deps.chooseImportPaths(event, request);
     if (paths === null) return { ok: true, value: null };
     return { ok: true, value: await registerSources(event, request.projectId, request.kind, paths) };
+  });
+
+  handle(FILE_OPS_CHANNELS.registerDropped, parseRegisterDroppedRequest, async (request, event) => {
+    if (deps.rootOf?.(request.projectId) === undefined) {
+      return { ok: false, code: 'unknown-project', message: 'project is not open' };
+    }
+    const override = deps.testDropPaths?.();
+    const paths = request.paths
+      .map((p, i) => (p === '' ? (override?.[i] ?? '') : p))
+      .filter((p) => p !== '' && path.isAbsolute(p));
+    return { ok: true, value: await registerSources(event, request.projectId, 'files', paths) };
   });
 
   handle(FILE_OPS_CHANNELS.importEntries, parseImportEntriesRequest, async (request, event) => {

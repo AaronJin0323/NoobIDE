@@ -4552,8 +4552,8 @@
       "depends_on": [
         "S52.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "drop handling implemented (FileTree Files drop → preload webUtils.getPathForFile → workspace:register-dropped → S52.4 import); tested on Windows x64 with a synthetic drop: tests/e2e/file-drop.spec.ts (3) + tests/integration/file-import.test.ts (drop IPC); real Explorer/Finder drag: steps in harness/MANUAL-CHECKS.md#S52.5"
     },
     {
       "id": "S52.6",

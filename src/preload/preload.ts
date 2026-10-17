@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { CHANNELS, EVENTS, IPC_API_VERSION, type NoobideApi, type WorkspaceChanged } from '../shared/ipc/contract';
 import { PREVIEW_CHANNELS, PREVIEW_EVENT_CHANNEL, type PreviewEvent } from '../shared/ipc/preview-contract';
 import { platformId } from '../platform/index';
@@ -11,7 +11,7 @@ import type { ProblemRecord } from '../shared/problem';
 import { AI_CHANNELS, AI_EVENT_CHANNEL, type AiEvent } from '../shared/ipc/ai-contract'; // S31
 import { AI_HISTORY_CHANNELS } from '../shared/ipc/ai-history-contract'; // S39
 import { ANNOTATION_CHANNELS } from '../shared/ipc/annotations-contract'; // S41
-import { FILE_OPS_CHANNELS } from '../shared/ipc/file-ops-contract'; // S52
+import { FILE_OPS_CHANNELS, MAX_IMPORT_ITEMS } from '../shared/ipc/file-ops-contract'; // S52
 
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
@@ -239,6 +239,15 @@ const api: NoobideApi = {
     imageInfo: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.imageInfo, request),
     chooseImport: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.chooseImport, request),
     importEntries: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.importEntries, request),
+    // S52.5: Electron gives the OS path of a dropped file only here (webUtils); the page never sees it.
+    // At most MAX_IMPORT_ITEMS: the panel tells the user when a drop held more.
+    registerDropped: ({ projectId, files }) =>
+      ipcRenderer.invoke(FILE_OPS_CHANNELS.registerDropped, {
+        projectId,
+        paths: Array.from(files)
+          .slice(0, MAX_IMPORT_ITEMS)
+          .map((file) => webUtils.getPathForFile(file)),
+      }),
   },
 };
 

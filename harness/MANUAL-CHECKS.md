@@ -35,6 +35,45 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 
 ## Open checks
 
+### S52.5 — Drag-and-drop import from Explorer / Finder
+
+The drop handling (renderer `FileTree` → preload `webUtils.getPathForFile` → main `workspace:register-dropped`, then
+the same copy as "Add files…", S52.4) is covered by integration tests and an Electron e2e that dispatches a synthetic
+drop. A real drag from the OS file manager cannot be automated, so these steps prove it on real hardware.
+
+- **Platform:** Windows 11 x64 (File Explorer) and macOS on Apple Silicon (Finder)
+- **Build:** branch `claude/m19-s52-files-402d45` (`npm start`) or an installer built from it
+- **Prepare:** a folder `D:\网页 练习\导入 测试` (macOS: `~/网页 练习/导入 测试`) holding `猫 咪.png`, `说明 文档.txt`,
+  `setup.exe` (any bytes; macOS: `run.command`) and a folder `素材 包` with `a.css` and `小 图/b.png` inside. Open a
+  NoobIDE project whose path has Chinese characters and spaces, with a folder `图片 素材` in it.
+- **Steps (Windows, then the same on macOS with Finder):**
+  1. Select `猫 咪.png`, `说明 文档.txt` and the folder `素材 包` in Explorer and drag them onto the `图片 素材` row of
+     the NoobIDE file tree. While over the row it shows a solid outline; over a file row the outline is on that file's
+     folder.
+  2. Drop. The three entries appear in `图片 素材`; `素材 包/小 图/b.png` is there too. In Explorer, the originals are
+     still in `导入 测试` (copied, not moved).
+  3. Drag `猫 咪.png` onto `图片 素材` again. A "名称已被使用" dialog proposes `猫 咪 copy.png`; press Enter. Both
+     files exist; the first copy is unchanged (compare sizes / open it).
+  4. Drag `猫 咪.png` once more and press Escape (skip). Nothing changes.
+  5. Drag `setup.exe` (macOS `run.command`) onto the tree. It is not added; the panel explains that programs and
+     scripts are not added, naming the ending.
+  6. Drag a file onto the empty space below the last row: it is copied into the project root. Drag another onto a
+     file row inside `图片 素材`: it lands in `图片 素材` (that file's folder).
+  7. Case conflict: with `猫 咪.png` in `图片 素材`, rename a copy in Explorer/Finder to `猫 咪.PNG` and drop it on
+     `图片 素材`. The name dialog appears (never a replace); skip it.
+  8. Put `setup.exe` (macOS `run.command`) into a folder `工具 包` and drop the folder: it is not added; the message
+     names `setup.exe` inside it.
+  9. Drag selected text from a browser, and an image straight out of a browser page: nothing is added, the workbench
+     stays as it is.
+  10. Drop a file onto the code editor and onto the preview pane: nothing is added, the workbench is not replaced and
+      the preview page does not navigate to the file.
+  11. macOS only: drag an `.app` bundle (e.g. from /Applications) onto the tree: it is refused as a program. Drop a
+      file whose Chinese name Finder hands over in decomposed form (any name with spaces created in Finder): it
+      arrives with the same name, and dropping it a second time shows the name dialog (the names compare equal).
+- **Expected:** every drop copies, never moves or replaces; Chinese names with spaces arrive unchanged; refusals and
+  name collisions are explained as in S52.4.
+- **Result:** _(owner fills in: pass/fail, notes, date — Windows and macOS separately)_
+
 ### S46.9 — Integrated title bar
 
 - **Platform:** Windows 11 x64 and macOS on Apple Silicon

@@ -253,7 +253,15 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'highlight',
       'context',
     ],
-    fileOps: ['moveEntries', 'copyEntries', 'trashEntries', 'imageInfo'],
+    fileOps: [
+      'moveEntries',
+      'copyEntries',
+      'trashEntries',
+      'imageInfo',
+      'chooseImport',
+      'importEntries',
+      'registerDropped',
+    ],
   });
 
   // The violation we just provoked is logged as a console error; drop exactly those so the final check stays strict.

@@ -51,6 +51,8 @@ export interface FileTreeCommands {
   onUnportable?(entry: TreeEntry): void;
   /** S52.1: rows dragged onto a folder (or onto a file: its folder; onto the empty area: the project root). */
   onMoveDrop?(sources: readonly TreeEntry[], folder: string): void;
+  /** S52.5: files and folders dropped from Explorer/Finder, to be copied into `folder`. */
+  onFilesDrop?(files: readonly File[], folder: string): void;
 }
 
 /** An inline name field in the tree (S08.2): renaming a row, or naming a new entry inside `parent`. */
@@ -145,6 +147,8 @@ export function FileTree(props: FileTreeProps) {
   /** The rows being dragged (dragover events cannot read the drag data, only its type). */
   const dragged = useRef<readonly TreeEntry[] | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  /** S52.5: the drag over the tree brings files from outside (copied in) rather than tree rows (moved). */
+  const [dropCopies, setDropCopies] = useState(false);
   const draggable = (entry: TreeEntry) =>
     !entry.unportable && entry.kind !== 'link-outside' && entry.kind !== 'link-broken' && editing === null;
   const onRowDragStart = (entry: TreeEntry, event: DragEvent) => {
@@ -162,6 +166,16 @@ export function FileTree(props: FileTreeProps) {
   /** Accepts a drag of our own rows over `target` (null: the empty area) when the folder can take them. */
   const onDragOverFolder = (target: TreeEntry | null, event: DragEvent) => {
     const sources = dragged.current;
+    // S52.5: files from Explorer/Finder are copied in (never moved), into the folder under the pointer.
+    if (!sources && event.dataTransfer.types.includes('Files') && commands.current.onFilesDrop) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = 'copy';
+      const folder = dropFolder(target as MoveSource | null);
+      if (dropTarget !== folder) setDropTarget(folder);
+      if (!dropCopies) setDropCopies(true);
+      return;
+    }
     if (!sources || !event.dataTransfer.types.includes(TREE_DRAG_TYPE)) return;
     event.stopPropagation();
     const folder = dropFolder(target as MoveSource | null);
@@ -173,10 +187,18 @@ export function FileTree(props: FileTreeProps) {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     if (dropTarget !== folder) setDropTarget(folder);
+    if (dropCopies) setDropCopies(false);
   };
   const onDropFolder = (target: TreeEntry | null, event: DragEvent) => {
     const sources = dragged.current;
     setDropTarget(null);
+    if (!sources && event.dataTransfer.types.includes('Files') && commands.current.onFilesDrop) {
+      event.preventDefault();
+      event.stopPropagation();
+      const files = Array.from(event.dataTransfer.files);
+      if (files.length > 0) commands.current.onFilesDrop(files, dropFolder(target as MoveSource | null));
+      return;
+    }
     if (!sources || !event.dataTransfer.types.includes(TREE_DRAG_TYPE)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -414,7 +436,9 @@ export function FileTree(props: FileTreeProps) {
       {/* S52.1: where a drop would move the rows, as text (not only the highlight). */}
       <p className="sr-only" role="status" aria-live="polite" data-testid="tree-drop-status">
         {dropTarget !== null
-          ? fill(t('move.dropInto'), { folder: folderLabel(dropTarget, props.projectName ?? '') })
+          ? fill(t(dropCopies ? 'import.dropInto' : 'move.dropInto'), {
+              folder: folderLabel(dropTarget, props.projectName ?? ''),
+            })
           : ''}
       </p>
       {root.truncated && <p className="empty-detail list-note">{t('tree.truncated')}</p>}

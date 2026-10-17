@@ -24,6 +24,8 @@ export const FILE_OPS_CHANNELS = {
   chooseImport: 'workspace:choose-import',
   /** S52.4/S52.5: copies chosen or dropped entries into a project folder under the names the user confirmed. */
   importEntries: 'workspace:import-entries',
+  /** S52.5: files and folders dropped from Explorer/Finder onto the tree, registered like chosen ones. */
+  registerDropped: 'workspace:register-dropped',
 } as const;
 
 /** Most entries one request may name (a selection in the tree). */
@@ -136,6 +138,15 @@ export interface ImportEntriesResult {
 export interface FileOpsApi {
   /** S52.4: shows the native dialog; null when cancelled. Every chosen entry is listed, refused ones with why. */
   chooseImport(request: ChooseImportRequest): Promise<IpcResult<readonly ImportCandidate[] | null, FileOpError>>;
+  /**
+   * S52.5: the files dropped onto the tree (the File objects of the drop). Preload asks Electron for each file's OS
+   * path and main registers them like "Add files…"; their paths never come back. A drop that is not files (text from
+   * another app) gives an empty list.
+   */
+  registerDropped(request: {
+    readonly projectId: string;
+    readonly files: ArrayLike<File>;
+  }): Promise<IpcResult<readonly ImportCandidate[], FileOpError>>;
   /** S52.4/S52.5: copies candidates into a folder; never links, moves or overwrites. */
   importEntries(request: ImportEntriesRequest): Promise<IpcResult<ImportEntriesResult, FileOpError>>;
   /** S52.6: size of a png/jpg/gif/svg/webp/ico inside the project; anything else is refused. */
@@ -199,6 +210,8 @@ export function parseImageInfoRequest(payload: unknown): { projectId: string; re
 export const IMPORT_ID = /^[A-Za-z0-9_-]{8,64}$/;
 /** Most entries one dialog or drop may bring in. */
 export const MAX_IMPORT_ITEMS = 200;
+/** Longest OS path a drop may name (Windows long paths included). */
+export const MAX_DROP_PATH_LENGTH = 4096;
 
 const isShortText = (value: unknown): value is string => typeof value === 'string' && value.length <= 200;
 
@@ -226,4 +239,18 @@ export function parseImportEntriesRequest(payload: unknown): ImportEntriesReques
   }
   if (new Set(out.map((i) => i.id)).size !== out.length) return null;
   return { projectId, toFolder, items: out };
+}
+
+/**
+ * S52.5: the payload preload sends for a drop: the OS paths of the dropped files. The only place absolute paths
+ * cross IPC; main only ever reads them (inspect, then copy into the project after the user confirms the names).
+ * `''` is a dropped item without an OS path (Electron gives none for files that are not on disk).
+ */
+export function parseRegisterDroppedRequest(payload: unknown): { projectId: string; paths: string[] } | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'paths'])) return null;
+  const { projectId, paths } = payload;
+  if (!isProjectId(projectId) || !Array.isArray(paths) || paths.length > MAX_IMPORT_ITEMS) return null;
+  if (!paths.every((p) => typeof p === 'string' && !p.includes('\0'))) return null;
+  // An over-long path (e.g. a \\?\ path) is left out like an item without a path, not a reason to drop everything.
+  return { projectId, paths: (paths as string[]).map((p) => (p.length > MAX_DROP_PATH_LENGTH ? '' : p)) };
 }

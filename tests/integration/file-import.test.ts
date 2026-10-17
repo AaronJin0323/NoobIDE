@@ -9,6 +9,7 @@ import { registerFileOpsIpcHandlers } from '../../src/main/file-ops-ipc';
 import {
   FILE_OPS_CHANNELS,
   parseImportEntriesRequest,
+  parseRegisterDroppedRequest,
   type ImportCandidate,
   type ImportEntriesResult,
 } from '../../src/shared/ipc/file-ops-contract';
@@ -232,6 +233,23 @@ describe('import IPC (S52.4)', () => {
     ]);
     expect(result.value.failed).toMatchObject([{ id: cat?.id, code: 'invalid-name' }]);
     expect(result.value.imported).toMatchObject([{ id: doc?.id, relPath: '图片 素材/说明 文档.txt' }]);
+  });
+
+  it('S52.5: dropped paths are registered like chosen ones; relative or empty paths are ignored', async () => {
+    const drop = (paths: string[], event = win(1)) =>
+      handlers.get(FILE_OPS_CHANNELS.registerDropped)?.(event, { projectId, paths }) as Promise<{ ok: true; value: ImportCandidate[] }>; // prettier-ignore
+    const dropped = await drop([src('猫 咪.png'), 'relative/x.png', '', src('素材 包')]);
+    expect(dropped.value.map((c) => [c.name, c.kind, c.refusal])).toEqual([
+      ['猫 咪.png', 'file', null],
+      ['素材 包', 'directory', null],
+    ]);
+    expect(JSON.stringify(dropped.value)).not.toContain(outside);
+    const result = await importIt(dropped.value.map((c) => ({ id: c.id, name: c.name })));
+    expect(result.value.imported.map((i) => i.relPath).sort()).toEqual(['图片 素材/猫 咪.png', '图片 素材/素材 包']);
+    expect(await readFile(src('猫 咪.png'))).toEqual(PNG); // copied, the dropped original stays
+    expect(parseRegisterDroppedRequest({ projectId, paths: [1] })).toBeNull();
+    expect(parseRegisterDroppedRequest({ projectId, paths: ['a\0b'] })).toBeNull();
+    expect(parseRegisterDroppedRequest({ projectId, paths: Array(201).fill('C:/x') })).toBeNull();
   });
 
   it('refuses malformed requests: paths instead of names, duplicates, bad ids', () => {

@@ -9,7 +9,12 @@ import { fill, nameProblemMessage, opErrorMessage, protectedFolderMessage } from
 import { parentOf } from './file-tree-model';
 import { FolderIcon, NewFileIcon, NewFolderIcon, SmallFolderIcon, WarningIcon } from './icons';
 import { TreeContextMenu, type MenuItem } from './TreeContextMenu';
-import { MAX_BATCH_ENTRIES, type FileOpsApi, type ImportCandidate } from '../../shared/ipc/file-ops-contract';
+import {
+  MAX_BATCH_ENTRIES,
+  MAX_IMPORT_ITEMS,
+  type FileOpsApi,
+  type ImportCandidate,
+} from '../../shared/ipc/file-ops-contract';
 import type { FileOpError } from '../../shared/ipc/contract';
 import type { ImportKind } from '../../shared/import-rules';
 import { copyName, sameName } from '../../shared/file-names';
@@ -557,6 +562,29 @@ export function FilesPanel({
     }
     if (chosen.value) await runImport(chosen.value, folder);
   };
+  /** S52.5: files dropped from Explorer/Finder: registered in main (their paths stay there), then imported. */
+  const dropFiles = async (files: readonly File[], folder: string) => {
+    if (!fileOpsApi || !projectId) return;
+    if (busy.current) {
+      setOpError({ text: t('import.busy'), detail: '' });
+      return;
+    }
+    try {
+      const dropped = await fileOpsApi.registerDropped({ projectId, files });
+      if (!dropped.ok) {
+        setOpError({ text: opErrorMessage(t, dropped.code, dropped.message, ''), detail: dropped.message });
+        return;
+      }
+      await runImport(dropped.value, folder);
+      if (files.length > MAX_IMPORT_ITEMS) {
+        setNotice(
+          fill(t('import.tooMany'), { n: String(MAX_IMPORT_ITEMS), rest: String(files.length - MAX_IMPORT_ITEMS) }),
+        );
+      }
+    } catch {
+      setOpError({ text: t('op.generic'), detail: '' });
+    }
+  };
   // --- end S52.4 ---
 
   const fileCommandRef = useRef<(command: FileCommand) => void>(() => undefined);
@@ -769,6 +797,7 @@ export function FilesPanel({
             {...(fileOpsApi
               ? {
                   onMoveDrop: (sources, folder) => void moveEntries(sources, folder),
+                  onFilesDrop: (files, folder) => void dropFiles(files, folder), // S52.5
                   onCopy: (entry) => copyToClipboard(targets(entry)),
                   onPaste: (entry) => pasteInto(entry),
                   onDuplicate: (entry) => void copyEntries(targets(entry), '', 'duplicate'),
