@@ -3,6 +3,39 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 34 (side session) — 2026-10-17 — CI failure triage and speed-up plan (M20 / S50, owner request)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/ci-failures-optimization-f08cd1`.
+
+**Done:** Inspected the 25 `CI` runs of 16–17 October with `gh run view` and the failed-step logs. The five red
+runs had four causes, none of them the PR's product code: a hand-merged `features.json` missing a `,` (fixed in
+5a66a19); `completion-latency.test.ts` asserting a 10 ms p95 budget on a hosted macOS runner (21 ms); two Windows
+E2E intermittents in `walkthrough.spec.ts` (an unpolled `readFile` of `walkthrough.json`, and a Help-menu click
+that opened nothing once) plus one 10 s poll timeout in the preview-isolation dialog test; and
+`e2e-shards.test.ts` asserting `preview-isolation.spec.ts` sits in shard 2, which any new spec file flips because
+Playwright shards by test count in file order (confirmed locally: shard 1 ends exactly at
+`preview-annotations.spec.ts`). Measured a green run step by step: jobs take 9.5–11.5 min, but the run took 20.5
+min because macOS shard 2 queued 9 min 21 s behind five PRs pushed at once (free-plan limit: 5 concurrent macOS
+jobs). Wrote `docs/ci/ci-stability-and-speed-plan.md` (causes, timing table, targets, six work packages with file
+ownership so they run as parallel sub-sessions, owner decisions) and added milestone M20, session S50 and
+features S50.1–S50.6 to the backlog. No workflow or test was changed in this session.
+
+**Evidence:** `docs/ci/ci-stability-and-speed-plan.md` §1–§2 (run ids, failing lines, per-step durations);
+`node harness/session.mjs check` OK (228 features, 48 sessions); `npm run verify` green (see commit).
+
+**Decisions:** Work is split so S50.1 (workflow), S50.2 (shard manifest + traces), S50.3 (perf budgets, own
+`perf.yml`), S50.4 (flaky tests) and S50.6 (timing tool + ADR 0037) touch disjoint files; S50.5 (move the two
+2-minute measurement tests to a nightly workflow) is an owner decision and depends on S50.2 and S50.4. Numbers
+M20/S50 were chosen above the S47–S49 / M18–M19 ids that open PRs add.
+
+**Problems / risks:** The owner has four decisions in plan §6 (draft PRs skip the matrix, installers only on
+`main`, perf budgets informational on hosted runners, nightly measurements). Until S50.2 lands, any PR that adds
+an E2E spec file can turn CI red through `e2e-shards.test.ts`; until S50.3 lands, any hosted run can fail on a
+latency budget.
+
+**Next up:** Start S50.6 and S50.1–S50.4 as parallel sub-sessions (plan §4–§5); S50.5 after the owner answers §6
+item 4. Then measure 20 runs with `scripts/ci-timings.mjs` and finish ADR 0037.
+
 ## Session 33 (side session) — 2026-10-17 — Hosted CI failure follow-up (S06.5)
 
 **Agent:** Codex on Windows x64, managed ci-cd-delivery checkout, PR #13.
