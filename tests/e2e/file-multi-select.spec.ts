@@ -63,12 +63,23 @@ async function menuByKeyboard(command: string) {
   await page.keyboard.press('Enter');
 }
 
-/** Moves the keyboard focus from `from` to `to` with Ctrl/Cmd+arrows (the selection stays). */
+/**
+ * Moves the keyboard focus from `from` to `to` with Ctrl/Cmd+arrows (the selection stays). One key at a time, with
+ * the tree order read again before each: files the previous step created, moved or duplicated reach the tree through
+ * the watcher, so on a slow runner rows can still appear or disappear while the focus walks.
+ */
 async function focusByKeyboard(from: string, to: string) {
-  const order = await page.getByTestId('tree-row').evaluateAll((rows) => rows.map((r) => r.getAttribute('data-path')));
-  const steps = order.indexOf(to) - order.indexOf(from);
-  for (let i = 0; i < Math.abs(steps); i += 1)
-    await page.keyboard.press(`${PRIMARY}+${steps > 0 ? 'ArrowDown' : 'ArrowUp'}`);
+  await expect(treeRow(page, from)).toBeFocused();
+  await expect(treeRow(page, to)).toBeVisible();
+  for (let i = 0; i < 30; i += 1) {
+    const focused = await page.evaluate(() => document.activeElement?.getAttribute('data-path') ?? null);
+    if (focused === to) break;
+    const order = await page
+      .getByTestId('tree-row')
+      .evaluateAll((rows) => rows.map((r) => r.getAttribute('data-path')));
+    const down = order.indexOf(to) > order.indexOf(focused);
+    await page.keyboard.press(`${PRIMARY}+${down ? 'ArrowDown' : 'ArrowUp'}`);
+  }
   await expect(treeRow(page, to)).toBeFocused();
 }
 
