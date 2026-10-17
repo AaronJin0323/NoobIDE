@@ -12,10 +12,10 @@ import type { Rule } from './types';
 
 export const NULL_ELEMENT_RULE_ID = 'null-element';
 
-const NULL_ACCESS =
+export const NULL_ACCESS =
   /Cannot (?:read|set) propert(?:ies|y) (?:of null \((?:reading|setting) '([^']+)'\)|'([^']+)' of null)/;
-const BY_ID = /getElementById\(\s*(['"`])([^'"`]+)\1\s*\)/;
-const QUERY = /querySelector\(\s*(['"`])([^'"`]+)\1\s*\)/;
+export const BY_ID = /getElementById\(\s*(['"`])([^'"`]+)\1\s*\)/;
+export const QUERY = /querySelector\(\s*(['"`])([^'"`]+)\1\s*\)/;
 
 export const nullElementRule: Rule = {
   id: NULL_ELEMENT_RULE_ID,

@@ -3,6 +3,7 @@ import { createProblemRecord } from '../../shared/problem';
 import { renderExplanation } from './engine';
 import { USER_NMAE_COLUMN, USER_NMAE_LINE, fixture } from './fixtures';
 import { explain } from './index';
+import { nullElementRule } from './null-element';
 
 const render = (name: string, locale: 'zh-CN' | 'en' = 'zh-CN') => {
   const f = fixture(name);
@@ -176,8 +177,10 @@ describe('rule 3: DOM element is null', () => {
 
   it('when the id exists in the HTML, only the timing cause remains', () => {
     const f = fixture('runtime-null-addEventListener');
-    const exp = explain(f.record, { ...f.ctx, htmlIds: ['btn'] });
-    expect(exp.causes.map((c) => c.key)).toEqual(['nullElement.cause.tooEarly']);
+    const out = nullElementRule.explain(f.record, { ...f.ctx, htmlIds: ['btn'] });
+    expect(out?.causes?.map((c) => c.key)).toEqual(['nullElement.cause.tooEarly']);
+    // S55.2: with the built-in rules, rule 22 (script before the element) now explains this case before rule 3.
+    expect(explain(f.record, { ...f.ctx, htmlIds: ['btn'] }).ruleId).toBe('script-before-element');
   });
 });
 

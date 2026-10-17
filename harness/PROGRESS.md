@@ -94,6 +94,132 @@ up scrolled, not that nothing moved in the same task. Merged the plan branch aga
    so the gate covers it, and add its case to reduced-motion.spec.ts.
 2. Other M18 sessions (S48–S50) can branch from this commit.
 
+## Session 42 (side session) — 2026-10-18 — PR #26 (S55) green on hosted CI: walkthrough reopen race
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree `relaxed-pike-b23d7f` tracking
+`claude/m19-s55-rules-e287fc` (PR #26, S55 rules 16–25 and quick fixes), started by the M19 re-sync session.
+
+**Done**
+
+- Run 39033418043 on PR #26 had one real failure: Windows shard 1, `tests/e2e/walkthrough.spec.ts:313` "reopen" —
+  the stored `completed` list lacked `reopen` although the panel already showed the step as done. The two
+  `windows-x64` / `macos-arm64` gate jobs failed only because the build matrix reported that shard. The macOS shards
+  and Windows shard 2 (which holds the S55 quick-fix e2e) passed, and `tests/integration/quick-fix.test.ts` (the
+  cause fixed in fad7576) passed on both OSes.
+- Cause: a test race, not S55 and not a product bug. The renderer dispatches `detected` and React renders
+  `data-done=true` / "完成导览" at once; the save runs afterwards (effect → `walkthrough.save` IPC → WalkthroughStore
+  serial queue → `writeFileAtomic` temp + rename). The spec read walkthrough.json once, right after the text
+  assertion; on the slow hosted disk the rename had not landed yet. The three other `stored()` reads in the spec
+  already polled; this one now does too (`expect.poll` on `completed`). No threshold changed, nothing skipped. This
+  is the "reopen journey step missing" item that S58.4 lists from run 39018194387.
+
+**Evidence:** `npm run test:e2e -- tests/e2e/walkthrough.spec.ts` 12 passed on Windows; then `--no-build
+--repeat-each=5` with every CPU burned by 32 worker threads (the loadCpu() pattern): 60 of 60 passed in 7.1 min, the reopen step taking up to 37 s where the old single read would have failed. `npm run verify`
+green. PR #26 pushed and commented; the hosted rerun is the final check.
+
+**Decisions:** Test-only change, kept in the PR branch rather than waiting for S58.4 (which still owns the 20/20
+under-load evidence and the Help-menu click cause); S58.4's criteria are untouched.
+
+**Problems / risks:** main moved to 65edc2a (PRs #20 and #7) during this session; origin/main is merged into the PR
+branch after the fix commit (features.json union by id, PROGRESS.md both lanes, shards.json). The parent session
+reports that main itself is red on two `walkthrough-model.test.ts` cases (#20 tests vs #7 `compact` field) and is
+fixing them on main; they are not touched here. After the merge the S55 e2e (beginner-quick-fix.spec.ts) clicked the
+language button that S47.4 removed; it now uses the shared switchLanguage() helper like main's other specs (7/7). Not run on macOS (no Mac on the dev machine; the macOS shards were
+green in the same run).
+
+**Owner action needed:** Merge PR #26 from the PR pane once the rerun is green.
+
+**Next up**
+
+1. S58.4 — fold this fix into its evidence (20/20 repeats under load) together with the Help-menu cause.
+2. The remaining M19 PRs (#22–#27) as the re-sync session finishes them.
+
+## Session 36 (side session) — 2026-10-17 — S55: explanation rules 16–25 and quick fixes (M19)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s55-rules-e287fc` (from
+824b6fa), one of six parallel M19 sessions (S51, S52, S53+S57, S54, S55, S56).
+
+**Done**
+
+- **S55.1** `docs/product/explanation-rules-16-25.md`. H.6 has no data (`docs/research/study-1.md` does not exist),
+  so the criterion's default set is used unchanged. Each rule records its trigger, its evidence (static or
+  runtime), its certainty and uncertainty wording, the rule 1–15 it must not duplicate, and its quick-fix policy.
+- **S55.2** Rules 16–25 on the S22 engine (`src/diagnostics/rules/beginner.ts`), fed by NoobIDE's new static
+  checks (`src/diagnostics/beginner-checks.ts`): broken relative src/href, case-only reference mismatch, duplicate
+  id, `<img>` without alt, stray closing tag, unitless CSS length, selector-prefix mistakes, and assignment in an
+  if/while condition. Two runtime rules: an inline `on…` handler calling an undefined function (before rule 1),
+  and a script reading an element that exists but comes later (before rule 3). In the editor the findings become
+  `noobide-beginner` warning markers for files of the open project (`src/renderer/problems/beginner-checks-monaco.ts`,
+  loaded by useProjectIndex). The marker message quotes the facts, and `beginnerFacts` reads them back into
+  `record.data`. ProblemDetails now gives the rules the project files and the HTML ids/classes.
+- **S55.3** Quick fixes on the problem card and in the editor lightbulb (`quick-fix-monaco.ts`, Ctrl/Cmd+.), with
+  the same rules and the same label. The fixes: change a broken path to the one similar or case-matching file;
+  create a missing .html/.css/.js file from a template; add `alt=""`; rename a stray `</x>` to the never-closed
+  element; drop or add the `#`/`.` prefix to a defined id/class. They follow the S22.5 pipeline (fix-model /
+  fix-host / useProblemFix / FixCard): one editor edit, the file's atomic save pipeline (autosave, journal, local
+  history), card Undo plus editor Ctrl+Z, and "resolved" only after a re-check. Creating a file uses the
+  workspace's exclusive `createEntry` and never overwrites. A lightbulb fix opens the Problems panel to announce
+  the result as text and keeps focus in the editor.
+
+**Evidence:** `tests/fixtures/beginner-rules` holds a positive and a negative fixture per rule, plus a shared
+case-project and case pairs. `rules-16-25.test.ts` runs every fixture through markerToProblem → explain with the
+honesty checks in zh-CN and en. It also tests rule 24 against `folderNameIssues` / `scanPortability`; both now use
+`portableNameKey` from `src/shared/portability.ts`. Other unit tests: `beginner-checks.test.ts`, `quick-fix.test.ts`
+(per-fix unambiguity, verdict, re-check-on-save, quiet templates) and `fix-host.test.ts` (exact span, stale guard,
+create exclusive / exists / failed / save-failed). Integration: `tests/integration/quick-fix.test.ts` (real
+createEntry + writeFileAtomic on a Chinese path with spaces: never overwrites, a failed save keeps the edit and is
+never resolved, a stale finding is not re-fixed). e2e: `tests/e2e/beginner-quick-fix.spec.ts` (7 tests: every card
+fix from the keyboard in zh-CN/en, the save, the local-history version, editor Ctrl+Z, card Undo, the lightbulb via
+Ctrl+. with focus kept in the editor, no console errors). The e2e set problems, problem-card, runtime-problems,
+not-found, a11y, walkthrough, templates, smart-editing, history and quick-fix passed (74) on Windows. `npm run
+verify` is green.
+
+**Honesty review (PLAN §9, S55.2 criterion):** I checked every new text by hand, on top of the machine checks in
+honesty.ts. A cause is stated as fact only for rules 17, 18, 19 (no open element) and 20, where the stated thing
+is browser behaviour or a visible fact: an id repeats, the attribute is missing, the browser ignores the
+declaration. Even there the guessed part is hedged ("you may have meant 100px"). Rules 16, 19 (open element), 21,
+22, 23, 24 and 25 are `likely`/`possible` and worded with 可能/很可能 / may/likely, each with checks. Rule 16 says
+the file list can lag the disk. Rule 24 says the page may still work on Windows/macOS. No text claims a fix is
+certain, and the original message stays on every card.
+
+**Decisions**
+
+- No fix for rules 17, 20, 21, 22 and 25, and no "close the tag" for rule 14: none of them has an unambiguous
+  target (see the doc).
+- "Create file" is offered only when the target folder already holds a file. The index lists files only, so an
+  empty folder is not seen. This is conservative.
+- Rule 22 now explains the "id exists" case that rule 3 used to give a single timing cause. The rule 3 test now
+  calls `nullElementRule` directly and asserts that the built-in order gives rule 22.
+- The Monaco modules import from `monaco-setup` and are loaded only through useProjectIndex, like smart-monaco.
+  Importing `monaco-editor/editor` directly from a dynamically imported module started editors without their
+  services: "depends on UNKNOWN service" console errors and a broken problem-card e2e.
+- `tests/fixtures/static-diagnostics` gained `style.css`, `script.js` and `images/product.svg`, so `clean.html`'s
+  links resolve and it stays quiet.
+- The e2e spec is named `beginner-quick-fix.spec.ts` so the two Playwright shards keep their expected split
+  (`tests/integration/e2e-shards.test.ts`). Parallel M19 sessions that add specs may need the same care.
+
+**Subagent review of S55.3** (required for features that write user files). It found no invariant violation. Fixed
+before marking done:
+
+1. A create-file fix whose save failed could turn "resolved" when the page was saved. Now `recheckOnSave` re-checks
+   save-failed only on a save of the fixed file itself.
+2. A stale finding could be "fixed" again within the 500 ms marker delay. Now `reportsNow` re-runs the checks on
+   the current text and needs the same finding at the same column before any edit or create.
+3. Upper-case closing tags never matched. The closing tag's spelling is now kept.
+4. Create failures lost their cause. A new `create-failed` reason keeps the file-op error text.
+5. Rule 21 also took undefined names in inline `<script>` blocks. It now needs the on… frame.
+
+Not fixed (low risk, noted for later): the project could switch during createFile; the created path counts as
+existing in later re-checks even if deleted; a lightbulb choice while another fix is applying only opens the panel.
+
+**Problems / risks:** The baseline `verify` was red once from a flaky `tests/integration/watcher.test.ts` under the
+load of six parallel sessions; it passes on its own. Expect merge conflicts with the other M19 branches in
+`harness/features.json`, PROGRESS.md, `Workbench.tsx` (S55.3 adds createFile/locale to fixHost, the quick-fix
+handler, FixCard `takeFocus`) and `useProjectIndex.ts`. Not run on macOS.
+
+**Next up:** Merge the M19 branches; then the remaining M19 sessions per `node harness/session.mjs next --all`. When
+H.6 reports, compare its hesitations with rules 16–25 (supersede through new features, never edit silently).
+
 ## Session 36 (side session) — 2026-10-17 — S56 project checkpoints (M19)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s56-checkpoints-16aa1e`,
