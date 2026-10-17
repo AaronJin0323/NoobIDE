@@ -132,10 +132,10 @@ describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
     events = [];
     watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { debounceMs: 20, watch });
     await watcher.start();
-    // The OS reports each step, but all of them before the batch is classified. The raw events are delivered
-    // synchronously after the disk work, so they always form one batch: interleaving them with awaited file
-    // operations let a slow CI disk exceed the 20 ms debounce, split the batch, and report 临时 as created
-    // (then hold its deletion for the rename wait, which idle() does not cover).
+    // The OS reports each step, but all of them before the batch is classified. The disk work runs first and the
+    // reports are delivered back to back: with disk operations between them, a saturated CI runner let the 20 ms
+    // debounce fire mid-sequence, which classified the folder as created and left the rest for a batch that idle()
+    // could not wait for (PR #14 CI).
     await writeFile(p('外部 新建.js'), '');
     await rm(p('外部 新建.js'));
     await mkdir(p('临时'));

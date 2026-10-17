@@ -6,6 +6,8 @@ import {
   isListing,
   keyAction,
   treeReducer,
+  typeAheadChar,
+  typeAheadTarget,
   visibleRows,
   type TreeAction,
   type TreeState,
@@ -147,5 +149,90 @@ describe('keyboard (S08.1, WAI-ARIA tree pattern)', () => {
     expect(keyAction(at('css'), 'ArrowLeft')).toEqual([{ type: 'collapse', relPath: 'css' }]);
     expect(keyAction(at('css/a.css'), 'ArrowLeft')).toEqual([{ type: 'select', relPath: 'css' }]);
     expect(keyAction(at('index.html'), 'ArrowLeft')).toEqual([]);
+  });
+});
+
+describe('type-ahead (S49.3)', () => {
+  const tree = apply(
+    INITIAL_TREE,
+    {
+      type: 'loaded',
+      relPath: '',
+      entries: [
+        dir('css'),
+        dir('图片'),
+        file('About.html'),
+        file('index.html'),
+        file('我的 页面.html'),
+        file('我的笔记.txt'),
+      ],
+      truncated: false,
+    },
+    { type: 'loaded', relPath: 'css', entries: [file('css/common.css')], truncated: false },
+    { type: 'expand', relPath: 'css' },
+  );
+  const at = (selected: string | null) => apply(tree, { type: 'select', relPath: selected });
+
+  it('selects the first matching row when nothing is selected, case-insensitively', () => {
+    expect(typeAheadTarget(at(null), 'a')).toBe('About.html');
+    expect(typeAheadTarget(at(null), 'IND')).toBe('index.html');
+  });
+
+  it('a single character moves to the next match after the selection and wraps around', () => {
+    expect(typeAheadTarget(at('css'), 'c')).toBe('css/common.css');
+    expect(typeAheadTarget(at('css/common.css'), 'c')).toBe('css');
+    expect(typeAheadTarget(at('index.html'), 'a')).toBe('About.html');
+  });
+
+  it('a longer buffer keeps the selected row while it still matches', () => {
+    expect(typeAheadTarget(at('css'), 'cs')).toBe('css');
+    expect(typeAheadTarget(at('css'), 'co')).toBe('css/common.css');
+  });
+
+  it('repeating one character cycles through rows starting with it', () => {
+    expect(typeAheadTarget(at('css'), 'cc')).toBe('css/common.css');
+  });
+
+  it('matches Chinese names and names with spaces', () => {
+    expect(typeAheadTarget(at(null), '图')).toBe('图片');
+    expect(typeAheadTarget(at('图片'), '我的 ')).toBe('我的 页面.html');
+    expect(typeAheadTarget(at('我的 页面.html'), '我的笔')).toBe('我的笔记.txt');
+  });
+
+  it('matches regardless of Unicode normalization (macOS NFD names)', () => {
+    const nfd = apply(INITIAL_TREE, {
+      type: 'loaded',
+      relPath: '',
+      entries: [file('a.css'), file('café.html')],
+      truncated: false,
+    });
+    expect(typeAheadTarget(nfd, 'café')).toBe('café.html');
+  });
+
+  it('returns null when nothing matches or the tree is empty', () => {
+    expect(typeAheadTarget(at('css'), 'zz')).toBeNull();
+    expect(typeAheadTarget(INITIAL_TREE, 'a')).toBeNull();
+    expect(typeAheadTarget(at(null), '')).toBeNull();
+  });
+
+  it('accepts printable keys only, without modifiers; space only continues a buffer', () => {
+    const key = (k: string, mods: Partial<Record<'ctrlKey' | 'altKey' | 'metaKey', boolean>> = {}) => ({
+      key: k,
+      ctrlKey: false,
+      altKey: false,
+      metaKey: false,
+      ...mods,
+    });
+    expect(typeAheadChar(key('a'), '')).toBe('a');
+    expect(typeAheadChar(key('我'), '')).toBe('我');
+    expect(typeAheadChar(key('😀'), '')).toBe('😀');
+    expect(typeAheadChar(key('a', { ctrlKey: true }), '')).toBeNull();
+    expect(typeAheadChar(key('a', { altKey: true }), '')).toBeNull();
+    expect(typeAheadChar(key('a', { metaKey: true }), '')).toBeNull();
+    for (const k of ['Enter', 'F2', 'ArrowDown', 'Delete', 'Tab', 'Escape', 'Process']) {
+      expect(typeAheadChar(key(k), 'a')).toBeNull();
+    }
+    expect(typeAheadChar(key(' '), '')).toBeNull();
+    expect(typeAheadChar(key(' '), 'my')).toBe(' ');
   });
 });
