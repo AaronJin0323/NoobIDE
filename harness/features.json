@@ -4664,8 +4664,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/decisions/0037-css-hot-swap.md: CDP CSS domain over the page guard session (no preload, no page IPC, no page-world or inline script), qualifying saves, fallback table (HTML/JS, @import, inline style, iframe, syntax, failed), zh-CN/en toolbar wording"
     },
     {
       "id": "S54.2",
