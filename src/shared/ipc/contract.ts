@@ -8,6 +8,7 @@
  * relative path, which main resolves and re-checks inside the root (realpath).
  */
 import type { AnnotationsApi } from './annotations-contract';
+import type { CheckpointsApi } from './checkpoints-contract'; // S56
 import type { PlatformId } from '../../platform/labels';
 import type { Result } from '../result';
 // S04 preview: types live in preview-contract.ts; only the API field is added here.
@@ -437,6 +438,8 @@ export interface NoobideApi {
   readonly aiHistory?: AiHistoryApi;
   /** S41: preview annotations (annotations-contract.ts, decision 0030). */
   readonly annotations?: AnnotationsApi;
+  /** S56: project checkpoints in app data (checkpoints-contract.ts, decision 0038). */
+  readonly checkpoints?: CheckpointsApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */

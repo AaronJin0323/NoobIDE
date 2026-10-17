@@ -295,7 +295,13 @@ export class CheckpointStore {
    */
   create(
     rootPath: string,
-    request: { readonly name: string; readonly kind: CheckpointKind; readonly cause: CheckpointCause },
+    request: {
+      readonly name: string;
+      readonly kind: CheckpointKind;
+      readonly cause: CheckpointCause;
+      /** A checkpoint that must survive this create (never pruned or removed for room): the one being restored. */
+      readonly keep?: string;
+    },
   ): Promise<CheckpointResult<{ checkpoint: CheckpointSummary; deduped: boolean }>> {
     return this.queue.run(async () => {
       const name = cleanCheckpointName(request.name);
@@ -363,7 +369,7 @@ export class CheckpointStore {
       // Storage limit over all checkpoints: older automatic checkpoints of this project may make room. Which ones is
       // only planned here; they are removed after the new checkpoint was stored (a refused or failed checkpoint never
       // costs the user an older one).
-      const makeRoom = this.planRoom(project, manifestFiles);
+      const makeRoom = this.planRoom(project, manifestFiles, request.keep);
       if (makeRoom === null) {
         return refuse('storage-full', 'over the storage limit', {
           bytes: this.totalBytes() + this.bytesAdded(manifestFiles),
@@ -444,7 +450,7 @@ export class CheckpointStore {
           this.log('checkpoint.prune-failed', { code: errorCode(e) });
         }
       }
-      await this.pruneAuto(key);
+      await this.pruneAuto(key, request.keep);
       await this.writeLegacyPins();
       return ok({ checkpoint: summaryOf(record), deduped: false });
     });
@@ -707,13 +713,13 @@ export class CheckpointStore {
    * The automatic checkpoints of this project (oldest first) that must go for `files` to fit the storage limit; an
    * empty list when it fits, null when even removing all of them is not enough. Removes nothing.
    */
-  private planRoom(project: ProjectCheckpoints, files: readonly CheckpointFile[]): string[] | null {
+  private planRoom(project: ProjectCheckpoints, files: readonly CheckpointFile[], keep?: string): string[] | null {
     const fits = (without: ReadonlySet<string>) =>
       this.totalBytes(without) + this.bytesAdded(files, without) <= this.limits.maxTotalBytes;
     const doomed = new Set<string>();
     if (fits(doomed)) return [];
     const autos = [...project.records.values()]
-      .filter((r) => r.kind === 'auto')
+      .filter((r) => r.kind === 'auto' && r.id !== keep)
       .sort((a, b) => a.createdAt - b.createdAt);
     for (const auto of autos) {
       doomed.add(auto.id);
@@ -722,10 +728,10 @@ export class CheckpointStore {
     return null;
   }
 
-  private async pruneAuto(key: string): Promise<number> {
+  private async pruneAuto(key: string, keep?: string): Promise<number> {
     const project = this.projects.get(key);
     if (!project || this.unreadable) return 0;
-    const doomed = planAutoPrune([...project.records.values()], this.now(), this.limits);
+    const doomed = planAutoPrune([...project.records.values()], this.now(), this.limits).filter((id) => id !== keep);
     let removed = 0;
     for (const id of doomed) {
       try {

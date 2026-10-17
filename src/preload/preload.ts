@@ -11,6 +11,7 @@ import type { ProblemRecord } from '../shared/problem';
 import { AI_CHANNELS, AI_EVENT_CHANNEL, type AiEvent } from '../shared/ipc/ai-contract'; // S31
 import { AI_HISTORY_CHANNELS } from '../shared/ipc/ai-history-contract'; // S39
 import { ANNOTATION_CHANNELS } from '../shared/ipc/annotations-contract'; // S41
+import { CHECKPOINT_CHANNELS } from '../shared/ipc/checkpoints-contract'; // S56
 
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
@@ -230,6 +231,16 @@ const api: NoobideApi = {
     highlight: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.highlight, request),
     context: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.context, request),
   },
+  // S56: project checkpoints (app data, decision 0038).
+  checkpoints: {
+    list: (request) => ipcRenderer.invoke(CHECKPOINT_CHANNELS.list, request),
+    create: (request) => ipcRenderer.invoke(CHECKPOINT_CHANNELS.create, request),
+    rename: (request) => ipcRenderer.invoke(CHECKPOINT_CHANNELS.rename, request),
+    delete: (request) => ipcRenderer.invoke(CHECKPOINT_CHANNELS.delete, request),
+    compare: (request) => ipcRenderer.invoke(CHECKPOINT_CHANNELS.compare, request),
+    readText: (request) => ipcRenderer.invoke(CHECKPOINT_CHANNELS.readText, request),
+    restoreFile: (request) => ipcRenderer.invoke(CHECKPOINT_CHANNELS.restoreFile, request),
+  },
 };
 
 contextBridge.exposeInMainWorld(
@@ -254,5 +265,6 @@ contextBridge.exposeInMainWorld(
     ai: Object.freeze(api.ai), // S31
     aiHistory: Object.freeze(api.aiHistory), // S39
     annotations: Object.freeze(api.annotations), // S41
+    checkpoints: Object.freeze(api.checkpoints), // S56
   }),
 );

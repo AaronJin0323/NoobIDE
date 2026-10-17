@@ -4786,8 +4786,8 @@
       "depends_on": [
         "S56.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/checkpoints.spec.ts (2 tests: save, break 3 files, compare list + diff, restore all -> preview shows old page; rename/delete) + tests/integration/checkpoint-restore.test.ts (14 tests: atomic save path, dirty save/keep choice, trash only after confirmation, TOCTOU, damaged copy, safety checkpoint, keep) + subagent review (2 rounds, blockers fixed) + vitest 224 files green"
     },
     {
       "id": "S56.3",

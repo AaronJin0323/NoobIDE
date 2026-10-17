@@ -83,6 +83,7 @@ import { WakeRecovery } from './wake-recovery'; // S25.1/S25.2
 import { wakeSignals } from '../platform/power-events';
 import { AnnotationStore } from './annotation-store'; // S41.4 preview annotations (decision 0030)
 import { registerAnnotationsIpcHandlers } from './annotations-ipc';
+import { registerCheckpointsIpcHandlers } from './checkpoints-ipc'; // S56
 
 // Windows installer events: create/remove shortcuts and quit without opening a window (S02.7, S28.4: also quits
 // when Update.exe is missing or hangs). App data and projects are never touched by these events.
@@ -442,6 +443,8 @@ function start(): void {
       },
     });
     registerProblemsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, bridge: problems }); // S16.2
+    // S56: project checkpoints (store created with local history above; restores write through the save path).
+    registerCheckpointsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, store: checkpoints, projects });
     // S41.4: preview annotations, kept per project in app data (never in the project folder).
     registerAnnotationsIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,

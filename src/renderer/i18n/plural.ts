@@ -7,6 +7,14 @@ import type { MessageKey } from './zh-CN';
  */
 export const ONE_FORMS: Partial<Record<'zh-CN' | 'en', Partial<Record<MessageKey, string>>>> = {
   en: {
+    'checkpoints.saved': 'Checkpoint “{name}” saved ({files} file).',
+    'checkpoints.unchanged': '{n} other file is unchanged.',
+    'checkpoints.restore.summary': '{n} file will be written back.',
+    'checkpoints.restore.done': '{n} file restored.',
+    'checkpoints.restore.trashed': '{n} added file moved to the system trash.',
+    'checkpoints.restore.skipped': '{n} file was not restored:',
+    'checkpoints.damaged':
+      '{n} checkpoint cannot be used (damaged, unreadable just now, or from a newer NoobIDE). You can delete it.',
     'problems.count.errors': '{n} error',
     'problems.count.warnings': '{n} warning',
     'problems.count.info': '{n} note',

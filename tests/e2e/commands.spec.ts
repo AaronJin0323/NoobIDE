@@ -38,6 +38,7 @@ test('the command menu derives its items and shortcut hints from the registry', 
   await expect(items).toHaveText([
     /^关闭项目$/,
     /^本地历史…$/,
+    /^项目检查点…$/, // S56.2
     /^显示或隐藏 AI 助手/, // S33 (with its shortcut hint)
     /^开启或关闭 AI 代码建议$/, // S32
     /^入门导览$/,

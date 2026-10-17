@@ -596,7 +596,8 @@ export function HistoryDialog(props: HistoryDialogProps) {
   );
 }
 
-function VersionDiff({ diff }: { diff: LineDiff }) {
+/** The line diff of a version (also used by the Checkpoints window, S56.2: same "+ comes back" semantics). */
+export function VersionDiff({ diff }: { diff: LineDiff }) {
   const { t } = useI18n();
   const summary: MessageKey | null = diff.identical ? 'history.identical' : null;
   return (

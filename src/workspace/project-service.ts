@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants, type Dirent } from 'node:fs';
-import { access, lstat, readFile, readdir, realpath, stat, unlink } from 'node:fs/promises';
+import { access, lstat, readFile, readdir, realpath, rmdir, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import {
   MAX_TEXT_FILE_BYTES,
@@ -287,6 +287,99 @@ export class ProjectService {
       // S26.1: a failed re-create must not leave the empty file that reserved the name: on retry it would read as
       // "the deleted file came back with other content". Only a still-empty regular file is removed.
       if (!result.ok && reserved) await removeEmptyFile(target.value);
+      return result;
+    });
+  }
+
+  /**
+   * S56.2: writes a file's bytes back from a project checkpoint (any file type) through the same atomic replace as a
+   * save: serialized with saves of that path, the file must still be exactly `expectedHash` (checked before and again
+   * right before the rename), local history keeps the replaced version, and "saved" listeners (preview refresh) run
+   * after the rename. `expectedHash: null` means the file must not exist: its name is reserved exclusively first, so
+   * nothing that appeared meanwhile is ever replaced.
+   */
+  restoreBytes(request: {
+    readonly projectId: string;
+    readonly relPath: string;
+    readonly data: Uint8Array;
+    readonly expectedHash: string | null;
+  }): Promise<Result<SavedFile, WriteFileError>> {
+    return this.serialized(`${request.projectId}\0${request.relPath}`, async () => {
+      let expectedHash = request.expectedHash;
+      let reserved = false;
+      // Folders this restore created, removed again (only while empty) when it fails: the project stays as it was.
+      const madeFolders: string[] = [];
+      const removeMadeFolders = async () => {
+        for (const folder of madeFolders.reverse()) await rmdir(folder).catch(() => undefined);
+      };
+      if (expectedHash === null) {
+        const root = this.rootOf(request.projectId);
+        if (root === undefined) return err('unknown-project', 'project is not open');
+        const segments = request.relPath.split('/');
+        for (let i = 1; i < segments.length; i += 1) {
+          const folder = await createEntry(root, segments.slice(0, i).join('/'), 'directory');
+          if (folder.ok) madeFolders.push(path.join(root, ...segments.slice(0, i)));
+          else if (folder.code !== 'exists') {
+            await removeMadeFolders();
+            return err(createErrorCode(folder.code), folder.message);
+          }
+        }
+        const created = await createEntry(root, request.relPath, 'file');
+        if (!created.ok) {
+          await removeMadeFolders();
+          if (created.code === 'exists' || created.code === 'case-conflict') {
+            return err('changed-on-disk', 'a file with this name exists again');
+          }
+          return err(createErrorCode(created.code), created.message);
+        }
+        expectedHash = EMPTY_HASH;
+        reserved = true;
+      }
+      const target = await this.resolve(request);
+      if (!target.ok) {
+        await removeMadeFolders();
+        return target;
+      }
+      const checkedHash = expectedHash;
+      const result = await this.serialized(target.value, async (): Promise<Result<SavedFile, WriteFileError>> => {
+        let before: Uint8Array | null = null;
+        try {
+          if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
+          await access(target.value, constants.W_OK);
+          const onDisk = await readFile(target.value);
+          if (sha256(onDisk) !== checkedHash) return err('changed-on-disk', 'the file changed since the comparison');
+          // The version being replaced goes to local history (a newly reserved, empty file has nothing to keep).
+          if (!reserved) before = await this.captureBeforeSave(target.value, onDisk);
+          await this.replaceFile(target.value, request.data, {
+            ...this.options.atomic,
+            beforeReplace: async () => {
+              await this.options.atomic?.beforeReplace?.();
+              const current = await stat(target.value);
+              if (
+                !current.isFile() ||
+                current.size !== onDisk.length ||
+                sha256(await readFile(target.value)) !== checkedHash
+              ) {
+                throw new ChangedOnDiskError();
+              }
+            },
+          });
+        } catch (e) {
+          this.recordSave(request.projectId, target.value, before, null);
+          return err(writeErrorCode(e), errorMessage(e), e);
+        }
+        this.recordSave(request.projectId, target.value, before, request.data);
+        this.emitSaved({ projectId: request.projectId, relPath: request.relPath, path: target.value });
+        const mtimeMs = await stat(target.value).then(
+          (info) => info.mtimeMs,
+          () => Date.now(),
+        );
+        return ok({ savedAt: Date.now(), version: versionOf(request.data, mtimeMs) });
+      });
+      if (!result.ok && reserved) {
+        await removeEmptyFile(target.value);
+        await removeMadeFolders();
+      }
       return result;
     });
   }
