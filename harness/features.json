@@ -4485,8 +4485,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/file-move.test.ts (18: Chinese paths with spaces, exists/case-conflict/into-itself/junction outside/not-a-folder, history+journal follow, IPC checks), src/renderer/workbench/{tab-move,disk-sync-move,move-model,document-state}.test.ts, tests/e2e/file-move.spec.ts (6: Move to… keyboard, drag file/folder, into-itself, exists, external move) + related e2e 61/61; subagent review findings 1-9 fixed"
     },
     {
       "id": "S52.2",
@@ -4501,7 +4501,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {

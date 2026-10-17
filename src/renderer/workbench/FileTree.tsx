@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useId, useReducer, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useReducer,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { NoobideApi, TreeEntry, WatchEvent } from '../../shared/ipc/contract';
 import {
@@ -20,6 +30,8 @@ import { protectedFolderMessage } from './file-op-messages';
 import { FileRoleTag } from './FileRole';
 import { fileRoleFor, fileRoleLabelKey } from './file-role';
 import { treeCommandForKey, type PlatformId } from '../../platform/labels';
+import { TREE_DRAG_TYPE, dropFolder, folderLabel, moveRefusal, type MoveSource } from './move-model';
+import { fill } from './file-op-messages';
 
 /** Tree commands the panel handles (rename, delete, context menu: S08.2–S08.5). */
 export interface FileTreeCommands {
@@ -30,6 +42,8 @@ export interface FileTreeCommands {
   onReveal?(entry: TreeEntry): void;
   /** Enter/click on an entry whose name Windows or macOS cannot represent: explain instead of opening. */
   onUnportable?(entry: TreeEntry): void;
+  /** S52.1: rows dragged onto a folder (or onto a file: its folder; onto the empty area: the project root). */
+  onMoveDrop?(sources: readonly TreeEntry[], folder: string): void;
 }
 
 /** An inline name field in the tree (S08.2): renaming a row, or naming a new entry inside `parent`. */
@@ -48,8 +62,10 @@ interface FileTreeProps extends FileTreeCommands {
   activeRelPath: string | null;
   /** Bumped by the panel after its own file operations, so the affected folders are listed again. */
   refresh: { readonly id: number; readonly folders: readonly string[]; readonly select?: string } | null;
-  /** Rename/move done by the panel: keep expansion and selection under the new path. */
-  renamed: { readonly id: number; readonly from: string; readonly to: string } | null;
+  /** Renames/moves done by the panel: keep expansion and selection under the new paths. */
+  renamed: { readonly id: number; readonly moves: readonly { readonly from: string; readonly to: string }[] } | null;
+  /** S52.1: the project folder's name, for the drop announcement. */
+  projectName?: string;
   /** Reports the selected entry so header buttons (new file, …) know the target folder. */
   onSelectionChange?(entry: TreeEntry | null): void;
 }
@@ -113,8 +129,54 @@ export function FileTree(props: FileTreeProps) {
   }, [refresh]);
 
   useEffect(() => {
-    if (renamed) dispatch({ type: 'renamed', from: renamed.from, to: renamed.to });
+    for (const move of renamed?.moves ?? []) dispatch({ type: 'renamed', from: move.from, to: move.to });
   }, [renamed]);
+
+  // --- S52.1: drag rows onto a folder to move them ---
+  /** The rows being dragged (dragover events cannot read the drag data, only its type). */
+  const dragged = useRef<readonly TreeEntry[] | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const draggable = (entry: TreeEntry) =>
+    !entry.unportable && entry.kind !== 'link-outside' && entry.kind !== 'link-broken' && editing === null;
+  const onRowDragStart = (entry: TreeEntry, event: DragEvent) => {
+    if (!draggable(entry)) {
+      event.preventDefault();
+      return;
+    }
+    dragged.current = [entry];
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(TREE_DRAG_TYPE, JSON.stringify([entry.relPath]));
+  };
+  /** Accepts a drag of our own rows over `target` (null: the empty area) when the folder can take them. */
+  const onDragOverFolder = (target: TreeEntry | null, event: DragEvent) => {
+    const sources = dragged.current;
+    if (!sources || !event.dataTransfer.types.includes(TREE_DRAG_TYPE)) return;
+    event.stopPropagation();
+    const folder = dropFolder(target as MoveSource | null);
+    if (moveRefusal(sources, folder) !== null) {
+      event.dataTransfer.dropEffect = 'none';
+      if (dropTarget !== null) setDropTarget(null);
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    if (dropTarget !== folder) setDropTarget(folder);
+  };
+  const onDropFolder = (target: TreeEntry | null, event: DragEvent) => {
+    const sources = dragged.current;
+    setDropTarget(null);
+    if (!sources || !event.dataTransfer.types.includes(TREE_DRAG_TYPE)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragged.current = null;
+    const folder = dropFolder(target as MoveSource | null);
+    if (moveRefusal(sources, folder) === null) commands.current.onMoveDrop?.(sources, folder);
+  };
+  const onDragEnd = () => {
+    dragged.current = null;
+    setDropTarget(null);
+  };
+  // --- end S52.1 ---
 
   // A new entry is named inside its folder, which must be open to show the field.
   const createIn = editing?.mode === 'create' ? editing.parent : null;
@@ -231,11 +293,16 @@ export function FileTree(props: FileTreeProps) {
   return (
     <>
       <ul
-        className="file-tree"
+        className={dropTarget === '' ? 'file-tree drop-target' : 'file-tree'}
         role="tree"
         aria-label={t('files.listLabel')}
         data-testid="file-tree"
         onKeyDown={onKeyDown}
+        onDragOver={(event) => onDragOverFolder(null, event)}
+        onDrop={(event) => onDropFolder(null, event)}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null);
+        }}
       >
         {editing?.mode === 'create' && editing.parent === '' && createRow(1)}
         {rows.map((row) => (
@@ -268,9 +335,21 @@ export function FileTree(props: FileTreeProps) {
               dispatch({ type: 'select', relPath: row.entry.relPath });
               commands.current.onContextMenu?.(row.entry, { x, y });
             }}
+            draggable={draggable(row.entry)}
+            dropTarget={dropTarget !== null && dropTarget !== '' && dropTarget === dropFolder(row.entry)}
+            onDragStart={(event) => onRowDragStart(row.entry, event)}
+            onDragOver={(event) => onDragOverFolder(row.entry, event)}
+            onDrop={(event) => onDropFolder(row.entry, event)}
+            onDragEnd={onDragEnd}
           />
         ))}
       </ul>
+      {/* S52.1: where a drop would move the rows, as text (not only the highlight). */}
+      <p className="sr-only" role="status" aria-live="polite" data-testid="tree-drop-status">
+        {dropTarget !== null
+          ? fill(t('move.dropInto'), { folder: folderLabel(dropTarget, props.projectName ?? '') })
+          : ''}
+      </p>
       {root.truncated && <p className="empty-detail list-note">{t('tree.truncated')}</p>}
     </>
   );
@@ -310,6 +389,14 @@ interface TreeRowItemProps {
   onClick: () => void;
   onFocus: () => void;
   onContextMenu: (x: number, y: number) => void;
+  /** S52.1: drag-and-drop move. */
+  draggable: boolean;
+  /** This row is the folder a drop would move into (or in it, for a file row). */
+  dropTarget: boolean;
+  onDragStart: (event: DragEvent) => void;
+  onDragOver: (event: DragEvent) => void;
+  onDrop: (event: DragEvent) => void;
+  onDragEnd: () => void;
 }
 
 function TreeRowItem({
@@ -323,6 +410,12 @@ function TreeRowItem({
   onClick,
   onFocus,
   onContextMenu,
+  draggable,
+  dropTarget,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: TreeRowItemProps) {
   const { t } = useI18n();
   const { entry, level, expandable, expanded, folder } = row;
@@ -346,7 +439,7 @@ function TreeRowItem({
       <li
         ref={rowRef}
         role="treeitem"
-        className="tree-row"
+        className={dropTarget && entry.kind === 'directory' ? 'tree-row drop-target' : 'tree-row'}
         aria-level={level}
         aria-posinset={row.posInSet}
         aria-setsize={row.setSize}
@@ -367,6 +460,11 @@ function TreeRowItem({
           event.preventDefault();
           onContextMenu(event.clientX, event.clientY);
         }}
+        draggable={draggable}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        onDragEnd={onDragEnd}
       >
         <span className={expandable ? (expanded ? 'tree-twisty open' : 'tree-twisty') : 'tree-twisty none'}>
           {expandable && <ChevronRightIcon />}

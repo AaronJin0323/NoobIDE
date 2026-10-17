@@ -1447,6 +1447,13 @@ input[type='radio'] {
 .tree-row[aria-current='true'] > .tree-name {
   font-weight: var(--weight-strong);
 }
+/* S52.1: the folder a drag would move into: a solid outline ring (a shape, not only a colour) plus a text status. */
+.tree-row.drop-target,
+.file-tree.drop-target {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  background: var(--hover);
+}
 .tree-row[aria-disabled='true'] {
   color: var(--muted);
   font-style: italic;
@@ -2280,4 +2287,27 @@ select.text-field {
   flex-basis: 100%;
   color: var(--muted);
   font-size: var(--text-xs);
+}
+
+/* S52.1 "Move to…" dialog: the folder list reuses the palette's option look inside a sheet. */
+.move-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 64px));
+}
+.move-filter {
+  flex: none;
+  margin: 8px 0 0;
+}
+.move-list {
+  max-height: 320px;
+}
+.move-option[aria-disabled='true'] {
+  color: var(--muted);
+  cursor: default;
+}
+.alert-list {
+  margin: 4px 0 0;
+  padding-left: 18px;
 }

@@ -143,3 +143,36 @@ describe('file operations (S08.3)', () => {
     expect(activeSaveStatus(state)).toBeNull();
   });
 });
+
+describe('tabs follow a move (S52.1)', () => {
+  const moved = (from: string, to: string): DocumentAction => ({ type: 'tabMoved', from, to, content: file(to) });
+
+  it('keeps the tab in its place, visible, with its save state, under the new path and uri', () => {
+    const state = run(
+      ...opened('index.html', '子 文件夹/页面 二.html', 'style.css'),
+      { type: 'saveState', relPath: '子 文件夹/页面 二.html', save: dirty },
+      { type: 'activate', relPath: '子 文件夹/页面 二.html' },
+      moved('子 文件夹/页面 二.html', '图片 素材/子 文件夹/页面 二.html'),
+    );
+    expect(state.tabs.map((tab) => tab.relPath)).toEqual([
+      'index.html',
+      '图片 素材/子 文件夹/页面 二.html',
+      'style.css',
+    ]);
+    expect(state.active).toBe('图片 素材/子 文件夹/页面 二.html');
+    expect(state.tabs[1]?.uri).toBe(file('图片 素材/子 文件夹/页面 二.html').uri);
+    expect(state.tabs[1]?.save).toEqual(dirty);
+  });
+
+  it('a background tab moves without becoming visible', () => {
+    const state = run(...opened('a.html', 'b.html'), moved('a.html', 'x/a.html'));
+    expect(state.active).toBe('b.html');
+    expect(state.tabs.map((tab) => tab.relPath)).toEqual(['x/a.html', 'b.html']);
+  });
+
+  it('never merges into a tab already open at the new path, and ignores unknown tabs', () => {
+    const before = run(...opened('a.html', 'x/a.html'));
+    expect(documentReducer(before, moved('a.html', 'x/a.html'))).toBe(before);
+    expect(documentReducer(before, moved('missing.html', 'y.html'))).toBe(before);
+  });
+});

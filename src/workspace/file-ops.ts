@@ -1,10 +1,10 @@
 import { randomBytes } from 'node:crypto';
-import { link, lstat, mkdir, open, readdir, rename, unlink } from 'node:fs/promises';
+import { link, lstat, mkdir, open, readdir, rename, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import type { FileOpError } from '../shared/ipc/contract';
 import { checkFileName, sameName } from '../shared/file-names';
 import { err, ok, type Result } from '../shared/result';
-import { errorCode, isInside, resolveExisting, resolveNew } from './paths';
+import { errorCode, isInside, relativeToRoot, resolveExisting, resolveNew } from './paths';
 import { protectedFolderCauseOf } from '../platform/protected-folders';
 
 /**
@@ -173,6 +173,38 @@ export async function renameEntry(
     return err(opErrorCode(e), errorCode(e), e);
   }
   return ok({ from, to });
+}
+
+/**
+ * S52.1: moves an entry into `toFolder` (`''` is the project root) under its own name. The destination folder must
+ * exist and really lie inside the project (realpath-checked, so a link or junction cannot lead out); the move itself
+ * is {@link renameEntry}: an existing target or one differing only in case is refused, never overwritten, and a
+ * folder cannot go into itself or a descendant. Moving into the folder it is already in changes nothing.
+ */
+export async function moveEntry(
+  root: string,
+  from: string,
+  toFolder: string,
+  fs: FileOpsFs = realFs,
+): Promise<Result<{ from: string; to: string }, FileOpError>> {
+  const { parent, name } = splitRel(from);
+  if (toFolder === from || toFolder.startsWith(`${from}${SEP}`)) {
+    return err('into-itself', 'a folder cannot be moved into itself');
+  }
+  if (toFolder === parent) return ok({ from, to: from });
+  const dest = await resolveExisting(root, toFolder);
+  if (!dest.ok) return err(dest.code, dest.message);
+  try {
+    if (!(await stat(dest.path)).isDirectory()) return err('not-a-folder', toFolder);
+  } catch (e) {
+    return err(opErrorCode(e), errorCode(e), e);
+  }
+  // The folder's real path inside the project (a link, a junction, a case or 8.3 spelling of it): the moved entry
+  // gets the path the file system and the watcher will report, so tabs, history and recovery copies agree with it.
+  const real = relativeToRoot(root, dest.path);
+  if (real === null) return err('outside-project', 'destination leaves the project');
+  if (real === parent) return ok({ from, to: from });
+  return renameEntry(root, from, real === '' ? name : `${real}${SEP}${name}`, fs);
 }
 
 /** Moves without ever replacing an existing target (see the module comment). */

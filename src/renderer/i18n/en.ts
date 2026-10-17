@@ -13,6 +13,7 @@ import { aiHistoryEn } from './ai-history'; // S39
 import { paletteEn } from './palette'; // S40
 import { annotationsEn } from './annotations'; // S41.5
 import { journeyEn } from './journey'; // beginner-journey fixes
+import { fileManagementEn } from './file-management'; // S52
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -335,6 +336,7 @@ export const en: Record<MessageKey, string> = {
   ...paletteEn, // S40 command palette
   ...annotationsEn, // S41.5 preview annotations strip
   ...journeyEn, // beginner-journey fixes: preview page path, missing-page page, editor overflow menu
+  ...fileManagementEn, // S52 move, copy, multi-select, import, image viewer
   // --- S18.3 formatting ---
   'format.button': 'Format',
   'format.title': 'Format the code: indentation and line breaks ({shortcut})',

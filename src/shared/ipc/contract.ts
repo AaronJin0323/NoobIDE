@@ -32,6 +32,7 @@ import type { WalkthroughApi } from './walkthrough-contract'; // S23
 import type { ProblemsApi } from './problems-contract'; // S16.2
 import type { AiApi } from './ai-contract'; // S31 AI assistant (decision 0025)
 import type { AiHistoryApi } from './ai-history-contract'; // S39 saved chats and token usage
+import type { FileOpsApi } from './file-ops-contract'; // S52 move, copy, import, image viewer
 
 export const IPC_API_VERSION = 1;
 
@@ -305,6 +306,8 @@ export type FileOpError =
   /** A sibling differs only in letter case; message is its name. It would clash on Windows and macOS. */
   | 'case-conflict'
   | 'into-itself'
+  /** S52.1: the destination of a move is not a folder. */
+  | 'not-a-folder'
   | 'permission-denied'
   /** S25.3: blocked by the OS privacy protection (see OpenFolderError). */
   | 'protected-folder'
@@ -437,6 +440,8 @@ export interface NoobideApi {
   readonly aiHistory?: AiHistoryApi;
   /** S41: preview annotations (annotations-contract.ts, decision 0030). */
   readonly annotations?: AnnotationsApi;
+  /** S52: move, copy/paste/duplicate, multi-select trash, import and the image viewer (file-ops-contract.ts). */
+  readonly fileOps?: FileOpsApi;
 }
 
 /** Largest text file the editor opens or saves in v1 (bytes). */

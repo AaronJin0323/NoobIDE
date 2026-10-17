@@ -94,6 +94,8 @@ export function opErrorMessage(
       return fill(t('op.interrupted'), { name: message });
     case 'into-itself':
       return t('op.intoItself');
+    case 'not-a-folder':
+      return t('op.notAFolder'); // S52.1
     case 'not-found':
       return t('op.notFound');
     case 'permission-denied':

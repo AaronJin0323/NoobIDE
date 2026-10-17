@@ -73,7 +73,8 @@ const releaseModel = (uri: string) => import('../editor/editor-models').then((m)
 const releaseFileModels = () =>
   import('../editor/editor-models').then((m) => m.releaseFileModels()).catch(() => undefined);
 // S11: external changes
-import { DiskSync, pathsToCheck } from './disk-sync';
+import { DiskSync, planWatchEvents } from './disk-sync';
+import { moveTab as moveOpenTab } from './tab-move'; // S52.1
 import type { DiskActions } from './DiskStateBanner';
 const editorModels = () => import('../editor/editor-models');
 // S13 app data
@@ -495,6 +496,7 @@ export function Workbench() {
         dispatch({ type: 'diskConflict', relPath, content });
       },
       deleted: (relPath) => saverOf(relPath)?.markDeleted(),
+      moved: (from, to, content) => void moveTabRef.current(from, to, { content, external: true }), // S52.1
     }),
   );
   const applyDiskTextRef = useRef(applyDiskText);
@@ -508,7 +510,10 @@ export function Workbench() {
       const open = docRef.current.tabs
         .map((tab) => tab.relPath)
         .filter((relPath) => !lockedRef.current.some((locked) => isSameOrBelow(relPath, locked)));
-      for (const relPath of pathsToCheck(change.events, open)) void diskSync.current.check(relPath);
+      // S52.1: renames and moves of open files are replayed as moves (same content), the rest is checked.
+      const plan = planWatchEvents(change.events, open);
+      for (const move of plan.moves) void diskSync.current.replayMove(move.from, move.to);
+      for (const relPath of plan.check) void diskSync.current.check(relPath);
     });
   }, [bridge, projectIdNow]);
 
@@ -548,6 +553,59 @@ export function Workbench() {
   );
   // --- end S11 ---
 
+  // --- S52.1: an open file that was renamed or moved (by NoobIDE or outside it) keeps its tab (tab-move.ts) ---
+  const moveTab = useCallback(
+    async (from: string, to: string, options: { content?: FileContent; external?: boolean } = {}) => {
+      const project = docRef.current.project;
+      if (!bridge || !project) return;
+      await moveOpenTab(
+        {
+          saverOf: (relPath) => saverOf(relPath),
+          journalOf: (relPath) => tabJournals.current.get(relPath),
+          uriOf: (relPath) => docRef.current.tabs.find((open) => open.relPath === relPath)?.uri,
+          read: async (relPath) => {
+            const read = await bridge.workspace.readFile({ projectId: project.projectId, relPath });
+            return read.ok ? read.value : null;
+          },
+          forget: (relPath) => forgetTab(relPath),
+          create: (relPath, disk, journal) => {
+            const saver = createSaver(project, relPath, disk, journal);
+            savers.current.set(relPath, saver);
+            return { saver, journal: tabJournals.current.get(relPath) };
+          },
+          moved: (oldPath, newPath, content, saver) => {
+            dispatch({ type: 'tabMoved', from: oldPath, to: newPath, content });
+            dispatch({ type: 'saveState', relPath: newPath, save: saver.state });
+          },
+          releaseModel: (uri) => void releaseModel(uri),
+          check: (relPath) => void diskSync.current.check(relPath),
+          discardOld: async (oldPath, buffer, revision) => {
+            await bridge.recovery
+              .discardSaved({ projectId: project.projectId, relPath: oldPath, bufferId: buffer.bufferId, revision })
+              .catch(() => undefined);
+          },
+          stillCurrent: () => docRef.current.project === project,
+        },
+        from,
+        to,
+        options,
+      );
+    },
+    [bridge, createSaver],
+  );
+  const moveTabs = useCallback(
+    async (from: string, to: string) => {
+      const open = docRef.current.tabs.map((tab) => tab.relPath).filter((relPath) => isSameOrBelow(relPath, from));
+      for (const relPath of open) await moveTab(relPath, to + relPath.slice(from.length));
+    },
+    [moveTab],
+  );
+  const moveTabRef = useRef(moveTab);
+  moveTabRef.current = moveTab;
+  const moveTabsRef = useRef(moveTabs);
+  moveTabsRef.current = moveTabs;
+  // --- end S52.1 ---
+
   // ── S08: file operations keep the open tabs consistent ──
   const fileOps = useMemo<FileOpsHooks>(() => {
     const unlock = (relPath: string) => setLockedPaths((paths) => paths.filter((locked) => locked !== relPath));
@@ -572,6 +630,12 @@ export function Workbench() {
       cancelled: unlock,
       afterChange: (change) => {
         const changed = change.type === 'renamed' ? change.from : change.relPath;
+        if (change.type === 'renamed') {
+          // S52.1: the tabs follow the rename or move in place (unsaved edits, if any, move with them); they stay
+          // read-only until they are re-keyed, so nothing typed meanwhile reaches the old path's saver.
+          void moveTabsRef.current(change.from, change.to).finally(() => unlock(changed));
+          return;
+        }
         unlock(changed);
         const affected = docRef.current.tabs.map((tab) => tab.relPath).filter((open) => isSameOrBelow(open, changed));
         // A tab that somehow still has unsaved edits is never dropped: it stays open as an unsaved buffer (its
@@ -580,21 +644,10 @@ export function Workbench() {
           const saver = saverOf(open);
           return !saver || !isUnsaved(saver.state);
         });
-        const wasActive = docRef.current.active;
         for (const open of clean) dropTab(open);
-        if (change.type === 'renamed') {
-          // Reopen at the new path(s) from disk (the text is the same: it was saved); the visible file stays visible.
-          const moved = clean.map((open) => change.to + open.slice(change.from.length));
-          const visible =
-            wasActive && clean.includes(wasActive) ? change.to + wasActive.slice(change.from.length) : null;
-          void (async () => {
-            for (const relPath of moved) if (relPath !== visible) await openFile(relPath);
-            if (visible) await openFile(visible);
-          })();
-        }
       },
     };
-  }, [openFile]);
+  }, []);
 
   // The preview's "rename to … .html" for a page saved without its ending: same path as a rename in the Files panel
   // (unsaved edits saved first, open tabs follow, an existing name is never replaced).
@@ -1236,6 +1289,7 @@ export function Workbench() {
           onOpenFolder={bridge ? () => void openFolder() : undefined}
           onOpenFile={(relPath) => void openFile(relPath)}
           api={bridge?.workspace}
+          fileOpsApi={bridge?.fileOps}
           platform={platform}
           fileOps={fileOps}
           extraMenuItems={extraMenuItems}

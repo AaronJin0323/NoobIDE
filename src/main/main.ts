@@ -82,6 +82,7 @@ import { WakeRecovery } from './wake-recovery'; // S25.1/S25.2
 import { wakeSignals } from '../platform/power-events';
 import { AnnotationStore } from './annotation-store'; // S41.4 preview annotations (decision 0030)
 import { registerAnnotationsIpcHandlers } from './annotations-ipc';
+import { registerFileOpsIpcHandlers } from './file-ops-ipc'; // S52
 
 // Windows installer events: create/remove shortcuts and quit without opening a window (S02.7, S28.4: also quits
 // when Update.exe is missing or hangs). App data and projects are never touched by these events.
@@ -346,7 +347,7 @@ function start(): void {
     const history = new SnapshotStore({ dir: appDataPath(appData, 'history'), log: logger });
     const historyTriggers = new HistoryTriggers(history, logger);
     // --- end S21 ---
-    projects = new ProjectService({ history: historyTriggers });
+    projects = new ProjectService({ history: historyTriggers, journal }); // S52.1: history and copies follow moves
     // S14.4/S14.2: preview trust and one-time notes in app data (never inside a project).
     const previewStore = new PreviewStore({ file: appDataPath(appData, 'preview'), log: logger });
     const openProjects = projects;
@@ -438,6 +439,8 @@ function start(): void {
       },
     });
     registerProblemsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, bridge: problems }); // S16.2
+    // S52: move, copy/paste/duplicate, multi-select trash, import and the image viewer.
+    registerFileOpsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, projects: openProjects });
     // S41.4: preview annotations, kept per project in app data (never in the project folder).
     registerAnnotationsIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,

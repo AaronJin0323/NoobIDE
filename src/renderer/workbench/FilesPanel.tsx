@@ -9,6 +9,9 @@ import { fill, nameProblemMessage, opErrorMessage, protectedFolderMessage } from
 import { parentOf } from './file-tree-model';
 import { FolderIcon, NewFileIcon, NewFolderIcon, SmallFolderIcon, WarningIcon } from './icons';
 import { TreeContextMenu, type MenuItem } from './TreeContextMenu';
+import type { FileOpsApi } from '../../shared/ipc/file-ops-contract';
+import { MoveDialog } from './MoveDialog';
+import { folderLabel, outermostSources } from './move-model';
 
 /** What a file operation did to paths the editor may have open (S08.3: open tabs follow renames and deletions). */
 export type FilesChange =
@@ -36,6 +39,8 @@ interface FilesPanelProps {
   onOpenFile: (relPath: string) => void;
   /** The typed bridge (S07/S08); absent outside Electron. */
   api: NoobideApi['workspace'] | undefined;
+  /** S52: move, copy, multi-select trash and import; absent outside Electron. */
+  fileOpsApi?: FileOpsApi | undefined;
   platform: PlatformId;
   fileOps: FileOpsHooks;
   /** S13: extra context-menu commands for a row (e.g. "set as entry page"), labels as message keys. */
@@ -74,14 +79,20 @@ export function FilesPanel({
   fileOps,
   extraMenuItems,
   newFileRequest,
+  fileOpsApi,
 }: FilesPanelProps) {
   const { t } = useI18n();
   const [editing, setEditing] = useState<TreeEditing | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [refresh, setRefresh] = useState<Refresh | null>(null);
-  const [renamed, setRenamed] = useState<{ id: number; from: string; to: string } | null>(null);
+  const [renamed, setRenamed] = useState<{ id: number; moves: readonly { from: string; to: string }[] } | null>(null);
+  /** S52.1: the entries the "Move to…" dialog is open for. */
+  const [moveFor, setMoveFor] = useState<readonly TreeEntry[] | null>(null);
+  /** S52.1: what the last operation did, announced as text. */
+  const [notice, setNotice] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<TreeEntry | null>(null);
-  const [opError, setOpError] = useState<{ text: string; detail: string } | null>(null);
+  /** `items`: S52.3 — the entries of a selection that were not handled, each with its cause. */
+  const [opError, setOpError] = useState<{ text: string; detail: string; items?: readonly string[] } | null>(null);
   const [menu, setMenu] = useState<{ entry: TreeEntry; x: number; y: number } | null>(null);
   const selected = useRef<TreeEntry | null>(null);
   const counter = useRef(0);
@@ -173,7 +184,7 @@ export function FilesPanel({
         }
         setEditing(null);
         counter.current += 1;
-        setRenamed({ id: counter.current, from, to });
+        setRenamed({ id: counter.current, moves: [{ from, to }] });
         selected.current = { ...editing.entry, name, relPath: to };
         reload([parent], to);
         fileOps.afterChange({ type: 'renamed', from, to });
@@ -213,6 +224,68 @@ export function FilesPanel({
     fileOps.afterChange({ type: 'deleted', relPath: entry.relPath });
   };
 
+  /**
+   * S52.1/S52.3: moves entries into `folder`. Like a rename: unsaved edits of open files are saved first (a failed
+   * save leaves that entry where it is), main refuses an existing target per entry, open tabs follow every moved
+   * path, and whatever was not moved is listed with its cause.
+   */
+  const moveEntries = async (entries: readonly TreeEntry[], folder: string) => {
+    setMoveFor(null);
+    if (!fileOpsApi || !projectId || busy.current) return;
+    busy.current = true;
+    setOpError(null);
+    setNotice(null);
+    const sources = outermostSources(entries);
+    const locked: string[] = [];
+    const problems: string[] = [];
+    try {
+      for (const entry of sources) {
+        if (await fileOps.beforeChange(entry.relPath)) locked.push(entry.relPath);
+        else problems.push(`${entry.name}: ${t('op.saveFirstFailed')}`);
+      }
+      if (locked.length === 0) {
+        setOpError({ text: t('op.saveFirstFailed'), detail: '', items: problems });
+        return;
+      }
+      const result = await fileOpsApi.moveEntries({ projectId, from: locked, toFolder: folder });
+      if (!result.ok) {
+        for (const relPath of locked) fileOps.cancelled?.(relPath);
+        setOpError({ text: opErrorMessage(t, result.code, result.message, ''), detail: result.message });
+        return;
+      }
+      const moved = new Set(result.value.moved.map((m) => m.from));
+      for (const relPath of locked) if (!moved.has(relPath)) fileOps.cancelled?.(relPath);
+      for (const failure of result.value.failed) {
+        const name = failure.relPath.slice(failure.relPath.lastIndexOf('/') + 1);
+        problems.push(`${name}: ${opErrorMessage(t, failure.code, failure.message, name)}`);
+      }
+      if (result.value.moved.length > 0) {
+        counter.current += 1;
+        setRenamed({ id: counter.current, moves: result.value.moved });
+        for (const m of result.value.moved) fileOps.afterChange({ type: 'renamed', from: m.from, to: m.to });
+        const first = result.value.moved[0];
+        if (first) {
+          const entry = sources.find((e) => e.relPath === first.from);
+          if (entry) selected.current = { ...entry, relPath: first.to };
+        }
+        reload([folder, ...result.value.moved.map((m) => parentOf(m.from))], result.value.moved[0]?.to ?? undefined);
+        setNotice(fill(t('move.done'), { folder: folderLabel(folder, project?.name ?? '') }));
+      }
+      if (problems.length > 0) {
+        setOpError({
+          text: fill(t('move.partial'), { n: String(problems.length) }),
+          detail: '',
+          items: problems,
+        });
+      }
+    } catch {
+      for (const relPath of locked) fileOps.cancelled?.(relPath);
+      setOpError({ text: t('op.generic'), detail: '' });
+    } finally {
+      busy.current = false;
+    }
+  };
+
   const reveal = (entry: TreeEntry | null) => {
     if (!api || !projectId) return;
     void api.revealEntry({ projectId, relPath: entry?.relPath ?? '' }).then((result) => {
@@ -236,6 +309,9 @@ export function FilesPanel({
         shortcut: treeShortcutLabel(platform, 'rename'),
         run: () => startRename(entry),
       },
+      ...(fileOpsApi && !entry.unportable
+        ? [{ id: 'move-to', label: t('menu.moveTo'), run: () => setMoveFor([entry]) }]
+        : []),
       {
         id: 'delete',
         label: t('menu.delete'),
@@ -322,6 +398,13 @@ export function FilesPanel({
           <WarningIcon />
           <div>
             {opError.text}
+            {opError.items && opError.items.length > 0 && (
+              <ul className="alert-list" data-testid="file-op-failures">
+                {opError.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
             {opError.detail && (
               <span className="alert-detail">
                 {t('error.detail')}: {opError.detail}
@@ -357,6 +440,8 @@ export function FilesPanel({
             onSelectionChange={(entry) => {
               selected.current = entry;
             }}
+            projectName={project.name}
+            {...(fileOpsApi ? { onMoveDrop: (sources, folder) => void moveEntries(sources, folder) } : {})}
           />
         </div>
       ) : (
@@ -381,6 +466,25 @@ export function FilesPanel({
           onClose={(restoreFocus) => {
             setMenu(null);
             if (restoreFocus) reload([], menu.entry.relPath);
+          }}
+        />
+      )}
+      {/* S52.1: what the last move did, as text */}
+      <p className="sr-only" role="status" aria-live="polite" data-testid="file-op-notice">
+        {notice ?? ''}
+      </p>
+      {moveFor && api && project && (
+        <MoveDialog
+          projectId={project.projectId}
+          projectName={project.name}
+          sources={moveFor}
+          name={moveFor.length === 1 ? (moveFor[0]?.name ?? null) : null}
+          listDir={api.listDir}
+          onMove={(folder) => void moveEntries(moveFor, folder)}
+          onCancel={() => {
+            const first = moveFor[0];
+            setMoveFor(null);
+            if (first) reload([], first.relPath);
           }}
         />
       )}

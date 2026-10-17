@@ -49,6 +49,11 @@ export type DocumentAction =
   /** S13.4: the restored session's visible tab, unless the user chose a tab meanwhile. */
   | { type: 'restoreActive'; relPath: string }
   | { type: 'closed'; relPath: string }
+  /**
+   * S52.1: the file was renamed or moved (by NoobIDE or outside it, same content): the tab keeps its place and stays
+   * visible if it was, under the new path with the disk version read there. The save state comes from its new saver.
+   */
+  | { type: 'tabMoved'; from: string; to: string; content: FileContent }
   | { type: 'saveState'; relPath: string; save: SaveSnapshot }
   // --- S11: external changes ---
   /** The buffer now holds this disk version (clean reload, or "use the disk version"). */
@@ -102,6 +107,18 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
       const active =
         state.active === action.relPath ? (tabs[Math.min(index, tabs.length - 1)]?.relPath ?? null) : state.active;
       return { ...state, tabs, active };
+    }
+    case 'tabMoved': {
+      if (action.from === action.to || state.tabs.some((tab) => tab.relPath === action.to)) return state;
+      if (!state.tabs.some((tab) => tab.relPath === action.from)) return state;
+      const tabs = state.tabs.map((tab) =>
+        tab.relPath === action.from
+          ? { relPath: action.to, uri: action.content.uri, content: action.content, save: tab.save }
+          : tab,
+      );
+      const active = state.active === action.from ? action.to : state.active;
+      const docError = state.docError?.relPath === action.from ? null : state.docError;
+      return { ...state, tabs, active, docError };
     }
     case 'saveState':
       return mapTab(state, action.relPath, (tab) => {
