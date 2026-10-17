@@ -33,6 +33,8 @@ export class ProjectScripts {
   private readonly texts = new Map<string, { uri: string; text: string }>();
   private generation = 0;
   private published = '';
+  /** S57: a project script was left out (over MAX_SCRIPTS, too large or unreadable): the service sees a part. */
+  private partial = false;
 
   constructor(private readonly host: ScriptHost) {}
 
@@ -41,7 +43,9 @@ export class ProjectScripts {
     const generation = ++this.generation;
     this.texts.clear();
     this.publish();
-    const scripts = files.filter((f) => isProjectScript(f.relPath)).slice(0, MAX_SCRIPTS);
+    const all = files.filter((f) => isProjectScript(f.relPath));
+    this.partial = all.length > MAX_SCRIPTS;
+    const scripts = all.slice(0, MAX_SCRIPTS);
     for (const file of scripts) {
       if (generation !== this.generation) return;
       await this.load(file.relPath, generation);
@@ -93,6 +97,22 @@ export class ProjectScripts {
     this.publish();
   }
 
+  /**
+   * S57: the project file a language-service file name (an open model's URI or an extra lib's name) belongs to, or
+   * null when it is not one of the project's scripts.
+   */
+  relPathOf(fileName: string): string | null {
+    for (const [relPath, entry] of this.texts) {
+      if (entry.uri === fileName || this.host.libName(entry.uri) === fileName) return relPath;
+    }
+    return null;
+  }
+
+  /** S57: whether every script of the project is known to the language service (none left out by the limits). */
+  complete(): boolean {
+    return !this.partial;
+  }
+
   /** The extra libs currently given to the language service (tests). */
   libs(): { filePath: string; content: string }[] {
     const libs: { filePath: string; content: string }[] = [];
@@ -103,11 +123,16 @@ export class ProjectScripts {
   }
 
   private async load(relPath: string, generation: number): Promise<void> {
-    if (!this.texts.has(relPath) && this.texts.size >= MAX_SCRIPTS) return;
+    if (!this.texts.has(relPath) && this.texts.size >= MAX_SCRIPTS) {
+      this.partial = true;
+      return;
+    }
     const file = await this.host.read(relPath);
     if (generation !== this.generation) return;
-    if (!file || file.text.length > MAX_SCRIPT_CHARS) this.texts.delete(relPath);
-    else this.texts.set(relPath, { uri: file.uri, text: file.text });
+    if (!file || file.text.length > MAX_SCRIPT_CHARS) {
+      this.texts.delete(relPath);
+      if (file) this.partial = true; // too large to give to the service
+    } else this.texts.set(relPath, { uri: file.uri, text: file.text });
   }
 
   private publish(): void {
