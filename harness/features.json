@@ -5140,8 +5140,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/ai/proposal-tone.test.ts (9 tests, zh-CN and en via renderToStaticMarkup: six states -> six distinct tones and icon shapes with the state word, only pending has Accept/Reject, exactly one primary-button per card (the only pending Accept or Accept all), input and result <details> closed by default with file/action/lines and lines changed/save state, only data-tone=attention draws the border, ok/danger/muted soft fills from tokens) + icons.test.ts ProposalStateIcon x6 + design-rules clean; ai-agent/preview-annotations/a11y/ai-chat-code e2e 24 passed on the packaged build; verify green"
     },
     {
       "id": "S49.1",
