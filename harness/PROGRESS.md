@@ -3,6 +3,65 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 49 (side session) — 2026-10-18 — Roving focus, console tools, palette recents, container queries (S49.2, S49.4–S49.6)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m18-s49-nav-193d79` (PR #35), cut
+from the M18 plan branch with S47.1. One of five parallel M18 sessions (S47, S48 composer, S48 blocks, S49, S50).
+
+**Done**
+
+- S49.2 — `workbench/roving-focus.ts` (pure rules: orientation, loop, RTL, Home/End/PageUp/PageDown, which item is
+  the tab stop) + `useRovingFocus.ts` (spread on the container; sets `tabIndex` after every render and on DOM
+  changes via a MutationObserver; `focus({ preventScroll: true })`) + `RovingGroup.tsx` (a `<div>` wrapper for rows
+  in lists or owned by other features). Applied to the rail (vertical), the Code/Preview switch, the viewport switch,
+  the preview `role=toolbar`, the chat add-context group and the proposal action rows (per change and accept/reject
+  all) — only the element was swapped there, no restyle. The pressed choice is the initial tab stop, then the last
+  focused item. F6 (`focus-regions.ts`) already skips `tabindex=-1`, so it lands on each group's tab stop.
+- S49.4 — the console list is its own scroller (`.preview-console-body`, toolbar outside it, so typing a search never
+  unpins) driven by the S48.1 `useScrollLatch`; `contentChanged` now takes a list of keys so a batch of lines counts
+  each new line ("5 行新输出"). `console-model.ts`: NFKC + lower-case search over text, detail and place (not the
+  level word), copy text = the words shown. Copy line per row (icon button, quiet until hover/focus; the copy buttons
+  are one roving tab stop, arrows move between lines), Copy all visible + "已复制 N 行" status in the toolbar.
+  The 200-line window and the dropped/throttled line are untouched.
+- S49.5 — `AppSettings.paletteRecents` (validated: ≤ 8 distinct id-shaped strings; per user in app data; unknown ids
+  skipped by the palette). `palette-model.ts`: `searchPalette(…, recents)` puts recents first on an empty query and
+  uses recency only as a tie-break otherwise; `recordRecent`, `recentLead`. The palette shows a "最近使用 / Recent"
+  group (`role=group` inside the listbox). `usePaletteRecents` loads/saves through the settings bridge. Tab bar:
+  an icon-only "所有标签" button while the strip overflows opens a list of every open file (tab order, folder, a
+  state word for every state incl. 已保存, check + aria-current on the shown one); rows open the file, × or Delete
+  closes it through the normal close path, Escape/outside click closes the list. `all-tabs.ts` is the pure model.
+- S49.6 — `navigation.css` (new, imported in main.tsx after styles.css; all S49 CSS lives there): named
+  containers `preview-toolbar` (preview header + toolbar row) and `composer-chin` (`.ai-composer-row`); tiers
+  < 480 (hide the composer's Enter hint; nothing in the preview rows), < 384 (`.cq-label` spans
+  visually hidden → icon-only Start/Refresh/Stop/Send, 4rem ellipsis on viewport choices, field labels, state
+  pill, Stop), < 320 (controls' inline padding 4px, fields `max-width: max(6rem, calc(100cqw - 4rem))`). Hit boxes:
+  28px (and 24/26px) row controls are 32px border boxes with transparent block borders, `background-clip:
+padding-box`, the visible outline as an inset ring, and the same amount taken back by `margin-block`.
+
+**Evidence:** unit — roving-focus (10), roving-groups (5 groups wired), console-model (7), scroll-latch (+1),
+palette-model (+4), settings (+1), all-tabs (3), container-ladder (5: names, tiers, hidden items, field cap, hit-box
+arithmetic). E2E on the packaged Windows build — roving-focus.spec (5), console-tools.spec (5),
+palette-recents.spec (2, incl. restart and axe), container-ladder.spec (3), key-features-visible (now also checks the
+preview's Start/Refresh, entry select and viewport switch at all five sizes), a11y, tabs, glass, commands, preview*,
+problems, ai-agent, ai-chat green. `npm run verify` green.
+
+**Decisions:** Palette recents record commands run _from the palette_ (what the palette can show honestly), stored
+in the existing settings file (no new IPC; main validates). The All-tabs button is icon-only beside the chevrons so
+the strip keeps its width; `tabs.spec`'s 1280 px width check now measures `.tabs-strip` (tabs plus their overflow
+controls). "4px padding" at < 320 px is the controls' inline padding (a container cannot style itself). The preview rows hide nothing at < 480 px (CI on PR #35: on a
+1024×768 window the preview pane is under 480 px, and Open in browser / Advanced are the only visible way to their
+actions; the save note is S54.3's required status); their first step is the icon-only < 384 px tier. The roving hook
+skips items that are not rendered.
+
+**Problems / risks:** Siblings edit ChatPanel.tsx (S48.4/6/7) and ProposalReview.tsx (S48.8): my edits there are the
+`RovingGroup` element swaps and the `.cq-label` span around Send. Conflicts in `main.tsx` (motion.css import) and
+`shards.json` are additive. macOS not run locally (CI matrix).
+
+**Next up**
+
+1. Remaining M18 sessions (S47.2–S47.5, S48.4–S48.8, S50) land through their PRs; S49 is complete.
+2. When S48.4 adds kbd hints to the chin, give them the `.ai-hint`-like hiding at < 480 px in navigation.css.
+
 ## Session S47 (side session) — 2026-10-18 — Motion, scroll edges, counters and type details (S47.2–S47.5)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m18-s47-motion-cd915a` (PR #34),

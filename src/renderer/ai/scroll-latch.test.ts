@@ -74,3 +74,16 @@ describe('scroll latch (S48.1)', () => {
     expect(contentChanged(s, at(900), 0, 't1').follow).toBe(true);
   });
 });
+
+describe('several entries in one change (S49.4 console batches)', () => {
+  const at = (scrollTop: number) => ({ scrollTop, scrollHeight: 2000, clientHeight: 100 });
+  it('counts each new key once while unpinned, and a pinned log still follows', () => {
+    expect(contentChanged(INITIAL_LATCH, at(1900), 0, ['1', '2']).follow).toBe(true);
+    const away = userInput(INITIAL_LATCH, 1000);
+    const one = contentChanged(away, at(0), 1000 + LATCH_QUIET_MS, ['1', '2', '2']);
+    expect(one).toMatchObject({ follow: false, state: { pending: ['1', '2'] } });
+    const two = contentChanged(one.state, at(0), 1000 + LATCH_QUIET_MS, ['2', '3']);
+    expect(two.state.pending).toEqual(['1', '2', '3']);
+    expect(contentChanged(two.state, at(0), 1000 + LATCH_QUIET_MS, []).state).toBe(two.state);
+  });
+});

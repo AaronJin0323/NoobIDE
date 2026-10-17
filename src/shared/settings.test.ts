@@ -4,10 +4,28 @@ import {
   DEFAULT_SETTINGS,
   SETTINGS_LOCALES,
   SETTINGS_VERSION,
+  PALETTE_RECENTS_MAX,
+  isPaletteRecents,
   parseSettingsPatch,
   upgradeSettings,
   type SettingsMigration,
 } from './settings';
+
+describe('palette recents (S49.5)', () => {
+  it('keeps up to eight distinct command ids, newest first, and resets anything else to empty', () => {
+    const eight = ['save', 'new-file', 'toggle-problems', 'command-palette', 'a', 'b', 'c', 'd'];
+    expect(isPaletteRecents(eight)).toBe(true);
+    expect(PALETTE_RECENTS_MAX).toBe(8);
+    for (const bad of [[...eight, 'e'], ['save', 'save'], ['Save'], [''], [1], 'save', null, ['../x']]) {
+      expect(isPaletteRecents(bad), JSON.stringify(bad)).toBe(false);
+    }
+    const loaded = upgradeSettings({ version: 1, paletteRecents: ['save', 'save'] });
+    expect(loaded.ok && loaded.settings.paletteRecents).toEqual([]);
+    expect(loaded.ok && loaded.resetFields).toEqual(['paletteRecents']);
+    expect(parseSettingsPatch({ paletteRecents: ['save'] })).toEqual({ paletteRecents: ['save'] });
+    expect(parseSettingsPatch({ paletteRecents: [...eight, 'e'] })).toBeNull();
+  });
+});
 
 describe('settings schema (S13.1)', () => {
   it('defaults: version, zh-CN, system theme, 16px, restore on', () => {
@@ -21,6 +39,7 @@ describe('settings schema (S13.1)', () => {
       emmet: true,
       emmetHintShown: false,
       formatOnSave: false,
+      paletteRecents: [], // S49.5
     });
   });
 
@@ -39,6 +58,7 @@ describe('settings schema (S13.1)', () => {
       emmet: false,
       emmetHintShown: true,
       formatOnSave: true,
+      paletteRecents: ['save', 'toggle-problems'],
     };
     expect(upgradeSettings(file)).toEqual({ ok: true, settings: file, migratedFrom: null, resetFields: [] });
   });

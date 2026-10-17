@@ -6,6 +6,7 @@ import { Workbench } from './workbench/Workbench';
 import { installImeGuard } from './workbench/ime';
 import { installScrollEdgeFallback } from './theme/scroll-edges';
 import './styles.css';
+import './workbench/navigation.css'; // S49.4–S49.6 console, All tabs, container queries
 import './motion.css'; // S47 motion and detail layer, before glass.css so its reduced-motion gate wins
 import './glass.css'; // S40 Liquid Glass layer, after the base styles
 

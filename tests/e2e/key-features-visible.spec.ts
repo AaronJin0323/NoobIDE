@@ -323,6 +323,15 @@ for (const density of ['comfortable', 'compact'] as const) {
         toggle && group && toggle.x + toggle.width <= group.x + 0.5,
         'the editor group never reaches the toggle',
       ).toBe(true);
+      // S49.6: the preview header and toolbar rows step down through their container tiers; their key controls stay
+      // on screen (a narrow window shows the preview on its own side of the Code/Preview switch).
+      if (await page.getByTestId('region-preview').isVisible()) {
+        const primary = page.getByTestId('preview-start').or(page.getByTestId('preview-reload')).first();
+        await expectInViewport(primary, 'preview Start / Refresh');
+        for (const id of ['preview-entry', 'viewport-desktop', 'viewport-mobile']) {
+          await expectInViewport(page.getByTestId(id), id);
+        }
+      }
       // Nothing overflows the window vertically: the frame fits, it never needs a scroll.
       expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 0.5)).toBe(true);
 

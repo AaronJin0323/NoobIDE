@@ -1,6 +1,7 @@
 import { useI18n } from '../i18n/I18nProvider';
 import { FileIcon, HistoryIcon, LessonsIcon, ProblemsIcon } from './icons';
 import { AiIcon } from '../ai/ai-icons';
+import { useRovingFocus } from './useRovingFocus';
 
 interface RailProps {
   filesVisible: boolean;
@@ -30,8 +31,10 @@ export function Rail({
   ai,
 }: RailProps) {
   const { t } = useI18n();
+  // S49.2: one tab stop; the arrows move between the tools.
+  const roving = useRovingFocus<HTMLElement>({ orientation: 'vertical' });
   return (
-    <aside className="rail" aria-label={t('region.rail')} data-testid="rail">
+    <aside className="rail" aria-label={t('region.rail')} data-testid="rail" {...roving}>
       <button
         type="button"
         className="rail-button"

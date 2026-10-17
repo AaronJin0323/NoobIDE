@@ -18,6 +18,7 @@ import { searchZhCN } from './search'; // S51
 import { fileManagementZhCN } from './file-management'; // S52
 import { noticesZhCN } from './notices'; // S50.2
 import { imageViewerZhCN } from './image-viewer'; // S52.6
+import { navigationZhCN } from './navigation'; // S49.4 / S49.5
 import { motionZhCN } from './motion'; // S47
 /**
  * zh-CN is the default locale and the source of truth for message keys (AGENTS.md: i18n invariant).
@@ -337,6 +338,7 @@ export const zhCN = {
   ...motionZhCN, // S47 motion and detail
   ...noticesZhCN, // S50.2 app notices
   ...imageViewerZhCN, // S52.6 image viewer tab
+  ...navigationZhCN, // S49.4 / S49.5 console search and copy, palette recents, All tabs
   // --- S18.3 formatting ---
   'format.button': '整理格式',
   'format.title': '整理代码格式：缩进和换行（{shortcut}）',
