@@ -125,7 +125,7 @@ describe('"Fix with AI" on the problem card (S35.2)', () => {
     expect(card('zh-CN')).not.toContain('problem-fix-ai');
     // The AI look: the sparkle icon and the written label (never the colour alone).
     expect(card('zh-CN', () => undefined)).toMatch(
-      /class="ai-entry" data-testid="problem-fix-ai"[^>]*><svg[^]*?<\/svg>用 AI 修复<\/button>/,
+      /class="ai-entry" data-testid="problem-fix-ai"[^>]*><svg[^]*?<\/svg>AI 修复<\/button>/,
     );
     expect(card('en', () => undefined)).toMatch(
       /data-testid="problem-fix-ai"[^>]*><svg[^]*?<\/svg>Fix with AI<\/button>/,

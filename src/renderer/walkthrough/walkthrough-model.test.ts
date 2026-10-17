@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_WALKTHROUGH, WALKTHROUGH_STEPS, type WalkthroughState } from '../../shared/walkthrough';
+import { translate } from '../i18n/index';
 import {
   INITIAL_MODEL,
   STEP_ANCHORS,
   firstOpenStep,
   panelView,
+  termChipLabel,
   walkthroughReducer,
   type ModelState,
   type WalkthroughAction,
@@ -59,7 +61,7 @@ describe('walkthrough engine (S23.1)', () => {
 
   it('opens at the first step not done yet and walks the journey with Next and Back', () => {
     const opened = run({ ...DEFAULT_WALKTHROUGH, completed: ['create'] }, { type: 'open' });
-    expect(panelView(opened)).toEqual({ kind: 'step', step: 'files', done: false, index: 1 });
+    expect(panelView(opened)).toEqual({ kind: 'step', step: 'files', done: false, index: 1, compact: false });
     const two = run(opened.value, { type: 'next' }, { type: 'next' });
     expect(two.value.step).toBe('style');
     expect(run(two.value, { type: 'back' }).value.step).toBe('heading');
@@ -104,13 +106,19 @@ describe('walkthrough engine (S23.1)', () => {
     expect(closed.value.status).toBe('closed');
     expect(panelView(closed)).toEqual({ kind: 'hidden' });
     const revisited = run(closed.value, { type: 'open' });
-    expect(panelView(revisited)).toEqual({ kind: 'step', step: 'style', done: false, index: 3 });
+    expect(panelView(revisited)).toEqual({ kind: 'step', step: 'style', done: false, index: 3, compact: false });
   });
 
   it('a revisit after everything was done starts again from the first step', () => {
     const all = { ...DEFAULT_WALKTHROUGH, status: 'closed' as const, completed: [...WALKTHROUGH_STEPS] };
     expect(firstOpenStep(all)).toBeNull();
-    expect(panelView(run(all, { type: 'open' }))).toEqual({ kind: 'step', step: 'create', done: true, index: 0 });
+    expect(panelView(run(all, { type: 'open' }))).toEqual({
+      kind: 'step',
+      step: 'create',
+      done: true,
+      index: 0,
+      compact: false,
+    });
   });
 
   it('Next on the last step finishes and offers the final task', () => {
@@ -121,6 +129,55 @@ describe('walkthrough engine (S23.1)', () => {
 
   it('every step has an anchor', () => {
     for (const step of WALKTHROUGH_STEPS) expect(STEP_ANCHORS[step]).toMatch(/^\[data-testid=/);
+  });
+});
+
+describe('compact band (S47.6)', () => {
+  const active: WalkthroughState = { ...DEFAULT_WALKTHROUGH, status: 'active', step: 'heading' };
+
+  it('is full by default, and compact only once the user chose it', () => {
+    expect(panelView(run(active))).toMatchObject({ compact: false });
+    const chosen = run(active, { type: 'toggleCompact' });
+    expect(chosen.value).toMatchObject({ compact: true, viewed: ['heading'] });
+    expect(panelView(chosen)).toMatchObject({ step: 'heading', compact: true });
+    // Back to the full text, and again: the choice flips, the step stays viewed.
+    const full = run(chosen.value, { type: 'toggleCompact' });
+    expect(panelView(full)).toMatchObject({ compact: false });
+    expect(full.value.viewed).toEqual(['heading']);
+    expect(panelView(run(full.value, { type: 'toggleCompact' }))).toMatchObject({ compact: true });
+  });
+
+  it("a step's first view is always the full text; leaving it ends its first view", () => {
+    const compact = run(active, { type: 'toggleCompact' });
+    const next = run(compact.value, { type: 'next' });
+    expect(panelView(next)).toMatchObject({ step: 'style', compact: false }); // never seen: full
+    expect(next.value.viewed).toEqual(['heading']);
+    const back = run(next.value, { type: 'back' });
+    expect(panelView(back)).toMatchObject({ step: 'heading', compact: true }); // seen before: compact
+    expect(back.value.viewed).toEqual(['heading', 'style']);
+    expect(panelView(run(back.value, { type: 'next' }))).toMatchObject({ step: 'style', compact: true });
+  });
+
+  it('closing ends the first view too, and the choice survives a close and a revisit (stored state)', () => {
+    const closed = run(active, { type: 'toggleCompact' }, { type: 'next' }, { type: 'close' });
+    expect(closed.value).toMatchObject({ status: 'closed', compact: true, viewed: ['heading', 'style'] });
+    expect(panelView(run(closed.value, { type: 'open' }))).toMatchObject({ step: 'create', compact: false });
+    expect(run(closed.value, { type: 'toggleCompact' }).value).toEqual(closed.value); // nothing shown, nothing to toggle
+  });
+
+  it('term chips show the Chinese name and the English word in zh-CN, the term alone in en', () => {
+    expect(termChipLabel('autosave', 'zh-CN')).toBe('自动保存 autosave');
+    expect(termChipLabel('tag', 'zh-CN')).toBe('标签 tag');
+    expect(termChipLabel('HTML', 'zh-CN')).toBe('超文本标记语言 HTML');
+    expect(termChipLabel('JavaScript', 'zh-CN')).toBe('JavaScript 脚本语言'); // the name already holds the term
+    expect(termChipLabel('autosave', 'en')).toBe('autosave');
+    expect(termChipLabel('no-such-term', 'zh-CN')).toBe('no-such-term');
+  });
+
+  it('the close hint names the rail button (Lessons), in both languages', () => {
+    for (const locale of ['zh-CN', 'en'] as const) {
+      expect(translate(locale, 'walkthrough.closeHint')).toContain(translate(locale, 'rail.lessons'));
+    }
   });
 });
 

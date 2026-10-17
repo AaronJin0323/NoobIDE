@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { listTemplates } from '../../src/workspace/templates';
 import { launchApp, repoRoot, tempRoot } from './launch';
-import { answerFolderDialog, collectConsoleErrors } from './project';
+import { answerFolderDialog, collectConsoleErrors, switchLanguage } from './project';
 import { waitForPreviewState } from './preview-helpers';
 
 /**
@@ -150,7 +150,7 @@ test('create from another template in a chosen folder: the project opens with it
 
   await expect(wizard()).toHaveCount(0);
   await expect(page.getByTestId('project-name')).toHaveText('我的 主页');
-  await expect(page.getByTestId('project-path')).toHaveText(path.join(parent, '我的 主页'));
+  await expect(page.getByTestId('project-name')).toHaveAttribute('title', path.join(parent, '我的 主页'));
   await expect(page.getByTestId('welcome')).toHaveCount(0);
   await expect(
     page.locator('[data-testid="tab"][data-path="index.html"] [role="tab"][aria-selected="true"]'),
@@ -176,7 +176,7 @@ test('the default location is created with the first project; the wizard follows
   consoleErrors = collectConsoleErrors(page);
   await page.locator('.monaco-editor .view-lines').waitFor();
   await app.evaluate(({ app: electronApp }, docs) => electronApp.setPath('documents', docs), documents);
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(page.getByTestId('welcome-create')).toHaveText('Create my first webpage');
   await page.getByTestId('welcome-create').click();
   await expect(wizard().getByRole('heading', { name: 'Create my first webpage' })).toBeVisible();

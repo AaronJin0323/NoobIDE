@@ -11,7 +11,14 @@ import { PreviewPane } from './PreviewPane';
 import { PREVIEW_COMMAND_HANDLERS } from './preview-commands'; // S15.4
 import { ProblemsPanel } from './ProblemsPanel';
 import { INITIAL_LAYOUT, NARROW_QUERY, layoutReducer, visibleRegions } from './layout';
-import { INITIAL_DOCUMENT_STATE, activeSaveStatus, activeTab, cycleTab, documentReducer } from './document-state';
+import {
+  INITIAL_DOCUMENT_STATE,
+  activeSaveRetrying,
+  activeSaveStatus,
+  activeTab,
+  cycleTab,
+  documentReducer,
+} from './document-state';
 import { CHANGED_ON_DISK, DocumentSaver, saveEvery } from './save-controller';
 import { isUnsaved, saveStatus } from './save-machine';
 import { createSavedFileEvents } from './saved-file-events';
@@ -81,12 +88,17 @@ import type { SettingsSnapshot } from '../../shared/ipc/app-data-contract';
 import { SettingsNotice } from './SettingsNotice';
 import {
   COMMAND_IDS,
+  HELP_MENU_COMMANDS,
+  PROJECT_MENU_COMMANDS,
   commandById,
   commandChecked,
   commandShortcutLabel,
   type CommandContext,
   type CommandId,
 } from '../../shared/commands'; // S24.1
+import { LOCALES, type Locale } from '../i18n/index';
+import { revealLabelKey } from '../../platform/labels';
+import type { AppMenuItem } from './AppMenu';
 import { CommandPalette, type PaletteCommand } from '../commands/CommandPalette'; // S40.5
 import { useThemeChoice } from '../theme/ThemeProvider'; // S24.4
 import { focusRegion } from '../commands/focus-regions'; // S24.3
@@ -94,8 +106,8 @@ import { openAbout } from './about'; // S28.1
 import { isEntryPath } from '../../shared/project-config';
 import type { TreeEntry } from '../../shared/ipc/contract';
 import { EntryNotice, type EntryNoticeState } from './EntryNotice';
-import { SessionNotice } from './SessionNotice';
 import { TransferNotice } from './TransferNotice'; // S13.5
+import { EditorStatusStrip } from './EditorStatusStrip'; // S47.5
 import { useI18n } from '../i18n/I18nProvider';
 import { opErrorMessage } from './file-op-messages';
 import { Splitter, type SplitterPhase } from './Splitter';
@@ -125,7 +137,7 @@ export function Workbench() {
   const bridge = window.noobide;
   const platform = bridge?.platform ?? 'other';
   const [layout, dispatchLayout] = useReducer(layoutReducer, INITIAL_LAYOUT);
-  const { t } = useI18n(); // S13.4: splitter labels
+  const { t, locale, setLocale } = useI18n(); // S13.4: splitter labels; S47.4: the language items of the help menu
   const [doc, dispatch] = useReducer(documentReducer, INITIAL_DOCUMENT_STATE);
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [copyNotice, setCopyNotice] = useState<SaveCopyNotice | null>(null);
@@ -142,7 +154,7 @@ export function Workbench() {
   const aboutOpen = useAboutRequests(); // S28.1: opened by openAbout() (menus: S24)
   const aiSettingsOpen = useAiSettingsRequests(); // S31.4: opened by openAiSettings() (menus, the AI chat)
   const narrow = useMediaQuery(NARROW_QUERY);
-  const visible = visibleRegions(layout, narrow);
+  const visible = visibleRegions(layout, narrow, doc.project !== null); // S47.2: the welcome owns the window
   // S49.1: a files-divider drag keeps its divider while it has collapsed the panel (so it can be dragged back out);
   // an editor-divider press tells the preview to take a picture, and its drag covers the native view with it.
   const [filesDragging, setFilesDragging] = useState(false);
@@ -419,7 +431,20 @@ export function Workbench() {
     dropTab(relPath);
   }, []);
 
-  const saveActive = useCallback(() => void saverOf(docRef.current.active)?.save(), []);
+  const saveActive = useCallback(() => {
+    const saver = saverOf(docRef.current.active);
+    if (!saver) return;
+    // S47.3: over a conflict or a deleted file nothing is ever written on its own (S11.2, S11.3); the save command
+    // (Ctrl+S and the top-bar Save button) then moves the focus to the banner's first choice instead of doing nothing.
+    const { conflict, deleted } = saver.state;
+    if (conflict || deleted) {
+      document
+        .querySelector<HTMLElement>(`[data-testid="${conflict ? 'conflict-compare' : 'deleted-resave'}"]`)
+        ?.focus();
+      return;
+    }
+    void saver.save();
+  }, []);
 
   const saveCopy = useCallback(async () => {
     const project = docRef.current.project;
@@ -1111,13 +1136,47 @@ export function Workbench() {
     paletteRun.current = null;
     commands.run(id);
   }, [palette, commands]);
-  const menuItems = useAppMenuItems(platform, commandContext, commandHandlers, commands.run);
+  // S47.4: two menus. The project menu (close, reveal, history, lessons) next to the project name; the help/more
+  // menu (theme, language, AI, glossary, logs, settings) at the end of the top bar. Reveal and the language choice
+  // are not registry commands (a platform label, and a choice that re-renders everything), so they are added here.
+  const projectCommands = useAppMenuItems(
+    platform,
+    commandContext,
+    commandHandlers,
+    commands.run,
+    PROJECT_MENU_COMMANDS,
+  );
+  const helpCommands = useAppMenuItems(platform, commandContext, commandHandlers, commands.run, HELP_MENU_COMMANDS);
+  const projectMenu = useMemo((): AppMenuItem[] => {
+    const project = doc.project;
+    if (!project || !bridge) return projectCommands;
+    const reveal: AppMenuItem = {
+      id: 'reveal-project',
+      label: revealLabelKey(platform),
+      onSelect: () => void bridge.workspace.revealProject({ projectId: project.projectId }),
+    };
+    const [close, ...rest] = projectCommands;
+    return close?.id === 'close-project' ? [close, reveal, ...rest] : [reveal, ...projectCommands];
+  }, [projectCommands, bridge, platform, doc.project]);
+  const helpMenu = useMemo((): AppMenuItem[] => {
+    const languages: AppMenuItem[] = LOCALES.map((choice: Locale, index) => ({
+      id: `language-${choice}`,
+      label: choice === 'zh-CN' ? 'language.zhCN' : 'language.en',
+      separatorBefore: index === 0,
+      checked: choice === locale,
+      onSelect: () => setLocale(choice),
+    }));
+    const themes = helpCommands.filter((item) => item.id.startsWith('theme-'));
+    const rest = helpCommands.filter((item) => !item.id.startsWith('theme-'));
+    const first = rest[0];
+    return [...themes, ...languages, ...(first ? [{ ...first, separatorBefore: true }, ...rest.slice(1)] : [])];
+  }, [helpCommands, locale, setLocale]);
   // --- end S24.1 ---
 
   // --- S13.4: session restore. On a normal start main reopens the last project (crash recovery takes precedence: it
   // reports recovery-pending and the recovery dialog offers the unsaved buffers instead); its tabs, the visible tab
-  // and the layout sizes come back. Tabs and layout are saved shortly after every change. ---
-  const [restoredFrom, setRestoredFrom] = useState<string | null>(null);
+  // and the layout sizes come back. Tabs and layout are saved shortly after every change. S47.5: no notice says so —
+  // the top bar shows the project name, its folder is the name's tooltip and a line of the project menu. ---
   const layoutReady = useRef(false);
   const restoreRequested = useRef(false);
   useEffect(() => {
@@ -1132,7 +1191,7 @@ export function Workbench() {
       if (!result.ok) return;
       if (result.value.layout) dispatchLayout({ type: 'restoreLayout', layout: result.value.layout });
       const restored = result.value.project;
-      if (restored && !docRef.current.project && (await adoptProject(restored))) setRestoredFrom(restored.rootPath);
+      if (restored && !docRef.current.project) await adoptProject(restored);
     });
   }, [bridge, adoptProject]);
 
@@ -1194,15 +1253,14 @@ export function Workbench() {
         platform={platform}
         project={project}
         save={activeSaveStatus(doc)}
-        onReveal={() => {
-          if (bridge && project) void bridge.workspace.revealProject({ projectId: project.projectId });
-        }}
+        saveRetrying={activeSaveRetrying(doc)} // S47.3: the Save button stays through a retry of a failed write
         narrow={
           visible.narrowSwitch
             ? { view: layout.narrowView, onShow: (view) => dispatchLayout({ type: 'showNarrowView', view }) }
             : undefined
         }
-        menuItems={menuItems}
+        projectMenu={projectMenu}
+        helpMenu={helpMenu}
         onOpenPalette={() => commands.run('command-palette')}
         onSave={() => commands.run('save')} // the same path as Ctrl+S / ⌘S
         onNewFile={
@@ -1219,7 +1277,9 @@ export function Workbench() {
         style={
           {
             '--files-width': `${layout.filesWidth}px`,
-            '--editor-grow': layout.editorShare,
+            // S47.2: without a project the editor column (welcome + sample) takes the whole free width: a flex-grow
+            // below 1 would leave the preview's share empty.
+            '--editor-grow': project ? layout.editorShare : 1,
             '--preview-grow': 1 - layout.editorShare,
           } as CSSProperties
         }
@@ -1293,10 +1353,11 @@ export function Workbench() {
               onOpenFolder={bridge ? () => void openFolder() : undefined}
               recent={recentProjects}
               onOpenRecent={(opened) => void adoptProject(opened)}
+              onShowLessons={() => commands.run('help-walkthrough')} // S47.2: Lessons stays reachable from the welcome
             />
           }
         />
-        {!narrow && (
+        {!narrow && project && (
           <Splitter
             label={t('layout.resizeEditor')}
             testId="splitter-editor"
@@ -1348,6 +1409,7 @@ export function Workbench() {
         onNext={walkthrough.next}
         onBack={walkthrough.back}
         onClose={walkthrough.close}
+        onToggleCompact={walkthrough.toggleCompact} // S47.6
         onStartTask={walkthrough.startTask}
         onCloseTask={walkthrough.closeTask}
         onTerm={(term) => setGlossaryFor({ term })}
@@ -1381,18 +1443,23 @@ export function Workbench() {
           </>
         }
       />
+      {/* S47.5: the editor's end of the status strip (AI edit, explain, indent, encoding / line-ending notes, caret,
+          AI suggestions), laid over the free end of the strip that ProblemsPanel renders; its own F6 stop. */}
+      <EditorStatusStrip
+        tab={activeTab(doc)}
+        hasEditor={activeTab(doc) !== null || project === null}
+        projectId={project?.projectId ?? null}
+      />
       {inlineEdit.element /* S35: what an inline edit did, announced politely */}
-      {/* App-level notices share one stack above the status strip: they never cover the Problems toggle or each other.
-          It counts as covering the preview where it overlaps the stage (a narrow window). */}
-      <div className="app-notice-stack" data-testid="app-notice-stack" data-covers-preview="">
+      {/* App-level notices share one stack in the layout flow between the walkthrough band and Problems (S47.5):
+          anchored above the status strip, never over the code, the tree or the preview; informational ones leave by
+          themselves. The stack is its own F6 stop while it holds a notice. */}
+      <div className="app-notice-stack" data-testid="app-notice-stack">
         {/* S12: the recovery journal could not be written */}
         <JournalHealthNotice health={journals.health} />
         {/* S13.1: the settings file was unusable and was backed up */}
         {settingsNotice && <SettingsNotice snapshot={settingsNotice} onDismiss={() => setSettingsNotice(null)} />}
         {entryNotice && <EntryNotice state={entryNotice} onDismiss={() => setEntryNotice(null)} />}
-        {restoredFrom && project?.rootPath === restoredFrom && (
-          <SessionNotice rootPath={restoredFrom} onDismiss={() => setRestoredFrom(null)} />
-        )}
         {/* S13.5: what would break on the other system (report only, nothing is renamed) */}
         <TransferNotice api={bridge?.portability} projectId={project?.projectId ?? null} />
       </div>

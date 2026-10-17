@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { electronArgs, repoRoot } from './launch';
-import { collectConsoleErrors, openFile } from './project';
+import { collectConsoleErrors, openFile, switchLanguage } from './project';
 import { evalInPreview, replaceEditorText, waitForPreviewState } from './preview-helpers';
 
 /**
@@ -93,7 +93,7 @@ test('templates: a project is created from the default built-in template and its
   expect(project.startsWith(documents)).toBe(true);
   await page.getByTestId('wizard-create').click();
   await expect(page.getByTestId('create-wizard')).toHaveCount(0);
-  await expect(page.getByTestId('project-path')).toHaveText(project);
+  await expect(page.getByTestId('project-name')).toHaveAttribute('title', project);
   for (const rel of ['index.html', 'style.css', 'script.js', 'images/avatar.svg']) {
     await expect(readFile(path.join(project, ...rel.split('/')))).resolves.toBeTruthy();
   }
@@ -174,9 +174,9 @@ test('explanations: a typo is explained as a code-check problem and as a runtime
   await expect(page.getByTestId('cursor-position')).toHaveText(/^行 \d+, 列 \d+$/);
 
   // English explanations are bundled too.
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(page.locator('[data-section="runtime"]')).toContainText('While the page runs');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
 });
 
 test('the app itself tried to reach nothing outside this machine', async () => {

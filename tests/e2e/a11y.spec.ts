@@ -74,11 +74,19 @@ test('axe finds no serious or critical issue with a project, the problems panel,
   await expect(page.getByTestId('problems-toggle')).toHaveAttribute('aria-expanded', 'true');
   expect(await scanBothThemes('project')).toEqual([]);
 
-  // The command menu, opened and used with the keyboard only.
-  await page.getByTestId('app-menu').focus();
+  // The two in-window menus (S47.4), opened and used with the keyboard only: the project menu next to the name
+  // opens on Close project, the help/more menu at the end of the bar on the theme choice.
+  await page.getByTestId('project-menu').focus();
   await page.keyboard.press('ArrowDown');
   await expect(page.getByRole('menu')).toBeVisible();
   await expect(page.getByTestId('menu-close-project')).toBeFocused();
+  expect(await scanBothThemes('project-menu')).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('project-menu')).toBeFocused();
+  await page.getByTestId('app-menu').focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('menu')).toBeVisible();
+  await expect(page.getByTestId('menu-theme-system')).toBeFocused();
   expect(await scanBothThemes('menu')).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('app-menu')).toBeFocused();
@@ -93,7 +101,8 @@ test('axe finds no serious or critical issue with a project, the problems panel,
 });
 
 test('Tab visits the regions in their visual order', async () => {
-  await page.getByTestId('app-menu').focus();
+  // S47.4: the project menu is the top bar's first control; the help/more menu is its last.
+  await page.getByTestId('project-menu').focus();
   const visited: string[] = [];
   for (let i = 0; i < 30; i += 1) {
     await page.keyboard.press('Tab');
@@ -112,6 +121,8 @@ test('F6 / Shift+F6 move between regions, also out of the code editor', async ()
   expect((await focused()).region).toBe('region-preview');
   await page.keyboard.press('F6');
   expect((await focused()).region).toBe('region-problems');
+  await page.keyboard.press('F6');
+  expect((await focused()).region).toBe('region-status'); // S47.5: the editor's end of the status strip
   await page.keyboard.press('F6');
   expect((await focused()).region).toBe('region-topbar');
   await page.keyboard.press('F6');

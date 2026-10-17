@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
-import { collectConsoleErrors, openFile, openProject, typeAtEnd } from './project';
+import { collectConsoleErrors, openFile, openProject, typeAtEnd, switchLanguage } from './project';
 import { evalInPreview, waitForPreviewState } from './preview-helpers';
 
 /**
@@ -79,11 +79,11 @@ test('a misspelled image path names the similar file the project has (images/ava
   await expect(card.getByTestId('problem-causes')).toContainText(
     '文件名可能拼错了：项目里有一个相似的文件 images/avatar.svg。',
   );
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(card.getByTestId('problem-causes')).toContainText(
     'The file name may be misspelled: the project has a similar file, images/avatar.svg.',
   );
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await toggle().click();
   expect(consoleErrors).toEqual([]);
 });
@@ -151,7 +151,7 @@ test('a broken link never traps the preview: the page says so, Back to entry pag
   await expect(card.getByTestId('problem-checks')).toContainText('检查 index.html 里这个链接的 href');
 
   // In English, the toolbar and the page speak English too.
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await waitForSavedLocale('en');
   await evalInPreview(app, `document.getElementById('about').click(); true`);
   await expect(missing()).toHaveText('This page does not exist');
@@ -159,7 +159,7 @@ test('a broken link never traps the preview: the page says so, Back to entry pag
   await expect(backToEntry()).toHaveText('Back to entry page');
   await backToEntry().click();
   await expect(pagePath()).toHaveText('index.html');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await toggle().click();
   expect(consoleErrors).toEqual([]);
 });

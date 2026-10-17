@@ -44,5 +44,5 @@ export const journeyEn: Record<keyof typeof journeyZhCN, string> = {
   'tabs.scrollStart': 'Show earlier tabs',
   'tabs.scrollEnd': 'Show later tabs',
   'rail.lessons': 'Lessons',
-  'rail.lessons.title': 'Open the beginner lessons: build your first web page step by step',
+  'rail.lessons.title': 'Open Lessons: build your first web page step by step',
 };

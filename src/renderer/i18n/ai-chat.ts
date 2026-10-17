@@ -6,11 +6,11 @@
 export const aiChatZhCN = {
   // ── S33.1 区域、工具栏和命令 ──
   'region.ai': 'AI 助手',
-  'rail.ai': 'AI',
-  'command.ai.toggleChat': '显示或隐藏 AI 助手',
+  'rail.ai': '问 AI',
+  'command.ai.toggleChat': '显示或隐藏“问 AI”',
   'command.ai.explainCode': '让 AI 解释选中的代码',
   // ── S33.1 聊天面板 ──
-  'ai.chat.title': 'AI 助手',
+  'ai.chat.title': '问 AI',
   'ai.chat.close': '关闭 AI 助手',
   'ai.chat.new': '新对话',
   'ai.chat.conversations': '对话',
@@ -87,7 +87,7 @@ export const aiChatZhCN = {
     '还没有填写 AI 的 API 密钥。在“设置 → AI”里选择 Anthropic 或 OpenAI，粘贴你自己的密钥后就能使用。密钥只保存在这台电脑上，并用{keyStore}加密。',
   'ai.state.noSecureStorage': 'AI 现在不能使用：这台电脑无法安全地保存密钥（{keyStore}不可用），所以密钥没有被保存。',
   'ai.openSettings': '打开 AI 设置',
-  'ai.settingsWhere': '“设置 → AI”在右上角的“更多操作”菜单里。',
+  'ai.settingsWhere': '“AI 设置”在右上角的“帮助与更多”菜单里。',
   // ── S33.1 同意（S31 的同意组件合并之前的占位实现）──
   'ai.consent.title': '允许把这个项目的代码发送给 AI 吗？',
   'ai.consent.text':
@@ -126,10 +126,10 @@ export const aiChatZhCN = {
 
 export const aiChatEn: Record<keyof typeof aiChatZhCN, string> = {
   'region.ai': 'AI assistant',
-  'rail.ai': 'AI',
-  'command.ai.toggleChat': 'Show or hide the AI assistant',
+  'rail.ai': 'Ask AI',
+  'command.ai.toggleChat': 'Show or hide Ask AI',
   'command.ai.explainCode': 'Ask AI to explain the selected code',
-  'ai.chat.title': 'AI assistant',
+  'ai.chat.title': 'Ask AI',
   'ai.chat.close': 'Close the AI assistant',
   'ai.chat.new': 'New chat',
   'ai.chat.conversations': 'Conversations',
@@ -186,7 +186,7 @@ export const aiChatEn: Record<keyof typeof aiChatZhCN, string> = {
   'ai.chat.mode.explain-problem': 'Mode: explain a problem',
   'ai.chat.kind.label': 'What the AI should do',
   'ai.chat.kind.chat': 'Answer a question',
-  'ai.chat.kind.agent': 'Change the project (you review every change)',
+  'ai.chat.kind.agent': 'Change project (you review every change)',
   'ai.chat.state.sending': 'Sending…',
   'ai.chat.state.streaming': 'The AI is answering…',
   'ai.chat.state.stopping': 'Stopping…',
@@ -210,7 +210,7 @@ export const aiChatEn: Record<keyof typeof aiChatZhCN, string> = {
   'ai.state.noSecureStorage':
     'AI cannot be used right now: this computer cannot store the key safely ({keyStore} is not available), so the key was not saved.',
   'ai.openSettings': 'Open AI settings',
-  'ai.settingsWhere': 'Settings → AI is in the “More actions” menu at the top right.',
+  'ai.settingsWhere': 'AI settings is in the “Help and more” menu at the top right.',
   'ai.consent.title': 'Allow sending code from this project to the AI?',
   'ai.consent.text':
     'When you ask, the files and code listed under “Sent with your question” are sent to {provider} to produce the answer. You are asked once per project and can revoke it in Settings.',

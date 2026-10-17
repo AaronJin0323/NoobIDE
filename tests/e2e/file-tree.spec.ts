@@ -73,7 +73,7 @@ test.beforeAll(async () => {
     (dialog as unknown as { showOpenDialog: typeof fake }).showOpenDialog = fake;
   }, root);
   await recordShell('ok');
-  await page.getByTestId('open-folder').click();
+  await page.getByTestId('welcome-open-folder').click();
   await expect(row('index.html')).toBeVisible();
 });
 

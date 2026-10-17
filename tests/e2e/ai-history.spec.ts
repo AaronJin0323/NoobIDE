@@ -2,7 +2,7 @@ import { readdir, readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
-import { makeProject, openProject } from './project';
+import { makeProject, openProject, projectMenu } from './project';
 
 /**
  * S39.1 end to end, against the fake provider (NOOBIDE_AI_FAKE=1, decision 0025: no test calls a real provider): a
@@ -150,8 +150,7 @@ test.describe('AI chat history (S39)', () => {
     const chatFiles = async () => (await allFiles(path.join(userData, 'ai-chats'))).filter((f) => f.endsWith('.json'));
     await expect.poll(chatFiles).toHaveLength(1);
 
-    await page.getByTestId('app-menu').click();
-    await page.getByTestId('menu-close-project').click();
+    await projectMenu(page, 'close-project');
     await expect(page.getByTestId('welcome')).toBeVisible();
     await app.close();
     await rename(root, `${root}-moved`);

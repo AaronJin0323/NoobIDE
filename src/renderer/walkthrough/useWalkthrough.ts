@@ -32,6 +32,8 @@ export interface WalkthroughHandle {
   next(): void;
   back(): void;
   close(): void;
+  /** S47.6: compact one-line band ⇄ full text. */
+  toggleCompact(): void;
   startTask(): void;
   closeTask(): void;
   /** The wizard created a project: a walkthrough that never ran starts at "meet the files". */
@@ -201,6 +203,7 @@ export function useWalkthrough({
     next: () => dispatch({ type: 'next' }),
     back: () => dispatch({ type: 'back' }),
     close: () => dispatch({ type: 'close' }),
+    toggleCompact: () => dispatch({ type: 'toggleCompact' }),
     startTask: () => dispatch({ type: 'taskOpen' }),
     closeTask: () => dispatch({ type: 'taskClose' }),
     projectCreated: () => dispatch({ type: 'projectCreated' }),
