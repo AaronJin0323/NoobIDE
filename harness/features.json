@@ -4326,8 +4326,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "tests/integration/e2e-shards.test.ts (10 tests: fixtures from run 39015143213 + real --list coverage); npm run test:e2e -- --shard=2/2 on Windows: 158 passed / 2 skipped / 0 failed, 29 manifest files, 6.1 min; --shard=1/2 --list 167 tests in 29 files; verify green; hosted 60 s check: steps in harness/MANUAL-CHECKS.md#S50.2"
     },
     {
       "id": "S50.3",
