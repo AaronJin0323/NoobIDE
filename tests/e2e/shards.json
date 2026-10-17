@@ -44,6 +44,7 @@
     "menus.spec.ts": 1,
     "not-found.spec.ts": 1,
     "offline.spec.ts": 2,
+    "palette-recents.spec.ts": 2,
     "portability.spec.ts": 1,
     "preview-annotations.spec.ts": 2,
     "preview-css-swap.spec.ts": 2,

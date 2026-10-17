@@ -109,6 +109,7 @@ import { LOCALES, type Locale } from '../i18n/index';
 import { revealLabelKey } from '../../platform/labels';
 import type { AppMenuItem } from './AppMenu';
 import { CommandPalette, type PaletteCommand } from '../commands/CommandPalette'; // S40.5
+import { usePaletteRecents } from '../commands/usePaletteRecents'; // S49.5
 import { useThemeChoice } from '../theme/ThemeProvider'; // S24.4
 import { focusRegion } from '../commands/focus-regions'; // S24.3
 import { openAbout } from './about'; // S28.1
@@ -1298,6 +1299,7 @@ export function Workbench() {
   };
   // S40.5: the command palette lists what can run at the moment it opens; the chosen command runs after it closed.
   const [palette, setPalette] = useState<readonly PaletteCommand[] | null>(null);
+  const paletteRecents = usePaletteRecents(bridge?.settings); // S49.5
   const paletteRun = useRef<CommandId | null>(null);
   const canRunRef = useRef<(id: CommandId) => boolean>(() => false);
   const commandContext: CommandContext = {
@@ -1757,7 +1759,9 @@ export function Workbench() {
       {palette && (
         <CommandPalette
           commands={palette}
+          recents={paletteRecents.recents}
           onClose={(id) => {
+            if (id) paletteRecents.record(id);
             paletteRun.current = id;
             setPalette(null);
           }}

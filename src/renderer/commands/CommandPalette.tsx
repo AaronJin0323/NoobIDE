@@ -4,7 +4,15 @@ import { useI18n } from '../i18n/I18nProvider';
 import { otherLocale, translate, type MessageKey } from '../i18n/index';
 import type { CommandId } from '../../shared/commands';
 import { SearchIcon } from '../workbench/icons';
-import { PALETTE_KEYWORDS, keywordList, moveSelection, searchPalette, type PaletteEntry } from './palette-model';
+import {
+  PALETTE_KEYWORDS,
+  keywordList,
+  moveSelection,
+  recentLead,
+  searchPalette,
+  type PaletteEntry,
+  type PaletteMatch,
+} from './palette-model';
 
 export interface PaletteCommand {
   readonly id: CommandId;
@@ -19,6 +27,8 @@ interface CommandPaletteProps {
   commands: readonly PaletteCommand[];
   /** `null`: closed without running anything. */
   onClose: (run: CommandId | null) => void;
+  /** S49.5: command ids last run from the palette, newest first (app data). */
+  recents?: readonly string[];
 }
 
 /**
@@ -27,7 +37,7 @@ interface CommandPaletteProps {
  * was); the field is a combobox whose active option follows ↑/↓, and Enter runs it. Typing in Chinese through an
  * input method never runs anything mid-composition. Only commands that can run are listed — nothing pretends.
  */
-export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
+export function CommandPalette({ commands, onClose, recents = [] }: CommandPaletteProps) {
   const { t, locale } = useI18n();
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
@@ -53,7 +63,9 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
       }),
     [commands, t, locale],
   );
-  const matches = useMemo(() => searchPalette(entries, query), [entries, query]);
+  const matches = useMemo(() => searchPalette(entries, query, recents), [entries, query, recents]);
+  // S49.5: with an empty query the recently run commands come first, under a "Recent" group.
+  const lead = recentLead(matches, recents, query);
   const checkedOf = useMemo(() => new Map(commands.map((c) => [c.id, c.checked])), [commands]);
   const active = matches.length === 0 ? -1 : Math.min(selected, matches.length - 1);
 
@@ -86,6 +98,35 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
     } else if (event.key === 'Tab') {
       event.preventDefault(); // the field is the only stop in the sheet
     }
+  };
+
+  const renderOption = (match: PaletteMatch, index: number) => {
+    const checked = checkedOf.get(match.entry.id) ?? null;
+    return (
+      <li
+        key={match.entry.id}
+        id={optionId(index)}
+        role="option"
+        aria-selected={index === active}
+        aria-checked={checked === null ? undefined : checked}
+        className="palette-option"
+        data-testid={`palette-${match.entry.id}`}
+        onMouseMove={() => index !== active && setSelected(index)}
+        onClick={() => onClose(match.entry.id)}
+      >
+        {/* The current choice carries a check mark, not only a colour */}
+        <span className="palette-check" aria-hidden="true">
+          {checked ? '✓' : ''}
+        </span>
+        <span className="palette-text">
+          <span className="palette-label">{match.entry.label}</span>
+          {match.viaOther && (
+            <span className="palette-other">{t('palette.other').replace('{label}', match.entry.otherLabel)}</span>
+          )}
+        </span>
+        {match.entry.shortcut && <kbd className="kbd">{match.entry.shortcut}</kbd>}
+      </li>
+    );
   };
 
   return (
@@ -134,36 +175,22 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
         </div>
         {matches.length > 0 ? (
           <ul ref={list} id={listId} className="palette-list" role="listbox" aria-label={t('palette.results')}>
-            {matches.map((match, index) => {
-              const checked = checkedOf.get(match.entry.id) ?? null;
-              return (
-                <li
-                  key={match.entry.id}
-                  id={optionId(index)}
-                  role="option"
-                  aria-selected={index === active}
-                  aria-checked={checked === null ? undefined : checked}
-                  className="palette-option"
-                  data-testid={`palette-${match.entry.id}`}
-                  onMouseMove={() => index !== active && setSelected(index)}
-                  onClick={() => onClose(match.entry.id)}
-                >
-                  {/* The current choice carries a check mark, not only a colour */}
-                  <span className="palette-check" aria-hidden="true">
-                    {checked ? '✓' : ''}
-                  </span>
-                  <span className="palette-text">
-                    <span className="palette-label">{match.entry.label}</span>
-                    {match.viaOther && (
-                      <span className="palette-other">
-                        {t('palette.other').replace('{label}', match.entry.otherLabel)}
-                      </span>
-                    )}
-                  </span>
-                  {match.entry.shortcut && <kbd className="kbd">{match.entry.shortcut}</kbd>}
-                </li>
-              );
-            })}
+            {lead > 0 && (
+              <li
+                role="group"
+                className="palette-recent-group"
+                aria-label={t('palette.recent')}
+                data-testid="palette-recent"
+              >
+                <div className="palette-group" aria-hidden="true">
+                  {t('palette.recent')}
+                </div>
+                <ul role="none" className="palette-group-list">
+                  {matches.slice(0, lead).map((match, index) => renderOption(match, index))}
+                </ul>
+              </li>
+            )}
+            {matches.slice(lead).map((match, index) => renderOption(match, index + lead))}
           </ul>
         ) : (
           <p className="palette-empty" data-testid="palette-empty">

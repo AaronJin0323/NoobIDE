@@ -121,18 +121,18 @@
   position: relative;
   flex: none;
 }
+/* Icon-only beside the chevrons (the strip keeps its width); its name is "所有标签 / All tabs" (title, label). */
 .tabs-all {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  width: 26px;
   height: 26px;
-  padding: 0 8px;
+  padding: 0;
   border: 0;
   border-radius: var(--radius-control);
   background: var(--raised);
   color: var(--text);
-  font: inherit;
-  font-size: var(--text-sm);
   cursor: pointer;
 }
 .tabs-all:hover {
@@ -140,7 +140,7 @@
 }
 .tabs-all[aria-expanded='true'] {
   background: var(--hover);
-  font-weight: var(--weight-medium);
+  box-shadow: var(--ring-selected);
 }
 .tabs-all:focus-visible {
   outline: 2px solid var(--focus);
