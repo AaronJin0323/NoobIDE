@@ -1092,6 +1092,7 @@ export function Workbench() {
     // S32.1: AI ghost-text suggestions on / off (offered only when the AI bridge exists)
     'toggle-inline-ai': aiBridge() ? () => toggleInlineAi(docRef.current.project?.projectId ?? null) : undefined,
     'toggle-emmet': () => setEditorPrefs({ emmet: !editorPrefs().emmet }), // S53.1
+    'wrap-with-tag': () => void activeEditor()?.runAction?.('noobide.wrapWithTag'), // S53.2
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
     'command-palette': () =>
       setPalette(

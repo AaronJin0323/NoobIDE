@@ -4599,8 +4599,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tag-match.test.ts (5); cases html-linked-tag-rename, html-linked-tag-closing-side, html-linked-tag-implicit-close-not-linked (does not apply), html-wrap-with-tag pass in packaged app offline (language.spec.ts); tests/e2e/authoring.spec.ts S53.2 (Edit menu wrap, 2 linked cursors, one-step undo, linked rename) pass; verify green"
     },
     {
       "id": "S53.3",

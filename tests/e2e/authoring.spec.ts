@@ -19,6 +19,14 @@ let consoleErrors: string[];
 
 const PAGE = '<!DOCTYPE html>\n<html>\n<body>\n</body>\n</html>\n';
 const editor = () => page.locator('.monaco-editor').first();
+
+/** Runs a native menu item (main's application menu) by its command id. */
+const clickMenuItem = (id: string) =>
+  app.evaluate(({ Menu }, itemId) => {
+    const item = Menu.getApplicationMenu()?.getMenuItemById(itemId);
+    if (!item) throw new Error(`no menu item ${itemId}`);
+    (item.click as () => void)();
+  }, id);
 const onDisk = (name: string) => readFile(path.join(root, name), 'utf8');
 
 /** Runs a command from the command palette by its id. */
@@ -43,6 +51,7 @@ async function typeInBody(text: string): Promise<void> {
 test.beforeAll(async () => {
   ({ tmp, root } = await makeProject('noobide-authoring-'));
   await writeFile(path.join(root, 'index.html'), PAGE);
+  await writeFile(path.join(root, 'wrap.html'), '<p>Say hello now</p>\n');
   app = await launchApp();
   page = await app.firstWindow();
   consoleErrors = collectConsoleErrors(page);
@@ -109,5 +118,38 @@ test('the Edit menu switch turns Emmet off: Tab then indents as usual (S53.1)', 
   await runCommand('toggle-emmet');
   const again = await app.evaluate(({ Menu }) => Menu.getApplicationMenu()?.getMenuItemById('toggle-emmet')?.checked);
   expect(again).toBe(true);
+  expect(consoleErrors).toEqual([]);
+});
+
+test('Edit › Wrap with tag wraps the selection with both tag names linked; one undo restores it (S53.2)', async () => {
+  await openFile(page, 'wrap.html');
+  await focusEditor(page);
+  await page.keyboard.press('ControlOrMeta+Home');
+  for (let i = 0; i < 'Say '.length + 3; i += 1) await page.keyboard.press('ArrowRight');
+  for (let i = 0; i < 'hello'.length; i += 1) await page.keyboard.press('Shift+ArrowRight');
+  await clickMenuItem('wrap-with-tag');
+  await expect.poll(() => documentText(editor())).toContain('<p>Say <div>hello</div> now</p>');
+  // Two cursors: one on each tag name.
+  await expect(editor().locator('.cursors-layer .cursor')).toHaveCount(2);
+  await page.keyboard.press('ControlOrMeta+Z');
+  await expect.poll(() => documentText(editor())).toContain('<p>Say hello now</p>');
+  await expect.poll(() => documentText(editor())).not.toContain('div');
+  // Wrapped again, typing renames both tags at once.
+  await clickMenuItem('wrap-with-tag');
+  await page.keyboard.type('em');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('ControlOrMeta+S');
+  await expect.poll(() => onDisk('wrap.html')).toBe('<p>Say <em>hello</em> now</p>\n');
+});
+
+test('renaming an opening tag renames its closing tag (S53.2)', async () => {
+  await focusEditor(page);
+  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press('ArrowRight'); // after "<"
+  await page.keyboard.press('ArrowRight'); // after "<p"
+  await page.waitForTimeout(500); // linked editing ranges are computed after the cursor rests
+  await page.keyboard.type('re');
+  await page.keyboard.press('ControlOrMeta+S');
+  await expect.poll(() => onDisk('wrap.html')).toBe('<pre>Say <em>hello</em> now</pre>\n');
   expect(consoleErrors).toEqual([]);
 });

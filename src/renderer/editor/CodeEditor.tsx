@@ -25,6 +25,8 @@ import { attachSmartEditing } from './smart-monaco';
 import { attachAiPrompts, refreshAiPromptMarkers } from '../ai/ai-prompt-monaco';
 // S53.1: Emmet abbreviations on Tab (decision 0039).
 import { attachEmmet } from './emmet-monaco';
+// S53.2: linked tag editing and "Wrap with tag".
+import { attachAuthoring } from './authoring-monaco';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -143,6 +145,8 @@ export function CodeEditor({
       showFoldingControls: 'always',
       // S32.1: Monaco's hover toolbar has untranslated labels; Tab / Esc / Ctrl+→ (⌘→) work without it.
       inlineSuggest: { enabled: true, showToolbar: 'never' },
+      // S53.2: renaming an opening tag renames its closing tag (pairs from tag-match.ts).
+      linkedEditing: true,
     });
     const caret = new CaretRest({
       setBlinking: (blinking) => editor.updateOptions({ cursorBlinking: blinking ? 'blink' : 'solid' }),
@@ -182,6 +186,7 @@ export function CodeEditor({
       attachInlineAi(editor, () => (uriOf() ? inlineTarget.current : null)),
       attachSmartEditing(editor),
       attachEmmet(editor),
+      attachAuthoring(editor),
       attachAiPrompts(editor, () => {
         const uri = uriOf();
         return uri && inlineTarget.current && !inlineTarget.current.readOnly ? uri : null;
@@ -200,6 +205,10 @@ export function CodeEditor({
       openEditZone: (lines) => {
         const uri = uriOf();
         return uri ? createEditZone(editor, uri, lines ?? null) : null; // S35
+      },
+      runAction: async (id) => {
+        editor.focus();
+        await editor.getAction(id)?.run();
       },
     });
     // --- end S17.2 / S18.3 ---

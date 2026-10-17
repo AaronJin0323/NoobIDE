@@ -8,6 +8,8 @@ export const authoringZhCN = {
   'emmet.action': '展开 Emmet 缩写',
   'emmet.hint': 'Emmet 已把缩写展开成代码。不想要时，可在「编辑」菜单关闭「Tab 展开 Emmet 缩写」。',
   'emmet.hint.dismiss': '知道了',
+  // S53.2
+  'command.wrapWithTag': '用标签包住选中的代码',
 } as const;
 
 export const authoringEn: Record<keyof typeof authoringZhCN, string> = {
@@ -16,4 +18,5 @@ export const authoringEn: Record<keyof typeof authoringZhCN, string> = {
   'emmet.hint':
     'Emmet expanded the abbreviation into code. To turn this off, use Edit › “Expand Emmet abbreviations with Tab”.',
   'emmet.hint.dismiss': 'Got it',
+  'command.wrapWithTag': 'Wrap selection with tag',
 };

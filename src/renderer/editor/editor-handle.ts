@@ -31,6 +31,8 @@ export interface EditorAccess {
    * closes the previous one.
    */
   openEditZone?(lines?: { readonly startLine: number; readonly endLine: number }): EditZone | null;
+  /** S53: runs an editor action (Monaco's or NoobIDE's, e.g. `noobide.wrapWithTag`) in the file on screen. */
+  runAction?(id: string): Promise<void>;
 }
 
 /**

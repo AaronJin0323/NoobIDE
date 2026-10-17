@@ -103,6 +103,22 @@ before. With the suggestion list open, Tab accepts the suggestion; press Esc fir
 | A word that is not an HTML element is not expanded; Tab inserts spaces | `hello` + Tab → `hello  `            | `html-emmet-plain-word-indents`  |
 | A word that is not a CSS abbreviation is not expanded                  | `zz` + Tab → `zz  `                  | `css-emmet-unknown-word-indents` |
 
+## Paired tags (S53.2)
+
+Renaming an opening HTML tag renames its closing tag, and the other way round (Monaco linked editing, with NoobIDE's own
+tag pairing in `src/renderer/editor/tag-match.ts`). Only explicit pairs are linked: a void element (`<img>`), a
+self-closing tag, and a tag whose closing tag is left out (such as `<li>` closed by the next `<li>`) are not.
+Edit › **用标签包住选中的代码 / Wrap selection with tag** (also in the command palette) wraps the selection in `<div>`
+with both tag names selected, so typing a name changes both; one undo restores the original
+(`tests/e2e/authoring.spec.ts`).
+
+| Capability                                            | Example                                   | Case                                        |
+| ----------------------------------------------------- | ----------------------------------------- | ------------------------------------------- |
+| Typing in an opening tag name changes its closing tag | `<div>` → `<divx>` … `</divx>`            | `html-linked-tag-rename`                    |
+| Typing in a closing tag name changes its opening tag  | `</h1>` → `</h12>` and `<h12>`            | `html-linked-tag-closing-side`              |
+| Not linked: a tag without its own closing tag         | `<li>One <li>Two` → only the first `<li>` | `html-linked-tag-implicit-close-not-linked` |
+| Wrap with tag; typing the tag name changes both tags  | `hello` → `<strong>hello</strong>`        | `html-wrap-with-tag`                        |
+
 ## AI suggestions are marked
 
 AI ghost text (S32.1, only when AI is set up) carries an **AI** badge with the accessible name "AI 建议 / AI

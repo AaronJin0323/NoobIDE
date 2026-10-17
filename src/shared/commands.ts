@@ -64,6 +64,7 @@ export const COMMAND_IDS = [
   'command-palette',
   // S53 HTML/CSS authoring aids (Edit menu)
   'toggle-emmet',
+  'wrap-with-tag',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -200,6 +201,8 @@ export const COMMANDS: readonly CommandDefinition[] = [
   },
   // S53.1: Emmet abbreviations on Tab (an app setting; on by default).
   { id: 'toggle-emmet', label: 'command.toggleEmmet', checked: (c) => c.emmet === true, toggle: true },
+  // S53.2: wraps the selection in an HTML tag (both tag names linked).
+  { id: 'wrap-with-tag', label: 'command.wrapWithTag', when: (c) => c.hasActiveTab && !c.modalOpen },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));

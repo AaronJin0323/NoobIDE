@@ -415,6 +415,42 @@
       "action": "emmet",
       "text": "a {\n  zz|\n}\n",
       "expectText": "a {\n  zz  \n}\n"
+    },
+    {
+      "id": "html-linked-tag-rename",
+      "language": "html",
+      "kind": "edit",
+      "action": "linked-type",
+      "typeText": "x",
+      "text": "<body>\n  <div|>\n    <p>Hi</p>\n  </div>\n</body>\n",
+      "expectText": "<body>\n  <divx>\n    <p>Hi</p>\n  </divx>\n</body>\n"
+    },
+    {
+      "id": "html-linked-tag-closing-side",
+      "language": "html",
+      "kind": "edit",
+      "action": "linked-type",
+      "typeText": "2",
+      "text": "<h1>Title</h1|>\n",
+      "expectText": "<h12>Title</h12>\n"
+    },
+    {
+      "id": "html-linked-tag-implicit-close-not-linked",
+      "language": "html",
+      "kind": "edit",
+      "action": "linked-type",
+      "typeText": "x",
+      "text": "<ul>\n  <li|>One\n  <li>Two\n</ul>\n",
+      "expectText": "<ul>\n  <lix>One\n  <li>Two\n</ul>\n"
+    },
+    {
+      "id": "html-wrap-with-tag",
+      "language": "html",
+      "kind": "edit",
+      "action": "noobide.wrapWithTag",
+      "typeText": "strong",
+      "text": "<p>Say |hello| now</p>\n",
+      "expectText": "<p>Say <strong>hello</strong> now</p>\n"
     }
   ]
 }

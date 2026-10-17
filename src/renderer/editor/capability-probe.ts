@@ -1,6 +1,7 @@
 import { monaco } from './monaco-setup';
 import { extensionOf, selectionOf, type CapabilityCase, type CapabilityResult } from './capability-cases';
 import { expandOrTab } from './emmet-monaco';
+import { attachAuthoring } from './authoring-monaco';
 
 /**
  * Runs language capability cases in the real editor (S18.1, S18.2): a real Monaco editor, the bundled language
@@ -49,6 +50,22 @@ async function runEdit(editor: monaco.editor.IStandaloneCodeEditor, c: Capabilit
   const typed = () => {
     if (c.typeText) editor.trigger('keyboard', 'type', { text: c.typeText });
   };
+  if (action === 'linked-type') {
+    // Linked editing is computed after the cursor moves; type once its ranges are there (or after a while, for the
+    // cases that prove it does not apply).
+    const model = editor.getModel();
+    await poll(
+      () =>
+        model?.getAllDecorations().some((d) => d.options.className?.includes('linked-editing-decoration'))
+          ? true
+          : null,
+      2_000,
+    );
+    typed();
+    // The mirrored edit lands on the next tick; wait past it so a case that must NOT be linked cannot pass early.
+    await sleep(300);
+    return true;
+  }
   const run = editor.getAction(action);
   if (!run) return false;
   await run.run();
@@ -88,7 +105,10 @@ async function runCase(
     if (c.kind === 'edit') {
       const got = await runEdit(editor, c);
       const want = (c.expectText ?? '').replace(/\r\n/g, '\n');
-      const seen = model.getValue().replace(/\r\n/g, '\n');
+      const read = () => model.getValue().replace(/\r\n/g, '\n');
+      // Linked editing mirrors a typed change on the next tick; give the editor a moment before comparing.
+      await poll(() => (read() === want ? true : null), 1_000);
+      const seen = read();
       return result(got && seen === want, seen);
     }
     if (c.kind === 'completion') {
@@ -145,12 +165,19 @@ export async function runCapabilityCases(cases: readonly CapabilityCase[]): Prom
   host.style.cssText = 'position:fixed;left:0;top:0;width:900px;height:500px;opacity:0;pointer-events:none;z-index:-1';
   host.setAttribute('aria-hidden', 'true');
   document.body.appendChild(host);
-  const editor = monaco.editor.create(host, { model: null, automaticLayout: false, minimap: { enabled: false } });
+  const editor = monaco.editor.create(host, {
+    model: null,
+    automaticLayout: false,
+    minimap: { enabled: false },
+    linkedEditing: true, // S53.2, as in the workbench editor
+  });
+  const authoring = attachAuthoring(editor); // S53.2: Wrap with tag
   editor.layout({ width: 900, height: 500 });
   const results: CapabilityResult[] = [];
   try {
     for (const c of cases) results.push(await runCase(editor, host, c));
   } finally {
+    authoring.dispose();
     editor.dispose();
     host.remove();
   }
