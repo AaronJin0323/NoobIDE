@@ -6,6 +6,7 @@ Path utilities, directory tree, watcher, encoding/EOL detection, atomic saves, c
 - `project-service.ts` — open / read / save with realpath containment and external-change detection (S03, S10, S11).
 - `atomic-write.ts` (S10.1), `text-codec.ts` (UTF-8, BOM, EOL, binary refusal — S07.4), `paths.ts` (S07.1).
 - `tree.ts`, `ignore.ts`, `listing-filter.ts` (lazy tree, S07.2), `watcher.ts` (S07.3, decision 0007).
+- `project-search.ts` — bounded text search over the project for find / replace in files (S51.2).
 - `file-ops.ts` — create, rename, move without overwriting (S08, decision 0008); move into a folder with local
   history and recovery copies following the moved paths (S52.1).
 - `project-config.ts` — `.noobide/project.json` (S13.2); `portability-scan.ts` — cross-platform transfer check

@@ -59,7 +59,11 @@ test('the native preview view is hidden while About is open, so it cannot cover 
     await page.evaluate(() => window.dispatchEvent(new Event('noobide:open-about')));
     await expect(page.getByTestId('about-dialog')).toBeVisible();
     await expect.poll(async () => (await previewInfo(app)).viewVisible).toBe(false);
+    // The dialog is ready for keys once it has taken the focus (the first test waits for this too): on a slow hosted
+    // runner the view was hidden before the dialog's effects had run, and an Escape sent then went nowhere.
+    await expect(page.getByTestId('about-close')).toBeFocused();
     await page.keyboard.press('Escape');
+    await expect(page.getByTestId('about-dialog')).toHaveCount(0);
     await expect.poll(async () => (await previewInfo(app)).viewVisible).toBe(true);
   } finally {
     await app.close();
