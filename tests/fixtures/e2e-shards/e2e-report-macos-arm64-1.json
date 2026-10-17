@@ -1,0 +1,2774 @@
+{
+ "_source": "GitHub Actions run 39015143213 (2026-10-17), artifact e2e-report-macos-arm64-1, trimmed to suite tree + per-result durations",
+ "config": {
+  "shard": {
+   "current": 1,
+   "total": 2
+  }
+ },
+ "stats": {
+  "startTime": "2026-10-17T07:55:01.722Z",
+  "duration": 427558.24,
+  "expected": 166,
+  "skipped": 3,
+  "unexpected": 0,
+  "flaky": 0
+ },
+ "suites": [
+  {
+   "title": "a11y.spec.ts",
+   "file": "a11y.spec.ts",
+   "specs": [
+    {
+     "title": "axe finds no serious or critical issue on the welcome screen and in the create wizard",
+     "file": "a11y.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2420
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "axe finds no serious or critical issue with a project, the problems panel, the menu and history",
+     "file": "a11y.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2345
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Tab visits the regions in their visual order",
+     "file": "a11y.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 173
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "F6 / Shift+F6 move between regions, also out of the code editor",
+     "file": "a11y.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 183
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "key actions work from the keyboard alone",
+     "file": "a11y.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 333
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "ai-agent.spec.ts",
+   "file": "ai-agent.spec.ts",
+   "specs": [],
+   "suites": [
+    {
+     "title": "AI agent (S34)",
+     "file": "ai-agent.spec.ts",
+     "specs": [
+      {
+       "title": "propose edit + create: accept one, reject one; disk and local history; undo the turn",
+       "file": "ai-agent.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 4309
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "Stop ends a running agent turn and nothing changes",
+       "file": "ai-agent.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 2512
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "a turn is undone from History after a restart: edited, created, renamed and deleted files all come back",
+       "file": "ai-agent.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 5584
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "undo from History skips a file edited since the turn, names it, and can finish later",
+       "file": "ai-agent.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 5664
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "ai-chat-engine.spec.ts",
+   "file": "ai-chat-engine.spec.ts",
+   "specs": [],
+   "suites": [
+    {
+     "title": "AI chat engine (S48)",
+     "file": "ai-chat-engine.spec.ts",
+     "specs": [
+      {
+       "title": "scrolling up during a stream keeps the viewport put; Jump to latest follows again (S48.1)",
+       "file": "ai-chat-engine.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 5983
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "the composer grows with six lines, the preview column stays visible at 1280x720 (S48.2)",
+       "file": "ai-chat-engine.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 571
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "on WebKit, Enter and Escape right after compositionend stay the IME’s in chat and the palette (S48.3)",
+       "file": "ai-chat-engine.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 1161
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "ai-chat.spec.ts",
+   "file": "ai-chat.spec.ts",
+   "specs": [],
+   "suites": [
+    {
+     "title": "AI chat (S33)",
+     "file": "ai-chat.spec.ts",
+     "specs": [
+      {
+       "title": "without a key the chat explains how to add one (S33.1)",
+       "file": "ai-chat.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 260
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "zh-CN: chips shown and removable, consent first, streamed Markdown answer, copy code, usage (S33.1)",
+       "file": "ai-chat.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 714
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "Stop ends a running answer and says so (S33.1)",
+       "file": "ai-chat.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 152
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "en: an offline error is explained; answers follow the UI locale (S33.1)",
+       "file": "ai-chat.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 334
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "\"Explain this code\" on a selection opens the chat in explain mode with the selection (S33.2)",
+       "file": "ai-chat.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 668
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "\"Ask AI\" on a problem card adds the problem with its original error and the file (S33.2)",
+       "file": "ai-chat.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 1655
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "ai-edit.spec.ts",
+   "file": "ai-edit.spec.ts",
+   "specs": [
+    {
+     "title": "Ctrl/Cmd+I on a selection: consent, instruction, diff, Accept saves one undoable edit (zh-CN)",
+     "file": "ai-edit.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1385
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the context menu opens it too; Reject leaves the text unchanged",
+     "file": "ai-edit.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 787
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "\"Edit with AI\" under the code is always in view and opens it on the selection",
+     "file": "ai-edit.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 275
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a range that changed after it was sent is not applied (stale), and says so",
+     "file": "ai-edit.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 782
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Stop cancels a running edit and nothing changes",
+     "file": "ai-edit.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 272
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "en: labels, the request locale, an error explained, Esc closes",
+     "file": "ai-edit.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 405
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "\"Fix with AI\" on a page problem: diff, Accept, resolved after the preview reloaded without it (S35.2)",
+     "file": "ai-edit.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2041
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "IME text stays intact and candidate keys do not send or close the inline editor",
+     "file": "ai-edit.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 416
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors during the AI edit run",
+     "file": "ai-edit.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "ai-history.spec.ts",
+   "file": "ai-history.spec.ts",
+   "specs": [],
+   "suites": [
+    {
+     "title": "AI chat history (S39)",
+     "file": "ai-history.spec.ts",
+     "specs": [
+      {
+       "title": "a chat is saved in app data, not in the project, and reopens after a restart (S39.1)",
+       "file": "ai-history.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 3396
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "a past chat is deleted only after confirming (S39.1)",
+       "file": "ai-history.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 270
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "Settings → AI shows today’s token use per provider (S39.2)",
+       "file": "ai-history.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 304
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "removing a missing project from the recent list offers to delete its saved chats (S39.1)",
+       "file": "ai-history.spec.ts",
+       "tests": [
+        {
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 2573
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "ai-inline.spec.ts",
+   "file": "ai-inline.spec.ts",
+   "specs": [
+    {
+     "title": "a suggestion appears; Tab inserts exactly it as one undo step",
+     "file": "ai-inline.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1183
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Esc dismisses the suggestion without changing the text",
+     "file": "ai-inline.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 949
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Ctrl+→ (⌘→ on macOS) accepts the next word only",
+     "file": "ai-inline.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1196
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "typing cancels the in-flight request",
+     "file": "ai-inline.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 941
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "ai-keychain.spec.ts",
+   "file": "ai-keychain.spec.ts",
+   "specs": [
+    {
+     "title": "a key saved through the real safeStorage (DPAPI) is still saved and readable after a restart (S37.1)",
+     "file": "ai-keychain.spec.ts",
+     "tests": [
+      {
+       "status": "skipped",
+       "results": [
+        {
+         "status": "skipped",
+         "duration": 0
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "ai-preview.spec.ts",
+   "file": "ai-preview.spec.ts",
+   "specs": [
+    {
+     "title": "without a running preview, \"Add preview\" explains why and adds nothing (S38.2)",
+     "file": "ai-preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 154
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the Preview chip shows exactly what will be sent; keyboard opens it; sending needs consent (S38.2)",
+     "file": "ai-preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 777
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no workbench console errors during the run",
+     "file": "ai-preview.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "ai-prompt.spec.ts",
+   "file": "ai-prompt.spec.ts",
+   "specs": [
+    {
+     "title": "a Chinese /ai prompt: hint and warning, Enter, consent, diff with the problem context, Accept saves, one undo (zh-CN)",
+     "file": "ai-prompt.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3028
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "\"Fix with AI\" on the pending warning runs the prompt; Ctrl/Cmd+Enter too; Reject and Esc leave the line",
+     "file": "ai-prompt.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2792
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Enter is not taken over: an /ai line from disk, Shift+Enter, and Enter that ends an IME composition",
+     "file": "ai-prompt.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 4329
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "en: an English prompt from the context menu, labels in English, Accept and undo",
+     "file": "ai-prompt.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2578
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "without an AI key an /ai line is ordinary text: Enter breaks the line, no hint, no warning, no zone",
+     "file": "ai-prompt.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1239
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors",
+     "file": "ai-prompt.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "ai-settings.spec.ts",
+   "file": "ai-settings.spec.ts",
+   "specs": [
+    {
+     "title": "enter a key: stored, never shown again; Test explains failure and success (S31.4, S31.2)",
+     "file": "ai-settings.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 6477
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "AI off removes the AI surfaces; inline completions switch off on their own; consent is revocable (S31.4)",
+     "file": "ai-settings.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 4897
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "without secure storage the key is not stored and AI stays off, explained (S31.2)",
+     "file": "ai-settings.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3184
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "app-startup-restore.spec.ts",
+   "file": "app-startup-restore.spec.ts",
+   "specs": [
+    {
+     "title": "a project reopened at startup gets a running preview every time, without Playwright attached (S05.8)",
+     "file": "app-startup-restore.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 121329
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "commands.spec.ts",
+   "file": "commands.spec.ts",
+   "specs": [
+    {
+     "title": "the command menu derives its items and shortcut hints from the registry",
+     "file": "commands.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 174
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "⌘S / Ctrl+S saves even when the focus is outside the editor",
+     "file": "commands.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 288
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Ctrl+Tab switches tabs and ⌘W / Ctrl+W closes the active one",
+     "file": "commands.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 200
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "⌘B / Ctrl+B toggles the files and ⌘⇧M / Ctrl+Shift+M the problems panel",
+     "file": "commands.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 99
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "distribution.spec.ts",
+   "file": "distribution.spec.ts",
+   "specs": [
+    {
+     "title": "About shows the app version and runtime versions, translated, and closes with Escape",
+     "file": "distribution.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2935
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the native preview view is hidden while About is open, so it cannot cover the dialog",
+     "file": "distribution.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2585
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the packaged app ships the third-party license notices next to app.asar",
+     "file": "distribution.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 9
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the packaged macOS app is native, has the icon and the package.json version",
+     "file": "distribution.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 8
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the packaged macOS app has a valid (ad hoc) code signature after all packaging changes",
+     "file": "distribution.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 4460
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the packaged Windows executable carries the version resource",
+     "file": "distribution.spec.ts",
+     "tests": [
+      {
+       "status": "skipped",
+       "results": [
+        {
+         "status": "skipped",
+         "duration": 1
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "editing.spec.ts",
+   "file": "editing.spec.ts",
+   "specs": [
+    {
+     "title": "the code font starts at 16px (PLAN §3)",
+     "file": "editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 82
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Tab indents and Shift+Tab outdents the line",
+     "file": "editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 433
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Ctrl/Cmd+/ toggles a line comment",
+     "file": "editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 162
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "find highlights matches and replace-all changes every one",
+     "file": "editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 904
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "undo and redo walk the edit history",
+     "file": "editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 145
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "zoom changes only the code font: buttons and Ctrl/Cmd with = - 0",
+     "file": "editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 612
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the editor follows the light and dark theme",
+     "file": "editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 37
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors during the editing run",
+     "file": "editing.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "encodings.spec.ts",
+   "file": "encodings.spec.ts",
+   "specs": [
+    {
+     "title": "a GBK file opens read-only with a notice naming the encoding, and is never written",
+     "file": "encodings.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 283
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "an edited CRLF file keeps CRLF on every line after saving",
+     "file": "encodings.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 205
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a binary file is not opened in the editor",
+     "file": "encodings.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 82
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "external-change.spec.ts",
+   "file": "external-change.spec.ts",
+   "specs": [
+    {
+     "title": "our own saves are never mistaken for external edits (S11.1)",
+     "file": "external-change.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3540
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a clean buffer reloads silently with a notice and keeps the cursor (S11.1)",
+     "file": "external-change.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2284
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "unsaved edits + an external change → conflict with a Monaco diff; \"use disk\" only on request (S11.2)",
+     "file": "external-change.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 6083
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "\"keep mine\" writes the editor version over the compared disk version (S11.2)",
+     "file": "external-change.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 427
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "deleting a conflicted file closes its comparison and lets the user save the retained edits again",
+     "file": "external-change.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3173
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a new disk version replaces the comparison while the retained edits still await a choice",
+     "file": "external-change.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1263
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a file deleted on disk keeps its text, is marked deleted and can be saved again (S11.3)",
+     "file": "external-change.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5381
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "failed re-creation explains the missing folder and succeeds after the folder is restored",
+     "file": "external-change.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1527
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a deleted file reappearing with different text requires a choice and keeps unsaved edits",
+     "file": "external-change.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3218
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a UTF-8 BOM added or removed by another program is kept by the next save",
+     "file": "external-change.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5233
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a deleted clean file can be closed after confirming (S11.3)",
+     "file": "external-change.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1054
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "file-roles.spec.ts",
+   "file": "file-roles.spec.ts",
+   "specs": [
+    {
+     "title": "file rows show the real name plus a short role (zh-CN default)",
+     "file": "file-roles.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 243
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the editor shows the role hint of the open file, and none before a file is open",
+     "file": "file-roles.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 304
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "roles follow the interface language (en)",
+     "file": "file-roles.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 254
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "file-tree.spec.ts",
+   "file": "file-tree.spec.ts",
+   "specs": [
+    {
+     "title": "the tree uses ARIA tree roles, folders first (S08.1)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 45
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "keyboard only: Tab into the tree, arrows move and expand, Enter opens (S08.1)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 282
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the files panel collapses and comes back (S08.1)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 109
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "F2 renames; invalid and Windows-unrepresentable names are explained (S08.2)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 460
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a case-only rename works on a case-insensitive file system (S08.2)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 110
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "creating onto an existing name is refused and explained; nothing is overwritten (S08.4)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 148
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "new file and folder are created where selected and the new file opens (S08.2)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 316
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "renaming the open file saves its edits first and the editor follows (S08.3)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 377
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Delete asks first; Escape and Cancel keep the file (S08.3)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 108
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a failed move to the trash is explained and the file stays (S08.3)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 439
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "confirming moves the open file to the trash and closes it in the editor (S08.3)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 410
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "context menu (Shift+F10) and the shortcut reveal an entry in File Explorer / Finder (S08.5)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 185
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "changes made by other programs appear in the tree (S07.3)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 999
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "an open file is read-only while it is being moved to the trash: nothing typed meanwhile is lost (S08.3, S10)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2642
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a name Windows cannot represent is flagged, explained and can be renamed (review finding 9)",
+     "file": "file-tree.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 328
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "files.spec.ts",
+   "file": "files.spec.ts",
+   "specs": [
+    {
+     "title": "cancelling the folder dialog changes nothing (S03.3)",
+     "file": "files.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 257
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "opens a folder with Chinese characters and spaces and lists its files (S03.3)",
+     "file": "files.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 133
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "clicking a file opens it in Monaco (S03.3)",
+     "file": "files.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 163
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "edits are saved to disk with Ctrl/Cmd+S (S03.4)",
+     "file": "files.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 189
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a language switch keeps unsaved edits in the editor",
+     "file": "files.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 220
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a failed save keeps the edits, explains the cause and succeeds after the fix (S03.4)",
+     "file": "files.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 216
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "switching files saves unsaved edits (no edit is dropped)",
+     "file": "files.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 170
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a nested file with a Chinese name opens and saves (S03.4)",
+     "file": "files.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 223
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a binary file is refused instead of being opened as text",
+     "file": "files.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 65
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors during the file run",
+     "file": "files.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "glass-visual.spec.ts",
+   "file": "glass-visual.spec.ts",
+   "specs": [
+    {
+     "title": "captures the welcome screen and the workbench in both themes",
+     "file": "glass-visual.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 7800
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "glass.spec.ts",
+   "file": "glass.spec.ts",
+   "specs": [
+    {
+     "title": "the palette opens from the keyboard, searches, moves with the arrows and runs the chosen command",
+     "file": "glass.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1069
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "only commands that can run are listed",
+     "file": "glass.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 89
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the native View menu opens the palette",
+     "file": "glass.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 47
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "materials: content never under blur, overlays blur, chrome is flat — in both themes",
+     "file": "glass.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1687
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a dialog sheet is frosted: the code behind it does not show through sharp (both themes)",
+     "file": "glass.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1661
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "reduced transparency makes every material solid",
+     "file": "glass.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1684
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "reduced motion swaps the menu pop for a cross-fade",
+     "file": "glass.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 980
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "increased contrast makes every material solid",
+     "file": "glass.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 784
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "forced colours (Windows contrast themes) drop every blur and keep the palette selection visible",
+     "file": "glass.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 447
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "axe finds no serious or critical issue on the open palette in both themes",
+     "file": "glass.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1511
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "history.spec.ts",
+   "file": "history.spec.ts",
+   "specs": [
+    {
+     "title": "versions of a file are listed newest first, and a version is compared with the current content",
+     "file": "history.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 790
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "restore keeps the current content as a version first and goes through the editor and the save pipeline",
+     "file": "history.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3212
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "unsaved edits are saved (and kept as a version) before a restore replaces them",
+     "file": "history.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 789
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a deleted file is listed as deleted and can be restored with a version of its content",
+     "file": "history.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1035
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Format Document keeps the text as it was before formatting, unsaved edits included (PLAN §7)",
+     "file": "history.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2357
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "storage: usage and policy are shown, the history folder can be revealed and cleaned up (S21.4)",
+     "file": "history.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 601
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a moved project leaves an orphaned history that is listed with its size and can be cleared (ADR 0006)",
+     "file": "history.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 676
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "clearing asks first and removes the project history; project files are untouched (S21.4)",
+     "file": "history.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 683
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the history window follows the interface language (en)",
+     "file": "history.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 216
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "key-features-visible.spec.ts",
+   "file": "key-features-visible.spec.ts",
+   "specs": [
+    {
+     "title": "the top-bar Save button saves like Ctrl+S, and only shows while there is something to save",
+     "file": "key-features-visible.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 240
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the Lessons rail button opens the walkthrough",
+     "file": "key-features-visible.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 88
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "at 1280x800 with the walkthrough and Problems open, every key control is on screen",
+     "file": "key-features-visible.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1621
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "at 1366x768 with the walkthrough and Problems open, every key control is on screen",
+     "file": "key-features-visible.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1498
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "at 1280x720 with the walkthrough and Problems open, every key control is on screen",
+     "file": "key-features-visible.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1516
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "at 960x600 with the walkthrough and Problems open, every key control is on screen",
+     "file": "key-features-visible.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1480
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "at 640x480 with the walkthrough and Problems open, every key control is on screen",
+     "file": "key-features-visible.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 152
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a narrow window offers New file in the top bar, which opens the drawer and names the new file",
+     "file": "key-features-visible.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 236
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the files panel names New file in words when it has room",
+     "file": "key-features-visible.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 7
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors",
+     "file": "key-features-visible.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "language-workbench.spec.ts",
+   "file": "language-workbench.spec.ts",
+   "specs": [
+    {
+     "title": "Format button formats CSS, saves it, and fires the pre-format hook first (S18.3)",
+     "file": "language-workbench.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 4369
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Shift+Alt+F formats JavaScript and fires the hook (S18.3)",
+     "file": "language-workbench.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2008
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "relative ES module import of a closed file resolves for completion (S18.4)",
+     "file": "language-workbench.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 318
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a global from another (closed) script is known; a misspelling of it is still reported (S18.4)",
+     "file": "language-workbench.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 89
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a killed language worker is restarted and the editor stays usable (S18.4)",
+     "file": "language-workbench.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 18105
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no console errors during the language run",
+     "file": "language-workbench.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "language.spec.ts",
+   "file": "language.spec.ts",
+   "specs": [
+    {
+     "title": "HTML, CSS and JavaScript services answer offline in the packaged app (S18.1, S18.2)",
+     "file": "language.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 9384
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "logs.spec.ts",
+   "file": "logs.spec.ts",
+   "specs": [
+    {
+     "title": "the log lives in app data, starts with version info, holds no source code; the menu opens its folder (S13.6)",
+     "file": "logs.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 5125
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "menus.spec.ts",
+   "file": "menus.spec.ts",
+   "specs": [
+    {
+     "title": "the menu bar follows the platform, the interface language and the command context",
+     "file": "menus.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2785
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "macOS keeps running after the last window closes and reopens a window on activation",
+     "file": "menus.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3140
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Windows exits when the last window closes",
+     "file": "menus.spec.ts",
+     "tests": [
+      {
+       "status": "skipped",
+       "results": [
+        {
+         "status": "skipped",
+         "duration": 2113
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "not-found.spec.ts",
+   "file": "not-found.spec.ts",
+   "specs": [
+    {
+     "title": "a misspelled image path names the similar file the project has (images/avatr.svg → avatar.svg)",
+     "file": "not-found.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 362
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a broken link never traps the preview: the page says so, Back to entry page and a save both lead home",
+     "file": "not-found.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1858
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "offline.spec.ts",
+   "file": "offline.spec.ts",
+   "specs": [
+    {
+     "title": "the network is really off: Node in main and Chromium both fail to reach the internet",
+     "file": "offline.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 31
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "templates: a project is created from the default built-in template and its preview runs",
+     "file": "offline.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1107
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "a webpage fetch to the internet fails in the preview (the cut also covers renderers)",
+     "file": "offline.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 35
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "editing and preview: an edit is saved to disk and the preview shows it",
+     "file": "offline.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 197
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "explanations: a typo is explained as a code-check problem and as a runtime problem",
+     "file": "offline.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2134
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the app itself tried to reach nothing outside this machine",
+     "file": "offline.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 6
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "portability.spec.ts",
+   "file": "portability.spec.ts",
+   "specs": [
+    {
+     "title": "opening a transferred project lists its issues and changes nothing on disk (S13.5)",
+     "file": "portability.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 966
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "preview-annotations.spec.ts",
+   "file": "preview-annotations.spec.ts",
+   "specs": [
+    {
+     "title": "picking with the mouse: the page does not get the click, isolation is unchanged (S41.3)",
+     "file": "preview-annotations.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 165
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Esc in the page and Cancel end pick mode (S41.3)",
+     "file": "preview-annotations.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 233
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "keyboard list, script-created elements, regions and highlight (S41.3)",
+     "file": "preview-annotations.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 97
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no workbench console errors during part 1",
+     "file": "preview-annotations.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 1
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "annotate a button with the mouse; it is listed with its HTML and CSS location (S41.5/S41.7)",
+     "file": "preview-annotations.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 330
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Ask AI: the Annotation chip shows what is sent; the agent edits the annotated CSS rule (S41.6/S41.7)",
+     "file": "preview-annotations.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 749
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "the keyboard path: choose an element from the list (S41.5/S41.7)",
+     "file": "preview-annotations.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 268
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "draw a region with the keyboard on the frozen picture (S41.5/S41.7)",
+     "file": "preview-annotations.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 367
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "annotations survive a restart (S41.7)",
+     "file": "preview-annotations.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 2371
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "no workbench console errors during part 2",
+     "file": "preview-annotations.spec.ts",
+     "tests": [
+      {
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 3
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
