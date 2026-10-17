@@ -12,6 +12,7 @@
  */
 import { createProblemRecord, type ProblemRecord, type ProblemSeverity } from '../../shared/problem';
 import { HTML_UNCLOSED_CODE } from '../../diagnostics/html-check';
+import { beginnerFacts } from '../../diagnostics/beginner-checks';
 
 /** The fields of a Monaco IMarker this needs (MarkerSeverity: Hint 1, Info 2, Warning 4, Error 8). */
 export interface MarkerLike {
@@ -65,6 +66,8 @@ export function markerToProblem(
   const code = codeOf(marker);
   // The explanation rule for an unclosed element needs the tag name (src/diagnostics/README.md).
   const tagName = code === HTML_UNCLOSED_CODE ? /`([A-Za-z][\w-]*)`/.exec(marker.message)?.[1] : undefined;
+  // S55.2: the beginner checks quote their facts in the message; rules 16–20 and 23–25 read them from `data`.
+  const facts = beginnerFacts(code, marker.message);
   const column = Math.max(1, Math.floor(marker.startColumn));
   const input = {
     source: 'static' as const,
@@ -80,6 +83,7 @@ export function markerToProblem(
       endColumn: marker.endColumn,
       owner: marker.owner,
       ...(tagName ? { tagName } : {}),
+      ...facts,
     },
     at: context.at,
   };

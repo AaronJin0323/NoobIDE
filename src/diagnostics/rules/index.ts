@@ -4,6 +4,7 @@
  */
 import type { ProblemExplanation, ProblemRecord } from '../../shared/problem';
 import { aiPromptPendingRule } from './ai-prompt';
+import { BEGINNER_STATIC_RULES, inlineHandlerRule, scriptBeforeElementRule } from './beginner';
 import { corsRule, fetchFailureRule, jsonParseRule, unhandledRejectionRule } from './async-network';
 import { htmlUnclosedTagRule, notAFunctionRule, selectorGuidedRule } from './code-structure';
 import { crossOriginRule } from './cross-origin';
@@ -24,8 +25,12 @@ export const DEFAULT_RULES: readonly Rule[] = [
   corsRule,
   jsonParseRule,
   fetchFailureRule,
+  // S55.2 rule 21: an undefined name called from an inline on… attribute; before rule 1, which also matches it.
+  inlineHandlerRule,
   undefinedNameRule,
   notAFunctionRule,
+  // S55.2 rule 22: the element exists but was read too early; before rule 3, which also matches it.
+  scriptBeforeElementRule,
   nullElementRule,
   syntaxRule,
   scriptNotFoundRule,
@@ -35,6 +40,8 @@ export const DEFAULT_RULES: readonly Rule[] = [
   cssPropertyRule,
   htmlUnclosedTagRule,
   selectorGuidedRule,
+  // S55.2 static rules 16–20, 23–25 (NoobIDE beginner checks): each takes only its own code.
+  ...BEGINNER_STATIC_RULES,
   unhandledRejectionRule,
 ];
 

@@ -4,6 +4,7 @@
  * tests and by rules.test.ts, which runs every fixture through the full rule list and the honesty checks.
  */
 import { createProblemRecord, type ProblemInput, type ProblemRecord } from '../../shared/problem';
+import { beginnerFacts, beginnerMessages } from '../beginner-checks';
 import type { RuleContext } from './types';
 
 export interface RuleFixture {
@@ -60,6 +61,28 @@ function resource(
     code: 'resource-failed',
     message: `GET ${url} ${status} (Not Found)`,
     resource: { requestedUrl: url, requestedPath, initiatorFile, status, ...(resourceType ? { resourceType } : {}) },
+  };
+}
+
+/** A beginner-check finding as markerToProblem turns it into a record (facts read back from the message). */
+function beginner(
+  code: string,
+  message: string,
+  file: string,
+  line: number,
+  column: number,
+  endColumn: number,
+): ProblemInput {
+  return {
+    ...base,
+    severity: 'warning',
+    source: 'static',
+    file,
+    line,
+    column,
+    code,
+    message,
+    data: { endLine: line, endColumn, owner: 'noobide-beginner', ...beginnerFacts(code, message) },
   };
 }
 
@@ -381,6 +404,88 @@ export const RULE_FIXTURES: readonly RuleFixture[] = [
     code: 'guided-style-not-applied',
     message: 'User asked: my style is not applied',
   }),
+  // S55.2 rules 16–25 (more cases, positive and negative, in tests/fixtures/beginner-rules + rules-16-25.test.ts)
+  fx(
+    'static-broken-ref-similar',
+    'html-broken-ref',
+    beginner('html-broken-ref', beginnerMessages.brokenRef('src', 'images/logoo.png'), 'index.html', 7, 13, 29),
+    { projectFiles: ['index.html', 'images/logo.png'] },
+  ),
+  fx(
+    'static-duplicate-id',
+    'html-duplicate-id',
+    beginner('html-duplicate-id', beginnerMessages.duplicateId('hero', 2), 'index.html', 3, 16, 20),
+  ),
+  fx(
+    'static-img-no-alt',
+    'html-img-no-alt',
+    beginner('html-img-no-alt', beginnerMessages.imgNoAlt(), 'index.html', 2, 4, 7),
+  ),
+  fx(
+    'static-mismatched-close',
+    'html-mismatched-close',
+    beginner(
+      'html-mismatched-close',
+      beginnerMessages.mismatchedClose('secton', 'section', true),
+      'index.html',
+      4,
+      5,
+      11,
+    ),
+  ),
+  fx(
+    'static-unitless-length',
+    'css-unitless-length',
+    beginner('css-unitless-length', beginnerMessages.unitlessLength('width', '100'), 'style.css', 2, 10, 13),
+  ),
+  fx(
+    'runtime-inline-handler-undefined',
+    'inline-handler-undefined',
+    runtime(
+      'ReferenceError',
+      'Uncaught ReferenceError: startGame is not defined',
+      'index.html',
+      12,
+      31,
+      `ReferenceError: startGame is not defined\n    at HTMLButtonElement.onclick (${ORIGIN}/index.html:12:31)`,
+    ),
+  ),
+  fx(
+    'runtime-script-before-element',
+    'script-before-element',
+    runtime(
+      'TypeError',
+      "Uncaught TypeError: Cannot read properties of null (reading 'addEventListener')",
+      'app.js',
+      1,
+      34,
+    ),
+    { lineText: "document.getElementById('start').addEventListener('click', go);", htmlIds: ['start'] },
+  ),
+  fx(
+    'static-selector-prefix',
+    'js-selector-prefix',
+    beginner('js-selector-prefix', beginnerMessages.selectorPrefix('getElementById', '#title'), 'app.js', 1, 40, 46),
+    { htmlIds: ['title'] },
+  ),
+  fx(
+    'static-ref-case',
+    'html-ref-case',
+    beginner(
+      'html-ref-case',
+      beginnerMessages.refCase('src', 'Images/Logo.PNG', 'images/logo.png'),
+      'index.html',
+      1,
+      11,
+      26,
+    ),
+    { projectFiles: ['index.html', 'images/logo.png'] },
+  ),
+  fx(
+    'static-assign-in-condition',
+    'js-assign-in-condition',
+    beginner('js-assign-in-condition', beginnerMessages.assignInCondition('if'), 'app.js', 2, 11, 12),
+  ),
 ];
 
 export function fixture(name: string): RuleFixture {

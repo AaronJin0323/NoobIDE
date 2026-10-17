@@ -394,6 +394,19 @@ export const zhCN = {
   'problems.fix.retrySave': '重新保存',
   'problems.fix.recheck': '重新检查',
   'problems.fix.clear': '清除',
+  // S55.3: the quick fix "create the missing file"
+  'problems.fix.create.applying': '正在新建 {path} 并写入模板……',
+  'problems.fix.create.failed': '没有新建 {path}：{reason}',
+  'problems.fix.create.exists': '没有新建：{path} 已经存在。NoobIDE 不会覆盖已有的文件。',
+  'problems.fix.create.createdEmpty': '已新建空文件 {path}，但没能打开它写入模板。可以在文件树里打开它。',
+  'problems.fix.create.saveFailed':
+    '已新建 {path} 并在编辑器里写入模板，但保存失败：{reason} 内容还在编辑器里，问题还没有解决。',
+  'problems.fix.create.checking': '已新建 {path} 并保存，正在重新检查 {file} 第 {line} 行……',
+  'problems.fix.create.unchecked':
+    '已新建 {path} 并保存，但没能重新检查 {file}（文件可能已经关闭）。所以还不能说问题已经解决，可以点“重新检查”再试。',
+  'problems.fix.create.stillReported': '已新建 {path}，但重新检查后 {file} 第 {line} 行仍然报告这个问题。',
+  'problems.fix.create.undone':
+    '已撤销：{path} 里的模板内容已移除并保存。文件本身还在；不需要的话可以在文件树里删除它（会移到回收站）。',
   // --- end S22.4 / S22.5 ---
   // --- end S17.2 ---
   // --- S17.3 console view ---
