@@ -215,6 +215,81 @@ export const zhCN = {
     '浏览器报告这个错误发生在从另一个网站加载的脚本里（{url}），不在你的项目文件中，所以 NoobIDE 无法带你跳到你代码中的某一行。页面自己只会收到“Script error.”：浏览器会隐藏其他网站脚本中错误的细节。',
   'crossOrigin.external.check.calls':
     '检查你自己的代码里在出错前使用这个库的那几行：传给它的值是否正确，页面是否已经准备好（例如元素是否已经存在）。',
+  // S55.2 rules 16–25 (docs/product/explanation-rules-16-25.md) and their quick-fix labels (S55.3)
+  'action.usePath': '把路径改成 {path}',
+  'action.createFile': '新建文件 {path}',
+  'action.addAlt': '给这个 <img> 加上 alt=""',
+  'action.fixClosingTag': '把 </{from}> 改成 </{to}>',
+  'action.useSelector': "把 '{from}' 改成 '{to}'",
+  // Rule 16 — broken relative path, found statically
+  'brokenRef.title': '{attr}="{ref}" 指向的文件在项目里找不到。',
+  'brokenRef.explanation':
+    'NoobIDE 在项目的文件列表里没有找到 {path}，所以网页运行时这个文件可能加载不出来。文件列表偶尔会比磁盘慢一点；如果文件刚刚建好，保存一下再看。',
+  'brokenRef.cause.similar': '项目里有一个名字相近的文件：{actual}，路径可能写错了。',
+  'brokenRef.cause.several': '项目里有几个名字相近的文件：{candidates}，可能是其中一个。',
+  'brokenRef.cause.missing': '这个文件可能还没有建，或者放在了别的文件夹里。',
+  'brokenRef.check.relative': '路径是从 {file} 所在的文件夹开始算的：../ 表示上一层文件夹。',
+  'brokenRef.check.compare': '在文件树里找到这个文件，逐个字母对照路径（包括扩展名）。',
+  // Rule 17 — duplicate id
+  'dupId.title': 'id “{id}” 在这个文件里用了不止一次（第一次在第 {firstLine} 行）。',
+  'dupId.explanation':
+    '一个 id 在一个页面里只能用一次。用了两次时，getElementById("{id}") 只会找到第一个元素，#{id} 的样式却会同时作用到两个元素上。',
+  'dupId.check.rename': '给其中一个元素换一个不重复的 id；如果几个元素要用同样的样式，改用 class。',
+  'dupId.check.code': '检查 JavaScript 和 CSS 里用到 {id} 的地方，确认它们要的是哪一个元素。',
+  // Rule 18 — <img> without alt
+  'imgAlt.title': '这个 <img> 没有 alt 属性。',
+  'imgAlt.explanation':
+    'alt 是图片的文字说明：读屏软件会读出它，图片加载失败时也会显示它。只用来装饰的图片可以写 alt=""（空的）。',
+  'imgAlt.check.describe': '在 alt="" 的引号里用几个字写出图片内容，例如 alt="网站标志"。',
+  // Rule 19 — mismatched closing tag
+  'mismatch.title': '结束标签 </{tag}> 没有对应的开始标签。',
+  'mismatch.explanation.open':
+    '浏览器会忽略这个 </{tag}>。这里打开着的是 <{open}>，你可能想写的是 </{open}>，或者多写了一个结束标签。',
+  'mismatch.explanation.none':
+    '这里没有打开着的 <{tag}>，浏览器会忽略这个结束标签。它可能是多写的，或者开始标签写错了。',
+  'mismatch.check.pair': '从这一行往上找，看看 <{open}> 是在哪里开始的，它的结束标签应该写在哪里。',
+  'mismatch.check.spelling': '检查开始标签和结束标签的名字拼写是否完全一样。',
+  // Rule 20 — CSS length without unit
+  'unitless.title': '{property}: {value} 缺少单位，浏览器会忽略这一条样式。',
+  'unitless.explanation':
+    '除了 0，长度都要带单位，例如 {value}px、{value}%、{value}em 或 {value}rem。你可能想写 {value}px，但具体用哪个单位要看你想要的效果。',
+  'unitless.check.unit': '在数字后面紧挨着写上单位（中间不要空格），保存后看预览。',
+  // Rule 21 — inline handler calling an undefined function
+  'inlineHandler.title': '页面上的 on… 属性调用了 {name}，但浏览器找不到这个函数。',
+  'inlineHandler.explanation':
+    '像 onclick="{name}()" 这样的写法只能调用全局函数。浏览器在点击（或其他事件）发生时没有找到 {name}，可能的原因见下面。',
+  'inlineHandler.cause.module': '函数可能写在 <script type="module"> 里：模块里的函数不是全局的，onclick 找不到它。',
+  'inlineHandler.cause.notLoaded': '定义这个函数的 .js 文件可能没有用 <script src="…"> 引入，或者路径不对。',
+  'inlineHandler.cause.spelling': '属性里的名字和定义时的名字可能拼写或大小写不一致。',
+  'inlineHandler.cause.nested': '函数可能写在另一个函数里面，外面看不到它。',
+  'inlineHandler.check.compare': '对照 HTML 里的 on…="{name}()" 和 JavaScript 里的 function {name}，逐个字母比较。',
+  'inlineHandler.check.listener': '也可以改用 addEventListener：在 JavaScript 里找到元素，再给它加事件。',
+  // Rule 22 — script runs before the element it reads
+  'scriptEarly.title': '脚本读取 #{id} 时得到了 null，但 HTML 里确实有 id="{id}" 的元素。',
+  'scriptEarly.explanation':
+    '元素存在却没找到，很可能是脚本运行得太早：<script> 写在这个元素前面，浏览器运行脚本时还没读到这个元素。',
+  'scriptEarly.check.move': '把 <script> 移到 </body> 前面，或者给它加上 defer：<script src="…" defer>。',
+  'scriptEarly.check.dynamic': '如果这个元素是后来用 JavaScript 加进页面的，要在加进去之后再去找它。',
+  'scriptEarly.check.page': '确认出错的页面就是有 id="{id}" 的那个 HTML 文件。',
+  // Rule 23 — selector-prefix mistakes
+  'selPrefix.title.byIdHash': "getElementById('{selector}') 里多了一个 {prefix}。",
+  'selPrefix.title.queryBare': "querySelector('{selector}') 少了 # 或 .。",
+  'selPrefix.explanation.byIdHash':
+    'getElementById 只要 id 本身，不需要 # 或 .，所以这里很可能找不到元素，会得到 null。',
+  'selPrefix.explanation.queryBare':
+    'querySelector 用的是 CSS 选择器：不带符号的 {selector} 表示 <{selector}> 标签。页面里的“{selector}”是 id 或 class，所以很可能要写成 #{selector} 或 .{selector}。',
+  'selPrefix.cause.isId': '项目的 HTML 里有 id="{name}"。',
+  'selPrefix.cause.isClass': '项目的 HTML 里有 class="{name}"。',
+  'selPrefix.check.prefix': '记住：getElementById("名字")，querySelector("#名字") 或 querySelector(".名字")。',
+  // Rule 24 — reference differs only in letter case
+  'refCase.title': '{attr}="{ref}" 和项目里的文件 {actual} 只差大小写。',
+  'refCase.explanation':
+    '在 Windows 和大多数 Mac 上这个文件可能还能打开，但在区分大小写的系统或网站服务器上可能打不开。',
+  'refCase.check.match': '把路径的每个字母写得和文件名完全一样（包括大小写和扩展名）。',
+  // Rule 25 — assignment in an if/while condition
+  'assignCond.title': '{keyword} 的条件里用了一个 =。',
+  'assignCond.explanation': '一个 = 是赋值：它会改变变量，然后用新值来判断条件。这里可能本想比较两个值，应该写 ===。',
+  'assignCond.check.compare': '如果是想比较，把 = 改成 ===；如果确实想赋值，把赋值写到条件外面的上一行。',
 } as const satisfies Record<string, string>;
 
 export type DiagnosticsMessageKey = keyof typeof zhCN;

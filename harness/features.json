@@ -4733,8 +4733,8 @@
       "depends_on": [
         "S55.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/diagnostics/beginner-checks.ts (static checks for rules 16-20, 23-25; beginner-checks.test.ts 13 tests) + src/diagnostics/rules/beginner.ts (rules 16-25 on the S22 engine; 21/22 before rules 1/3); positive+negative fixture per rule in tests/fixtures/beginner-rules (cases.json) run through markerToProblem -> explain in rules-16-25.test.ts (honesty in zh-CN+en, original kept; case-mismatch rule agrees with portability-scan via shared portableNameKey on casePairs + case-project fixture); rules.test fixtures per rule; verify green"
     },
     {
       "id": "S55.3",
@@ -4752,7 +4752,7 @@
       "depends_on": [
         "S55.2"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
