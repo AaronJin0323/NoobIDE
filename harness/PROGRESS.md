@@ -14,6 +14,9 @@ source timestamps, checks capture covers received messages, and retains main-sta
 keystroke and unlimited-source control checks. Added deterministic delayed/out-of-order and bypass
 cases. Fixed JSON report path relative to Playwright config; missing reports now fail upload.
 Aggregate gates no longer cancel their sibling when one reports a failing prerequisite.
+Repaired a missing feature-object separator introduced by the main merge (run 39000141670);
+all 222 feature records are retained. Capped Vitest at four workers to reduce contention
+while retaining the watcher latency threshold.
 
 **Evidence:** Baseline verify passed (2728 tests). Final validation and hosted retry recorded in
 S06.5 evidence. No product rate limit or latency threshold was increased; no tests skipped.
@@ -74,6 +77,7 @@ remains untouched. Sandbox baseline failures passed under normal Windows permiss
 
 **Next up:** Finish draft-release CD (original owner request), then run the updated workflows on GitHub.
 Existing signing credentials and physical-platform acceptance remain owner work.
+
 ## Session 29 (side session) — 2026-10-16 — Chinese input repair (S35.4, owner request)
 
 **Agent:** Codex on Windows x64, existing main checkout.

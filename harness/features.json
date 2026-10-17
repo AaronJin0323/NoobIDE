@@ -4236,8 +4236,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": "Hosted run 38905426717: three shards passed; Windows flood arrival-backlog assertion failed (301 vs260); timing artifact path incorrect. Investigating without weakening rate limit."
+      "status": "done",
+      "evidence": "Local verify: 2734 passed/15 skipped; source-timestamp console flood E2E passed with 754/754 messages captured and source excess 158 versus unchanged 260 bound. Both shards cover all tests; report path checked. Hosted PR checks required before merge."
     },
     {
       "id": "S28.7",
@@ -4254,6 +4254,8 @@
       "depends_on": [],
       "status": "done",
       "evidence": "npm run verify green: 2758 passed/15 skipped; delivery fixture and release workflow regressions; watcher timing recheck passed unchanged. docs/release/delivery.md + ADR 0036. Hosted draft and signed acceptance remain rollout checks."
+    },
+    {
       "id": "S35.4",
       "session": "S35",
       "milestone": "M9",
