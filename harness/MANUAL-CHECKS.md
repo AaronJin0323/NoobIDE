@@ -1,5 +1,19 @@
 # Manual checks
 
+## S35.4 — Supplemental native IME check
+
+Automated Electron tests cover composition events and the 229 boundary key, not a real OS candidate window.
+On Windows x64 (Microsoft Pinyin) and Apple Silicon macOS (Pinyin):
+
+1. Open a project, select code, open AI edit, and type `把标题改成蓝色` in several candidate selections.
+   Insert another Chinese word in the middle. Confirm no duplicated/missing text or caret jumps.
+2. While candidates are open, press Enter to select and Escape to cancel. Neither should send or close AI edit.
+   After finishing composition, Shift+Enter inserts a newline and Enter sends normally.
+3. Repeat candidate selection/cancellation in AI chat, a file rename, the project-name wizard, the command palette,
+   and an annotation note. Candidate arrows must not move the file-tree selection; Escape must not close a dialog.
+4. Record OS and input-method versions and results. No physical macOS or native candidate-window check was run
+   during the automated S35.4 repair.
+
 Checks that need real hardware (Windows x64, physical Apple Silicon Mac) or a human judgement. Agents add a section
 here when they set a feature to `needs_manual_check`. The owner runs the steps, records the result, and then closes
 the feature:
