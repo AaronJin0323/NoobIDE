@@ -125,6 +125,7 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       command('save'),
       SEPARATOR,
       command('show-history'),
+      command('show-checkpoints'), // S56.2
       SEPARATOR,
       command('close-tab'),
       command('close-project'),

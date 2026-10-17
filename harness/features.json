@@ -4857,8 +4857,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/checkpoint-store.test.ts (20 tests: whole project + ignore rules in app data only, dedupe with S21 blobs, limits refused with detail + usage, damaged/missing blob and damaged/unreadable/crafted manifest faults, pins vs history GC) + subagent review (2 rounds, findings fixed) + decision 0041 + verify --quick green"
     },
     {
       "id": "S56.2",
@@ -4875,8 +4875,8 @@
       "depends_on": [
         "S56.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/checkpoints.spec.ts (2 tests: save, break 3 files, compare list + diff, restore all -> preview shows old page; rename/delete) + tests/integration/checkpoint-restore.test.ts (14 tests: atomic save path, dirty save/keep choice, trash only after confirmation, TOCTOU, damaged copy, safety checkpoint, keep) + subagent review (2 rounds, blockers fixed) + vitest 224 files green"
     },
     {
       "id": "S56.3",
@@ -4892,8 +4892,8 @@
       "depends_on": [
         "S56.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/checkpoint-auto.test.ts (4 tests: before-ai once per proposal before its first write, labelled; before-history-restore labelled; change goes ahead without one; dedupe) + src/recovery/checkpoints.test.ts (5 tests: count/age pruning policy, newest auto kept, named never pruned) + tests/e2e/checkpoints.spec.ts S56.3 step (History window restore -> automatic checkpoint) + e2e checkpoints/history/ai-agent/commands 20 passed"
     },
     {
       "id": "S56.4",
@@ -4908,8 +4908,8 @@
       "depends_on": [
         "S56.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/i18n/checkpoints.test.ts (12 tests over zh-CN/en strings, glossary entries checkpoint/local history/undo, docs/product/checkpoints.md: three mechanisms kept apart, no checkpoint string claims version control/Git) + docs/product/checkpoints.md checked against the criteria"
     },
     {
       "id": "S57.1",
@@ -4943,6 +4943,25 @@
       ],
       "status": "done",
       "evidence": "case js-rename-two-files + refusals js-rename-refuses-built-in / -name-used-in-html pass in packaged app offline; tests/integration/rename-apply.test.ts (6: through savers, per-file undo, changed-on-disk refused, conflict at save keeps edit, failed write keeps edit, mid-apply change reverts); js-navigation.test.ts refusals (built-in, incomplete, used-in-html, property, name-taken, invalid, same); tests/e2e/js-navigation.spec.ts F2 preview/apply/undo + refusal; subagent review fixed; verify green"
+    },
+    {
+      "id": "S57.3",
+      "session": "S57",
+      "milestone": "M19",
+      "title": "Navigation waits for the project's script index",
+      "description": "Owner request 2026-10-18 (found while stabilising PR #30): F12 / Shift+F12 / F2 pressed before the project's scripts were read by the TypeScript worker answered \"not found\" instead of waiting.",
+      "acceptance": [
+        "While the project's scripts are still being read (or the Monaco binding is still loading), go to definition, find references and rename wait for the index, bounded; the status strip says so as text (never colour alone)",
+        "After the bound the command explains that the scripts are still being read instead of answering \"not found\"; after the index is ready the same keypress navigates",
+        "A unit test covers the race (the index completes after the command was issued); tests/e2e/js-navigation.spec.ts presses F12 immediately after opening a project with many scripts",
+        "docs/capabilities.md (S57 section) records the behaviour"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S57.1"
+      ],
+      "status": "done",
+      "evidence": "project-scripts.test.ts (+3: gated-read race, libs-taken-before-ready, bounded wait + close releases), project-scripts-registry.test.ts (4); tests/e2e/js-navigation.spec.ts 7 passed on Windows (packaged) incl. held-reads F12 case asserting the status-strip note then navigation; negative proof: the case fails without the whenIndexed await; docs/capabilities.md S57 paragraph; verify green"
     },
     {
       "id": "S47.1",

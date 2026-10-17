@@ -66,6 +66,15 @@ file is not open (`tests/e2e/js-navigation.spec.ts`, on a project with a Chinese
 its file at the place; references are listed by file and line. Names that come with the browser (`document`,
 `console`) have no project file and are not offered. The same limits as above apply (60 scripts, 256 KB each).
 
+**Right after a project opens** (S57.3) its scripts are still being read into the language service. A command pressed
+then — F12, Shift+F12 or F2 — waits for that index (at most 10 seconds) rather than answering "not found" from a
+half-read project; the status strip says "正在读取项目脚本，读完就转到定义… / Reading the project's scripts, then Go to
+definition…" meanwhile, and the same keypress then navigates. If the scripts are still not read after the bound, the
+notice says so and asks to try again in a moment (a rename is refused with the same reason). The e2e case holds the
+project's script reads (a slow disk on demand, through the editor test hooks), opens a project, presses F12 as soon as the
+file is open, sees the note and no "not found", then releases the reads and sees the file open; the race itself is
+unit-tested in `project-scripts.test.ts` and `project-scripts-registry.test.ts`.
+
 | Capability                                                    | Example                                          | Case                                        |
 | ------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------- |
 | Definition of a function in a closed script                   | `greet('Lin')` in app.js → config.js, line 1     | `js-definition-closed-file`                 |

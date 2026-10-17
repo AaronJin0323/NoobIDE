@@ -11,6 +11,7 @@ import { FormatSaveNotice } from './FormatSaveNotice'; // S53.4
 import { WarningIcon } from './icons';
 import type { OpenTab } from './document-state';
 import { cursorPosition, subscribeCursor } from './editor-status-state';
+import { navigationWait, subscribeNavigationWait } from './navigation-wait-state'; // S57
 
 const INLINE_WORD = {
   on: 'ai.inline.state.on',
@@ -44,6 +45,7 @@ interface EditorStatusStripProps {
 export function EditorStatusStrip({ tab, hasEditor, projectId }: EditorStatusStripProps) {
   const { t } = useI18n();
   const cursor = useSyncExternalStore(subscribeCursor, cursorPosition);
+  const navWait = useSyncExternalStore(subscribeNavigationWait, navigationWait); // S57
   const inlineAi = useInlineAiState(projectId); // S32.1
   if (!hasEditor || !cursor) return null;
   const readOnlyEncoding = tab?.content.readOnly ? tab.content : null;
@@ -79,6 +81,13 @@ export function EditorStatusStrip({ tab, hasEditor, projectId }: EditorStatusStr
         >
           <WarningIcon size={14} />
           {fill(t('editor.status.mixedEol'), { eol: tab.content.eol === '\r\n' ? 'CRLF' : 'LF' })}
+        </span>
+      )}
+      {navWait && (
+        // S57: F12 / Shift+F12 / F2 pressed while the project's scripts are still being read: the command waits for
+        // the index (bounded) and says so here, as text, instead of answering "not found" from a half-read project.
+        <span className="status-note" role="status" data-testid="navigation-indexing">
+          {fill(t('nav.indexing.status'), { command: t(navWait) })}
         </span>
       )}
       <span data-testid="cursor-position">{`${t('editor.line')} ${cursor.line}, ${t('editor.column')} ${cursor.column}`}</span>

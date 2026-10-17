@@ -41,6 +41,11 @@ import { recentProjectsSource } from '../welcome/welcome-model';
 import type { CreatedProject } from '../../shared/ipc/create-contract';
 // S21.3/S21.4: local history window
 import { HistoryDialog } from '../history/HistoryDialog';
+// S56.2: project checkpoints window
+import { CheckpointsDialog } from '../checkpoints/CheckpointsDialog';
+import type { CheckpointRestoreHost } from '../checkpoints/checkpoint-restore';
+import { takeAutoCheckpoint } from '../checkpoints/auto-checkpoint'; // S56.3
+import { fill } from '../recovery/format';
 import type { GroupUndoOutcome, RestoreOutcome as HistoryRestoreOutcome } from '../history/history-model';
 import type { HistoryGroup } from '../../shared/ipc/history-contract';
 import { undoFailureText } from '../ai/ProposalReview';
@@ -161,6 +166,8 @@ export function Workbench() {
   const [autoPreview, setAutoPreview] = useState<string | null>(null);
   // S21.3: the local-history window, opened for a file (the active tab) or for the whole project.
   const [historyFor, setHistoryFor] = useState<{ relPath: string | null } | null>(null);
+  // S56.2: the project checkpoints window.
+  const [checkpointsOpen, setCheckpointsOpen] = useState(false);
   const aboutOpen = useAboutRequests(); // S28.1: opened by openAbout() (menus: S24)
   const aiSettingsOpen = useAiSettingsRequests(); // S31.4: opened by openAiSettings() (menus, the AI chat)
   const narrow = useMediaQuery(NARROW_QUERY);
@@ -955,6 +962,7 @@ export function Workbench() {
   // The history window belongs to one project: it closes when the project changes.
   const historyProjectId = doc.project?.projectId;
   useEffect(() => setHistoryFor(null), [historyProjectId]);
+  useEffect(() => setCheckpointsOpen(false), [historyProjectId]); // S56.2: likewise the checkpoints window
   // --- end S21.3 ---
 
   // --- S34.2: how the agent's accepted changes reach the files: open tabs through their editor model and saver
@@ -1006,8 +1014,17 @@ export function Workbench() {
         return (await saver.save()) ? null : { code: 'save-failed' };
       },
       openFile: (relPath) => void openFile(relPath),
+      // S56.3: the whole project is kept right before an agent proposal's first change is applied.
+      checkpointBeforeAi: async (label) => {
+        await takeAutoCheckpoint(
+          bridge.checkpoints,
+          agentProject.projectId,
+          'before-ai',
+          fill(t('checkpoints.autoName.before-ai'), { label }),
+        );
+      },
     };
-  }, [bridge, agentProject, fileOps, openFile, recordEdit, restoreVersion]);
+  }, [bridge, agentProject, fileOps, openFile, recordEdit, restoreVersion, t]);
   // --- end S34.2 ---
 
   /** The journal was cleared: unsaved edits still open in the editor are journaled again right away. */
@@ -1171,6 +1188,24 @@ export function Workbench() {
   // S34.2: agent turns in the chat; their proposals are reviewed as diffs and applied through agentHost.
   const agentHostRef = useRef(agentHost);
   agentHostRef.current = agentHost;
+  // S56.2: a checkpoint restore reaches files the same way an agent change does: open tabs through their editor
+  // model and saver, closed files through main's atomic write, added files through the Files panel's trash path.
+  const checkpointHost = useCallback((): CheckpointRestoreHost | null => {
+    const host = agentHostRef.current;
+    if (!host || !bridge?.checkpoints) return null;
+    return {
+      projectId: host.projectId,
+      checkpoints: bridge.checkpoints,
+      workspace: bridge.workspace,
+      fileOps: host.fileOps,
+      openTab: (relPath) => {
+        const tab = host.openTab(relPath);
+        return tab ? { ...tab, bom: diskBom.current.get(relPath) ?? false } : undefined;
+      },
+      saveOpen: host.saveOpen,
+      replaceOpenText: host.replaceOpenText,
+    };
+  }, [bridge]);
   const [agentDecisions] = useState(() => new AgentDecisionStore());
   // The History window's "Undo this turn": the same undo as the chat card's, from the turn's local-history group.
   const undoAgentGroup = useCallback(
@@ -1308,6 +1343,7 @@ export function Workbench() {
     modalOpen:
       wizardOpen ||
       historyFor !== null ||
+      checkpointsOpen ||
       aboutOpen.open ||
       aiSettingsOpen.open ||
       glossaryFor !== null ||
@@ -1327,6 +1363,7 @@ export function Workbench() {
     },
     'close-project': bridge?.lifecycle ? () => void closeProject() : undefined,
     'show-history': bridge?.history ? () => setHistoryFor({ relPath: docRef.current.active }) : undefined,
+    'show-checkpoints': bridge?.checkpoints ? () => setCheckpointsOpen(true) : undefined, // S56.2
     'toggle-files': () => dispatchLayout({ type: 'toggleFiles', narrow }),
     'toggle-problems': () => dispatchLayout({ type: 'toggleProblems' }),
     'zoom-in': () => setFontSize((size) => zoomFontSize(size, 1)),
@@ -1651,6 +1688,7 @@ export function Workbench() {
             (narrow && ai.panel !== null) || // S33: the chat overlays the column in a narrow window
             wizardOpen ||
             historyFor !== null ||
+            checkpointsOpen ||
             aboutOpen.open ||
             aiSettingsOpen.open ||
             glossaryFor !== null ||
@@ -1741,7 +1779,26 @@ export function Workbench() {
           onRestore={restoreVersion}
           onRestoredDeleted={(relPath) => void openFile(relPath)}
           onUndoGroup={undoAgentGroup}
+          beforeRestore={async (what) => {
+            // S56.3: an automatic project checkpoint before every restore from local history.
+            await takeAutoCheckpoint(
+              bridge.checkpoints,
+              project.projectId,
+              'before-history-restore',
+              fill(t('checkpoints.autoName.before-history-restore'), { path: what }),
+            );
+          }}
           onClose={() => setHistoryFor(null)}
+        />
+      )}
+      {/* S56.2: project checkpoints */}
+      {checkpointsOpen && project && bridge?.checkpoints && (
+        <CheckpointsDialog
+          api={bridge.checkpoints}
+          project={project}
+          currentText={historyCurrentText}
+          restoreHost={checkpointHost}
+          onClose={() => setCheckpointsOpen(false)}
         />
       )}
       {/* S23.4: terminology glossary */}

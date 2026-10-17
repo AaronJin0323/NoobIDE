@@ -25,6 +25,7 @@ export const COMMAND_IDS = [
   'close-tab',
   'close-project',
   'show-history',
+  'show-checkpoints', // S56.2
   'toggle-files',
   'toggle-problems',
   'zoom-in',
@@ -140,6 +141,7 @@ export const COMMANDS: readonly CommandDefinition[] = [
   },
   { id: 'close-project', label: 'appMenu.closeProject', when: (c) => c.hasProject && !c.modalOpen },
   { id: 'show-history', label: 'command.showHistory', when: (c) => c.hasProject && !c.modalOpen },
+  { id: 'show-checkpoints', label: 'command.showCheckpoints', when: (c) => c.hasProject && !c.modalOpen }, // S56.2
   { id: 'toggle-files', label: 'command.toggleFiles', keys: { all: { key: 'b', primary: true } }, when: noModal },
   {
     id: 'toggle-problems',
@@ -323,6 +325,7 @@ export function commandForKeyStroke(platform: PlatformId, stroke: KeyStroke): Co
 export const PROJECT_MENU_COMMANDS: readonly (CommandId | '-')[] = [
   'close-project',
   'show-history',
+  'show-checkpoints', // S56.2
   'help-walkthrough',
 ];
 
