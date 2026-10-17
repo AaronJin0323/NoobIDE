@@ -5082,8 +5082,8 @@
       "depends_on": [
         "S48.3"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/ai/composer-triggers.test.ts (9 tests: / and @ at start/after whitespace incl. ideographic space, never inside words, Latin+CJK trailing punctuation, backslashes, 256/1024 caps, replace) + project-files.test.ts (3) + chat-composer.test.ts (3 renderToStaticMarkup, both locales); / list = Workbench paletteCommands() via paletteEntriesOf + generic searchPalette; tests/e2e/ai-composer.spec.ts S48.4 (3 passed on the packaged build: arrows wrap, Enter runs toggle-problems found via English, Escape closes only the list, @页面 Tab -> file chip '子 文件夹/页面 二.html' with Add buttons visible, ，and backslash matching, composing Enter/Escape ignored); verify --quick green @ 6ef253b"
     },
     {
       "id": "S48.5",
@@ -5111,7 +5111,7 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
+      "status": "in_progress",
       "evidence": ""
     },
     {
