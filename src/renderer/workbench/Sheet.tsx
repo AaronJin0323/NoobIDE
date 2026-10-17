@@ -112,6 +112,8 @@ export interface SheetFrameProps {
   readonly describedBy?: string | undefined;
   readonly testId: string;
   readonly backdropTestId?: string | undefined;
+  /** S51.5: a mode the dialog element carries as data-mode (the palette: files / commands) for styling and tests. */
+  readonly dataMode?: string | undefined;
   readonly sheetRef?: RefObject<HTMLDivElement | null>;
   /** After the frame stopped a mouse-down inside the dialog from reaching the backdrop. */
   readonly onSheetMouseDown?: ((event: MouseEvent<HTMLDivElement>) => void) | undefined;
@@ -134,6 +136,7 @@ export function SheetFrame({
   describedBy,
   testId,
   backdropTestId,
+  dataMode,
   sheetRef,
   onSheetMouseDown,
 }: SheetFrameProps) {
@@ -154,6 +157,7 @@ export function SheetFrame({
         data-testid={testId}
         data-sheet=""
         data-covered={layer.covered ? '' : undefined}
+        data-mode={dataMode}
         onMouseDown={(event) => {
           event.stopPropagation();
           onSheetMouseDown?.(event);

@@ -143,6 +143,7 @@ test('placeholder states are honest and every control works (S30.3)', async () =
     'zoom-in',
     '收起问题面板',
     'problems-toggle',
+    'search-toggle', // S51.3: find in files, beside Problems in the status strip
     // S43.2 / S47.5: the file's indentation (opens the indentation menu, tests/e2e/smart-editing.spec.ts) at the end
     // of the status strip, after the Problems toggle
     'indent-status',
