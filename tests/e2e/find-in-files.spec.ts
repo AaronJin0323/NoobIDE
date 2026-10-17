@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
 import { axeScan } from './a11y-helpers';
-import { collectConsoleErrors, makeProject, openProject } from './project';
+import { collectConsoleErrors, makeProject, openProject, switchLanguage } from './project';
 
 /**
  * S51.3 find in files, end to end: Ctrl/Cmd+Shift+F opens the Search panel in the bottom region; options are toggles
@@ -45,9 +45,9 @@ test('without a project the panel explains how to start, in both languages', asy
   await expect(status()).toHaveAttribute('data-kind', 'no-project');
   await expect(status()).toHaveText('打开一个项目文件夹后，就能在它的所有文件里查找。');
   await expect(input()).toHaveCount(0); // nothing to type into yet, and no disabled decoration (S30.3)
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(status()).toHaveText('Open a project folder to search all of its files.');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(status()).toHaveText('打开一个项目文件夹后，就能在它的所有文件里查找。');
 });
 
@@ -137,7 +137,7 @@ test('empty, invalid-regex and truncated states explain themselves in zh-CN and 
   await expect(status()).toHaveAttribute('data-kind', 'invalid-regex');
   await expect(status()).toContainText('这个正则表达式写得不对：');
   await expect(status()).toContainText('请关掉“使用正则表达式”');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(status()).toContainText('This regular expression is not valid: ');
   await page.getByTestId('search-toggle-regex').click();
 
@@ -150,7 +150,7 @@ test('empty, invalid-regex and truncated states explain themselves in zh-CN and 
   await expect(page.getByTestId('search-truncated')).toHaveText(
     'Too many results: only the first 2000 are listed. Search for something more specific to see them all.',
   );
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(page.getByTestId('search-truncated')).toHaveText(
     '结果太多，只列出了前 2000 个。把要查找的文字写得更具体一些，就能看到全部。',
   );
