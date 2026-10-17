@@ -132,9 +132,9 @@ async function runCase(
       while (performance.now() < end) {
         const found = await navigate(c.kind, model, position, paths);
         seen =
-          found.kind === 'unsupported'
-            ? 'unsupported'
-            : found.locations.map((l) => `${l.relPath}:${l.line}:${l.column}`).join(' | ');
+          found.kind === 'locations'
+            ? found.locations.map((l) => `${l.relPath}:${l.line}:${l.column}`).join(' | ')
+            : found.kind; // 'unsupported' ('indexing' cannot happen: folderPaths is always indexed)
         if (seen === want) break;
         await sleep(500);
       }

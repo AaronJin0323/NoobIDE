@@ -48,6 +48,9 @@ export const authoringZhCN = {
   'nav.unsupported.not-a-script': '转到定义、查找引用和重命名只支持项目里的 JavaScript（.js）文件。',
   'nav.location': '{file} 第 {line} 行',
   'nav.close': '关闭',
+  // S57: the project's scripts are still being read (status strip while the command waits; notice after the bound)
+  'nav.indexing.status': '正在读取项目脚本，读完就{command}…',
+  'nav.indexing.timeout': '项目的脚本还在读取中，{seconds} 秒内没有读完。请稍等一会再试一次。',
   // S57.2
   'rename.title': '重命名“{name}”',
   'rename.newName': '新名字',
@@ -67,6 +70,7 @@ export const authoringZhCN = {
   'rename.refused.built-in': '“{name}”是浏览器自带的名字，不能改。',
   'rename.refused.incomplete-project':
     '项目里的脚本太多或太大，语言服务没有全部读到，可能会漏掉用到的地方，所以不改名。',
+  'rename.refused.indexing': '项目的脚本还在读取中，现在改名可能会漏掉用到的地方。请稍等一会再试一次。',
   'rename.refused.used-in-html': '“{name}”也写在 HTML 页面里（{detail}），语言服务看不到那里，所以不改名。',
   'rename.refused.unknown-file': '有用到的地方在 NoobIDE 不能安全修改的文件里，所以不改名。',
   'rename.refused.invalid-name':
@@ -133,6 +137,9 @@ export const authoringEn: Record<keyof typeof authoringZhCN, string> = {
     'Go to definition, find references and rename work in the project’s JavaScript (.js) files only.',
   'nav.location': '{file}, line {line}',
   'nav.close': 'Close',
+  'nav.indexing.status': 'Reading the project’s scripts, then {command}…',
+  'nav.indexing.timeout':
+    'The project’s scripts are still being read and did not finish within {seconds} seconds. Wait a moment and try again.',
   'rename.title': 'Rename “{name}”',
   'rename.newName': 'New name',
   'rename.preview': 'Preview changes',
@@ -152,6 +159,8 @@ export const authoringEn: Record<keyof typeof authoringZhCN, string> = {
   'rename.refused.built-in': '“{name}” comes with the browser and cannot be renamed.',
   'rename.refused.incomplete-project':
     'The project has too many or too large scripts for the language service to read them all, so uses could be missed. Nothing was renamed.',
+  'rename.refused.indexing':
+    'The project’s scripts are still being read; a rename now could miss a use. Wait a moment and try again.',
   'rename.refused.used-in-html':
     '“{name}” is also written in HTML pages ({detail}), which the language service cannot see. Nothing was renamed.',
   'rename.refused.unknown-file': 'A use is in a file NoobIDE cannot change safely. Nothing was renamed.',

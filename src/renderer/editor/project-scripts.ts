@@ -8,6 +8,9 @@
  * again from disk. Bounded: at most MAX_SCRIPTS files of at most MAX_SCRIPT_CHARS characters each. The texts stay in memory and
  * in the language worker only (never logged).
  *
+ * S57: the set is "indexing" from `open()` until every script has been read. Navigation (F12 / Shift+F12 / F2)
+ * waits for `whenIndexed()` instead of answering "not found" from a half-read project.
+ *
  * Monaco-free: the host is injected, so the bookkeeping is unit-tested.
  */
 import type { FileEntry, WatchEvent } from '../../shared/ipc/contract';
@@ -25,7 +28,12 @@ export interface ScriptHost {
   hasModel(uri: string): boolean;
   /** The language service's file name for a file URI (Monaco's normalised URI string). */
   libName(uri: string): string;
-  setLibs(libs: readonly { readonly filePath: string; readonly content: string }[]): void;
+  /**
+   * Gives the language service the extra libs. May return a promise that resolves once the service has taken them
+   * (Monaco tells its worker on a timer): the index counts as ready only then, so a waiting F12 never queries a
+   * worker that still holds the previous set.
+   */
+  setLibs(libs: readonly { readonly filePath: string; readonly content: string }[]): void | Promise<void>;
 }
 
 export class ProjectScripts {
@@ -35,29 +43,68 @@ export class ProjectScripts {
   private published = '';
   /** S57: a project script was left out (over MAX_SCRIPTS, too large or unreadable): the service sees a part. */
   private partial = false;
+  /** S57: the `open()` still reading scripts, and who waits for it; null once every script is known. */
+  private pending: { readonly done: Promise<void>; resolve(): void } | null = null;
 
   constructor(private readonly host: ScriptHost) {}
+
+  /** S57: true while `open()` is still reading the project's scripts (an answer now could miss a file). */
+  indexing(): boolean {
+    return this.pending !== null;
+  }
+
+  /**
+   * S57: resolves `true` once the project's scripts are all read (or no project is open), `false` when they still are
+   * not after `timeoutMs`. A project opened in the meantime is waited for as well, within the same bound.
+   */
+  async whenIndexed(timeoutMs: number, now: () => number = Date.now): Promise<boolean> {
+    const deadline = now() + timeoutMs;
+    while (this.pending) {
+      const remaining = deadline - now();
+      if (remaining <= 0) return false;
+      if (await timedOut(this.pending.done, remaining)) return false;
+    }
+    return true;
+  }
+
+  private beginIndexing(): void {
+    if (this.pending) return;
+    let resolve = () => undefined as void;
+    const done = new Promise<void>((r) => {
+      resolve = r;
+    });
+    this.pending = { done, resolve };
+  }
+
+  private endIndexing(generation: number): void {
+    if (generation !== this.generation || !this.pending) return;
+    this.pending.resolve();
+    this.pending = null;
+  }
 
   /** A project was opened: loads its scripts (replacing any previous project's). */
   async open(files: readonly FileEntry[]): Promise<void> {
     const generation = ++this.generation;
+    this.beginIndexing();
     this.texts.clear();
-    this.publish();
+    void this.publish();
     const all = files.filter((f) => isProjectScript(f.relPath));
     this.partial = all.length > MAX_SCRIPTS;
     const scripts = all.slice(0, MAX_SCRIPTS);
     for (const file of scripts) {
-      if (generation !== this.generation) return;
+      if (generation !== this.generation) return; // a newer open() or close() owns the index now
       await this.load(file.relPath, generation);
     }
-    this.publish();
+    await this.publish(); // the service has the libs: only now is an answer complete
+    this.endIndexing(generation);
   }
 
   /** The project closed. */
   close(): void {
     this.generation += 1;
     this.texts.clear();
-    this.publish();
+    void this.publish();
+    this.endIndexing(this.generation); // nothing left to index: waiters may answer (nothing is a project script)
   }
 
   /** Files changed on disk (watcher events). */
@@ -74,14 +121,14 @@ export class ProjectScripts {
         await this.load(event.relPath, generation);
       }
     }
-    this.publish();
+    await this.publish();
   }
 
   /** A file was saved or its tab closed: its disk text may be newer than what we hold. */
   async refresh(relPath: string): Promise<void> {
     if (!isProjectScript(relPath)) return;
     await this.load(relPath, this.generation);
-    this.publish();
+    await this.publish();
   }
 
   /** The editor model of `uri` was disposed (tab closed): read the file again, since its last edits are on disk. */
@@ -89,12 +136,12 @@ export class ProjectScripts {
     for (const [relPath, entry] of this.texts) {
       if (entry.uri === uri || this.host.libName(entry.uri) === uri) return this.refresh(relPath);
     }
-    this.publish();
+    await this.publish();
   }
 
   /** Editor models came or went: re-decide which files are extra libs. */
   modelsChanged(): void {
-    this.publish();
+    void this.publish();
   }
 
   /**
@@ -135,13 +182,29 @@ export class ProjectScripts {
     } else this.texts.set(relPath, { uri: file.uri, text: file.text });
   }
 
-  private publish(): void {
+  /** Resolves once the service has the current libs (at once when nothing changed). */
+  private async publish(): Promise<void> {
     const libs = this.libs();
     // setExtraLibs makes the worker rebuild its program; skip when nothing changed.
     const key = JSON.stringify(libs.map((l) => [l.filePath, l.content.length, hash(l.content)]));
     if (key === this.published) return;
     this.published = key;
-    this.host.setLibs(libs);
+    await this.host.setLibs(libs);
+  }
+}
+
+/** `true` when `ms` pass before `done` settles; the timer is cleared either way. */
+export async function timedOut(done: Promise<unknown>, ms: number): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      done.then(() => false),
+      new Promise<boolean>((resolve) => {
+        timer = setTimeout(() => resolve(true), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
