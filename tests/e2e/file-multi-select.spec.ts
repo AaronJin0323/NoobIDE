@@ -63,16 +63,23 @@ async function menuByKeyboard(command: string) {
   await page.keyboard.press('Enter');
 }
 
-/** Moves the keyboard focus from `from` to `to` with Ctrl/Cmd+arrows (the selection stays). */
+/**
+ * Moves the keyboard focus from `from` to `to` with Ctrl/Cmd+arrows (the selection stays). One key at a time, with
+ * the tree order read again before each: files the previous step created, moved or duplicated reach the tree through
+ * the watcher, so on a slow runner rows can still appear or disappear while the focus walks.
+ */
 async function focusByKeyboard(from: string, to: string) {
-  // Both rows must be listed before the order is read: files created by the previous step (Ctrl/Cmd+D) reach the
-  // tree through the watcher, and on a slow runner the second copy can arrive after the first is clickable.
-  await expect(treeRow(page, from)).toBeVisible();
+  await expect(treeRow(page, from)).toBeFocused();
   await expect(treeRow(page, to)).toBeVisible();
-  const order = await page.getByTestId('tree-row').evaluateAll((rows) => rows.map((r) => r.getAttribute('data-path')));
-  const steps = order.indexOf(to) - order.indexOf(from);
-  for (let i = 0; i < Math.abs(steps); i += 1)
-    await page.keyboard.press(`${PRIMARY}+${steps > 0 ? 'ArrowDown' : 'ArrowUp'}`);
+  for (let i = 0; i < 30; i += 1) {
+    const focused = await page.evaluate(() => document.activeElement?.getAttribute('data-path') ?? null);
+    if (focused === to) break;
+    const order = await page
+      .getByTestId('tree-row')
+      .evaluateAll((rows) => rows.map((r) => r.getAttribute('data-path')));
+    const down = order.indexOf(to) > order.indexOf(focused);
+    await page.keyboard.press(`${PRIMARY}+${down ? 'ArrowDown' : 'ArrowUp'}`);
+  }
   await expect(treeRow(page, to)).toBeFocused();
 }
 
@@ -139,8 +146,9 @@ test('the context menu trashes the whole selection, keyboard only (S52.3)', asyn
   await page.keyboard.press('Tab'); // focus starts on Cancel; Tab reaches the confirm button
   await page.keyboard.press('Enter');
   await expect.poll(() => readdir(root)).not.toContain('style copy.css');
-  // 四 号 copy.css is not locked by the fake trash (only 四 号.css is): both went to the trash.
-  expect(await readdir(root)).not.toContain('四 号 copy.css');
+  // 四 号 copy.css is not locked by the fake trash (only 四 号.css is): both went to the trash. The files go one
+  // after the other, so the second may still be on its way when the first is gone (seen on a hosted Windows runner).
+  await expect.poll(() => readdir(root)).not.toContain('四 号 copy.css');
   await expect(page.getByTestId('file-op-notice')).toContainText('2 项');
 });
 

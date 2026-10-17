@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 47 (side session) — 2026-10-18 — PR #22 (S51) green on hosted CI without loosening a threshold
+## Session 48 (side session) — 2026-10-18 — PR #22 (S51) green on hosted CI without loosening a threshold
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree `window-frame-styling-bcf1ff` on a local
 branch pushed to `claude/m19-s51-search-ba5619` (PR #22). Task from the parent session: make the PR green on hosted
@@ -114,6 +114,26 @@ key-features-visible, preview-layout, editing, shell (updated S30.3 control list
 **Next up:** merge the six M19 branches (conflicts expected in `harness/features.json`, PROGRESS.md, commands.ts,
 menu-template.ts, Workbench.tsx, styles.css, shell.spec's control list; re-run the e2e shard test). Then the next M19
 session per `node harness/session.mjs next`.
+
+## Session 47 (side session) — 2026-10-18 — Two more hosted-CI e2e races hitting every M18 PR
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/ci-flakes-m18` from main @ c976e3e.
+
+**Done**
+
+- `file-multi-select.spec.ts`: `focusByKeyboard` now walks one Ctrl/Cmd+arrow at a time and re-reads the tree order
+  before each key. Rows created, moved or duplicated by the previous test arrive through the watcher, so a step count
+  read once could be wrong (reproduced locally on main: the moved files were still listed). The trash test also waits
+  for the second trashed file (cherry-picked from the S50 branch, 48aeb4b).
+- `preview-isolation.spec.ts` S05.5: Refresh on the beforeunload page is clicked again if the page did not change,
+  with the preview state logged. The state machine refuses a refresh while the page is marked hung, and a page that
+  just ran alert/confirm/prompt/print can be marked hung for a moment on a hosted runner (failed on PRs #34, #35, #36,
+  screenshot showing "running"). A beforeunload that really blocked refresh still fails every attempt.
+
+**Evidence:** file-multi-select.spec 28/28 (4 repeats), preview-isolation.spec 8/8 locally; verify green.
+
+**Next up:** watch the "S05.5 refresh attempt" log line in CI. If it shows `unresponsive`, decide whether Refresh
+should say why it did nothing while the page is hung.
 
 ## Session 46 (side session) — 2026-10-18 — S47.1 landed on main; M18 fanned out to five sessions
 
