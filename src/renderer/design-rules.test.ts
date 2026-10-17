@@ -8,6 +8,8 @@ import { describe, expect, it } from 'vitest';
  * the shared shape, type, elevation and colour tokens, so the look cannot drift back to one-off radii, bold 12 px
  * text, stacked shadows, gradients and literal colours. Custom-property definitions are the token source and are only
  * checked for removed names; @keyframes blocks are skipped (overlay motion may scale, decision 0029).
+ * S47.1: motion uses the --dur-* / --ease-* tokens of styles.css :root; no transition or animation declaration
+ * carries a literal duration or curve, and only the reduced-motion gate redefines a duration token (to 0ms).
  */
 const RENDERER = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,6 +39,14 @@ const SHADOW_PART =
   /^(none|var\(--(shadow|ring)-[a-z-]+\)|(inset\s+)?0\s+0\s+0\s+[\d.]+px\s+(var\(--[a-z-]+\)|Highlight|CanvasText|ButtonText|transparent|currentColor))$/;
 const LITERAL_COLOUR = /#[0-9a-f]{3,8}\b|\b(rgba?|hsla?)\(/i;
 const NAMED_COLOUR = /(^|[\s,(])(white|black|red|green|blue|gray|grey|orange|yellow|purple|pink|silver)(?=$|[\s,)])/i;
+const MOTION_PROP = /^(-webkit-)?(transition|animation)(-|$)/;
+const LITERAL_DURATION = /(^|[\s,(])[+-]?(\d*\.)?\d+m?s(?=$|[\s,)])/;
+// `linear` alone stays allowed: it is the identity curve that scroll-driven timelines need.
+const LITERAL_CURVE =
+  /\b(cubic-bezier|linear|steps)\(|(^|[\s,])(ease|ease-in|ease-out|ease-in-out|step-start|step-end)(?=$|[\s,])/;
+const MOTION_TOKEN = /^--(dur|ease)-/;
+/** The stylesheet whose :root block is the source of the motion tokens. */
+const TOKEN_SHEET = 'styles.css';
 const COLOUR_PROP =
   /^(color|background(-color)?|border(-(top|right|bottom|left))?(-color)?|outline(-color)?|fill|stroke|caret-color|text-decoration(-color)?|accent-color|box-shadow)$/;
 
@@ -108,7 +118,12 @@ export function violations(decls: readonly Declaration[]): string[] {
     for (const name of REMOVED) {
       if (prop === name || new RegExp(`var\\(${name}[,)]`).test(v)) bad.push(`${where} — removed token ${name}`);
     }
+    if (MOTION_TOKEN.test(prop) && file !== TOKEN_SHEET && !(prop.startsWith('--dur-') && v === '0ms'))
+      bad.push(`${where} — motion tokens are defined in ${TOKEN_SHEET} :root (only the reduced-motion gate sets 0ms)`);
     if (prop.startsWith('--')) continue;
+    if (MOTION_PROP.test(prop) && LITERAL_DURATION.test(v))
+      bad.push(`${where} — literal duration; use a --dur-* token`);
+    if (MOTION_PROP.test(prop) && LITERAL_CURVE.test(v)) bad.push(`${where} — literal curve; use an --ease-* token`);
     const mask = /^(-webkit-)?mask/.test(prop);
     if (/radius$/.test(prop) && !v.split(/\s+|\//).every((t) => t === '' || RADIUS.test(t)))
       bad.push(`${where} — radius must be a --radius-* token`);
@@ -162,6 +177,37 @@ describe('calm design rules (S46)', () => {
       font-weight: 500; box-shadow: var(--shadow-overlay), inset 0 0 0 1px var(--accent-rim);
       color: color-mix(in srgb, var(--text) 50%, transparent); mask-image: linear-gradient(#000, transparent); }`;
     expect(violations(declarations('t.css', ok))).toEqual([]);
+  });
+
+  it('flags literal motion and stray motion tokens (S47.1)', () => {
+    const css = `.a { transition: transform 0.1s; animation: k 200ms cubic-bezier(0.2, 0, 0, 1) both;
+      transition-duration: var(--dur-fast), 1s; transition-timing-function: ease-in-out; animation-delay: 30ms;
+      animation-timing-function: linear(0, 1); transition: color var(--dur-fast) ease; --dur-fast: 100ms;
+      --ease-swift: ease; }`;
+    // 0.1s; 200ms + cubic-bezier; 1s; ease-in-out; 30ms; linear(); ease; two stray tokens.
+    expect(violations(declarations('t.css', css))).toHaveLength(10);
+    const ok = `.a { transition: transform var(--dur-fast) var(--ease-swift), color var(--dur-base) var(--ease-out);
+      animation: scroll-edge-reveal linear both; animation-range: 0 32px; transition: none; --dur-base: 0ms;
+      animation-duration: var(--dur-fast); width: 0.5s; }`;
+    expect(violations(declarations('t.css', ok))).toEqual([]);
+    expect(violations(declarations(TOKEN_SHEET, ':root { --dur-slow: 450ms; --ease-enter: ease; }'))).toEqual([]);
+  });
+
+  it(`defines the motion tokens only in the :root block of ${TOKEN_SHEET} (S47.1)`, () => {
+    const css = readFileSync(path.join(RENDERER, TOKEN_SHEET), 'utf8');
+    const start = css.indexOf(':root {');
+    const root = css.slice(start, css.indexOf('\n}\n', start));
+    const all = declarations(TOKEN_SHEET, css).filter((d) => MOTION_TOKEN.test(d.prop));
+    const inRoot = declarations(TOKEN_SHEET, root).filter((d) => MOTION_TOKEN.test(d.prop));
+    expect(inRoot.map((d) => d.prop)).toEqual(
+      expect.arrayContaining(['--dur-instant', '--dur-fast', '--dur-base', '--dur-sheet', '--dur-slow']),
+    );
+    expect(inRoot.map((d) => d.prop)).toEqual(
+      expect.arrayContaining(['--ease-swift', '--ease-expand', '--ease-enter']),
+    );
+    expect(declarations(TOKEN_SHEET, root).find((d) => d.prop === '--dur-instant')?.value).toBe('60ms');
+    expect(declarations(TOKEN_SHEET, root).find((d) => d.prop === '--dur-slow')?.value).toBe('450ms');
+    expect(all).toHaveLength(inRoot.length);
   });
 
   const files = stylesheets(RENDERER);

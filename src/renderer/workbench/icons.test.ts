@@ -12,7 +12,15 @@ const RENDERER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 
 const SIZES = [14, 16, 18, 32];
 /** Filled / illustration glyphs that are not outline icons. */
-const NOT_OUTLINE = new Set(['SeverityIcon', 'SaveStateIcon', 'NoobIdeLogo', 'NoobIdeMark', 'DotIcon', 'MoreIcon']);
+const NOT_OUTLINE = new Set([
+  'SeverityIcon',
+  'SaveStateIcon',
+  'NoobIdeLogo',
+  'NoobIdeMark',
+  'DotIcon',
+  'MoreIcon',
+  'ProposalStateIcon',
+]);
 
 type Factory = (props: Record<string, unknown>) => ReactElement;
 
@@ -44,6 +52,10 @@ function outlineIcons(): [string, ReactElement][] {
   }
   for (const state of ['clean', 'saved', 'dirty', 'saving', 'failed', 'conflict', 'deleted'] as const) {
     out.push([`wb.SaveStateIcon(${state})`, createElement(wb.SaveStateIcon, { state })]);
+  }
+  // S48.8: one shape per proposal state.
+  for (const icon of ['pending', 'dot', 'check', 'warning', 'cross', 'dashed'] as const) {
+    out.push([`ai.ProposalStateIcon(${icon})`, createElement(ai.ProposalStateIcon, { icon })]);
   }
   return out;
 }

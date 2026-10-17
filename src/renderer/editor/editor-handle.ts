@@ -41,6 +41,11 @@ export interface EditorAccess {
   setColor?(rgba: { readonly r: number; readonly g: number; readonly b: number; readonly a: number }): boolean;
   /** Moves the keyboard focus into the editor. */
   focus?(): void;
+  /**
+   * S48.5: puts chat code into the file on screen as ONE undoable edit through the editor (so the save state and the
+   * journal see an ordinary edit) — at the cursor, or over the selection. Moves the focus into the editor on success.
+   */
+  insertCode?(text: string, mode: CodeInsertMode): CodeInsertOutcome;
   /** S53.4: formats the file on screen for a save and says how it went (format-on-save.ts). */
   formatForSave?(): Promise<FormatOutcome>;
   /** S57.1: definition / references of the name under the cursor in the file on screen. */
@@ -93,6 +98,11 @@ export interface EditZone {
   onClose(listener: () => void): void;
   dispose(): void;
 }
+
+/** S48.5: where chat code goes in the editor. */
+export type CodeInsertMode = 'insert' | 'replace';
+/** S48.5: `no-selection` only for `replace` with nothing selected. */
+export type CodeInsertOutcome = 'ok' | 'no-editor' | 'read-only' | 'no-selection';
 
 /** S33.2: a selection in the editor, for AI context ("Explain this code"). */
 export interface EditorSelection {
