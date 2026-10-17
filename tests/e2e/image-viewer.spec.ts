@@ -2,7 +2,7 @@ import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
-import { makeProject, openFile, openProject, treeRow } from './project';
+import { makeProject, openFile, openProject, switchLanguage, treeRow } from './project';
 
 /**
  * S52.6 end to end: png, gif and svg open in an image tab with their pixel and byte size (served by the app
@@ -131,11 +131,11 @@ test('"Copy <img> tag" and "Copy relative path" are relative to the HTML file la
 });
 
 test('the image tab follows the interface language (en) (S52.6)', async () => {
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page); // S47.4: through the help menu
   await expect(page.getByTestId('image-copy-tag')).toHaveText('Copy <img> tag');
   await expect(page.getByTestId('image-copy-path')).toHaveText('Copy relative path');
   await expect(facts()).toContainText('1 × 1 pixels');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page); // S47.4: through the help menu
   await expect(page.getByTestId('image-copy-tag')).toHaveText('复制 <img> 标签');
 });
 

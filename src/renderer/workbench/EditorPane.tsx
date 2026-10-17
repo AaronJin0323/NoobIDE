@@ -18,9 +18,6 @@ import { activeEditor } from '../editor/editor-handle';
 import { withShortcut } from '../commands/useCommands'; // S24.1
 import { formatShortcutLabel } from '../../platform/labels';
 import { saveErrorKey } from './file-op-messages';
-import { useInlineAiState } from '../ai/useInlineAiState'; // S32.1
-import { IndentStatus } from './IndentStatus'; // S43.2
-import { EditorAiActions } from '../ai/EditorAiActions';
 import { ImageView } from './ImageView'; // S52.6
 import { publishCursor } from './editor-status-state'; // S47.5: the caret shows in the global status strip
 
