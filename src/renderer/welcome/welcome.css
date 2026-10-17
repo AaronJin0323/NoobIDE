@@ -1,6 +1,7 @@
 /* Welcome screen and create wizard (S20.2). Colours only from the theme tokens (src/renderer/theme/tokens.ts). S46 calm
    language: the welcome has no card and no gradient (its content sits on the window background) and uses the shared
-   primary and secondary buttons. */
+   primary and secondary buttons. S47.2: while no project is open the editor column is the whole middle row (the
+   preview column is not shown), so the welcome spans the editor + preview area with the sample code below it. */
 .welcome {
   display: flex;
   flex-wrap: wrap;
@@ -56,7 +57,8 @@
   margin-top: 0;
 }
 .welcome-create,
-.welcome-open {
+.welcome-open,
+.welcome-lessons {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -120,13 +122,6 @@
 /* Wizard */
 .wizard-backdrop {
   z-index: 60;
-}
-.dialog.wizard {
-  display: flex;
-  flex-direction: column;
-  width: min(820px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
-  overflow: auto;
 }
 .wizard-body {
   display: flex;
@@ -253,8 +248,4 @@
 .dialog-actions .primary-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-/* The wizard scrolls as a whole in a small window; its sections never shrink into each other. */
-.dialog.wizard > * {
-  flex: none;
 }

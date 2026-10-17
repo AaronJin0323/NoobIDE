@@ -124,9 +124,9 @@ export function SaveStateIcon({ state }: { state: SaveStatus }) {
       );
     case 'dirty':
       return (
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
-          <circle cx="5" cy="5" r="4" fill="currentColor" />
-        </svg>
+        <IconBase size={14}>
+          <circle cx="8" cy="8" r="4" fill="currentColor" stroke="none" />
+        </IconBase>
       );
     case 'saving':
       return (

@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { fill } from '../recovery/format';
-import { useModalKeys } from './focus-trap';
+import { Sheet, sheetButtonClass } from './Sheet';
 import type { RenamePlan } from '../editor/js-navigation';
 import type { RenameOutcome } from './rename-apply';
 
@@ -12,9 +12,9 @@ type Step =
   | { readonly kind: 'result'; readonly outcome: RenameOutcome };
 
 /**
- * S57.2: rename across the project's scripts. The new name, then a preview of every file's changed lines (before and
- * after, labelled in text), then — only on Apply — the change goes through the save pipeline, and the result says per
- * file what happened. A refusal says why and changes nothing.
+ * S57.2: rename across the project's scripts, on the shared {@link Sheet} (S49.1). The new name, then a preview of
+ * every file's changed lines (before and after, labelled in text), then — only on Apply — the change goes through the
+ * save pipeline, and the result says per file what happened. A refusal says why and changes nothing.
  */
 export function RenameDialog({
   name,
@@ -29,18 +29,17 @@ export function RenameDialog({
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const titleId = useId();
-  const dialog = useRef<HTMLDivElement>(null);
+  const formId = useId();
   const input = useRef<HTMLInputElement>(null);
   const primary = useRef<HTMLButtonElement>(null);
   const [newName, setNewName] = useState(name);
   const [step, setStep] = useState<Step>({ kind: 'input', error: null, detail: '' });
   const [busy, setBusy] = useState(false);
-  // While the rename is being applied the dialog stays: its result says what happened to each file.
+  // While the rename is being applied the sheet stays (Close and Escape are disabled): its result says what happened
+  // to each file.
   const close = () => {
     if (!busy) onClose();
   };
-  useModalKeys(dialog, close);
   useEffect(() => {
     if (step.kind === 'input') {
       input.current?.focus();
@@ -92,23 +91,67 @@ export function RenameDialog({
           )
         : fill(t('rename.title'), { name });
 
+  const actions =
+    step.kind === 'input' ? (
+      <>
+        <button type="button" className={sheetButtonClass('cancel')} onClick={close} disabled={busy}>
+          {t('rename.cancel')}
+        </button>
+        <button
+          type="submit"
+          form={formId}
+          className={sheetButtonClass('primary')}
+          disabled={busy}
+          data-testid="rename-preview"
+        >
+          {t('rename.preview')}
+        </button>
+      </>
+    ) : step.kind === 'preview' ? (
+      <>
+        <button
+          type="button"
+          className={sheetButtonClass('cancel')}
+          onClick={() => setStep({ kind: 'input', error: null, detail: '' })}
+        >
+          {t('rename.back')}
+        </button>
+        <button type="button" className={sheetButtonClass('cancel')} onClick={close} disabled={busy}>
+          {t('rename.cancel')}
+        </button>
+        <button
+          type="button"
+          ref={primary}
+          className={sheetButtonClass('primary')}
+          disabled={busy}
+          data-testid="rename-apply"
+          onClick={() => void run(step.plan)}
+        >
+          {t('rename.apply')}
+        </button>
+      </>
+    ) : (
+      <button type="button" ref={primary} className={sheetButtonClass('primary')} onClick={onClose}>
+        {t('rename.close')}
+      </button>
+    );
+
   return (
-    <div className="dialog-backdrop" onMouseDown={close}>
-      <div
-        ref={dialog}
-        className="dialog rename-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-busy={busy}
-        data-testid="rename-dialog"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <h2 className="dialog-title" id={titleId}>
-          {title}
-        </h2>
+    <Sheet
+      title={title}
+      width={720}
+      className="rename-dialog"
+      onClose={step.kind === 'result' ? onClose : close}
+      closeLabel={t(step.kind === 'result' ? 'rename.close' : 'rename.cancel')}
+      closeDisabled={busy}
+      testId="rename-dialog"
+      closeTestId="rename-close"
+      actions={actions}
+    >
+      <div aria-busy={busy}>
         {step.kind === 'input' && (
           <form
+            id={formId}
             onSubmit={(event) => {
               event.preventDefault();
               void preview();
@@ -133,94 +176,48 @@ export function RenameDialog({
                 </p>
               )}
             </div>
-            <div className="dialog-actions">
-              <button type="button" className="quiet-button dialog-button" onClick={close} disabled={busy}>
-                {t('rename.cancel')}
-              </button>
-              <button
-                type="submit"
-                className="primary-button dialog-button"
-                disabled={busy}
-                data-testid="rename-preview"
-              >
-                {t('rename.preview')}
-              </button>
-            </div>
           </form>
         )}
         {step.kind === 'preview' && (
-          <>
-            <div className="dialog-body rename-preview" data-testid="rename-plan">
-              {step.plan.files.map((file) => (
-                <section key={file.relPath} data-testid="rename-file" data-path={file.relPath}>
-                  <h3 className="rename-file-title">
-                    {fill(t('rename.fileChanges'), { file: file.relPath, count: String(file.count) })}
-                  </h3>
-                  <ul className="rename-lines">
-                    {file.lines.map((line) => (
-                      <li key={line.line}>
-                        <span className="rename-line-number">
-                          {fill(t('rename.line'), { line: String(line.line) })}
-                        </span>
-                        <span className="rename-before">
-                          <span className="rename-tag">{t('rename.before')}</span>
-                          <code>{line.before.trim()}</code>
-                        </span>
-                        <span className="rename-after">
-                          <span className="rename-tag">{t('rename.after')}</span>
-                          <code>{line.after.trim()}</code>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-              <p className="dialog-hint">{t('rename.undoHint')}</p>
-            </div>
-            <div className="dialog-actions">
-              <button
-                type="button"
-                className="quiet-button dialog-button"
-                onClick={() => setStep({ kind: 'input', error: null, detail: '' })}
-              >
-                {t('rename.back')}
-              </button>
-              <button type="button" className="quiet-button dialog-button" onClick={close} disabled={busy}>
-                {t('rename.cancel')}
-              </button>
-              <button
-                type="button"
-                ref={primary}
-                className="primary-button dialog-button"
-                disabled={busy}
-                data-testid="rename-apply"
-                onClick={() => void run(step.plan)}
-              >
-                {t('rename.apply')}
-              </button>
-            </div>
-          </>
+          <div className="dialog-body rename-preview" data-testid="rename-plan">
+            {step.plan.files.map((file) => (
+              <section key={file.relPath} data-testid="rename-file" data-path={file.relPath}>
+                <h3 className="rename-file-title">
+                  {fill(t('rename.fileChanges'), { file: file.relPath, count: String(file.count) })}
+                </h3>
+                <ul className="rename-lines">
+                  {file.lines.map((line) => (
+                    <li key={line.line}>
+                      <span className="rename-line-number">{fill(t('rename.line'), { line: String(line.line) })}</span>
+                      <span className="rename-before">
+                        <span className="rename-tag">{t('rename.before')}</span>
+                        <code>{line.before.trim()}</code>
+                      </span>
+                      <span className="rename-after">
+                        <span className="rename-tag">{t('rename.after')}</span>
+                        <code>{line.after.trim()}</code>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+            <p className="dialog-hint">{t('rename.undoHint')}</p>
+          </div>
         )}
         {step.kind === 'result' && (
-          <>
-            <div className="dialog-body">
-              <ul className="rename-results" role="status" data-testid="rename-result">
-                {step.outcome.files.map((file) => (
-                  <li key={file.relPath} data-status={file.status}>
-                    <strong>{file.relPath}</strong>
-                    {`: ${t(`rename.status.${file.status}` as MessageKey)}`}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="dialog-actions">
-              <button type="button" ref={primary} className="primary-button dialog-button" onClick={onClose}>
-                {t('rename.close')}
-              </button>
-            </div>
-          </>
+          <div className="dialog-body">
+            <ul className="rename-results" role="status" data-testid="rename-result">
+              {step.outcome.files.map((file) => (
+                <li key={file.relPath} data-status={file.status}>
+                  <strong>{file.relPath}</strong>
+                  {`: ${t(`rename.status.${file.status}` as MessageKey)}`}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
-    </div>
+    </Sheet>
   );
 }

@@ -83,7 +83,7 @@ test('a failed save shows the reason with retry and save-elsewhere; the copy kee
   const before = await disk('index.html');
   await chmod(file, 0o444);
   await typeAtEnd(page, 'KEEPME');
-  await expect(status()).toHaveText('保存失败 — 你的修改还在');
+  await expect(status()).toHaveText('保存失败');
   await expect(status().locator('svg')).toHaveCount(1);
   const banner = page.getByTestId('save-error');
   await expect(banner).toContainText('index.html');
@@ -94,7 +94,7 @@ test('a failed save shows the reason with retry and save-elsewhere; the copy kee
 
   // Retrying while the cause persists fails again and still keeps everything.
   await banner.getByTestId('save-retry').click();
-  await expect(status()).toHaveText('保存失败 — 你的修改还在');
+  await expect(status()).toHaveText('保存失败');
 
   const copy = path.join(tmp, '备份 副本.html');
   await answerSaveDialog(app, copy);
@@ -103,11 +103,11 @@ test('a failed save shows the reason with retry and save-elsewhere; the copy kee
   expect(await readFile(copy, 'utf8')).toContain('KEEPME');
   // The copy does not pretend the original was saved.
   expect(await disk('index.html')).toBe(before);
-  await expect(status()).toHaveText('保存失败 — 你的修改还在');
+  await expect(status()).toHaveText('保存失败');
 
   await answerSaveDialog(app, null);
   await banner.getByTestId('save-copy').click(); // cancelled: nothing changes
-  await expect(status()).toHaveText('保存失败 — 你的修改还在');
+  await expect(status()).toHaveText('保存失败');
 
   await chmod(file, 0o644);
   await banner.getByTestId('save-retry').click();
@@ -120,7 +120,7 @@ test('closing the window with a failing save keeps the window open and the edits
   const file = path.join(root, 'index.html');
   await chmod(file, 0o444);
   await typeAtEnd(page, 'NOTDROPPED');
-  await expect(status()).toHaveText('保存失败 — 你的修改还在');
+  await expect(status()).toHaveText('保存失败');
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close());
   // The workbench answers "not ok" once the save failed again; the window must still be there afterwards.
   await expect(page.getByTestId('save-error')).toBeVisible();
@@ -166,7 +166,7 @@ test('after a refused close, "close without saving" closes the window and leaves
   await chmod(file, 0o444);
   try {
     await typeAtEnd(page, 'CANNOTSAVE');
-    await expect(status()).toHaveText('保存失败 — 你的修改还在');
+    await expect(status()).toHaveText('保存失败');
     await expect(page.getByTestId('close-discarding')).toHaveCount(0); // only offered after a refused close
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close());
     await expect(page.getByTestId('close-discarding')).toBeVisible();

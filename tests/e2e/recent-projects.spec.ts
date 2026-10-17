@@ -2,7 +2,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
-import { makeProject, openProject } from './project';
+import { makeProject, openProject, projectMenu } from './project';
 import { previewInfo, waitForPreviewState } from './preview-helpers';
 
 /**
@@ -54,8 +54,7 @@ test('a project opened once is on the welcome screen after reopening the app, an
   await start();
   await openProject(app as ElectronApplication, page, a.root);
   // Closed before quitting, so the next start shows the welcome screen (an open project would be restored, S13.4).
-  await page.getByTestId('app-menu').click();
-  await page.getByTestId('menu-close-project').click();
+  await projectMenu(page, 'close-project');
   await expect(page.getByTestId('welcome')).toBeVisible();
   await stop();
 
@@ -65,7 +64,7 @@ test('a project opened once is on the welcome screen after reopening the app, an
   await expect(items().first()).toContainText(a.root);
   await expect(page.getByTestId('welcome-recent-missing')).toHaveCount(0);
   await items().first().getByRole('button', { name: '打开' }).click();
-  await expect(page.getByTestId('project-path')).toHaveText(a.root);
+  await expect(page.getByTestId('project-name')).toHaveAttribute('title', a.root);
   await page.getByTestId('file-tree').waitFor();
 });
 
@@ -76,8 +75,7 @@ test('closing a project stops its preview, server and watcher and shows the welc
   const { origin } = await previewInfo(app as ElectronApplication);
   expect(origin).not.toBeNull();
 
-  await page.getByTestId('app-menu').click();
-  await page.getByTestId('menu-close-project').click();
+  await projectMenu(page, 'close-project');
   await expect(page.getByTestId('welcome')).toBeVisible();
   await expect(page.getByTestId('project-name')).toHaveText('未打开项目');
   await waitForPreviewState(page, 'stopped');

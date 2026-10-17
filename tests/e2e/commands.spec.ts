@@ -32,15 +32,32 @@ test.afterAll(async () => {
   await rm(tmp, { recursive: true, force: true });
 });
 
-test('the command menu derives its items and shortcut hints from the registry', async () => {
+test('the two in-window menus derive their items and shortcut hints from the registry (S47.4)', async () => {
+  // The project menu next to the project name: close, reveal (a platform label), history, lessons.
+  await page.getByTestId('project-menu').click();
+  await expect(page.getByRole('menu').getByRole('menuitem')).toHaveText([
+    /^关闭项目$/,
+    mac ? /^在访达中显示$/ : /^在文件资源管理器中显示$/,
+    /^历史版本…$/,
+    /^课程$/,
+  ]);
+  await expect(page.getByTestId('project-path')).toHaveText(root);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
+
+  // The help/more menu at the end of the bar: theme and language choices, then AI, glossary, logs, settings.
   await page.getByTestId('app-menu').click();
+  await expect(page.getByRole('menu').getByRole('menuitemradio')).toHaveText([
+    /跟随系统的浅色或深色主题$/, // the current choice carries a ✓ (S24.4)
+    /^浅色主题$/,
+    /^深色主题$/,
+    /中文$/,
+    /^English$/,
+  ]);
   const items = page.getByRole('menu').getByRole('menuitem');
   await expect(items).toHaveText([
-    /^关闭项目$/,
-    /^本地历史…$/,
-    /^显示或隐藏 AI 助手/, // S33 (with its shortcut hint)
-    /^开启或关闭 AI 代码建议$/, // S32
-    /^入门导览$/,
+    /^显示或隐藏“问 AI”/, // S33 (with its shortcut hint)
+    /^开启或关闭 AI 建议$/, // S32
     /^术语表$/,
     /^打开日志文件夹$/,
     /^AI 设置…$/, // S31.4

@@ -2,7 +2,7 @@ import './authoring.css';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import { fill } from '../recovery/format';
-import { useModalKeys } from '../workbench/focus-trap';
+import { Sheet, sheetButtonClass } from '../workbench/Sheet';
 import { activeEditor } from './editor-handle';
 import {
   closeColorPicker,
@@ -54,8 +54,7 @@ export function ColorPickerHost() {
 
 function ColorPickerDialog({ color, onClose }: { color: CursorColor | null; onClose: () => void }) {
   const { t } = useI18n();
-  const titleId = useId();
-  const dialog = useRef<HTMLDivElement>(null);
+  const formId = useId();
   const first = useRef<HTMLInputElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   // The colour being edited. The sliders change hue / saturation / lightness; until one moves, the colour is exactly
@@ -74,7 +73,7 @@ function ColorPickerDialog({ color, onClose }: { color: CursorColor | null; onCl
     onClose();
     activeEditor()?.focus?.(); // back to the code, where the cursor still is
   };
-  useModalKeys(dialog, finish);
+  // The hue slider takes focus first (the sheet keeps a child's own choice); without a colour, its Close action does.
   useEffect(() => (color ? first.current : closeButton.current)?.focus(), [color]);
 
   const apply = () => {
@@ -105,91 +104,91 @@ function ColorPickerDialog({ color, onClose }: { color: CursorColor | null; onCl
     </label>
   );
 
+  // S49.1: on the shared Sheet — Close top-right and Escape cancel; the action row is Cancel → Apply (the form's
+  // submit, so Enter in the value field applies too).
   return (
-    <div className="dialog-backdrop" onMouseDown={finish}>
-      <div
-        ref={dialog}
-        className="dialog color-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid="color-picker"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <h2 className="dialog-title" id={titleId}>
-          {t('color.dialog.title')}
-        </h2>
-        {!color ? (
+    <Sheet
+      title={t('color.dialog.title')}
+      width={480}
+      className="color-dialog"
+      onClose={finish}
+      closeLabel={t(color ? 'color.cancel' : 'color.close')}
+      testId="color-picker"
+      closeTestId="color-close"
+      actions={
+        color ? (
           <>
-            <div className="dialog-body">
-              <p>{t('color.dialog.none')}</p>
-            </div>
-            <div className="dialog-actions">
-              <button type="button" className="primary-button dialog-button" ref={closeButton} onClick={finish}>
-                {t('color.close')}
-              </button>
-            </div>
+            <button type="button" className={sheetButtonClass('cancel')} onClick={finish}>
+              {t('color.cancel')}
+            </button>
+            <button
+              type="submit"
+              form={formId}
+              className={sheetButtonClass('primary')}
+              data-testid="color-apply"
+              disabled={invalid}
+            >
+              {t('color.apply')}
+            </button>
           </>
         ) : (
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              apply();
-            }}
-          >
-            <div className="dialog-body color-dialog-body">
-              <div className="color-preview">
-                <span
-                  className="color-swatch color-swatch-large"
-                  role="img"
-                  aria-label={fill(t('color.before'), { value: color.text })}
-                  style={{ backgroundColor: toHex(color.rgba) }}
-                />
-                <span aria-hidden="true">→</span>
-                <span
-                  className="color-swatch color-swatch-large"
-                  role="img"
-                  data-testid="color-preview"
-                  aria-label={fill(t('color.after'), { value: typedColor ? (typed ?? '') : written })}
-                  style={{ backgroundColor: toHex(typedColor ? typedColor.rgba : rgba) }}
-                />
-              </div>
-              {slider('h', t('color.hue'), 360, fill(t('color.degrees'), { value: String(hsl.h) }))}
-              {slider('s', t('color.saturation'), 100, `${hsl.s}%`)}
-              {slider('l', t('color.lightness'), 100, `${hsl.l}%`)}
-              <label className="color-value">
-                <span>{t('color.value')}</span>
-                <input
-                  type="text"
-                  spellCheck={false}
-                  value={typed ?? written}
-                  aria-invalid={invalid}
-                  data-testid="color-value"
-                  onChange={(event) => setTyped(event.target.value)}
-                />
-              </label>
-              {invalid && (
-                <p className="dialog-hint" role="alert">
-                  {t('color.invalid')}
-                </p>
-              )}
+          <button type="button" className={sheetButtonClass('primary')} ref={closeButton} onClick={finish}>
+            {t('color.close')}
+          </button>
+        )
+      }
+    >
+      {!color ? (
+        <div className="dialog-body">
+          <p>{t('color.dialog.none')}</p>
+        </div>
+      ) : (
+        <form
+          id={formId}
+          onSubmit={(event) => {
+            event.preventDefault();
+            apply();
+          }}
+        >
+          <div className="dialog-body color-dialog-body">
+            <div className="color-preview">
+              <span
+                className="color-swatch color-swatch-large"
+                role="img"
+                aria-label={fill(t('color.before'), { value: color.text })}
+                style={{ backgroundColor: toHex(color.rgba) }}
+              />
+              <span aria-hidden="true">→</span>
+              <span
+                className="color-swatch color-swatch-large"
+                role="img"
+                data-testid="color-preview"
+                aria-label={fill(t('color.after'), { value: typedColor ? (typed ?? '') : written })}
+                style={{ backgroundColor: toHex(typedColor ? typedColor.rgba : rgba) }}
+              />
             </div>
-            <div className="dialog-actions">
-              <button type="button" className="quiet-button dialog-button" onClick={finish}>
-                {t('color.cancel')}
-              </button>
-              <button
-                type="submit"
-                className="primary-button dialog-button"
-                data-testid="color-apply"
-                disabled={invalid}
-              >
-                {t('color.apply')}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+            {slider('h', t('color.hue'), 360, fill(t('color.degrees'), { value: String(hsl.h) }))}
+            {slider('s', t('color.saturation'), 100, `${hsl.s}%`)}
+            {slider('l', t('color.lightness'), 100, `${hsl.l}%`)}
+            <label className="color-value">
+              <span>{t('color.value')}</span>
+              <input
+                type="text"
+                spellCheck={false}
+                value={typed ?? written}
+                aria-invalid={invalid}
+                data-testid="color-value"
+                onChange={(event) => setTyped(event.target.value)}
+              />
+            </label>
+            {invalid && (
+              <p className="dialog-hint" role="alert">
+                {t('color.invalid')}
+              </p>
+            )}
+          </div>
+        </form>
+      )}
+    </Sheet>
   );
 }

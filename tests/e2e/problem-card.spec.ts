@@ -2,7 +2,7 @@ import { chmod, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
-import { collectConsoleErrors, documentText, makeProject, openFile, openProject } from './project';
+import { collectConsoleErrors, documentText, makeProject, openFile, openProject, switchLanguage } from './project';
 
 /**
  * The problem card (S22.4, PLAN §9) and the one-click fix for a misspelled name (S22.5), on a project whose path has
@@ -87,7 +87,7 @@ test('the card shows file, line, explanation, checks, Go to code and Show origin
     "Cannot find name 'userNmae'. Did you mean 'userName'?",
   );
 
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(card.getByTestId('problem-card-head')).toHaveText(
     'Code check script.js, line 3: Cannot find the variable userNmae.',
   );
@@ -95,7 +95,7 @@ test('the card shows file, line, explanation, checks, Go to code and Show origin
   await expect(card.getByTestId('problem-go-to')).toHaveText('Go to code');
   await expect(card.getByTestId('problem-show-original')).toHaveText('Show original error');
   await expect(card.getByTestId('problem-fix')).toHaveText('Change to userName');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(card.getByTestId('problem-fix')).toHaveText('改成 userName');
 });
 
@@ -179,7 +179,7 @@ test('a failed save keeps the edit, shows the save failure and never shows resol
   await expect(fixCard()).toHaveAttribute('data-phase', 'save-failed', { timeout: 20_000 });
   await expect(fixStatus()).toContainText('保存失败');
   await expect(fixStatus()).toContainText('修改还在编辑器里');
-  await expect(page.getByTestId('save-status')).toHaveText('保存失败 — 你的修改还在');
+  await expect(page.getByTestId('save-status')).toHaveText('保存失败');
   await expect.poll(editorText).toContain('console.log(userName);');
   expect(await disk('script.js')).toBe(SCRIPT);
   // Even once the code check no longer reports it, a fix that is not on disk is not called resolved.
@@ -217,11 +217,11 @@ test('a problem from the running page is resolved only after the preview reloade
   await expect(row).toContainText('刷新后没有再出现');
 
   // English: the result is announced in English too.
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(fixStatus()).toHaveText(
     'Resolved: script.js line 3 — not reported again after checking again and refreshing the preview.',
   );
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
 });
 
 test('no console errors during the problem card run', () => {

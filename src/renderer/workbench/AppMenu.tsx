@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { MoreIcon } from './icons';
@@ -17,16 +17,40 @@ export interface AppMenuItem {
 
 const isChoice = (item: AppMenuItem) => item.checked !== undefined && item.checked !== null;
 
+interface AppMenuProps {
+  readonly items: readonly AppMenuItem[];
+  /** Name of the menu (button label, tooltip and the list's accessible name). Default: the help/more menu. */
+  readonly menuLabel?: MessageKey;
+  /** Test id of the button; the list's element id is `${testId}-list`. Default: `app-menu`. */
+  readonly testId?: string;
+  /** The button's icon. Default: ⋯. */
+  readonly icon?: ReactNode;
+  /** S47.4: the list opens flush with the button's right edge (a menu at the end of the top bar). */
+  readonly alignEnd?: boolean;
+  /** S47.4: a line of plain text above the items (the project menu shows the project folder). */
+  readonly detail?: { readonly label: MessageKey; readonly text: string; readonly testId: string } | undefined;
+}
+
 /**
- * The workbench's small command menu (S13.3 close project, S13.6 open logs folder). An ARIA menu button: Enter,
- * Space or ↓ opens it on the first item, ↑/↓/Home/End move, Escape closes and returns focus to the button, Tab or a
- * click elsewhere closes it. It opens to the left half of the window, where no native preview view can cover it.
+ * The workbench's small command menus (S13.3 close project, S13.6 open logs folder; S47.4: a project menu next to
+ * the project name and a help/more menu at the end of the top bar). An ARIA menu button: Enter, Space or ↓ opens it
+ * on the first item, ↑/↓/Home/End move, Escape closes and returns focus to the button, Tab or a click elsewhere
+ * closes it. A native preview view never covers an open menu: the preview hides under any `[role="menu"]`
+ * (preview-viewport.ts OVERLAY_SELECTOR).
  */
-export function AppMenu({ items }: { items: readonly AppMenuItem[] }) {
+export function AppMenu({
+  items,
+  menuLabel = 'appMenu.label',
+  testId = 'app-menu',
+  icon,
+  alignEnd,
+  detail,
+}: AppMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
+  const listId = `${testId}-list`;
   const entries = () => [...(menu.current?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]') ?? [])];
 
   useEffect(() => {
@@ -70,10 +94,10 @@ export function AppMenu({ items }: { items: readonly AppMenuItem[] }) {
         className="icon-button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-controls="app-menu-list"
-        aria-label={t('appMenu.label')}
-        title={t('appMenu.label')}
-        data-testid="app-menu"
+        aria-controls={listId}
+        aria-label={t(menuLabel)}
+        title={t(menuLabel)}
+        data-testid={testId}
         onClick={() => setOpen((value) => !value)}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown') {
@@ -82,17 +106,25 @@ export function AppMenu({ items }: { items: readonly AppMenuItem[] }) {
           }
         }}
       >
-        <MoreIcon />
+        {icon ?? <MoreIcon />}
       </button>
       {open && (
         <div
           ref={menu}
-          id="app-menu-list"
-          className="app-menu-list"
+          id={listId}
+          className={alignEnd ? 'app-menu-list app-menu-list-end' : 'app-menu-list'}
           role="menu"
-          aria-label={t('appMenu.label')}
+          aria-label={t(menuLabel)}
           onKeyDown={onMenuKey}
         >
+          {detail && (
+            <div className="app-menu-detail" title={detail.text}>
+              <span className="app-menu-detail-label">{t(detail.label)}</span>
+              <span className="app-menu-detail-text" data-testid={detail.testId}>
+                {detail.text}
+              </span>
+            </div>
+          )}
           {items.map((item) => (
             <Fragment key={item.id}>
               {item.separatorBefore && <div role="separator" className="app-menu-separator" />}

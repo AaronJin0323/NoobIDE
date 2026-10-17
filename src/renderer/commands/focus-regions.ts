@@ -1,7 +1,9 @@
 /**
  * F6 / Shift+F6 move the keyboard focus between the workbench regions (S24.3). Tab cannot leave the code editor —
  * it indents, as a code editor should — so without this a keyboard user would be stuck there. The order is the
- * visual order of PLAN §3: top bar, tool bar, files, editor, preview, AI chat (S33), problems. Hidden regions are skipped.
+ * visual order of PLAN §3: top bar, tool bar, files, editor, preview, AI chat (S33), then the bands under the middle
+ * row — the walkthrough (S47.6), the notice stack, Problems — and the editor's end of the status strip (S47.5).
+ * Hidden regions, and regions with nothing to focus (an empty notice stack), are skipped.
  */
 export const REGION_SELECTORS = [
   '[data-testid="region-topbar"]',
@@ -10,7 +12,10 @@ export const REGION_SELECTORS = [
   '[data-testid="region-editor"]',
   '[data-testid="region-preview"]',
   '[data-testid="region-ai"]', // S33.1 AI chat (when open)
+  '[data-testid="walkthrough"], [data-testid="final-task"]', // S23 walkthrough band / final task card (when open)
+  '[data-testid="app-notice-stack"]', // S13 notices (when any is shown)
   '[data-testid="region-problems"]',
+  '[data-testid="region-status"]', // S47.5 the editor's end of the status strip
 ] as const;
 
 const FOCUSABLE = [
