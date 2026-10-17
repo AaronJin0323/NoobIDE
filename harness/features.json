@@ -190,6 +190,18 @@
         "Every renderer stylesheet follows the calm design spec: shared radius, type, weight, elevation and colour tokens, enforced by src/renderer/design-rules.test.ts",
         "npm run verify and the full e2e suite are green on Windows x64; before/after screenshots in both themes are reviewed by the owner"
       ]
+    },
+    {
+      "id": "M19",
+      "title": "Everyday editing parity (v0.2) (owner request 2026-10-17)",
+      "plan_refs": "docs/reviews/mainstream-ide-gap-2026-10-17.md §4; PLAN §4, §12 v0.2; AGENTS.md invariants",
+      "exit_criteria": [
+        "A beginner can find and replace in a file and across the project, open any file by name from the keyboard, and move, copy, duplicate and import files and images, with every write going through the never-overwrite save and file-op paths",
+        "Emmet, linked tag editing, colour picker, comment toggle and JS go-to-definition/rename are claimed in docs/capabilities.md only where a capability case in tests/fixtures/lang-capabilities proves them",
+        "CSS-only saves restyle the running page without a reload, falling back to a reload that says so; preview isolation is unchanged",
+        "Rules 16-25 and their quick fixes, and named project checkpoints, ship with fixtures and wording that keeps checkpoints, local history and undo distinct",
+        "npm run verify and the full e2e suite are green on Windows x64; manual checks recorded for Explorer/Finder drag-and-drop"
+      ]
     }
   ],
   "sessions": [
@@ -681,6 +693,84 @@
         "S45"
       ],
       "plan_refs": "docs/product/calm-design-spec.md; docs/decisions/0034-calm-design-language.md"
+    },
+    {
+      "id": "S51",
+      "milestone": "M19",
+      "title": "Find, replace and quick open",
+      "goal": "Surface Monaco find/replace, add a project-wide find/replace-in-files panel that applies through the save pipeline, and a Ctrl/Cmd+P files mode in the palette.",
+      "depends_on": [
+        "S24",
+        "S43"
+      ],
+      "plan_refs": "PLAN §4, §12 v0.2; docs/reviews/mainstream-ide-gap-2026-10-17.md §4"
+    },
+    {
+      "id": "S52",
+      "milestone": "M19",
+      "title": "Complete file management",
+      "goal": "Move, copy/paste, duplicate, multi-select and import files and images from outside the app, with tabs, recovery and history following moved files, plus an image viewer tab.",
+      "depends_on": [
+        "S08",
+        "S09",
+        "S10",
+        "S12"
+      ],
+      "plan_refs": "PLAN §4, §7, §12 v0.2; docs/decisions/0006-history-project-identity.md; docs/reviews/mainstream-ide-gap-2026-10-17.md §4"
+    },
+    {
+      "id": "S53",
+      "milestone": "M19",
+      "title": "HTML/CSS authoring aids",
+      "goal": "Emmet expansion, linked tag editing, wrap with tag, colour picker, comment toggle and opt-in format on save, each proven by capability cases before it is claimed.",
+      "depends_on": [
+        "S18",
+        "S43"
+      ],
+      "plan_refs": "PLAN §4, §9, §12 v0.2; docs/capabilities.md; docs/reviews/mainstream-ide-gap-2026-10-17.md §4"
+    },
+    {
+      "id": "S54",
+      "milestone": "M19",
+      "title": "CSS without reload",
+      "goal": "When a save touches only stylesheets, swap the matching <link> stylesheets in the running preview without a reload, through the existing isolated preview path, falling back to a reported full reload.",
+      "depends_on": [
+        "S14",
+        "S41"
+      ],
+      "plan_refs": "PLAN §3, §4, §8, §12 v0.2; docs/decisions/0019-preview-view-sync.md; docs/decisions/0030-preview-annotations.md; docs/reviews/mainstream-ide-gap-2026-10-17.md §4"
+    },
+    {
+      "id": "S55",
+      "milestone": "M19",
+      "title": "More beginner checks and quick fixes",
+      "goal": "Explanation rules 16-25 (chosen from the H.6 study where available) and quick fixes on the problem card and editor lightbulb, applied as ordinary undoable edits.",
+      "depends_on": [
+        "S19",
+        "S22"
+      ],
+      "plan_refs": "PLAN §4, §9, §12 v0.2; docs/reviews/mainstream-ide-gap-2026-10-17.md §4"
+    },
+    {
+      "id": "S56",
+      "milestone": "M19",
+      "title": "Project checkpoints",
+      "goal": "Named whole-project checkpoints in app data on the S21 snapshot store, with list, compare and restore, taken automatically before agent proposals and history restores.",
+      "depends_on": [
+        "S21",
+        "S34"
+      ],
+      "plan_refs": "PLAN §4, §7, §12 v0.2; docs/reviews/mainstream-ide-gap-2026-10-17.md §4"
+    },
+    {
+      "id": "S57",
+      "milestone": "M19",
+      "title": "JavaScript navigation and rename",
+      "goal": "Go to definition, find references and cross-file rename for project scripts, limited to what the TS worker proves in capability cases; rename applies through the save pipeline with a preview.",
+      "depends_on": [
+        "S18"
+      ],
+      "plan_refs": "PLAN §4, §9, §12 v0.2; docs/capabilities.md; docs/reviews/mainstream-ide-gap-2026-10-17.md §4"
     }
   ],
   "features": [
@@ -794,6 +884,24 @@
       ],
       "status": "done",
       "evidence": "docs/reviews/interface-assessment-2026-10-14.md checked against all three criteria and PLAN sections 2,3,9,11; Windows Edge renderer measurements at 1280x800 light/dark and 640x480; source links checked; npm run verify green (42 tests)"
+    },
+    {
+      "id": "S01.6",
+      "session": "S01",
+      "milestone": "M0",
+      "title": "Functional gap assessment against VS Code and IntelliJ with an improvement plan",
+      "description": "Owner-requested review of what NoobIDE can and cannot do next to mainstream IDEs, ranked by when a beginner building a static site hits each gap; proposes v0.2 sessions. Assessment only, no runtime change.",
+      "acceptance": [
+        "docs/reviews/mainstream-ide-gap-2026-10-17.md compares NoobIDE with VS Code and WebStorm/IntelliJ per feature area, citing the source files or feature ids that establish each NoobIDE status",
+        "The review separates shipped, partial (hidden or unproven), absent and PLAN-excluded capabilities and ranks gaps by beginner impact, consistent with PLAN sections 1, 4 and 12",
+        "The review proposes an ordered improvement plan as candidate sessions with scope, acceptance sketches and estimates, without adding them to the backlog or claiming they are implemented"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S01.5"
+      ],
+      "status": "done",
+      "evidence": "docs/reviews/mainstream-ide-gap-2026-10-17.md checked against all three criteria: 6 feature-area tables cite features.json ids, docs/capabilities.md, src/shared/commands.ts, src/workspace/file-ops.ts, CodeEditor.tsx, text-codec.ts, main.ts; statuses split Yes/Partial/No/Excluded with P1-P3 ranking per PLAN 1,4,12; plan proposes M18/S47-S53 as candidates only. No runtime change."
     },
     {
       "id": "S02.1",
@@ -4290,6 +4398,481 @@
       ],
       "status": "done",
       "evidence": "ime.test.ts; 50 Electron tests across ai-edit, file-tree, ai-chat, welcome, commands and preview-annotations; verify green (2722 passed, 15 skipped); native IME checklist in MANUAL-CHECKS.md"
+    },
+    {
+      "id": "S51.1",
+      "session": "S51",
+      "milestone": "M19",
+      "title": "Find and replace in the current file",
+      "description": "Monaco find/replace exists but is not surfaced in menus, palette or help.",
+      "acceptance": [
+        "Edit menu items and palette commands open find (Ctrl/Cmd+F) and replace (Ctrl+H on Windows, Alt+Cmd+F on macOS), registered once in src/shared/commands.ts with zh-CN and en labels (unit test over the command registry)",
+        "Replace all in a file is a single undo step: one Ctrl/Cmd+Z restores the exact pre-replace text (e2e)",
+        "The replaced buffer is marked dirty and saved through save-controller like any edit; autosave and local history record it once (e2e asserts one history snapshot)",
+        "Find, next/previous match, replace and replace-all are operable keyboard-only, and the match count is exposed as text to assistive technology (a11y e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S51.2",
+      "session": "S51",
+      "milestone": "M19",
+      "title": "Project search engine in main",
+      "description": "Bounded streaming text search over the project for the find-in-files panel.",
+      "acceptance": [
+        "A typed IPC call in src/shared/ipc searches literal or regex text with case-sensitive and whole-word options; main validates the payload, the sender frame and the regex (an invalid regex returns a typed error, not a throw) (unit tests)",
+        "The scan stays inside the realpath-checked project root, honours src/workspace/ignore.ts, skips binary files and files over the size cap, and caps total matches with a \"results truncated\" flag (integration tests)",
+        "Results are grouped by project-relative path with line, column and a context line; open unsaved buffers are searched from renderer memory and win over disk content (integration test)",
+        "On a generated 2 000-file fixture whose paths contain Chinese characters and spaces, a search returns in under 1 s and the main-process event loop is never blocked for more than 100 ms (integration test with measured timings)",
+        "Search requests are cancellable; starting a new search cancels the previous one and no stale results arrive (unit test)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S51.3",
+      "session": "S51",
+      "milestone": "M19",
+      "title": "Find in files panel",
+      "description": "A search panel in the bottom region beside Problems.",
+      "acceptance": [
+        "Ctrl/Cmd+Shift+F opens a \"Search\" panel in the bottom region with query, regex, case and whole-word toggles; toggle state is shown by icon plus accessible name, not colour alone (e2e + a11y)",
+        "Results are grouped by file with match counts and context; clicking or pressing Enter on a result opens the file at the matching line and column (e2e)",
+        "Empty, truncated, invalid-regex and no-project states each show explanatory text in zh-CN and en (e2e in both locales)",
+        "The whole flow (open, type, move through results, open a result) works keyboard-only (e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S51.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S51.4",
+      "session": "S51",
+      "milestone": "M19",
+      "title": "Replace in files with preview",
+      "description": "Project-wide replace that never bypasses the save pipeline.",
+      "acceptance": [
+        "Replace in files shows a per-file preview of every change and lets the user exclude files or single matches before applying (e2e)",
+        "Apply writes each file through save-controller and atomic write; a file changed on disk since the search is refused with an explanation instead of overwritten (integration test)",
+        "If one file fails to save, the others still apply, the failed file keeps its edited content in memory with the save-failure state, and a summary lists applied and failed files (fault test)",
+        "e2e: replacing a class name across three files refreshes the preview once and leaves one local-history snapshot per changed file; each file can be undone in its editor"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S51.2",
+        "S51.3"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S51.5",
+      "session": "S51",
+      "milestone": "M19",
+      "title": "Quick open files",
+      "description": "A files mode in the existing command palette.",
+      "acceptance": [
+        "Ctrl/Cmd+P opens the palette in files mode with fuzzy matching over the project tree index (S43.4); typing \">\" switches to commands (e2e)",
+        "Ranking puts exact basename matches first and matches path segments with Chinese characters and spaces (unit tests over the matcher)",
+        "Enter opens the file in a tab; recently opened files are listed first when the query is empty; ignored and dot files are excluded (e2e)",
+        "With 2 000 files indexed, filtering after each keystroke completes in under 50 ms (unit benchmark test)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S52.1",
+      "session": "S52",
+      "milestone": "M19",
+      "title": "Move files and folders",
+      "description": "Drag-and-drop in the tree and a \"Move to…\" dialog.",
+      "acceptance": [
+        "file-ops gains move for files and folders through typed IPC; the destination must be inside the project root (realpath-checked) and an existing target is refused with an explanation like rename (S08.4) (integration tests under Chinese paths with spaces)",
+        "Dragging in the tree and the \"Move to…\" dialog both move; a folder cannot be moved into itself or its descendants (e2e + unit tests)",
+        "Open tabs, Monaco models, dirty state, recovery journal entries and local-history identity (decision 0006) follow the moved path; a dirty file moved before saving keeps its unsaved edits (integration test)",
+        "An external move detected by the watcher is replayed as a move for open tabs when the content hash matches, otherwise as delete + create with the tab kept and marked (watcher replay test)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S52.2",
+      "session": "S52",
+      "milestone": "M19",
+      "title": "Copy, paste and duplicate",
+      "description": "Copy/paste in the tree and Duplicate.",
+      "acceptance": [
+        "Copy/paste and Duplicate exist for files and folders in the context menu, the palette and Ctrl/Cmd+C/V/D in the tree (e2e)",
+        "Duplicate names follow platform rules in src/shared/file-names.ts (page.html → \"page copy.html\", then \"page copy 2.html\") and never overwrite an existing entry (unit tests)",
+        "Copies are byte-identical, folder copies are recursive, and a copy that fails half-way removes only what it created and reports the cause (integration + fault tests)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S52.3",
+      "session": "S52",
+      "milestone": "M19",
+      "title": "Multi-select for trash and move",
+      "description": "Selecting several tree entries for one operation.",
+      "acceptance": [
+        "Shift/Ctrl/Cmd-click and Shift+arrow select several tree entries; the selection count is announced as text (e2e + a11y)",
+        "Trash and move apply to the whole selection; trash uses the OS trash for every item and a partial failure lists which items were not moved (integration test)",
+        "Every file operation of S52.1-S52.3 is reachable from the context menu and from the keyboard alone (e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S52.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S52.4",
+      "session": "S52",
+      "milestone": "M19",
+      "title": "Import files and images from outside",
+      "description": "\"Add files…\" and \"Add image…\" dialogs that copy into the project.",
+      "acceptance": [
+        "\"Add files…\" and \"Add image…\" copy (never link or move) the chosen files into the selected folder; a name collision is refused or renamed by the user, never overwritten (integration tests under Chinese paths)",
+        "Files over the size cap or of refused types are rejected with an explanation naming the limit (unit tests)",
+        "e2e: add an image, insert it with path completion in an <img src>, and see it rendered in the preview"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S52.5",
+      "session": "S52",
+      "milestone": "M19",
+      "title": "Drag-and-drop import on real hardware",
+      "description": "Dropping files from the OS file manager onto the tree.",
+      "acceptance": [
+        "On Windows x64, dropping files and a folder from Explorer onto a tree folder copies them there with the same collision rules as S52.4; recorded in harness/MANUAL-CHECKS.md#S52.5",
+        "On Apple Silicon macOS, the same drop from Finder behaves identically, including names with Chinese characters and spaces; recorded in harness/MANUAL-CHECKS.md#S52.5"
+      ],
+      "verify": "manual-win",
+      "depends_on": [
+        "S52.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S52.6",
+      "session": "S52",
+      "milestone": "M19",
+      "title": "Image viewer tab",
+      "description": "Binary images currently show only a refusal notice.",
+      "acceptance": [
+        "Opening png, jpg, gif, svg, webp or ico shows an image tab with pixel dimensions and byte size; fonts and other binaries keep the existing refusal notice (e2e)",
+        "Images are served through the app protocol with a project-root path check, never through the preview server; SVG is shown as an image with scripts disabled (unit test + e2e)",
+        "\"Copy <img> tag\" and \"Copy relative path\" produce a path relative to the active HTML file, with zh-CN and en labels (unit test + e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S53.1",
+      "session": "S53",
+      "milestone": "M19",
+      "title": "Emmet expansion with decision record",
+      "description": "Owner decision 3 of the review: a pure-JS package still needs a decision record.",
+      "acceptance": [
+        "A docs/decisions record covers the Emmet package choice: pure JS, exact pinned version, licence checked, bundled offline, bundle size impact measured",
+        "Tab expands Emmet abbreviations in HTML and CSS (e.g. ul>li*3, m10) and does nothing outside an abbreviation context; capability cases in tests/fixtures/lang-capabilities/cases.json pass",
+        "A settings toggle turns Emmet off; the first expansion shows a one-time status-bar hint that names the setting (e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S53.2",
+      "session": "S53",
+      "milestone": "M19",
+      "title": "Linked tag editing and wrap with tag",
+      "description": "Monaco linkedEditing plus a wrap command.",
+      "acceptance": [
+        "Monaco linkedEditing is enabled for HTML: renaming an opening tag renames its closing tag; a capability case proves it and another documents a case where it does not apply",
+        "\"Wrap with tag\" in the Edit menu and palette wraps the selection in a tag and places linked cursors on both tag names; undo restores the original in one step (e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S53.3",
+      "session": "S53",
+      "milestone": "M19",
+      "title": "Colour decorators and picker",
+      "description": "So that the \"colour hints\" of PLAN §2 can be claimed.",
+      "acceptance": [
+        "CSS colour values (hex, rgb(), hsl(), named) show a colour swatch, and the picker edits the value in place; capability cases cover each format",
+        "The swatch has an accessible name with the colour value in text; the picker is keyboard-operable (a11y e2e)",
+        "docs/capabilities.md claims colour hints only for the formats the cases prove; the glossary gains an entry in zh-CN and en"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S53.4",
+      "session": "S53",
+      "milestone": "M19",
+      "title": "Toggle comment and opt-in format on save",
+      "description": "Comment toggle in menus and an opt-in format on save setting.",
+      "acceptance": [
+        "Toggle line/block comment is in the Edit menu and palette with Ctrl/Cmd+/ and works in HTML, CSS and JS including <style> and <script> blocks (capability cases)",
+        "\"Format on save\" is off by default; when on, the saved bytes are the formatted text and format plus save is one undo step; a format failure saves the unformatted text and says why (integration test)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S53.5",
+      "session": "S53",
+      "milestone": "M19",
+      "title": "Authoring aids in the packaged app offline",
+      "description": "End-to-end proof of S53.1-S53.4 in the packaged build.",
+      "acceptance": [
+        "An e2e run against the packaged app with networking disabled exercises Emmet, linked editing, colour picker and comment toggle, and no network request is made (e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S53.1",
+        "S53.2",
+        "S53.3",
+        "S53.4"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S54.1",
+      "session": "S54",
+      "milestone": "M19",
+      "title": "Decision record for CSS hot swap",
+      "description": "Extends decisions 0019 and 0030.",
+      "acceptance": [
+        "A docs/decisions record specifies how stylesheets are swapped: no preload, no new IPC exposed to the page, no page-world script, no inline script injection, and which saves qualify",
+        "The record lists the fallback cases (HTML/JS in the save, @import chains, inline <style>, failed swap) and the toolbar wording for each"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S54.2",
+      "session": "S54",
+      "milestone": "M19",
+      "title": "Swap stylesheets without reload",
+      "description": "Refresh linked stylesheets in place on a CSS-only save.",
+      "acceptance": [
+        "When a save touches only .css files that the page links, the matching <link> stylesheets are refreshed in place and the page is not reloaded (e2e asserts no navigation event)",
+        "e2e: typed form input and scroll position survive a colour change in the linked CSS",
+        "Preview isolation e2e (no preload, no Node, no IDE IPC reachable from the page) stays green with hot swap enabled"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S54.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S54.3",
+      "session": "S54",
+      "milestone": "M19",
+      "title": "Hot swap fallback and reporting",
+      "description": "Full reload remains the path for anything the swap cannot handle.",
+      "acceptance": [
+        "Any save that includes HTML or JS, or any CSS change the swap cannot apply, does a full reload, and the toolbar states in words which happened (\"styles updated\" vs \"page reloaded\") (e2e, zh-CN + en)",
+        "Fault test: a CSS file with a syntax error or a failed swap falls back to reload and the problem reaches Problems; console flood and rate limits from S16 are unchanged (existing tests green)",
+        "Manual refresh mode still waits for the user; hot swap respects it (e2e)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S54.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S55.1",
+      "session": "S55",
+      "milestone": "M19",
+      "title": "Choose rules 16-25",
+      "description": "Rule selection, driven by the H.6 study where it has data.",
+      "acceptance": [
+        "docs/product records rules 16-25 with the H.6 findings that motivate each, or, where H.6 has no data, this default set: broken relative src/href found statically, duplicate id, img without alt, mismatched closing tag, CSS length without unit, inline handler calling an undefined function, script before the element it reads, getElementById/querySelector selector-prefix mistakes, file reference differing only in letter case, assignment in an if condition",
+        "Each rule names its trigger, its evidence (static or runtime), its uncertainty wording and which existing rule (1-15) it must not duplicate"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S55.2",
+      "session": "S55",
+      "milestone": "M19",
+      "title": "Implement rules 16-25",
+      "description": "Rules on the S22 engine.",
+      "acceptance": [
+        "Each rule has a positive and a negative fixture in tests/fixtures and a unit test; the original diagnostic is always retained (rules-engine tests)",
+        "Explanation texts exist in zh-CN and en, state uncertainty where the rule guesses, and are reviewed against the honesty rules of PLAN §9 (review noted in PROGRESS.md)",
+        "The case-mismatch rule agrees with src/workspace/portability-scan.ts on a shared fixture (unit test)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S55.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S55.3",
+      "session": "S55",
+      "milestone": "M19",
+      "title": "Quick fixes on card and lightbulb",
+      "description": "Fixes are ordinary edits: undoable, autosaved, snapshotted.",
+      "acceptance": [
+        "Fixes exist for: create a missing file from a template, pick an existing file for a broken path, add an alt attribute, close or fix a tag, rename to the defined id/class; each is offered only when its target is unambiguous (unit tests per fix)",
+        "Each fix appears on the problem card and in the editor lightbulb with a label naming the exact change; applying it is one ordinary undoable edit that is autosaved and snapshotted (e2e)",
+        "Creating a missing file never overwrites; a failed save keeps the edit in memory and the card does not show \"resolved\" until a re-check passes (integration test)",
+        "Fixes are keyboard-reachable and the result is announced as text (a11y e2e, zh-CN + en)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S55.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S56.1",
+      "session": "S56",
+      "milestone": "M19",
+      "title": "Checkpoint store",
+      "description": "Whole-project snapshots on the S21 content-addressed store.",
+      "acceptance": [
+        "A named checkpoint records the whole project (ignore rules applied) in app data, reusing the content-addressed S21 store so unchanged files are not duplicated; nothing is written into the project folder (integration test)",
+        "Size limits are enforced with visible usage; a checkpoint that would exceed them is refused with an explanation, never silently truncated (integration test)",
+        "A corrupt or missing blob makes only the affected files of that checkpoint unavailable and is reported; other checkpoints and local history still work (fault test)"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S56.2",
+      "session": "S56",
+      "milestone": "M19",
+      "title": "Checkpoint list, compare and restore",
+      "description": "UI for named checkpoints.",
+      "acceptance": [
+        "Users can save, rename, list and delete checkpoints; compare shows a file-by-file list (added, changed, removed) and the diff of any file (e2e)",
+        "Restore all or one file writes through the atomic save path; dirty buffers are kept or saved first by the user's choice; files added since the checkpoint go to the OS trash only after confirmation (integration test)",
+        "e2e: save a checkpoint, break three files, restore all, and the preview shows the old page"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S56.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S56.3",
+      "session": "S56",
+      "milestone": "M19",
+      "title": "Automatic checkpoints",
+      "description": "Safety net before bulk changes.",
+      "acceptance": [
+        "A checkpoint is taken automatically before an agent proposal is applied and before a local-history Restore, labelled with its cause (integration test)",
+        "Automatic checkpoints are pruned by a documented count/age policy that never removes named ones (unit test)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S56.1"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S56.4",
+      "session": "S56",
+      "milestone": "M19",
+      "title": "Wording that separates checkpoint, history and undo",
+      "description": "PLAN §7 keeps these mechanisms and their UI states separate.",
+      "acceptance": [
+        "zh-CN and en strings, help text and the glossary distinguish checkpoint (whole project, named), local history (per file, automatic) and undo (in the editor), and none claims to be version control or Git (docs check + i18n tests)"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S56.2"
+      ],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S57.1",
+      "session": "S57",
+      "milestone": "M19",
+      "title": "Go to definition and find references",
+      "description": "Only what the TS worker proves.",
+      "acceptance": [
+        "F12 / Shift+F12 (and menu and palette commands) work for functions and variables declared in another project .js file; capability cases across two files pass",
+        "A capability case documents that inline <script> in HTML is not supported, and docs/capabilities.md says so; help text does not claim more than the cases prove"
+      ],
+      "verify": "auto",
+      "depends_on": [],
+      "status": "todo",
+      "evidence": ""
+    },
+    {
+      "id": "S57.2",
+      "session": "S57",
+      "milestone": "M19",
+      "title": "Cross-file rename with preview",
+      "description": "Applied through the save pipeline like S51.4.",
+      "acceptance": [
+        "F2 rename across project scripts shows a per-file preview before applying; a capability case for a two-file rename passes",
+        "Apply writes every file through save-controller; a file changed on disk is refused with an explanation, a failed save keeps edits in memory, and each file can be undone (integration + fault tests)",
+        "Rename refuses identifiers the TS worker cannot resolve with certainty and says why (unit test)"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S57.1"
+      ],
+      "status": "todo",
+      "evidence": ""
     }
   ]
 }
