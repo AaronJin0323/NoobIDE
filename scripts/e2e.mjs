@@ -9,6 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { appendStepSummary } from './e2e-summary.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const isWin = process.platform === 'win32';
@@ -42,5 +43,19 @@ const pw = [
   ...process.argv.slice(2).filter((a) => a !== '--no-build'),
 ];
 const needsXvfb = process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY;
-if (needsXvfb) run('xvfb-run', ['-a', npx, ...pw]);
-else run(npx, pw);
+const status = needsXvfb ? spawnStatus('xvfb-run', ['-a', npx, ...pw]) : spawnStatus(npx, pw);
+summarizeForGitHub();
+process.exit(status);
+
+function spawnStatus(cmd, args) {
+  const r = spawnSync(cmd, args, { cwd: root, stdio: 'inherit', shell: isWin });
+  return r.status ?? 1;
+}
+
+// S50.6: on GitHub Actions, append the 10 slowest spec files and the shard total to the job summary after every
+// Playwright run, pass or fail (the data is the JSON report playwright.config.ts writes to reports/e2e/results.json).
+function summarizeForGitHub() {
+  if (!process.env.GITHUB_STEP_SUMMARY) return;
+  const shard = process.argv.find((a) => a.startsWith('--shard='))?.slice('--shard='.length) ?? null;
+  appendStepSummary(path.join(root, 'reports', 'e2e', 'results.json'), process.env.GITHUB_STEP_SUMMARY, { shard });
+}
