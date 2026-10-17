@@ -5,7 +5,7 @@ import { checkBudget } from './budget';
 /**
  * S43.4: extracting ids and classes from a 256 KB HTML document is bounded (one pass, no backtracking). The
  * correctness half of this case stays in src/renderer/editor/project-symbols.test.ts; the time budget lives here
- * (S50.3, ADR 0038): enforced by `npm run verify` on the dev machine, reported on GitHub Actions.
+ * (S58.3, ADR 0038): enforced by `npm run verify` on the dev machine, reported on GitHub Actions.
  */
 describe('symbol extraction budget (S43.4)', () => {
   it('extracts the symbols of a 256 KB document in < 500 ms', () => {

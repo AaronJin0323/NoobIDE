@@ -22,7 +22,7 @@ const err = (over: Partial<ProblemInput> = {}): ProblemInput => ({
  * S16 review: the problem store stays O(1) per event under a console flood. Budget is CPU time of this test process,
  * best of 3 runs, not wall-clock: CPU time only counts work done, so it still catches a real regression — the run
  * takes ~30–50 ms of CPU on the dev machine; an accidental O(n²) step over 100k events would exceed 2 s by orders of
- * magnitude. Moved out of src/diagnostics/store.test.ts by S50.3 (ADR 0038): enforced by `npm run verify` on the dev
+ * magnitude. Moved out of src/diagnostics/store.test.ts by S58.3 (ADR 0038): enforced by `npm run verify` on the dev
  * machine, reported on GitHub Actions.
  */
 describe('problem store throughput budget', () => {

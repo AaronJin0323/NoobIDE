@@ -7,7 +7,7 @@ import { checkBudget } from './budget';
  * Decision 0032 budget (S43.4 / S43.5): for a project of 200 HTML/CSS files with 2 000 classes, extracting the
  * symbols, finding the context and filtering the classes by prefix stays well inside a typing frame. The assertion is
  * generous (50 ms median); the unit budget for the provider itself is 10 ms p95 (completion-latency.perf.test.ts).
- * Perf project (S50.3, ADR 0038): enforced by `npm run verify` on the dev machine, reported on GitHub Actions.
+ * Perf project (S58.3, ADR 0038): enforced by `npm run verify` on the dev machine, reported on GitHub Actions.
  */
 function project(): { html: string[]; css: string[] } {
   const html: string[] = [];

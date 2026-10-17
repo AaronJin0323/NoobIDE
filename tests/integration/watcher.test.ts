@@ -181,7 +181,7 @@ describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
   });
 
   it('pairs the halves of a folder rename that arrive in different batches (FSEvents NoDefer on a busy machine)', async () => {
-    // Rename wait 1 s against a 120 ms pause: the pause may overrun several times on a starved runner (S50.3).
+    // Rename wait 1 s against a 120 ms pause: the pause may overrun several times on a starved runner (S58.3).
     const raw = await startScripted({ debounceMs: 20, renameWaitMs: 1000 });
     await rename(p('子 文件夹'), p('pages'));
     raw('子 文件夹'); // delivered at once…
@@ -217,7 +217,7 @@ describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
     // The rename wait (1 s) is far longer than the test's own pauses (60–80 ms): on a starved CI runner a pause can
     // overrun several times (run 39018194387: the 60 ms pause outlived a 150 ms wait, the hold expired between the
     // rewrite and its raw event, and the watcher rightly reported deleted, created *and* changed — 3 events). The
-    // waits below are functional timeouts for a slow runner, not speed budgets (S50.3).
+    // waits below are functional timeouts for a slow runner, not speed budgets (S58.3).
     const raw = await startScripted({ debounceMs: 20, renameWaitMs: 1000 });
     await rm(p('index.html'));
     raw('index.html');
@@ -329,7 +329,7 @@ describe('bounded cost and recovery (review findings 5, 7, 11)', () => {
     events = [];
     // The deletes run in a child process, as another program would. Wait until they are fully classified: on Windows
     // a rescan can already happen while the other process is still deleting, and the remaining deletes arrive in
-    // later batches. The deadline is a functional timeout (the rescan must arrive), not a speed budget (S50.3).
+    // later batches. The deadline is a functional timeout (the rescan must arrive), not a speed budget (S58.3).
     await removeElsewhere(p('many'), 3000);
     const deadline = Date.now() + 20_000;
     while ((!events.some((e) => e.type === 'rescan') || watcher.snapshotSize >= 10) && Date.now() < deadline) {

@@ -8,7 +8,7 @@ Measured on the Windows x64 dev machine (Windows 11, 32 logical cores), 2026-10-
 
 ## Provider work (unit)
 
-`tests/perf/completion-latency.perf.test.ts` (the perf project, S50.3): 100 HTML pages (10 ids and 11 classes each) + 100 CSS files
+`tests/perf/completion-latency.perf.test.ts` (the perf project, S58.3): 100 HTML pages (10 ids and 11 classes each) + 100 CSS files
 (10 classes each) + 300 images = 500 files, 200 of them indexed, 2 100 classes. Per request: find the context in a
 2 000-character window, merge the project's names (open files' unsaved edits included), build one item per class; and
 for a path request, list `../images/` relative to a page. 60 measured runs each, after 10 warm-up runs. Reproduce with

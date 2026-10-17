@@ -231,7 +231,7 @@ describe('reindentPasted', () => {
   });
 });
 
-// The 5 000-line timing budget of detectIndentation lives in tests/perf/indent-detect.perf.test.ts (S50.3).
+// The 5 000-line timing budget of detectIndentation lives in tests/perf/indent-detect.perf.test.ts (S58.3).
 
 describe('reindentPasted safety (S43.2 review)', () => {
   const spaces2 = { insertSpaces: true, tabSize: 2 };

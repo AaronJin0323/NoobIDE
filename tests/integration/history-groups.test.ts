@@ -93,7 +93,7 @@ afterEach(async () => {
   await rm(tmp, { recursive: true, force: true });
 });
 
-// Timeouts (S50.3, docs/perf/ci-runners.md): every test here is real disk work (atomic snapshot writes through the
+// Timeouts (S58.3, docs/perf/ci-runners.md): every test here is real disk work (atomic snapshot writes through the
 // save pipeline). The longest takes 0.37 s on the dev machine; a starved hosted Windows runner took over 5 s for two
 // of them (run 39018194387, the whole file 21 s). 60 s is a functional timeout for such a runner, not a speed budget.
 const REAL_IO = { timeout: 60_000 };

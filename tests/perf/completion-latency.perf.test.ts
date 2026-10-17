@@ -8,7 +8,7 @@ import { checkBudget } from './budget';
  * S43.6 latency budget (decision 0032): what the completion provider does per request — merge the project's ids and
  * classes, find the context, build the items — stays within 10 ms p95 for 200 HTML/CSS files and 2 000 classes.
  * Extraction happens once when files are read, not per request; it is measured in completion-perf.perf.test.ts.
- * Perf project (S50.3, ADR 0038): enforced by `npm run verify` on the dev machine, reported on GitHub Actions.
+ * Perf project (S58.3, ADR 0038): enforced by `npm run verify` on the dev machine, reported on GitHub Actions.
  */
 function project(): Record<string, string> {
   const disk: Record<string, string> = {};

@@ -5,7 +5,7 @@
 //   npm run verify -- --e2e   …plus end-to-end tests (once S02.6 adds them)
 //   npm run verify -- --quick harness check, typecheck and tests only (no lint, format or perf)
 //
-// The perf gate (S50.3, ADR 0038) runs the perf project with budgets enforced on this machine; on GitHub Actions the
+// The perf gate (S58.3, ADR 0038) runs the perf project with budgets enforced on this machine; on GitHub Actions the
 // same project reports instead (tests/perf/budget.ts). ci.yml runs plain `npm test`, so hosted runs never assert them.
 //
 // A gate is skipped (not failed) only when its npm script does not exist yet; the summary says so.

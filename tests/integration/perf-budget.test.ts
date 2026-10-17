@@ -15,7 +15,7 @@ import {
 } from '../perf/budget';
 
 /**
- * S50.3 (ADR 0038): the budget helper every perf test reads its budget through. Enforced on developer machines,
+ * S58.3 (ADR 0038): the budget helper every perf test reads its budget through. Enforced on developer machines,
  * reported on GitHub Actions (fails only on an error or a result more than 5× over budget), always recorded to
  * reports/perf/<platform>-<arch>.json. The report folder is redirected to a temp dir here.
  */

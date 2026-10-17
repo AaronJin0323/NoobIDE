@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * S50.3 (ADR 0038): the one place a performance test reads its wall-clock budget through.
+ * S58.3 (ADR 0038): the one place a performance test reads its wall-clock budget through.
  *
  * Two modes, chosen from the environment:
  * - `enforce` (developer machines, `npm run verify`): the measured value must be within the budget, which was

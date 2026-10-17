@@ -3,15 +3,15 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 38 (side session) — 2026-10-17 — S50.3: perf budgets enforced locally, reported on hosted runners
+## Session 38 (side session) — 2026-10-17 — S58.3: perf budgets enforced locally, reported on hosted runners
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/hopeful-gates-e43ecf`
-(merged `origin/claude/ci-failures-optimization-f08cd1` first for the S50 plan and backlog). Parallel to S50.1, S50.2,
-S50.4 and S50.6; touched none of their files (`ci.yml`, `playwright.config.ts`, `e2e.mjs`, the E2E specs).
+(merged `origin/claude/ci-failures-optimization-f08cd1` first for the S58 plan and backlog). Parallel to S58.1, S58.2,
+S58.4 and S58.6; touched none of their files (`ci.yml`, `playwright.config.ts`, `e2e.mjs`, the E2E specs).
 
 **Done**
 
-- S50.3 — Inventory of every `toBeLessThan(OrEqual)` assertion (36 files) and every explicit test timeout in the unit
+- S58.3 — Inventory of every `toBeLessThan(OrEqual)` assertion (36 files) and every explicit test timeout in the unit
   and integration suites in `docs/perf/ci-runners.md`, each classified as performance budget / functional timeout /
   not timing. Six budgets moved to a new `perf` Vitest project (`vitest.perf.config.ts`, `tests/perf/*.perf.test.ts`,
   `npm run test:perf`, one file at a time on one worker): `completion-latency` and `completion-perf` (git mv), the
@@ -39,7 +39,7 @@ machines)`, and the same tightened budget under `GITHUB_ACTIONS=true` passed wit
 `0.48 ms | 0.2 ms | 2.39× | over budget (reported)`; a 0.01 ms budget (5.14×) failed in report mode with "over 5× the
 … budget". Restored to 10 ms. `tests/integration/perf-budget.test.ts` (8) + `perf-workflow.test.ts` (7) green;
 watcher / history-groups / history-store 145 tests green; `npm run verify` green including the new gate (see commit).
-Hosted `perf.yml` run: not yet (owner steps in MANUAL-CHECKS.md#S50.3) → S50.3 set to `needs_manual_check`.
+Hosted `perf.yml` run: not yet (owner steps in MANUAL-CHECKS.md#S58.3) → S58.3 set to `needs_manual_check`.
 
 **Decisions:** ADR 0038 (two modes, 5× floor in report mode, functional timeouts sized ≥ 4× local and ≥ 1.5× the
 longest hosted duration — for the two files that timed out the hosted figure dominates, since that runner was 20–30×
@@ -52,23 +52,24 @@ budget by the inventory's definition.
 through the directory walk), which made `e2e-shards.test.ts` and `third-party-notices.test.ts` red before any
 change; `npm ci` in the worktree fixed it — a worktree session must run `npm ci` first, as AGENTS.md says. The
 hosted numbers are informational; nobody is forced to read them (mitigation: job summary
-on every `main` push, ci-runners.md §3 to be filled by the owner, S50.5 / ADR 0037). A runner more than 5× slower
-than the dev machine still fails a nightly perf run (acceptable: not required). docs/testing.md now mentions S50.2's
+on every `main` push, ci-runners.md §3 to be filled by the owner, S58.5 / ADR 0037). A runner more than 5× slower
+than the dev machine still fails a nightly perf run (acceptable: not required). docs/testing.md now mentions S58.2's
 `tests/e2e/shards.json`, which exists only once that branch merges.
 
-**Owner action needed:** MANUAL-CHECKS.md#S50.3 after the merge to `main` (check the first `perf.yml` run on both
-targets, paste the two tables into docs/perf/ci-runners.md §3), then `set S50.3 done`.
+**Owner action needed:** MANUAL-CHECKS.md#S58.3 after the merge to `main` (check the first `perf.yml` run on both
+targets, paste the two tables into docs/perf/ci-runners.md §3), then `set S58.3 done`.
 
 **Next up**
 
-1. Merge S50.1–S50.4 and S50.6; the S50.3 branch does not touch `ci.yml`, so it merges cleanly beside S50.1.
-2. S50.5 (nightly measurements) after the owner answers plan §6 item 4; the perf workflow is the natural home for it.
+1. Merge S58.1–S58.4 and S58.6; the S58.3 branch does not touch `ci.yml`, so it merges cleanly beside S58.1.
+2. S58.5 (nightly measurements) after the owner answers plan §6 item 4; the perf workflow is the natural home for it.
 3. Fill docs/perf/ci-runners.md §3 from the first hosted reports and revisit the 5× factor with real data.
 
 **Ideas / backlog candidates:** a `scripts/perf-compare.mjs` that diffs two `reports/perf/*.json` files (dev vs
 hosted, run vs run) and flags drifts; self-hosted runners with known hardware for publishable numbers (ADR 0038
 option 4).
-## Session 35 (side session) — 2026-10-17 — CI timing tool, E2E job summary, ADR 0037 (S50.6)
+
+## Session 35 (side session) — 2026-10-17 — CI timing tool, E2E job summary, ADR 0037 (S58.6)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/nervous-nash-544128`
 (fast-forwarded onto e45aed9, the S58 plan commit).

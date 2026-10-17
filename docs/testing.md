@@ -46,7 +46,7 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
 - Platform-specific tests use `describe.runIf(...)` with the helpers from `src/platform`, and the reason is written
   in the test name.
 - A flaky test is a bug: fix it or quarantine it with a linked feature, never delete it silently.
-- A timing assertion is one of two things, never both (S50.3, decision 0038): a **performance budget** (p95, median,
+- A timing assertion is one of two things, never both (S58.3, decision 0038): a **performance budget** (p95, median,
   max lag, throughput — measured on the dev machine) belongs in `tests/perf` and is read through
   `tests/perf/budget.ts`; a **functional timeout** (an event must arrive within N s) stays in the ordinary suites
   and is sized for a runner several times slower than the dev machine: at least 4× the local duration and at least
@@ -55,7 +55,7 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
 
 ## CI shards and timing (S06.5)
 
-CI runs two E2E shards on separate runners for each OS; each desktop keeps one Playwright worker. S50.2 replaces
+CI runs two E2E shards on separate runners for each OS; each desktop keeps one Playwright worker. S58.2 replaces
 the count-based split with the manifest `tests/e2e/shards.json` (regenerate it from the uploaded timing reports with
 `node scripts/e2e-shards.mjs balance <reports>`; a new spec file must be added to the manifest).
 Reproduce either selection with `npm run test:e2e -- --shard=1/2` or `--shard=2/2`.
@@ -68,7 +68,7 @@ and `macos-arm64` now aggregate all four jobs; installers are produced once per 
 package. A missing or failed shard cannot pass either required check. See ADR 0035 for the baseline
 and the first hosted-run comparison procedure.
 
-## Performance budgets: enforced locally, reported on hosted runners (S50.3)
+## Performance budgets: enforced locally, reported on hosted runners (S58.3)
 
 The `perf` Vitest project (`vitest.perf.config.ts`, `tests/perf/*.perf.test.ts`) holds every wall-clock budget:
 completion latency and throughput, indentation detection, symbol extraction, the problem store's CPU bound and the

@@ -22,7 +22,7 @@ async function removeElsewhere(dir: string, count: number): Promise<void> {
 /**
  * S07.3 review finding 5: a mass delete (3 000 files removed by another program) must not stall the main process's
  * event loop while the watcher classifies it (budget: the longest stall stays under 500 ms). The functional half —
- * one `rescan`, the snapshot shrinks — stays in tests/integration/watcher.test.ts; the lag budget lives here (S50.3,
+ * one `rescan`, the snapshot shrinks — stays in tests/integration/watcher.test.ts; the lag budget lives here (S58.3,
  * ADR 0038): enforced by `npm run verify` on the dev machine, reported on GitHub Actions.
  */
 let tmp: string;

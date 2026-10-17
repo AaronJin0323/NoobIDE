@@ -1,6 +1,6 @@
-// S50.3 — structural checks of .github/workflows/perf.yml (ADR 0038), in the style of ci-workflow.test.ts: the repo
+// S58.3 — structural checks of .github/workflows/perf.yml (ADR 0038), in the style of ci-workflow.test.ts: the repo
 // has no YAML dependency and the workflow uses a plain block-style subset, so this reads it line by line. The
-// workflow itself only runs on GitHub (owner steps: MANUAL-CHECKS.md#S50.3).
+// workflow itself only runs on GitHub (owner steps: MANUAL-CHECKS.md#S58.3).
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';

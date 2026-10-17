@@ -4,7 +4,7 @@ import { checkBudget } from './budget';
 
 /**
  * S43.2 / decision 0032: indentation detection of a 5 000-line file stays well inside a frame (measured ≈ 0.3 ms on
- * the dev machine, docs/perf/completion-latency.md). Moved out of src/renderer/editor/indent-detect.test.ts by S50.3
+ * the dev machine, docs/perf/completion-latency.md). Moved out of src/renderer/editor/indent-detect.test.ts by S58.3
  * (ADR 0038): enforced by `npm run verify` on the dev machine, reported on GitHub Actions.
  */
 describe('indentation detection budget (S43.2)', () => {

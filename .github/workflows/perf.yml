@@ -1,4 +1,4 @@
-# S50.3 — performance budgets on hosted runners (docs/decisions/0038-perf-budgets-on-hosted-runners.md).
+# S58.3 — performance budgets on hosted runners (docs/decisions/0038-perf-budgets-on-hosted-runners.md).
 # Runs the `perf` Vitest project (vitest.perf.config.ts) on both targets and keeps the numbers: on GitHub Actions the
 # budgets are reported, not asserted (tests/perf/budget.ts fails only on an error or a result more than 5× over
 # budget), because a budget measured on the dev machine is no pass/fail oracle on a shared hosted runner. This

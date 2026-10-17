@@ -2,7 +2,7 @@
 
 - **Status:** accepted
 - **Date:** 2026-10-17
-- **Feature:** S50.3 (plan: docs/ci/ci-stability-and-speed-plan.md §4; inventory: docs/perf/ci-runners.md)
+- **Feature:** S58.3 (plan: docs/ci/ci-stability-and-speed-plan.md §4; inventory: docs/perf/ci-runners.md)
 
 ## Context
 
@@ -64,8 +64,8 @@ budget)` records every measurement to `reports/perf/<platform>-<arch>.json` and 
   the gate goes red on the dev machine and the same tightened budget is only reported in report mode.
 - **`.github/workflows/perf.yml`** runs `test:perf` on windows-latest (x64) and macos-14 (arm64) on push to `main`,
   nightly and on dispatch, uploads `reports/perf/` per target, and is **not** a required check and never runs on pull
-  requests. `ci.yml` keeps running plain `npm test`, so the required matrix contains no budget assertion; S50.1 and
-  S50.3 therefore never edit the same workflow file.
+  requests. `ci.yml` keeps running plain `npm test`, so the required matrix contains no budget assertion; S58.1 and
+  S58.3 therefore never edit the same workflow file.
 - **Functional timeouts stay functional** and are sized for a runner several times slower than the dev machine: at
   least 4× the local duration and at least 1.5× the longest duration seen on a hosted runner, including the starved one
   (history-groups 60 s, history-store's 125-write case 180 s, the watcher's rescan 60 s). The two watcher cases that
@@ -82,11 +82,11 @@ budget)` records every measurement to `reports/perf/<platform>-<arch>.json` and 
   instead of a `NOOBIDE_PERF_PRINT` console line.
 - Risk: the hosted numbers are informational and nobody is forced to read them. Mitigation: the job summary table on
   every `main` push and nightly run, `docs/perf/ci-runners.md` §3 to be filled from the first runs (owner check
-  MANUAL-CHECKS.md#S50.3), and S50.5 / ADR 0037 reviewing the measurements.
+  MANUAL-CHECKS.md#S58.3), and S58.5 / ADR 0037 reviewing the measurements.
 - Risk: a hosted runner more than 5× slower than the dev machine fails a nightly perf run. Acceptable: it is not a
   required check, and the report says which measurement and by how much.
 - Verification: `tests/integration/perf-budget.test.ts` (the two modes, the 5× rule, the report file, the job
   summary), `tests/integration/perf-workflow.test.ts` (triggers, permissions, matrix, pinned SHAs identical to ci.yml,
   artifact upload, no Electron import in the perf project, the default config excludes it, ci.yml never runs it),
   `npm run verify` green on Windows x64 with the gate, and the first hosted `perf.yml` runs on both targets
-  (MANUAL-CHECKS.md#S50.3) leaving one report per OS.
+  (MANUAL-CHECKS.md#S58.3) leaving one report per OS.

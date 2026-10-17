@@ -1,6 +1,6 @@
-# Timing assertions and hosted runners (S50.3)
+# Timing assertions and hosted runners (S58.3)
 
-Decision [0038](../decisions/0038-perf-budgets-on-hosted-runners.md). Plan: [ci-stability-and-speed-plan.md](../ci/ci-stability-and-speed-plan.md) §4 "S50.3".
+Decision [0038](../decisions/0038-perf-budgets-on-hosted-runners.md). Plan: [ci-stability-and-speed-plan.md](../ci/ci-stability-and-speed-plan.md) §4 "S58.3".
 
 Two hosted runs failed in October 2026 for reasons unrelated to the change under test: run 39011559538 asserted a
 10 ms p95 completion budget on a hosted macOS runner (21.4 ms), and run 39018194387 ran the unit suite in 86 s instead
@@ -20,7 +20,7 @@ timeout in `src/**/*.test.ts` and `tests/integration/**/*.test.ts`, classified a
 
 ## 1. `toBeLessThan` / `toBeLessThanOrEqual` assertions (36 files)
 
-| File (line at the time of S50.3)                                | What is compared                                          | Class                   | Where now                                                                                     |
+| File (line at the time of S58.3)                                | What is compared                                          | Class                   | Where now                                                                                     |
 | --------------------------------------------------------------- | --------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------- |
 | `src/renderer/editor/completion-latency.test.ts:62-63`          | p95 of the completion provider ≤ 10 ms (classes, paths)   | performance budget      | `tests/perf/completion-latency.perf.test.ts` (git mv)                                         |
 | `src/renderer/editor/completion-perf.test.ts:51,67`             | median < 50 ms: extract 200 files; context on 2 000 chars | performance budget      | `tests/perf/completion-perf.perf.test.ts` (git mv)                                            |
@@ -62,7 +62,7 @@ timeout in `src/**/*.test.ts` and `tests/integration/**/*.test.ts`, classified a
 | `tests/integration/templates.test.ts:85`                        | template files ≤ 120 lines                                | not timing (size)       | stays                                                                                         |
 | `tests/integration/watcher.test.ts:338`                         | snapshot size < 10 after the delete                       | not timing (count)      | stays                                                                                         |
 
-After S50.3 the default `npm test` (and so every `ci.yml` job) contains no p95, median, lag or throughput assertion.
+After S58.3 the default `npm test` (and so every `ci.yml` job) contains no p95, median, lag or throughput assertion.
 `tests/integration/perf-workflow.test.ts` keeps it that way structurally; the grep above is the review check:
 
 ```bash

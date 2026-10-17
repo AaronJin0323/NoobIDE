@@ -183,7 +183,7 @@ describe('snapshot store (S21.1)', () => {
     expect(kept.length).toBeGreaterThanOrEqual(60);
     expect(kept.length).toBeLessThanOrEqual(63);
     // 125 atomic snapshot writes: a correctness check, not a speed check. 1.1 s on the dev machine; a starved hosted
-    // Windows runner exceeded 30 s (run 39018194387). The timeout is sized for such a runner (S50.3,
+    // Windows runner exceeded 30 s (run 39018194387). The timeout is sized for such a runner (S58.3,
     // docs/perf/ci-runners.md).
   }, 180_000);
 

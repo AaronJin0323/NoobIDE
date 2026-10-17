@@ -35,10 +35,10 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 
 ## Open checks
 
-### S50.3 — First hosted `perf.yml` runs (budgets reported, not asserted)
+### S58.3 — First hosted `perf.yml` runs (budgets reported, not asserted)
 
 - **Platform:** GitHub Actions, windows-latest (x64) and macos-14 (arm64) — no local hardware needed
-- **Build:** the merge of branch `claude/hopeful-gates-e43ecf` (S50.3) into `main`
+- **Build:** the merge of branch `claude/hopeful-gates-e43ecf` (S58.3) into `main`
 - **Steps:**
   1. After the merge, open Actions → "Perf": the push to `main` started one run with two jobs (`windows-x64`,
      `macos-arm64`). Alternatively start one with "Run workflow" on `main`.
@@ -53,7 +53,8 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
      that the nightly schedule (03:17 UTC) produced a run too.
 - **Expected:** one report per OS on `main`, no required check involved, the macOS completion p95 (21 ms in run 39011559538) listed as reported-over rather than failing.
 - **Result:** _(owner fills in: run id, date, both tables or a link)_
-### S50.1 — CI runs less: path filter, draft gating, static gates once, no PR installers
+
+### S58.1 — CI runs less: path filter, draft gating, static gates once, no PR installers
 
 - **Platform:** GitHub Actions (hosted runners), repository AaronJin0323/NoobIDE
 - **Build:** branch `claude/dreamy-feistel-668709` merged into `main` (the workflow runs from the PR's own copy of

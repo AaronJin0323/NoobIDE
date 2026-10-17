@@ -110,7 +110,7 @@ describe('ProblemStore volume limits (S16.5)', () => {
     expect(store.list('console').at(-1)?.originalMessage).toBe('spam 19999');
   });
 
-  // The 100k-event throughput budget (CPU time) lives in tests/perf/problem-store.perf.test.ts (S50.3).
+  // The 100k-event throughput budget (CPU time) lives in tests/perf/problem-store.perf.test.ts (S58.3).
 
   it('revision changes on every visible change; update/clear/get work by id', () => {
     const store = new ProblemStore();

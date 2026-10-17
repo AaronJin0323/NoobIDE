@@ -4346,7 +4346,7 @@
       "verify": "auto",
       "depends_on": [],
       "status": "needs_manual_check",
-      "evidence": "docs/perf/ci-runners.md inventory (36 files + timeouts); perf project tests/perf (6 files, 7 tests) via npm run test:perf; verify perf gate proven red with a 0.2 ms budget (perf budget ... measured 0.44 ms, over the 0.2 ms budget) and the same budget only reported under GITHUB_ACTIONS (2.39x, over budget (reported)); tests/integration/perf-budget.test.ts (8) + perf-workflow.test.ts (7); history-groups 60 s, history-store 180 s, watcher rescan 60 s + 1 s rename waits; ADR 0038; npm run verify green incl. perf gate; first hosted perf.yml run: steps in harness/MANUAL-CHECKS.md#S50.3"
+      "evidence": "docs/perf/ci-runners.md inventory (36 files + timeouts); perf project tests/perf (6 files, 7 tests) via npm run test:perf; verify perf gate proven red with a 0.2 ms budget (perf budget ... measured 0.44 ms, over the 0.2 ms budget) and the same budget only reported under GITHUB_ACTIONS (2.39x, over budget (reported)); tests/integration/perf-budget.test.ts (8) + perf-workflow.test.ts (7); history-groups 60 s, history-store 180 s, watcher rescan 60 s + 1 s rename waits; ADR 0038; npm run verify green incl. perf gate @ f5c51ec; renumbered S50.3 -> S58.3 (owner decision); first hosted perf.yml run: steps in harness/MANUAL-CHECKS.md#S58.3"
     },
     {
       "id": "S58.4",
