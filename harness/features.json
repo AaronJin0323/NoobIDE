@@ -4340,7 +4340,8 @@
         "npm run test:perf runs the perf project; npm run verify runs it with budgets enforced on developer machines, proven by a deliberately tightened budget failing verify",
         "On GitHub Actions the perf project reports numbers to reports/perf/<platform>.json and the job summary and fails only on an error or a result more than 5x over budget",
         "The required CI matrix contains no p95 or lag budget assertion; .github/workflows/perf.yml runs test:perf on both OSes on push to main and nightly as a non-required check and uploads the reports",
-        "ADR 0038 records why dev-machine budgets are not a pass/fail oracle on shared hosted runners and what stays enforced where"
+        "ADR 0038 records why dev-machine budgets are not a pass/fail oracle on shared hosted runners and what stays enforced where",
+        "Disk-heavy integration tests (history-groups, history-store, watcher) do not time out on a runner four times slower than the dev machine (run 39018194387: the unit suite took 86 s and six tests hit 5 s / 30 s timeouts); either their timeouts are sized for that or they join the perf project"
       ],
       "verify": "auto",
       "depends_on": [],
@@ -4357,7 +4358,8 @@
         "walkthrough.spec.ts reads walkthrough.json through expect.poll and opens the Help menu only once the menu item is visible and stable; the root cause of the menu click opening nothing on Windows is identified and fixed in the helper or the app",
         "The preview-isolation dialog test either has a measured budget with headroom or polls per dialog so a failure names the dialog",
         "Each fixed test passes 20 of 20 repeats on Windows under the loadCpu() helper (--repeat-each=20), recorded as evidence",
-        "The next five hosted runs after merge show no failure in these files"
+        "The next five hosted runs after merge show no failure in these files",
+        "Also covered: walkthrough.spec.ts reopen journey step missing from the stored steps (run 39018194387, Windows) and preview-snapshot.spec.ts busy-page test receiving an outline before the page is busy (same run, macOS); both pass 20 of 20 repeats under load"
       ],
       "verify": "auto",
       "depends_on": [],
