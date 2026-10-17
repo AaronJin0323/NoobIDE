@@ -17,7 +17,9 @@ describe('workbench Content-Security-Policy (S02.2)', () => {
     expect(prod.get('default-src')).toEqual(["'none'"]);
     expect(prod.get('script-src')).toEqual(["'self'"]);
     expect(prod.get('worker-src')).toEqual(["'self'"]);
+    // S52.6: images may also come from the app protocol's own `project` host (realpath-checked, GET/HEAD only).
     expect(prod.get('connect-src')).toEqual(["'self'"]);
+    expect(prod.get('img-src')).toEqual(["'self'", 'data:', 'noobide://project']);
   });
 
   it('never allows eval, inline scripts or remote origins in production', () => {

@@ -47,7 +47,8 @@ test.beforeAll(async () => {
   root = path.join(tmp, '网页 练习', '中文 路径 项目');
   await mkdir(path.dirname(root), { recursive: true });
   await cp(path.join(repoRoot, 'tests', 'fixtures', '中文 路径 项目'), root, { recursive: true });
-  await writeFile(path.join(root, 'logo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x00]));
+  // A font, not an image: images open in the S52.6 image viewer; other binaries are still refused.
+  await writeFile(path.join(root, 'brand.woff2'), Buffer.from([0x77, 0x4f, 0x46, 0x32, 0x00, 0x00]));
   app = await launchApp();
   page = await app.firstWindow();
   page.on('console', (msg) => {
@@ -153,7 +154,7 @@ test('a nested file with a Chinese name opens and saves (S03.4)', async () => {
 });
 
 test('a binary file is refused instead of being opened as text', async () => {
-  await treeItem('logo.png').click();
+  await treeItem('brand.woff2').click();
   await expect(page.getByTestId('open-error')).toContainText('不是 UTF-8 文本');
   // The open tabs stay as they were; no tab is created for the refused file.
   await expect(page.getByTestId('tab')).toHaveCount(3);

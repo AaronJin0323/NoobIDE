@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { CHANNELS, EVENTS, IPC_API_VERSION, type NoobideApi, type WorkspaceChanged } from '../shared/ipc/contract';
 import { PREVIEW_CHANNELS, PREVIEW_EVENT_CHANNEL, type PreviewEvent } from '../shared/ipc/preview-contract';
 import { platformId } from '../platform/index';
@@ -11,6 +11,7 @@ import type { ProblemRecord } from '../shared/problem';
 import { AI_CHANNELS, AI_EVENT_CHANNEL, type AiEvent } from '../shared/ipc/ai-contract'; // S31
 import { AI_HISTORY_CHANNELS } from '../shared/ipc/ai-history-contract'; // S39
 import { ANNOTATION_CHANNELS } from '../shared/ipc/annotations-contract'; // S41
+import { FILE_OPS_CHANNELS, MAX_IMPORT_ITEMS } from '../shared/ipc/file-ops-contract'; // S52
 
 /**
  * Restricted bridge for the trusted workbench (sandboxed preload, S03.1). Exposes exactly the calls of the typed
@@ -230,6 +231,24 @@ const api: NoobideApi = {
     highlight: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.highlight, request),
     context: (request) => ipcRenderer.invoke(ANNOTATION_CHANNELS.context, request),
   },
+  // S52: move, copy/paste/duplicate, multi-select trash, import and the image viewer.
+  fileOps: {
+    moveEntries: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.moveEntries, request),
+    copyEntries: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.copyEntries, request),
+    trashEntries: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.trashEntries, request),
+    imageInfo: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.imageInfo, request),
+    chooseImport: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.chooseImport, request),
+    importEntries: (request) => ipcRenderer.invoke(FILE_OPS_CHANNELS.importEntries, request),
+    // S52.5: Electron gives the OS path of a dropped file only here (webUtils); the page never sees it.
+    // At most MAX_IMPORT_ITEMS: the panel tells the user when a drop held more.
+    registerDropped: ({ projectId, files }) =>
+      ipcRenderer.invoke(FILE_OPS_CHANNELS.registerDropped, {
+        projectId,
+        paths: Array.from(files)
+          .slice(0, MAX_IMPORT_ITEMS)
+          .map((file) => webUtils.getPathForFile(file)),
+      }),
+  },
 };
 
 contextBridge.exposeInMainWorld(
@@ -254,5 +273,6 @@ contextBridge.exposeInMainWorld(
     ai: Object.freeze(api.ai), // S31
     aiHistory: Object.freeze(api.aiHistory), // S39
     annotations: Object.freeze(api.annotations), // S41
+    fileOps: Object.freeze(api.fileOps), // S52
   }),
 );

@@ -54,3 +54,11 @@ compatible design for `.noobide/project.json` (opt-in, no absolute paths).
   their old path, file count and size, and clears them by opaque key; main refuses to clear a key whose folder
   exists. Verified by `tests/integration/history-ipc.test.ts` (renamed project folder with Chinese characters and
   spaces) and `tests/e2e/history.spec.ts` on Windows x64. User documentation: `docs/product/local-history.md`.
+- Implemented in S52.1 (2026-10-17): renaming or moving a file or folder in NoobIDE carries its history over —
+  `SnapshotStore.movePath` re-keys every file at or below the old path in the index (an exact relink, because main
+  did the move); a file that already had history at the new path keeps both, and the moved file's own versions win
+  when the per-file limits trim. Crash-recovery copies follow too (`RecoveryJournal.movePath`, write first, remove
+  second). The destination is reported as its real path, so a move through a link or a case variant keeps one
+  identity. Moves made outside NoobIDE are not relinked in history (the tab follows; its old versions stay under the
+  old path, as before). Verified by `tests/integration/file-move.test.ts` (Chinese characters and spaces) on
+  Windows x64.
