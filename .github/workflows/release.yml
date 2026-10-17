@@ -2,7 +2,8 @@
 # Same matrix as ci.yml (each target built on its own OS, PLAN §5). Signing is credential-gated: the secrets live only
 # in the GitHub "release" environment; when they are absent every signing step skips with a notice and the build
 # stays unsigned (never a failure). Secrets are passed only to the steps that need them, never echoed: key files go
-# to $RUNNER_TEMP and are removed in the last step. Nothing is published; installers are uploaded as run artifacts.
+# to $RUNNER_TEMP and are removed in the last step. Tags deliver a draft release after both builds pass;
+# branch dispatches remain artifact-only. Public publication is an owner decision (docs/release/delivery.md).
 # tests/integration/release-workflow.test.ts checks this file's structure.
 name: Release
 
@@ -70,6 +71,9 @@ jobs:
 
       - name: Verify (harness, typecheck, lint, format, unit and integration tests)
         run: npm run verify
+
+      - name: End-to-end tests (Playwright + Electron)
+        run: npm run test:e2e
 
       # Only booleans reach this step ("true"/"false"), never a secret value. It fails only on a half-configured
       # route (some secrets of a route set, others missing), and otherwise logs ENABLED or SKIPPED.
@@ -229,3 +233,37 @@ jobs:
           fi
           rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/noobide-signing.p12" "$RUNNER_TEMP/noobide-signing.pfx"
           rm -rf "$RUNNER_TEMP/artifact-signing"
+
+  deliver:
+    name: Deliver draft release
+    needs: release
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Download this run's installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh run download "$RUN_ID" --pattern 'noobide-*' --dir release-artifacts
+
+      - name: Create draft with checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+        run: node scripts/deliver-release.mjs

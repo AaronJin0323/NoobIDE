@@ -169,7 +169,9 @@ ID`) and `stapler validate` on the DMG. On Windows it shows `signtool verify` (s
 ## 4. A real release
 
 Push a tag such as `v0.1.0` from `main` (`git tag v0.1.0 && git push origin v0.1.0`). The same workflow runs and
-uploads the signed installers as run artifacts. Publishing them is a separate, manual step.
+uploads the signed installers as run artifacts, then creates a draft GitHub Release once both targets pass.
+See [delivery.md](delivery.md) for checksums, retry rules and the first-run checklist. Public publishing remains
+a separate, manual owner decision after downloaded-installer acceptance.
 
 ## Troubleshooting
 

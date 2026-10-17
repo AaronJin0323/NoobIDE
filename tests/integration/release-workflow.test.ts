@@ -81,7 +81,7 @@ describe('release.yml', () => {
     expect(text).not.toMatch(/pull_request/);
     const perms = raw.slice(raw.indexOf('permissions:') + 1, raw.indexOf('permissions:') + 3).map((l) => l.trim());
     expect(perms).toEqual(['contents: read', '']);
-    expect(text).not.toMatch(/:\s*write\b|write-all/);
+    expect(text.split('\n  deliver:')[0]).not.toMatch(/:\s*write\b|write-all/);
     expect(raw).toContain('    environment: release');
   });
 
@@ -103,6 +103,7 @@ describe('release.yml', () => {
       'Check tag matches package.json version',
       'Install dependencies',
       'Verify (harness, typecheck, lint, format, unit and integration tests)',
+      'End-to-end tests (Playwright + Electron)',
       'Signing status',
       'Import macOS signing certificate',
       'Prepare Windows signing',
@@ -215,6 +216,21 @@ describe('release.yml', () => {
     const uses = raw.filter((l) => /^\s*(-\s+)?uses:/.test(l));
     expect(uses.length).toBeGreaterThanOrEqual(3);
     for (const l of uses) expect(l).toMatch(/uses:\s+[\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+(\.\d+){0,2}$/);
+  });
+
+  it('delivers tags only after both builds pass, with write permission confined to delivery', () => {
+    const delivery = text.split('\n  deliver:')[1]!;
+    expect(delivery).toContain('needs: release');
+    expect(delivery).toContain("if: github.ref_type == 'tag'");
+    expect(delivery).not.toContain('always()');
+    expect(delivery).toContain('contents: write');
+    expect(delivery).toContain('actions: read');
+    expect(delivery).toContain('RUN_ID: ${{ github.run_id }}');
+    expect(delivery).toContain('gh run download "$RUN_ID"');
+    expect(delivery).toContain('node scripts/deliver-release.mjs');
+    expect(delivery).not.toContain('secrets.');
+    expect(step('End-to-end tests (Playwright + Electron)').if).toBeUndefined();
+    expect(step('End-to-end tests (Playwright + Electron)').run).toBe('npm run test:e2e');
   });
 
   it('the bash blocks parse (bash -n)', () => {
