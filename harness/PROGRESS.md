@@ -3,6 +3,45 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 42 (side session) — 2026-10-18 — PR #26 (S55) green on hosted CI: walkthrough reopen race
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree `relaxed-pike-b23d7f` tracking
+`claude/m19-s55-rules-e287fc` (PR #26, S55 rules 16–25 and quick fixes), started by the M19 re-sync session.
+
+**Done**
+
+- Run 39033418043 on PR #26 had one real failure: Windows shard 1, `tests/e2e/walkthrough.spec.ts:313` "reopen" —
+  the stored `completed` list lacked `reopen` although the panel already showed the step as done. The two
+  `windows-x64` / `macos-arm64` gate jobs failed only because the build matrix reported that shard. The macOS shards
+  and Windows shard 2 (which holds the S55 quick-fix e2e) passed, and `tests/integration/quick-fix.test.ts` (the
+  cause fixed in fad7576) passed on both OSes.
+- Cause: a test race, not S55 and not a product bug. The renderer dispatches `detected` and React renders
+  `data-done=true` / "完成导览" at once; the save runs afterwards (effect → `walkthrough.save` IPC → WalkthroughStore
+  serial queue → `writeFileAtomic` temp + rename). The spec read walkthrough.json once, right after the text
+  assertion; on the slow hosted disk the rename had not landed yet. The three other `stored()` reads in the spec
+  already polled; this one now does too (`expect.poll` on `completed`). No threshold changed, nothing skipped. This
+  is the "reopen journey step missing" item that S58.4 lists from run 39018194387.
+
+**Evidence:** `npm run test:e2e -- tests/e2e/walkthrough.spec.ts` 12 passed on Windows; then `--no-build
+--repeat-each=5` with every CPU burned by 32 worker threads (the loadCpu() pattern): 60 of 60 passed in 7.1 min, the reopen step taking up to 37 s where the old single read would have failed. `npm run verify`
+green. PR #26 pushed and commented; the hosted rerun is the final check.
+
+**Decisions:** Test-only change, kept in the PR branch rather than waiting for S58.4 (which still owns the 20/20
+under-load evidence and the Help-menu click cause); S58.4's criteria are untouched.
+
+**Problems / risks:** main moved to 65edc2a (PRs #20 and #7) during this session; origin/main is merged into the PR
+branch after the fix commit (features.json union by id, PROGRESS.md both lanes, shards.json). The parent session
+reports that main itself is red on two `walkthrough-model.test.ts` cases (#20 tests vs #7 `compact` field) and is
+fixing them on main; they are not touched here. Not run on macOS (no Mac on the dev machine; the macOS shards were
+green in the same run).
+
+**Owner action needed:** Merge PR #26 from the PR pane once the rerun is green.
+
+**Next up**
+
+1. S58.4 — fold this fix into its evidence (20/20 repeats under load) together with the Help-menu cause.
+2. The remaining M19 PRs (#22–#27) as the re-sync session finishes them.
+
 ## Session 36 (side session) — 2026-10-17 — S55: explanation rules 16–25 and quick fixes (M19)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s55-rules-e287fc` (from
