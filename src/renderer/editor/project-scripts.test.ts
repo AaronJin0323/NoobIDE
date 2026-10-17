@@ -84,6 +84,20 @@ describe('ProjectScripts (S18.4)', () => {
     expect(libs.some((l) => l.filePath.endsWith('big.js'))).toBe(false);
   });
 
+  it('S57: maps language-service file names back to project paths and says when scripts were left out', async () => {
+    const { scripts, open, uri, files } = setup({ 'js/a.js': 'let a;', 'b.mjs': 'export const b = 1;' });
+    open.add(uri('js/a.js'));
+    await scripts.open(files);
+    expect(scripts.relPathOf(uri('js/a.js'))).toBe('js/a.js'); // an open model's URI
+    expect(scripts.relPathOf(encodeURI(uri('b.mjs')))).toBe('b.mjs'); // an extra lib's name
+    expect(scripts.relPathOf('lib.dom.d.ts')).toBeNull();
+    expect(scripts.complete()).toBe(true);
+
+    const big = setup({ 'a.js': 'let a;', 'big.js': 'x'.repeat(MAX_SCRIPT_CHARS + 1) });
+    await big.scripts.open(big.files);
+    expect(big.scripts.complete()).toBe(false);
+  });
+
   it('closing the project removes every lib and drops reads still in flight', async () => {
     const { scripts, published, files } = setup({ 'a.js': 'x' });
     const opening = scripts.open(files);

@@ -58,6 +58,41 @@ even when they are not open. Validated in the workbench on a project whose path 
 If a language worker crashes, hangs or is killed, it is restarted within about 15 seconds; typing is never blocked
 meanwhile (`tests/e2e/language-workbench.spec.ts`).
 
+### Go to definition and find references (S57.1)
+
+**F12 / 转到定义 / Go to definition** and **Shift+F12 / 查找所有引用 / Find all references** (Edit menu, command palette,
+the editor's context menu) work for functions and variables in the project's `.js` / `.mjs` files, also when the other
+file is not open (`tests/e2e/js-navigation.spec.ts`, on a project with a Chinese path and spaces). One definition opens
+its file at the place; references are listed by file and line. Names that come with the browser (`document`,
+`console`) have no project file and are not offered. The same limits as above apply (60 scripts, 256 KB each).
+
+| Capability                                                    | Example                                          | Case                                        |
+| ------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------- |
+| Definition of a function in a closed script                   | `greet('Lin')` in app.js → config.js, line 1     | `js-definition-closed-file`                 |
+| Definition of a variable in another open script               | `score += 1` → state.js, line 1                  | `js-definition-open-file`                   |
+| Definition of a function imported from an ES module           | `add(1, 2)` → util.mjs, line 1                   | `js-definition-module-import`               |
+| References across two files                                   | `greet` → app.js lines 1 and 2, config.js line 1 | `js-references-two-files`                   |
+| **Not supported:** an HTML page's inline `<script>` (said so) | F12 in `<script>` → "not supported" message      | `html-inline-script-definition-unsupported` |
+
+### Rename across the project's scripts (S57.2)
+
+**F2 / 在所有脚本里重命名 / Rename in all scripts** (Edit menu, palette, context menu) renames a function or variable in
+every project `.js` / `.mjs` file that uses it. A preview lists every file and every changed line (before and after)
+first; nothing is written until **Apply**. Each file then goes through its own tab and the normal save (atomic write,
+"changed on disk" check): a file that changed since the preview stops the whole rename, a failed save keeps the change
+in that tab with its explanation, and Ctrl+Z / ⌘Z in a tab undoes that file's change alone
+(`tests/integration/rename-apply.test.ts`, `tests/e2e/js-navigation.spec.ts`). The rename is refused, with the reason,
+whenever the language service cannot be sure it found every use or that the code keeps its meaning: names that come with
+the browser, properties and methods (`obj.count`), a new name that is already used in a project script or by the
+browser (`location`, `status`), a global that an HTML page's inline `<script>` or `onclick="…"` also uses, and scripts or
+pages NoobIDE could not read in full.
+
+| Capability                                     | Example                                           | Case                                  |
+| ---------------------------------------------- | ------------------------------------------------- | ------------------------------------- |
+| Rename across two files (one of them closed)   | `greet` → `sayHello` in app.js and config.js      | `js-rename-two-files`                 |
+| Refused: a name of the browser                 | `console.log` → refused, "comes with the browser" | `js-rename-refuses-built-in`          |
+| Refused: the name is also used in an HTML page | `onclick="greet()"` in index.html → refused       | `js-rename-refuses-name-used-in-html` |
+
 ## Project names and files (S43)
 
 NoobIDE's own suggestions, from the project around the file (decision 0032): ids and classes its HTML and CSS define,
@@ -87,6 +122,55 @@ paste (re-indented into the file's style, a separate undo step) and Format use i
 came from, and its menu changes it. Proven by `tests/fixtures/indentation` (19 files, `indent-detect.test.ts`) and
 `tests/e2e/smart-editing.spec.ts`; it is a heuristic, so the status bar always shows the choice.
 
+## Emmet abbreviations (S53.1)
+
+Tab expands an Emmet abbreviation at the end of the text before the cursor (decision 0039). It is on by default and is
+switched off with Edit › **Tab 展开 Emmet 缩写 / Expand Emmet abbreviations with Tab**; the first expansion shows a hint
+in the status bar that names this switch (`tests/e2e/authoring.spec.ts`). Where no abbreviation applies, Tab indents as
+before. With the suggestion list open, Tab accepts the suggestion; press Esc first to expand.
+
+| Capability                                                             | Example                              | Case                             |
+| ---------------------------------------------------------------------- | ------------------------------------ | -------------------------------- |
+| HTML abbreviations expand to nested, repeated elements                 | `ul>li*3` → `<ul>` with three `<li>` | `html-emmet-nested`              |
+| A class abbreviation expands to a `<div>`                              | `.card` → `<div class="card"></div>` | `html-emmet-class`               |
+| CSS abbreviations expand inside a rule (CSS files)                     | `m10` → `margin: 10px;`              | `css-emmet-property`             |
+| CSS abbreviations expand inside an HTML page's `<style>`               | `m10` → `margin: 10px;`              | `html-emmet-style-block`         |
+| A word that is not an HTML element is not expanded; Tab inserts spaces | `hello` + Tab → `hello  `            | `html-emmet-plain-word-indents`  |
+| A word that is not a CSS abbreviation is not expanded                  | `zz` + Tab → `zz  `                  | `css-emmet-unknown-word-indents` |
+
+## Paired tags (S53.2)
+
+Renaming an opening HTML tag renames its closing tag, and the other way round (Monaco linked editing, with NoobIDE's own
+tag pairing in `src/renderer/editor/tag-match.ts`). Only explicit pairs are linked: a void element (`<img>`), a
+self-closing tag, and a tag whose closing tag is left out (such as `<li>` closed by the next `<li>`) are not.
+Edit › **用标签包住选中的代码 / Wrap selection with tag** (also in the command palette) wraps the selection in `<div>`
+with both tag names selected, so typing a name changes both; one undo restores the original
+(`tests/e2e/authoring.spec.ts`).
+
+| Capability                                            | Example                                   | Case                                        |
+| ----------------------------------------------------- | ----------------------------------------- | ------------------------------------------- |
+| Typing in an opening tag name changes its closing tag | `<div>` → `<divx>` … `</divx>`            | `html-linked-tag-rename`                    |
+| Typing in a closing tag name changes its opening tag  | `</h1>` → `</h12>` and `<h12>`            | `html-linked-tag-closing-side`              |
+| Not linked: a tag without its own closing tag         | `<li>One <li>Two` → only the first `<li>` | `html-linked-tag-implicit-close-not-linked` |
+| Wrap with tag; typing the tag name changes both tags  | `hello` → `<strong>hello</strong>`        | `html-wrap-with-tag`                        |
+
+## Colour hints (S53.3)
+
+In **CSS files**, every colour value gets a small swatch in front of it (Monaco's colour decorators; clicking it opens
+Monaco's colour picker). With the cursor on a colour value, the status bar writes the value out next to a swatch whose
+accessible name carries the value ("颜色：#c0392b / Colour: #c0392b"), and **编辑颜色 / Edit colour** (also Edit ›
+Edit colour at cursor and the command palette) opens NoobIDE's colour picker: hue, saturation and lightness sliders and a
+value field, all keyboard-operable (`tests/e2e/authoring.spec.ts`, with an axe scan). Apply replaces the value in place,
+in its own format, as one undo step. Not claimed: swatches inside an HTML page's `<style>` or `style=""` attribute.
+
+| Capability                                                             | Example                                                    | Case                     |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------ |
+| Swatches for hex, `rgb()`, `hsl()` and named colours (not in comments) | `#c0392b`, `rgb(240, 248, 255)`, `hsl(…)`, `rebeccapurple` | `css-color-swatches`     |
+| The picker keeps a hex value hex                                       | `#c0392b` → `#008000`                                      | `css-color-picker-hex`   |
+| The picker keeps an `rgb()` value `rgb()`                              | `rgb(0, 0, 255)` → `rgb(255, 0, 0)`                        | `css-color-picker-rgb`   |
+| The picker keeps an `hsl()` value `hsl()`                              | `hsl(0, 100%, 50%)` → `hsl(240, 100%, 50%)`                | `css-color-picker-hsl`   |
+| A colour name becomes hex (most colours have no name)                  | `teal` → `#ff6347`                                         | `css-color-picker-named` |
+
 ## AI suggestions are marked
 
 AI ghost text (S32.1, only when AI is set up) carries an **AI** badge with the accessible name "AI 建议 / AI
@@ -104,9 +188,33 @@ Indentation above); the cases below run with 2 spaces.
 | CSS rules get one declaration per line      | `h1{color:red;margin:0}` → expanded rule      | `css-format`  |
 | JavaScript gets standard spacing and indent | `function add(a,b){` → `function add(a, b) {` | `js-format`   |
 
+## Comments (S53.4)
+
+Edit › **切换行注释 / Toggle line comment** (Ctrl+/ on Windows, ⌘/ on macOS) and **切换块注释 / Toggle block comment**
+(Shift+Alt+A / ⇧⌥A), also in the command palette, use the syntax of the place the cursor is in: inside an HTML page's
+`<style>` and `<script>` they write CSS and JavaScript comments, not `<!-- -->`. One undo step each.
+
+| Capability                                   | Example                            | Case                                                 |
+| -------------------------------------------- | ---------------------------------- | ---------------------------------------------------- |
+| HTML line comment                            | `<p>Hi</p>` → `<!-- <p>Hi</p> -->` | `html-toggle-comment`                                |
+| CSS line comment                             | `a { … }` → `/* a { … } */`        | `css-toggle-comment`                                 |
+| JavaScript line comment, and uncomment       | `let a = 1;` ↔ `// let a = 1;`     | `js-toggle-line-comment`, `js-toggle-line-uncomment` |
+| JavaScript block comment around a selection  | `a` → `/* a */`                    | `js-toggle-block-comment`                            |
+| CSS comment inside an HTML page's `<style>`  | `a { … }` → `/* a { … } */`        | `html-style-block-toggle-comment`                    |
+| JavaScript comment inside an HTML `<script>` | `let a = 1;` → `// let a = 1;`     | `html-script-toggle-comment`                         |
+| Block comment inside an HTML `<script>`      | `let a = 1;` → `/* let a = 1; */`  | `html-script-block-comment`                          |
+
+## Format on save (S53.4)
+
+Edit › **保存时整理格式 / Format on save** is **off** by default. When it is on, an explicit save (Ctrl+S / ⌘S, the Save
+button, File › Save) formats an HTML, CSS or JavaScript file with the formatter above and then saves it: the bytes on
+disk are the formatted text, and one undo gives back the text as it was before the save. Autosave never formats. If
+the formatter fails or takes more than 3 seconds, the file is saved as it was and the status bar says why
+(`tests/integration/format-on-save.test.ts`, `tests/e2e/authoring.spec.ts`).
+
 ## Not claimed
 
 These are **not** validated and must not be presented as features: the language services' own completion inside
 `<script>` and `<style>` blocks of an HTML file (only the project names above are proven there), class/id completion in
-other contexts than those listed, go to definition or rename across files, type
+other contexts than those listed, go to definition, references or rename in an HTML page's inline `<script>`, type
 checking of JavaScript beyond undefined names, and anything for languages other than HTML, CSS and JavaScript.
