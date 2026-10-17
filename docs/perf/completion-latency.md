@@ -4,21 +4,20 @@ Budget (decision [0032](../decisions/0032-smart-suggestions.md)): NoobIDE's own 
 classes, paths, snippets) computes its items in **≤ 10 ms p95** for a project of 200 HTML/CSS files and 2 000 classes,
 and a project id is listed **≤ 500 ms** after typing the trigger character.
 
-Measured on the Windows x64 dev machine (Windows 11, 32 logical cores), 2026-10-17 (unit numbers; the e2e numbers are
-from 2026-10-16).
+Measured on the Windows x64 dev machine (Windows 11, 32 logical cores), 2026-10-16 (unit numbers re-measured
+2026-10-17).
 
 ## Provider work (unit)
 
 `src/renderer/editor/completion-latency.test.ts`: 100 HTML pages (10 ids and 11 classes each) + 100 CSS files
 (10 classes each) + 300 images = 500 files, 200 of them indexed, 2 100 classes. Per request: find the context in a
 2 000-character window, merge the project's names (open files' unsaved edits included), build one item per class; and
-for a path request, list `../images/` relative to a page. A batch is 60 measured runs of each request after 10 warm-up
-runs; the test runs up to five batches and stops at the first whose p95 is within budget, and the lowest batch p95 is
-the result. The budget is judged per batch and is unchanged: a hosted CI runner (S06.6, run 39011559538: 21 ms p95
-on macOS for a 0.4 ms request) deschedules the test process and pauses it for garbage collection at its own pace,
-which adds time to a sample and never removes any, so the quietest batch is the closest measurement of the provider's
-own cost. Reproduce with `NOOBIDE_PERF_PRINT=1 npx vitest run src/renderer/editor/completion-latency.test.ts` (prints
-every batch).
+for a path request, list `../images/` relative to a page. 60 measured runs each, after 10 warm-up runs; since 2026-10-17
+the test judges the best of up to five such batches (S06.6), because on hosted CI runners (3–4 vCPUs shared by four
+vitest workers) one descheduling inflated a whole batch to 11–21 ms p95 while the dev machine measures below 1 ms;
+contention and GC pauses add time to a sample and never remove any, so the quietest batch is the closest measurement of
+the provider's own cost, and every batch is judged against the unchanged budget. Reproduce with
+`NOOBIDE_PERF_PRINT=1 npx vitest run src/renderer/editor/completion-latency.test.ts` (prints every batch).
 
 | Request                         | p95 (best batch) | Budget |
 | ------------------------------- | ---------------- | ------ |

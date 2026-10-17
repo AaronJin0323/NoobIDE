@@ -8,10 +8,11 @@ import { ProjectIndex } from './project-index';
  * classes, find the context, build the items — stays within 10 ms p95 for 200 HTML/CSS files and 2 000 classes.
  * Extraction happens once when files are read, not per request; it is measured in completion-perf.test.ts.
  *
- * Measured as the best of up to BATCHES batches of RUNS requests each (docs/perf/completion-latency.md). A hosted CI
- * runner deschedules the test process and runs garbage collection at its own pace; that adds time to a sample and
- * never removes any, so the batch with the lowest p95 is the closest measurement of the provider's own cost. The
- * budget itself is unchanged: every batch is judged against the same 10 ms p95.
+ * The budget is the provider's compute cost. On hosted CI runners (3–4 vCPUs shared by four vitest workers) a single
+ * descheduling of this worker inflates every sample of a batch (main saw 21 ms p95 against 0.9 ms on the dev
+ * machine), so the test measures up to BATCHES independent batches and judges the best one: a batch that fits the
+ * budget proves the compute cost does, and a stalled batch is noise, not provider work (contention and GC add time
+ * to a sample and never remove any). Every batch is judged against the same, unchanged budget (S06.6).
  */
 function project(): Record<string, string> {
   const disk: Record<string, string> = {};
@@ -25,13 +26,13 @@ function project(): Record<string, string> {
   return disk;
 }
 
+const p95 = (samples: number[]) => [...samples].sort((a, b) => a - b)[Math.floor(samples.length * 0.95)] ?? Infinity;
+
 const BUDGET_MS = 10;
 const RUNS = 60;
-/** The first runs of a batch include JIT compilation, which a user pays once per session, not per request. */
+/** The first runs include JIT compilation, which a user pays once per session, not per request. */
 const WARM_UP = 10;
 const BATCHES = 5;
-
-const p95 = (samples: number[]) => [...samples].sort((a, b) => a - b)[Math.floor(samples.length * 0.95)] ?? Infinity;
 
 describe('completion latency budget (S43.6)', () => {
   it('a selector and a path request each take <= 10 ms p95 on a 200-file project', async () => {
@@ -42,16 +43,15 @@ describe('completion latency budget (S43.6)', () => {
     expect(symbols.classes.size).toBeGreaterThanOrEqual(2_000);
     const before = `const cards = [];\n${'let x = 1;\n'.repeat(150)}document.querySelector('.c-4`;
 
-    /** One batch: RUNS measured requests of each kind after WARM_UP unmeasured ones; their p95 in ms. */
-    const batch = () => {
+    const batch = (runs: number, warmUp: number) => {
       const selector: number[] = [];
       const paths: number[] = [];
-      for (let run = 0; run < RUNS + WARM_UP; run += 1) {
+      for (let run = 0; run < runs + warmUp; run += 1) {
         let started = performance.now();
         const context = completionContextAt('javascript', before.slice(-2_000));
         const table = index.symbols();
         const items = [...table.classes].map(([name, files]) => ({ label: name, description: files.join(', ') }));
-        if (run >= WARM_UP) selector.push(performance.now() - started);
+        if (run >= warmUp) selector.push(performance.now() - started);
         expect(context?.kind).toBe('class');
         expect(items.length).toBe(table.classes.size);
 
@@ -64,7 +64,7 @@ describe('completion latency budget (S43.6)', () => {
           accept: 'media',
           js: false,
         });
-        if (run >= WARM_UP) paths.push(performance.now() - started);
+        if (run >= warmUp) paths.push(performance.now() - started);
         expect(pathContext?.kind).toBe('path');
         expect(suggestions.length).toBeGreaterThan(0);
       }
@@ -72,23 +72,19 @@ describe('completion latency budget (S43.6)', () => {
     };
 
     const batches: { selectorP95: number; pathP95: number }[] = [];
-    const best = { selectorP95: Infinity, pathP95: Infinity };
     for (let b = 0; b < BATCHES; b += 1) {
-      const result = batch();
+      const result = batch(RUNS, b === 0 ? WARM_UP : 0);
       batches.push(result);
-      best.selectorP95 = Math.min(best.selectorP95, result.selectorP95);
-      best.pathP95 = Math.min(best.pathP95, result.pathP95);
-      if (best.selectorP95 <= BUDGET_MS && best.pathP95 <= BUDGET_MS) break; // within budget: no more batches needed
+      if (result.selectorP95 <= BUDGET_MS && result.pathP95 <= BUDGET_MS) break;
     }
+    const best = {
+      selectorP95: Math.min(...batches.map((r) => r.selectorP95)),
+      pathP95: Math.min(...batches.map((r) => r.pathP95)),
+    };
     // Numbers only (docs/perf/completion-latency.md): NOOBIDE_PERF_PRINT=1 npx vitest run completion-latency
-    if (process.env.NOOBIDE_PERF_PRINT) console.log(JSON.stringify({ best, batches }));
-    expect(
-      best.selectorP95,
-      `selector p95 per batch: ${batches.map((b) => b.selectorP95.toFixed(2)).join(', ')} ms`,
-    ).toBeLessThanOrEqual(BUDGET_MS);
-    expect(
-      best.pathP95,
-      `path p95 per batch: ${batches.map((b) => b.pathP95.toFixed(2)).join(', ')} ms`,
-    ).toBeLessThanOrEqual(BUDGET_MS);
+    if (process.env.NOOBIDE_PERF_PRINT) console.log(JSON.stringify({ ...best, batches }));
+    const perBatch = (key: 'selectorP95' | 'pathP95') => batches.map((r) => r[key].toFixed(2)).join(', ');
+    expect(best.selectorP95, `selector p95 per batch: ${perBatch('selectorP95')} ms`).toBeLessThanOrEqual(BUDGET_MS);
+    expect(best.pathP95, `path p95 per batch: ${perBatch('pathP95')} ms`).toBeLessThanOrEqual(BUDGET_MS);
   });
 });
