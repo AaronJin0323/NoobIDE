@@ -145,7 +145,7 @@
   display: flex;
   flex-direction: column;
   width: min(600px, 100%);
-  max-height: min(520px, calc(100vh - 96px));
+  max-height: min(520px, var(--sheet-max-h)); /* S50.1: the sheet height rule */
   padding: 8px;
   border-radius: var(--radius-sheet);
   background: var(--material-overlay);

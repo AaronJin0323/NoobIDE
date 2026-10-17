@@ -4238,8 +4238,9 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "superseded",
+      "evidence": "",
+      "superseded_by": "S50.1"
     },
     {
       "id": "S46.1",
@@ -5242,8 +5243,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/sheet.test.ts (S50.1: palette on the shared SheetFrame, height cap token + rule, covered stack model, blur+dim rule; 1206 renderer tests) + tests/e2e/sheets.spec.ts (3: height cap at 900x520, About over Glossary blurs/dims it with Escape/Tab owned by the front sheet and focus returned, palette modal/Escape/Tab/focus) + glass/distribution/commands/a11y e2e green; S45.9 superseded"
     },
     {
       "id": "S50.2",

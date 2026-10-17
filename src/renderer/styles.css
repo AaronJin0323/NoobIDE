@@ -35,6 +35,11 @@
   --shadow-overlay: 0 0 0 1px var(--line), 0 12px 32px -12px var(--glass-shadow);
   --ring-accent: inset 0 0 0 1px var(--accent-rim);
 
+  /* Sheets (S50.1): the top bar is the window's title bar (S46.9), so a sheet keeps that much clear above and below
+     it - at least 32px - and never runs under the window controls. */
+  --titlebar-inset: 52px;
+  --sheet-max-h: calc(100dvh - 2 * max(32px, var(--titlebar-inset)));
+
   /* States (spec: "Selected / current / pressed"). Selected, current and pressed take the --hover fill plus a
      non-colour cue: the label at --weight-strong (Microsoft YaHei has no 500 face), or --ring-selected on icon-only
      controls. Hover is always lighter (--hover-soft) and never adds the cue. */
@@ -1694,10 +1699,15 @@ select.text-field {
   flex-direction: column;
   gap: 12px;
   width: min(480px, 100%);
-  max-height: 100%;
+  max-height: min(100%, var(--sheet-max-h));
   padding: 20px 24px 24px;
   border-radius: var(--radius-sheet);
   background: var(--panel);
+}
+/* S50.1: a sheet (or the palette) with another sheet open over it steps back: a 2px blur and a dim. */
+.dialog[data-covered],
+.palette[data-covered] {
+  filter: blur(2px) opacity(0.85);
 }
 .sheet-720 {
   width: min(720px, 100%);
