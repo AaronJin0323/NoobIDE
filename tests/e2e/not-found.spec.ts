@@ -94,9 +94,10 @@ const backToEntry = () => page.getByTestId('preview-go-to-entry');
 const previewTitle = () => evalInPreview<string>(app, 'document.title');
 
 /**
- * The 404 page is rendered by main in the interface language, which main adopts only after the renderer's settings
- * update has been written (main.ts: `uiLocale = next.locale` after `settings.update`). Navigating in the preview right
- * after the language button click raced that write on hosted CI (the title stayed zh-CN), so wait for the saved locale.
+ * The 404 page is rendered by main in the interface language. Main used to adopt it only after the renderer's settings
+ * update had been written, and navigating in the preview right after the language button click raced that write on
+ * hosted CI (the title stayed zh-CN). Main now applies the language as soon as the update arrives (S06.6); waiting
+ * for the saved locale as well keeps this check independent of how fast that message travels.
  */
 async function waitForSavedLocale(locale: 'zh-CN' | 'en') {
   const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'));

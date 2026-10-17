@@ -28,7 +28,8 @@ async function journalRecords(): Promise<string[]> {
   const dirs = await readdir(journalDir(), { withFileTypes: true }).catch(() => []);
   for (const d of dirs) {
     if (!d.isDirectory() || d.name === 'quarantine') continue;
-    for (const name of await readdir(path.join(journalDir(), d.name))) {
+    // A project's directory can be removed (its last record cleared after a save) between the two listings.
+    for (const name of await readdir(path.join(journalDir(), d.name)).catch(() => [])) {
       if (name.endsWith('.json')) out.push(path.join(d.name, name));
     }
   }

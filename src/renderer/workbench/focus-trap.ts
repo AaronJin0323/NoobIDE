@@ -1,5 +1,5 @@
 import { isImeKey } from './ime';
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 
 /**
  * Keeps Tab and Shift+Tab inside a modal dialog (accessibility invariant: dialogs trap focus). Only visible, enabled
@@ -44,11 +44,15 @@ export function trapTab(event: KeyLike, container: HTMLElement | null): void {
 /**
  * Window-wide keys of a modal dialog: Tab / Shift+Tab stay inside `ref`, Escape calls `onEscape`. Captured before
  * the workbench's own shortcuts while the dialog is open.
+ *
+ * A layout effect, so the listener exists from the moment the dialog is in the DOM: a passive effect runs in a later
+ * task, and the browser hands a key press (high priority) to the page before that task when the process is slow
+ * (hosted CI runner) — the first Escape was then lost while the dialog was already on screen.
  */
 export function useModalKeys(ref: RefObject<HTMLElement | null>, onEscape: () => void): void {
   const escape = useRef(onEscape);
   escape.current = onEscape;
-  useEffect(() => {
+  useLayoutEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isImeKey(event)) return;
       if (event.key === 'Escape') {

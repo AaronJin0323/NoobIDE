@@ -15,9 +15,46 @@ const run = (state: WalkthroughState, ...actions: WalkthroughAction[]): ModelSta
 
 describe('walkthrough engine (S23.1)', () => {
   it('does nothing and shows nothing until the stored state is loaded', () => {
-    expect(walkthroughReducer(INITIAL_MODEL, { type: 'open' })).toBe(INITIAL_MODEL);
+    expect(walkthroughReducer(INITIAL_MODEL, { type: 'next' })).toBe(INITIAL_MODEL);
+    expect(walkthroughReducer(INITIAL_MODEL, { type: 'close' })).toBe(INITIAL_MODEL);
     expect(panelView(INITIAL_MODEL)).toEqual({ kind: 'hidden' });
     expect(panelView(run(DEFAULT_WALKTHROUGH))).toEqual({ kind: 'hidden' });
+  });
+
+  it('Help → Walkthrough before the stored state arrives opens it as soon as the state is loaded', () => {
+    // A slow start (hosted CI runner): the menu entry was used while the stored progress was still being read.
+    const early = walkthroughReducer(INITIAL_MODEL, { type: 'open' });
+    expect(early.loaded).toBe(false);
+    expect(panelView(early)).toEqual({ kind: 'hidden' }); // still nothing to show, nothing saved
+    expect(walkthroughReducer(early, { type: 'open' })).toBe(early);
+    expect(walkthroughReducer(early, { type: 'next' })).toBe(early); // needs a shown walkthrough: not kept
+    const loaded = walkthroughReducer(early, {
+      type: 'loaded',
+      state: { ...DEFAULT_WALKTHROUGH, completed: ['create'] },
+    });
+    expect(loaded.pending).toEqual([]);
+    expect(panelView(loaded)).toEqual({ kind: 'step', step: 'files', done: false, index: 1 });
+    // A load with nothing pending opens nothing.
+    expect(panelView(run(DEFAULT_WALKTHROUGH))).toEqual({ kind: 'hidden' });
+  });
+
+  it('the first project created with the wizard starts the walkthrough at "meet the files", also before the load', () => {
+    const created = run(DEFAULT_WALKTHROUGH, { type: 'projectCreated' });
+    expect(panelView(created)).toEqual({ kind: 'step', step: 'files', done: false, index: 1 });
+    expect(created.value.completed).toEqual(['create']);
+    // A walkthrough the user closed or finished stays as it was.
+    const closed = { ...DEFAULT_WALKTHROUGH, status: 'closed' as const, completed: ['create' as const] };
+    expect(run(closed, { type: 'projectCreated' }).value).toEqual(closed);
+    // The wizard finished before the stored state arrived (slow start): applied once it is loaded.
+    const early = walkthroughReducer(INITIAL_MODEL, { type: 'projectCreated' });
+    expect(panelView(early)).toEqual({ kind: 'hidden' });
+    expect(panelView(walkthroughReducer(early, { type: 'loaded', state: DEFAULT_WALKTHROUGH }))).toEqual({
+      kind: 'step',
+      step: 'files',
+      done: false,
+      index: 1,
+    });
+    expect(panelView(walkthroughReducer(early, { type: 'loaded', state: closed }))).toEqual({ kind: 'hidden' });
   });
 
   it('opens at the first step not done yet and walks the journey with Next and Back', () => {
