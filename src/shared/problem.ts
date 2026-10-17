@@ -89,6 +89,24 @@ export type ProblemAction =
       readonly span: LineSpan;
       readonly from: string;
       readonly to: string;
+      /**
+       * How the span is re-checked before the edit: `identifier` (default, S22.5) — `from` stands there as a whole
+       * identifier; `exact` (S55.3) — the span's text equals `from` (a path, a tag name, a selector string).
+       */
+      readonly match?: 'identifier' | 'exact';
+    }
+  /**
+   * S55.3 quick fix: create the missing file `path` (project-relative) from a small template. Never overwrites: the
+   * file is created exclusively, and nothing happens if anything exists at that path by then. `problemFile` and
+   * `problemLine` locate the reference that asked for it (the problem the re-check looks at).
+   */
+  | {
+      readonly kind: 'create-file';
+      readonly label: MessageRef;
+      readonly path: string;
+      readonly template: 'html' | 'css' | 'js';
+      readonly problemFile: string;
+      readonly problemLine: number;
     };
 
 /** Output of the explanation rules (S22). Kept beside — never instead of — the original message. */

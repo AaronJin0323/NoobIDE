@@ -7,6 +7,8 @@
     "errors.css": ["2:unknownProperties:warning", "6:css-rcurlyexpected:error"],
     "unclosed.html": ["8:html-unclosed-tag:warning"],
     "clean.html": [],
+    "style.css": [],
+    "script.js": [],
     "template.js": [],
     "template.css": []
   }

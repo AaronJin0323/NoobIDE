@@ -49,6 +49,15 @@ const TRANSFER_PROBLEMS: ReadonlySet<FileNameProblem> = new Set<FileNameProblem>
   'too-long',
 ]);
 
+/**
+ * The key under which a case- and normalisation-insensitive file system (Windows, a default macOS volume) treats two
+ * names as one: NFC, then lower case. Shared with the static "reference differs only in case" rule (S55.2), so the
+ * rule and this scan always agree on what "the same name except for case" means.
+ */
+export function portableNameKey(name: string): string {
+  return name.normalize('NFC').toLowerCase();
+}
+
 const join = (folder: string, name: string) => (folder === '' ? name : `${folder}/${name}`);
 
 /**
@@ -60,7 +69,7 @@ export function folderNameIssues(folder: string, names: readonly string[]): Port
   // Group names a case- and normalisation-insensitive file system would treat as one.
   const groups = new Map<string, string[]>();
   for (const name of names) {
-    const key = name.normalize('NFC').toLowerCase();
+    const key = portableNameKey(name);
     const group = groups.get(key);
     if (group) group.push(name);
     else groups.set(key, [name]);
