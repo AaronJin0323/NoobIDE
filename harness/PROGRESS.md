@@ -31,6 +31,10 @@ macOS shard 2). Four failures, four causes, none a product threshold:
   marked unresponsive and ended before the test looked, and the snapshot measured an idle page ("37 ms (outline)").
   The fixture exposes `window.忙碌(ms)` and the test starts the loop itself (as a task, after `pageSettled()`),
   then waits for the page's log line as before.
+- S06.6 — `glass.spec.ts:355` (PR #20's first run 39017135521, Windows shard 1): "the code itself has detail" measured
+  0.14 right after a theme switch. The test waits on `data-theme`, but the editor's token colours follow in a later
+  passive effect (`monaco.editor.setTheme`), so a captured frame in between shows text without contrast. The
+  baseline capture now polls until a frame shows the code; the frosted-sheet ratio (< 0.03) is unchanged.
 - docs/testing.md: hosted-runner conventions (wait for state, let the test start what it measures, best-of batches).
 
 **Evidence:** `npm run verify` green on the Windows dev machine (2736 passed, 15 skipped; 221 files). `npm run test:e2e -- tests/e2e/walkthrough.spec.ts tests/e2e/preview-layout.spec.ts tests/e2e/preview-snapshot.spec.ts`: 27 passed (busy page snapshot 1502 ms, outline timeout, as designed). Reproduction logs in the session scratchpad (not committed).
