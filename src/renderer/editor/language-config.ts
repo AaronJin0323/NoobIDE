@@ -147,6 +147,8 @@ export interface LanguageDefaults {
     setCompilerOptions(options: JsCompilerOptions): void;
     setDiagnosticsOptions(options: JsDiagnosticsOptions): void;
     setEagerModelSync(value: boolean): void;
+    readonly modeConfiguration: object;
+    setModeConfiguration(configuration: object): void;
   };
   readonly css: {
     setOptions(options: { validate: boolean; lint: Readonly<Record<string, LintLevel>> }): void;
@@ -156,6 +158,13 @@ export interface LanguageDefaults {
     setOptions(options: { readonly format?: object }): void;
   };
 }
+
+/**
+ * S57: Monaco's own JavaScript definition, reference and rename providers are off. They know only open files (a closed
+ * project script is invisible to them), and Monaco's rename would edit other files behind the save pipeline. NoobIDE's
+ * own commands (js-navigation-monaco.ts) replace them.
+ */
+export const JS_MODE_OVERRIDES = { definitions: false, references: false, rename: false } as const;
 
 /** S18.3: the HTML formatter keeps the file's final line break (Monaco's default would remove it on every format). */
 export const HTML_FORMAT_OVERRIDES = { endWithNewline: true } as const;
@@ -167,6 +176,7 @@ export function configureLanguages(defaults: LanguageDefaults): void {
   // Keep every open JavaScript model in the TypeScript program, so names declared in another open script and relative
   // ES module imports are known before that file was ever shown (S18.4).
   defaults.javascript.setEagerModelSync(true);
+  defaults.javascript.setModeConfiguration({ ...defaults.javascript.modeConfiguration, ...JS_MODE_OVERRIDES });
   defaults.css.setOptions({ validate: true, lint: CSS_LINT });
   const html = defaults.html.options;
   defaults.html.setOptions({ ...html, format: { ...html.format, ...HTML_FORMAT_OVERRIDES } });

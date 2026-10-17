@@ -1,5 +1,5 @@
 {
-  "$comment": "Language capability suite (S18.1, S18.2). Each case is run inside the real (packaged) app by src/renderer/editor/capability-probe.ts: '|' marks the cursor. completion: every label in 'expect' must be offered. hover: the hover text must contain every 'expect' string. format: the formatted document must equal 'expectText'. docs/capabilities.md may only list case ids from this file, and the e2e suite requires every case to pass.",
+  "$comment": "Language capability suite (S18.1, S18.2). Each case is run inside the real (packaged) app by src/renderer/editor/capability-probe.ts: '|' marks the cursor. completion: every label in 'expect' must be offered. hover: the hover text must contain every 'expect' string. format: the formatted document must equal 'expectText'. edit (S53): 'action' runs at the cursor (two '|' mark a selection) and the document must equal 'expectText'. colors (S53.3): the colour texts that get a swatch. definition / references / rename (S57): NoobIDE's JavaScript navigation; 'closedFiles' are project files that are not open (extra libraries). docs/capabilities.md may only list case ids from this file, and the e2e suite requires every case to pass.",
   "cases": [
     {
       "id": "html-tag-completion",
@@ -366,6 +366,305 @@
       "text": "const n = 1;\nclick|\n",
       "expect": [
         "click"
+      ]
+    },
+    {
+      "id": "html-emmet-nested",
+      "language": "html",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "<body>\n  ul>li*3|\n</body>\n",
+      "expectText": "<body>\n  <ul>\n    <li></li>\n    <li></li>\n    <li></li>\n  </ul>\n</body>\n"
+    },
+    {
+      "id": "html-emmet-class",
+      "language": "html",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "<body>\n  .card|\n</body>\n",
+      "expectText": "<body>\n  <div class=\"card\"></div>\n</body>\n"
+    },
+    {
+      "id": "html-emmet-style-block",
+      "language": "html",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "<style>\n  body { m10| }\n</style>\n",
+      "expectText": "<style>\n  body { margin: 10px; }\n</style>\n"
+    },
+    {
+      "id": "css-emmet-property",
+      "language": "css",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "a {\n  m10|\n}\n",
+      "expectText": "a {\n  margin: 10px;\n}\n"
+    },
+    {
+      "id": "html-emmet-plain-word-indents",
+      "language": "html",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "<p>hello|</p>\n",
+      "expectText": "<p>hello  </p>\n"
+    },
+    {
+      "id": "css-emmet-unknown-word-indents",
+      "language": "css",
+      "kind": "edit",
+      "action": "emmet",
+      "text": "a {\n  zz|\n}\n",
+      "expectText": "a {\n  zz  \n}\n"
+    },
+    {
+      "id": "html-linked-tag-rename",
+      "language": "html",
+      "kind": "edit",
+      "action": "linked-type",
+      "typeText": "x",
+      "text": "<body>\n  <div|>\n    <p>Hi</p>\n  </div>\n</body>\n",
+      "expectText": "<body>\n  <divx>\n    <p>Hi</p>\n  </divx>\n</body>\n"
+    },
+    {
+      "id": "html-linked-tag-closing-side",
+      "language": "html",
+      "kind": "edit",
+      "action": "linked-type",
+      "typeText": "2",
+      "text": "<h1>Title</h1|>\n",
+      "expectText": "<h12>Title</h12>\n"
+    },
+    {
+      "id": "html-linked-tag-implicit-close-not-linked",
+      "language": "html",
+      "kind": "edit",
+      "action": "linked-type",
+      "typeText": "x",
+      "text": "<ul>\n  <li|>One\n  <li>Two\n</ul>\n",
+      "expectText": "<ul>\n  <lix>One\n  <li>Two\n</ul>\n"
+    },
+    {
+      "id": "html-wrap-with-tag",
+      "language": "html",
+      "kind": "edit",
+      "action": "noobide.wrapWithTag",
+      "typeText": "strong",
+      "text": "<p>Say |hello| now</p>\n",
+      "expectText": "<p>Say <strong>hello</strong> now</p>\n"
+    },
+    {
+      "id": "css-color-swatches",
+      "language": "css",
+      "kind": "colors",
+      "text": "/* #123456 is not a value */\n.card {\n  color: #c0392b;\n  background: rgb(240, 248, 255);\n  border-color: hsl(210, 50%, 40%);\n  outline-color: rebeccapurple;\n}\n",
+      "expect": [
+        "#c0392b",
+        "rgb(240, 248, 255)",
+        "hsl(210, 50%, 40%)",
+        "rebeccapurple"
+      ]
+    },
+    {
+      "id": "css-color-picker-hex",
+      "language": "css",
+      "kind": "edit",
+      "action": "set-color",
+      "typeText": "rgb(0, 128, 0)",
+      "text": "a { color: #c0|392b; }\n",
+      "expectText": "a { color: #008000; }\n"
+    },
+    {
+      "id": "css-color-picker-rgb",
+      "language": "css",
+      "kind": "edit",
+      "action": "set-color",
+      "typeText": "#ff0000",
+      "text": "a { color: rgb(0, |0, 255); }\n",
+      "expectText": "a { color: rgb(255, 0, 0); }\n"
+    },
+    {
+      "id": "css-color-picker-hsl",
+      "language": "css",
+      "kind": "edit",
+      "action": "set-color",
+      "typeText": "#0000ff",
+      "text": "a { color: hsl(|0, 100%, 50%); }\n",
+      "expectText": "a { color: hsl(240, 100%, 50%); }\n"
+    },
+    {
+      "id": "css-color-picker-named",
+      "language": "css",
+      "kind": "edit",
+      "action": "set-color",
+      "typeText": "rgb(255, 99, 71)",
+      "text": "a { color: tea|l; }\n",
+      "expectText": "a { color: #ff6347; }\n"
+    },
+    {
+      "id": "html-toggle-comment",
+      "language": "html",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "<p>Hi|</p>\n",
+      "expectText": "<!-- <p>Hi</p> -->\n"
+    },
+    {
+      "id": "css-toggle-comment",
+      "language": "css",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "a { color: red;| }\n",
+      "expectText": "/* a { color: red; } */\n"
+    },
+    {
+      "id": "js-toggle-line-comment",
+      "language": "javascript",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "let a = 1;|\n",
+      "expectText": "// let a = 1;\n"
+    },
+    {
+      "id": "js-toggle-line-uncomment",
+      "language": "javascript",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "// let a = 1;|\n",
+      "expectText": "let a = 1;\n"
+    },
+    {
+      "id": "js-toggle-block-comment",
+      "language": "javascript",
+      "kind": "edit",
+      "action": "noobide.toggleBlockComment",
+      "text": "let |a| = 1;\n",
+      "expectText": "let /* a */ = 1;\n"
+    },
+    {
+      "id": "html-style-block-toggle-comment",
+      "language": "html",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "<style>\n  a { color: red; }|\n</style>\n",
+      "expectText": "<style>\n  /* a { color: red; } */\n</style>\n"
+    },
+    {
+      "id": "html-script-toggle-comment",
+      "language": "html",
+      "kind": "edit",
+      "action": "noobide.toggleLineComment",
+      "text": "<script>\n  let a = 1;|\n</script>\n",
+      "expectText": "<script>\n  // let a = 1;\n</script>\n"
+    },
+    {
+      "id": "html-script-block-comment",
+      "language": "html",
+      "kind": "edit",
+      "action": "noobide.toggleBlockComment",
+      "text": "<script>\n  let a = 1;|\n</script>\n",
+      "expectText": "<script>\n  /* let a = 1; */\n</script>\n"
+    },
+    {
+      "id": "js-definition-closed-file",
+      "language": "javascript",
+      "kind": "definition",
+      "fileName": "app.js",
+      "closedFiles": {
+        "config.js": "function greet(name) {\n  return 'Hi ' + name;\n}\n"
+      },
+      "text": "gre|et('Lin');\n",
+      "expect": [
+        "config.js:1:10"
+      ]
+    },
+    {
+      "id": "js-definition-open-file",
+      "language": "javascript",
+      "kind": "definition",
+      "fileName": "app.js",
+      "files": {
+        "state.js": "let score = 0;\n"
+      },
+      "text": "sco|re += 1;\n",
+      "expect": [
+        "state.js:1:5"
+      ]
+    },
+    {
+      "id": "js-definition-module-import",
+      "language": "javascript",
+      "kind": "definition",
+      "fileName": "main.mjs",
+      "closedFiles": {
+        "util.mjs": "export function add(a, b) {\n  return a + b;\n}\n"
+      },
+      "text": "import { add } from './util.mjs';\nconsole.log(ad|d(1, 2));\n",
+      "expect": [
+        "util.mjs:1:17"
+      ]
+    },
+    {
+      "id": "js-references-two-files",
+      "language": "javascript",
+      "kind": "references",
+      "fileName": "app.js",
+      "closedFiles": {
+        "config.js": "function greet(name) {\n  return 'Hi ' + name;\n}\n"
+      },
+      "text": "gre|et('a');\ngreet('b');\n",
+      "expect": [
+        "app.js:1:1",
+        "app.js:2:1",
+        "config.js:1:10"
+      ]
+    },
+    {
+      "id": "html-inline-script-definition-unsupported",
+      "language": "html",
+      "kind": "definition",
+      "text": "<script>\n  function greet() {}\n  gre|et();\n</script>\n",
+      "expect": [
+        "unsupported"
+      ]
+    },
+    {
+      "id": "js-rename-two-files",
+      "language": "javascript",
+      "kind": "rename",
+      "fileName": "app.js",
+      "closedFiles": {
+        "config.js": "function greet(name) {\n  return 'Hi ' + name;\n}\n"
+      },
+      "text": "gre|et('a');\ngreet('b');\n",
+      "newName": "sayHello",
+      "expectFiles": {
+        "app.js": "sayHello('a');\nsayHello('b');\n",
+        "config.js": "function sayHello(name) {\n  return 'Hi ' + name;\n}\n"
+      }
+    },
+    {
+      "id": "js-rename-refuses-built-in",
+      "language": "javascript",
+      "kind": "rename",
+      "fileName": "app.js",
+      "text": "console.lo|g(1);\n",
+      "newName": "print",
+      "expect": [
+        "refused:built-in"
+      ]
+    },
+    {
+      "id": "js-rename-refuses-name-used-in-html",
+      "language": "javascript",
+      "kind": "rename",
+      "fileName": "app.js",
+      "files": {
+        "index.html": "<button onclick=\"greet()\">Hi</button>\n"
+      },
+      "text": "function gre|et() {}\n",
+      "newName": "sayHello",
+      "expect": [
+        "refused:used-in-html"
       ]
     }
   ]

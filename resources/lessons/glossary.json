@@ -264,6 +264,17 @@
         "name": "path",
         "text": "How a file's location is written. Webpages usually use relative paths: images/avatar.svg means “avatar.svg in the images folder next to this file”. Upper and lower case must match."
       }
+    },
+    {
+      "term": "Colour value",
+      "zh-CN": {
+        "name": "颜色值",
+        "text": "CSS 里写颜色的方式：十六进制（#ff0000）、rgb(255, 0, 0)、hsl(0, 100%, 50%)，或颜色名（red）。在 .css 文件里，NoobIDE 会在颜色值前画一个小色块；光标放在颜色值上时，状态栏会写出这个值，按“编辑颜色”可以用滑块改它。"
+      },
+      "en": {
+        "name": "Colour value",
+        "text": "The ways CSS writes a colour: hex (#ff0000), rgb(255, 0, 0), hsl(0, 100%, 50%) or a colour name (red). In .css files NoobIDE draws a small swatch in front of each colour value; with the cursor on one, the status bar writes out the value and “Edit colour” changes it with sliders."
+      }
     }
   ]
 }

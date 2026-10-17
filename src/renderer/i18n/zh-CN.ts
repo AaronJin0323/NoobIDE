@@ -6,6 +6,7 @@ import { aiAgentZhCN } from './ai-agent'; // S34.2
 import { aiChatZhCN } from './ai-chat'; // S33
 import { aiInlineZhCN } from './ai-inline'; // S32.1
 import { smartEditZhCN } from './smart-edit'; // S43
+import { authoringZhCN } from './authoring'; // S53 / S57
 import { aiEditZhCN } from './ai-edit'; // S35
 import { aiPromptZhCN } from './ai-prompt'; // S42
 import { aiHistoryZhCN } from './ai-history'; // S39
@@ -326,6 +327,7 @@ export const zhCN = {
   ...aiChatZhCN, // S33 AI chat and explain
   ...aiInlineZhCN, // S32.1 AI ghost-text suggestions
   ...smartEditZhCN, // S43 indentation and context-aware suggestions
+  ...authoringZhCN, // S53 / S57 authoring aids and JavaScript navigation
   ...aiEditZhCN, // S35 AI inline edit and Fix with AI
   ...aiPromptZhCN, // S42 inline /ai prompt
   ...aiHistoryZhCN, // S39 saved AI chats and token usage

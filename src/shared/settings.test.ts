@@ -17,6 +17,9 @@ describe('settings schema (S13.1)', () => {
       theme: 'system',
       editorFontSize: 16,
       restoreSession: true,
+      emmet: true,
+      emmetHintShown: false,
+      formatOnSave: false,
     });
   });
 
@@ -25,7 +28,16 @@ describe('settings schema (S13.1)', () => {
   });
 
   it('a current file is read as it is', () => {
-    const file = { version: 1, locale: 'en', theme: 'dark', editorFontSize: 20, restoreSession: false };
+    const file = {
+      version: 1,
+      locale: 'en',
+      theme: 'dark',
+      editorFontSize: 20,
+      restoreSession: false,
+      emmet: false,
+      emmetHintShown: true,
+      formatOnSave: true,
+    };
     expect(upgradeSettings(file)).toEqual({ ok: true, settings: file, migratedFrom: null, resetFields: [] });
   });
 
@@ -90,6 +102,12 @@ describe('settings schema (S13.1)', () => {
   it('the IPC patch accepts only known keys with valid values', () => {
     expect(parseSettingsPatch({ locale: 'en' })).toEqual({ locale: 'en' });
     expect(parseSettingsPatch({ theme: 'light', editorFontSize: 18 })).toEqual({ theme: 'light', editorFontSize: 18 });
+    // S53: the editor switches
+    expect(parseSettingsPatch({ emmet: false, emmetHintShown: true, formatOnSave: true })).toEqual({
+      emmet: false,
+      emmetHintShown: true,
+      formatOnSave: true,
+    });
     for (const bad of [
       {},
       null,
@@ -100,6 +118,8 @@ describe('settings schema (S13.1)', () => {
       { editorFontSize: 16.5 },
       { editorFontSize: 100 },
       { restoreSession: 'yes' },
+      { emmet: 1 },
+      { formatOnSave: 'on' },
       { locale: 'en', extra: 1 },
     ]) {
       expect(parseSettingsPatch(bad)).toBeNull();
