@@ -24,6 +24,7 @@ import { WorkerSupervisor, type WorkerKind } from './worker-supervisor';
 import { ignoreMonacoCancellations } from './monaco-cancellation';
 // S19.2: NoobIDE's own unclosed-element check for HTML files (Monaco's HTML service reports no problems).
 import './html-check-monaco';
+import { holdProjectScriptReads, releaseProjectScriptReads } from './project-scripts-registry'; // S57.3
 
 /** Labels of the workers Monaco has started — read by the worker probe (self-test / e2e). */
 export const startedWorkers: string[] = [];
@@ -89,7 +90,8 @@ installFormatHook(monaco.languages as unknown as FormattingRegistry<unknown>);
 
 /**
  * Read-only facts for the e2e suite (like main's __noobideTestHooks): metadata only, never file contents.
- * S18.3: which documents fired the pre-format hook. S18.4: worker kill switch and restart count.
+ * S18.3: which documents fired the pre-format hook. S18.4: worker kill switch and restart count. S57.3: a hold on the
+ * project-script reads, to press F12 while the project is provably still being indexed.
  */
 export const editorTestHooks = {
   preFormat: [] as { uri: string; languageId: string }[],
@@ -100,6 +102,9 @@ export const editorTestHooks = {
     return live.length;
   },
   restartCount: () => workerSupervisor.restartCount,
+  /** S57.3: project-script reads wait until released (a slow disk on demand); nothing is read differently. */
+  holdProjectScriptReads,
+  releaseProjectScriptReads,
   /** Current diagnostics (language-service messages name identifiers; they hold no file contents). */
   markers: () =>
     monaco.editor.getModelMarkers({}).map((m) => ({
