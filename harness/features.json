@@ -4502,7 +4502,7 @@
       "verify": "auto",
       "depends_on": [],
       "status": "done",
-      "evidence": "src/main/search-ipc.test.ts (payload, sender frame, invalid regex typed error, cancellation: new search cancels previous, no stale results) + src/shared/search.test.ts + tests/integration/project-search.test.ts (9: grouping/line/column/context, ignore.ts, binary/non-UTF-8/size cap, realpath root + junctions, match cap truncated, buffers win, cancel, 2000 Chinese-path files ~140-185 ms with max event-loop gap ~6 ms on Windows x64)"
+      "evidence": "src/main/search-ipc.test.ts (payload, sender frame, invalid regex typed error, cancellation: new search cancels previous, no stale results) + src/shared/search.test.ts + tests/integration/project-search.test.ts (9: grouping/line/column/context, ignore.ts, binary/non-UTF-8/size cap, realpath root + junctions, match cap truncated, buffers win, cancel, 2000 Chinese-path files all searched with 200 hits and the cap) + tests/perf/project-search.perf.test.ts (S58.3 perf project, ADR 0038: 2000 files 202 ms, max event-loop gap 5.4 ms, capped common word 24 ms on Windows x64 against the unchanged 1 s / 100 ms budgets; best of 3 batches, enforced by npm run verify, reported on hosted runners)"
     },
     {
       "id": "S51.3",

@@ -9,7 +9,7 @@ import type { SearchQuery } from '../../src/shared/search';
 /**
  * S51.2 project search on the real file system, in a project whose path has Chinese characters and spaces: root
  * containment, ignore rules, binary and oversized files, the match cap, open buffers winning over disk, cancellation,
- * and the timing budget on 2 000 files.
+ * and the 2 000-file fixture (its timing budget: tests/perf/project-search.perf.test.ts).
  */
 let tmp: string;
 let root: string;
@@ -170,7 +170,9 @@ describe('project search (S51.2)', () => {
     expect(await running).toMatchObject({ ok: false, code: 'cancelled' });
   });
 
-  it('2 000 files with Chinese names and spaces: under 1 s, main never blocked for more than 100 ms', async () => {
+  it('2 000 files with Chinese names and spaces: every file is searched, hits are listed, a common word hits the cap', async () => {
+    // The S51.2 timing budget on this fixture (under 1 s, main never blocked for more than 100 ms) is measured in
+    // tests/perf/project-search.perf.test.ts (S58.3, ADR 0038: enforced on developer machines, reported on CI).
     const line = '<div class="card 卡片">林小雨的 网页 practice line with some words</div>\n';
     const body = line.repeat(60); // ~4 KB per file, 8 MB in all
     const writes: Promise<void>[] = [];
@@ -180,50 +182,15 @@ describe('project search (S51.2)', () => {
     }
     await Promise.all(writes);
 
-    // A timed search with an event-loop lag probe: a 5 ms timer whose largest gap between ticks is how long main
-    // was blocked. Hosted CI runners (3–4 shared vCPUs) can deschedule this worker for hundreds of milliseconds (a
-    // Windows shard measured 1083 ms against ~300 ms on the dev machine), so a search that misses the budget is
-    // timed again, up to BATCHES times, and the best batch is judged, as completion-latency.test.ts does: a batch
-    // inside the budget proves the engine's cost does; a stalled batch is scheduling noise, not engine work.
-    const timed = async (query: string) => {
-      let maxGap = 0;
-      let last = performance.now();
-      const probe = setInterval(() => {
-        const now = performance.now();
-        maxGap = Math.max(maxGap, now - last);
-        last = now;
-      }, 5);
-      const started = performance.now();
-      const results = await search(q(query));
-      const elapsed = performance.now() - started;
-      clearInterval(probe);
-      maxGap = Math.max(maxGap, performance.now() - last);
-      return { results, elapsed, maxGap };
-    };
-    const BATCHES = 3;
-    const bestOf = async (query: string) => {
-      let best = await timed(query);
-      for (let b = 1; b < BATCHES && (best.elapsed >= 1000 || best.maxGap >= 100); b += 1) {
-        const next = await timed(query);
-        if (next.elapsed + next.maxGap < best.elapsed + best.maxGap) best = next;
-      }
-      return best;
-    };
-
-    const { results, elapsed, maxGap } = await bestOf('needle 针');
-    console.info(
-      `S51.2 timing: ${results.filesSearched} files in ${elapsed.toFixed(0)} ms, max gap ${maxGap.toFixed(1)} ms`,
-    );
+    const results = await search(q('needle 针'));
     expect(results.filesSearched).toBe(2000);
     expect(results.files).toHaveLength(200);
     expect(results.files.every((f) => f.relPath.includes('栏目 ') && f.relPath.endsWith('.html'))).toBe(true);
-    expect(elapsed).toBeLessThan(1000);
-    expect(maxGap).toBeLessThan(100);
+    expect(results.truncated).toBe(false);
 
-    // A common word with thousands of matches is cut at the cap and stays inside the budget too.
-    const common = await bestOf('card');
-    expect(common.elapsed).toBeLessThan(1000);
-    expect(common.results.truncated).toBe(true);
-    expect(common.results.totalMatches).toBe(2000);
-  }, 90_000);
+    // A common word with thousands of matches is cut at the cap.
+    const common = await search(q('card'));
+    expect(common.truncated).toBe(true);
+    expect(common.totalMatches).toBe(2000);
+  }, 60_000);
 });

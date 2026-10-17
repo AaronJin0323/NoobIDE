@@ -52,8 +52,7 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
   start what it measures (the busy loop of `tests/fixtures/预览 快照/忙碌.html` is started by the test, not by the page).
   A per-call latency budget is judged on the best of several batches (`tests/perf/completion-latency.perf.test.ts`):
   contention adds time to a sample and never removes any, so the quietest batch measures the code. Product thresholds
-  are never
-  raised to make a runner pass.
+  are never raised to make a runner pass.
 - A timing assertion is one of two things, never both (S58.3, decision 0038): a **performance budget** (p95, median,
   max lag, throughput — measured on the dev machine) belongs in `tests/perf` and is read through
   `tests/perf/budget.ts`; a **functional timeout** (an event must arrive within N s) stays in the ordinary suites
