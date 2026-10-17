@@ -121,6 +121,19 @@ export class ElementPicker {
     await this.send('DOM.disable').catch(() => undefined);
   }
 
+  /**
+   * S54 (decision 0037): runs `work` while the DOM domain is on, sharing the count with picking and highlighting so
+   * neither turns it off under the other. Throws when the domains cannot be enabled.
+   */
+  async withDom<T>(work: () => Promise<T>): Promise<T> {
+    await this.acquire();
+    try {
+      return await work();
+    } finally {
+      await this.release();
+    }
+  }
+
   private async world(): Promise<number> {
     let frameId: unknown;
     try {

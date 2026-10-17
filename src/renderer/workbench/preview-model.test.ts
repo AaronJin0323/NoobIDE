@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { en } from '../i18n/en';
 import { zhCN } from '../i18n/zh-CN';
-import type { PreviewLogEntry, PreviewStatus } from '../../shared/ipc/preview-contract';
+import { PREVIEW_RELOAD_REASONS, type PreviewLogEntry, type PreviewStatus } from '../../shared/ipc/preview-contract';
 import {
   EMPTY_LOG,
   MAX_VISIBLE_LOG_ENTRIES,
@@ -15,6 +15,7 @@ import {
   pageLocation,
   visibleLog,
   previewNotUpdated,
+  saveUpdateNote,
   stageMessageKey,
   stateLabelKey,
   viewVisible,
@@ -176,5 +177,37 @@ describe('page location in the preview toolbar', () => {
     expect(pageLocation(at(`${origin}/about.html`), '')?.away).toBe(false); // entry not known yet
     expect(pageLocation(at(undefined), 'index.html')).toBeNull();
     expect(pageLocation(STOPPED, 'index.html')).toBeNull();
+  });
+});
+
+describe('save update note (S54, decision 0037)', () => {
+  const running: PreviewStatus = { state: 'running', projectId: 'p', generation: 3 };
+
+  it('says in words whether the styles were swapped or the page reloaded, and why', () => {
+    expect(saveUpdateNote(running)).toBeNull();
+    expect(saveUpdateNote({ ...running, saveUpdate: { kind: 'styles', seq: 1 } })).toEqual({
+      kind: 'styles',
+      label: 'preview.update.styles',
+      detail: 'preview.update.stylesDetail',
+    });
+    expect(saveUpdateNote({ ...running, saveUpdate: { kind: 'reload', reason: 'syntax', seq: 2 } })).toEqual({
+      kind: 'reload',
+      label: 'preview.update.reload',
+      detail: 'preview.update.reason.syntax',
+    });
+    expect(saveUpdateNote({ ...STOPPED, saveUpdate: { kind: 'styles', seq: 1 } })).toBeNull();
+  });
+
+  it('every reason has zh-CN and en wording', () => {
+    for (const reason of PREVIEW_RELOAD_REASONS) {
+      const note = saveUpdateNote({ ...running, saveUpdate: { kind: 'reload', reason, seq: 1 } });
+      expect(note && zhCN[note.detail]).toBeTruthy();
+      expect(note && en[note.detail]).toBeTruthy();
+      expect(note && zhCN[note.detail]).not.toBe(note && en[note.detail]);
+    }
+    expect(zhCN['preview.update.styles']).toBe('样式已更新（页面没有重新加载）');
+    expect(en['preview.update.styles']).toBe('Styles updated (page not reloaded)');
+    expect(zhCN['preview.update.reload']).toBe('页面已重新加载');
+    expect(en['preview.update.reload']).toBe('Page reloaded');
   });
 });

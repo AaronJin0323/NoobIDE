@@ -38,6 +38,16 @@ export const previewToolbarZhCN = {
   'preview.outdated': '有未显示的保存',
   'preview.outdatedDetail': '手动刷新：页面还是上次保存前的样子。点“刷新”查看最新的文件。',
   'preview.reloadNote': '提示：刷新会重新加载页面——在页面里输入的内容、滚动位置和变量都会从头开始。',
+  // ── S54 保存后的更新方式（docs/decisions/0037）──
+  'preview.update.styles': '样式已更新（页面没有重新加载）',
+  'preview.update.stylesDetail': '只保存了 CSS：新样式已直接换上，页面里输入的内容和滚动位置都还在。',
+  'preview.update.reload': '页面已重新加载',
+  'preview.update.reason.not-css': '保存的文件里有 HTML、JavaScript 或其他文件，需要重新加载。',
+  'preview.update.reason.not-linked': '页面没有用 <link> 引用保存的 CSS 文件。',
+  'preview.update.reason.import': '这个 CSS 用到了 @import，只能重新加载。',
+  'preview.update.reason.frame': '页面里的 iframe 也用了这个 CSS，只能重新加载。',
+  'preview.update.reason.syntax': 'CSS 里有语法错误，请看“问题”面板。',
+  'preview.update.reason.failed': '没能直接换上新样式，所以重新加载了页面。',
   // ── S14.3 入口页面 ──
   'preview.entry': '入口页面',
   'preview.entry.default': '（默认）',
@@ -96,6 +106,16 @@ export const previewToolbarEn: Record<keyof typeof previewToolbarZhCN, string> =
     'Manual refresh: the page still shows the files from before your last save. Click Refresh to see the latest.',
   'preview.reloadNote':
     'Note: refreshing reloads the page — anything typed into it, its scroll position and its variables start over.',
+  'preview.update.styles': 'Styles updated (page not reloaded)',
+  'preview.update.stylesDetail':
+    'Only CSS was saved: the new styles were applied in place; what you typed into the page and its scroll position are kept.',
+  'preview.update.reload': 'Page reloaded',
+  'preview.update.reason.not-css': 'The save included HTML, JavaScript or other files.',
+  'preview.update.reason.not-linked': 'The page does not link the saved CSS file with <link>.',
+  'preview.update.reason.import': 'The CSS uses @import, which needs a reload.',
+  'preview.update.reason.frame': 'An iframe in the page also uses this CSS, which needs a reload.',
+  'preview.update.reason.syntax': 'The CSS has a syntax error; see Problems.',
+  'preview.update.reason.failed': 'The new styles could not be applied in place.',
   'preview.entry': 'Entry page',
   'preview.entry.default': '(default)',
   'preview.entry.none': 'No HTML page found',

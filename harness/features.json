@@ -4682,8 +4682,8 @@
       "depends_on": [
         "S54.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/preview-css-swap.spec.ts S54.2 test (no navigation: navigations/timeOrigin/generation unchanged, no page-visible DOM mutation; typed input + scrollY survive a colour change) + preview-isolation.spec.ts green with hot swap (49 e2e passed incl. preview, manager, annotations, runtime-problems) + src/preview/css-swap.test.ts; subagent isolation review: no violations, defects fixed; verify green"
     },
     {
       "id": "S54.3",

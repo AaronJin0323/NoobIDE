@@ -232,3 +232,19 @@ export function pageLocation(status: PreviewStatus, entryPage: string): PageLoca
   const entry = entryPage === '' ? null : pageOf(entryPage);
   return { path, missing, away: missing || (entry !== null && path !== entry) };
 }
+
+/**
+ * S54 (docs/decisions/0037): what the last automatic update after a save did, in words — the styles were swapped in
+ * place, or the page was reloaded and why. Null when the page is not showing one (a start, navigation or manual
+ * refresh came after it).
+ */
+export function saveUpdateNote(
+  status: PreviewStatus,
+): { readonly kind: 'styles' | 'reload'; readonly label: MessageKey; readonly detail: MessageKey } | null {
+  const update = status.saveUpdate;
+  if (!update || status.state === 'stopped') return null;
+  if (update.kind === 'styles') {
+    return { kind: 'styles', label: 'preview.update.styles', detail: 'preview.update.stylesDetail' };
+  }
+  return { kind: 'reload', label: 'preview.update.reload', detail: `preview.update.reason.${update.reason}` };
+}

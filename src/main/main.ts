@@ -159,6 +159,7 @@ function start(): void {
     preview: () => preview.debugInfo(),
     problems: () => problems.debugInfo(), // S16.2–S16.6
     annotationPicking: () => preview.annotationPicking(), // S41.3: inspect mode is on
+    failNextCssSwap: () => preview.debugFailNextCssSwap(), // S54.3: fault injection
     // S38.1: one page snapshot of the running preview (sizes and the outline of the test's own fixture page).
     previewSnapshot: async (screenshot: boolean) => {
       const projectId = preview.getStatus().projectId;
@@ -404,7 +405,9 @@ function start(): void {
       const root = savedIn.rootOf(file.projectId);
       if (root === undefined) return;
       // S14.2: automatic mode refreshes after the typing pause; manual mode marks the page as outdated.
-      void effectiveProjectConfig(root).then((config) => preview.fileSaved(file.projectId, refreshModeOf(config)));
+      void effectiveProjectConfig(root).then((config) =>
+        preview.fileSaved(file.projectId, refreshModeOf(config), file.relPath),
+      );
     });
     registerPreviewIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,

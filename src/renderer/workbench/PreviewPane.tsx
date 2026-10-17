@@ -21,6 +21,7 @@ import {
   nextGeneration,
   pageLocation,
   pillFor,
+  saveUpdateNote,
   stageMessageKey,
   stateLabelKey,
   toolbarFor,
@@ -421,6 +422,7 @@ export function PreviewPane({
   };
 
   const pill = pillFor(status, saveFailed);
+  const updateNote = saveUpdateNote(status); // S54: "styles updated" vs "page reloaded"
   const messageKey = stageMessageKey(status, projectId !== null);
   const consent = needsConsent && status.state === 'stopped' && projectId !== null;
   const entryValue = options ? entryChoice(options.pages, options.entry) : '';
@@ -464,6 +466,20 @@ export function PreviewPane({
           {pill.warning ? <WarningIcon /> : status.state === 'stopped' ? <StopIcon /> : <DotIcon />}
           {t(pill.label)}
         </span>
+        {updateNote && (
+          <span
+            key={status.saveUpdate?.seq}
+            className="preview-save-update"
+            data-testid="preview-save-update"
+            data-kind={updateNote.kind}
+            data-reason={status.saveUpdate?.kind === 'reload' ? status.saveUpdate.reason : undefined}
+            title={t(updateNote.detail)}
+            role="status"
+          >
+            {t(updateNote.label)}
+            <span className="sr-only">{` ${t(updateNote.detail)}`}</span>
+          </span>
+        )}
         {projectId !== null && annotations && (
           <span className="preview-annotate-slot" ref={setEntrySlot} data-testid="preview-annotate-slot" />
         )}

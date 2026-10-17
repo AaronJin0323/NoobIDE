@@ -61,7 +61,28 @@ export interface PreviewStatus {
    * next page that loads.
    */
   readonly notFound?: boolean;
+  /**
+   * S54 (docs/decisions/0037): what the last automatic update after a save did — the linked stylesheets were swapped
+   * in place (`styles`, the page was not reloaded) or the page was reloaded, and why. `seq` grows with every update
+   * so the toolbar can announce a repeat. Cleared by a start, a navigation, a manual refresh or Stop.
+   */
+  readonly saveUpdate?: PreviewSaveUpdate;
 }
+
+/** S54: why a save reloaded the page instead of swapping its stylesheets (decision 0037's fallback table). */
+export type PreviewReloadReason = 'not-css' | 'not-linked' | 'import' | 'frame' | 'syntax' | 'failed';
+export const PREVIEW_RELOAD_REASONS: readonly PreviewReloadReason[] = [
+  'not-css',
+  'not-linked',
+  'import',
+  'frame',
+  'syntax',
+  'failed',
+];
+
+export type PreviewSaveUpdate =
+  | { readonly kind: 'styles'; readonly seq: number }
+  | { readonly kind: 'reload'; readonly reason: PreviewReloadReason; readonly seq: number };
 
 /** S14.2: stored in `.noobide/project.json` (preview.autoRefresh) by the S13.2 module; auto is the default. */
 export type RefreshMode = 'auto' | 'manual';
