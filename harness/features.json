@@ -4533,8 +4533,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/splitter-model.test.ts (8 tests: dead zone, Escape, reset defaults, collapse = toggle-files, aria-valuetext zh/en) + tests/e2e/splitter-physics.spec.ts (5 tests on the packaged build: click no-op, drag across the preview covered by the region-shot picture then live again with the expected share, Escape rollback, double-click reset, files collapse/reopen with the rail) + preview-layout/session/key-features-visible/preview-annotations/a11y e2e (36 passed) + verify green"
     },
     {
       "id": "S49.2",

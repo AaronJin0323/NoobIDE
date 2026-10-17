@@ -3,6 +3,38 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 35 (side session) — 2026-10-17 — S49.1 splitter physics (M18 Track C1)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s49-splitter-physics-c88bff`
+(node_modules junctioned to the main checkout), started from the M18 plan session in parallel with S47.1, S48 and
+S49.3 (their files untouched).
+
+**Done**
+
+- `workbench/splitter-model.ts` (pure): 4 px dead zone (`DRAG_DEAD_ZONE`), Escape → start value, double-click
+  defaults (files 220, share 0.5), files collapse under 120 px (`FILES_COLLAPSE_BELOW`; collapsed keeps the drag's
+  start width so the toggle reopens at it), aria-valuetext in words (`layout.filesWidthText`,
+  `layout.filesCollapsedText`, `layout.editorShareText`, zh-CN + en). New layout action `dragFiles` puts the layout in
+  exactly the toggle-files state (unit-tested equal), so the rail button reflects it.
+- `Splitter.tsx`: drag via the model, Escape listener on window (capture) while pressed, `onDoubleClick` reset,
+  `onPhase` (idle/pressed/dragging), `onDrag` separate from keyboard `onChange` (Home/End never collapse).
+  Workbench keeps the files divider mounted while a drag has collapsed the panel, so it can be dragged back out.
+- `PreviewPane` prop `resizing`: on press it asks for a picture with the existing S41.5 `annotations.regionShot` IPC
+  (no new channel; main takes it only while the view is shown; requested in a layout effect so it reaches main before
+  the bounds that hide the view); while dragging the native view is hidden (`data-resizing`) and the picture
+  (`preview-resize-shot`, alt text in both locales) fills the stage; without one the stage shows its usual content.
+  Release or Escape gives the live view back.
+
+**Evidence:** `splitter-model.test.ts` (8 tests); `tests/e2e/splitter-physics.spec.ts` 5/5 on the packaged build;
+preview-layout, session, key-features-visible, preview-annotations, a11y e2e 36/36; `npm run verify` green.
+
+**Decisions:** The S38.1 AI snapshot channel was not reused: it builds an outline and is tied to the chat; the S41.5
+region shot is the same `capturePage` picture with no side effects. Playwright mouse events go to the renderer, so
+the e2e proves the cover/picture/live states and final share; that a real OS pointer is not swallowed by the native
+view follows from the view being hidden after the dead zone (could be added to a manual check later).
+
+**Next up:** the rest of S49 (S49.2+), then S50. Tab drag-to-reorder can now reuse `splitter-model` dead-zone logic.
+
 ## Session 34 (side session) — 2026-10-17 — UI/UX improvement plan from the Claude Desktop study (M18)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/noobide-ui-ux-improvements-50c047`
