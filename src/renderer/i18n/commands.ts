@@ -17,6 +17,8 @@ export const commandsZhCN = {
   'command.theme.system': '跟随系统的浅色或深色主题',
   'command.theme.light': '浅色主题',
   'command.theme.dark': '深色主题',
+  'command.density.comfortable': '宽松密度',
+  'command.density.compact': '紧凑密度',
   // ── S24.3 键盘 ──
   'command.focusNextRegion': '转到下一个区域',
   'command.focusPreviousRegion': '转到上一个区域',
@@ -64,6 +66,8 @@ export const commandsEn: Record<keyof typeof commandsZhCN, string> = {
   'command.theme.system': 'Light or dark theme from the system',
   'command.theme.light': 'Light theme',
   'command.theme.dark': 'Dark theme',
+  'command.density.comfortable': 'Comfortable density',
+  'command.density.compact': 'Compact density',
   // ── S24.3 keyboard ──
   'command.focusNextRegion': 'Focus next area',
   'command.focusPreviousRegion': 'Focus previous area',

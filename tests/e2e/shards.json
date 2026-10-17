@@ -67,6 +67,7 @@
     "save.spec.ts": 2,
     "session.spec.ts": 2,
     "settings.spec.ts": 2,
+    "sheets.spec.ts": 1,
     "shell.spec.ts": 1,
     "sleep-wake.spec.ts": 2,
     "smart-editing.spec.ts": 1,

@@ -16,6 +16,7 @@ import { paletteEn } from './palette'; // S40
 import { annotationsEn } from './annotations'; // S41.5
 import { journeyEn } from './journey'; // beginner-journey fixes
 import { fileManagementEn } from './file-management'; // S52
+import { noticesEn } from './notices'; // S50.2
 import { imageViewerEn } from './image-viewer'; // S52.6
 import { motionEn } from './motion'; // S47
 
@@ -240,7 +241,6 @@ export const en: Record<MessageKey, string> = {
   'recovery.clearAll': 'Clear all recovery data',
   'recovery.clearConfirm': 'Clear now? These unsaved changes cannot be brought back',
   'recovery.cancel': 'Cancel',
-  'recovery.journalFailed': 'The crash-recovery copy could not be written. Save your file soon.',
   'recovery.lineAdded': 'added',
   'recovery.lineRemoved': 'removed',
   'recovery.saveFirst':
@@ -298,10 +298,6 @@ export const en: Record<MessageKey, string> = {
   'deleted.closeConfirm': 'Close it? The file no longer exists on disk; the text will not be kept',
   // --- end S11 ---
   // --- S13 app data ---
-  'settings.corrupt': 'The settings file is damaged and could not be read.',
-  'settings.newer': 'The settings file comes from a newer NoobIDE.',
-  'settings.readOnly':
-    'The settings this version understands are used; the file is left unchanged for the newer version. Settings changed now are not saved after you quit.',
   'settings.reset': 'The original file was backed up; the default settings are used now.',
   'settings.backup': 'Backup:',
   'appMenu.label': 'Help and more',
@@ -315,8 +311,6 @@ export const en: Record<MessageKey, string> = {
   'layout.filesCollapsedText': 'Files panel collapsed',
   'layout.editorShareText': 'Code {code} percent, preview {preview} percent',
   'layout.resizeSnapshot': 'Picture of the page while resizing',
-  'transfer.title':
-    'This project may run into problems on the other system (Windows / macOS). NoobIDE has not changed any file:',
   'transfer.caseConflict':
     'In "{folder}", {names} differ only in letter case: on Windows and macOS they become one file. Rename one of them.',
   'transfer.unicodeConflict':
@@ -329,9 +323,6 @@ export const en: Record<MessageKey, string> = {
   'transfer.more': '{n} more not listed.',
   'transfer.truncated': 'The project is large; only part of it was checked.',
   'files.setEntry': 'Set as entry page',
-  'entry.set': 'Entry page set:',
-  'entry.setDetail':
-    'The preview opens it first next time it starts. The setting is kept in the project’s .noobide/project.json; deleting that file does not affect the website.',
   'entry.failed': 'The entry page setting could not be saved.',
   'entry.invalidExisting':
     'The project’s .noobide/project.json could not be read (maybe from a newer version or edited by hand); it was left unchanged so nothing is overwritten.',
@@ -355,6 +346,7 @@ export const en: Record<MessageKey, string> = {
   ...journeyEn, // beginner-journey fixes: preview page path, missing-page page, editor overflow menu
   ...fileManagementEn, // S52 move, copy, multi-select, import, image viewer
   ...motionEn, // S47 motion and detail
+  ...noticesEn, // S50.2 app notices
   ...imageViewerEn, // S52.6 image viewer tab
   // --- S18.3 formatting ---
   'format.button': 'Format',

@@ -54,6 +54,8 @@ test('the two in-window menus derive their items and shortcut hints from the reg
     /^深色主题$/,
     /中文$/,
     /^English$/,
+    /宽松密度$/, // S50.4: the density choice (comfortable is the default, checked)
+    /^紧凑密度$/,
   ]);
   const items = page.getByRole('menu').getByRole('menuitem');
   await expect(items).toHaveText([

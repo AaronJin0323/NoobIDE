@@ -158,13 +158,15 @@
   box-shadow: var(--ring-accent);
   font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease-smooth);
+  /* No fill transition: see .primary-button (S50.3). */
 }
 .annotations-primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent-fill) 86%, var(--muted));
 }
 .annotations-primary:disabled {
-  opacity: 0.5;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: var(--ring-line);
   cursor: default;
 }
 .annotations-toggle {

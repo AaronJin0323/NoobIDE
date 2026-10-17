@@ -115,7 +115,7 @@ import { LOCALES, type Locale } from '../i18n/index';
 import { revealLabelKey } from '../../platform/labels';
 import type { AppMenuItem } from './AppMenu';
 import { CommandPalette, type PaletteCommand } from '../commands/CommandPalette'; // S40.5
-import { useThemeChoice } from '../theme/ThemeProvider'; // S24.4
+import { useDensity, useThemeChoice } from '../theme/ThemeProvider'; // S24.4, S50.4
 import { focusRegion } from '../commands/focus-regions'; // S24.3
 import { openAbout } from './about'; // S28.1
 import { isEntryPath } from '../../shared/project-config';
@@ -1358,6 +1358,7 @@ export function Workbench() {
   // --- S24.1: command registry. Shortcuts (⌘S / Ctrl+S everywhere in the window, Ctrl+Tab, ⌘/Ctrl with + − 0 for
   // the code font, …), the in-window menu and its hints all come from src/shared/commands. ---
   const theme = useThemeChoice();
+  const density = useDensity(); // S50.4
   const switchTab = (step: 1 | -1) => {
     const next = cycleTab(docRef.current, step);
     if (next) dispatch({ type: 'activate', relPath: next });
@@ -1381,6 +1382,7 @@ export function Workbench() {
     theme: theme.choice, // S24.4
     emmet: editorSwitches.emmet, // S53.1
     formatOnSave: editorSwitches.formatOnSave, // S53.4
+    compact: density.density === 'compact', // S50.4
   };
   const commandHandlers: CommandHandlers = {
     'new-project': bridge?.createProject ? () => setWizardOpen(true) : undefined,
@@ -1405,6 +1407,8 @@ export function Workbench() {
     'theme-system': () => theme.setChoice('system'),
     'theme-light': () => theme.setChoice('light'),
     'theme-dark': () => theme.setChoice('dark'),
+    'density-comfortable': () => density.setDensity('comfortable'), // S50.4
+    'density-compact': () => density.setDensity('compact'),
     // S24.3: keyboard route between the regions (Tab indents inside the code editor).
     'focus-next-region': () => void focusRegion(1),
     'focus-previous-region': () => void focusRegion(-1),
@@ -1790,8 +1794,8 @@ export function Workbench() {
       />
       {inlineEdit.element /* S35: what an inline edit did, announced politely */}
       {/* App-level notices share one stack in the layout flow between the walkthrough band and Problems (S47.5):
-          anchored above the status strip, never over the code, the tree or the preview; informational ones leave by
-          themselves. The stack is its own F6 stop while it holds a notice. */}
+          anchored above the status strip, never over the code, the tree or the preview; all on the shared Notice and
+          none on a timer (S50.2). The stack is its own F6 stop while it holds a notice. */}
       <div className="app-notice-stack" data-testid="app-notice-stack">
         {/* S12: the recovery journal could not be written */}
         <JournalHealthNotice health={journals.health} />
