@@ -1,0 +1,4 @@
+/* clean.html links this file (S55.2: a page whose links resolve stays quiet). */
+body {
+  margin: 0;
+}

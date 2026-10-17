@@ -4,6 +4,8 @@ import { explain, undefinedName, type RuleContext } from '../../diagnostics/rule
 import { ProblemCard, type ProblemCardProps } from './ProblemCard';
 import { useProjectFiles } from '../editor/useProjectIndex';
 import type { ProjectIndex } from '../editor/project-index';
+import { isBeginnerCode } from '../../diagnostics/beginner-checks';
+import { NULL_ACCESS } from '../../diagnostics/rules/null-element';
 
 const EMPTY: RuleContext = {};
 
@@ -33,6 +35,21 @@ export function useRuleContext(record: ProblemRecord, uri: string | undefined): 
   return state?.key === key ? state.ctx : EMPTY;
 }
 
+/** The project's HTML ids and classes (from the project index), kept current; undefined without an index. */
+export function useProjectSymbols(
+  index: ProjectIndex | null | undefined,
+): { readonly htmlIds: readonly string[]; readonly htmlClasses: readonly string[] } | undefined {
+  // The index notifies on every change (files, and the ids and classes read from them); the names are read again then.
+  const [version, setVersion] = useState(0);
+  useEffect(() => (index ? index.subscribe(() => setVersion((n) => n + 1)) : undefined), [index]);
+  return useMemo(() => {
+    if (!index) return undefined;
+    void version;
+    const table = index.symbols();
+    return { htmlIds: [...table.ids.keys()], htmlClasses: [...table.classes.keys()] };
+  }, [index, version]);
+}
+
 /**
  * The selected problem's card, explained with the facts of its location. A file that did not load (404) is also
  * compared with the project's files (projectIndex), so the card can name the file the path probably meant.
@@ -47,8 +64,15 @@ export function ProblemDetails({
 }) {
   const { record } = props;
   const located = useRuleContext(record, record.file ? uriOf(record.file) : undefined);
-  const files = useProjectFiles(record.source === 'resource' ? projectIndex : null);
-  const ctx = useMemo(() => (files ? { ...located, projectFiles: files } : located), [located, files]);
+  const beginner = record.source === 'static' && isBeginnerCode(record.code);
+  const files = useProjectFiles(record.source === 'resource' || beginner ? projectIndex : null);
+  // S55.2: selector rules (15, 22, 23) compare with the project's ids and classes.
+  const wantsSymbols = beginner || record.code === 'css-selector-unmatched' || NULL_ACCESS.test(record.originalMessage);
+  const symbols = useProjectSymbols(wantsSymbols ? projectIndex : null);
+  const ctx = useMemo(
+    () => ({ ...located, ...(files ? { projectFiles: files } : {}), ...(symbols ?? {}) }),
+    [located, files, symbols],
+  );
   const explanation = useMemo(() => explain(record, ctx), [record, ctx]);
   return <ProblemCard {...props} explanation={explanation} />;
 }

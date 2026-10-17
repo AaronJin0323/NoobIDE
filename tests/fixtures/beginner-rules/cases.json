@@ -1,0 +1,200 @@
+{
+  "projectFiles": [
+    "index.html",
+    "about.html",
+    "images/logo.png",
+    "images/line.png",
+    "css/style.css",
+    "js/app.js"
+  ],
+  "htmlIds": [
+    "title",
+    "start"
+  ],
+  "htmlClasses": [
+    "hero-card",
+    "hero"
+  ],
+  "static": [
+    {
+      "number": 16,
+      "rule": "html-broken-ref",
+      "language": "html",
+      "relPath": "index.html",
+      "positive": "16-broken-ref.positive.html",
+      "negative": "16-broken-ref.negative.html"
+    },
+    {
+      "number": 17,
+      "rule": "html-duplicate-id",
+      "language": "html",
+      "relPath": "index.html",
+      "positive": "17-duplicate-id.positive.html",
+      "negative": "17-duplicate-id.negative.html"
+    },
+    {
+      "number": 18,
+      "rule": "html-img-no-alt",
+      "language": "html",
+      "relPath": "index.html",
+      "positive": "18-img-no-alt.positive.html",
+      "negative": "18-img-no-alt.negative.html"
+    },
+    {
+      "number": 19,
+      "rule": "html-mismatched-close",
+      "language": "html",
+      "relPath": "index.html",
+      "positive": "19-mismatched-close.positive.html",
+      "negative": "19-mismatched-close.negative.html"
+    },
+    {
+      "number": 20,
+      "rule": "css-unitless-length",
+      "language": "css",
+      "relPath": "css/style.css",
+      "positive": "20-unitless-length.positive.css",
+      "negative": "20-unitless-length.negative.css"
+    },
+    {
+      "number": 23,
+      "rule": "js-selector-prefix",
+      "language": "javascript",
+      "relPath": "js/app.js",
+      "positive": "23-selector-prefix.positive.js",
+      "negative": "23-selector-prefix.negative.js"
+    },
+    {
+      "number": 24,
+      "rule": "html-ref-case",
+      "language": "html",
+      "relPath": "index.html",
+      "positive": "24-ref-case.positive.html",
+      "negative": "24-ref-case.negative.html"
+    },
+    {
+      "number": 25,
+      "rule": "js-assign-in-condition",
+      "language": "javascript",
+      "relPath": "js/app.js",
+      "positive": "25-assign-in-condition.positive.js",
+      "negative": "25-assign-in-condition.negative.js"
+    }
+  ],
+  "runtime": [
+    {
+      "number": 21,
+      "rule": "inline-handler-undefined",
+      "positive": {
+        "input": {
+          "source": "runtime",
+          "severity": "error",
+          "projectId": "proj",
+          "file": "index.html",
+          "line": 12,
+          "column": 31,
+          "code": "ReferenceError",
+          "message": "Uncaught ReferenceError: startGame is not defined",
+          "stack": "ReferenceError: startGame is not defined\n    at HTMLButtonElement.onclick (http://127.0.0.1:51734/index.html:12:31)",
+          "at": 1000
+        },
+        "ctx": {}
+      },
+      "negative": {
+        "input": {
+          "source": "runtime",
+          "severity": "error",
+          "projectId": "proj",
+          "file": "js/app.js",
+          "line": 4,
+          "column": 3,
+          "code": "ReferenceError",
+          "message": "Uncaught ReferenceError: startGame is not defined",
+          "stack": "ReferenceError: startGame is not defined\n    at http://127.0.0.1:51734/js/app.js:4:3",
+          "at": 1000
+        },
+        "ctx": {},
+        "expectedRule": "undefined-name"
+      }
+    },
+    {
+      "number": 22,
+      "rule": "script-before-element",
+      "positive": {
+        "input": {
+          "source": "runtime",
+          "severity": "error",
+          "projectId": "proj",
+          "file": "js/app.js",
+          "line": 1,
+          "column": 42,
+          "code": "TypeError",
+          "message": "Uncaught TypeError: Cannot read properties of null (reading 'addEventListener')",
+          "at": 1000
+        },
+        "ctx": {
+          "lineText": "document.getElementById('start').addEventListener('click', go);",
+          "htmlIds": [
+            "title",
+            "start"
+          ]
+        }
+      },
+      "negative": {
+        "input": {
+          "source": "runtime",
+          "severity": "error",
+          "projectId": "proj",
+          "file": "js/app.js",
+          "line": 1,
+          "column": 42,
+          "code": "TypeError",
+          "message": "Uncaught TypeError: Cannot read properties of null (reading 'addEventListener')",
+          "at": 1000
+        },
+        "ctx": {
+          "lineText": "document.getElementById('strat').addEventListener('click', go);",
+          "htmlIds": [
+            "title",
+            "start"
+          ]
+        },
+        "expectedRule": "null-element"
+      }
+    }
+  ],
+  "casePairs": [
+    {
+      "reference": "Images/Logo.PNG",
+      "file": "images/logo.png",
+      "caseOnly": true
+    },
+    {
+      "reference": "images/logo.png",
+      "file": "images/logo.png",
+      "caseOnly": false
+    },
+    {
+      "reference": "images/Café.png",
+      "file": "images/Café.png",
+      "caseOnly": false,
+      "fileNfd": true
+    },
+    {
+      "reference": "images/CAFÉ.png",
+      "file": "images/café.png",
+      "caseOnly": true,
+      "fileNfd": true
+    },
+    {
+      "reference": "图片/头像.PNG",
+      "file": "图片/头像.png",
+      "caseOnly": true
+    },
+    {
+      "reference": "images/logo.png",
+      "file": "images/logo2.png",
+      "caseOnly": false
+    }
+  ]
+}

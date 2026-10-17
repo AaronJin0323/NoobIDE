@@ -12,10 +12,38 @@
  */
 import type { ProblemAction, ProblemExplanation, ProblemRecord } from '../../shared/problem';
 import { UNDEFINED_NAME_RULE_ID, undefinedName } from '../../diagnostics/rules';
+import { beginnerFacts } from '../../diagnostics/beginner-checks';
 import { identifierColumns } from '../../diagnostics/text';
 import { lastGeneration } from './sources';
 
 export type ReplaceTextAction = Extract<ProblemAction, { kind: 'replace-text' }>;
+/** S55.3: create a missing file from a template (never overwrites). */
+export type CreateFileAction = Extract<ProblemAction, { kind: 'create-file' }>;
+/** What a fix does: replace one span (S22.5, S55.3) or create one missing file (S55.3). */
+export type FixAction = ReplaceTextAction | CreateFileAction;
+
+/** The file a fix edits: the replaced span's file, or the created file. */
+export const fixFile = (action: FixAction): string => (action.kind === 'create-file' ? action.path : action.span.file);
+
+/** Where the problem a fix addresses is reported (the created file's reference, for a create-file fix). */
+export function problemSite(action: FixAction): { readonly file: string; readonly line: number } {
+  return action.kind === 'create-file'
+    ? { file: action.problemFile, line: action.problemLine }
+    : { file: action.span.file, line: action.span.line };
+}
+
+/** The S22.5 misspelled-name fix (re-checked by the JavaScript language service), not an S55.3 quick fix. */
+export const isNameFix = (action: FixAction): action is ReplaceTextAction =>
+  action.kind === 'replace-text' && (action.match ?? 'identifier') === 'identifier';
+
+/** Rules 16, 18, 19, 23 and 24 (S55.2) whose single unambiguous action is a quick fix (S55.3). */
+export const QUICK_FIX_RULES: ReadonlySet<string> = new Set([
+  'html-broken-ref',
+  'html-ref-case',
+  'html-img-no-alt',
+  'html-mismatched-close',
+  'js-selector-prefix',
+]);
 
 export type FixPhase =
   /** Opening the file, putting the edit in, saving. */
@@ -39,12 +67,16 @@ export type FixPhase =
   /** Undo could not be applied or saved. */
   | 'undo-failed';
 
-export type NotAppliedReason = 'changed' | 'read-only' | 'not-open';
+/**
+ * `exists`: a file to create is already there (never overwritten); `created-empty`: created, then not filled;
+ * `create-failed`: the file could not be created (the error code is kept in `saveError`).
+ */
+export type NotAppliedReason = 'changed' | 'read-only' | 'not-open' | 'exists' | 'created-empty' | 'create-failed';
 
 export interface FixState {
   /** Snapshot of the problem as it was when the fix was chosen: its original error stays available until cleared. */
   readonly record: ProblemRecord;
-  readonly action: ReplaceTextAction;
+  readonly action: FixAction;
   readonly phase: FixPhase;
   readonly reason?: NotAppliedReason;
   /** Save error code (save pipeline / contract code) when a save failed. */
@@ -58,17 +90,32 @@ export interface FixState {
 }
 
 /**
- * The fix the card may offer for this explanation: only a `replace-text` action of the did-you-mean rule with
- * exactly one candidate, whose replacement is that candidate.
+ * The fix the card and the lightbulb may offer for this explanation: a `replace-text` action of the did-you-mean
+ * rule with exactly one candidate, whose replacement is that candidate (S22.5); or the one quick fix of rules 16, 18,
+ * 19, 23 and 24 (S55.3) — an exact replacement or a file creation. Several fix actions are ambiguous: none is offered.
  */
-export function fixActionOf(explanation: ProblemExplanation): ReplaceTextAction | null {
-  if (explanation.ruleId !== UNDEFINED_NAME_RULE_ID || explanation.candidates?.length !== 1) return null;
-  const action = explanation.actions.find((a): a is ReplaceTextAction => a.kind === 'replace-text');
-  if (!action || action.to !== explanation.candidates[0] || action.from === action.to) return null;
-  return action;
+export function fixActionOf(explanation: ProblemExplanation): FixAction | null {
+  if (explanation.ruleId === UNDEFINED_NAME_RULE_ID) {
+    if (explanation.candidates?.length !== 1) return null;
+    const action = explanation.actions.find((a): a is ReplaceTextAction => a.kind === 'replace-text');
+    if (!action || action.to !== explanation.candidates[0] || action.from === action.to) return null;
+    return action;
+  }
+  if (!QUICK_FIX_RULES.has(explanation.ruleId)) return null;
+  const fixes = explanation.actions.filter(
+    (a): a is FixAction => (a.kind === 'replace-text' && a.match === 'exact') || a.kind === 'create-file',
+  );
+  const [only] = fixes;
+  if (fixes.length !== 1 || !only) return null;
+  if (
+    only.kind === 'replace-text' &&
+    (only.from === only.to || only.span.endColumn !== only.span.column + only.from.length)
+  )
+    return null;
+  return only;
 }
 
-export function startFix(record: ProblemRecord, action: ReplaceTextAction): FixState {
+export function startFix(record: ProblemRecord, action: FixAction): FixState {
   const generation = record.source === 'static' ? undefined : lastGeneration(record);
   return { record, action, phase: 'applying', ...(generation !== undefined ? { generation } : {}) };
 }
@@ -81,10 +128,50 @@ export function holdsIdentifier(lineText: string, column: number, name: string):
   return identifierColumns(lineText, name).includes(column);
 }
 
-/** A current problem reports the same misspelled name on the same line of the same file. */
+/**
+ * S55.3: the text a fix expects at `column` of `lineText`: the whole identifier (S22.5 name fix), or exactly that
+ * text (a path, a tag name, a selector string).
+ */
+export function holdsText(
+  lineText: string,
+  column: number,
+  text: string,
+  match: 'identifier' | 'exact' = 'identifier',
+) {
+  return match === 'identifier'
+    ? holdsIdentifier(lineText, column, text)
+    : lineText.slice(column - 1, column - 1 + text.length) === text;
+}
+
+/** Facts that tell one beginner finding from another on the same line (S55.2 `data`). */
+const KEY_FACTS = ['ref', 'tagName', 'selector', 'id', 'property'] as const;
+
+/**
+ * S55.3: a beginner-check finding (code, line, message) is the problem `record` reported again: same code, same line,
+ * and the same key facts (the same path, tag, selector or id).
+ */
+export function sameBeginnerFinding(
+  record: ProblemRecord,
+  finding: { readonly code: string; readonly line: number; readonly message: string },
+): boolean {
+  if (finding.code !== record.code || finding.line !== record.line) return false;
+  const facts = beginnerFacts(finding.code, finding.message) ?? {};
+  return KEY_FACTS.every((k) => record.data?.[k] === undefined || String(record.data[k]) === facts[k]);
+}
+
+/** A current problem is the one the fix addresses: the same misspelled name (S22.5) or beginner finding (S55.3). */
 export function reportsSameProblem(fix: FixState, record: ProblemRecord): boolean {
-  const { span, from } = fix.action;
-  return record.file === span.file && record.line === span.line && undefinedName(record)?.name === from;
+  const { action } = fix;
+  if (isNameFix(action)) {
+    const { span, from } = action;
+    return record.file === span.file && record.line === span.line && undefinedName(record)?.name === from;
+  }
+  const site = problemSite(action);
+  return (
+    record.file === site.file &&
+    record.code === fix.record.code &&
+    sameBeginnerFinding(fix.record, { code: record.code, line: record.line ?? 0, message: record.originalMessage })
+  );
 }
 
 export type Verdict = 'checking' | 'awaiting-refresh' | 'still-reported' | 'resolved';
@@ -178,3 +265,15 @@ export function nextPhase(
 }
 
 export const isJudged = (phase: FixPhase): boolean => JUDGED.has(phase);
+
+/**
+ * Whether a confirmed save of `relPath` re-checks the fix. A save of the fixed file always may (a retried save, an
+ * undo in the editor, the user's own edit). A save of the page that reports the problem (S55.3: the reference to a
+ * created file lives in another file) re-checks only a saved fix: a fix whose own save failed stays "save failed"
+ * until the fixed file itself is saved, so it can never become resolved through another file.
+ */
+export function recheckOnSave(fix: FixState, relPath: string): boolean {
+  const own = relPath === fixFile(fix.action);
+  if (!own && relPath !== problemSite(fix.action).file) return false;
+  return isJudged(fix.phase) || fix.phase === 'unchecked' || (own && fix.phase === 'save-failed');
+}

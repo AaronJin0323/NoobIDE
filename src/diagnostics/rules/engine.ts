@@ -34,8 +34,9 @@ function fallback(record: ProblemRecord): RuleOutput {
 
 function standardActions(record: ProblemRecord, out: RuleOutput): ProblemAction[] {
   const own = out.actions ?? [];
-  const fixes = own.filter((a) => a.kind === 'replace-text');
-  const others = own.filter((a) => a.kind !== 'replace-text' && a.kind !== 'show-original' && a.kind !== 'go-to-code');
+  const isFix = (a: ProblemAction) => a.kind === 'replace-text' || a.kind === 'create-file';
+  const fixes = own.filter(isFix);
+  const others = own.filter((a) => !isFix(a) && a.kind !== 'show-original' && a.kind !== 'go-to-code');
   const goTo: ProblemAction[] =
     record.file && record.line
       ? [

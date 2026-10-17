@@ -421,6 +421,22 @@ export const en: Record<MessageKey, string> = {
   'problems.fix.retrySave': 'Save again',
   'problems.fix.recheck': 'Check again',
   'problems.fix.clear': 'Clear',
+  // S55.3: the quick fix "create the missing file"
+  'problems.fix.create.applying': 'Creating {path} from a template…',
+  'problems.fix.create.failed': 'Could not create {path}: {reason}',
+  'problems.fix.create.exists':
+    'Nothing was created: {path} already exists. NoobIDE never overwrites an existing file.',
+  'problems.fix.create.createdEmpty':
+    'Created the empty file {path}, but could not open it to add the template. You can open it from the file tree.',
+  'problems.fix.create.saveFailed':
+    'Created {path} and added the template in the editor, but saving failed: {reason} The text is kept in the editor; the problem is not resolved yet.',
+  'problems.fix.create.checking': 'Created {path} and saved it. Checking {file} line {line} again…',
+  'problems.fix.create.unchecked':
+    'Created {path} and saved it, but {file} could not be checked again (it may have been closed). So the problem cannot be called resolved yet; try Check again.',
+  'problems.fix.create.stillReported':
+    'Created {path}, but checking again still reports this problem in {file} line {line}.',
+  'problems.fix.create.undone':
+    'Undone: the template text was removed from {path} and saved. The file itself is still there; if you do not need it, delete it from the file tree (it goes to the trash).',
   // --- end S22.4 / S22.5 ---
   // --- end S17.2 ---
   // --- S17.3 console view ---

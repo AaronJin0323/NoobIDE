@@ -36,3 +36,15 @@ only when there is exactly one candidate and the name was located on the reporte
 of the language services (ignored TypeScript codes, CSS lint levels) is in `src/renderer/editor/language-config.ts`,
 proven by `tests/fixtures/static-diagnostics`. `css-selector-unmatched` is not emitted yet (it needs the project's
 HTML ids and classes); the guided-checks rule handles it once a producer exists.
+
+`beginner-checks.ts` (S55.2) is NoobIDE's static check for rules 16–20 and 23–25
+(docs/product/explanation-rules-16-25.md): broken relative `src`/`href` (`html-broken-ref`), a reference that
+differs only in letter case (`html-ref-case`, same comparison key as the portability scan: `portableNameKey` in
+`src/shared/portability.ts`), duplicate ids, `<img>` without `alt`, a stray closing tag (`html-mismatched-close`),
+a CSS length without unit, `getElementById`/`querySelector` selector-prefix mistakes and an assignment in an
+`if`/`while` condition. Findings quote their facts in backticks; `beginnerFacts` reads them back into the record's
+`data` (static-problems.ts). The renderer shows them as `noobide-beginner` markers for files of the open project
+(src/renderer/problems/beginner-checks-monaco.ts). Runtime rules 21 (inline `on…` handler calling an undefined
+function) and 22 (script runs before the element it reads) run before rules 1 and 3 and take only their narrower
+cases. Rules 16, 18, 19, 23 and 24 return a quick fix (`replace-text` with `match: 'exact'`, or `create-file`) only
+when its target is unambiguous (S55.3: problem card and editor lightbulb, src/renderer/problems/quick-fix-monaco.ts).
