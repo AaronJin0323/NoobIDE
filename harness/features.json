@@ -4649,8 +4649,8 @@
         "S53.3",
         "S53.4"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/authoring-offline.spec.ts (3 tests) against out/NoobIDE-win32-x64 packaged binary with proxy+resolver network cut: Emmet Tab, linked tag rename, Ctrl+/ comment, colour picker edit saved; every load/request local, example.com fetch fails; verify green"
     },
     {
       "id": "S54.1",
