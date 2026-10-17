@@ -796,6 +796,24 @@
       "evidence": "docs/reviews/interface-assessment-2026-10-14.md checked against all three criteria and PLAN sections 2,3,9,11; Windows Edge renderer measurements at 1280x800 light/dark and 640x480; source links checked; npm run verify green (42 tests)"
     },
     {
+      "id": "S01.6",
+      "session": "S01",
+      "milestone": "M0",
+      "title": "Functional gap assessment against VS Code and IntelliJ with an improvement plan",
+      "description": "Owner-requested review of what NoobIDE can and cannot do next to mainstream IDEs, ranked by when a beginner building a static site hits each gap; proposes v0.2 sessions. Assessment only, no runtime change.",
+      "acceptance": [
+        "docs/reviews/mainstream-ide-gap-2026-10-17.md compares NoobIDE with VS Code and WebStorm/IntelliJ per feature area, citing the source files or feature ids that establish each NoobIDE status",
+        "The review separates shipped, partial (hidden or unproven), absent and PLAN-excluded capabilities and ranks gaps by beginner impact, consistent with PLAN sections 1, 4 and 12",
+        "The review proposes an ordered improvement plan as candidate sessions with scope, acceptance sketches and estimates, without adding them to the backlog or claiming they are implemented"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S01.5"
+      ],
+      "status": "done",
+      "evidence": "docs/reviews/mainstream-ide-gap-2026-10-17.md checked against all three criteria: 6 feature-area tables cite features.json ids, docs/capabilities.md, src/shared/commands.ts, src/workspace/file-ops.ts, CodeEditor.tsx, text-codec.ts, main.ts; statuses split Yes/Partial/No/Excluded with P1-P3 ranking per PLAN 1,4,12; plan proposes M18/S47-S53 as candidates only. No runtime change."
+    },
+    {
       "id": "S02.1",
       "session": "S02",
       "milestone": "M1",
