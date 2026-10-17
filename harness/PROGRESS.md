@@ -32,7 +32,10 @@ on the package). The next run failed verify on both shard-1 jobs in
 completion-latency.test.ts (S43.6): p95 12.8 ms (Windows) / 10.9 ms (macOS) against the 10 ms budget, and main's own run
 at the branch point failed it at 21.4 ms, while the dev machine measures 0.9 ms. The test now judges the best of up to
 three 60-run batches (a descheduled worker inflates a whole batch; the budget and the S43.6 criterion are unchanged;
-docs/perf/completion-latency.md notes the method).
+docs/perf/completion-latency.md notes the method). The run after that timed out tests/integration/history-groups.test.ts
+"keeps the newest groups within the limit" at vitest's 5 s default (5.2 s on the Windows runner: 103 atomic index writes;
+Session 20 had already seen it fail under a saturated CPU); it now carries the same 60 s real-IO hang guard as
+history-triggers.test.ts, assertions unchanged.
 
 **Decisions:** Nothing from the source is copied as code, class strings or assets (Tailwind, Framer Motion,
 clay accent, CDN Storybook); only mechanisms and constants, each given one home as a token or tested constant.
