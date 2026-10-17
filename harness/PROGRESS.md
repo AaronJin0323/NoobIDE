@@ -30,8 +30,8 @@ from `main` @ `65edc2a`. Started by the top session after PR #23's macOS failure
   - **Backlog.** S58.7 added to S58 (M20) with the four criteria above; it owns the guard and the docs bullet.
 - Verify was red on `main` @ `65edc2a`: the S06.6 merge (`1d10ca2`) added three `panelView` expectations in
   `walkthrough-model.test.ts` after S47.6 (`2f9aa32`) had given the step view a `compact` field. Test-only fix in
-  its own commit (`3cdb443`); the model is unchanged. The PR #23 and PR #26 notes say the top session is fixing the
-  same two lines on main — expect an identical-content merge, no conflict.
+  its own commit (`3cdb443`); the model is unchanged. Main fixed the same lines in `fdbb822` (PR #29) an hour later;
+  `origin/main` @ `e4e248a` merged into this branch without a conflict (identical content).
 
 **Evidence:** `tests/integration/e2e-keys.test.ts` (3 tests: detector on a sample spec, keys.ts shape, 70 files under
 tests/e2e scanned with zero hits); `npm run verify` green @ the S58.7 commit; the fourteen swept specs on Windows with
@@ -43,13 +43,17 @@ exception rather than an allow-list comment per spec. No ADR: a test convention,
 
 **Problems / risks:** None in the sweep. The hosted macOS run is the real proof of the rule; this session ran the
 swept specs on Windows only (there the chord is `Control+Home`, so a Windows pass does not by itself prove the macOS
-branch of keys.ts — the PR #23 fix did, in run 39033368439's successors).
+branch of keys.ts — the PR #23 fix did, in run 39033368439's successors). PR #30's first ready run (39038956264)
+failed on windows-x64 shard 1 in the unit step, not in E2E: four 5 s / 20 s timeouts (create-project, history-groups,
+recovery-journal, the watcher mass-delete test and its afterEach hook) on a run where the unit suite took 79 s against
+≈20 s on the dev machine — the starved-runner class S58.3 owns (PR #28 resizes exactly those files; its Windows shards
+are green). None of the four files is in this diff; nothing was changed for it here beyond merging main.
 
 **Owner action needed:** None.
 
 **Next up**
 
-1. Merge this PR after PR #23; then the top session's own walkthrough-model fix on main is redundant.
+1. Merge this PR after PR #23 and, for a green Windows unit step on a slow runner, after PR #28 (S58.3).
 2. S58.4 (Windows E2E intermittents) and S58.5 (owner decision) remain open in S58.
 
 ## Session 32 (side session) — 2026-10-16 — S47.5 one status row, S47.6 compact walkthrough
