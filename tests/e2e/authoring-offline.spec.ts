@@ -23,6 +23,15 @@ import { projectKey } from '../../src/recovery/keys';
  */
 test.describe.configure({ mode: 'serial' });
 
+/**
+ * Playwright's trace of a browser it connected to over CDP: the runner starts a trace on the packaged app's context as
+ * soon as it is connected, and with DOM snapshots and screenshots on, that start installs hooks (init script, screencast)
+ * in every page of the app — including a page whose first navigation is still pending, which answers no CDP command
+ * until it commits (the restored project's preview on a loaded Mac: run 39033368439 hung there for the whole test
+ * timeout, outside any test step). The action timeline is kept; the per-page capture is not (docs/testing.md).
+ */
+test.use({ trace: { mode: 'retain-on-failure', snapshots: false, screenshots: false } });
+
 const OFFLINE_SWITCHES = [
   '--proxy-server=http://127.0.0.1:9',
   '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1',

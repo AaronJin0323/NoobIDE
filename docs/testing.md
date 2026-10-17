@@ -54,6 +54,11 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
 - Monaco binds Ctrl+Home / Ctrl+End on Windows and Linux but ⌘↑ / ⌘↓ on macOS, and `ControlOrMeta+Home` moves nothing
   there: an E2E test that goes to the start or end of the document presses `DOC_START` / `DOC_END` from
   `tests/e2e/keys.ts`. A test that happened to start at line 1 hides the mistake until a later step does not.
+- E2E tests that drive the packaged app over CDP (`upgrade.spec.ts`, `authoring-offline.spec.ts`) keep the trace's
+  action timeline but turn its DOM snapshots and screenshots off (`test.use({ trace: { … } })`): starting those installs
+  hooks in every page of the app, and a page whose first navigation is still pending (the restored project's preview
+  on a loaded Mac) answers no CDP command until it commits, so the fixture hung for the whole test timeout, outside any
+  step (run 39033368439).
 
 ## CI shards and timing (S06.5)
 
