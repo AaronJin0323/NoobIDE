@@ -30,7 +30,7 @@ const isWordChar = (c: string): boolean => /[\w$]/.test(c) || c > '\u007f';
 const NAME = /^(?:[\w-]|[\u0080-￿])*$/;
 
 /** Region and the index where its content starts. */
-function htmlRegion(text: string, offset: number): { region: Region; start: number } {
+export function htmlRegion(text: string, offset: number): { region: Region; start: number } {
   const t = text.slice(0, offset);
   const open = /<!--|<(script|style)(?=[\s>/])/gi;
   let m: RegExpExecArray | null;
