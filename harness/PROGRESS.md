@@ -3,6 +3,40 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 35 (side session) — 2026-10-17 — M19 backlog records for S51–S57 (owner approval of review §4)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/dazzling-shtern-8a5721`, based
+on `claude/noobide-vs-mainstream-ides-310020` (review commit d5c3990).
+
+**Done**
+
+- Added milestone M19 "Everyday editing parity (v0.2)", sessions S51–S57 and 28 features (S51.1–S57.2) to
+  `harness/features.json`, turning the acceptance sketches of `docs/reviews/mainstream-ide-gap-2026-10-17.md` §4
+  into precise criteria (each names its test kind: unit, integration, fault, e2e, a11y, capability case, or doc).
+- ROADMAP.md gains an M19 section. No existing feature changed.
+- Renumbered from the original M18/S47–S53 because M18 and S47–S50 belong to the UI/UX refinement work on PR #14.
+
+**Evidence:** `node harness/session.mjs check` OK (251 features, 54 sessions); `npm run verify -- --quick` green
+(see commit); `node harness/session.mjs show S51` lists the features with criteria.
+
+**Decisions:** Session dependencies point at completed sessions (S08–S10, S12, S14, S18, S19, S21, S22, S24, S34,
+S41, S43), like M14–M17, not at S29; whether v0.2 waits for MVP stability / H.6 stays the owner's call (review §6
+item 2). `verify` kinds: `auto` except S54.1, S55.1, S56.4 (`agent-check`: decision record, rule choice, wording)
+and S52.5 (`manual-win`, with Finder steps in the same criteria: Explorer/Finder drag-and-drop needs real hardware).
+Rules 16–25 (S55.1) default to a set that avoids duplicating rules 1–15; H.6 findings replace defaults if available.
+
+**Problems / risks:** Thresholds (search under 1 s on 2 000 files, main blocked ≤ 100 ms, quick-open filter
+< 50 ms) are proposals, not measurements; a session may refine them with a measurement but must not loosen them
+without a superseding feature. S53.1 needs the Emmet package decision (review §6 item 3).
+
+**Owner action needed:** Review §6 items 2 and 3. S52.5 manual check once S52.4 lands.
+
+**Next up**
+
+1. Any of S51–S57 (independent lanes); suggested order S51 → S52 → S53 → S55 → S54 → S56 → S57.
+
+**Ideas / backlog candidates:** none new.
+
 ## Session 34 (side session) — 2026-10-17 — Functional gap assessment vs VS Code / IntelliJ (S01.6, owner request)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch

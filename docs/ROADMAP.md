@@ -161,6 +161,26 @@ Owner: H.6 five-beginner study on both platforms → fixes feed back into M5/M6.
 Owner-led: H.7 beta with 8–12 new beginners, H.8 public-beta go/no-go. Agent sessions are added as features
 (S30+) from beta findings.
 
+### M19 — Everyday editing parity (PLAN §12 v0.2, owner request 2026-10-17)
+
+From [docs/reviews/mainstream-ide-gap-2026-10-17.md](reviews/mainstream-ide-gap-2026-10-17.md) §4. Suggested order
+S51 → S52 → S53 → S55 → S54 → S56 → S57; the sessions are independent of each other and can run in parallel lanes.
+PLAN's v0.2 entry criterion ("static-webpage MVP is stable") is an owner call (review §6), not a session dependency.
+
+| Session | Title                        | Goal                                                                         | After        | Feat. |
+| ------- | ---------------------------- | ---------------------------------------------------------------------------- | ------------ | ----- |
+| S51     | Find, replace and quick open | Find/replace surfaced, find/replace in files via save pipeline, Ctrl/Cmd+P   | S24, S43     | 5     |
+| S52     | Complete file management     | Move, copy, duplicate, multi-select, import from outside, image viewer tab   | S08–S10, S12 | 6     |
+| S53     | HTML/CSS authoring aids      | Emmet, linked tags, colour picker, comment toggle, opt-in format on save     | S18, S43     | 5     |
+| S54     | CSS without reload           | Swap linked stylesheets in the isolated preview, reported reload fallback    | S14, S41     | 3     |
+| S55     | More checks and quick fixes  | Rules 16–25 with fixtures; fixes on the problem card and editor lightbulb    | S19, S22     | 3     |
+| S56     | Project checkpoints          | Named whole-project snapshots on the S21 store; compare, restore, auto       | S21, S34     | 4     |
+| S57     | JS navigation and rename     | Definition, references, cross-file rename limited to proven capability cases | S18          | 2     |
+
+**M19 exit:** every new capability is backed by a test or capability case before it is claimed · every write goes
+through the never-overwrite save and file-op paths · preview isolation unchanged · verify and full e2e green on
+Windows x64 · Explorer/Finder drop recorded as manual checks.
+
 ## Rules for changing the plan
 
 - Scope changes go through PLAN.md (owner) and a decision record in `docs/decisions/`.
