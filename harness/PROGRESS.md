@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 45 (side session) — 2026-10-18 — Roving focus, console tools, palette recents, container queries (S49.2, S49.4–S49.6)
+## Session 46 (side session) — 2026-10-18 — Roving focus, console tools, palette recents, container queries (S49.2, S49.4–S49.6)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m18-s49-nav-193d79` (PR #35), cut
 from the M18 plan branch with S47.1. One of five parallel M18 sessions (S47, S48 composer, S48 blocks, S49, S50).

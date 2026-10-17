@@ -114,9 +114,9 @@ describe('chat panel (S33.1)', () => {
     expect(out).toContain('aria-label="移除：文件 index.html"');
     expect(out).toContain('aria-label="移除：script.js 第 1–3 行（选中的代码）"');
     expect(out).toContain('模式：解释代码');
-    // Send is an AI entry point: the sparkle icon and the written label.
+    // Send is an AI entry point: the sparkle icon and the written label (S49.6: in a span the narrow chin hides).
     expect(out).toMatch(
-      /class="ai-entry ai-entry-strong ai-send" data-testid="ai-send"[^>]*><svg[^]*?<\/svg>发送<\/button>/,
+      /class="ai-entry ai-entry-strong ai-send" data-testid="ai-send"[^>]*><svg[^]*?<\/svg><span class="cq-label">发送<\/span><\/button>/,
     );
     expect(out).not.toMatch(/data-testid="ai-send"[^>]*disabled/);
     expect(out).toContain('aria-label="向 AI 提问"');
