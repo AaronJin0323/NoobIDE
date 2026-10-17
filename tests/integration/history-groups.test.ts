@@ -93,7 +93,12 @@ afterEach(async () => {
   await rm(tmp, { recursive: true, force: true });
 });
 
-describe('recording an agent turn (S34.2)', () => {
+// Timeouts (S58.3, docs/perf/ci-runners.md): every test here is real disk work (atomic snapshot writes through the
+// save pipeline). The longest takes 0.37 s on the dev machine; a starved hosted Windows runner took over 5 s for two
+// of them (run 39018194387, the whole file 21 s). 60 s is a functional timeout for such a runner, not a speed budget.
+const REAL_IO = { timeout: 60_000 };
+
+describe('recording an agent turn (S34.2)', REAL_IO, () => {
   it('keeps the content before each change and the hash after it, and lists the turn as one group', async () => {
     const css = 'css 样式/主 样式.css';
     // The user saved this file a moment ago: its after-save version is in an open save burst.
@@ -259,7 +264,6 @@ describe('recording an agent turn (S34.2)', () => {
 
   // Every step is an atomic index write on the real disk: a few ms here, but a hosted Windows runner with the CPU
   // saturated needed over 5 s for the burst (PR #14 CI). The timeout only bounds the wait; the assertions are unchanged.
-  const REAL_IO = { timeout: 60_000 };
   it('keeps the newest groups within the limit, newest first; a group-only index is not deleted', REAL_IO, async () => {
     for (let i = 0; i < GROUP_LIMITS.maxGroups + 3; i += 1) {
       clock += 1;
@@ -278,7 +282,7 @@ describe('recording an agent turn (S34.2)', () => {
   });
 });
 
-describe('index schema upgrade and downgrade (S34.2, S28.4 policy)', () => {
+describe('index schema upgrade and downgrade (S34.2, S28.4 policy)', REAL_IO, () => {
   async function writeIndex(value: unknown) {
     await mkdir(path.dirname(indexFile()), { recursive: true });
     await writeFile(indexFile(), JSON.stringify(value));
