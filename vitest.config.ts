@@ -6,6 +6,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['src/**/*.test.ts', 'tests/integration/**/*.test.ts'],
+    // Bound contention so filesystem latency checks are not starved by unrelated test workers.
+    maxWorkers: 4,
     environment: 'node',
     passWithNoTests: false,
   },

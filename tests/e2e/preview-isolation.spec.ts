@@ -15,6 +15,7 @@ import {
 import { previewEntryToProblem } from '../../src/preview/to-problem';
 import type { PreviewLogEntry } from '../../src/shared/ipc/preview-contract';
 import { launchApp } from './launch';
+import { sourceBacklog } from './source-backlog';
 import {
   copyFixture,
   evalInPreview,
@@ -625,8 +626,12 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   // simulated part is checked through the message count, not the wall-clock total, and "the rest" is the gap minus the
   // time main measurably spent in the simulated work (measureMainStall).
   const MOST_AT_ONCE = CONSOLE_BURST + MAX_GUARDED_SCOPES * WORKER_CONSOLE_BURST;
-  // "In one go" is a token bucket's bound, so it is checked as one: over any stretch of time, at most MOST_AT_ONCE
-  // more messages than MOST_PER_SECOND allows for that stretch (measureMainStall's `backlog`). Counting the messages
+  // Measure the admission bucket on Chromium source timestamps, not main-process delivery timestamps.
+  // Hosted Windows run 38905426717 delivered 755 valid messages in compressed batches after descheduling:
+  // arrival excess was 301 despite the 260-token source bound. Keep arrival backlog as diagnostic data;
+  // source capture must cover every received message, and the unlimited isolated-world control must fail it.
+  // Over any stretch of source time, at most MOST_AT_ONCE
+  // more messages than MOST_PER_SECOND allows for that stretch (measureMainStall's `sourceBacklog`). Counting the messages
   // between two ticks alone is not that bound when main stalls for another reason: on the Windows CI runner of
   // 2026-10-16 (run 38838854227) eight busy workers stalled main 3,009 ms with no console output at all and 1,558 ms
   // with it; in the 0.6 ms run one 1,700 ms gap took 381 messages, all legitimately admitted while main was not
@@ -675,7 +680,8 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
         `longest stall beyond the simulated work ${base.unexplained} ms`,
     );
     expect(base.result, name).toBe('finished');
-    expect(base.backlog, name).toBeLessThanOrEqual(MOST_AT_ONCE);
+    expect(base.sourceMessages, name).toBeGreaterThanOrEqual(base.messages);
+    expect(base.sourceBacklog, name).toBeLessThanOrEqual(MOST_AT_ONCE);
     expect(base.unexplained, name).toBeLessThan(1_500);
     return 200 + base.unexplained;
   };
@@ -688,12 +694,13 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
       (run) => {
         console.log(
           `${name} (main 0.6 ms per message): ${run.messages} messages; longest main stall ${run.max} ms; ` +
-            `most messages between two 10 ms ticks ${run.batch} (beyond the rate ${run.backlog}); most simulated work between two ticks ${run.simulated} ms; ` +
+            `most messages between two 10 ms ticks ${run.batch} (arrival excess ${run.backlog}, source excess ${run.sourceBacklog}, source messages ${run.sourceMessages}); most simulated work between two ticks ${run.simulated} ms; ` +
             `longest stall beyond the simulated work ${run.unexplained} ms`,
         );
         expect(run.result, name).toBe('finished');
         expect(run.messages, name).toBeLessThanOrEqual(allowedFor(name));
-        expect(run.backlog, name).toBeLessThanOrEqual(MOST_AT_ONCE);
+        expect(run.sourceMessages, name).toBeGreaterThanOrEqual(run.messages);
+        expect(run.sourceBacklog, name).toBeLessThanOrEqual(MOST_AT_ONCE);
       },
       (run) => run.unexplained,
       throughTop[name] === undefined ? undefined : () => slowMainBaseline(name, throughTop[name]!),
@@ -702,7 +709,7 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
 
   // Defence in depth (decision 0016, first amendment): output the limiter cannot see — here a DevTools isolated
   // world, which no page can create — still trips main's flood guard, which stops the running script. It is also the
-  // control for `backlog`: an unlimited source must show far more than MOST_AT_ONCE beyond MOST_PER_SECOND.
+  // control for sourceBacklog: an unlimited source must exceed the unchanged MOST_AT_ONCE bound.
   const backstop = await measureMainStall(
     app,
     previewId,
@@ -715,7 +722,8 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
   );
   expect(backstop.result).toBe('stopped');
   expect(backstop.ms).toBeLessThan(5_000);
-  expect(backstop.backlog).toBeGreaterThan(MOST_AT_ONCE);
+  expect(backstop.sourceMessages).toBeGreaterThan(0);
+  expect(backstop.sourceBacklog).toBeGreaterThan(MOST_AT_ONCE);
   expect(await evalInPreview<number>(app, '1 + 1')).toBe(2);
   await expect(
     page
@@ -745,14 +753,41 @@ async function measureMainStall(
   messages: number;
   batch: number;
   backlog: number;
+  sourceBacklog: number;
+  sourceMessages: number;
   simulated: number;
   unexplained: number;
 }> {
-  return app.evaluate(
+  const measured = await app.evaluate(
     async ({ webContents }, { id, js, costMs, ratePerSecond, isolatedWorld }) => {
       const wc = webContents.fromId(id);
       if (!wc)
-        return { max: 0, result: 'no preview', ms: 0, messages: 0, batch: 0, backlog: 0, simulated: 0, unexplained: 0 };
+        return {
+          sourceTimes: [] as number[],
+          max: 0,
+          result: 'no preview',
+          ms: 0,
+          messages: 0,
+          batch: 0,
+          backlog: 0,
+          simulated: 0,
+          unexplained: 0,
+        };
+      // Admission timestamps belong to the emitting renderer/worker, not IPC delivery in main.
+      // A descheduled main process may receive a valid 1.5-second stream in one compressed batch.
+      const sourceTimes: number[] = [];
+      const sessions = new Set<string>();
+      const enabling: Promise<unknown>[] = [];
+      if (ratePerSecond > 0) await wc.debugger.sendCommand('Runtime.enable');
+      const onProtocol = (_event: unknown, method: string, params: { timestamp?: number; sessionId?: string }) => {
+        if (method === 'Target.attachedToTarget' && params.sessionId) {
+          sessions.add(params.sessionId);
+          enabling.push(wc.debugger.sendCommand('Runtime.enable', {}, params.sessionId).catch(() => undefined));
+        } else if (method === 'Runtime.consoleAPICalled' && typeof params.timestamp === 'number') {
+          sourceTimes.push(params.timestamp);
+        }
+      };
+      if (ratePerSecond > 0) wc.debugger.on('message', onProtocol);
       let messages = 0;
       let sinceTick = 0;
       let batch = 0;
@@ -821,7 +856,17 @@ async function measureMainStall(
       await new Promise((r) => setTimeout(r, 1_000)); // whatever main still had queued
       clearInterval(timer);
       wc.off('console-message', onMessage);
+      wc.debugger.off('message', onProtocol);
+      await Promise.all(enabling);
+      if (ratePerSecond > 0) {
+        await Promise.all(
+          [undefined, ...sessions].map((session) =>
+            wc.debugger.sendCommand('Runtime.disable', {}, session).catch(() => undefined),
+          ),
+        );
+      }
       return {
+        sourceTimes,
         max: Math.round(max),
         result,
         ms,
@@ -840,6 +885,11 @@ async function measureMainStall(
       isolatedWorld: options.isolatedWorld ?? false,
     },
   );
+  return {
+    ...measured,
+    sourceBacklog: sourceBacklog(measured.sourceTimes, options.ratePerSecond ?? 0),
+    sourceMessages: measured.sourceTimes.length,
+  };
 }
 
 interface RawRecord {

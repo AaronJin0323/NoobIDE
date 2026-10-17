@@ -4236,8 +4236,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "done",
-      "evidence": "12 workflow/shard checks; real Playwright union and expensive-suite separation; both Windows E2E shards 324 passed/4 skipped; make --from-package produced Squirrel+ZIP; inspect-arch passed; verify green. Hosted latency pending ADR 0035."
+      "status": "in_progress",
+      "evidence": "Hosted run 38905426717: three shards passed; Windows flood arrival-backlog assertion failed (301 vs260); timing artifact path incorrect. Investigating without weakening rate limit."
     },
     {
       "id": "S28.7",

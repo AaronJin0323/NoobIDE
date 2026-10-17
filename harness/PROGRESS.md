@@ -3,6 +3,27 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 33 (side session) — 2026-10-17 — Hosted CI failure follow-up (S06.5)
+
+**Agent:** Codex on Windows x64, managed ci-cd-delivery checkout, PR #13.
+
+**Done:** Investigated run 38905426717. Three shards passed; Windows shard 2 failed the console
+flood arrival-excess assertion (301 versus 260). Source buckets cannot bound delivery bursts after
+main is descheduled. The regression now measures the unchanged burst/rate bound on Chromium's
+source timestamps, checks capture covers received messages, and retains main-stall, total-message,
+keystroke and unlimited-source control checks. Added deterministic delayed/out-of-order and bypass
+cases. Fixed JSON report path relative to Playwright config; missing reports now fail upload.
+Aggregate gates no longer cancel their sibling when one reports a failing prerequisite.
+
+**Evidence:** Baseline verify passed (2728 tests). Final validation and hosted retry recorded in
+S06.5 evidence. No product rate limit or latency threshold was increased; no tests skipped.
+
+**Decisions:** Distinguish source admission rate from IPC delivery rate. Keep arrival excess in logs.
+
+**Problems / risks:** Hosted CPU scheduling remains variable; physical release checks remain pending.
+
+**Next up:** Confirm the updated hosted checks on PR #13 before merge and release dry run.
+
 ## Session 32 (side session) — 2026-10-17 — Draft-release CD (S28.7, owner request)
 
 **Agent:** Codex on Windows x64, branch codex/faster-ci.

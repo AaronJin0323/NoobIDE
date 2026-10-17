@@ -176,6 +176,7 @@ describe('ci.yml', () => {
     const gate = block('complete', 2).body.join('\n');
     expect(gate).toContain('if: always()');
     expect(gate).toContain('needs: build');
+    expect(gate).toContain('fail-fast: false');
     expect(gate).toContain('name: ${{ matrix.target }}');
     expect(gate).toContain('target: [windows-x64, macos-arm64]');
     expect(gate).toContain('BUILD_RESULT: ${{ needs.build.result }}');
@@ -186,6 +187,7 @@ describe('ci.yml', () => {
     const report = steps.find((s) => s.name === 'Upload E2E timing report');
     expect(report?.if).toBe('always()');
     expect(report?.with.path).toBe('reports/e2e/');
+    expect(report?.with['if-no-files-found']).toBe('error');
     for (const s of steps.filter((s) => s.uses?.startsWith('actions/upload-artifact@'))) {
       expect(s.with.name).toContain('${{ matrix.target }}');
       if (s.if !== 'matrix.shard == 1') expect(s.with.name).toContain('${{ matrix.shard }}');

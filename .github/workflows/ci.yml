@@ -84,7 +84,7 @@ jobs:
         with:
           name: e2e-report-${{ matrix.target }}-${{ matrix.shard }}
           path: reports/e2e/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
 
       - name: Make installers
@@ -122,6 +122,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: {}
     strategy:
+      fail-fast: false
       matrix:
         target: [windows-x64, macos-arm64]
     steps:
