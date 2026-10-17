@@ -7,6 +7,8 @@ import type { MessageKey } from './zh-CN';
  */
 export const ONE_FORMS: Partial<Record<'zh-CN' | 'en', Partial<Record<MessageKey, string>>>> = {
   en: {
+    'search.count.matches': '{n} result', // S51.3
+    'search.count.files': 'in {n} file',
     'problems.count.errors': '{n} error',
     'problems.count.warnings': '{n} warning',
     'problems.count.info': '{n} note',

@@ -142,6 +142,7 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       SEPARATOR,
       command('find'), // S51.1
       command('replace'),
+      command('find-in-files'), // S51.3
       SEPARATOR,
       command('toggle-inline-ai'), // S32.1
     ],

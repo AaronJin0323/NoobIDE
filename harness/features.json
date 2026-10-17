@@ -4431,8 +4431,8 @@
       "depends_on": [
         "S51.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/search.spec.ts (6: Ctrl+Shift+F opens Search beside Problems, toggles named + aria-pressed + ring, axe clean; results grouped with counts/context, click and Enter open file at line/column; empty/invalid-regex/truncated/no-project in zh-CN and en; keyboard-only flow) + src/renderer/search/search-model.test.ts + shell.spec (S30.3 no disabled controls) on Windows x64"
     },
     {
       "id": "S51.4",

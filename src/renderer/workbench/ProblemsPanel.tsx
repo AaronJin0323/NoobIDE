@@ -32,6 +32,9 @@ interface ProblemsPanelProps {
    * the problem first. Absent while AI is not offered.
    */
   onFixWithAi?: ((record: ProblemRecord, title: string) => void) | undefined;
+  /** S51.3: the find-in-files panel shares the bottom region, and its toggle the status strip. */
+  searchPanel?: ReactNode;
+  searchToggle?: ReactNode;
 }
 
 const SECTION_LABEL: Record<SectionId, MessageKey> = {
@@ -66,6 +69,8 @@ export function ProblemsPanel({
   renderDetails,
   fixCard,
   onFixWithAi,
+  searchPanel,
+  searchToggle,
 }: ProblemsPanelProps) {
   const { t, locale } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
@@ -86,6 +91,7 @@ export function ProblemsPanel({
 
   return (
     <section className="region problems" aria-label={t('region.problems')} data-testid="region-problems">
+      {searchPanel}
       <div id="problems-panel" className="panel problems-panel" hidden={!open} data-testid="problems-panel">
         <div className="panel-header">
           <h2 className="region-title">{t('problems.tab')}</h2>
@@ -190,6 +196,7 @@ export function ProblemsPanel({
           )}
           {t('problems.tab')} · {summary}
         </button>
+        {searchToggle}
         <span className="sr-only" role="status" aria-live="polite" data-testid="problems-announcer">
           {announcement}
         </span>

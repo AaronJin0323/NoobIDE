@@ -113,6 +113,7 @@ import { useInlineEdit, type InlineEditHost } from '../ai/useInlineEdit';
 import { setEditorContextActionGroup } from '../editor/editor-handle';
 import { useAiFix, type AiFixHost } from '../problems/useAiFix';
 import { AiFixCard } from '../problems/AiFixCard';
+import { useFindInFiles } from '../search/useFindInFiles'; // S51.3
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -1027,6 +1028,17 @@ export function Workbench() {
     [],
   );
 
+  // --- S51.3: find in files (bottom region, beside Problems); open buffers are searched instead of the disk copy ---
+  const findInFiles = useFindInFiles({
+    api: bridge?.search,
+    projectId: doc.project?.projectId ?? null,
+    openBuffers: () => [...savers.current].map(([relPath, saver]) => ({ relPath, text: saver.text })),
+    onOpenHit: goTo,
+    problemsOpen: visible.problemsPanel,
+    closeProblems: () => dispatchLayout({ type: 'toggleProblems' }),
+  });
+  // --- end S51.3 ---
+
   // --- S24.1: command registry. Shortcuts (⌘S / Ctrl+S everywhere in the window, Ctrl+Tab, ⌘/Ctrl with + − 0 for
   // the code font, …), the in-window menu and its hints all come from src/shared/commands. ---
   const theme = useThemeChoice();
@@ -1089,6 +1101,7 @@ export function Workbench() {
     // S51.1: Monaco's find / replace widget on the file on screen
     find: () => activeEditor()?.openFind?.('find'),
     replace: () => activeEditor()?.openFind?.('replace'),
+    'find-in-files': bridge?.search ? findInFiles.show : undefined, // S51.3
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
     'command-palette': () =>
       setPalette(
@@ -1348,6 +1361,8 @@ export function Workbench() {
         projectOpen={project !== null}
         view={problemsView}
         onClearResolved={runtimeProblems.clearResolved}
+        searchPanel={findInFiles.panel} // S51.3
+        searchToggle={bridge?.search ? findInFiles.stripButton : undefined}
         onFixWithAi={inlineEdit.shown ? (record, title) => void inlineEdit.fixProblem(record, title) : undefined}
         renderDetails={(record) => (
           <ProblemDetails

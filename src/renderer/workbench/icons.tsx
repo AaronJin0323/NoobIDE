@@ -349,3 +349,38 @@ export const NoobIdeLogo = ({ size = 40 }: { size?: number }) => (
     </g>
   </svg>
 );
+
+// ── S51.3 find in files: the option toggles (shape, not colour, shows what each does) ──
+/** Match case: a capital and a small letter A. */
+export const CaseIcon = () => (
+  <IconBase size={16}>
+    <path d="M1.5 12.5L4.5 3.5l3 9M2.6 9.5h3.8" />
+    <circle cx="11.5" cy="10.5" r="2" />
+    <path d="M13.5 8v4.5" />
+  </IconBase>
+);
+
+/** Whole word: a word between two bars, underlined. */
+export const WholeWordIcon = () => (
+  <IconBase size={16}>
+    <path d="M1.5 4v6M14.5 4v6M1.5 13h13" />
+    <path d="M4.5 9.5l1-4 1.25 3 1.25-3 1 4M10.5 6v3.5" />
+  </IconBase>
+);
+
+/** Regular expression: a dot and an asterisk. */
+export const RegexIcon = () => (
+  <IconBase size={16}>
+    <circle cx="3.5" cy="12" r="1" />
+    <path d="M11 2.5v7M8 4.25l6 3.5M14 4.25l-6 3.5" />
+  </IconBase>
+);
+
+/** Replace: a curved arrow from one line to the next. */
+export const ReplaceIcon = () => (
+  <IconBase size={16}>
+    <path d="M3 3.5h6.5a3 3 0 0 1 0 6H5" />
+    <path d="M7 7.5l-2 2 2 2" />
+    <path d="M3 13h10" />
+  </IconBase>
+);

@@ -65,6 +65,8 @@ export const COMMAND_IDS = [
   // S51.1 find and replace in the current file (Monaco's find widget)
   'find',
   'replace',
+  // S51.3 find in files (bottom panel)
+  'find-in-files',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -203,6 +205,13 @@ export const COMMANDS: readonly CommandDefinition[] = [
     label: 'command.replace',
     keys: { windows: { key: 'h', primary: true }, mac: { key: 'f', primary: true, alt: true } },
     when: (c) => c.hasActiveTab && !c.modalOpen,
+  },
+  // S51.3: the find-in-files panel in the bottom region (Ctrl/Cmd+Shift+F, as in other editors).
+  {
+    id: 'find-in-files',
+    label: 'command.findInFiles',
+    keys: { all: { key: 'f', primary: true, shift: true } },
+    when: noModal,
   },
 ];
 
