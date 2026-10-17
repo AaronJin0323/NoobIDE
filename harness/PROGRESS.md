@@ -35,6 +35,13 @@ macOS shard 2). Four failures, four causes, none a product threshold:
   0.14 right after a theme switch. The test waits on `data-theme`, but the editor's token colours follow in a later
   passive effect (`monaco.editor.setTheme`), so a captured frame in between shows text without contrast. The
   baseline capture now polls until a frame shows the code; the frosted-sheet ratio (< 0.03) is unchanged.
+- S06.6 — `not-found.spec.ts:105` (PR #20's second run 39018329181, Windows shard 1): the preview's "page not found"
+  page came in English after the previous test switched to English and back. Product bug: main applied a language
+  change only after the settings file had been written (atomic write, serial queue), so on a slow disk the preview
+  server and the native menus lagged behind the interface. The language now applies when the request arrives.
+- S06.6 — `recovery.spec.ts:224` (same run, Windows shard 2): the spec's `journalRecords()` listed a project's journal
+  directory that the app had just removed (last record cleared after a save) between its two `readdir` calls
+  (ENOENT). The inner listing treats a vanished directory as empty.
 - docs/testing.md: hosted-runner conventions (wait for state, let the test start what it measures, best-of batches).
 
 **Evidence:** `npm run verify` green on the Windows dev machine (2736 passed, 15 skipped; 221 files). `npm run test:e2e -- tests/e2e/walkthrough.spec.ts tests/e2e/preview-layout.spec.ts tests/e2e/preview-snapshot.spec.ts`: 27 passed (busy page snapshot 1502 ms, outline timeout, as designed). Reproduction logs in the session scratchpad (not committed).
@@ -43,7 +50,8 @@ macOS shard 2). Four failures, four causes, none a product threshold:
 handling in a layout effect is a product behaviour change (Escape works from the first frame) small enough to live
 in the code comment rather than an ADR.
 
-**Problems / risks:** The About-dialog Escape loss is reasoned from the snapshot and Blink's input priority, not
+**Problems / risks:** Each hosted run so far surfaced one or two further flakes of the same class (seven causes in
+all); more may exist in specs that did not run red yet. The About-dialog Escape loss is reasoned from the snapshot and Blink's input priority, not
 reproduced locally (it needs a starved renderer). The hosted matrix must pass twice on the PR before this counts
 as settled (S06.6 last criterion). Vitest console output needs `--silent=false` to show `NOOBIDE_PERF_PRINT` lines.
 
