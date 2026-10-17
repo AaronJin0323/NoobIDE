@@ -255,7 +255,13 @@ test('S47.4: the path is a tooltip and a project-menu line, the language lives i
   const projectMenu = page.locator('#project-menu-list');
   await expect(projectMenu).toBeVisible();
   await expect(projectMenu.getByTestId('project-path')).toHaveText(root);
-  await expect(projectMenu.getByRole('menuitem')).toHaveText([/^关闭项目$/, /显示$/, /^历史版本…$/, /^课程$/]);
+  await expect(projectMenu.getByRole('menuitem')).toHaveText([
+    /^关闭项目$/,
+    /显示$/,
+    /^历史版本…$/,
+    /^项目检查点…$/, // S56.2
+    /^课程$/,
+  ]);
   await projectMenu.getByTestId('menu-help-walkthrough').click();
   await expect(page.getByTestId('walkthrough')).toBeVisible();
   await page.getByTestId('walkthrough-close').click();

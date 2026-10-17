@@ -22,6 +22,15 @@ stored in app data, never in the project. Undo, autosave, recovery and history s
   the trash, renames back, deleted files from history — each only if unchanged since the turn.
 - `history-triggers.ts` (S21.2) — snapshots around saves (the save only reads the old bytes, bounded by a timeout;
   storing is queued) and before format, delete (listing filters: no dotfiles, no `node_modules`) and restore.
+- `checkpoints.ts` (S56.1) — `CheckpointStore`: whole-project checkpoints. One manifest per checkpoint under
+  `<userData>/checkpoints/<projectKey>/<id>.json` (name, named/automatic, cause, time, per file path + SHA-256 +
+  size); the contents are blobs in history's `objects/`, so nothing is stored twice. Files as the listing shows them
+  (no dotfiles, `node_modules`, OS litter, temporaries; links not followed). Limits (files, file size, checkpoint
+  size, total size, named count) are checked before anything is stored: a checkpoint is refused with the reason,
+  never stored in part. A damaged manifest makes only that checkpoint unusable (listed as damaged, deletable); a
+  missing or damaged blob only that file (compare marks it unavailable). The store pins its blobs in the history
+  store (`setPins`), so history's limits, cleanup and "clear all" never delete them; while any manifest is unreadable
+  history deletes no blob at all.
 - `atomic-file.ts`, `keys.ts` — atomic app-data writes, content-free logger, hashed storage keys.
 
 Main creates both stores from `app.getPath('userData')`; tests pass a temporary directory.
