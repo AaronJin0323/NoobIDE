@@ -18,8 +18,10 @@ import {
 
 export type WalkthroughAction =
   | { readonly type: 'loaded'; readonly state: WalkthroughState }
-  /** Help → Walkthrough (or the first project created with the wizard). */
+  /** Help → Walkthrough. */
   | { readonly type: 'open' }
+  /** The wizard created a project: a walkthrough that never ran starts at "meet the files" (S23.2). */
+  | { readonly type: 'projectCreated' }
   | { readonly type: 'next' }
   | { readonly type: 'back' }
   /** Close the walkthrough (skip it); it can be revisited from Help. */
@@ -36,9 +38,19 @@ export interface ModelState {
   /** False until the stored state arrived: nothing is shown or saved before. */
   readonly loaded: boolean;
   readonly value: WalkthroughState;
+  /**
+   * Help → Walkthrough or the wizard was used before the stored state arrived (a slow start): applied to that state,
+   * in order, as soon as it is loaded instead of being lost. Empty once loaded.
+   */
+  readonly pending: readonly PendingAction[];
 }
 
-export const INITIAL_MODEL: ModelState = { loaded: false, value: DEFAULT_WALKTHROUGH };
+/** The user actions worth keeping until the stored state is loaded (the rest need a shown walkthrough). */
+export type PendingAction = Extract<WalkthroughAction, { type: 'open' | 'projectCreated' }>;
+const isPending = (action: WalkthroughAction): action is PendingAction =>
+  action.type === 'open' || action.type === 'projectCreated';
+
+export const INITIAL_MODEL: ModelState = { loaded: false, value: DEFAULT_WALKTHROUGH, pending: [] };
 
 export const stepIndex = (step: WalkthroughStepId) => WALKTHROUGH_STEPS.indexOf(step);
 export const isLastStep = (step: WalkthroughStepId) => stepIndex(step) === WALKTHROUGH_STEPS.length - 1;
@@ -52,11 +64,17 @@ const moveTo = (state: WalkthroughState, step: WalkthroughStepId): WalkthroughSt
   step === state.step ? state : { ...state, step, baseline: null };
 
 export function walkthroughReducer(model: ModelState, action: WalkthroughAction): ModelState {
-  if (action.type === 'loaded') return { loaded: true, value: action.state };
-  if (!model.loaded) return model;
+  if (action.type === 'loaded') {
+    const loaded: ModelState = { loaded: true, value: action.state, pending: [] };
+    return model.pending.reduce(walkthroughReducer, loaded);
+  }
+  if (!model.loaded) {
+    if (!isPending(action) || model.pending.some((p) => p.type === action.type)) return model;
+    return { ...model, pending: [...model.pending, action] };
+  }
   const state = model.value;
   const next = reduce(state, action);
-  return next === state ? model : { loaded: true, value: next };
+  return next === state ? model : { ...model, value: next };
 }
 
 function reduce(state: WalkthroughState, action: WalkthroughAction): WalkthroughState {
@@ -65,6 +83,10 @@ function reduce(state: WalkthroughState, action: WalkthroughAction): Walkthrough
       const step = firstOpenStep(state) ?? WALKTHROUGH_STEPS[0];
       return { ...moveTo(state, step), status: 'active' };
     }
+    case 'projectCreated':
+      // Only a walkthrough that never ran: one that was closed or finished stays as the user left it.
+      if (state.status !== 'not-started') return state;
+      return reduce(reduce(state, { type: 'detected', step: 'create' }), { type: 'open' });
     case 'next': {
       if (state.status !== 'active') return state;
       if (isLastStep(state.step)) {

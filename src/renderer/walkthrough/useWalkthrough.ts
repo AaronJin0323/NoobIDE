@@ -203,12 +203,7 @@ export function useWalkthrough({
     close: () => dispatch({ type: 'close' }),
     startTask: () => dispatch({ type: 'taskOpen' }),
     closeTask: () => dispatch({ type: 'taskClose' }),
-    projectCreated: () => {
-      const current = modelRef.current;
-      if (!current.loaded || current.value.status !== 'not-started') return;
-      dispatch({ type: 'detected', step: 'create' });
-      dispatch({ type: 'open' });
-    },
+    projectCreated: () => dispatch({ type: 'projectCreated' }),
     historyRestored: () => {
       const { value } = modelRef.current;
       if (value.status === 'active' && value.step === 'restore') detect('restore');
