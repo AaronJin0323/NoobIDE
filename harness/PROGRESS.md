@@ -105,6 +105,71 @@ up scrolled, not that nothing moved in the same task. Merged the plan branch aga
    so the gate covers it, and add its case to reduced-motion.spec.ts.
 2. Other M18 sessions (S48–S50) can branch from this commit.
 
+## Session 45 (side session) — 2026-10-18 — S57.3: F12 / Shift+F12 / F2 wait for the project's script index
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/priceless-euler-266ed3` (from
+main @ ce8a23a, PR #28 merged). Side session of the M19 group; fixes the product question PR #30's session raised.
+
+**Done**
+
+- S57.3 — Navigation pressed before the project's scripts were indexed answered "not found" (or "not a .js file")
+  because `ProjectScripts.open()` reads the files one IPC call at a time and `relPathOf` / the TypeScript worker only
+  know what has arrived. Now `ProjectScripts` is "indexing" from `open()` until the last file is read
+  (`indexing()`, `whenIndexed(timeoutMs)`, released by `close()` or a newer `open()`). A Monaco-free registry
+  (`src/renderer/editor/project-scripts-registry.ts`) holds the current instance and also covers the gap before the
+  Monaco chunk has loaded: `useProjectScripts` calls `expectProjectScripts()` synchronously in its effect, the Monaco
+  binding registers the instance, and `whenProjectIndexed()` waits across both gaps within one bound
+  (`INDEX_WAIT_MS` = 10 s). `navigate` and `renamePlanAt` (js-navigation-monaco.ts) await `paths.whenIndexed()`
+  before anything else and answer `{ kind: 'indexing' }` / `{ ok: false, reason: 'indexing' }` after the bound; the
+  probe's `folderPaths` is always indexed. The index counts as ready only once Monaco has taken the libs: its
+  `setExtraLibs` notifies the worker on a 0 ms timer, so `setLibs` resolves on `onDidExtraLibsChange` and `open()`
+  awaits it before releasing waiters (review finding; otherwise a released F12 could still query the old lib set).
+  `createProjectScripts(read, files)` registers and starts reading in one step, so no caller can leave a registered,
+  not-yet-indexing instance. While a command waits, `useJsNavigation` publishes it to a small store
+  (`navigation-wait-state.ts`) and `EditorStatusStrip` shows "正在读取项目脚本，读完就转到定义… / Reading the project's
+  scripts, then Go to definition…" as a `role="status"` text note (`navigation-indexing`); after the bound the
+  navigation sheet explains that the scripts are still being read (`nav.indexing.timeout`), and the rename box refuses
+  with `rename.refused.indexing`. Strings in `i18n/authoring.ts` (zh-CN + en). docs/capabilities.md S57 section has
+  the paragraph; features.json has S57.3 under S57. For the e2e suite the editor test hooks gained
+  `holdProjectScriptReads()` / `releaseProjectScriptReads()` (registry): project-script reads wait until released, a
+  slow disk on demand in the spirit of `killWorkers`; nothing is read or written differently.
+
+**Evidence:** `project-scripts.test.ts` (+3: the race — F12 issued after `open()` with gated reads stays pending
+until the last file arrives, then `relPathOf` answers; ready only once `setLibs`' promise resolves; the bound with a
+fake clock, and `close()` releasing a waiter), `project-scripts-registry.test.ts` (4: no project → at once; the import
+gap then the read gap under one wait; the bound and a cancelled expectation; unregister releases).
+`tests/e2e/js-navigation.spec.ts` on Windows (packaged): 7 passed — the first F12 test presses once (no poll) and
+asserts no sheet is left; the new last test holds the reads, opens a second project through "open another folder",
+presses F12 as soon as app.js is open, asserts the strip note (text "转到定义", role=status), no sheet and no navigation,
+releases the reads and asserts config.js opens with the note gone. Negative proof: with the `whenIndexed` await removed
+from `navigate` and the same build, that test fails at the note assertion (the un-fixed app showed "not found") while
+the six others pass; a first version of the case without the hold (52 small files, then 60 × 240 KB) passed against the
+un-fixed build too on this machine — the disk was always faster than Playwright — which is why the hold exists.
+`npm run verify` green (harness, typecheck, lint, format, test, perf).
+
+**Decisions:** Wait, do not disable. Disabling F12 while indexing would need the command enablement to know the index
+state (`src/shared/commands.ts` `when`), and a beginner who presses F12 a second after opening a project wants the
+answer, not a greyed menu item; the strip explains the short wait as text. The bound is 10 s: 60 files × 256 KB over
+IPC is well under it on a slow disk, and a longer stall is better explained than silently waited out. The registry is a
+separate Monaco-free module so the workbench can mark "a project is opening" from its first render without pulling the
+Monaco chunk into the workbench bundle. No ADR: a behaviour fix within S57's design.
+
+**Problems / risks:** PR #30 (merged as 7f9306b while this PR was open) added an Escape guard to the first F12 test's
+poll because the stale "not found" sheet blocked the next test on macOS; with this fix the poll itself is gone from the
+test (one press), so the merge of main took this branch's version of that test and the guard is no longer needed. A subagent review found the
+Monaco-timer ordering gap (fixed, see Done) and three smaller points, all addressed: a failed dynamic import now cancels
+the expectation (else every F12 would wait 10 s), a per-run token keeps an overlapping command from clearing the
+other's note, and the wait timers are cleared. Not fixed, by design: a waiter released by `close()` while a project is
+reopened may answer for a model of the just-closed project; it can only say "not a project script". The hosted macOS
+run is the real proof for the "worker still starting" part of the single press (Windows is green).
+
+**Owner action needed:** None (merge the PR from the PR pane when CI is green).
+
+**Next up**
+
+1. S51–S56 of M19 remain open (see Session 36 and the sibling side sessions).
+2. Re-sync with main whenever GitHub reports a conflict: the M19 PRs are landing in parallel.
+
 ## Session S54 (side session) — 2026-10-17 — CSS without reload (S54.1–S54.3)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s54-css-swap-a8fc96`, based
