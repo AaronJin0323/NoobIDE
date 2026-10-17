@@ -563,6 +563,69 @@
       "action": "noobide.toggleBlockComment",
       "text": "<script>\n  let a = 1;|\n</script>\n",
       "expectText": "<script>\n  /* let a = 1; */\n</script>\n"
+    },
+    {
+      "id": "js-definition-closed-file",
+      "language": "javascript",
+      "kind": "definition",
+      "fileName": "app.js",
+      "closedFiles": {
+        "config.js": "function greet(name) {\n  return 'Hi ' + name;\n}\n"
+      },
+      "text": "gre|et('Lin');\n",
+      "expect": [
+        "config.js:1:10"
+      ]
+    },
+    {
+      "id": "js-definition-open-file",
+      "language": "javascript",
+      "kind": "definition",
+      "fileName": "app.js",
+      "files": {
+        "state.js": "let score = 0;\n"
+      },
+      "text": "sco|re += 1;\n",
+      "expect": [
+        "state.js:1:5"
+      ]
+    },
+    {
+      "id": "js-definition-module-import",
+      "language": "javascript",
+      "kind": "definition",
+      "fileName": "main.mjs",
+      "closedFiles": {
+        "util.mjs": "export function add(a, b) {\n  return a + b;\n}\n"
+      },
+      "text": "import { add } from './util.mjs';\nconsole.log(ad|d(1, 2));\n",
+      "expect": [
+        "util.mjs:1:17"
+      ]
+    },
+    {
+      "id": "js-references-two-files",
+      "language": "javascript",
+      "kind": "references",
+      "fileName": "app.js",
+      "closedFiles": {
+        "config.js": "function greet(name) {\n  return 'Hi ' + name;\n}\n"
+      },
+      "text": "gre|et('a');\ngreet('b');\n",
+      "expect": [
+        "app.js:1:1",
+        "app.js:2:1",
+        "config.js:1:10"
+      ]
+    },
+    {
+      "id": "html-inline-script-definition-unsupported",
+      "language": "html",
+      "kind": "definition",
+      "text": "<script>\n  function greet() {}\n  gre|et();\n</script>\n",
+      "expect": [
+        "unsupported"
+      ]
     }
   ]
 }

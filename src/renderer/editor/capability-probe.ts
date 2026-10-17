@@ -1,4 +1,5 @@
-import { monaco } from './monaco-setup';
+import { monaco, languageDefaults } from './monaco-setup';
+import { folderPaths, navigate, renamePlanAt } from './js-navigation-monaco';
 import { extensionOf, selectionOf, type CapabilityCase, type CapabilityResult } from './capability-cases';
 import { expandOrTab } from './emmet-monaco';
 import { attachAuthoring, replaceColorAtCursor } from './authoring-monaco';
@@ -90,6 +91,10 @@ async function runCase(
     const language = name.endsWith('.css') ? 'css' : name.endsWith('.html') ? 'html' : 'javascript';
     return monaco.editor.createModel(text, language, monaco.Uri.parse(dir + name));
   });
+  // S57: project files that are not open reach the JavaScript service as extra libs, as in the workbench.
+  const libs = Object.entries(c.closedFiles ?? {}).map(([name, text]) =>
+    languageDefaults.javascript.addExtraLib(text, monaco.Uri.parse(dir + name).toString()),
+  );
   const { text, start: from, end: to } = selectionOf(c.text);
   const model = monaco.editor.createModel(
     text,
@@ -116,6 +121,50 @@ async function runCase(
       await poll(() => (read() === want ? true : null), 1_000);
       const seen = read();
       return result(got && seen === want, seen);
+    }
+    if (c.kind === 'definition' || c.kind === 'references') {
+      // S57.1: what F12 / Shift+F12 find, as `file:line:column` (or `unsupported`). Retried while the service starts.
+      const want = (c.expect ?? []).join(' | ');
+      let seen = '';
+      const paths = folderPaths(dir);
+      const position = { lineNumber: from.line, column: from.column };
+      const end = performance.now() + CASE_TIMEOUT_MS;
+      while (performance.now() < end) {
+        const found = await navigate(c.kind, model, position, paths);
+        seen =
+          found.kind === 'unsupported'
+            ? 'unsupported'
+            : found.locations.map((l) => `${l.relPath}:${l.line}:${l.column}`).join(' | ');
+        if (seen === want) break;
+        await sleep(500);
+      }
+      return result(seen === want, seen);
+    }
+    if (c.kind === 'rename') {
+      // S57.2: the plan F2 previews: every changed file's text, or a refusal.
+      const pages = Object.entries(c.files ?? {})
+        .filter(([name]) => name.endsWith('.html'))
+        .map(([relPath, text]) => ({ relPath, text }));
+      const position = { lineNumber: from.line, column: from.column };
+      const refused = c.expect?.[0] === 'refused';
+      let seen = '';
+      let pass = false;
+      const end = performance.now() + CASE_TIMEOUT_MS;
+      while (performance.now() < end && !pass) {
+        const plan = await renamePlanAt(model, position, c.newName ?? '', pages, folderPaths(dir));
+        if (!plan.ok) {
+          seen = `refused: ${plan.reason}`;
+          pass = refused;
+        } else {
+          const got = Object.fromEntries(plan.files.map((f) => [f.relPath, f.after.replace(/\r\n/g, '\n')]));
+          seen = JSON.stringify(got);
+          pass =
+            !refused &&
+            JSON.stringify(got) === JSON.stringify(Object.fromEntries(Object.entries(c.expectFiles ?? {}).sort()));
+        }
+        if (!pass) await sleep(500);
+      }
+      return result(pass, seen);
     }
     if (c.kind === 'colors') {
       // S53.3: the colour swatches Monaco draws (inline decorations), as the text they stand in front of.
@@ -178,6 +227,7 @@ async function runCase(
     editor.setModel(null);
     model.dispose();
     for (const m of extra) m.dispose();
+    for (const lib of libs) lib.dispose();
   }
 }
 

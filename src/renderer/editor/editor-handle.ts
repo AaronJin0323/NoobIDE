@@ -6,6 +6,8 @@
  * editor shows that file (Go to code opens the file first, S17.2).
  */
 import type { FormatOutcome } from '../workbench/format-on-save';
+import type { NavigationResult } from './js-navigation-monaco';
+import type { RenamePlan } from './js-navigation';
 
 export interface RevealTarget {
   /** The workbench's model URI string (OpenTab.uri). */
@@ -41,6 +43,12 @@ export interface EditorAccess {
   focus?(): void;
   /** S53.4: formats the file on screen for a save and says how it went (format-on-save.ts). */
   formatForSave?(): Promise<FormatOutcome>;
+  /** S57.1: definition / references of the name under the cursor in the file on screen. */
+  navigate?(query: 'definition' | 'references'): Promise<NavigationResult | null>;
+  /** S57: the identifier under the cursor, or null. */
+  nameAtCursor?(): string | null;
+  /** S57.2: the checked rename plan for the name under the cursor. */
+  renamePlan?(newName: string, htmlPages: readonly { relPath: string; text: string }[]): Promise<RenamePlan | null>;
 }
 
 /**

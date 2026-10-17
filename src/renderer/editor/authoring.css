@@ -59,3 +59,41 @@
   font: inherit;
   font-family: var(--font-code, monospace);
 }
+/* S57.1: the places Go to definition / Find all references found */
+.navigation-list {
+  display: grid;
+  gap: 4px;
+  max-height: 50vh;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.navigation-item {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.navigation-item:hover,
+.navigation-item:focus-visible {
+  border-color: var(--line);
+  background: var(--hover);
+}
+.navigation-file {
+  font-weight: var(--weight-medium);
+}
+.navigation-code {
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--font-code);
+  text-overflow: ellipsis;
+  white-space: pre;
+}

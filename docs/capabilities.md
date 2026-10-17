@@ -58,6 +58,22 @@ even when they are not open. Validated in the workbench on a project whose path 
 If a language worker crashes, hangs or is killed, it is restarted within about 15 seconds; typing is never blocked
 meanwhile (`tests/e2e/language-workbench.spec.ts`).
 
+### Go to definition and find references (S57.1)
+
+**F12 / 转到定义 / Go to definition** and **Shift+F12 / 查找所有引用 / Find all references** (Edit menu, command palette,
+the editor's context menu) work for functions and variables in the project's `.js` / `.mjs` files, also when the other
+file is not open (`tests/e2e/js-navigation.spec.ts`, on a project with a Chinese path and spaces). One definition opens
+its file at the place; references are listed by file and line. Names that come with the browser (`document`,
+`console`) have no project file and are not offered. The same limits as above apply (60 scripts, 256 KB each).
+
+| Capability                                                    | Example                                          | Case                                        |
+| ------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------- |
+| Definition of a function in a closed script                   | `greet('Lin')` in app.js → config.js, line 1     | `js-definition-closed-file`                 |
+| Definition of a variable in another open script               | `score += 1` → state.js, line 1                  | `js-definition-open-file`                   |
+| Definition of a function imported from an ES module           | `add(1, 2)` → util.mjs, line 1                   | `js-definition-module-import`               |
+| References across two files                                   | `greet` → app.js lines 1 and 2, config.js line 1 | `js-references-two-files`                   |
+| **Not supported:** an HTML page's inline `<script>` (said so) | F12 in `<script>` → "not supported" message      | `html-inline-script-definition-unsupported` |
+
 ## Project names and files (S43)
 
 NoobIDE's own suggestions, from the project around the file (decision 0032): ids and classes its HTML and CSS define,
@@ -181,5 +197,5 @@ the formatter fails or takes more than 3 seconds, the file is saved as it was an
 
 These are **not** validated and must not be presented as features: the language services' own completion inside
 `<script>` and `<style>` blocks of an HTML file (only the project names above are proven there), class/id completion in
-other contexts than those listed, go to definition or rename across files, type
+other contexts than those listed, go to definition, references or rename in an HTML page's inline `<script>`, type
 checking of JavaScript beyond undefined names, and anything for languages other than HTML, CSS and JavaScript.

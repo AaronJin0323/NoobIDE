@@ -69,6 +69,10 @@ export const COMMAND_IDS = [
   'toggle-line-comment',
   'toggle-block-comment',
   'toggle-format-on-save',
+  // S57 JavaScript navigation and rename
+  'go-to-definition',
+  'find-references',
+  'rename-symbol',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -234,6 +238,28 @@ export const COMMANDS: readonly CommandDefinition[] = [
     label: 'command.toggleFormatOnSave',
     checked: (c) => c.formatOnSave === true,
     toggle: true,
+  },
+  // S57: JavaScript navigation (F12 / Shift+F12) and rename (F2), as in other editors; the keys belong to the editor.
+  {
+    id: 'go-to-definition',
+    label: 'command.goToDefinition',
+    keys: { all: { key: 'F12' } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+    scope: 'editor',
+  },
+  {
+    id: 'find-references',
+    label: 'command.findReferences',
+    keys: { all: { key: 'F12', shift: true } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+    scope: 'editor',
+  },
+  {
+    id: 'rename-symbol',
+    label: 'command.renameSymbol',
+    keys: { all: { key: 'F2' } },
+    when: (c) => c.hasActiveTab && !c.modalOpen,
+    scope: 'editor',
   },
 ];
 

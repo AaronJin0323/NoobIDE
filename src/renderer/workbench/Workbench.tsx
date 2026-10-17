@@ -3,6 +3,7 @@ import { editorPrefs, loadEditorPrefs, setEditorPrefs, useEditorPrefs } from '..
 import { openColorPicker } from '../editor/cursor-color'; // S53.3
 import { saveWithFormat } from './format-on-save'; // S53.4
 import { reportFormatOnSaveFailure } from './FormatSaveNotice';
+import { useJsNavigation } from './useJsNavigation'; // S57
 import { useAppMenuItems, useCommands, type CommandHandlers } from '../commands/useCommands'; // S24.1
 import type { FileContent, FileVersion, OpenedProject } from '../../shared/ipc/contract';
 import { useMediaQuery } from '../theme/useMediaQuery';
@@ -885,6 +886,7 @@ export function Workbench() {
     if (pendingGoTo && doc.docError?.relPath === pendingGoTo.file) setPendingGoTo(null);
   }, [pendingGoTo, doc.docError]);
   // --- end S17.2 ---
+  const jsNavigation = useJsNavigation(goTo); // S57.1: F12 / Shift+F12 across the project's scripts
 
   // --- S22.4/S22.5: problem card explained with the facts of its location; one-click fix of a misspelled name, as
   // an ordinary editor edit saved through the file's own save pipeline (problems/fix-host.ts). ---
@@ -1071,7 +1073,8 @@ export function Workbench() {
       aboutOpen.open ||
       aiSettingsOpen.open ||
       glossaryFor !== null ||
-      palette !== null,
+      palette !== null ||
+      jsNavigation.open,
     theme: theme.choice, // S24.4
     emmet: editorSwitches.emmet, // S53.1
     formatOnSave: editorSwitches.formatOnSave, // S53.4
@@ -1119,6 +1122,8 @@ export function Workbench() {
     'toggle-line-comment': () => void activeEditor()?.runAction?.('noobide.toggleLineComment'),
     'toggle-block-comment': () => void activeEditor()?.runAction?.('noobide.toggleBlockComment'),
     'toggle-format-on-save': () => setEditorPrefs({ formatOnSave: !editorPrefs().formatOnSave }),
+    'go-to-definition': jsNavigation.goToDefinition, // S57.1
+    'find-references': jsNavigation.findReferences,
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
     'command-palette': () =>
       setPalette(
@@ -1446,6 +1451,7 @@ export function Workbench() {
         />
       )}
       {aboutOpen.open && <AboutDialog onClose={aboutOpen.close} />}
+      {jsNavigation.dialog /* S57.1 */}
       {palette && (
         <CommandPalette
           commands={palette}

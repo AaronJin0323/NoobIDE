@@ -34,6 +34,20 @@ export const authoringZhCN = {
   'formatOnSave.failed': '保存时没能整理格式：格式化工具报告了错误。文件已按原样保存。',
   'formatOnSave.timeout': '保存时没能整理格式：{seconds} 秒内没有完成。文件已按原样保存。',
   'formatOnSave.dismiss': '知道了',
+  // S57.1
+  'command.goToDefinition': '转到定义',
+  'command.findReferences': '查找所有引用',
+  'command.renameSymbol': '在所有脚本里重命名',
+  'nav.definitions.title': '“{name}”的定义',
+  'nav.references.title': '“{name}”在项目脚本里出现的地方（{count} 处）',
+  'nav.none.definition':
+    '在项目的 .js 文件里找不到“{name}”的定义。浏览器自带的名字（例如 document、console）没有可以打开的文件。',
+  'nav.none.references': '在项目的 .js 文件里没有找到“{name}”。',
+  'nav.unsupported.inline-script':
+    '转到定义、查找引用和重命名只支持项目里的 .js 文件，不支持 HTML 页面里的 <script>。把代码放进单独的 .js 文件就可以用了。',
+  'nav.unsupported.not-a-script': '转到定义、查找引用和重命名只支持项目里的 JavaScript（.js）文件。',
+  'nav.location': '{file} 第 {line} 行',
+  'nav.close': '关闭',
 } as const;
 
 export const authoringEn: Record<keyof typeof authoringZhCN, string> = {
@@ -67,4 +81,18 @@ export const authoringEn: Record<keyof typeof authoringZhCN, string> = {
   'formatOnSave.timeout':
     'Could not format on save: formatting did not finish within {seconds} seconds. The file was saved as it was.',
   'formatOnSave.dismiss': 'Got it',
+  'command.goToDefinition': 'Go to definition',
+  'command.findReferences': 'Find all references',
+  'command.renameSymbol': 'Rename in all scripts',
+  'nav.definitions.title': 'Definitions of “{name}”',
+  'nav.references.title': 'Where “{name}” is used in the project’s scripts ({count})',
+  'nav.none.definition':
+    'No definition of “{name}” in the project’s .js files. Names that come with the browser (such as document or console) have no file to open.',
+  'nav.none.references': 'No uses of “{name}” found in the project’s .js files.',
+  'nav.unsupported.inline-script':
+    'Go to definition, find references and rename work in the project’s .js files only, not in an HTML page’s <script>. Move the code into its own .js file to use them.',
+  'nav.unsupported.not-a-script':
+    'Go to definition, find references and rename work in the project’s JavaScript (.js) files only.',
+  'nav.location': '{file}, line {line}',
+  'nav.close': 'Close',
 };

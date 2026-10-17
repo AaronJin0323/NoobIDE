@@ -151,6 +151,9 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       command('toggle-block-comment'),
       SEPARATOR,
       command('toggle-format-on-save'), // S53.4
+      SEPARATOR,
+      command('go-to-definition'), // S57
+      command('find-references'),
       command('toggle-emmet'), // S53.1
       SEPARATOR,
       command('toggle-inline-ai'), // S32.1

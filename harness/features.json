@@ -4834,8 +4834,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "cases js-definition-closed-file, js-definition-open-file, js-definition-module-import, js-references-two-files, html-inline-script-definition-unsupported pass in packaged app offline; js-navigation.test.ts, project-scripts.test.ts, language-config.test.ts; tests/e2e/js-navigation.spec.ts (4: F12 closed file, Shift+F12 two files, menu+palette, inline script notice); docs/capabilities.md section + Not claimed updated; verify green"
     },
     {
       "id": "S57.2",

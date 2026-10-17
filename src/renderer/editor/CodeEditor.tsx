@@ -29,6 +29,8 @@ import { attachEmmet } from './emmet-monaco';
 import { attachAuthoring, replaceColorAtCursor } from './authoring-monaco';
 import { onFormatOutcome } from './format-hook';
 import type { FormatOutcome } from '../workbench/format-on-save';
+// S57: JavaScript navigation and rename through the language service.
+import { nameAt, navigate, renamePlanAt } from './js-navigation-monaco';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -242,6 +244,21 @@ export function CodeEditor({
       },
       focus: () => editor.focus(),
       formatForSave: () => formatForSave(editor), // S53.4
+      navigate: async (query) => {
+        const model = editor.getModel();
+        const position = editor.getPosition();
+        return model && position ? navigate(query, model, position) : null;
+      },
+      nameAtCursor: () => {
+        const model = editor.getModel();
+        const position = editor.getPosition();
+        return model && position ? nameAt(model, position) : null;
+      },
+      renamePlan: async (newName, htmlPages) => {
+        const model = editor.getModel();
+        const position = editor.getPosition();
+        return model && position ? renamePlanAt(model, position, newName, htmlPages) : null;
+      },
     });
     // --- end S17.2 / S18.3 ---
     // S33.2: context-menu actions of the workbench ("Ask AI to explain this code").
