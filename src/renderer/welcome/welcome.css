@@ -158,21 +158,27 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 8px;
-  border: 1px solid var(--line);
+  padding: 9px;
+  border: 0;
   border-radius: var(--radius-control);
   background: transparent;
+  box-shadow: var(--ring-line);
   cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease-smooth);
+  transition:
+    background-color var(--dur-fast) var(--ease-smooth),
+    box-shadow var(--dur-fast) var(--ease-smooth);
 }
+/* S50.3: hover is a lighter fill and the hover ring, never a scale or a border change. */
 .wizard-template:hover {
   background: var(--hover-soft);
+  box-shadow: var(--ring-hover);
 }
 /* Selected (spec: Selected / current / pressed): the --hover fill, the name at 600, the checked radio and the written
    "✓ Selected". Hover is lighter and never overrides it. */
 .wizard-template.selected,
 .wizard-template.selected:hover {
   background: var(--hover);
+  box-shadow: var(--ring-selected);
 }
 .wizard-template.selected .wizard-template-name {
   font-weight: var(--weight-strong);
@@ -244,8 +250,4 @@
   padding-left: 18px;
   font-family: var(--font-code);
   font-size: var(--text-sm);
-}
-.dialog-actions .primary-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }

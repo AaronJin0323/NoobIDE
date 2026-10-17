@@ -87,6 +87,51 @@ export function titleBarOverlay(scheme: ColorScheme): TitleBarOverlayOptions {
   return { color: THEMES[scheme].bg, symbolColor: THEMES[scheme].text, height: TITLE_BAR_HEIGHT };
 }
 
+/** macOS traffic lights: three 12 px buttons, 8 px apart (52 px from the first edge to the last). */
+export const TRAFFIC_LIGHT_SIZE = 12;
+export const TRAFFIC_LIGHTS_WIDTH = 52;
+/** The room the top bar keeps free for them at its left, in CSS px (styles.css `.topbar[data-frame='mac']`). */
+export const MAC_LIGHTS_RESERVE = 88;
+/** The page zoom range the lights are kept centred in (S50.5). */
+export const TRAFFIC_LIGHT_ZOOM = { min: 0.8, max: 1.5 } as const;
+
+/**
+ * S50.5: where the traffic lights go at a page zoom factor. The top bar is TITLE_BAR_HEIGHT CSS px, so
+ * `TITLE_BAR_HEIGHT × zoom` window points tall: the lights are centred in it vertically, and start 20 points in
+ * unless the bar's reserved room (which zooms too) is narrower — then they move left so they end 8 points before it.
+ */
+export function trafficLightPosition(zoomFactor: number): { x: number; y: number } {
+  const zoom = Number.isFinite(zoomFactor) && zoomFactor > 0 ? zoomFactor : 1;
+  const y = Math.max(0, Math.round((TITLE_BAR_HEIGHT * zoom - TRAFFIC_LIGHT_SIZE) / 2));
+  const x = Math.max(8, Math.min(20, Math.floor(MAC_LIGHTS_RESERVE * zoom - TRAFFIC_LIGHTS_WIDTH - 8)));
+  return { x, y };
+}
+
+/** What {@link keepTrafficLightsCentred} needs of a window (an adapter over BrowserWindow, faked in tests). */
+export interface TrafficLightWindow {
+  onZoomChanged(listener: () => void): void;
+  onLoaded(listener: () => void): void;
+  zoomFactor(): number;
+  setPosition(position: { x: number; y: number }): void;
+  alive(): boolean;
+}
+
+/**
+ * S50.5 (macOS): recompute the traffic-light position whenever the page zoom may have changed — on `zoom-changed`
+ * (after the zoom is applied, hence `defer`) and after every load (Chromium keeps the zoom per origin).
+ */
+export function keepTrafficLightsCentred(
+  win: TrafficLightWindow,
+  defer: (run: () => void) => void = (run) => setTimeout(run, 0),
+): () => void {
+  const apply = () => {
+    if (win.alive()) win.setPosition(trafficLightPosition(win.zoomFactor()));
+  };
+  win.onZoomChanged(() => defer(apply));
+  win.onLoaded(apply);
+  return apply;
+}
+
 /**
  * The window frame: on Windows and macOS the native title bar is hidden and the workbench top bar takes its place
  * (it is the drag area; window controls are the themed overlay on Windows and the inset traffic lights on macOS).
@@ -94,8 +139,8 @@ export function titleBarOverlay(scheme: ColorScheme): TitleBarOverlayOptions {
  */
 export function workbenchFrameOptions(platform: PlatformId, scheme: ColorScheme): BrowserWindowConstructorOptions {
   if (isWindows(platform)) return { titleBarStyle: 'hidden', titleBarOverlay: titleBarOverlay(scheme) };
-  // Traffic lights (12 px buttons) centred vertically in the top bar.
-  if (isMac(platform)) return { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: 20 } };
+  // Traffic lights (12 px buttons) centred vertically in the top bar; S50.5 keeps them there under zoom.
+  if (isMac(platform)) return { titleBarStyle: 'hiddenInset', trafficLightPosition: trafficLightPosition(1) };
   return {};
 }
 

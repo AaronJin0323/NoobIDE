@@ -105,6 +105,17 @@ describe('command registry (S24.1)', () => {
     expect(isCommandId('rm -rf')).toBe(false);
   });
 
+  it('density commands are a choice persisted as the optional compact switch (S50.4)', () => {
+    expect(commandChecked('density-comfortable', INITIAL_COMMAND_CONTEXT)).toBe(true);
+    expect(commandChecked('density-compact', INITIAL_COMMAND_CONTEXT)).toBe(false);
+    const compact = { ...INITIAL_COMMAND_CONTEXT, compact: true };
+    expect(commandChecked('density-compact', compact)).toBe(true);
+    expect(commandChecked('density-comfortable', compact)).toBe(false);
+    expect(parseCommandContext(compact)).toEqual(compact);
+    expect(parseCommandContext({ ...INITIAL_COMMAND_CONTEXT, compact: 'yes' })).toBeNull();
+    expect(HELP_MENU_COMMANDS).toEqual(expect.arrayContaining(['density-comfortable', 'density-compact']));
+  });
+
   it('theme commands are a choice: exactly the current one is checked (S24.4)', () => {
     const light = { ...INITIAL_COMMAND_CONTEXT, theme: 'light' as const };
     expect(commandChecked('theme-light', light)).toBe(true);

@@ -463,3 +463,25 @@ export const NoobIdeLogo = ({ size = 40 }: { size?: number }) => (
     </g>
   </svg>
 );
+
+/** S50.2: the notice tones, one shape each (never colour alone): a circled i, a circled check, a circled bar. */
+export const InfoCircleIcon = ({ size = 16 }: { size?: number }) => (
+  <IconBase size={size}>
+    <circle cx="8" cy="8" r="6" />
+    <path d="M8 7.5v3.5M8 5v.01" />
+  </IconBase>
+);
+
+export const SuccessCircleIcon = ({ size = 16 }: { size?: number }) => (
+  <IconBase size={size}>
+    <circle cx="8" cy="8" r="6" />
+    <path d="M5.5 8.2l1.7 1.7 3.3-3.6" />
+  </IconBase>
+);
+
+export const DangerCircleIcon = ({ size = 16 }: { size?: number }) => (
+  <IconBase size={size}>
+    <circle cx="8" cy="8" r="6" />
+    <path d="M8 4.8v3.7M8 11v.01" />
+  </IconBase>
+);

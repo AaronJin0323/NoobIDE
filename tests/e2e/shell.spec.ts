@@ -277,6 +277,8 @@ test('S47.4: the path is a tooltip and a project-menu line, the language lives i
     /^深色主题$/,
     /中文$/,
     /^English$/,
+    /宽松密度$/, // S50.4: the density choice (comfortable is the default, checked)
+    /^紧凑密度$/,
   ]);
   await expect(helpMenu.getByTestId('menu-language-zh-CN')).toHaveAttribute('aria-checked', 'true');
   await helpMenu.getByTestId('menu-language-en').click();

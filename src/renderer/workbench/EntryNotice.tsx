@@ -1,6 +1,6 @@
 import { useI18n } from '../i18n/I18nProvider';
-import { WarningIcon } from './icons';
-import { useAutoDismiss } from './useAutoDismiss';
+import { fill } from './file-op-messages';
+import { Notice } from './Notice';
 
 export interface EntryNoticeState {
   readonly relPath: string;
@@ -8,58 +8,41 @@ export interface EntryNoticeState {
 }
 
 /**
- * S13.2: the result of "set as entry page" — what was stored and where, or why nothing was changed. S47.5: the
- * success notice is information and leaves by itself; a failure waits for the user.
+ * S13.2: the result of "set as entry page" — what was stored and where, or why nothing was changed. S50.2: on the
+ * shared Notice; the confirmation is a success (no danger fill, no timer), a failure is an alert.
  */
 export function EntryNotice({ state, onDismiss }: { state: EntryNoticeState; onDismiss(): void }) {
-  return state.error ? (
-    <EntryNoticeView state={state} onDismiss={onDismiss} />
-  ) : (
-    <EntryNoticeInfo state={state} onDismiss={onDismiss} />
-  );
-}
-
-function EntryNoticeInfo({ state, onDismiss }: { state: EntryNoticeState; onDismiss(): void }) {
-  const hold = useAutoDismiss(onDismiss);
-  return <EntryNoticeView state={state} onDismiss={onDismiss} hold={hold} />;
-}
-
-function EntryNoticeView({
-  state,
-  onDismiss,
-  hold,
-}: {
-  state: EntryNoticeState;
-  onDismiss(): void;
-  hold?: ReturnType<typeof useAutoDismiss>;
-}) {
   const { t } = useI18n();
+  const dismiss = (
+    <button type="button" className="secondary-button" data-testid="entry-notice-dismiss" onClick={onDismiss}>
+      {t('disk.dismiss')}
+    </button>
+  );
+  if (state.error === null) {
+    return (
+      <Notice
+        tone="success"
+        role="status"
+        testId="entry-notice"
+        dataState="set"
+        title={fill(t('notice.entry.title'), { file: state.relPath })}
+        body={t('notice.entry.body')}
+        details={t('notice.entry.detail')}
+        detailsLabel={t('notice.details')}
+        actions={dismiss}
+      />
+    );
+  }
+  const invalid = state.error === 'invalid-existing';
   return (
-    <div
-      className="inline-alert save-alert app-notice"
-      role={state.error ? 'alert' : 'status'}
-      data-testid="entry-notice"
-      data-state={state.error ?? 'set'}
-      {...hold}
-    >
-      {state.error && <WarningIcon size={16} />}
-      <div className="save-alert-body">
-        {state.error ? (
-          <strong>{t(state.error === 'invalid-existing' ? 'entry.invalidExisting' : 'entry.failed')}</strong>
-        ) : (
-          <>
-            <strong>
-              {t('entry.set')} {state.relPath}
-            </strong>{' '}
-            {t('entry.setDetail')}
-          </>
-        )}
-        <span className="alert-actions">
-          <button type="button" className="secondary-button" data-testid="entry-notice-dismiss" onClick={onDismiss}>
-            {t('disk.dismiss')}
-          </button>
-        </span>
-      </div>
-    </div>
+    <Notice
+      tone="danger"
+      role="alert"
+      testId="entry-notice"
+      dataState={state.error}
+      title={t(invalid ? 'notice.entry.invalidTitle' : 'notice.entry.failedTitle')}
+      body={invalid ? t('notice.entry.invalidBody') : undefined}
+      actions={dismiss}
+    />
   );
 }

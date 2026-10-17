@@ -237,14 +237,15 @@
   min-height: 0;
   max-height: 60%;
   margin: 0 8px 8px;
-  padding: 8px 8px 8px 12px;
-  border: 1px solid var(--line);
+  padding: 9px 9px 9px 13px;
+  border: 0;
   border-radius: var(--radius-panel);
   background: var(--panel);
-  transition: border-color var(--dur-fast) var(--ease-smooth);
+  box-shadow: var(--ring-line);
+  transition: box-shadow var(--dur-fast) var(--ease-smooth);
 }
 .ai-composer:hover {
-  border-color: color-mix(in srgb, var(--muted) 40%, var(--line));
+  box-shadow: var(--ring-hover);
 }
 /* Focus in the input is shown on the whole field (the input itself has no frame of its own): a real outline, so
    forced colours (Windows High Contrast, which drops box-shadow) still draw it. */
