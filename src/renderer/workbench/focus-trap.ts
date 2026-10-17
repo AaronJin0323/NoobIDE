@@ -59,12 +59,19 @@ export function trapTab(event: KeyLike, container: HTMLElement | null): void {
  * task, and the browser hands a key press (high priority) to the page before that task when the process is slow
  * (hosted CI runner) — the first Escape was then lost while the dialog was already on screen.
  */
-export function useModalKeys(ref: RefObject<HTMLElement | null>, onEscape: () => void): void {
+export function useModalKeys(
+  ref: RefObject<HTMLElement | null>,
+  onEscape: () => void,
+  /** S50.1: with a dialog open over this one, the keys belong to the front one (both listen on the window). */
+  isFront: () => boolean = () => true,
+): void {
   const escape = useRef(onEscape);
   escape.current = onEscape;
+  const front = useRef(isFront);
+  front.current = isFront;
   useLayoutEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isImeKey(event)) return;
+      if (isImeKey(event) || !front.current()) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();

@@ -73,8 +73,8 @@
   display: grid;
   width: 100%;
   gap: 2px;
-  padding: 6px 8px;
-  border: 1px solid transparent;
+  padding: 7px 9px;
+  border: 0;
   border-radius: var(--radius-control);
   background: none;
   color: var(--text);
@@ -84,7 +84,7 @@
 }
 .navigation-item:hover,
 .navigation-item:focus-visible {
-  border-color: var(--line);
+  box-shadow: var(--ring-line);
   background: var(--hover);
 }
 .navigation-file {

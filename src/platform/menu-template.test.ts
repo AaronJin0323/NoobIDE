@@ -87,6 +87,17 @@ describe('native menus (S24.2)', () => {
     expect(commandItem(dark, 'save').checked).toBeUndefined();
   });
 
+  it('offers the density in the View menu with the current one checked (S50.4)', () => {
+    const view = submenu(build('mac', { ...EDITING, compact: true }), 'View').items;
+    const ids = view.flatMap((item) => (item.kind === 'command' ? [item.id] : []));
+    expect(ids).toEqual(expect.arrayContaining(['density-comfortable', 'density-compact']));
+    expect(commandItem(build('mac', { ...EDITING, compact: true }), 'density-compact')).toMatchObject({
+      label: 'Compact density',
+      checked: true,
+    });
+    expect(commandItem(build('windows', EDITING), 'density-comfortable').checked).toBe(true);
+  });
+
   it('enables items from the command context', () => {
     expect(commandItem(build('mac', INITIAL_COMMAND_CONTEXT), 'save').enabled).toBe(false);
     expect(commandItem(build('mac', INITIAL_COMMAND_CONTEXT), 'open-folder').enabled).toBe(true);

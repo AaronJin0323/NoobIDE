@@ -16,6 +16,7 @@ import { annotationsZhCN } from './annotations'; // S41.5
 import { journeyZhCN } from './journey'; // beginner-journey fixes
 import { searchZhCN } from './search'; // S51
 import { fileManagementZhCN } from './file-management'; // S52
+import { noticesZhCN } from './notices'; // S50.2
 import { imageViewerZhCN } from './image-viewer'; // S52.6
 /**
  * zh-CN is the default locale and the source of truth for message keys (AGENTS.md: i18n invariant).
@@ -229,7 +230,6 @@ export const zhCN = {
   'recovery.clearAll': '清除全部恢复数据',
   'recovery.clearConfirm': '确定清除？这些未保存的修改将无法找回',
   'recovery.cancel': '取消',
-  'recovery.journalFailed': '无法写入崩溃恢复副本，请尽快保存文件。',
   'recovery.lineAdded': '新增',
   'recovery.lineRemoved': '删除',
   'recovery.saveFirst':
@@ -283,10 +283,6 @@ export const zhCN = {
   'deleted.closeConfirm': '确定关闭？磁盘上已经没有这个文件，关闭后编辑器里的内容将不再保留',
   // --- end S11 ---
   // --- S13 app data ---
-  'settings.corrupt': '设置文件已损坏，无法读取。',
-  'settings.newer': '设置文件来自更新版本的 NoobIDE。',
-  'settings.readOnly':
-    '这个版本能看懂的设置照常使用；原文件保持不变，留给新版本。本次运行中的设置改动在退出后不会保存。',
   'settings.reset': '原来的文件已备份，现在使用默认设置。',
   'settings.backup': '备份位置：',
   // S47.4: two menus — the project menu next to the project name, and the trailing help/more menu.
@@ -302,7 +298,6 @@ export const zhCN = {
   'layout.filesCollapsedText': '文件面板已收起',
   'layout.editorShareText': '代码占 {code}%，预览占 {preview}%',
   'layout.resizeSnapshot': '调整宽度时显示的页面画面',
-  'transfer.title': '这个项目换到另一个系统（Windows / macOS）时可能会出问题。NoobIDE 没有改动任何文件：',
   'transfer.caseConflict':
     '“{folder}”里的 {names} 只差大小写：在 Windows 和 macOS 上它们会变成同一个文件。请给其中一个换个名称。',
   'transfer.unicodeConflict':
@@ -315,8 +310,6 @@ export const zhCN = {
   'transfer.more': '还有 {n} 个问题没有列出。',
   'transfer.truncated': '项目很大，只检查了一部分文件。',
   'files.setEntry': '设为入口页面',
-  'entry.set': '已设为入口页面：',
-  'entry.setDetail': '下次启动预览时会先打开它。设置保存在项目的 .noobide/project.json 里，删掉这个文件也不影响网页。',
   'entry.failed': '没能保存入口页面的设置。',
   'entry.invalidExisting':
     '项目里的 .noobide/project.json 内容无法识别（可能来自更新的版本或被手动改过），为了不覆盖它，没有修改。',
@@ -340,6 +333,7 @@ export const zhCN = {
   ...journeyZhCN, // beginner-journey fixes: preview page path, missing-page page, editor overflow menu
   ...searchZhCN, // S51 find, replace and quick open
   ...fileManagementZhCN, // S52 move, copy, multi-select, import, image viewer
+  ...noticesZhCN, // S50.2 app notices
   ...imageViewerZhCN, // S52.6 image viewer tab
   // --- S18.3 formatting ---
   'format.button': '整理格式',

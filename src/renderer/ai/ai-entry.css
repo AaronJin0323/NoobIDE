@@ -29,7 +29,9 @@
   outline-offset: 1px;
 }
 .ai-entry:disabled {
-  opacity: 0.55;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: var(--ring-line);
   cursor: default;
 }
 /* Icons are sized by their component (AiIcon size), never resized here: the stroke is computed for that size. */

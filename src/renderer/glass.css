@@ -54,10 +54,32 @@
   .palette {
     border: 1px solid CanvasText;
   }
+  /* S50.3: frames drawn as inset rings (dropped here) come back as system-colour borders (sizes are border-box). */
+  .text-field,
+  .name-input,
+  .preview-select,
+  .preview-console-filter select,
+  .ai-composer,
+  .viewport-choice,
+  .wizard-template {
+    border: 1px solid CanvasText;
+  }
   /* The selected ring of an icon-only control (a box shadow, dropped here) becomes a system-colour border. */
   .icon-button[aria-pressed='true'],
   .icon-button[aria-expanded='true'] {
     border: 1px solid CanvasText;
+  }
+}
+
+/* ── Overlay edge (S50.3) ─────────────────────────────────────── */
+/* On dark, an overlay's edge is a 1px inner highlight (glass-stroke) inside the shadow, not a lighter border. */
+:root[data-theme='dark'] {
+  --overlay-rim: inset 0 0 0 1px var(--glass-stroke);
+}
+/* Increased contrast: the overlay edge is a full-strength line again (glass-stroke is transparent there). */
+@media (prefers-contrast: more) {
+  :root[data-theme] {
+    --overlay-rim: 0 0 0 1px var(--line);
   }
 }
 
@@ -145,7 +167,7 @@
   display: flex;
   flex-direction: column;
   width: min(600px, 100%);
-  max-height: min(520px, calc(100vh - 96px));
+  max-height: min(520px, var(--sheet-max-h)); /* S50.1: the sheet height rule */
   padding: 8px;
   border-radius: var(--radius-sheet);
   background: var(--material-overlay);

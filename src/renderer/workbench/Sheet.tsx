@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import { focusableIn, useModalKeys, useReturnFocus } from './focus-trap';
 import { CloseIcon } from './icons';
+import { useSheetLayer } from './sheet-stack';
 
 /**
  * S49.1 — the one shell every modal dialog uses (assessment 2026-10-16, P1 item 6 and P2 item 12; the Sheet part of
@@ -16,7 +17,9 @@ import { CloseIcon } from './icons';
  *   - a content area that scrolls on its own, so the title and the action row stay in view in a 1024×660 window;
  *   - one action row in reading order Cancel → Primary (`actions`, last button is the default), with optional
  *     `leading` text or controls set apart on the left (a usage line, a disclosure);
- *   - a width from the scale 480 / 720 / 960;
+ *   - a width from the scale 480 / 720 / 960 and (S50.1) a height of at most
+ *     calc(100dvh - 2 × max(32px, titlebar inset)), so it never runs under the window controls;
+ *   - (S50.1) while another sheet or the palette is open over it, a 2px blur and a dim (sheet-stack.ts);
  *   - the overlay material: frosted over the scrim, solid under reduced transparency, increased contrast and forced
  *     colours (glass.css, decision 0034); the native preview hides under it (preview-viewport.ts OVERLAY_SELECTOR
  *     matches `.dialog-backdrop` and `[role=dialog]`, decision 0019).
@@ -94,6 +97,78 @@ export function escapeAction(options: {
   return 'close';
 }
 
+export interface SheetFrameProps {
+  readonly children: ReactNode;
+  /** Classes of the dialog element (`dialog sheet …` for a Sheet, `palette` for the command palette). */
+  readonly className: string;
+  /** Classes of the backdrop (`dialog-backdrop …`, `palette-backdrop`). */
+  readonly backdropClassName: string;
+  /** Escape (after the frame's own checks). */
+  onEscape(): void;
+  /** A click on the backdrop, or null when the backdrop does not close. */
+  readonly onBackdrop: (() => void) | null;
+  readonly role?: 'dialog' | 'alertdialog';
+  readonly labelledBy: string;
+  readonly describedBy?: string | undefined;
+  readonly testId: string;
+  readonly backdropTestId?: string | undefined;
+  /** S51.5: a mode the dialog element carries as data-mode (the palette: files / commands) for styling and tests. */
+  readonly dataMode?: string | undefined;
+  readonly sheetRef?: RefObject<HTMLDivElement | null>;
+  /** After the frame stopped a mouse-down inside the dialog from reaching the backdrop. */
+  readonly onSheetMouseDown?: ((event: MouseEvent<HTMLDivElement>) => void) | undefined;
+}
+
+/**
+ * S50.1 — the modal frame every sheet and the command palette share: the backdrop, the dialog element (modal, named,
+ * described), Escape and the Tab trap, focus returned to the opener, and the blur and dim while another sheet is
+ * open over it. {@link Sheet} adds the title / content / actions anatomy on top; the palette puts its search field
+ * and list straight into the frame.
+ */
+export function SheetFrame({
+  children,
+  className,
+  backdropClassName,
+  onEscape,
+  onBackdrop,
+  role = 'dialog',
+  labelledBy,
+  describedBy,
+  testId,
+  backdropTestId,
+  dataMode,
+  sheetRef,
+  onSheetMouseDown,
+}: SheetFrameProps) {
+  const own = useRef<HTMLDivElement>(null);
+  const ref = sheetRef ?? own;
+  const layer = useSheetLayer();
+  useReturnFocus();
+  useModalKeys(ref, onEscape, layer.isFront);
+  return (
+    <div className={backdropClassName} data-testid={backdropTestId} onMouseDown={onBackdrop ?? undefined}>
+      <div
+        ref={ref}
+        className={className}
+        role={role}
+        aria-modal="true"
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
+        data-testid={testId}
+        data-mode={dataMode}
+        data-sheet=""
+        data-covered={layer.covered ? '' : undefined}
+        onMouseDown={(event) => {
+          event.stopPropagation();
+          onSheetMouseDown?.(event);
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function Sheet({
   title,
   titleIcon,
@@ -120,10 +195,6 @@ export function Sheet({
   const own = useRef<HTMLDivElement>(null);
   const ref = sheetRef ?? own;
   const closeButton = useRef<HTMLButtonElement>(null);
-  useReturnFocus();
-  useModalKeys(ref, () => {
-    escapeAction({ closeDisabled, onEscape, onClose });
-  });
 
   useEffect(() => {
     const sheet = ref.current;
@@ -140,56 +211,52 @@ export function Sheet({
 
   const describedBy = role === 'alertdialog' ? contentId : description ? descriptionId : undefined;
   const classes = ['dialog', 'sheet', `sheet-${width}`, className].filter(Boolean).join(' ');
-  const stop = (event: MouseEvent<HTMLDivElement>) => event.stopPropagation();
   return (
-    <div
-      className={['dialog-backdrop', backdropClassName].filter(Boolean).join(' ')}
-      onMouseDown={dismissOnBackdrop && !closeDisabled ? () => onClose() : undefined}
+    <SheetFrame
+      className={classes}
+      backdropClassName={['dialog-backdrop', backdropClassName].filter(Boolean).join(' ')}
+      onEscape={() => {
+        escapeAction({ closeDisabled, onEscape, onClose });
+      }}
+      onBackdrop={dismissOnBackdrop && !closeDisabled ? () => onClose() : null}
+      role={role}
+      labelledBy={titleId}
+      describedBy={describedBy}
+      testId={testId}
+      sheetRef={ref}
     >
-      <div
-        ref={ref}
-        className={classes}
-        role={role}
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={describedBy}
-        data-testid={testId}
-        data-sheet=""
-        onMouseDown={stop}
-      >
-        <header className="sheet-header">
-          <h2 className="dialog-title sheet-title" id={titleId}>
-            {titleIcon && <span className="sheet-title-icon">{titleIcon}</span>}
-            {title}
-          </h2>
-          <button
-            type="button"
-            className="icon-button sheet-close"
-            ref={closeButton}
-            aria-label={closeLabel}
-            title={closeLabel}
-            disabled={closeDisabled}
-            data-testid={closeTestId}
-            onClick={onClose}
-          >
-            <CloseIcon />
-          </button>
-        </header>
-        {description && (
-          <p className="dialog-hint sheet-description" id={descriptionId}>
-            {description}
-          </p>
-        )}
-        <div className="sheet-content" id={contentId}>
-          {children}
-        </div>
-        {(actions || leading) && (
-          <div className="dialog-actions sheet-actions">
-            {leading && <div className="sheet-actions-leading">{leading}</div>}
-            {actions}
-          </div>
-        )}
+      <header className="sheet-header">
+        <h2 className="dialog-title sheet-title" id={titleId}>
+          {titleIcon && <span className="sheet-title-icon">{titleIcon}</span>}
+          {title}
+        </h2>
+        <button
+          type="button"
+          className="icon-button sheet-close"
+          ref={closeButton}
+          aria-label={closeLabel}
+          title={closeLabel}
+          disabled={closeDisabled}
+          data-testid={closeTestId}
+          onClick={onClose}
+        >
+          <CloseIcon />
+        </button>
+      </header>
+      {description && (
+        <p className="dialog-hint sheet-description" id={descriptionId}>
+          {description}
+        </p>
+      )}
+      <div className="sheet-content" id={contentId}>
+        {children}
       </div>
-    </div>
+      {(actions || leading) && (
+        <div className="dialog-actions sheet-actions">
+          {leading && <div className="sheet-actions-leading">{leading}</div>}
+          {actions}
+        </div>
+      )}
+    </SheetFrame>
   );
 }

@@ -9,6 +9,12 @@ import {
   insecurePreferences,
   REQUIRED_WORKBENCH_PREFERENCES,
   windowColorScheme,
+  keepTrafficLightsCentred,
+  MAC_LIGHTS_RESERVE,
+  TRAFFIC_LIGHT_SIZE,
+  TRAFFIC_LIGHT_ZOOM,
+  TRAFFIC_LIGHTS_WIDTH,
+  trafficLightPosition,
 } from './window-options';
 import { THEMES } from '../renderer/theme/tokens';
 
@@ -114,5 +120,62 @@ describe('workbench webPreferences factory (S02.2)', () => {
     const { readFile } = await import('node:fs/promises');
     const css = await readFile(new URL('../renderer/styles.css', import.meta.url), 'utf8');
     expect(css).toContain(`--topbar-h: ${TITLE_BAR_HEIGHT}px;`);
+  });
+});
+
+describe('macOS traffic lights under zoom (S50.5)', () => {
+  const zooms: number[] = [];
+  for (let z = TRAFFIC_LIGHT_ZOOM.min; z <= TRAFFIC_LIGHT_ZOOM.max + 1e-9; z += 0.05) zooms.push(Number(z.toFixed(2)));
+
+  it('centres the lights in the zoomed 52px bar at every zoom from 80% to 150%', () => {
+    expect(zooms[0]).toBe(0.8);
+    expect(zooms.at(-1)).toBe(1.5);
+    for (const zoom of zooms) {
+      const { x, y } = trafficLightPosition(zoom);
+      const bar = TITLE_BAR_HEIGHT * zoom;
+      // Whole points: the centre is at most half a point off the bar's centre.
+      expect(Math.abs(y + TRAFFIC_LIGHT_SIZE / 2 - bar / 2), `zoom ${zoom}`).toBeLessThanOrEqual(0.5);
+      expect(y + TRAFFIC_LIGHT_SIZE, `zoom ${zoom}`).toBeLessThanOrEqual(bar);
+      // They stay inside the room the bar keeps free for them (which zooms too), never under the app mark.
+      expect(x, `zoom ${zoom}`).toBeGreaterThanOrEqual(8);
+      expect(x + TRAFFIC_LIGHTS_WIDTH, `zoom ${zoom}`).toBeLessThanOrEqual(MAC_LIGHTS_RESERVE * zoom - 8);
+    }
+  });
+
+  it('is the original position at 100% and falls back to it for a bad factor', () => {
+    expect(trafficLightPosition(1)).toEqual({ x: 20, y: 20 });
+    expect(trafficLightPosition(1.5)).toEqual({ x: 20, y: 33 });
+    expect(trafficLightPosition(0.8)).toEqual({ x: 10, y: 15 });
+    expect(trafficLightPosition(Number.NaN)).toEqual({ x: 20, y: 20 });
+    expect(trafficLightPosition(0)).toEqual({ x: 20, y: 20 });
+  });
+
+  it('recomputes on zoom-changed (after the zoom applied) and after each load, never on a closed window', () => {
+    let zoom = 1;
+    let alive = true;
+    const listeners: Record<'zoom' | 'load', (() => void)[]> = { zoom: [], load: [] };
+    const deferred: (() => void)[] = [];
+    const positions: { x: number; y: number }[] = [];
+    keepTrafficLightsCentred(
+      {
+        onZoomChanged: (l) => listeners.zoom.push(l),
+        onLoaded: (l) => listeners.load.push(l),
+        zoomFactor: () => zoom,
+        setPosition: (p) => positions.push(p),
+        alive: () => alive,
+      },
+      (run) => deferred.push(run),
+    );
+    listeners.load.forEach((l) => l());
+    expect(positions).toEqual([{ x: 20, y: 20 }]);
+    listeners.zoom.forEach((l) => l());
+    zoom = 1.5; // the zoom is applied after the event
+    expect(positions).toHaveLength(1);
+    deferred.splice(0).forEach((run) => run());
+    expect(positions.at(-1)).toEqual({ x: 20, y: 33 });
+    alive = false;
+    listeners.zoom.forEach((l) => l());
+    deferred.splice(0).forEach((run) => run());
+    expect(positions).toHaveLength(2);
   });
 });
