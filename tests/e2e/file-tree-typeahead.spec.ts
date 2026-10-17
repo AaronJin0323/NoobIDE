@@ -100,10 +100,12 @@ test('the buffer resets after a second; nothing matching leaves the selection (S
 
 test('modified keys and the rename field are left alone (S49.3)', async () => {
   await page.waitForTimeout(1100);
-  await row('index.html').focus();
+  // Select index.html by type-ahead rather than a bare focus(): since S52.3 the focus can move without changing the
+  // selection (Ctrl/Cmd+arrows), so focusing a row programmatically does not select it.
+  await press('i');
   await expectSelected('index.html');
   // Synthetic keydowns, so no app shortcut or menu accelerator intervenes: a held modifier or an IME key is not
-  // type-ahead.
+  // type-ahead. (Ctrl/Cmd+A is S52.3's select-all: index.html stays selected and focused.)
   for (const init of [
     { ctrlKey: true },
     { altKey: true },

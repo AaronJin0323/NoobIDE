@@ -26,7 +26,8 @@ test.beforeAll(async () => {
   await mkdir(root, { recursive: true });
   await writeFile(path.join(root, 'gbk.txt'), GBK);
   await writeFile(path.join(root, 'crlf.html'), '<p>一</p>\r\n<p>二</p>\r\n');
-  await writeFile(path.join(root, 'photo.jpg'), Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]));
+  // A zip, not an image: images open in the S52.6 image viewer; other binaries are still refused.
+  await writeFile(path.join(root, 'archive.zip'), Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00]));
   app = await launchApp();
   page = await app.firstWindow();
   await page.locator('.monaco-editor .view-lines').waitFor();
@@ -70,8 +71,8 @@ test('an edited CRLF file keeps CRLF on every line after saving', async () => {
 });
 
 test('a binary file is not opened in the editor', async () => {
-  await openFile('photo.jpg');
+  await openFile('archive.zip');
   await expect(page.getByTestId('open-error')).toBeVisible();
   // No tab is created for it; the tabs that were open stay as they are.
-  await expect(page.locator('[data-testid="tab"][data-path="photo.jpg"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="tab"][data-path="archive.zip"]')).toHaveCount(0);
 });
