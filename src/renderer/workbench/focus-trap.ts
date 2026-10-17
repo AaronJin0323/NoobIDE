@@ -1,3 +1,4 @@
+import { isImeKey } from './ime';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 
 /**
@@ -59,6 +60,7 @@ export function useModalKeys(ref: RefObject<HTMLElement | null>, onEscape: () =>
   escape.current = onEscape;
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (isImeKey(event)) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();

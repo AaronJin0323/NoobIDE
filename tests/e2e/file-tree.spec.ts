@@ -140,6 +140,23 @@ test('F2 renames; invalid and Windows-unrepresentable names are explained (S08.2
   const input = page.getByTestId('name-input');
   await expect(input).toBeFocused();
   await expect(input).toHaveValue('style.css');
+  await input.fill('中文候选.html');
+  for (const key of ['Enter', 'Escape']) {
+    await input.dispatchEvent('keydown', { key, isComposing: true });
+    await expect(input).toBeVisible();
+    await input.dispatchEvent('keydown', { key, isComposing: false, keyCode: 229 });
+    await expect(input).toBeVisible();
+  }
+  await expect(input).toHaveValue('中文候选.html');
+  // Candidate navigation belongs to the IME, not the enclosing tree's arrow-key handler.
+  expect(
+    await input.evaluate((field) =>
+      field.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', isComposing: true, bubbles: true, cancelable: true }),
+      ),
+    ),
+  ).toBe(true);
+  await expect(input).toBeFocused();
   for (const [name, explanation] of [
     ['CON.css', 'Windows 保留的设备名'],
     ['main.', '不能以点或空格结尾'],

@@ -1,3 +1,4 @@
+import { isImeKey } from '../workbench/ime';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import { otherLocale, translate, type MessageKey } from '../i18n/index';
@@ -70,7 +71,7 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
   }, [active]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.nativeEvent.isComposing) return; // the input method owns Enter and the arrows while composing
+    if (isImeKey(event.nativeEvent)) return; // the input method owns Enter and the arrows while composing
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       setSelected(moveSelection(active, matches.length, event.key));

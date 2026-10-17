@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { isImeKey } from '../workbench/ime';
 import type {
   CreateProjectApi,
   CreatedProject,
@@ -202,6 +203,7 @@ export function CreateProjectDialog({ api, onCreated, onCancel }: CreateProjectD
               aria-invalid={view.messageKind === 'error'}
               onChange={(event) => setName(event.target.value)}
               onKeyDown={(event) => {
+                if (isImeKey(event.nativeEvent)) return; // S35.4: the IME owns Enter while composing
                 if (event.key === 'Enter') {
                   event.preventDefault();
                   void create();

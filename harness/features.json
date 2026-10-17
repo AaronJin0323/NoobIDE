@@ -4264,6 +4264,23 @@
       "evidence": "window-options.test.ts (frame/overlay/height), tabs + key-features-visible e2e green, Windows capture checked; drag/snap/recolour/macOS steps in harness/MANUAL-CHECKS.md#S46.9"
     },
     {
+      "id": "S35.4",
+      "session": "S35",
+      "milestone": "M9",
+      "title": "Chinese IME-safe input fields",
+      "description": "Owner-reported Chinese input corruption in AI editing and other text fields.",
+      "acceptance": [
+        "Inline AI instruction retains text and caret through input updates, including composition, without a cross-root controlled-value rollback (Electron regression).",
+        "IME Enter/Escape do not submit or dismiss AI editing, chat, naming, project creation, annotations or dialogs; ordinary keys still work (shared guard tests and Electron regressions)."
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S35.1"
+      ],
+      "status": "done",
+      "evidence": "ime.test.ts; 50 Electron tests across ai-edit, file-tree, ai-chat, welcome, commands and preview-annotations; verify green (2722 passed, 15 skipped); native IME checklist in MANUAL-CHECKS.md"
+    },
+    {
       "id": "S47.1",
       "session": "S47",
       "milestone": "M18",
