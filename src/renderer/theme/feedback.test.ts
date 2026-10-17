@@ -46,6 +46,8 @@ describe('S47.4 status dot', () => {
     expect(MOTION).toMatch(/\.status-dot\[data-pulse\] \{\s+animation: status-pulse var\(--dur-pulse\) /);
     expect(MOTION).toMatch(/@keyframes status-pulse \{\s+50% \{\s+opacity: 0\.35;\s+\}\s+\}/);
     expect(rootToken('--dur-pulse')).toBe(`${PULSE_MS}ms`);
+    // The preview's dot settles after three breaths; only the short-lived thinking dot loops.
+    expect(MOTION).toMatch(/\.state-pill > \.status-dot\[data-pulse\] \{\s+animation-iteration-count: 3;/);
     expect(PULSE_MS).toBe(1200);
   });
 

@@ -50,7 +50,7 @@ describe('S47.2 exit motion', () => {
   it('times enter and exit with the motion tokens only, compositor properties only', () => {
     const decls = declarations('motion.css', MOTION);
     for (const d of decls.filter((x) => /^(animation|transition)/.test(x.prop) && x.prop !== 'animation-name')) {
-      if (d.prop === 'animation-timeline' || d.prop === 'animation-range') continue;
+      if (['animation-timeline', 'animation-range', 'animation-iteration-count'].includes(d.prop)) continue;
       expect(d.value, `${d.prop} at line ${d.line}`).toMatch(/var\(--(dur|ease)-|^none$|linear both/);
     }
     // Every enter / exit keyframe moves opacity and translate only (no scale, no size).

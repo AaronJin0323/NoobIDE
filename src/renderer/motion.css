@@ -358,6 +358,12 @@
 .status-dot[data-pulse] {
   animation: status-pulse var(--dur-pulse) var(--ease-smooth) infinite;
 }
+/* The preview runs for hours: its dot breathes three times when the page starts, then rests. An endless animation would
+   keep the workbench repainting every frame for as long as the preview runs (battery, and CPU taken from the page
+   itself where the compositor has no GPU). The chat's thinking dot only lives while an answer is coming. */
+.state-pill > .status-dot[data-pulse] {
+  animation-iteration-count: 3;
+}
 .ai-turn-status:has(> .status-dot) {
   display: flex;
   align-items: center;

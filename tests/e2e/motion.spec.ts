@@ -250,10 +250,17 @@ test('S47.4: the running preview shows a breathing 6 px dot next to its word; co
       height: style.height,
       animation: style.animationName,
       duration: style.animationDuration,
+      iterations: style.animationIterationCount,
       next: el.nextSibling?.textContent ?? '',
     };
   });
-  expect(look).toMatchObject({ width: '6px', height: '6px', animation: 'status-pulse', duration: '1.2s' });
+  expect(look).toMatchObject({
+    width: '6px',
+    height: '6px',
+    animation: 'status-pulse',
+    duration: '1.2s',
+    iterations: '3', // breathes as the page starts, then rests (no endless repaint while the preview runs)
+  });
   expect(look.next.trim().length).toBeGreaterThan(0); // the word, right after the dot
   for (const id of ['cursor-position', 'problems-toggle'])
     expect(await page.getByTestId(id).evaluate((el) => getComputedStyle(el).fontVariantNumeric)).toBe('tabular-nums');
