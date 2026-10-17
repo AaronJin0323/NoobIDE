@@ -7,7 +7,7 @@
  *   checks, with the created file counted) no longer reports the problem.
  * The editor model is a small stand-in with the same rules as rule-context-monaco (Monaco needs a browser).
  */
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -36,7 +36,9 @@ const PAGE =
   '<!doctype html>\n<html lang="zh-CN">\n<head>\n  <link rel="stylesheet" href="css/主题 样式.css">\n</head>\n<body>\n  <img src="images/logoo.png" alt="标志">\n</body>\n</html>\n';
 
 beforeEach(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-quickfix-'));
+  // The real path: on hosted Windows runners TEMP is an 8.3 short name (C:UsersRUNNER~1...), and
+  // createEntry realpath-checks the parent folder against the root it is given, so the raw path would be 'outside'.
+  tmp = await realpath(await mkdtemp(path.join(os.tmpdir(), 'noobide-quickfix-')));
   root = path.join(tmp, '我的 网站');
   await mkdir(path.join(root, 'css'), { recursive: true });
   await mkdir(path.join(root, 'images'), { recursive: true });
