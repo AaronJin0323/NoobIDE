@@ -15,7 +15,7 @@
 
   /* Shape: four radii plus a pill for counters and status pills only */
   --radius-sm: 6px; /* chips, kbd, badges, tree rows, small icon buttons */
-  --radius-control: 8px; /* buttons, inputs, tabs, list rows, menu items, callouts */
+  --radius-control: 8px; /* buttons, inputs, tabs, list rows, menu items, callouts (6px when compact, S50.4) */
   --radius-panel: 12px; /* panels, menus, popovers, cards, composer */
   --radius-sheet: 14px; /* dialogs, palette */
   --radius-capsule: 999px; /* counters and status pills only */
@@ -31,9 +31,22 @@
   --weight-medium: 500; /* buttons, tabs, titles */
   --weight-strong: 600; /* dialog and welcome headings, the label of a selected / current / pressed control */
 
-  /* Elevation: overlays are the only thing with a shadow; filled controls get a rim */
-  --shadow-overlay: 0 0 0 1px var(--line), 0 12px 32px -12px var(--glass-shadow);
+  /* Elevation: overlays are the only thing with a shadow; filled controls get a rim. S50.3: the shadow takes a tenth
+     of the surface it falls from (one color-mix recipe for both themes), and the overlay's edge is --overlay-rim: a
+     1px line outside it on light, a 1px inner highlight on dark (glass.css), never a lighter border. */
+  --overlay-rim: 0 0 0 1px var(--line);
+  --shadow-overlay: var(--overlay-rim), 0 12px 32px -12px color-mix(in srgb, var(--panel) 10%, var(--glass-shadow));
   --ring-accent: inset 0 0 0 1px var(--accent-rim);
+  /* S50.3: state changes are inset rings, never border changes, so nothing shifts by a pixel. --ring-line is the
+     at-rest frame of a field or card and the frame of a disabled control (with muted text, no opacity); --ring-hover
+     is the frame under the pointer. */
+  --ring-line: inset 0 0 0 1px var(--line);
+  --ring-hover: inset 0 0 0 1px color-mix(in srgb, var(--muted) 40%, var(--line));
+
+  /* Sheets (S50.1): the top bar is the window's title bar (S46.9), so a sheet keeps that much clear above and below
+     it - at least 32px - and never runs under the window controls. */
+  --titlebar-inset: 52px;
+  --sheet-max-h: calc(100dvh - 2 * max(32px, var(--titlebar-inset)));
 
   /* States (spec: "Selected / current / pressed"). Selected, current and pressed take the --hover fill plus a
      non-colour cue: the label at --weight-strong (Microsoft YaHei has no 500 face), or --ring-selected on icon-only
@@ -78,6 +91,15 @@
   );
 
   --gap: 8px;
+
+  /* Density (S50.4): data-density on <html> (theme/density.ts) picks comfortable (the default) or compact. */
+  --control-h: 32px; /* buttons and text fields */
+  --row-h: 32px; /* list rows and menu items */
+}
+:root[data-density='compact'] {
+  --control-h: 28px;
+  --row-h: 28px;
+  --radius-control: 6px;
 }
 * {
   box-sizing: border-box;
@@ -302,7 +324,7 @@ input[type='radio'] {
   justify-content: center;
   gap: 6px;
   height: 32px;
-  padding: 0 10px;
+  padding: 0 11px;
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
@@ -348,7 +370,8 @@ input[type='radio'] {
 }
 .quiet-button:disabled,
 .icon-button:disabled {
-  opacity: 0.5;
+  color: var(--muted);
+  box-shadow: var(--ring-line);
   cursor: default;
 }
 .segmented {
@@ -711,9 +734,11 @@ input[type='radio'] {
 .tab-item:not(.selected):hover {
   background: var(--hover-soft);
 }
-/* The selected tab: the --hover fill, the text colour and a strong label (plus aria-selected). */
+/* The selected tab (S50.3, spec): the --raised fill with the line ring, the text colour and a strong label (plus
+   aria-selected). */
 .tab-item.selected {
-  background: var(--hover);
+  background: var(--raised);
+  box-shadow: var(--ring-line);
 }
 .tab-item.selected .tab {
   color: var(--text);
@@ -796,7 +821,8 @@ input[type='radio'] {
 /* No more tabs on this side: the chevron stays (the strip keeps its width) but fades out. */
 .tabs-scroll:disabled {
   background: none;
-  opacity: 0.35;
+  color: var(--muted);
+  box-shadow: var(--ring-line);
   cursor: default;
 }
 /* "Editor options": Format and the code font size, in a small panel under the button. */
@@ -880,8 +906,8 @@ input[type='radio'] {
 }
 /* S43.2: indentation of the file on screen; a button that opens the indentation menu */
 .editor-status-indent {
-  padding: 0 4px;
-  border: 1px solid transparent;
+  padding: 0 5px;
+  border: 0;
   border-radius: var(--radius-control);
   background: none;
   color: inherit;
@@ -889,7 +915,7 @@ input[type='radio'] {
   cursor: pointer;
 }
 .editor-status-indent:hover {
-  border-color: var(--line);
+  box-shadow: var(--ring-line);
   color: var(--text);
 }
 /* Its menu is open: the --hover fill and the strong label. */
@@ -921,7 +947,7 @@ input[type='radio'] {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 32px;
+  height: var(--control-h);
   padding: 0 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
@@ -944,7 +970,9 @@ input[type='radio'] {
   background: color-mix(in srgb, var(--hover) 70%, var(--line));
 }
 .secondary-button:disabled {
-  opacity: 0.5;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: var(--ring-line);
   cursor: not-allowed;
 }
 /* A chip: --raised fill, no border. */
@@ -1018,8 +1046,8 @@ input[type='radio'] {
 /* S13: app-level notices (settings reset, entry page, transfer report, journal health) share one stack. S47.5: the
    stack sits in the layout flow between the walkthrough band and the Problems panel (flex order), anchored above the
    status strip: it never covers the code, the tree, the native preview view or the Problems toggle, in any window
-   width. It gives way first when the window is short (a long stack scrolls inside); informational notices leave by
-   themselves (useAutoDismiss). Empty, it takes no room and is skipped by F6. */
+   width. It gives way first when the window is short (a long stack scrolls inside). No notice has a timer (S50.2):
+   each stays until it is dismissed or its state ends. Empty, it takes no room and is skipped by F6. */
 .workbench:has(> .app-notice-stack:not(:empty)) {
   --notice-reserve: clamp(8px, calc(100vh - 430px), 120px);
 }
@@ -1094,7 +1122,7 @@ input[type='radio'] {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  min-height: 32px;
+  min-height: var(--row-h);
   padding: 6px 10px;
   border: 0;
   border-radius: var(--radius-control);
@@ -1283,7 +1311,7 @@ input[type='radio'] {
   justify-content: center;
   gap: 6px;
   margin-top: 10px;
-  height: 32px;
+  height: var(--control-h);
   padding: 0 14px;
   border: 0;
   border-radius: var(--radius-control);
@@ -1293,7 +1321,8 @@ input[type='radio'] {
   font-size: var(--text-md);
   font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease-smooth);
+  /* No fill transition (S50.3): a disabled primary has no fill, and fading the fill in under the white label when it
+     becomes enabled would pass through unreadable contrast. */
 }
 .primary-button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent-fill) 86%, var(--muted));
@@ -1302,13 +1331,15 @@ input[type='radio'] {
   background: color-mix(in srgb, var(--accent-fill) 76%, var(--muted));
 }
 .primary-button:disabled {
-  opacity: 0.5;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: var(--ring-line);
   cursor: not-allowed;
 }
 .file-row {
   display: block;
   width: 100%;
-  height: 32px;
+  height: var(--row-h);
   padding: 0 10px;
   border: 0;
   border-radius: var(--radius-control);
@@ -1352,6 +1383,100 @@ input[type='radio'] {
 }
 .save-alert > svg {
   color: var(--danger);
+}
+/* ── S50.2 Notice (workbench/Notice.tsx): tone icon · one-line title · one sentence · details · trailing actions ──
+   The tone is the icon's shape, the words and data-tone; the fill only follows it. Only "danger" (something failed)
+   has the danger fill: a confirmation is "success", a report is "warning" or "info". */
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+  color: var(--text);
+  line-height: 1.45;
+}
+.notice-success {
+  background: var(--ok-soft);
+}
+.notice-warning {
+  background: var(--warn-soft);
+}
+.notice-danger {
+  background: var(--danger-soft);
+}
+.notice-icon {
+  display: inline-flex;
+  flex: none;
+  margin-top: 1px;
+  color: var(--accent-text);
+}
+.notice-success .notice-icon {
+  color: var(--ok);
+}
+.notice-warning .notice-icon {
+  color: var(--warn);
+}
+.notice-danger .notice-icon {
+  color: var(--danger);
+}
+.notice-text {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.notice-title {
+  margin: 0;
+  overflow: hidden;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.notice-body {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+}
+.notice-detail {
+  margin-top: 4px;
+  font-size: var(--text-sm);
+}
+.notice-detail > summary {
+  width: fit-content;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+}
+.notice-detail-body {
+  margin-top: 4px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.notice-path {
+  display: block;
+  font-family: var(--font-code);
+  overflow-wrap: anywhere;
+}
+.notice-list {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 160px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+/* Trailing actions: on the title's line when there is room, otherwise on their own row at the trailing edge. */
+.notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+.notice-actions > button {
+  margin: 0;
+  white-space: nowrap;
 }
 /* An informational notice (e.g. "reopened your last project"): neither a warning nor an error. */
 .info-alert {
@@ -1454,7 +1579,7 @@ input[type='radio'] {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
+  height: calc(var(--row-h) - 2px);
   padding-right: 8px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
@@ -1578,19 +1703,20 @@ input[type='radio'] {
 .preview-select,
 .preview-console-filter select {
   min-width: 0;
-  height: 32px;
+  height: var(--control-h);
   padding: 0 10px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: var(--radius-control);
   background: var(--panel);
+  box-shadow: var(--ring-line);
   color: var(--text);
   font: inherit;
-  transition: border-color var(--dur-fast) var(--ease-smooth);
+  transition: box-shadow var(--dur-fast) var(--ease-smooth);
 }
 textarea.text-field {
   height: auto;
   min-height: 32px;
-  padding: 8px 10px;
+  padding: 9px 11px;
   line-height: 1.5;
 }
 select.text-field {
@@ -1600,18 +1726,18 @@ select.text-field {
 .name-input:hover:not(:disabled),
 .preview-select:hover:not(:disabled),
 .preview-console-filter select:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--muted) 40%, var(--line));
+  box-shadow: var(--ring-hover);
 }
 .text-field:focus,
 .name-input:focus,
 .preview-select:focus,
 .preview-console-filter select:focus {
-  border-color: var(--focus);
+  box-shadow: inset 0 0 0 1px var(--focus);
 }
-/* An error is the border plus the message in words (.name-error), never the colour alone. */
+/* An error is the ring plus the message in words (.name-error), never the colour alone. */
 .text-field[aria-invalid='true'],
 .name-input[aria-invalid='true'] {
-  border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
 }
 /* Disabled: muted text on the raised fill, and the not-allowed cursor (not colour alone: the field also stops
    reacting to hover). */
@@ -1626,10 +1752,10 @@ select.text-field {
 .name-input {
   width: 100%;
   height: 24px;
-  padding: 0 6px;
+  padding: 0 7px;
 }
 .name-input[aria-invalid='true'] {
-  border-width: 2px;
+  box-shadow: inset 0 0 0 2px var(--danger);
 }
 .name-error,
 .name-hint {
@@ -1694,10 +1820,15 @@ select.text-field {
   flex-direction: column;
   gap: 12px;
   width: min(480px, 100%);
-  max-height: 100%;
+  max-height: min(100%, var(--sheet-max-h));
   padding: 20px 24px 24px;
   border-radius: var(--radius-sheet);
   background: var(--panel);
+}
+/* S50.1: a sheet (or the palette) with another sheet open over it steps back: a 2px blur and a dim. */
+.dialog[data-covered],
+.palette[data-covered] {
+  filter: blur(2px) opacity(0.85);
 }
 .sheet-720 {
   width: min(720px, 100%);
@@ -1810,10 +1941,7 @@ select.text-field {
 .recovery-actions .primary-button {
   margin-top: 0;
 }
-.recovery-actions .primary-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+
 /* S49.1: "clear all recovery data" lives behind a disclosure, not next to the way out. */
 .recovery-advanced {
   padding-top: 10px;
@@ -2215,11 +2343,7 @@ select.text-field {
   height: 26px;
   padding: 0 8px;
 }
-.preview-toolbar .quiet-button:disabled,
-.preview-advanced .quiet-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+
 .preview-field {
   display: inline-flex;
   align-items: center;
@@ -2381,8 +2505,9 @@ select.text-field {
 }
 .viewport-choice {
   height: 24px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
+  padding: 0 11px;
+  border: 0;
+  box-shadow: var(--ring-line);
   border-radius: var(--radius-control);
   background: transparent;
   color: var(--muted);
@@ -2400,8 +2525,8 @@ select.text-field {
   background: var(--hover);
   color: var(--text);
   font-weight: var(--weight-strong);
-  /* Not colour alone: the chosen width also has the strong (600) label and an outline in the text colour. */
-  border-color: currentColor;
+  /* Not colour alone: the chosen width also has the strong (600) label and a ring in the text colour. */
+  box-shadow: inset 0 0 0 1px currentColor;
 }
 .viewport-note {
   flex-basis: 100%;

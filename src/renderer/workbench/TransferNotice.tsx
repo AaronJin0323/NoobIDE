@@ -3,8 +3,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import type { PortabilityApi, PortabilityReport } from '../../shared/ipc/app-data-contract';
 import { fill } from './file-op-messages';
 import { transferNoticeView } from './transfer-notice';
-import { WarningIcon } from './icons';
-import { useAutoDismiss } from './useAutoDismiss';
+import { Notice } from './Notice';
 
 /**
  * S13.5: after a project opens, main checks it read-only for what breaks between Windows and macOS (names, case and
@@ -33,8 +32,8 @@ export function TransferNotice({ api, projectId }: { api: PortabilityApi | undef
   return <TransferNoticeView view={view} onDismiss={() => setDismissed(projectId)} />;
 }
 
-/** S47.5: a report, not a failure — it leaves by itself unless the user is reading it (hover / focus). */
-function TransferNoticeView({
+/** S50.2: a report, not a failure — a warning-tone status on the shared Notice, no danger fill and no timer. */
+export function TransferNoticeView({
   view,
   onDismiss,
 }: {
@@ -42,27 +41,33 @@ function TransferNoticeView({
   onDismiss(): void;
 }) {
   const { t } = useI18n();
-  const hold = useAutoDismiss(onDismiss);
   return (
-    <div className="inline-alert save-alert app-notice" role="status" data-testid="transfer-notice" {...hold}>
-      <WarningIcon size={15} />
-      <div className="save-alert-body">
-        <strong>{t('transfer.title')}</strong>
-        <ul className="alert-detail transfer-issues">
-          {view.lines.map((line, i) => (
-            <li key={`${i}:${line}`} data-testid="transfer-issue">
-              {line}
-            </li>
-          ))}
-        </ul>
-        {view.more > 0 && <span className="alert-detail">{fill(t('transfer.more'), { n: String(view.more) })}</span>}
-        {view.truncated && <span className="alert-detail">{t('transfer.truncated')}</span>}
-        <span className="alert-actions">
-          <button type="button" className="secondary-button" data-testid="transfer-notice-dismiss" onClick={onDismiss}>
-            {t('disk.dismiss')}
-          </button>
-        </span>
-      </div>
-    </div>
+    <Notice
+      tone="warning"
+      role="status"
+      testId="transfer-notice"
+      title={t('notice.transfer.title')}
+      body={t('notice.transfer.body')}
+      detailsLabel={fill(t('notice.transfer.details'), { n: String(view.lines.length + view.more) })}
+      detailsTestId="transfer-details"
+      details={
+        <>
+          <ul className="notice-list transfer-issues">
+            {view.lines.map((line, i) => (
+              <li key={`${i}:${line}`} data-testid="transfer-issue">
+                {line}
+              </li>
+            ))}
+          </ul>
+          {view.more > 0 && <span className="alert-detail">{fill(t('transfer.more'), { n: String(view.more) })}</span>}
+          {view.truncated && <span className="alert-detail">{t('transfer.truncated')}</span>}
+        </>
+      }
+      actions={
+        <button type="button" className="secondary-button" data-testid="transfer-notice-dismiss" onClick={onDismiss}>
+          {t('disk.dismiss')}
+        </button>
+      }
+    />
   );
 }

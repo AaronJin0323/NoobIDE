@@ -169,6 +169,29 @@ changes` logs `kind=code`, `Static gates` fails on the Lint step within about 2 
 - **Expected:** all steps behave as described.
 - **Result:** _(owner fills in: pass/fail, notes, date)_
 
+### S50.5 — macOS traffic lights stay centred under zoom
+
+- **Platform:** macOS on Apple Silicon (a physical Mac; the CI runner has no one to look)
+- **Build:** branch `claude/m18-s50-surfaces-e49b52` (or `main` after it is merged), `npm start` or `npm run package`
+- **What changed:** main recomputes `setWindowButtonPosition` from the page zoom factor on `zoom-changed` and after
+  every load (`trafficLightPosition` in `src/main/window-options.ts`; geometry unit-tested at 80–150 % in
+  `window-options.test.ts`).
+- **Steps:**
+  1. Start NoobIDE at 100 %: the traffic lights sit vertically centred in the 52 px top bar, left of the NoobIDE mark
+     (same as S46.9 step 6).
+  2. Zoom the page out to 80 %: hold ⌘ (or Control) and scroll down over the workbench, or pinch in on the trackpad,
+     until the top bar is visibly smaller. The lights move up so they stay centred in the smaller bar and still end
+     before the NoobIDE mark.
+  3. Zoom in step by step to 150 % (⌘/Control + scroll up, or pinch out): at every step the lights stay centred in
+     the taller bar and never overlap the mark or the project name.
+  4. With the page still zoomed, reload (`npm start`: View → Reload, or quit and reopen): the lights are centred for
+     the zoom the page comes back with.
+  5. If neither ⌘/Control + scroll nor a pinch changes the page zoom at all, note that: the lights then only ever see
+     100 % and step 1 is the whole check.
+- **Expected:** the lights' vertical centre matches the top bar's centre (within a point) at 80 %, 100 %, 125 % and
+  150 %; they never overlap the NoobIDE mark.
+- **Result:** _(owner fills in: pass/fail, zoom levels tried, date)_
+
 ### S46.8 — Calm refinement visual pass on real hardware
 
 - **Platform:** Windows 11 x64 and macOS on Apple Silicon

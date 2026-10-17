@@ -62,6 +62,58 @@ skips items that are not rendered.
 1. Remaining M18 sessions (S47.2–S47.5, S48.4–S48.8, S50) land through their PRs; S49 is complete.
 2. When S48.4 adds kbd hints to the chin, give them the `.ai-hint`-like hiding at < 480 px in navigation.css.
 
+## Session S50 (side session) — 2026-10-18 — Dialogs, notices, surfaces and density (S50.1–S50.5)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m18-s50-surfaces-e49b52`
+(PR #36), cut from the M18 plan branch with S47.1. One of five parallel M18 sessions (S47, S48 ×2, S49, S50).
+
+**Done**
+
+- **S50.1 One Sheet.** `Sheet.tsx` gained `SheetFrame` (backdrop, modal dialog element, Escape/Tab trap, focus
+  return, covered state); `Sheet` builds on it and the command palette now renders on it too (no own shell left;
+  the scan test lost its palette exception). Height cap `--sheet-max-h: calc(100dvh - 2 * max(32px,
+var(--titlebar-inset)))` with `--titlebar-inset: 52px` for sheets and the palette. `sheet-stack.ts` tracks open
+  sheets: a covered one gets `data-covered` (2px blur + `opacity(0.85)`; brightness filters are banned by the design
+  rules) and only the front one answers Escape/Tab — before, About over the glossary closed both on one Escape.
+  S45.9 superseded by S50.1; the archive README lists what was rebuilt or dropped (PreviewMoreMenu, AddContextMenu).
+- **S50.2 Notice.** `workbench/Notice.tsx` (tone icon with a distinct shape per tone, one-line title, one sentence,
+  closed `<details>` for the rest, trailing actions with one primary) replaces the hand-built Entry, Transfer,
+  Settings and journal-health notices. Entry success is `success`, Transfer is `warning`; only failures use the
+  danger fill. `useAutoDismiss` is gone (plan default: no timers). Copy in `i18n/notices.ts`; dead keys removed.
+- **S50.3 Rings.** Tokens `--ring-line`, `--ring-hover`, `--overlay-rim`; `--shadow-overlay` mixes 10% of `--panel`
+  into the shadow colour; dark overlays get an inner `glass-stroke` highlight (full line again under increased
+  contrast). Fields, composer, viewport choice, navigation items and template cards draw their frame as an inset
+  ring (border back in forced colours, padding +1px so nothing moved). Disabled buttons: muted text + `--ring-line`
+  (no opacity). Selected tab on `--raised` + ring. Primary buttons lost their fill transition (fading the fill in
+  under the white label when a button becomes enabled failed axe contrast in the wizard).
+- **S50.4 Density.** `density: 'comfortable' | 'compact'` in the settings schema; `ThemeProvider` sets
+  `data-density` on `<html>` (`useDensity`); `--control-h`/`--row-h`/`--radius-control` 32/32/8 vs 28/28/6 drive
+  buttons, text fields, file rows, menu items and tree rows (`row-h − 2`). Commands `density-comfortable` /
+  `density-compact` (radio, optional `compact` context key) in the native View menu, the ⋯ menu and the palette.
+- **S50.5 Traffic lights.** `trafficLightPosition(zoom)` + `keepTrafficLightsCentred` in `window-options.ts`, wired
+  for macOS in `main.ts` (`zoom-changed`, deferred, and `did-finish-load`). needs_manual_check: steps in
+  `harness/MANUAL-CHECKS.md#S50.5`.
+
+**Evidence:** verify green; unit: sheet.test.ts, notice.test.ts (18), design-rules.test.ts (S50.3 + S50.4 blocks),
+settings/commands/menu-template tests, window-options.test.ts (S50.5); e2e (packaged, Windows): new sheets.spec.ts
+(3), key-features-visible (now all five sizes at both densities), glass, glass-visual, distribution, commands, a11y,
+theme, tabs, templates, portability, settings, project-config, recovery, upgrade, menus, js-navigation,
+preview-annotations, reduced-motion.
+
+**Decisions:** The nested-dialog dim is `opacity(0.85)` in the filter (the calm rules forbid brightness filters);
+the front sheet's scrim adds to it. The palette cannot open over a sheet (commands wait while a modal is open), so
+nesting happens through the native About item or a sheet opened by another. key-features-visible no longer expects
+the entry notice to leave by itself (S50.2 removed timers); no done feature's criteria asked for the timer.
+
+**Problems / risks:** Parallel sessions touch the same stylesheets (`styles.css :root`, `ai-chat.css`,
+`ai-entry.css`); the ring changes there are small, scoped blocks. A concurrent `electron-packager` run in another
+worktree once collided in the shared temp folder (ENOENT on electron.exe): rerun fixes it.
+
+**Next up**
+
+1. Owner: run the S50.5 Mac check (MANUAL-CHECKS.md#S50.5) next to S46.9.
+2. Remaining M18 work in the sibling sessions (S47.2–S47.5, S48.4–S48.8, S49.2/S49.4–S49.6).
+
 ## Session 47 (side session) — 2026-10-18 — Two more hosted-CI e2e races hitting every M18 PR
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/ci-flakes-m18` from main @ c976e3e.

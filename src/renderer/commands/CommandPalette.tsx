@@ -4,6 +4,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import { otherLocale, translate, type MessageKey } from '../i18n/index';
 import type { CommandId } from '../../shared/commands';
 import { SearchIcon } from '../workbench/icons';
+import { SheetFrame } from '../workbench/Sheet';
 import {
   PALETTE_KEYWORDS,
   keywordList,
@@ -33,8 +34,8 @@ interface CommandPaletteProps {
 
 /**
  * The command palette (S40.5): a glass sheet with one search field over the list of commands that apply now. It is
- * a modal dialog (focus stays in the field, Escape or a click outside closes it and focus goes back to where it
- * was); the field is a combobox whose active option follows ↑/↓, and Enter runs it. Typing in Chinese through an
+ * a modal dialog on the shared sheet frame (S50.1: focus stays in the field, Escape or a click outside closes it and
+ * focus goes back to where it was; a sheet under it blurs and dims); the field is a combobox whose active option follows ↑/↓, and Enter runs it. Typing in Chinese through an
  * input method never runs anything mid-composition. Only commands that can run are listed — nothing pretends.
  */
 export function CommandPalette({ commands, onClose, recents = [] }: CommandPaletteProps) {
@@ -69,13 +70,9 @@ export function CommandPalette({ commands, onClose, recents = [] }: CommandPalet
   const checkedOf = useMemo(() => new Map(commands.map((c) => [c.id, c.checked])), [commands]);
   const active = matches.length === 0 ? -1 : Math.min(selected, matches.length - 1);
 
-  // Focus goes into the field on open and back to where it was on close.
+  // Focus goes into the field on open; the shared frame gives it back to where it was on close.
   useEffect(() => {
-    const before = document.activeElement as HTMLElement | null;
     input.current?.focus();
-    return () => {
-      if (before?.isConnected) before.focus();
-    };
   }, []);
 
   useEffect(() => {
@@ -91,10 +88,6 @@ export function CommandPalette({ commands, onClose, recents = [] }: CommandPalet
       event.preventDefault();
       const match = matches[active];
       if (match) onClose(match.entry.id);
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      onClose(null);
     } else if (event.key === 'Tab') {
       event.preventDefault(); // the field is the only stop in the sheet
     }
@@ -130,80 +123,79 @@ export function CommandPalette({ commands, onClose, recents = [] }: CommandPalet
   };
 
   return (
-    <div className="palette-backdrop" data-testid="palette-backdrop" onMouseDown={() => onClose(null)}>
-      <div
-        className="palette"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid="command-palette"
-        onMouseDown={(event) => {
-          event.stopPropagation();
-          // Clicking the sheet's padding or footer keeps the keyboard in the search field.
-          if (event.target !== input.current) event.preventDefault();
-        }}
-      >
-        <h2 className="sr-only" id={titleId}>
-          {t('palette.title')}
-        </h2>
-        <div className="palette-search">
-          <SearchIcon size={16} />
-          <label className="sr-only" htmlFor={`${listId}-input`}>
-            {t('palette.label')}
-          </label>
-          <input
-            ref={input}
-            id={`${listId}-input`}
-            className="palette-input"
-            type="text"
-            role="combobox"
-            aria-expanded={matches.length > 0}
-            aria-controls={listId}
-            aria-autocomplete="list"
-            aria-activedescendant={active >= 0 ? optionId(active) : undefined}
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={t('palette.placeholder')}
-            value={query}
-            data-testid="palette-input"
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setSelected(0);
-            }}
-            onKeyDown={onKeyDown}
-          />
-        </div>
-        {matches.length > 0 ? (
-          <ul ref={list} id={listId} className="palette-list" role="listbox" aria-label={t('palette.results')}>
-            {lead > 0 && (
-              <li
-                role="group"
-                className="palette-recent-group"
-                aria-label={t('palette.recent')}
-                data-testid="palette-recent"
-              >
-                <div className="palette-group" aria-hidden="true">
-                  {t('palette.recent')}
-                </div>
-                <ul role="none" className="palette-group-list">
-                  {matches.slice(0, lead).map((match, index) => renderOption(match, index))}
-                </ul>
-              </li>
-            )}
-            {matches.slice(lead).map((match, index) => renderOption(match, index + lead))}
-          </ul>
-        ) : (
-          <p className="palette-empty" data-testid="palette-empty">
-            {t('palette.empty')}
-          </p>
-        )}
-        <p className="palette-footer">
-          <span role="status" aria-live="polite" data-testid="palette-count">
-            {t('palette.count').replace('{n}', String(matches.length))}
-          </span>
-          <span aria-hidden="true">{t('palette.keys')}</span>
-        </p>
+    <SheetFrame
+      className="palette"
+      backdropClassName="palette-backdrop"
+      backdropTestId="palette-backdrop"
+      onBackdrop={() => onClose(null)}
+      onEscape={() => onClose(null)}
+      labelledBy={titleId}
+      testId="command-palette"
+      onSheetMouseDown={(event) => {
+        // Clicking the sheet's padding or footer keeps the keyboard in the search field.
+        if (event.target !== input.current) event.preventDefault();
+      }}
+    >
+      <h2 className="sr-only" id={titleId}>
+        {t('palette.title')}
+      </h2>
+      <div className="palette-search">
+        <SearchIcon size={16} />
+        <label className="sr-only" htmlFor={`${listId}-input`}>
+          {t('palette.label')}
+        </label>
+        <input
+          ref={input}
+          id={`${listId}-input`}
+          className="palette-input"
+          type="text"
+          role="combobox"
+          aria-expanded={matches.length > 0}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={active >= 0 ? optionId(active) : undefined}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder={t('palette.placeholder')}
+          value={query}
+          data-testid="palette-input"
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setSelected(0);
+          }}
+          onKeyDown={onKeyDown}
+        />
       </div>
-    </div>
+      {matches.length > 0 ? (
+        <ul ref={list} id={listId} className="palette-list" role="listbox" aria-label={t('palette.results')}>
+          {lead > 0 && (
+            <li
+              role="group"
+              className="palette-recent-group"
+              aria-label={t('palette.recent')}
+              data-testid="palette-recent"
+            >
+              <div className="palette-group" aria-hidden="true">
+                {t('palette.recent')}
+              </div>
+              <ul role="none" className="palette-group-list">
+                {matches.slice(0, lead).map((match, index) => renderOption(match, index))}
+              </ul>
+            </li>
+          )}
+          {matches.slice(lead).map((match, index) => renderOption(match, index + lead))}
+        </ul>
+      ) : (
+        <p className="palette-empty" data-testid="palette-empty">
+          {t('palette.empty')}
+        </p>
+      )}
+      <p className="palette-footer">
+        <span role="status" aria-live="polite" data-testid="palette-count">
+          {t('palette.count').replace('{n}', String(matches.length))}
+        </span>
+        <span aria-hidden="true">{t('palette.keys')}</span>
+      </p>
+    </SheetFrame>
   );
 }

@@ -33,6 +33,7 @@ describe('settings schema (S13.1)', () => {
       version: SETTINGS_VERSION,
       locale: 'zh-CN',
       theme: 'system',
+      density: 'comfortable', // S50.4
       editorFontSize: 16,
       restoreSession: true,
       emmet: true,
@@ -51,6 +52,7 @@ describe('settings schema (S13.1)', () => {
       version: 1,
       locale: 'en',
       theme: 'dark',
+      density: 'compact',
       editorFontSize: 20,
       restoreSession: false,
       emmet: false,
@@ -122,6 +124,12 @@ describe('settings schema (S13.1)', () => {
   it('the IPC patch accepts only known keys with valid values', () => {
     expect(parseSettingsPatch({ locale: 'en' })).toEqual({ locale: 'en' });
     expect(parseSettingsPatch({ theme: 'light', editorFontSize: 18 })).toEqual({ theme: 'light', editorFontSize: 18 });
+    // S50.4: the interface density
+    expect(parseSettingsPatch({ density: 'compact' })).toEqual({ density: 'compact' });
+    expect(upgradeSettings({ version: 1, density: 'tight' })).toMatchObject({
+      settings: { density: 'comfortable' },
+      resetFields: ['density'],
+    });
     // S53: the editor switches
     expect(parseSettingsPatch({ emmet: false, emmetHintShown: true, formatOnSave: true })).toEqual({
       emmet: false,
@@ -140,6 +148,8 @@ describe('settings schema (S13.1)', () => {
       { restoreSession: 'yes' },
       { emmet: 1 },
       { formatOnSave: 'on' },
+      { density: 'cozy' }, // S50.4
+      { density: true },
       { locale: 'en', extra: 1 },
     ]) {
       expect(parseSettingsPatch(bad)).toBeNull();

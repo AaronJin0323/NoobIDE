@@ -17,6 +17,10 @@ export type SettingsLocale = (typeof SETTINGS_LOCALES)[number];
 export const THEME_CHOICES = ['system', 'light', 'dark'] as const;
 export type ThemeChoice = (typeof THEME_CHOICES)[number];
 
+/** S50.4: interface density (View menu and the command palette): 32px or 28px controls and rows. */
+export const DENSITY_CHOICES = ['comfortable', 'compact'] as const;
+export type DensityChoice = (typeof DENSITY_CHOICES)[number];
+
 export const EDITOR_FONT_SIZE = { min: 10, max: 32, default: 16 } as const;
 
 /** S49.5: how many commands run from the palette it remembers (newest first). */
@@ -26,6 +30,8 @@ export interface AppSettings {
   readonly version: typeof SETTINGS_VERSION;
   readonly locale: SettingsLocale;
   readonly theme: ThemeChoice;
+  /** S50.4: comfortable (default) or compact controls and rows. */
+  readonly density: DensityChoice;
   /** Code font size in px (PLAN §3: start at about 16px). */
   readonly editorFontSize: number;
   /** Reopen the last project, its tabs and the layout on a normal start (S13.4). */
@@ -47,6 +53,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   version: SETTINGS_VERSION,
   locale: 'zh-CN',
   theme: 'system',
+  density: 'comfortable',
   editorFontSize: EDITOR_FONT_SIZE.default,
   restoreSession: true,
   emmet: true,
@@ -127,6 +134,7 @@ function pickSettings(raw: Raw): { settings: AppSettings; resetFields: string[] 
     version: SETTINGS_VERSION,
     locale: pick('locale', isSettingsLocale),
     theme: pick('theme', isThemeChoice),
+    density: pick('density', isDensityChoice),
     editorFontSize: pick('editorFontSize', isFontSize),
     restoreSession: pick('restoreSession', isBoolean),
     emmet: pick('emmet', isBoolean),
@@ -151,6 +159,10 @@ export function isSettingsLocale(value: unknown): value is SettingsLocale {
 
 export function isThemeChoice(value: unknown): value is ThemeChoice {
   return typeof value === 'string' && (THEME_CHOICES as readonly string[]).includes(value);
+}
+
+export function isDensityChoice(value: unknown): value is DensityChoice {
+  return typeof value === 'string' && (DENSITY_CHOICES as readonly string[]).includes(value);
 }
 
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
@@ -188,6 +200,7 @@ export function parseSettingsPatch(payload: unknown): SettingsPatch | null {
     const valid =
       (key === 'locale' && isSettingsLocale(value)) ||
       (key === 'theme' && isThemeChoice(value)) ||
+      (key === 'density' && isDensityChoice(value)) ||
       (key === 'editorFontSize' && isFontSize(value)) ||
       (BOOLEAN_KEYS.includes(key) && isBoolean(value)) ||
       (key === 'paletteRecents' && isPaletteRecents(value));

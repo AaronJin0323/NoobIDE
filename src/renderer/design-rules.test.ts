@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { DENSITY_TOKENS } from './theme/density';
 
 /**
  * S46 calm design language (docs/product/calm-design-spec.md, decision 0034): every stylesheet of the renderer uses
@@ -217,5 +218,191 @@ describe('calm design rules (S46)', () => {
 
   it.each(files.map((f) => [path.relative(RENDERER, f).replaceAll('\\', '/'), f]))('%s', (name, file) => {
     expect(violations(declarations(name, readFileSync(file, 'utf8')))).toEqual([]);
+  });
+});
+
+/** A style rule with its selector and the at-rules around it (S50.3). Comments and @keyframes are skipped. */
+export interface StyleRule {
+  readonly file: string;
+  readonly line: number;
+  readonly selector: string;
+  readonly media: readonly string[];
+  readonly decls: readonly { readonly prop: string; readonly value: string }[];
+}
+
+export function styleRules(file: string, css: string): StyleRule[] {
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '));
+  const out: StyleRule[] = [];
+  const stack: { prelude: string; line: number; body: string }[] = [];
+  let buf = '';
+  let line = 1;
+  for (const ch of text) {
+    if (ch === '{') {
+      const prelude = buf.trim();
+      stack.push({ prelude, line, body: '' });
+      buf = '';
+    } else if (ch === '}') {
+      const top = stack.pop();
+      if (top) {
+        const body = top.body + buf;
+        const outer = stack.map((s) => s.prelude);
+        if (!top.prelude.startsWith('@') && !outer.some((p) => /^@keyframes\b/.test(p))) {
+          out.push({
+            file,
+            line: top.line,
+            selector: top.prelude.replace(/\s+/g, ' '),
+            media: outer.filter((p) => p.startsWith('@')),
+            decls: body
+              .split(';')
+              .map((d) => d.trim())
+              .filter((d) => d.includes(':'))
+              .map((d) => ({ prop: d.slice(0, d.indexOf(':')).trim(), value: d.slice(d.indexOf(':') + 1).trim() })),
+          });
+        }
+      }
+      buf = '';
+    } else if (ch === ';' && stack.length > 0) {
+      stack[stack.length - 1]!.body += `${buf};`;
+      buf = '';
+    } else {
+      buf += ch;
+    }
+    if (ch === '\n') line++;
+  }
+  return out;
+}
+
+/** Hover, selected, current, pressed, checked and expanded states. */
+const STATE_SELECTOR = /:hover|:active|:checked|\[aria-(selected|current|pressed|checked|expanded)|\.selected\b/;
+const BORDER_PROP = /^border(?!-radius|-collapse|-spacing)/;
+
+/** S50.3: state changes are rings; disabled is muted text plus the line ring, never a faded control. */
+export function ringViolations(rules: readonly StyleRule[]): string[] {
+  const bad: string[] = [];
+  for (const rule of rules) {
+    // Forced colours drop box shadows: the rings come back there as system-colour borders on purpose.
+    if (rule.media.some((m) => /forced-colors/.test(m))) continue;
+    const where = `${rule.file}:${rule.line} ${rule.selector}`;
+    for (const { prop } of rule.decls) {
+      if (STATE_SELECTOR.test(rule.selector) && BORDER_PROP.test(prop))
+        bad.push(`${where} — ${prop} on a state; use an inset box-shadow ring`);
+      if (/:disabled|\[disabled\]|\[aria-disabled/.test(rule.selector) && prop === 'opacity')
+        bad.push(`${where} — opacity on a disabled control; use muted text and --ring-line`);
+    }
+  }
+  return bad;
+}
+
+describe('rings, overlay edge and disabled controls (S50.3)', () => {
+  const sheets = stylesheets(RENDERER).map((f) => ({
+    name: path.relative(RENDERER, f).replaceAll('\\', '/'),
+    css: readFileSync(f, 'utf8'),
+  }));
+  const all = sheets.flatMap((s) => styleRules(s.name, s.css));
+  const decl = (selector: string, prop: string) =>
+    all
+      .filter((r) => r.selector === selector && r.media.length === 0)
+      .flatMap((r) => r.decls.filter((d) => d.prop === prop));
+
+  it('flags a border change on a state and opacity on a disabled control, but not in forced colours', () => {
+    const rules = styleRules(
+      'x.css',
+      `.a:hover { border-color: var(--line); }
+       .b[aria-selected='true'] { border: 1px solid var(--line); border-radius: var(--radius-sm); }
+       .c:disabled { opacity: 0.5; }
+       .d:hover { box-shadow: var(--ring-hover); }
+       @media (forced-colors: active) { .e[aria-pressed='true'] { border: 1px solid CanvasText; } }
+       @keyframes k { from { opacity: 0; } }`,
+    );
+    expect(ringViolations(rules)).toEqual([
+      'x.css:1 .a:hover — border-color on a state; use an inset box-shadow ring',
+      "x.css:2 .b[aria-selected='true'] — border on a state; use an inset box-shadow ring",
+      'x.css:3 .c:disabled — opacity on a disabled control; use muted text and --ring-line',
+    ]);
+  });
+
+  it('no stylesheet changes a border on hover, selected or current, or fades a disabled control', () => {
+    expect(ringViolations(all)).toEqual([]);
+  });
+
+  it('defines the ring tokens and derives the overlay shadow from the surface with color-mix', () => {
+    const root = all.find((r) => r.file === TOKEN_SHEET && r.selector === ':root');
+    const token = (name: string) => root?.decls.find((d) => d.prop === name)?.value;
+    expect(token('--ring-line')).toBe('inset 0 0 0 1px var(--line)');
+    expect(token('--ring-hover')).toMatch(/^inset 0 0 0 1px color-mix\(/);
+    expect(token('--shadow-overlay')).toMatch(/^var\(--overlay-rim\), .*color-mix\(in srgb, var\(--panel\) [\d.]+%, /);
+  });
+
+  it('gives dark overlays a 1px inner highlight instead of a lighter border', () => {
+    const dark = all.find((r) => r.file === 'glass.css' && r.selector === ":root[data-theme='dark']");
+    expect(dark?.decls).toContainEqual({ prop: '--overlay-rim', value: 'inset 0 0 0 1px var(--glass-stroke)' });
+    // The overlays themselves carry no border (forced colours aside): the edge is the shadow's rim.
+    for (const selector of ['.dialog, .recovery-dialog', '.palette']) {
+      expect(decl(selector, 'box-shadow').map((d) => d.value)).toContain('var(--shadow-overlay)');
+    }
+    expect(decl('.dialog, .recovery-dialog', 'border').map((d) => d.value)).toEqual(['0']);
+  });
+
+  it('draws disabled buttons with muted text and the line ring', () => {
+    for (const selector of [
+      '.primary-button:disabled',
+      '.secondary-button:disabled',
+      '.quiet-button:disabled, .icon-button:disabled',
+    ]) {
+      expect(
+        decl(selector, 'color').map((d) => d.value),
+        selector,
+      ).toContain('var(--muted)');
+      expect(
+        decl(selector, 'box-shadow').map((d) => d.value),
+        selector,
+      ).toContain('var(--ring-line)');
+    }
+  });
+
+  it('puts the selected tab on --raised and hovers template cards with a fill and a ring, no scale', () => {
+    expect(decl('.tab-item.selected', 'background').map((d) => d.value)).toEqual(['var(--raised)']);
+    const hover = all.filter((r) => r.selector === '.wizard-template:hover');
+    expect(hover.flatMap((r) => r.decls)).toEqual(
+      expect.arrayContaining([
+        { prop: 'background', value: 'var(--hover-soft)' },
+        { prop: 'box-shadow', value: 'var(--ring-hover)' },
+      ]),
+    );
+    for (const rule of all.filter((r) => r.selector.includes('wizard-template')))
+      expect(
+        rule.decls.filter((d) => /^(transform|scale)$/.test(d.prop)),
+        rule.selector,
+      ).toEqual([]);
+  });
+});
+
+describe('density tokens (S50.4)', () => {
+  const css = readFileSync(path.join(RENDERER, TOKEN_SHEET), 'utf8');
+  const rules = styleRules(TOKEN_SHEET, css);
+  const tokens = (selector: string) =>
+    Object.fromEntries(
+      rules
+        .filter((r) => r.selector === selector && r.media.length === 0)
+        .flatMap((r) => r.decls)
+        .filter((d) => d.prop in DENSITY_TOKENS.comfortable)
+        .map((d) => [d.prop, d.value]),
+    );
+
+  it('comfortable (the :root default) and compact select the control height, row height and control radius', () => {
+    expect(tokens(':root')).toEqual(DENSITY_TOKENS.comfortable);
+    expect(tokens(":root[data-density='compact']")).toEqual(DENSITY_TOKENS.compact);
+  });
+
+  it('the density block passes the calm rules, and controls and rows read the tokens', () => {
+    const compact = rules.filter((r) => r.selector === ":root[data-density='compact']");
+    expect(compact).toHaveLength(1);
+    expect(violations(declarations(TOKEN_SHEET, css))).toEqual([]);
+    const height = (selector: string) =>
+      rules.filter((r) => r.selector === selector).flatMap((r) => r.decls.filter((d) => /height$/.test(d.prop)));
+    expect(height('.primary-button').map((d) => d.value)).toContain('var(--control-h)');
+    expect(height('.secondary-button').map((d) => d.value)).toContain('var(--control-h)');
+    expect(height('.file-row').map((d) => d.value)).toContain('var(--row-h)');
+    expect(height('.app-menu-item').map((d) => d.value)).toContain('var(--row-h)');
   });
 });
