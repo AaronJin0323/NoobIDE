@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// S50.2 — deterministic, time-balanced E2E shards (docs/ci/ci-stability-and-speed-plan.md §4 S50.2).
+// S58.2 — deterministic, time-balanced E2E shards (docs/ci/ci-stability-and-speed-plan.md §4 S58.2).
 //
 // Playwright's own `--shard=N/M` splits the suite by *test count in file order*, so adding one spec file (or a
 // platform skipping a test) moves the boundary and can put the two 2-minute files on the same shard. Instead,

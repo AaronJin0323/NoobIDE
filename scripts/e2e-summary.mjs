@@ -1,5 +1,5 @@
-// S50.6 — the E2E job summary: after every Playwright run, scripts/e2e.mjs appends the 10 slowest spec files and
-// the shard total from reports/e2e/results.json to $GITHUB_STEP_SUMMARY (plan §4 S50.6 item 2). The formatter is
+// S58.6 — the E2E job summary: after every Playwright run, scripts/e2e.mjs appends the 10 slowest spec files and
+// the shard total from reports/e2e/results.json to $GITHUB_STEP_SUMMARY (plan §4 S58.6 item 2). The formatter is
 // pure so tests/integration/ci-timings.test.ts can check it on a saved report.
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { formatDuration, slowestSpecFiles } from './ci-timings-parse.mjs';

@@ -1,4 +1,4 @@
-// S50.6 — scripts/ci-timings.mjs on saved fixtures (no network, no gh). The fixtures under tests/fixtures/ci were
+// S58.6 — scripts/ci-timings.mjs on saved fixtures (no network, no gh). The fixtures under tests/fixtures/ci were
 // written by `node scripts/ci-timings.mjs --run 39015143213 --run 39011559538 --save tests/fixtures/ci` and
 // trimmed to what the parser reads: the run's jobs and steps as `gh run view --json` returns them, each shard's
 // e2e-report artifact (results.json) and an excerpt of `gh run view --log-failed`. The expected numbers are the

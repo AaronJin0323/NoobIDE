@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// S50.6 — where does CI time go? (docs/ci/ci-stability-and-speed-plan.md §2–§3, ADR 0037)
+// S58.6 — where does CI time go? (docs/ci/ci-stability-and-speed-plan.md §2–§3, ADR 0037)
 //
 //   node scripts/ci-timings.mjs                 last 20 runs of the CI workflow: per job the queue delay, each
 //                                               step's duration, the Playwright time from the e2e-report artifact

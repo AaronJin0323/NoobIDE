@@ -1,4 +1,4 @@
-// S50.1 — scripts/ci-changes.mjs: the path classifier behind the `changes` job in ci.yml. Pure path lists, no git:
+// S58.1 — scripts/ci-changes.mjs: the path classifier behind the `changes` job in ci.yml. Pure path lists, no git:
 // the OS build matrix is skipped only for docs-only pushes, so every doubtful case must land on `code`.
 import { describe, expect, it } from 'vitest';
 import { baseSha, changedFiles, classify, CODE, DOCS_ONLY, isCodePath } from '../../scripts/ci-changes.mjs';
