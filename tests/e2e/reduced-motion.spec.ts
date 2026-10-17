@@ -28,6 +28,9 @@ test.beforeAll(async () => {
   ({ tmp, root } = await makeProject('noobide-motion-e2e-'));
   // Enough files that their tabs overflow a 960 px wide window on every platform and font.
   for (const name of ['long name one.js', 'long name two.js']) await writeFile(path.join(root, name), '// x\n');
+  // Longer and wider than the editor, so scrolling it shows Monaco's own (fading) scrollbars.
+  const line = (i: number) => `const line${i} = '${'wide '.repeat(60)}';`;
+  await writeFile(path.join(root, 'wide.js'), Array.from({ length: 300 }, (_, i) => line(i)).join('\n'));
   app = await launchApp();
   page = await app.firstWindow();
   await page.locator('.monaco-editor .view-lines').waitFor();
@@ -121,6 +124,14 @@ async function openAndCloseDialog(): Promise<void> {
   await expect(glossary).toHaveCount(0);
 }
 
+/** Scrolls the open editor with the wheel, which shows Monaco's scrollbars (they fade in and out). */
+async function scrollEditor(): Promise<void> {
+  const box = (await page.locator('.monaco-editor .view-lines').boundingBox())!;
+  await page.mouse.move(box.x + 40, box.y + 40);
+  await page.mouse.wheel(0, 600);
+  await page.mouse.wheel(300, 0);
+}
+
 async function togglePanel(): Promise<void> {
   await page.keyboard.press('ControlOrMeta+B');
   await expect(page.getByTestId('region-files')).toBeHidden();
@@ -136,6 +147,14 @@ test('without the preference, menus and dialogs move (control for the recorder)'
   const dialog = await motionDuring(openAndCloseDialog);
   expect(dialog.some((m) => m.type === 'animation')).toBe(true);
   await expect(page.getByTestId('code-editor')).toHaveAttribute('data-smooth-scrolling', 'true');
+  // Monaco's stylesheet fades its scrollbars in on its own (CI found this one): the gate must reach it too.
+  await openFile(page, 'wide.js');
+  const scroll = await motionDuring(scrollEditor);
+  expect(
+    scroll.some((m) => m.type === 'transition' && m.target.includes('scrollbar')),
+    JSON.stringify(scroll),
+  ).toBe(true);
+  await openFile(page, 'index.html');
 });
 
 test('with reduced motion, the duration tokens are 0ms and overlays fade instead of moving', async () => {
@@ -166,8 +185,10 @@ test('with reduced motion, the duration tokens are 0ms and overlays fade instead
   await expect(page.getByTestId('glossary')).toHaveCount(0);
 });
 
-test('with reduced motion, no transition or animation runs on a menu, a dialog or a panel toggle', async () => {
+test('with reduced motion, no transition or animation runs on a menu, a dialog, a panel toggle or the editor', async () => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await openFile(page, 'wide.js');
+  expect(await motionDuring(scrollEditor)).toEqual([]);
   expect(await motionDuring(openAndCloseMenu)).toEqual([]);
   expect(await motionDuring(openAndCloseDialog)).toEqual([]);
   expect(await motionDuring(togglePanel)).toEqual([]);

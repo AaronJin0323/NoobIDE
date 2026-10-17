@@ -307,7 +307,7 @@
 /* S47.1 Reduce Motion: the one gate. Every duration token becomes 0ms, so no transition or animation that uses them
    runs (they settle on their end state at once); overlays also swap movement and scaling for the plain fade, so a
    token that is ever given back a length still cannot move them. TabBar scrolling and Monaco's smoothScrolling follow
-   the same query (theme/motion.ts). */
+   the same query (theme/motion.ts); Monaco's own transitions are pinned to the 0ms tokens too. */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur-instant: 0ms;
@@ -328,6 +328,17 @@
   }
   .tree-twisty {
     transition: none;
+  }
+  /* Monaco's own stylesheets carry literal durations (scrollbar fades, widgets, progress); --dur-instant is 0ms here,
+     so nothing inside the editor or its widgets moves either. */
+  .monaco-editor,
+  .monaco-editor *,
+  .monaco-editor *::before,
+  .monaco-editor *::after,
+  .monaco-scrollable-element,
+  .monaco-scrollable-element > * {
+    transition-duration: var(--dur-instant) !important;
+    animation-duration: var(--dur-instant) !important;
   }
 }
 

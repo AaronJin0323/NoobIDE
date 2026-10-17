@@ -36,11 +36,20 @@ not one per file. Monaco smooth scrolling is now on for users without the prefer
 
 **Problems / risks:** Chromium serialises a `0ms` custom property as `0s`; the e2e compares numerically.
 
+**CI follow-up (PR #16):** hosted shards 2/2 (Windows and macOS) failed the panel-toggle case: Monaco's own
+stylesheet fades its scrollbars in (`opacity 0.1s`), which the token gate did not reach (on the runners' smaller
+window the toggle resized the editor and showed a scrollbar). The gate now pins `transition-duration` /
+`animation-duration` inside `.monaco-editor` and `.monaco-scrollable-element` to `var(--dur-instant)` (0ms under
+reduce); the spec gained a deterministic editor-scroll case with a no-preference control. Reproduced locally
+before the fix (vertical + horizontal scrollbar `0.1s`), green 6/6 runs after; glass, tabs and editing specs green.
+Merged the plan branch (S48.1–S48.3, S49.3, test-robustness fixes) first.
+
 **Next up**
 
 1. S47.2 (panel, drawer and notice enter/exit) on top of these tokens; every new animation must use `--dur-*`
    so the gate covers it, and add its case to reduced-motion.spec.ts.
 2. Other M18 sessions (S48–S50) can branch from this commit.
+
 ## Session 35 (side session) — 2026-10-17 — S48.1–S48.3 chat panel engine: scroll latch, growing composer, IME stage 2
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s48-chat-core-9b1e35` cut from
