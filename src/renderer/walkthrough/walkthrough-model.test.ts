@@ -35,14 +35,14 @@ describe('walkthrough engine (S23.1)', () => {
       state: { ...DEFAULT_WALKTHROUGH, completed: ['create'] },
     });
     expect(loaded.pending).toEqual([]);
-    expect(panelView(loaded)).toEqual({ kind: 'step', step: 'files', done: false, index: 1 });
+    expect(panelView(loaded)).toEqual({ kind: 'step', step: 'files', done: false, index: 1, compact: false });
     // A load with nothing pending opens nothing.
     expect(panelView(run(DEFAULT_WALKTHROUGH))).toEqual({ kind: 'hidden' });
   });
 
   it('the first project created with the wizard starts the walkthrough at "meet the files", also before the load', () => {
     const created = run(DEFAULT_WALKTHROUGH, { type: 'projectCreated' });
-    expect(panelView(created)).toEqual({ kind: 'step', step: 'files', done: false, index: 1 });
+    expect(panelView(created)).toEqual({ kind: 'step', step: 'files', done: false, index: 1, compact: false });
     expect(created.value.completed).toEqual(['create']);
     // A walkthrough the user closed or finished stays as it was.
     const closed = { ...DEFAULT_WALKTHROUGH, status: 'closed' as const, completed: ['create' as const] };
@@ -55,6 +55,7 @@ describe('walkthrough engine (S23.1)', () => {
       step: 'files',
       done: false,
       index: 1,
+      compact: false,
     });
     expect(panelView(walkthroughReducer(early, { type: 'loaded', state: closed }))).toEqual({ kind: 'hidden' });
   });
