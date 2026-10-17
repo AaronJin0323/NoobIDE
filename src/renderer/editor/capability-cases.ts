@@ -25,7 +25,8 @@ export interface CapabilityCase {
   /**
    * completion: labels that must be offered; hover: strings the hover must contain; colors: the colour texts that get
    * a swatch, in document order; definition / references: `file:line:column` of every location found, in order, or
-   * `unsupported` when the command does not apply there; rename: `refused` when the rename must be refused.
+   * `unsupported` when the command does not apply there; rename: `refused` or `refused:<reason>` when the rename
+   * must be refused.
    */
   readonly expect?: readonly string[];
   /** format / edit: the whole document afterwards. */
@@ -141,7 +142,8 @@ export function parseCases(json: unknown): CapabilityCase[] {
     } else if (c?.kind === 'rename') {
       if (!c.text?.includes(CURSOR)) fail('needs a | cursor marker');
       if (typeof c.newName !== 'string' || !c.newName) fail('rename cases need newName');
-      const refused = Array.isArray(c.expect) && c.expect.length === 1 && c.expect[0] === 'refused';
+      const refused =
+        Array.isArray(c.expect) && c.expect.length === 1 && /^refused(?::[a-z-]+)?$/.test(c.expect[0] ?? '');
       if (!refused && (typeof c.expectFiles !== 'object' || c.expectFiles === null)) {
         fail('rename cases need expectFiles or expect ["refused"]');
       }

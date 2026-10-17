@@ -154,6 +154,7 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       SEPARATOR,
       command('go-to-definition'), // S57
       command('find-references'),
+      command('rename-symbol'), // S57.2
       command('toggle-emmet'), // S53.1
       SEPARATOR,
       command('toggle-inline-ai'), // S32.1

@@ -104,3 +104,62 @@ test('in an HTML page’s inline <script> F12 explains that it is not supported 
   expect(await onDisk('inline.html')).toBe(PAGE); // nothing changed
   expect(consoleErrors).toEqual([]);
 });
+
+test('F2 renames across both scripts after a per-file preview; each file undoes on its own (S57.2)', async () => {
+  await page
+    .getByTestId('navigation-dialog')
+    .waitFor({ state: 'detached' })
+    .catch(() => undefined);
+  // Start with config.js closed again, so the rename has to open it.
+  await openFile(page, 'config.js');
+  await page.keyboard.press('ControlOrMeta+W');
+  await expect(tabOf(page, 'config.js')).toHaveCount(0);
+  await openFile(page, 'app.js');
+  await cursorTo(1, 3);
+  await page.keyboard.press('F2');
+  const dialog = page.getByTestId('rename-dialog');
+  await expect(page.getByTestId('rename-input')).toBeFocused();
+  await expect(page.getByTestId('rename-input')).toHaveValue('greet');
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.type('sayHello');
+  await page.keyboard.press('Enter'); // Preview
+  const files = dialog.getByTestId('rename-file');
+  await expect(files).toHaveCount(2);
+  expect(await files.evaluateAll((sections) => sections.map((s) => (s as HTMLElement).dataset.path))).toEqual([
+    'app.js',
+    'config.js',
+  ]);
+  await expect(files.first()).toContainText("sayHello('小雨');");
+  expect(await onDisk('config.js')).toBe(CONFIG); // nothing written before Apply
+  await expect(page.getByTestId('rename-apply')).toBeFocused();
+  await page.keyboard.press('Enter'); // Apply
+  await expect(dialog.getByTestId('rename-result')).toBeVisible();
+  await expect(dialog.locator('[data-status="renamed"]')).toHaveCount(2);
+  await expect.poll(() => onDisk('app.js')).toBe("sayHello('小雨');\nsayHello('Lin');\n");
+  await expect.poll(() => onDisk('config.js')).toBe(CONFIG.replace('greet', 'sayHello'));
+  await page.keyboard.press('Enter'); // Close
+  await expect(dialog).toBeHidden();
+
+  // Undo in config.js only (it was opened by the rename, in the background).
+  await tabOf(page, 'config.js').click();
+  await focusEditor(page);
+  await page.keyboard.press('ControlOrMeta+Z');
+  await page.keyboard.press('ControlOrMeta+S');
+  await expect.poll(() => onDisk('config.js')).toBe(CONFIG);
+  expect(await onDisk('app.js')).toBe("sayHello('小雨');\nsayHello('Lin');\n");
+});
+
+test('F2 on a name of the browser is refused and says why; nothing changes (S57.2)', async () => {
+  await writeFile(path.join(root, 'log.js'), 'console.log(1);\n');
+  await openFile(page, 'log.js');
+  await cursorTo(1, 10); // in "log"
+  await page.keyboard.press('F2');
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.type('print');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('rename-refused')).toContainText('浏览器自带');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('rename-dialog')).toBeHidden();
+  expect(await onDisk('log.js')).toBe('console.log(1);\n');
+  expect(consoleErrors).toEqual([]);
+});

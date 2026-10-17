@@ -110,6 +110,12 @@ export type RenameRefusal =
   | 'used-in-html'
   /** A use is in a file NoobIDE cannot change safely (not a project script, or its text is unknown). */
   | 'unknown-file'
+  /** S57.2: a property or method: untyped JavaScript links its uses only by guess (`p.count`, `obj[key]`). */
+  | 'property'
+  /** The new name is already used in a project script or by the browser: renaming could change what code means. */
+  | 'name-taken'
+  /** An HTML page could not be read, so a use there cannot be ruled out. */
+  | 'pages-unknown'
   | 'invalid-name'
   | 'same-name';
 
@@ -137,6 +143,38 @@ export interface RenameInput {
   readonly paths: NavigationPaths;
   /** The project's HTML pages (relative path → text), searched for the old name. */
   readonly htmlPages: readonly { readonly relPath: string; readonly text: string }[];
+  /** Where `name` is already used — a project file, or `browser` for a name of the page's window — or null. */
+  readonly nameInUse?: (name: string) => string | null;
+}
+
+/** Kinds of the language service a rename is certain for (TypeScript's ScriptElementKind). */
+const RENAMABLE_KINDS = new Set([
+  'function',
+  'local function',
+  'var',
+  'local var',
+  'let',
+  'const',
+  'parameter',
+  'class',
+  'local class',
+  'alias',
+]);
+/** Kinds whose name is local to a function or a module: an HTML page cannot refer to them. */
+const LOCAL_KINDS = new Set(['local function', 'local var', 'parameter', 'local class', 'alias']);
+
+/** The parts of an HTML page that are JavaScript: inline `<script>` bodies and `on…="…"` attribute values. */
+export function htmlScriptParts(html: string): string {
+  const parts: string[] = [];
+  for (const m of html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script\s*>/gi)) parts.push(m[1] ?? '');
+  for (const m of html.matchAll(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi)) parts.push(m[1] ?? '');
+  return parts.join('\n');
+}
+
+/** `name` as a whole JavaScript word in `text`. */
+export function hasWord(text: string, name: string): boolean {
+  const escaped = name.replace(/[$]/g, '\\$');
+  return new RegExp(`(^|[^\\w$])${escaped}(?![\\w$])`).test(text);
 }
 
 /**
@@ -154,6 +192,9 @@ export function planRename(input: RenameInput): RenamePlan {
   if (!isValidIdentifier(newName)) return { ok: false, reason: 'invalid-name', detail: newName };
   if (newName === oldName) return { ok: false, reason: 'same-name' };
   if (!paths.complete()) return { ok: false, reason: 'incomplete-project' };
+  if (info.kind !== undefined && !RENAMABLE_KINDS.has(info.kind)) return { ok: false, reason: 'property' };
+  const taken = input.nameInUse?.(newName) ?? null;
+  if (taken !== null) return { ok: false, reason: 'name-taken', detail: taken };
   const byFile = new Map<string, ServiceSpan[]>();
   for (const span of locations) {
     if (/\.d\.ts$/.test(span.fileName) || !/^file:/i.test(span.fileName)) return { ok: false, reason: 'built-in' };
@@ -162,9 +203,11 @@ export function planRename(input: RenameInput): RenamePlan {
     }
     byFile.set(span.fileName, [...(byFile.get(span.fileName) ?? []), span]);
   }
-  const word = new RegExp(`(^|[^\\w$])${oldName.replace(/[$]/g, '\\$')}(?![\\w$])`);
-  const pages = input.htmlPages.filter((page) => word.test(page.text)).map((page) => page.relPath);
-  if (pages.length > 0) return { ok: false, reason: 'used-in-html', detail: pages.join(', ') };
+  // A global (top-level name of a classic script) can be used by a page's inline script or onclick="…".
+  if (info.kind === undefined || !LOCAL_KINDS.has(info.kind)) {
+    const pages = input.htmlPages.filter((page) => hasWord(htmlScriptParts(page.text), oldName));
+    if (pages.length > 0) return { ok: false, reason: 'used-in-html', detail: pages.map((p) => p.relPath).join(', ') };
+  }
 
   const files: FileEdit[] = [];
   for (const [fileName, spans] of byFile) {

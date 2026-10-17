@@ -48,6 +48,44 @@ export const authoringZhCN = {
   'nav.unsupported.not-a-script': '转到定义、查找引用和重命名只支持项目里的 JavaScript（.js）文件。',
   'nav.location': '{file} 第 {line} 行',
   'nav.close': '关闭',
+  // S57.2
+  'rename.title': '重命名“{name}”',
+  'rename.newName': '新名字',
+  'rename.preview': '预览改动',
+  'rename.apply': '全部改名并保存',
+  'rename.back': '返回',
+  'rename.cancel': '取消',
+  'rename.close': '关闭',
+  'rename.previewTitle': '把“{old}”改名为“{new}”：{files} 个文件',
+  'rename.fileChanges': '{file}（{count} 处）',
+  'rename.line': '第 {line} 行',
+  'rename.before': '原来',
+  'rename.after': '改后',
+  'rename.undoHint': '每个文件都会在标签页里打开；在那个标签页按 Ctrl+Z（macOS 上是 ⌘Z）可以单独撤销它的改动。',
+  'rename.refused.not-a-script': '只能重命名项目里 .js 文件中的名字（不支持 HTML 页面里的 <script>）。',
+  'rename.refused.not-renamable': '这里没有可以重命名的名字。',
+  'rename.refused.built-in': '“{name}”是浏览器自带的名字，不能改。',
+  'rename.refused.incomplete-project':
+    '项目里的脚本太多或太大，语言服务没有全部读到，可能会漏掉用到的地方，所以不改名。',
+  'rename.refused.used-in-html': '“{name}”也写在 HTML 页面里（{detail}），语言服务看不到那里，所以不改名。',
+  'rename.refused.unknown-file': '有用到的地方在 NoobIDE 不能安全修改的文件里，所以不改名。',
+  'rename.refused.invalid-name':
+    '“{detail}”不能当作 JavaScript 名字：只能用字母、数字、_ 和 $，不能以数字开头，也不能是关键字。',
+  'rename.refused.same-name': '新名字和原来的一样。',
+  'rename.refused.property':
+    '属性和方法（例如 obj.count）不能在所有脚本里自动改名：JavaScript 不能确定哪些地方指的是同一个属性。',
+  'rename.refused.name-taken':
+    '“{detail}”里已经用到了这个新名字（browser 表示浏览器自带的名字），改名可能会改变代码的意思，所以不改名。',
+  'rename.refused.pages-unknown': '有的 HTML 页面读不出来，无法确认它们有没有用到这个名字，所以不改名。',
+  'rename.result.partial': '改名了，但有文件没有保存成功',
+  'rename.status.renamed': '已改名并保存',
+  'rename.status.save-failed': '已改名，但保存失败：改动留在它的标签页里，标签页会说明原因',
+  'rename.status.changed': '没有改：预览之后这个文件变了（在磁盘上或编辑器里）',
+  'rename.status.blocked': '没有改：这个文件现在不能修改（和磁盘上的版本冲突、已删除或只读）',
+  'rename.status.unreadable': '没有改：打不开这个文件',
+  'rename.status.skipped': '没有改：另一个文件不能改，所以所有文件都保持原样',
+  'rename.result.ok': '改名完成',
+  'rename.result.refused': '没有改名',
 } as const;
 
 export const authoringEn: Record<keyof typeof authoringZhCN, string> = {
@@ -95,4 +133,44 @@ export const authoringEn: Record<keyof typeof authoringZhCN, string> = {
     'Go to definition, find references and rename work in the project’s JavaScript (.js) files only.',
   'nav.location': '{file}, line {line}',
   'nav.close': 'Close',
+  'rename.title': 'Rename “{name}”',
+  'rename.newName': 'New name',
+  'rename.preview': 'Preview changes',
+  'rename.apply': 'Rename and save all',
+  'rename.back': 'Back',
+  'rename.cancel': 'Cancel',
+  'rename.close': 'Close',
+  'rename.previewTitle': 'Rename “{old}” to “{new}” in {files} files',
+  'rename.fileChanges': '{file} ({count})',
+  'rename.line': 'Line {line}',
+  'rename.before': 'Before',
+  'rename.after': 'After',
+  'rename.undoHint': 'Each file opens in a tab; Ctrl+Z (⌘Z on macOS) in that tab undoes its change on its own.',
+  'rename.refused.not-a-script':
+    'Only names in the project’s .js files can be renamed (not in an HTML page’s <script>).',
+  'rename.refused.not-renamable': 'There is no name here that can be renamed.',
+  'rename.refused.built-in': '“{name}” comes with the browser and cannot be renamed.',
+  'rename.refused.incomplete-project':
+    'The project has too many or too large scripts for the language service to read them all, so uses could be missed. Nothing was renamed.',
+  'rename.refused.used-in-html':
+    '“{name}” is also written in HTML pages ({detail}), which the language service cannot see. Nothing was renamed.',
+  'rename.refused.unknown-file': 'A use is in a file NoobIDE cannot change safely. Nothing was renamed.',
+  'rename.refused.invalid-name':
+    '“{detail}” cannot be a JavaScript name: use letters, digits, _ and $, do not start with a digit, and do not use a keyword.',
+  'rename.refused.same-name': 'The new name is the same as the old one.',
+  'rename.refused.property':
+    'Properties and methods (such as obj.count) cannot be renamed in all scripts: JavaScript cannot tell for sure which uses mean the same property.',
+  'rename.refused.name-taken':
+    'The new name is already used in “{detail}” (browser: a name that comes with the browser), so renaming could change what the code means. Nothing was renamed.',
+  'rename.refused.pages-unknown':
+    'Some HTML pages could not be read, so NoobIDE cannot tell whether they use this name. Nothing was renamed.',
+  'rename.result.partial': 'Renamed, but some files could not be saved',
+  'rename.status.renamed': 'Renamed and saved',
+  'rename.status.save-failed': 'Renamed, but the save failed: the change is kept in its tab, which says why',
+  'rename.status.changed': 'Not changed: the file changed after the preview (on disk or in the editor)',
+  'rename.status.blocked': 'Not changed: the file cannot be changed now (conflict with the disk, deleted or read-only)',
+  'rename.status.unreadable': 'Not changed: the file could not be opened',
+  'rename.status.skipped': 'Not changed: another file was refused, so every file was left as it was',
+  'rename.result.ok': 'Rename done',
+  'rename.result.refused': 'Nothing was renamed',
 };

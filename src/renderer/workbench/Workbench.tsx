@@ -3,7 +3,8 @@ import { editorPrefs, loadEditorPrefs, setEditorPrefs, useEditorPrefs } from '..
 import { openColorPicker } from '../editor/cursor-color'; // S53.3
 import { saveWithFormat } from './format-on-save'; // S53.4
 import { reportFormatOnSaveFailure } from './FormatSaveNotice';
-import { useJsNavigation } from './useJsNavigation'; // S57
+import { useJsNavigation, type RenameDeps } from './useJsNavigation'; // S57
+import { languageForPath } from '../editor/language';
 import { useAppMenuItems, useCommands, type CommandHandlers } from '../commands/useCommands'; // S24.1
 import type { FileContent, FileVersion, OpenedProject } from '../../shared/ipc/contract';
 import { useMediaQuery } from '../theme/useMediaQuery';
@@ -886,7 +887,79 @@ export function Workbench() {
     if (pendingGoTo && doc.docError?.relPath === pendingGoTo.file) setPendingGoTo(null);
   }, [pendingGoTo, doc.docError]);
   // --- end S17.2 ---
-  const jsNavigation = useJsNavigation(goTo); // S57.1: F12 / Shift+F12 across the project's scripts
+  // --- S57.2: rename across the project's scripts, through each file's tab and saver (rename-apply.ts) ---
+  const renameProject = doc.project;
+  const renameDeps = useMemo<RenameDeps | null>(() => {
+    if (!bridge || !renameProject) return null;
+    const tabOf = (relPath: string) => docRef.current.tabs.find((open) => open.relPath === relPath);
+    const sameProject = () => docRef.current.project?.projectId === renameProject.projectId;
+    return {
+      host: {
+        open: async (relPath) => {
+          if (!sameProject()) return null;
+          await openFile(relPath, { quiet: true, background: true }); // a closed file is read from disk now
+          const tab = await eventually(() => tabOf(relPath));
+          const saver = saverOf(relPath);
+          if (!tab || !saver || !sameProject()) return null;
+          const blocked =
+            saver.state.conflict ||
+            saver.state.deleted ||
+            Boolean(tab.content.readOnly) ||
+            reloading.current.has(relPath) ||
+            lockedRef.current.some((p) => isSameOrBelow(relPath, p));
+          return { text: saver.text, blocked };
+        },
+        replace: async (relPath, before, after) => {
+          const saver = saverOf(relPath);
+          const tab = tabOf(relPath);
+          if (!saver || !tab || !sameProject()) return false;
+          const editor = await editorModels();
+          // A tab opened in the background has no model until it is shown: create it now, so the rename is an
+          // undoable edit of that tab (the editor uses this model when the tab is shown).
+          editor.models.acquire({
+            uri: tab.uri,
+            language: languageForPath(relPath),
+            text: saver.text,
+            eol: tab.content.eol,
+          });
+          if (
+            saver !== saverOf(relPath) ||
+            reloading.current.has(relPath) ||
+            saver.state.conflict ||
+            !sameText(saver.text, before)
+          ) {
+            return false;
+          }
+          const applied = await editor.replaceModelText(tab.uri, after);
+          if (applied === null || saver !== saverOf(relPath)) return false;
+          // The editor reports the edit only for the model it shows; a background tab's edit is recorded here.
+          if (saver.text !== applied) recordEdit(relPath, applied);
+          return true;
+        },
+        // Another project's tab of the same name is never saved by this rename.
+        save: async (relPath) => (sameProject() ? ((await saverOf(relPath)?.save()) ?? false) : false),
+      },
+      htmlPages: async () => {
+        // Every page must be read: a page that was not could use the name (inline script, onclick).
+        if (renameProject.truncated) return { ok: false, reason: 'incomplete-project' };
+        const pages: { relPath: string; text: string }[] = [];
+        for (const file of renameProject.files) {
+          if (!/\.html?$/i.test(file.relPath)) continue;
+          const open = saverOf(file.relPath);
+          if (open) {
+            pages.push({ relPath: file.relPath, text: open.text });
+            continue;
+          }
+          const read = await bridge.workspace.readFile({ projectId: renameProject.projectId, relPath: file.relPath });
+          if (!read.ok) return { ok: false, reason: 'pages-unknown' };
+          pages.push({ relPath: file.relPath, text: read.value.text });
+        }
+        return { ok: true, pages };
+      },
+    };
+  }, [bridge, renameProject, openFile, recordEdit]);
+  // --- end S57.2 ---
+  const jsNavigation = useJsNavigation(goTo, renameDeps); // S57: F12 / Shift+F12 / F2 across the project's scripts
 
   // --- S22.4/S22.5: problem card explained with the facts of its location; one-click fix of a misspelled name, as
   // an ordinary editor edit saved through the file's own save pipeline (problems/fix-host.ts). ---
@@ -1124,6 +1197,7 @@ export function Workbench() {
     'toggle-format-on-save': () => setEditorPrefs({ formatOnSave: !editorPrefs().formatOnSave }),
     'go-to-definition': jsNavigation.goToDefinition, // S57.1
     'find-references': jsNavigation.findReferences,
+    'rename-symbol': jsNavigation.renameSymbol, // S57.2
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
     'command-palette': () =>
       setPalette(

@@ -626,6 +626,46 @@
       "expect": [
         "unsupported"
       ]
+    },
+    {
+      "id": "js-rename-two-files",
+      "language": "javascript",
+      "kind": "rename",
+      "fileName": "app.js",
+      "closedFiles": {
+        "config.js": "function greet(name) {\n  return 'Hi ' + name;\n}\n"
+      },
+      "text": "gre|et('a');\ngreet('b');\n",
+      "newName": "sayHello",
+      "expectFiles": {
+        "app.js": "sayHello('a');\nsayHello('b');\n",
+        "config.js": "function sayHello(name) {\n  return 'Hi ' + name;\n}\n"
+      }
+    },
+    {
+      "id": "js-rename-refuses-built-in",
+      "language": "javascript",
+      "kind": "rename",
+      "fileName": "app.js",
+      "text": "console.lo|g(1);\n",
+      "newName": "print",
+      "expect": [
+        "refused:built-in"
+      ]
+    },
+    {
+      "id": "js-rename-refuses-name-used-in-html",
+      "language": "javascript",
+      "kind": "rename",
+      "fileName": "app.js",
+      "files": {
+        "index.html": "<button onclick=\"greet()\">Hi</button>\n"
+      },
+      "text": "function gre|et() {}\n",
+      "newName": "sayHello",
+      "expect": [
+        "refused:used-in-html"
+      ]
     }
   ]
 }

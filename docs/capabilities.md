@@ -74,6 +74,25 @@ its file at the place; references are listed by file and line. Names that come w
 | References across two files                                   | `greet` → app.js lines 1 and 2, config.js line 1 | `js-references-two-files`                   |
 | **Not supported:** an HTML page's inline `<script>` (said so) | F12 in `<script>` → "not supported" message      | `html-inline-script-definition-unsupported` |
 
+### Rename across the project's scripts (S57.2)
+
+**F2 / 在所有脚本里重命名 / Rename in all scripts** (Edit menu, palette, context menu) renames a function or variable in
+every project `.js` / `.mjs` file that uses it. A preview lists every file and every changed line (before and after)
+first; nothing is written until **Apply**. Each file then goes through its own tab and the normal save (atomic write,
+"changed on disk" check): a file that changed since the preview stops the whole rename, a failed save keeps the change
+in that tab with its explanation, and Ctrl+Z / ⌘Z in a tab undoes that file's change alone
+(`tests/integration/rename-apply.test.ts`, `tests/e2e/js-navigation.spec.ts`). The rename is refused, with the reason,
+whenever the language service cannot be sure it found every use or that the code keeps its meaning: names that come with
+the browser, properties and methods (`obj.count`), a new name that is already used in a project script or by the
+browser (`location`, `status`), a global that an HTML page's inline `<script>` or `onclick="…"` also uses, and scripts or
+pages NoobIDE could not read in full.
+
+| Capability                                     | Example                                           | Case                                  |
+| ---------------------------------------------- | ------------------------------------------------- | ------------------------------------- |
+| Rename across two files (one of them closed)   | `greet` → `sayHello` in app.js and config.js      | `js-rename-two-files`                 |
+| Refused: a name of the browser                 | `console.log` → refused, "comes with the browser" | `js-rename-refuses-built-in`          |
+| Refused: the name is also used in an HTML page | `onclick="greet()"` in index.html → refused       | `js-rename-refuses-name-used-in-html` |
+
 ## Project names and files (S43)
 
 NoobIDE's own suggestions, from the project around the file (decision 0032): ids and classes its HTML and CSS define,

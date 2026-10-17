@@ -4852,8 +4852,8 @@
       "depends_on": [
         "S57.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "case js-rename-two-files + refusals js-rename-refuses-built-in / -name-used-in-html pass in packaged app offline; tests/integration/rename-apply.test.ts (6: through savers, per-file undo, changed-on-disk refused, conflict at save keeps edit, failed write keeps edit, mid-apply change reverts); js-navigation.test.ts refusals (built-in, incomplete, used-in-html, property, name-taken, invalid, same); tests/e2e/js-navigation.spec.ts F2 preview/apply/undo + refusal; subagent review fixed; verify green"
     }
   ]
 }

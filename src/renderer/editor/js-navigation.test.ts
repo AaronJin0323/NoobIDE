@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  htmlScriptParts,
   isValidIdentifier,
   planRename,
   positionAt,
@@ -120,5 +121,43 @@ describe('planRename (S57.2)', () => {
   it('an HTML page that only contains the name inside another word is no reason to refuse', () => {
     const plan = planRename(input({ htmlPages: [{ relPath: 'index.html', text: '<p>greetings</p>' }] }));
     expect(plan.ok).toBe(true);
+  });
+
+  it('refuses properties and methods: untyped JavaScript links their uses only by guess', () => {
+    expect(planRename(input({ info: { canRename: true, displayName: 'greet', kind: 'property' } }))).toMatchObject({
+      ok: false,
+      reason: 'property',
+    });
+    expect(planRename(input({ info: { canRename: true, displayName: 'greet', kind: 'method' } }))).toMatchObject({
+      ok: false,
+      reason: 'property',
+    });
+    expect(planRename(input({ info: { canRename: true, displayName: 'greet', kind: 'function' } })).ok).toBe(true);
+  });
+
+  it('refuses a new name that is already used (shadowing, another script, the browser)', () => {
+    const nameInUse = (name: string) => (name === 'location' ? 'browser' : name === 'total' ? 'app.js' : null);
+    expect(planRename(input({ newName: 'location', nameInUse }))).toMatchObject({
+      ok: false,
+      reason: 'name-taken',
+      detail: 'browser',
+    });
+    expect(planRename(input({ newName: 'total', nameInUse }))).toMatchObject({ ok: false, reason: 'name-taken' });
+    expect(planRename(input({ newName: 'sayHello', nameInUse })).ok).toBe(true);
+  });
+
+  it('looks for a global only in the JavaScript of HTML pages; locals never block', () => {
+    const page = {
+      relPath: 'index.html',
+      text: '<meta name="viewport" content="width=device-width"><span id="greet">greet</span><p>greet</p>',
+    };
+    // Markup, ids and text are not code: no refusal.
+    expect(planRename(input({ htmlPages: [page] })).ok).toBe(true);
+    const inline = { relPath: 'a.html', text: '<script>\n  greet();\n</script>' };
+    expect(planRename(input({ htmlPages: [inline] }))).toMatchObject({ ok: false, reason: 'used-in-html' });
+    // A local (parameter, local variable) cannot be used from a page.
+    const local = { canRename: true, displayName: 'greet', kind: 'local var' };
+    expect(planRename(input({ info: local, htmlPages: [inline] })).ok).toBe(true);
+    expect(htmlScriptParts('<script src="a.js">x</script><button onclick="go()">')).toBe('"go()"');
   });
 });

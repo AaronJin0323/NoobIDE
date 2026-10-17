@@ -146,15 +146,17 @@ async function runCase(
         .filter(([name]) => name.endsWith('.html'))
         .map(([relPath, text]) => ({ relPath, text }));
       const position = { lineNumber: from.line, column: from.column };
-      const refused = c.expect?.[0] === 'refused';
+      // `refused` or `refused:<reason>` (js-navigation.ts RenameRefusal).
+      const [refusedWord, wantReason] = (c.expect?.[0] ?? '').split(':');
+      const refused = refusedWord === 'refused';
       let seen = '';
       let pass = false;
       const end = performance.now() + CASE_TIMEOUT_MS;
       while (performance.now() < end && !pass) {
         const plan = await renamePlanAt(model, position, c.newName ?? '', pages, folderPaths(dir));
         if (!plan.ok) {
-          seen = `refused: ${plan.reason}`;
-          pass = refused;
+          seen = `refused:${plan.reason}`;
+          pass = refused && (wantReason === undefined || wantReason === plan.reason);
         } else {
           const got = Object.fromEntries(plan.files.map((f) => [f.relPath, f.after.replace(/\r\n/g, '\n')]));
           seen = JSON.stringify(got);

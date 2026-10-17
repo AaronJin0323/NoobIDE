@@ -12,6 +12,7 @@ import { monaco, languageDefaults } from './monaco-setup';
 import { htmlRegionAt } from './completion-context';
 import { currentProjectScripts } from './project-scripts-monaco';
 import {
+  hasWord,
   planRename,
   toLocations,
   type NavigationPaths,
@@ -107,9 +108,30 @@ export async function renamePlanAt(
     canRename: boolean;
     displayName?: string;
   };
-  if (!info?.canRename) return { ok: false, reason: 'not-renamable' };
+  if (!info?.canRename) {
+    // The service refuses names of its own libraries (console, document): say so rather than "nothing here".
+    const definitions = ((await ts.getDefinitionAtPosition(fileName, offset)) ?? []) as ServiceSpan[];
+    const builtIn = definitions.some((d) => !/^file:/i.test(d.fileName) || /\.d\.ts$/.test(d.fileName));
+    return { ok: false, reason: builtIn ? 'built-in' : 'not-renamable' };
+  }
   const locations = ((await ts.findRenameLocations(fileName, offset, false, false, true)) ?? []) as ServiceSpan[];
-  return planRename({ info, locations, newName, paths, htmlPages });
+  return planRename({ info, locations, newName, paths, htmlPages, nameInUse: (name) => nameInUse(name, paths) });
+}
+
+/** Where a name is already used: the page's window (`name`, `status`, `location`…) or any project script. */
+function nameInUse(name: string, paths: NavigationPaths): string | null {
+  if (name in globalThis) return 'browser';
+  const texts = new Map<string, string>();
+  for (const [fileName, lib] of Object.entries(languageDefaults.javascript.getExtraLibs()))
+    texts.set(fileName, lib.content);
+  for (const model of monaco.editor.getModels()) {
+    if (model.getLanguageId() === 'javascript') texts.set(model.uri.toString(), model.getValue());
+  }
+  for (const [fileName, text] of texts) {
+    const relPath = paths.relPathOf(fileName);
+    if (relPath !== null && hasWord(text, name)) return relPath;
+  }
+  return null;
 }
 
 /** The identifier under the cursor (for the rename box), or null. */
