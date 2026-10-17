@@ -4240,6 +4240,25 @@
       "evidence": "Local verify: 2734 passed/15 skipped; source-timestamp console flood E2E passed with 754/754 messages captured and source excess 158 versus unchanged 260 bound. Both shards cover all tests; report path checked. Hosted PR checks required before merge."
     },
     {
+      "id": "S06.6",
+      "session": "S06",
+      "milestone": "M1",
+      "title": "Hosted CI gates reliable under runner CPU contention",
+      "description": "Owner request: main red at 90a9fc5 (run 39011559538) and PR #15 (run 39014627704) from timing-sensitive tests on hosted runners.",
+      "acceptance": [
+        "The completion latency unit test keeps the 10 ms p95 product budget but measures it as the best of several batches, so descheduling and GC pauses on a hosted runner cannot fail it; docs/perf/completion-latency.md records the method",
+        "Help → Walkthrough used before the stored progress has loaded opens the walkthrough once it loads (product fix with a unit test); the walkthrough e2e no longer depends on the load finishing first",
+        "A modal dialog's Escape handling is installed in the same task as the dialog's DOM, so the first Escape is never lost (useModalKeys); the busy-page snapshot e2e starts the page's loop itself instead of racing a fixed delay",
+        "No product threshold is raised and no test is skipped; the hosted matrix (both OS × both shards) passes twice on the fix PR"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S06.5"
+      ],
+      "status": "in_progress",
+      "evidence": "Local: verify green (2736 passed/15 skipped); walkthrough + preview-layout + preview-snapshot e2e 27 passed; walkthrough race reproduced with a 3 s delayed load (fails at :84 without the fix, 12/12 with it). Hosted matrix: pending on the fix PR (must pass twice)"
+    },
+    {
       "id": "S28.7",
       "session": "S28",
       "milestone": "M7",
