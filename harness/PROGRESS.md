@@ -72,6 +72,213 @@ of everything now keeps blobs that checkpoints pin.
 checkpoint in one click); show checkpoint usage in the History window's storage section; export a checkpoint as a
 zip (pairs with the publish idea of session 34).
 
+## Session 39 (side session) — 2026-10-17 — CI timing tool, E2E job summary, ADR 0037 (S58.6)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/nervous-nash-544128`
+(fast-forwarded onto e45aed9, the S58 plan commit).
+
+**Done**
+
+- S58.6 — `scripts/ci-timings.mjs` (thin `gh run list` / `gh run view --json` / `gh api …/artifacts` /
+  `gh run download` / `gh run view --log-failed` wrappers, CLI flags `--runs N`, `--failures`, `--json`, `--run <id>`,
+  `--no-artifacts`, `--no-steps`, `--repo`, `--workflow`, `--save DIR`) and `scripts/ci-timings-parse.mjs` (pure:
+  queue delay = job start − run creation, every step's duration, the plan §2 categories, Playwright time from the
+  shard's `e2e-report` artifact, packaging = E2E step − Playwright, failing step + first error line per job from the
+  failed log with gh's `^[[31m` colour codes stripped, median/max aggregate over successful runs). `--save` writes
+  the fixture tree the tests read: `tests/fixtures/ci/runs/<id>/{run.json, e2e-report-<t>-<n>.json, log-failed.txt}`
+  for the green run 39015143213 and the red run 39011559538 (latency budget on macOS + walkthrough race on
+  Windows), trimmed to the fields the parser reads and an error-line excerpt of the log.
+- S58.6 — `scripts/e2e-summary.mjs`: after every Playwright run (pass or fail) `scripts/e2e.mjs` appends the 10
+  slowest spec files and the shard total to `$GITHUB_STEP_SUMMARY` from `reports/e2e/results.json`. The change
+  to `e2e.mjs` is confined to the last lines (status capture + two appended functions); the sharding logic
+  S58.2 owns is untouched.
+- S58.6 — `docs/decisions/0037-ci-stability-and-speed.md`: §1 causes, §2 baseline, the six packages and the S58.1
+  decisions (draft PRs skip the matrix, installers only on `main`, static gates once), consequences, the real
+  20-run baseline output, and a "Measured result" section left as TODO with the command to fill it.
+
+**Evidence:** `tests/integration/ci-timings.test.ts` (19 tests): the parser reproduces the plan §2 table for run
+39015143213 from fixtures (queue 2:33 / 9:21 on the macOS shards, Playwright 7:03 / 7:10 / 7:07 / 9:01, installers
+1:33 on Windows shard 1, job totals 11:24 / 9:29 / 9:31 / 10:59, all within 5 s), names the failing step and first
+error line of run 39011559538, `--failures` lists only red runs, the job-summary formatter lists the 10 slowest files
+slowest-first with the shard total and never throws. `node scripts/ci-timings.mjs --runs 20 --no-steps` ran for real
+(output in ADR 0037 "Baseline"). `npm run verify` green.
+
+**Decisions:** ADR 0037. Two baseline facts the plan's single green run hid, recorded there: macOS shard 1 spends
+14–16 min in Playwright on 8 of 10 completed jobs because `app-startup-restore.spec.ts` takes ~10 min on the
+hosted macOS runner (2:01 on the fast run, 2–4.5 min on Windows), so S58.5 is worth ~10 min of macOS time, not 2;
+and the macOS queue median is 2:33 with a 32-min maximum. The error-line heuristic prefers an `Error:` /
+`AssertionError:` / Vitest `FAIL` line over the generic `##[error]Process completed with exit code 1`, and keeps
+both the FAIL line (names the test) and the assertion that follows it.
+
+**Problems / risks:** `gh run view --log-failed` returns nothing for a run that is still in progress, so such a
+run shows its failing step without an error line. The Playwright column needs the `e2e-report` artifacts, which
+expire after 14 days; older runs show `–`. The in-flight run 39018194387 on the parent branch
+`claude/ci-failures-optimization-f08cd1` failed at Verify on Windows shard 1 (not inspected; not this package).
+
+**Owner action needed:** none for S58.6. Plan §6 decisions 1–4 still open (S58.1/S58.3 default to "yes").
+
+**Next up**
+
+1. Merge S58.1–S58.4; after 20 `CI` runs on top of them run `node scripts/ci-timings.mjs --runs 20 --no-steps`
+   and fill ADR 0037 "Measured result" (the table has the before numbers).
+2. S58.5 once the owner answers plan §6 item 4; the baseline says it saves ~10 min on macOS shard 1 per run.
+3. Check the first hosted run after merge shows the E2E job summary (slowest files table) on all four shards.
+
+**Ideas / backlog candidates:** a `--since <date>` flag and a per-spec-file trend (median per file over N runs,
+from the artifacts) would make `scripts/e2e-shards.mjs balance` (S58.2) and S58.5's smoke-version choice
+evidence-based without opening runs by hand.
+
+## Session 40 (side session) — 2026-10-17 — S58.1: CI runs less (path filter, draft gating, static gates once, no PR installers)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/dreamy-feistel-668709`
+(fast-forwarded onto `claude/ci-failures-optimization-f08cd1`, which carries the plan and the S58 backlog).
+
+**Done**
+
+- S58.1 — `.github/workflows/ci.yml` now has four jobs. `changes` (ubuntu, fetch-depth 0) runs the new
+  `scripts/ci-changes.mjs`, which diffs `<base>...HEAD` (PR base sha, or `github.event.before` for a push; a
+  missing, all-zero or undiffable base counts as `code`) and writes output `kind` = `code` | `docs-only`.
+  `static` (ubuntu, every push, drafts included) runs harness check, typecheck, lint, format:check and the three
+  platform-independent workflow tests (`ci-workflow`, `ci-changes`, `release-workflow`) with
+  `ELECTRON_SKIP_BINARY_DOWNLOAD=1`. The OS `build` matrix needs `changes`, runs only when
+  `kind == 'code'` and the event is not a draft PR, and replaces `npm run verify` with `node harness/session.mjs
+check` + `npm test` (not `verify --quick`: that still runs typecheck, which `static` has already proved).
+  Make installers / Inspect binary architectures / Upload installers additionally require `push` or
+  `workflow_dispatch`. The `complete` gates keep the names `windows-x64` / `macos-arm64`, need
+  `[changes, static, build]`, and pass only when changes and static succeeded and build succeeded or was skipped
+  for a docs-only push; any failure or cancellation fails them.
+- `pull_request` now lists `types: [opened, synchronize, reopened, ready_for_review]`: the default set omits
+  `ready_for_review`, so marking a draft ready would never have started the matrix.
+- `tests/integration/ci-workflow.test.ts` parses all four jobs (the `block()` helper now takes a job name), asserts
+  every condition above, the gate env vars, that the OS jobs repeat no static gate, that the same three pinned
+  action SHAs are the only ones used, and executes the gate's inline `node -e` expression against a 13-row truth
+  table. `tests/integration/ci-changes.test.ts` covers the classifier on path lists (no git) and the base-sha
+  selection.
+- AGENTS.md "Close the session": open PRs as drafts, mark them ready at the end.
+- `harness/MANUAL-CHECKS.md#S58.1`: six owner steps (draft PR → ready → merge; docs-only PR; lint error on a PR;
+  timing measurement).
+
+**Evidence:** `npx vitest run tests/integration/ci-workflow.test.ts tests/integration/ci-changes.test.ts` (32 + 24
+tests); `node scripts/ci-changes.mjs` run locally for the three event shapes (no base → `code`; push base
+`HEAD~1` → `code` because `harness/features.json` changed; PR base `HEAD` → `docs-only`); `npm run verify`
+green at this commit. Feature set to `needs_manual_check`: the workflow only runs on GitHub.
+
+**Decisions:**
+
+- Draft PRs: the gate jobs are _skipped_ on drafts (`if: always() && !(pull_request && draft)`) rather than
+  failing, so the required checks show "Expected — waiting for status" (pending, not mergeable), as plan §4 item 4
+  describes. A red gate on every draft push would read as a failure to fix.
+- The OS jobs call `harness check` and `npm test` directly instead of `npm run verify -- --quick`, because
+  `--quick` still includes typecheck (40–60 s per OS job, already proved once on ubuntu). `verify.mjs` is S58.3's
+  file and was not changed.
+- The `changes` job uses no Node setup step: ubuntu-latest ships Node ≥ 20 and the script needs only `git`.
+- Classifier rule: `src/ tests/ scripts/ resources/ .github/` subtrees, `harness/*.mjs`, `harness/features.json`,
+  `package.json`, `package-lock.json`, and root-level `*.config.*` are code; everything else (docs/, *.md,
+  PROGRESS.md, MANUAL-CHECKS.md, dotfiles) is docs. A `features.json` edit is code on purpose: the harness check
+  in `static` would catch a bad backlog, but the matrix also depends on it through `e2e-shards`/source-backlog.
+
+**Problems / risks:**
+
+- Not run on GitHub Actions from this machine. The PR carrying this change exercises steps 1–3 of the manual
+  check by itself (the workflow runs from the PR's own copy of `ci.yml`).
+- `ELECTRON_SKIP_BINARY_DOWNLOAD=1` on the static job's `npm ci`: none of the five static steps loads Electron,
+  but if a future test added to that step imports `electron`, the step fails with a missing-binary error; the
+  `ci-workflow` test rejects such imports in the listed files.
+- A force-push to `main` (unknown `before`) classifies as `code`, i.e. the full matrix, which is the safe side.
+
+**Owner action needed:** run `harness/MANUAL-CHECKS.md#S58.1` (open this PR as a draft, mark it ready, merge;
+then one docs-only PR), confirm plan §6 decisions 1–2 (drafts skip the matrix; installers only on `main` and
+dispatch), then `node harness/session.mjs set S58.1 done --evidence "manual: …"`.
+
+**Next up**
+
+1. S58.6 (timing tool + ADR 0037) and S58.2–S58.4 continue in their own sessions; after merge, measure ten runs
+   with `scripts/ci-timings.mjs` and compare against plan §2 (target: code PR < 12 min, docs-only PR < 3 min).
+2. S58.5 once the owner answers plan §6 item 4.
+
+**Ideas / backlog candidates:** cache `node_modules` keyed on `package-lock.json` for the OS jobs (saves the
+`npm ci` + Electron download, ≈1 min per job) once the static job proves stable.
+
+## Session 41 (side session) — 2026-10-17 — Deterministic, time-balanced E2E shards (S58.2)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/pensive-ritchie-618fc9`
+(fast-forwarded onto the S58 plan commit e45aed9).
+
+**Done:** S58.2. Playwright's count-based `--shard` is replaced by an explicit manifest, `tests/e2e/shards.json`
+(58 spec files → shard 1 or 2). `scripts/e2e-shards.mjs` (pure Node, typed by `e2e-shards.d.mts`) provides
+`balance` (sum each file's test durations over the given Playwright JSON reports, assign longest-first to the
+emptier shard; spec files without a measurement get the median, vanished files are dropped), `select` (a shard's
+files; a file missing from the manifest runs in the shard with fewer files and is reported as unlisted, a stale
+entry is reported too), and a CLI: `balance <reports…>` rewrites the manifest, `list N/M`, `check`. The first
+manifest was generated from the four `e2e-report-*` artifacts of run 39015143213 (trimmed copies in
+`tests/fixtures/e2e-shards/`): summed test time 793 s / 793 s over both OSes, per OS macOS 413 s vs 422 s and
+Windows 380 s vs 371 s; `app-startup-restore` is on shard 1, `preview-isolation` on shard 2. `scripts/e2e.mjs`
+consumes `--shard=N/M` and passes the shard's files to Playwright as anchored regex file filters
+(`tests/e2e/<name>\.spec\.ts# Progress log
+
+Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
+the latest entry to the next session, so write it for a reader with zero context.
+
+), warning `add <file> to tests/e2e/shards.json` for unlisted files; all other
+flags, `--no-build`, the macOS upgrade-next package and the xvfb wrapper are unchanged, and `ci.yml` needs no
+edit. `playwright.config.ts` keeps `trace: retain-on-failure` and `screenshot: only-on-failure` (retries stay 0),
+so the existing failure-artifact upload ships traces. `tests/integration/e2e-shards.test.ts` unit-tests
+balance/select on the fixtures and still runs the real `playwright test --list` for the whole suite and for each
+shard's file selection (disjoint, complete); the two position assertions are gone, replaced by "the manifest lists
+every existing spec file exactly once", so a new spec file fails with its name.
+
+**Evidence:** `npx vitest run tests/integration/e2e-shards.test.ts` 10/10; `node scripts/e2e.mjs --no-build
+--shard=1/2 --list` → 167 tests in 29 files, `--shard=2/2 --list` → 160 tests in 29 files, unsharded 327 in 58;
+real run `npm run test:e2e -- --shard=2/2` on Windows: 158 passed, 2 skipped, 0 failed, 29 files, 6.1 min (reports/e2e/results.json stats.duration 364.6 s), every file from manifest shard 2; `npm run verify` green @ this commit. Hosted
+evidence (shards within 60 s on both OSes, trace.zip on a forced failure) needs a CI run: steps in
+`harness/MANUAL-CHECKS.md#S58.2`; status `needs_manual_check`.
+
+**Decisions:** Files are selected with positional regex filters rather than per-shard Playwright projects, so the
+reporter output, test ids and `fullyParallel: false` / one worker stay exactly as before. The balance input is
+the sum over all reports given (both OSes), which keeps one manifest for both platforms; per-OS skew is ~10 s. The
+manifest is regenerated by hand from CI reports (`node scripts/e2e-shards.mjs balance <dir>`), not on every run,
+so a shard assignment never changes without a commit.
+
+**Problems / risks:** Any PR adding a `tests/e2e/*.spec.ts` must add it to `shards.json` (the integration test
+says so by name); PR 18 (`splitter-physics.spec.ts`) needs that line. `docs/testing.md` §"CI shards and timing"
+still describes count-based sharding; that file belongs to S58.3, so it was left for the S58 ADR / S58.3 to update.
+The 55 KB-per-file fixtures keep spec titles for readability (220 KB total).
+
+**Next up:** Observe the first hosted run (MANUAL-CHECKS S58.2) and set S58.2 done with its run URL; S58.5
+re-balances `shards.json` once the two measurement tests move to the nightly workflow.
+
+## Session 38 (side session) — 2026-10-17 — CI failure triage and speed-up plan (M20 / S58, owner request)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/ci-failures-optimization-f08cd1`.
+
+**Done:** Inspected the 25 `CI` runs of 16–17 October with `gh run view` and the failed-step logs. The five red
+runs had four causes, none of them the PR's product code: a hand-merged `features.json` missing a `,` (fixed in
+5a66a19); `completion-latency.test.ts` asserting a 10 ms p95 budget on a hosted macOS runner (21 ms); two Windows
+E2E intermittents in `walkthrough.spec.ts` (an unpolled `readFile` of `walkthrough.json`, and a Help-menu click
+that opened nothing once) plus one 10 s poll timeout in the preview-isolation dialog test; and
+`e2e-shards.test.ts` asserting `preview-isolation.spec.ts` sits in shard 2, which any new spec file flips because
+Playwright shards by test count in file order (confirmed locally: shard 1 ends exactly at
+`preview-annotations.spec.ts`). Measured a green run step by step: jobs take 9.5–11.5 min, but the run took 20.5
+min because macOS shard 2 queued 9 min 21 s behind five PRs pushed at once (free-plan limit: 5 concurrent macOS
+jobs). Wrote `docs/ci/ci-stability-and-speed-plan.md` (causes, timing table, targets, six work packages with file
+ownership so they run as parallel sub-sessions, owner decisions) and added milestone M20, session S58 and
+features S58.1–S58.6 to the backlog. The PR run itself (39017707753) then failed on Windows shard 2 in tests/integration/watcher.test.ts ("came and went within one batch"): the test interleaved awaited disk operations with fake raw events under a 20 ms debounce, so a slow runner split the batch and reported 临时 as created while its deletion sat in the 400 ms rename hold that idle() does not await. Fixed the test to deliver the raw events after the disk work (8/8 local repeats); no other test or workflow was changed. The rerun (39018194387) then failed on three further timing cases (six disk-heavy unit tests timing out on a starved Windows runner, the walkthrough reopen step, the preview-snapshot busy page); recorded in the plan and added as acceptance criteria to S58.3 and S58.4 (refinement, nothing weakened) rather than patched here, since those files belong to the parallel sub-sessions.
+
+**Evidence:** `docs/ci/ci-stability-and-speed-plan.md` §1–§2 (run ids, failing lines, per-step durations);
+`node harness/session.mjs check` OK (228 features, 48 sessions); `npm run verify` green (see commit).
+
+**Decisions:** Work is split so S58.1 (workflow), S58.2 (shard manifest + traces), S58.3 (perf budgets, own
+`perf.yml`), S58.4 (flaky tests) and S58.6 (timing tool + ADR 0037) touch disjoint files; S58.5 (move the two
+2-minute measurement tests to a nightly workflow) is an owner decision and depends on S58.2 and S58.4. The session was first numbered S50, which collided with the S50 that PR 14 (M18) added to main; on the owner's decision (relayed by the M18 session) it was renumbered to S58 with features S58.1–S58.6 before merge, and these four entries became Sessions 38–41 next to main's 34–37. M20 stays. The rename is one commit, so the harness tamper guard (which compares to HEAD) sees S58.x as the baseline from then on; the S50.x commit messages and sub-session branch names keep the old ids.
+
+**Problems / risks:** The owner has four decisions in plan §6 (draft PRs skip the matrix, installers only on
+`main`, perf budgets informational on hosted runners, nightly measurements). Until S58.2 lands, any PR that adds
+an E2E spec file can turn CI red through `e2e-shards.test.ts`; until S58.3 lands, any hosted run can fail on a
+latency budget.
+
+**Next up:** Start S58.6 and S58.1–S58.4 as parallel sub-sessions (plan §4–§5); S58.5 after the owner answers §6
+item 4. Then measure 20 runs with `scripts/ci-timings.mjs` and finish ADR 0037.
+
 ## Session 37 (side session) — 2026-10-17 — S49.1 splitter physics (M18 Track C1)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s49-splitter-physics-c88bff`
