@@ -154,6 +154,7 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
     label: t('menu.view'),
     items: [
       command('command-palette'), // S40.5
+      command('quick-open'), // S51.5
       SEPARATOR,
       command('toggle-files'),
       command('toggle-problems'),

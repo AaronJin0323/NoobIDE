@@ -5,6 +5,7 @@ import { otherLocale, translate, type MessageKey } from '../i18n/index';
 import type { CommandId } from '../../shared/commands';
 import { SearchIcon } from '../workbench/icons';
 import { PALETTE_KEYWORDS, keywordList, moveSelection, searchPalette, type PaletteEntry } from './palette-model';
+import { rankFiles } from './quick-open-model';
 
 export interface PaletteCommand {
   readonly id: CommandId;
@@ -19,6 +20,13 @@ interface CommandPaletteProps {
   commands: readonly PaletteCommand[];
   /** `null`: closed without running anything. */
   onClose: (run: CommandId | null) => void;
+  /**
+   * S51.5: opened as quick open (Ctrl/Cmd+P): the project's files (the S43.4 index) and the recently opened ones.
+   * The palette searches files until the query starts with `>`, which switches to the commands.
+   */
+  files?: { readonly paths: readonly string[]; readonly recent: readonly string[] } | undefined;
+  /** S51.5: a file was chosen; the palette closes and the file opens in a tab. */
+  onOpenFile?: ((relPath: string) => void) | undefined;
 }
 
 /**
@@ -27,7 +35,7 @@ interface CommandPaletteProps {
  * was); the field is a combobox whose active option follows ↑/↓, and Enter runs it. Typing in Chinese through an
  * input method never runs anything mid-composition. Only commands that can run are listed — nothing pretends.
  */
-export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
+export function CommandPalette({ commands, onClose, files, onOpenFile }: CommandPaletteProps) {
   const { t, locale } = useI18n();
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
@@ -53,9 +61,20 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
       }),
     [commands, t, locale],
   );
-  const matches = useMemo(() => searchPalette(entries, query), [entries, query]);
+  // S51.5: quick open searches files until the query starts with ">" (then the rest of it searches commands).
+  const filesMode = files !== undefined && !query.startsWith('>');
+  const commandQuery = files !== undefined ? query.replace(/^>\s*/, '') : query;
+  const fileMatches = useMemo(
+    () => (filesMode && files ? rankFiles(files.paths, query, files.recent) : []),
+    [filesMode, files, query],
+  );
+  const commandMatches = useMemo(
+    () => (filesMode ? [] : searchPalette(entries, commandQuery)),
+    [filesMode, entries, commandQuery],
+  );
+  const count = filesMode ? fileMatches.length : commandMatches.length;
   const checkedOf = useMemo(() => new Map(commands.map((c) => [c.id, c.checked])), [commands]);
-  const active = matches.length === 0 ? -1 : Math.min(selected, matches.length - 1);
+  const active = count === 0 ? -1 : Math.min(selected, count - 1);
 
   // Focus goes into the field on open and back to where it was on close.
   useEffect(() => {
@@ -74,10 +93,15 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
     if (isImeKey(event.nativeEvent)) return; // the input method owns Enter and the arrows while composing
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
-      setSelected(moveSelection(active, matches.length, event.key));
+      setSelected(moveSelection(active, count, event.key));
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      const match = matches[active];
+      if (filesMode) {
+        const file = fileMatches[active];
+        if (file) onOpenFile?.(file.relPath);
+        return;
+      }
+      const match = commandMatches[active];
       if (match) onClose(match.entry.id);
     } else if (event.key === 'Escape') {
       event.preventDefault();
@@ -88,6 +112,27 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
     }
   };
 
+  // S51.5: the texts of the mode in use (files or commands).
+  const text = filesMode
+    ? {
+        title: t('palette.files.title'),
+        label: t('palette.files.label'),
+        placeholder: t('palette.files.placeholder'),
+        results: t('palette.files.results'),
+        empty: t('palette.files.empty'),
+        count: t('palette.files.count'),
+        keys: t('palette.files.keys'),
+      }
+    : {
+        title: t('palette.title'),
+        label: t('palette.label'),
+        placeholder: t('palette.placeholder'),
+        results: t('palette.results'),
+        empty: t('palette.empty'),
+        count: t('palette.count'),
+        keys: t('palette.keys'),
+      };
+
   return (
     <div className="palette-backdrop" data-testid="palette-backdrop" onMouseDown={() => onClose(null)}>
       <div
@@ -96,6 +141,7 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         data-testid="command-palette"
+        data-mode={filesMode ? 'files' : 'commands'}
         onMouseDown={(event) => {
           event.stopPropagation();
           // Clicking the sheet's padding or footer keeps the keyboard in the search field.
@@ -103,12 +149,12 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
         }}
       >
         <h2 className="sr-only" id={titleId}>
-          {t('palette.title')}
+          {text.title}
         </h2>
         <div className="palette-search">
           <SearchIcon size={16} />
           <label className="sr-only" htmlFor={`${listId}-input`}>
-            {t('palette.label')}
+            {text.label}
           </label>
           <input
             ref={input}
@@ -116,13 +162,13 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
             className="palette-input"
             type="text"
             role="combobox"
-            aria-expanded={matches.length > 0}
+            aria-expanded={count > 0}
             aria-controls={listId}
             aria-autocomplete="list"
             aria-activedescendant={active >= 0 ? optionId(active) : undefined}
             autoComplete="off"
             spellCheck={false}
-            placeholder={t('palette.placeholder')}
+            placeholder={text.placeholder}
             value={query}
             data-testid="palette-input"
             onChange={(event) => {
@@ -132,9 +178,32 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
             onKeyDown={onKeyDown}
           />
         </div>
-        {matches.length > 0 ? (
-          <ul ref={list} id={listId} className="palette-list" role="listbox" aria-label={t('palette.results')}>
-            {matches.map((match, index) => {
+        {filesMode && count > 0 ? (
+          <ul ref={list} id={listId} className="palette-list" role="listbox" aria-label={text.results}>
+            {fileMatches.map((file, index) => (
+              <li
+                key={file.relPath}
+                id={optionId(index)}
+                role="option"
+                aria-selected={index === active}
+                className="palette-option"
+                data-testid="palette-file"
+                data-path={file.relPath}
+                onMouseMove={() => index !== active && setSelected(index)}
+                onClick={() => onOpenFile?.(file.relPath)}
+              >
+                <span className="palette-check" aria-hidden="true" />
+                <span className="palette-text">
+                  <span className="palette-label">{file.name}</span>
+                  {file.folder && <span className="palette-other">{file.folder}</span>}
+                </span>
+                {file.recent && query === '' && <span className="palette-recent">{t('palette.files.recent')}</span>}
+              </li>
+            ))}
+          </ul>
+        ) : count > 0 ? (
+          <ul ref={list} id={listId} className="palette-list" role="listbox" aria-label={text.results}>
+            {commandMatches.map((match, index) => {
               const checked = checkedOf.get(match.entry.id) ?? null;
               return (
                 <li
@@ -167,14 +236,14 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
           </ul>
         ) : (
           <p className="palette-empty" data-testid="palette-empty">
-            {t('palette.empty')}
+            {text.empty}
           </p>
         )}
         <p className="palette-footer">
           <span role="status" aria-live="polite" data-testid="palette-count">
-            {t('palette.count').replace('{n}', String(matches.length))}
+            {text.count.replace('{n}', String(count))}
           </span>
-          <span aria-hidden="true">{t('palette.keys')}</span>
+          <span aria-hidden="true">{text.keys}</span>
         </p>
       </div>
     </div>

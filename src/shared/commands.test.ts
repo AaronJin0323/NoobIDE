@@ -139,4 +139,15 @@ describe('command registry (S24.1)', () => {
     expect(isCommandEnabled('find-in-files', INITIAL_COMMAND_CONTEXT)).toBe(true);
     expect(isCommandEnabled('replace-in-files', { ...INITIAL_COMMAND_CONTEXT, modalOpen: true })).toBe(false);
   });
+
+  it('quick open is Ctrl/Cmd+P and needs a project (S51.5)', () => {
+    expect(commandShortcutLabel('quick-open', 'windows')).toBe('Ctrl+P');
+    expect(commandShortcutLabel('quick-open', 'mac')).toBe('⌘P');
+    expect(commandForKeyStroke('windows', key('p', { ctrl: true }))).toBe('quick-open');
+    expect(commandForKeyStroke('windows', key('p', { ctrl: true, shift: true }))).toBe('command-palette');
+    expect(zhCN['command.quickOpen']).toBe('按名称打开文件…');
+    expect(en['command.quickOpen']).toBe('Go to File…');
+    expect(isCommandEnabled('quick-open', INITIAL_COMMAND_CONTEXT)).toBe(false);
+    expect(isCommandEnabled('quick-open', { ...INITIAL_COMMAND_CONTEXT, hasProject: true })).toBe(true);
+  });
 });

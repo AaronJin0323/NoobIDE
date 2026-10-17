@@ -69,6 +69,8 @@ export const COMMAND_IDS = [
   'find-in-files',
   // S51.4 replace in files (the same panel with its replace row)
   'replace-in-files',
+  // S51.5 quick open (the command palette's files mode)
+  'quick-open',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -221,6 +223,13 @@ export const COMMANDS: readonly CommandDefinition[] = [
     label: 'command.replaceInFiles',
     keys: { all: { key: 'h', primary: true, shift: true } },
     when: noModal,
+  },
+  // S51.5: quick open — Ctrl/Cmd+P opens the palette on the project's files; ">" switches to the commands.
+  {
+    id: 'quick-open',
+    label: 'command.quickOpen',
+    keys: { all: { key: 'p', primary: true } },
+    when: (c) => c.hasProject && !c.modalOpen,
   },
 ];
 

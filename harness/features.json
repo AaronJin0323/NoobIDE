@@ -4432,7 +4432,7 @@
         "S51.2"
       ],
       "status": "done",
-      "evidence": "tests/e2e/search.spec.ts (6: Ctrl+Shift+F opens Search beside Problems, toggles named + aria-pressed + ring, axe clean; results grouped with counts/context, click and Enter open file at line/column; empty/invalid-regex/truncated/no-project in zh-CN and en; keyboard-only flow) + src/renderer/search/search-model.test.ts + shell.spec (S30.3 no disabled controls) on Windows x64"
+      "evidence": "tests/e2e/find-in-files.spec.ts (6: Ctrl+Shift+F opens Search beside Problems, toggles named + aria-pressed + ring, axe clean; results grouped with counts/context, click and Enter open file at line/column; empty/invalid-regex/truncated/no-project in zh-CN and en; keyboard-only flow) + src/renderer/search/search-model.test.ts + shell.spec (S30.3 no disabled controls) on Windows x64"
     },
     {
       "id": "S51.4",
@@ -4452,7 +4452,7 @@
         "S51.3"
       ],
       "status": "done",
-      "evidence": "tests/e2e/replace-in-files.spec.ts (4: per-file preview of every change with file and single-match exclusion + axe; class rename across 3 files through each tab's save pipeline, preview reloaded exactly once, history 2 versions/1 after-save per file, per-file undo; real host refuses a file changed on disk after the search) + tests/integration/replace-in-files.test.ts (8: DocumentSaver + ProjectService atomic write, changed-on-disk refusal, version-check conflict, stale buffer, other project, stale query) + tests/integration/faults/replace-faults.test.ts (ENOSPC on one file: others apply, edit kept in memory with failed state, summary, retry) on Windows x64; subagent review findings fixed"
+      "evidence": "tests/e2e/find-replace-in-files.spec.ts (4: per-file preview of every change with file and single-match exclusion + axe; class rename across 3 files through each tab's save pipeline, preview reloaded exactly once, history 2 versions/1 after-save per file, per-file undo; real host refuses a file changed on disk after the search) + tests/integration/replace-in-files.test.ts (8: DocumentSaver + ProjectService atomic write, changed-on-disk refusal, version-check conflict, stale buffer, other project, stale query) + tests/integration/faults/replace-faults.test.ts (ENOSPC on one file: others apply, edit kept in memory with failed state, summary, retry) on Windows x64; subagent review findings fixed"
     },
     {
       "id": "S51.5",
@@ -4468,8 +4468,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/palette-quick-open.spec.ts (5: Ctrl+P files mode, recent first, ignored/dot files excluded, axe; fuzzy Chinese/space match and Enter opens a tab; '>' switches to commands; View menu + palette entry) + src/renderer/commands/quick-open-model.test.ts (ranking, Chinese paths, ignore, recent, 2001-file benchmark worst keystroke ~3 ms) + commands.test on Windows x64"
     },
     {
       "id": "S52.1",

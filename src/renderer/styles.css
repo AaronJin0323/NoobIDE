@@ -2495,3 +2495,13 @@ select.text-field {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* ── S51.5: quick open — "recently opened" tag on a file in the palette (text, not a colour) ── */
+.palette-recent {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.palette-option[aria-selected='true'] .palette-recent {
+  color: inherit;
+}

@@ -115,6 +115,7 @@ import { useAiFix, type AiFixHost } from '../problems/useAiFix';
 import { AiFixCard } from '../problems/AiFixCard';
 import { useFindInFiles } from '../search/useFindInFiles'; // S51.3
 import type { ReplaceHost } from '../search/replace-apply'; // S51.4
+import { pushRecent } from '../commands/quick-open-model'; // S51.5
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -1093,6 +1094,10 @@ export function Workbench() {
   };
   // S40.5: the command palette lists what can run at the moment it opens; the chosen command runs after it closed.
   const [palette, setPalette] = useState<readonly PaletteCommand[] | null>(null);
+  // S51.5: the palette opened as quick open (files mode), the file chosen there, and the recently opened files.
+  const [paletteFiles, setPaletteFiles] = useState(false);
+  const paletteOpenFile = useRef<string | null>(null);
+  const [recentFiles, setRecentFiles] = useState<readonly string[]>([]);
   const paletteRun = useRef<CommandId | null>(null);
   const canRunRef = useRef<(id: CommandId) => boolean>(() => false);
   const commandContext: CommandContext = {
@@ -1107,6 +1112,15 @@ export function Workbench() {
       palette !== null,
     theme: theme.choice, // S24.4
   };
+  const openPalette = () =>
+    setPalette(
+      COMMAND_IDS.filter((id) => id !== 'command-palette' && canRunRef.current(id)).map((id) => ({
+        id,
+        label: commandById(id).label,
+        shortcut: commandShortcutLabel(id, platform),
+        checked: commandChecked(id, { ...commandContext, modalOpen: false }),
+      })),
+    );
   const commandHandlers: CommandHandlers = {
     'new-project': bridge?.createProject ? () => setWizardOpen(true) : undefined,
     'open-folder': bridge ? () => void openFolder() : undefined,
@@ -1149,25 +1163,37 @@ export function Workbench() {
     'find-in-files': bridge?.search ? findInFiles.show : undefined, // S51.3
     'replace-in-files': bridge?.search ? findInFiles.showReplace : undefined, // S51.4
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
-    'command-palette': () =>
-      setPalette(
-        COMMAND_IDS.filter((id) => id !== 'command-palette' && canRunRef.current(id)).map((id) => ({
-          id,
-          label: commandById(id).label,
-          shortcut: commandShortcutLabel(id, platform),
-          checked: commandChecked(id, { ...commandContext, modalOpen: false }),
-        })),
-      ),
+    // S51.5: the same palette, searching the project's files first
+    'quick-open': () => {
+      setPaletteFiles(true);
+      openPalette();
+    },
+    'command-palette': () => {
+      setPaletteFiles(false);
+      openPalette();
+    },
   };
   const commands = useCommands(platform, commandContext, commandHandlers);
   canRunRef.current = commands.canRun;
   useEffect(() => {
     // After the palette left the DOM (it is a modal, and commands wait while one is open).
+    if (palette !== null) return;
+    // S51.5: a file chosen in quick open opens once the palette left the DOM (focus is back where it was).
+    const file = paletteOpenFile.current;
+    paletteOpenFile.current = null;
+    if (file !== null) void openFile(file);
     const id = paletteRun.current;
-    if (palette !== null || id === null) return;
+    if (id === null) return;
     paletteRun.current = null;
     commands.run(id);
-  }, [palette, commands]);
+  }, [palette, commands, openFile]);
+  // S51.5: recently opened files (most recent first) for quick open's empty query; a new project starts empty.
+  const recentProjectId = doc.project?.projectId;
+  useEffect(() => setRecentFiles([]), [recentProjectId]);
+  const activeFile = doc.active;
+  useEffect(() => {
+    if (activeFile !== null) setRecentFiles((recent) => pushRecent(recent, activeFile));
+  }, [activeFile]);
   const menuItems = useAppMenuItems(platform, commandContext, commandHandlers, commands.run);
   // --- end S24.1 ---
 
@@ -1483,6 +1509,21 @@ export function Workbench() {
           onClose={(id) => {
             paletteRun.current = id;
             setPalette(null);
+            setPaletteFiles(false);
+          }}
+          // S51.5: quick open lists the project index's files (S43.4)
+          files={
+            paletteFiles
+              ? {
+                  paths: projectIndex?.fileList() ?? doc.project?.files.map((f) => f.relPath) ?? [],
+                  recent: recentFiles,
+                }
+              : undefined
+          }
+          onOpenFile={(relPath) => {
+            paletteOpenFile.current = relPath;
+            setPalette(null);
+            setPaletteFiles(false);
           }}
         />
       )}
