@@ -1711,8 +1711,8 @@ export function Workbench() {
       />
       {inlineEdit.element /* S35: what an inline edit did, announced politely */}
       {/* App-level notices share one stack in the layout flow between the walkthrough band and Problems (S47.5):
-          anchored above the status strip, never over the code, the tree or the preview; informational ones leave by
-          themselves. The stack is its own F6 stop while it holds a notice. */}
+          anchored above the status strip, never over the code, the tree or the preview; all on the shared Notice and
+          none on a timer (S50.2). The stack is its own F6 stop while it holds a notice. */}
       <div className="app-notice-stack" data-testid="app-notice-stack">
         {/* S12: the recovery journal could not be written */}
         <JournalHealthNotice health={journals.health} />

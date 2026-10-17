@@ -5257,8 +5257,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/notice.test.ts (18: anatomy order, closed disclosure, one primary last, 4 tone shapes, only danger has the danger fill; Entry success/failure, Transfer, Settings, JournalHealth rendered in zh-CN and en; title/sentence copy rules; no timers in the sources) + portability/settings/project-config/recovery/key-features-visible e2e green (KFV now asserts the notice stays until dismissed); useAutoDismiss removed"
     },
     {
       "id": "S50.3",

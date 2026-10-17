@@ -224,9 +224,12 @@ test('S47.5: one status row — the editor has no bottom row; F6 reaches the str
     'region-files',
     'region-editor',
   ]);
-  // Informational notices leave by themselves (12 s, paused while the pointer or the focus is on them).
+  // S50.2: no notice has a timer (the unit test checks the sources); it stays until the user dismisses it.
   await page.mouse.move(5, 5);
-  await expect(notice).toHaveCount(0, { timeout: 20_000 });
+  await page.waitForTimeout(1_000);
+  await expect(notice).toHaveCount(1);
+  await page.getByTestId('entry-notice-dismiss').click();
+  await expect(notice).toHaveCount(0);
 });
 
 test('the Lessons rail button opens the walkthrough', async () => {

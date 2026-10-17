@@ -1023,8 +1023,8 @@ input[type='radio'] {
 /* S13: app-level notices (settings reset, entry page, transfer report, journal health) share one stack. S47.5: the
    stack sits in the layout flow between the walkthrough band and the Problems panel (flex order), anchored above the
    status strip: it never covers the code, the tree, the native preview view or the Problems toggle, in any window
-   width. It gives way first when the window is short (a long stack scrolls inside); informational notices leave by
-   themselves (useAutoDismiss). Empty, it takes no room and is skipped by F6. */
+   width. It gives way first when the window is short (a long stack scrolls inside). No notice has a timer (S50.2):
+   each stays until it is dismissed or its state ends. Empty, it takes no room and is skipped by F6. */
 .workbench:has(> .app-notice-stack:not(:empty)) {
   --notice-reserve: clamp(8px, calc(100vh - 430px), 120px);
 }
@@ -1357,6 +1357,100 @@ input[type='radio'] {
 }
 .save-alert > svg {
   color: var(--danger);
+}
+/* ── S50.2 Notice (workbench/Notice.tsx): tone icon · one-line title · one sentence · details · trailing actions ──
+   The tone is the icon's shape, the words and data-tone; the fill only follows it. Only "danger" (something failed)
+   has the danger fill: a confirmation is "success", a report is "warning" or "info". */
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+  color: var(--text);
+  line-height: 1.45;
+}
+.notice-success {
+  background: var(--ok-soft);
+}
+.notice-warning {
+  background: var(--warn-soft);
+}
+.notice-danger {
+  background: var(--danger-soft);
+}
+.notice-icon {
+  display: inline-flex;
+  flex: none;
+  margin-top: 1px;
+  color: var(--accent-text);
+}
+.notice-success .notice-icon {
+  color: var(--ok);
+}
+.notice-warning .notice-icon {
+  color: var(--warn);
+}
+.notice-danger .notice-icon {
+  color: var(--danger);
+}
+.notice-text {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.notice-title {
+  margin: 0;
+  overflow: hidden;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.notice-body {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+}
+.notice-detail {
+  margin-top: 4px;
+  font-size: var(--text-sm);
+}
+.notice-detail > summary {
+  width: fit-content;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+}
+.notice-detail-body {
+  margin-top: 4px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.notice-path {
+  display: block;
+  font-family: var(--font-code);
+  overflow-wrap: anywhere;
+}
+.notice-list {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 160px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+/* Trailing actions: on the title's line when there is room, otherwise on their own row at the trailing edge. */
+.notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+.notice-actions > button {
+  margin: 0;
+  white-space: nowrap;
 }
 /* An informational notice (e.g. "reopened your last project"): neither a warning nor an error. */
 .info-alert {
