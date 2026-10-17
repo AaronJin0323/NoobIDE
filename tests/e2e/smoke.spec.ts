@@ -112,6 +112,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       ai: Object.keys(((w.noobide as { ai?: object } | undefined)?.ai ?? {}) as object),
       aiHistory: Object.keys(((w.noobide as { aiHistory?: object } | undefined)?.aiHistory ?? {}) as object),
       annotations: Object.keys(((w.noobide as { annotations?: object } | undefined)?.annotations ?? {}) as object),
+      checkpoints: Object.keys(((w.noobide as { checkpoints?: object } | undefined)?.checkpoints ?? {}) as object),
       fileOps: Object.keys(((w.noobide as { fileOps?: object } | undefined)?.fileOps ?? {}) as object),
     };
   });
@@ -144,6 +145,7 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'ai', // S31: AI assistant (decision 0025); the key is write-only, never returned
       'aiHistory', // S39: saved chats (app data, by project id) and token usage
       'annotations', // S41: preview annotations (decision 0030); targets stay in main, saved by pick id
+      'checkpoints', // S56: project checkpoints (app data, decision 0041); restores go through the save pipeline
       'fileOps', // S52: move, copy, multi-select trash, image sizes; every path realpath-checked in main
     ],
     apiVersion: 1,
@@ -254,6 +256,8 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
       'highlight',
       'context',
     ],
+    // S56: project checkpoints (contract src/shared/ipc/checkpoints-contract.ts).
+    checkpoints: ['list', 'create', 'rename', 'delete', 'compare', 'readText', 'restoreFile'],
     fileOps: [
       'moveEntries',
       'copyEntries',

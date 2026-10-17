@@ -10,6 +10,7 @@ import { authoringZhCN } from './authoring'; // S53 / S57
 import { aiEditZhCN } from './ai-edit'; // S35
 import { aiPromptZhCN } from './ai-prompt'; // S42
 import { aiHistoryZhCN } from './ai-history'; // S39
+import { checkpointsZhCN } from './checkpoints'; // S56
 import { paletteZhCN } from './palette'; // S40
 import { annotationsZhCN } from './annotations'; // S41.5
 import { journeyZhCN } from './journey'; // beginner-journey fixes
@@ -333,6 +334,7 @@ export const zhCN = {
   ...aiEditZhCN, // S35 AI inline edit and Fix with AI
   ...aiPromptZhCN, // S42 inline /ai prompt
   ...aiHistoryZhCN, // S39 saved AI chats and token usage
+  ...checkpointsZhCN, // S56 project checkpoints
   ...paletteZhCN, // S40 command palette
   ...annotationsZhCN, // S41.5 preview annotations strip
   ...journeyZhCN, // beginner-journey fixes: preview page path, missing-page page, editor overflow menu
