@@ -3,6 +3,60 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 35 (side session) — 2026-10-17 — S48.1–S48.3 chat panel engine: scroll latch, growing composer, IME stage 2
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s48-chat-core-9b1e35` cut from
+the M18 plan commit a049ce5 (node_modules junctioned to the main checkout). Run in parallel with S47.1, S49.1 and
+S49.3 sessions on other files; Splitter/Workbench/PreviewPane/FileTree/TabBar/CodeEditor/styles.css untouched.
+
+**Done**
+
+- S48.1 — `src/renderer/ai/scroll-latch.ts` (pure model: 150 ms quiet, 40 px re-follow, 120 px jump threshold,
+  behavior 'auto', pending entries counted by key) + `useScrollLatch.ts` (binds it to any scroll container; meant
+  for the console in S49.4). ChatPanel no longer calls scrollIntoView: `.ai-body` (the scroller around the role=log
+  list) is latched, `overflow-anchor: none`, and a floating "回到最新 / Jump to latest" button (JumpLatestIcon in
+  ai-icons.tsx, word, `role=status` count "1 条新消息" in tabular-nums) shows when unpinned and > 120 px up.
+- S48.2 — the `.ai-input` textarea sits in a one-cell grid (`.ai-input-grow`): `field-sizing: content` where
+  `CSS.supports` says so, otherwise an aria-hidden mirror span with the text plus a trailing space sizes the cell.
+  44 px → `min(40svh, 200px)`, `resize: none`, rows=1; key handling unchanged.
+- S48.3 — `workbench/ime.ts` is now a guard object (`createImeGuard`, default instance behind `isImeKey`):
+  compositionend time recorded by `installImeGuard(window)` (main.tsx, before createRoot, capture phase); on WebKit
+  (`navigator.vendor` contains Apple, read per key) Enter within 500 ms is the IME's unless Ctrl/Cmd is held, and
+  Escape within 500 ms likewise; an IME-owned Escape is stopped with stopImmediatePropagation at the window (not
+  cancelled), so no dialog/panel listener sees it. All existing callers unchanged (extend, not fork); a structural
+  test pins that chat, inline edit, rename, wizard, palette, annotation notes and dialogs use the one guard.
+  MANUAL-CHECKS.md S35.4 gains step 5 (macOS Pinyin).
+
+**Evidence:** unit: scroll-latch.test.ts (8), chat-panel.test.ts S48.2 block (3), ime.test.ts (8). Electron e2e on the
+packaged build (`npm run package`, then `npx playwright test -c tests/e2e/playwright.config.ts <spec>`): new
+`tests/e2e/ai-chat-engine.spec.ts` (S48.1 wheel-up during a 300-chunk fake stream keeps scrollTop within 1 px, jump
+follows again; S48.2 six lines at 1280x720; S48.3 chat + palette under a WebKit vendor), extended S35.4 case in
+`ai-edit.spec.ts`; 69 passed across ai-chat-engine, ai-edit, file-tree, welcome, commands, preview-annotations,
+ai-prompt, glass, ai-chat (plus ai-history/ai-agent/ai-preview/a11y/key-features-visible earlier). `npm run verify`
+green after each feature.
+
+**Decisions:** the latch watches `.ai-body` (the existing scroller) rather than moving overflow onto the role=log
+element, to keep the Past chats list and state messages in the same box. The pending count counts entries (turns)
+that received content, so one streaming answer reads "1 new message". Stage-2 Escape is limited to WebKit like
+Enter; on Chromium a cancelling Escape already arrives as 229/isComposing and is stopped by stage 1.
+
+**Problems / risks:** WebKit behaviour is simulated in Electron by overriding `Navigator.prototype.vendor`; the real
+macOS candidate window is unverified (MANUAL-CHECKS S35.4 step 5). The mirror fallback is only unit-tested (Electron
+44 supports field-sizing). Node's EventTarget does not remove capture listeners registered with a boolean, hence the
+`{ capture: true }` object in ime.ts.
+
+**Owner action needed:** run MANUAL-CHECKS.md S35.4 step 5 on an Apple Silicon Mac when convenient.
+
+**Next up**
+
+1. Merge with S47.1 (branch `claude/beautiful-shirley-d2ba80`): `.ai-jump` animates with `var(--dur-fast)
+var(--ease-out)`, so its duration rule passes; add `.ai-jump` to `tests/e2e/reduced-motion.spec.ts` there, and
+   the local `prefers-reduced-motion` block in ai-chat.css can go once glass.css zeroes `--dur-*`.
+2. S48.4 (slash commands, @file mentions) builds on S48.3's guard for its list's Escape; S49.4 reuses
+   `useScrollLatch` for the console.
+
+**Ideas / backlog candidates:** none new.
+
 ## Session 34 (side session) — 2026-10-17 — UI/UX improvement plan from the Claude Desktop study (M18)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/noobide-ui-ux-improvements-50c047`

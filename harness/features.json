@@ -4414,8 +4414,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/ai/scroll-latch.test.ts (8 tests: 150ms/40px/120px, unpin on input, re-pin, pending count, behavior auto) + useScrollLatch wired into ChatPanel (scrollIntoView removed); tests/e2e/ai-chat-engine.spec.ts S48.1 on the packaged build (wheel-up during fake stream keeps scrollTop within 1px, Jump to latest shows 回到最新 + role=status '1 条新消息', click follows again); ai-chat/ai-history/ai-agent/ai-preview e2e 17 passed; verify green"
     },
     {
       "id": "S48.2",
@@ -4428,8 +4428,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "chat-panel.test.ts 'auto-growing composer (S48.2)' (3 renderToStaticMarkup/CSS tests: field-sizing path with rows=1, hidden aria-hidden mirror fallback, 44px..min(40svh,200px), resize none); tests/e2e/ai-chat-engine.spec.ts S48.2 on the packaged build at 1280x720 (empty ~44px, six Shift+Enter lines grow >+80px without inner scroll and <=200px, preview column >=200px visible, Enter sends and shrinks back); ai-chat/ai-agent/a11y/key-features-visible/preview-annotations e2e 35 passed; verify green"
     },
     {
       "id": "S48.3",
@@ -4443,8 +4443,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "ime.test.ts (8 tests: WebKit Enter within 500ms of compositionend ignored, Ctrl/Cmd+Enter allowed, Escape stage 2, other engines/keys unchanged, installImeGuard stops IME Escape before later window listeners without cancelling it, structural check that chat/inline edit/rename/wizard/palette/annotation notes/dialogs all use the one isImeKey); installed in main.tsx before createRoot; S35.4 regression extended in tests/e2e/ai-edit.spec.ts (post-composition Enter+Escape under a WebKit vendor, Escape never reaches document capture; Chromium Enter after compositionend still sends) + tests/e2e/ai-chat-engine.spec.ts S48.3 (chat Enter ignored, Ctrl+Enter sends, palette Escape contained); 69 e2e passed on the packaged build across ai-chat-engine/ai-edit/file-tree/welcome/commands/preview-annotations/ai-prompt/glass/ai-chat; macOS Pinyin step 5 in MANUAL-CHECKS.md#S35.4; verify green"
     },
     {
       "id": "S48.4",
