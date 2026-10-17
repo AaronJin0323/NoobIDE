@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 44 (side session) — 2026-10-18 — PR #22 (S51) green on hosted CI without loosening a threshold
+## Session 45 (side session) — 2026-10-18 — PR #22 (S51) green on hosted CI without loosening a threshold
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree `window-frame-styling-bcf1ff` on a local
 branch pushed to `claude/m19-s51-search-ba5619` (PR #22). Task from the parent session: make the PR green on hosted
@@ -114,6 +114,68 @@ key-features-visible, preview-layout, editing, shell (updated S30.3 control list
 **Next up:** merge the six M19 branches (conflicts expected in `harness/features.json`, PROGRESS.md, commands.ts,
 menu-template.ts, Workbench.tsx, styles.css, shell.spec's control list; re-run the e2e shard test). Then the next M19
 session per `node harness/session.mjs next`.
+
+## Session 44 (side session) — 2026-10-18 — S58.7 document start/end keys guarded in the E2E suite
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/clever-ishizaka-83a7cd` cut
+from `main` @ `65edc2a`. Started by the top session after PR #23's macOS failures (run 39033368439): Playwright's
+`ControlOrMeta+Home` / `ControlOrMeta+End` moves nothing inside Monaco on macOS (it binds ⌘↑ / ⌘↓, never ⌘Home /
+⌘End), so a spec pressing the literal passes there only while its cursor already sits on line 1.
+
+**Done**
+
+- S58.7 — Document start/end keys in E2E specs go through `keys.ts`, with a guard.
+  - **The sweep was already on main.** Commit `0df27f8` ("e2e: express platform-neutral requirements on macOS",
+    merged through `73a27e8`) had replaced the chord in every spec PR #23's note lists (ai-inline, encodings,
+    external-change, file-tree, files, language-workbench, preview-isolation, preview-manager, problems, recovery, save,
+    smart-editing, smoke, tabs) and in `project.ts` with `DOC_START` / `DOC_END`; at `65edc2a` the literal
+    survives only in the doc comment of `tests/e2e/keys.ts`. No spec needed a change, and no press of the chord aimed
+    at an ordinary input or list exists: the plain `Home` / `End` / `Shift+Home` presses (line start/end, the
+    rename input, the file-tree list) are the same key on every platform and stay as they are.
+  - **Guard.** `tests/integration/e2e-keys.test.ts` (new) walks every `.ts` file under `tests/e2e` (specs and
+    helpers) and fails, naming file and line, on any literal `ControlOrMeta` / `Control` / `Meta` + `Home` / `End`
+    chord outside `keys.ts` — the two chords the task names and the two platform-specific spellings that would be the
+    same mistake. A unit case proves the detector on a sample spec (plain `Home`, `input.press('End')` and
+    `press(DOC_START)` are not hits); a third case pins `keys.ts` to the chords Monaco binds on the running platform.
+  - **Rule.** `docs/testing.md` gains a conventions bullet next to the window-size and platform rules: shortcuts that
+    differ by platform come from `keys.ts`, the guard enforces it, plain `Home` / `End` stay.
+  - **Backlog.** S58.7 added to S58 (M20) with the four criteria above; it owns the guard and the docs bullet.
+- Verify was red on `main` @ `65edc2a`: the S06.6 merge (`1d10ca2`) added three `panelView` expectations in
+  `walkthrough-model.test.ts` after S47.6 (`2f9aa32`) had given the step view a `compact` field. Test-only fix in
+  its own commit (`3cdb443`); the model is unchanged. Main fixed the same lines in `fdbb822` (PR #29) an hour later;
+  `origin/main` @ `e4e248a` merged into this branch without a conflict (identical content).
+
+**Evidence:** `tests/integration/e2e-keys.test.ts` (3 tests: detector on a sample spec, keys.ts shape, 70 files under
+tests/e2e scanned with zero hits); `npm run verify` green @ the S58.7 commit; the fourteen swept specs on Windows with
+`npm run test:e2e -- tests/e2e/ai-inline.spec.ts … tests/e2e/tabs.spec.ts`: 123 passed, 0 failed, 4.5 min (packaged app).
+After the js-navigation fix: `npm run test:e2e -- tests/e2e/js-navigation.spec.ts` on Windows: 6 passed, 0 failed (packaged app).
+
+**Decisions:** The guard forbids `Control+Home` / `Meta+Home` (and End) as well as the `ControlOrMeta` form: a
+spec that spells the Windows chord out passes on Windows and fails on macOS the same way. keys.ts stays the single
+exception rather than an allow-list comment per spec. No ADR: a test convention, recorded in docs/testing.md.
+
+**Problems / risks:** None in the sweep. The hosted macOS run is the real proof of the rule; this session ran the
+swept specs on Windows only (there the chord is `Control+Home`, so a Windows pass does not by itself prove the macOS
+branch of keys.ts — the PR #23 fix did, in run 39033368439's successors). PR #30's first ready run (39038956264)
+failed on windows-x64 shard 1 in the unit step, not in E2E: four 5 s / 20 s timeouts (create-project, history-groups,
+recovery-journal, the watcher mass-delete test and its afterEach hook) on a run where the unit suite took 79 s against
+≈20 s on the dev machine — the starved-runner class S58.3 owns (PR #28 resizes exactly those files; its Windows shards
+are green). None of the four files is in this diff; nothing was changed for it here beyond merging main (PR #28
+landed and was merged in). The second run (39041732247, after main took PR #23 and PR #28) failed only macOS shard 2:
+`js-navigation.spec.ts` "Shift+F12 lists every use" could not click `app.js` in the tree because the previous test's
+navigation sheet was still open. That test polls F12 until `config.js` opens; on the slow runner an early press came
+before the service knew the closed file and answered with the 转到定义 "not found" notice, a later press opened the
+file anyway, and the notice stayed up (the artifact's page snapshot shows it). Test-side fix in the poll: a visible
+navigation dialog is closed with Escape before the next press, and the test asserts no dialog is left. Product
+question for S57's owner, not changed here: F12 before the project scripts are indexed says "not found" instead of
+waiting.
+
+**Owner action needed:** None.
+
+**Next up**
+
+1. Merge this PR after PR #23 and, for a green Windows unit step on a slow runner, after PR #28 (S58.3).
+2. S58.4 (Windows E2E intermittents) and S58.5 (owner decision) remain open in S58.
 
 ## Session 37 (side session) — 2026-10-17 — S52 complete file management (M19)
 
