@@ -25,19 +25,25 @@ export function TreeContextMenu({ label, items, x, y, onClose }: TreeContextMenu
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const menu = useRef<HTMLDivElement>(null);
 
+  // The latest onClose, so the effect below runs once per opening. Callers pass a new function on every render; with
+  // it as a dependency, any re-render of the tree while the menu is open (a file changing on disk, a selection
+  // update) re-ran the effect and threw the keyboard focus back to the first item.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     refs.current[0]?.focus();
     const onPointer = (event: MouseEvent) => {
-      if (!menu.current?.contains(event.target as Node)) onClose(false);
+      if (!menu.current?.contains(event.target as Node)) onCloseRef.current(false);
     };
-    const onBlur = () => onClose(false);
+    const onBlur = () => onCloseRef.current(false);
     window.addEventListener('mousedown', onPointer);
     window.addEventListener('blur', onBlur);
     return () => {
       window.removeEventListener('mousedown', onPointer);
       window.removeEventListener('blur', onBlur);
     };
-  }, [onClose]);
+  }, []);
 
   const onKeyDown = (event: KeyboardEvent) => {
     const index = refs.current.findIndex((el) => el === document.activeElement);
