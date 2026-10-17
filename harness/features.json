@@ -4414,8 +4414,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/ai/scroll-latch.test.ts (8 tests: 150ms/40px/120px, unpin on input, re-pin, pending count, behavior auto) + useScrollLatch wired into ChatPanel (scrollIntoView removed); tests/e2e/ai-chat-engine.spec.ts S48.1 on the packaged build (wheel-up during fake stream keeps scrollTop within 1px, Jump to latest shows 回到最新 + role=status '1 条新消息', click follows again); ai-chat/ai-history/ai-agent/ai-preview e2e 17 passed; verify green"
     },
     {
       "id": "S48.2",

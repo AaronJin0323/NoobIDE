@@ -72,6 +72,9 @@ export const aiChatZhCN = {
   'ai.chat.usage': '用量：输入 {input} 个 token，输出 {output} 个 token',
   'ai.chat.copyCode': '复制代码',
   'ai.chat.copied': '已复制',
+  // ── S48.1 回到最新 ──
+  'ai.chat.jumpLatest': '回到最新',
+  'ai.chat.jumpPending': '{n} 条新消息',
   'ai.chat.copyFailed': '没能复制，请手动选中代码复制。',
   'ai.chat.code': '代码',
   'ai.chat.codeLang': '代码（{lang}）',
@@ -192,6 +195,8 @@ export const aiChatEn: Record<keyof typeof aiChatZhCN, string> = {
   'ai.chat.usage': 'Usage: {input} input tokens, {output} output tokens',
   'ai.chat.copyCode': 'Copy code',
   'ai.chat.copied': 'Copied',
+  'ai.chat.jumpLatest': 'Jump to latest',
+  'ai.chat.jumpPending': '{n} new messages',
   'ai.chat.copyFailed': 'Could not copy. Select the code and copy it by hand.',
   'ai.chat.code': 'Code',
   'ai.chat.codeLang': 'Code ({lang})',

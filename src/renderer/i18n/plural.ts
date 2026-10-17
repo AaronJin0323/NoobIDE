@@ -22,6 +22,7 @@ export const ONE_FORMS: Partial<Record<'zh-CN' | 'en', Partial<Record<MessageKey
     'agent.undo.partial': '{n} change undone; {m} could not be undone: {reasons}',
     'ai.chat.proposal.unsupported':
       'The AI wants to change {n} file, but this version cannot show the changes here. No file was changed.',
+    'ai.chat.jumpPending': '{n} new message',
     'ai.history.skipped': '{n} saved chat could not be read (damaged, or saved by a newer NoobIDE) and was skipped.',
     'ai.history.revoke.ask': 'This project also has {n} saved AI chat. Delete it too?',
     'ai.history.revoke.deleted': '{n} chat deleted.',

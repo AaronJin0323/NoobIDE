@@ -19,8 +19,9 @@ import type { AiChatExtensions, AiConsentRenderer } from './chat-extensions';
 import { contextLabel, errorExplanation, providerName } from './chat-text';
 import { withKeyStore } from './ai-status';
 import { Markdown, type MarkdownLabels } from './Markdown';
-import { AiIcon, CloseIcon, NewChatIcon, PastChatsIcon } from './ai-icons';
+import { AiIcon, CloseIcon, JumpLatestIcon, NewChatIcon, PastChatsIcon } from './ai-icons';
 import { SavedProposal } from './SavedChatsList';
+import { useScrollLatch } from './useScrollLatch';
 import './ai-chat.css';
 
 /** `count` picks the singular form of a counted message (i18n/plural.ts). */
@@ -155,7 +156,7 @@ export function ChatPanelView({
   const availability = state.availability;
   const ready = availability.kind === 'ready';
   const input = useRef<HTMLTextAreaElement>(null);
-  const logEnd = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (state.focusSeq === 0) return;
@@ -165,12 +166,20 @@ export function ChatPanelView({
     area.setSelectionRange(area.value.length, area.value.length);
   }, [state.focusSeq]);
 
-  // Follow the answer while it streams (only when the end of the log is close to being in view).
+  // S48.1: follow the answer while it streams, unless the reader moved the log (scroll-latch.ts).
   const lastTurn = conversation?.turns.at(-1);
-  const lastLength = lastTurn ? answerText(lastTurn).length : 0;
-  useEffect(() => {
-    logEnd.current?.scrollIntoView?.({ block: 'nearest' });
-  }, [lastLength, conversation?.turns.length]);
+  const latch = useScrollLatch(
+    body,
+    [
+      conversation?.turns.length ?? 0,
+      lastTurn ? answerText(lastTurn).length : 0,
+      lastTurn?.parts.length ?? 0,
+      lastTurn?.status ?? '',
+      pastChats?.listOpen === true,
+    ].join(':'),
+    lastTurn?.id ?? null,
+    `${key}/${conversation?.id ?? ''}`,
+  );
 
   const labels: MarkdownLabels = {
     copy: t('ai.chat.copyCode'),
@@ -276,70 +285,82 @@ export function ChatPanelView({
         </button>
       </div>
 
-      <div className="ai-body">
-        {pastChats?.listOpen ? (
-          pastChats.list
-        ) : stateKey && availability.kind !== 'loading' ? (
-          <div className="ai-state" role="status" data-testid="ai-state" data-state={availability.kind}>
-            <p>{withKeyStore(t(stateKey), t)}</p>
-            {availability.kind !== 'unavailable' && settingsHelp}
-          </div>
-        ) : (
-          <div className="ai-log" role="log" aria-label={t('ai.chat.title')} data-testid="ai-log">
-            {availability.kind === 'loading' && <p className="ai-hint">{t('ai.state.loading')}</p>}
-            {!conversation && availability.kind !== 'loading' && <p className="ai-empty">{t('ai.chat.empty')}</p>}
-            {conversation?.turns.map((turn) => {
-              const statusKey = turnStatusKey(turn);
-              const isRunning = turn.status === 'sending' || turn.status === 'streaming';
-              return (
-                <article key={turn.id} className="ai-turn" data-testid="ai-turn" data-status={turn.status}>
-                  <div className="ai-msg ai-msg-user">
-                    <p className="ai-who">{t('ai.chat.you')}</p>
-                    <p className="ai-prompt" data-testid="ai-prompt">
-                      {turn.prompt}
-                    </p>
-                    <p className="ai-sent-with" data-testid="ai-sent-with">
-                      {turn.context.length > 0
-                        ? fill(t('ai.chat.sentWith'), {
-                            items: turn.context.map((item) => contextLabel(t, item)).join(t('ai.chat.separator')),
-                          })
-                        : t('ai.chat.sentNothing')}
-                    </p>
-                  </div>
-                  <div className="ai-msg ai-msg-answer" aria-busy={isRunning} data-testid="ai-answer">
-                    <p className="ai-who">{t('ai.chat.assistant')}</p>
-                    {turn.parts.map((part, i) => renderPart(part, turn, i))}
-                    {turn.error && (
-                      <div className="ai-error" role="alert" data-testid="ai-error" data-code={turn.error.code}>
-                        <p>{errorExplanation(t, turn.error.code)}</p>
-                        {turn.error.message && (
-                          <p className="ai-hint">{fill(t('ai.error.details'), { message: turn.error.message })}</p>
-                        )}
-                        {(turn.error.code === 'unauthorized' ||
-                          turn.error.code === 'no-key' ||
-                          turn.error.code === 'disabled') &&
-                          settingsHelp}
-                      </div>
-                    )}
-                    {statusKey && (
-                      <p className="ai-turn-status" data-testid="ai-turn-status">
-                        {t(statusKey)}
+      <div className="ai-body-wrap">
+        <div className="ai-body" ref={body} data-testid="ai-body">
+          {pastChats?.listOpen ? (
+            pastChats.list
+          ) : stateKey && availability.kind !== 'loading' ? (
+            <div className="ai-state" role="status" data-testid="ai-state" data-state={availability.kind}>
+              <p>{withKeyStore(t(stateKey), t)}</p>
+              {availability.kind !== 'unavailable' && settingsHelp}
+            </div>
+          ) : (
+            <div className="ai-log" role="log" aria-label={t('ai.chat.title')} data-testid="ai-log">
+              {availability.kind === 'loading' && <p className="ai-hint">{t('ai.state.loading')}</p>}
+              {!conversation && availability.kind !== 'loading' && <p className="ai-empty">{t('ai.chat.empty')}</p>}
+              {conversation?.turns.map((turn) => {
+                const statusKey = turnStatusKey(turn);
+                const isRunning = turn.status === 'sending' || turn.status === 'streaming';
+                return (
+                  <article key={turn.id} className="ai-turn" data-testid="ai-turn" data-status={turn.status}>
+                    <div className="ai-msg ai-msg-user">
+                      <p className="ai-who">{t('ai.chat.you')}</p>
+                      <p className="ai-prompt" data-testid="ai-prompt">
+                        {turn.prompt}
                       </p>
-                    )}
-                    {turn.usage && (
-                      <p className="ai-usage" data-testid="ai-usage">
-                        {fill(t('ai.chat.usage'), {
-                          input: turn.usage.inputTokens.toLocaleString(),
-                          output: turn.usage.outputTokens.toLocaleString(),
-                        })}
+                      <p className="ai-sent-with" data-testid="ai-sent-with">
+                        {turn.context.length > 0
+                          ? fill(t('ai.chat.sentWith'), {
+                              items: turn.context.map((item) => contextLabel(t, item)).join(t('ai.chat.separator')),
+                            })
+                          : t('ai.chat.sentNothing')}
                       </p>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-            <div ref={logEnd} />
-          </div>
+                    </div>
+                    <div className="ai-msg ai-msg-answer" aria-busy={isRunning} data-testid="ai-answer">
+                      <p className="ai-who">{t('ai.chat.assistant')}</p>
+                      {turn.parts.map((part, i) => renderPart(part, turn, i))}
+                      {turn.error && (
+                        <div className="ai-error" role="alert" data-testid="ai-error" data-code={turn.error.code}>
+                          <p>{errorExplanation(t, turn.error.code)}</p>
+                          {turn.error.message && (
+                            <p className="ai-hint">{fill(t('ai.error.details'), { message: turn.error.message })}</p>
+                          )}
+                          {(turn.error.code === 'unauthorized' ||
+                            turn.error.code === 'no-key' ||
+                            turn.error.code === 'disabled') &&
+                            settingsHelp}
+                        </div>
+                      )}
+                      {statusKey && (
+                        <p className="ai-turn-status" data-testid="ai-turn-status">
+                          {t(statusKey)}
+                        </p>
+                      )}
+                      {turn.usage && (
+                        <p className="ai-usage" data-testid="ai-usage">
+                          {fill(t('ai.chat.usage'), {
+                            input: turn.usage.inputTokens.toLocaleString(),
+                            output: turn.usage.outputTokens.toLocaleString(),
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {latch.show && (
+          <button type="button" className="ai-jump" data-testid="ai-jump" onClick={latch.jump}>
+            <JumpLatestIcon />
+            {t('ai.chat.jumpLatest')}
+            {latch.pending > 0 && (
+              <span className="ai-jump-count" role="status" data-testid="ai-jump-count">
+                {fill(t('ai.chat.jumpPending', latch.pending), { n: latch.pending })}
+              </span>
+            )}
+          </button>
         )}
       </div>
       {pastChats?.notice && (

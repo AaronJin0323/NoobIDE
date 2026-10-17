@@ -54,12 +54,66 @@
   padding: 0 6px;
   font-size: var(--text-sm);
 }
-.ai-body {
+/* S48.1: the log and its Jump-to-latest control, which floats over the log's lower edge. */
+.ai-body-wrap {
+  position: relative;
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
   /* The conversation always keeps a few lines, however full the composer gets. */
   min-height: 56px;
+}
+.ai-body {
+  flex: 1 1 auto;
+  min-height: 56px;
   overflow-y: auto;
+  /* Following the stream is the scroll latch's job (scroll-latch.ts): no browser scroll anchoring on top of it. */
+  overflow-anchor: none;
   padding: 12px 16px;
+}
+.ai-jump {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  translate: -50% 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 16px);
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow-overlay);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  animation: ai-jump-in var(--dur-fast) var(--ease-out);
+}
+.ai-jump:hover {
+  background: var(--hover-soft);
+}
+.ai-jump:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.ai-jump-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes ai-jump-in {
+  from {
+    opacity: 0;
+    translate: -50% 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-jump {
+    animation: none;
+  }
 }
 .ai-state {
   display: flex;
