@@ -65,6 +65,7 @@ export const COMMAND_IDS = [
   // S53 HTML/CSS authoring aids (Edit menu)
   'toggle-emmet',
   'wrap-with-tag',
+  'edit-color',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -203,6 +204,8 @@ export const COMMANDS: readonly CommandDefinition[] = [
   { id: 'toggle-emmet', label: 'command.toggleEmmet', checked: (c) => c.emmet === true, toggle: true },
   // S53.2: wraps the selection in an HTML tag (both tag names linked).
   { id: 'wrap-with-tag', label: 'command.wrapWithTag', when: (c) => c.hasActiveTab && !c.modalOpen },
+  // S53.3: the colour picker for the CSS colour value at the cursor.
+  { id: 'edit-color', label: 'command.editColor', when: (c) => c.hasActiveTab && !c.modalOpen },
 ];
 
 const BY_ID = new Map(COMMANDS.map((command) => [command.id, command]));

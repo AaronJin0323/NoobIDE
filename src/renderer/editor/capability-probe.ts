@@ -1,7 +1,8 @@
 import { monaco } from './monaco-setup';
 import { extensionOf, selectionOf, type CapabilityCase, type CapabilityResult } from './capability-cases';
 import { expandOrTab } from './emmet-monaco';
-import { attachAuthoring } from './authoring-monaco';
+import { attachAuthoring, replaceColorAtCursor } from './authoring-monaco';
+import { parseColor } from './css-colors';
 
 /**
  * Runs language capability cases in the real editor (S18.1, S18.2): a real Monaco editor, the bundled language
@@ -50,6 +51,11 @@ async function runEdit(editor: monaco.editor.IStandaloneCodeEditor, c: Capabilit
   const typed = () => {
     if (c.typeText) editor.trigger('keyboard', 'type', { text: c.typeText });
   };
+  if (action === 'set-color') {
+    // S53.3: what the colour picker's Apply does, with the new colour given as text.
+    const color = parseColor(c.typeText ?? '');
+    return color !== null && replaceColorAtCursor(editor, color.rgba);
+  }
   if (action === 'linked-type') {
     // Linked editing is computed after the cursor moves; type once its ranges are there (or after a while, for the
     // cases that prove it does not apply).
@@ -111,6 +117,22 @@ async function runCase(
       const seen = read();
       return result(got && seen === want, seen);
     }
+    if (c.kind === 'colors') {
+      // S53.3: the colour swatches Monaco draws (inline decorations), as the text they stand in front of.
+      let seen: string[] = [];
+      const read = () =>
+        model
+          .getAllDecorations()
+          .filter((d) => d.options.before?.inlineClassName?.includes('colorpicker-color-decoration'))
+          .sort((a, b) => monaco.Range.compareRangesUsingStarts(a.range, b.range))
+          .map((d) => model.getValueInRange(d.range));
+      const want = c.expect ?? [];
+      const found = await poll(() => {
+        seen = read();
+        return seen.length === want.length && seen.every((text, i) => text === want[i]) ? seen : null;
+      }, CASE_TIMEOUT_MS);
+      return result(found !== null, seen.join(' | '));
+    }
     if (c.kind === 'completion') {
       let lastTrigger = 0;
       let labels: string[] = [];
@@ -171,7 +193,7 @@ export async function runCapabilityCases(cases: readonly CapabilityCase[]): Prom
     minimap: { enabled: false },
     linkedEditing: true, // S53.2, as in the workbench editor
   });
-  const authoring = attachAuthoring(editor); // S53.2: Wrap with tag
+  const authoring = attachAuthoring(editor, { publishColor: false }); // S53.2: Wrap with tag
   editor.layout({ width: 900, height: 500 });
   const results: CapabilityResult[] = [];
   try {

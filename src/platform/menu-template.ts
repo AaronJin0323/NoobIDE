@@ -145,6 +145,7 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       role('selectAll', 'menu.selectAll'),
       SEPARATOR,
       command('wrap-with-tag'), // S53.2
+      command('edit-color'), // S53.3
       command('toggle-emmet'), // S53.1
       SEPARATOR,
       command('toggle-inline-ai'), // S32.1

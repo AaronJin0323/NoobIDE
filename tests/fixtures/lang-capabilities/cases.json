@@ -451,6 +451,54 @@
       "typeText": "strong",
       "text": "<p>Say |hello| now</p>\n",
       "expectText": "<p>Say <strong>hello</strong> now</p>\n"
+    },
+    {
+      "id": "css-color-swatches",
+      "language": "css",
+      "kind": "colors",
+      "text": "/* #123456 is not a value */\n.card {\n  color: #c0392b;\n  background: rgb(240, 248, 255);\n  border-color: hsl(210, 50%, 40%);\n  outline-color: rebeccapurple;\n}\n",
+      "expect": [
+        "#c0392b",
+        "rgb(240, 248, 255)",
+        "hsl(210, 50%, 40%)",
+        "rebeccapurple"
+      ]
+    },
+    {
+      "id": "css-color-picker-hex",
+      "language": "css",
+      "kind": "edit",
+      "action": "set-color",
+      "typeText": "rgb(0, 128, 0)",
+      "text": "a { color: #c0|392b; }\n",
+      "expectText": "a { color: #008000; }\n"
+    },
+    {
+      "id": "css-color-picker-rgb",
+      "language": "css",
+      "kind": "edit",
+      "action": "set-color",
+      "typeText": "#ff0000",
+      "text": "a { color: rgb(0, |0, 255); }\n",
+      "expectText": "a { color: rgb(255, 0, 0); }\n"
+    },
+    {
+      "id": "css-color-picker-hsl",
+      "language": "css",
+      "kind": "edit",
+      "action": "set-color",
+      "typeText": "#0000ff",
+      "text": "a { color: hsl(|0, 100%, 50%); }\n",
+      "expectText": "a { color: hsl(240, 100%, 50%); }\n"
+    },
+    {
+      "id": "css-color-picker-named",
+      "language": "css",
+      "kind": "edit",
+      "action": "set-color",
+      "typeText": "rgb(255, 99, 71)",
+      "text": "a { color: tea|l; }\n",
+      "expectText": "a { color: #ff6347; }\n"
     }
   ]
 }

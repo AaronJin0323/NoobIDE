@@ -26,7 +26,7 @@ import { attachAiPrompts, refreshAiPromptMarkers } from '../ai/ai-prompt-monaco'
 // S53.1: Emmet abbreviations on Tab (decision 0039).
 import { attachEmmet } from './emmet-monaco';
 // S53.2: linked tag editing and "Wrap with tag".
-import { attachAuthoring } from './authoring-monaco';
+import { attachAuthoring, replaceColorAtCursor } from './authoring-monaco';
 
 export interface EditorFile {
   /** Stable model URI: the real file's `file://` URI (S03.3), or an `inmemory://` URI for the sample. */
@@ -210,6 +210,11 @@ export function CodeEditor({
         editor.focus();
         await editor.getAction(id)?.run();
       },
+      setColor: (rgba) => {
+        editor.focus();
+        return replaceColorAtCursor(editor, rgba); // S53.3
+      },
+      focus: () => editor.focus(),
     });
     // --- end S17.2 / S18.3 ---
     // S33.2: context-menu actions of the workbench ("Ask AI to explain this code").

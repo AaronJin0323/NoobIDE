@@ -33,6 +33,10 @@ export interface EditorAccess {
   openEditZone?(lines?: { readonly startLine: number; readonly endLine: number }): EditZone | null;
   /** S53: runs an editor action (Monaco's or NoobIDE's, e.g. `noobide.wrapWithTag`) in the file on screen. */
   runAction?(id: string): Promise<void>;
+  /** S53.3: replaces the CSS colour value at the cursor, keeping its format; false when there is none. */
+  setColor?(rgba: { readonly r: number; readonly g: number; readonly b: number; readonly a: number }): boolean;
+  /** Moves the keyboard focus into the editor. */
+  focus?(): void;
 }
 
 /**

@@ -27,8 +27,9 @@ pure JS preferred, no native modules without a record, and Tab must keep indenti
 Option 1, pinned exactly (`"emmet": "2.4.11"` in package.json, with the transitive versions locked in
 package-lock.json).
 
-- **Licences checked:** all four packages declare `"license": "MIT"` in their package.json. NoobIDE's licence
-  notices come from package.json metadata.
+- **Licences checked:** all four packages declare `"license": "MIT"` in their package.json and ship a LICENSE file;
+  `scripts/third-party-notices.mjs` (run at packaging) puts their licence texts into the shipped
+  `THIRD_PARTY_NOTICES.txt`.
 - **Offline:** the package is bundled by Vite into the renderer. It has no runtime fetch, no CDN and no workers. The
   packaged-app self-test runs the Emmet capability cases with the network emulated offline
   (`tests/e2e/language.spec.ts`; `tests/e2e/authoring-offline.spec.ts` for S53.5).

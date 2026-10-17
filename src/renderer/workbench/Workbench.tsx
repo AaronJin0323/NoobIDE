@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react';
 import { editorPrefs, loadEditorPrefs, setEditorPrefs, useEditorPrefs } from '../editor/editor-prefs'; // S53
+import { openColorPicker } from '../editor/cursor-color'; // S53.3
 import { useAppMenuItems, useCommands, type CommandHandlers } from '../commands/useCommands'; // S24.1
 import type { FileContent, FileVersion, OpenedProject } from '../../shared/ipc/contract';
 import { useMediaQuery } from '../theme/useMediaQuery';
@@ -1093,6 +1094,7 @@ export function Workbench() {
     'toggle-inline-ai': aiBridge() ? () => toggleInlineAi(docRef.current.project?.projectId ?? null) : undefined,
     'toggle-emmet': () => setEditorPrefs({ emmet: !editorPrefs().emmet }), // S53.1
     'wrap-with-tag': () => void activeEditor()?.runAction?.('noobide.wrapWithTag'), // S53.2
+    'edit-color': openColorPicker, // S53.3
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
     'command-palette': () =>
       setPalette(

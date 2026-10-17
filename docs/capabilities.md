@@ -119,6 +119,23 @@ with both tag names selected, so typing a name changes both; one undo restores t
 | Not linked: a tag without its own closing tag         | `<li>One <li>Two` → only the first `<li>` | `html-linked-tag-implicit-close-not-linked` |
 | Wrap with tag; typing the tag name changes both tags  | `hello` → `<strong>hello</strong>`        | `html-wrap-with-tag`                        |
 
+## Colour hints (S53.3)
+
+In **CSS files**, every colour value gets a small swatch in front of it (Monaco's colour decorators; clicking it opens
+Monaco's colour picker). With the cursor on a colour value, the status bar writes the value out next to a swatch whose
+accessible name carries the value ("颜色：#c0392b / Colour: #c0392b"), and **编辑颜色 / Edit colour** (also Edit ›
+Edit colour at cursor and the command palette) opens NoobIDE's colour picker: hue, saturation and lightness sliders and a
+value field, all keyboard-operable (`tests/e2e/authoring.spec.ts`, with an axe scan). Apply replaces the value in place,
+in its own format, as one undo step. Not claimed: swatches inside an HTML page's `<style>` or `style=""` attribute.
+
+| Capability                                                             | Example                                                    | Case                     |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------ |
+| Swatches for hex, `rgb()`, `hsl()` and named colours (not in comments) | `#c0392b`, `rgb(240, 248, 255)`, `hsl(…)`, `rebeccapurple` | `css-color-swatches`     |
+| The picker keeps a hex value hex                                       | `#c0392b` → `#008000`                                      | `css-color-picker-hex`   |
+| The picker keeps an `rgb()` value `rgb()`                              | `rgb(0, 0, 255)` → `rgb(255, 0, 0)`                        | `css-color-picker-rgb`   |
+| The picker keeps an `hsl()` value `hsl()`                              | `hsl(0, 100%, 50%)` → `hsl(240, 100%, 50%)`                | `css-color-picker-hsl`   |
+| A colour name becomes hex (most colours have no name)                  | `teal` → `#ff6347`                                         | `css-color-picker-named` |
+
 ## AI suggestions are marked
 
 AI ghost text (S32.1, only when AI is set up) carries an **AI** badge with the accessible name "AI 建议 / AI

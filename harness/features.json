@@ -4615,8 +4615,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "css-colors.test.ts (7); cases css-color-swatches (hex/rgb/hsl/named) and css-color-picker-hex/-rgb/-hsl/-named pass in packaged app offline (language.spec.ts); tests/e2e/authoring.spec.ts S53.3 (swatch accessible name with value, keyboard-only picker, axe clean, one-step undo); docs/capabilities.md Colour hints section; glossary 'Colour value' zh-CN+en; verify green"
     },
     {
       "id": "S53.4",

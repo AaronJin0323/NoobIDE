@@ -5,6 +5,8 @@
  */
 import { monaco } from './monaco-setup';
 import { linkedTagRanges, wrapSnippet } from './tag-match';
+import { colorAt, formatColor, type Rgba } from './css-colors';
+import { publishCursorColor } from './cursor-color';
 import { DEFAULT_LOCALE, isLocale, translate, type MessageKey } from '../i18n/index';
 
 export const WRAP_WITH_TAG_ACTION_ID = 'noobide.wrapWithTag';
@@ -54,11 +56,57 @@ export function wrapWithTag(editor: monaco.editor.ICodeEditor): boolean {
   return true;
 }
 
-export function attachAuthoring(editor: monaco.editor.IStandaloneCodeEditor): monaco.IDisposable {
-  return editor.addAction({
-    id: WRAP_WITH_TAG_ACTION_ID,
-    label: t('command.wrapWithTag'),
-    precondition: "editorLangId == 'html' && !editorReadonly",
-    run: () => void wrapWithTag(editor),
-  });
+/** S53.3: the CSS colour value at the cursor (CSS files; Monaco's swatches are shown for the same files). */
+function colorAtCursor(editor: monaco.editor.ICodeEditor) {
+  const model = editor.getModel();
+  const position = editor.getPosition();
+  if (!model || !position || model.getLanguageId() !== 'css') return null;
+  return colorAt(model.getValue(), model.getOffsetAt(position));
+}
+
+/**
+ * S53.3: replaces the colour value at the cursor with `rgba`, written in the value's own format (a name becomes hex).
+ * One undoable edit. False when the cursor is not on a colour value or the file is read-only.
+ */
+export function replaceColorAtCursor(editor: monaco.editor.ICodeEditor, rgba: Rgba): boolean {
+  const model = editor.getModel();
+  const found = colorAtCursor(editor);
+  if (!model || !found || editor.getOption(monaco.editor.EditorOption.readOnly)) return false;
+  const start = model.getPositionAt(found.start);
+  const end = model.getPositionAt(found.end);
+  const text = formatColor(rgba, found.format);
+  editor.pushUndoStop();
+  editor.executeEdits('noobide.color', [
+    { range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column), text },
+  ]);
+  editor.pushUndoStop();
+  editor.setPosition(model.getPositionAt(found.start + text.length));
+  return true;
+}
+
+/**
+ * `publishColor`: this is the workbench editor, whose colour at the cursor the status bar shows (the capability
+ * probe's off-screen editor is not).
+ */
+export function attachAuthoring(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  { publishColor = true }: { readonly publishColor?: boolean } = {},
+): monaco.IDisposable {
+  const publish = () => {
+    if (!publishColor) return;
+    const found = colorAtCursor(editor);
+    publishCursorColor(found ? { text: found.text, format: found.format, rgba: found.rgba } : null);
+  };
+  const disposables = [
+    editor.addAction({
+      id: WRAP_WITH_TAG_ACTION_ID,
+      label: t('command.wrapWithTag'),
+      precondition: "editorLangId == 'html' && !editorReadonly",
+      run: () => void wrapWithTag(editor),
+    }),
+    editor.onDidChangeCursorPosition(publish),
+    editor.onDidChangeModelContent(publish),
+    editor.onDidChangeModel(publish),
+  ];
+  return { dispose: () => disposables.forEach((d) => d.dispose()) };
 }
