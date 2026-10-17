@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
@@ -93,6 +93,21 @@ const missing = () => page.getByTestId('preview-page-missing');
 const backToEntry = () => page.getByTestId('preview-go-to-entry');
 const previewTitle = () => evalInPreview<string>(app, 'document.title');
 
+/**
+ * The 404 page is rendered by main in the interface language, which main adopts only after the renderer's settings
+ * update has been written (main.ts: `uiLocale = next.locale` after `settings.update`). Navigating in the preview right
+ * after the language button click raced that write on hosted CI (the title stayed zh-CN), so wait for the saved locale.
+ */
+async function waitForSavedLocale(locale: 'zh-CN' | 'en') {
+  const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'));
+  await expect
+    .poll(async () => {
+      const raw = await readFile(path.join(userData, 'settings.json'), 'utf8').catch(() => '{}');
+      return (JSON.parse(raw) as { locale?: string }).locale;
+    })
+    .toBe(locale);
+}
+
 async function clickBrokenLink() {
   await evalInPreview(app, `document.getElementById('about').click(); true`);
   await expect(pagePath()).toHaveText('about.html');
@@ -136,6 +151,7 @@ test('a broken link never traps the preview: the page says so, Back to entry pag
 
   // In English, the toolbar and the page speak English too.
   await page.getByTestId('switch-language').click();
+  await waitForSavedLocale('en');
   await evalInPreview(app, `document.getElementById('about').click(); true`);
   await expect(missing()).toHaveText('This page does not exist');
   await expect.poll(previewTitle).toBe('Page not found');
