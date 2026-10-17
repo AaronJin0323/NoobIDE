@@ -3,6 +3,49 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 34 (side session) — 2026-10-17 — UI/UX improvement plan from the Claude Desktop study (M18)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/noobide-ui-ux-improvements-50c047`
+(node_modules junctioned to the main checkout). Owner request: go through Caho1/open-claude-ui, find what NoobIDE's
+UI/UX can take from it, and make it a plan on a new branch.
+
+**Done**
+
+- Two read-only subagents: one catalogued the source repo (v1 chapters 01–08, v2 chapters 01–06, all 30 code
+  samples) with its concrete constants; one surveyed the NoobIDE renderer (tokens, motion, layout, every component,
+  a11y, responsiveness, test conventions, open M16/M17 items). Their findings were reconciled against decision 0034,
+  the design-rules scan and the AGENTS.md invariants.
+- `docs/product/ui-ux-improvement-plan.md`: what the source is and how far to trust it, where NoobIDE already
+  stands, rules for transplanting, four tracks of improvements with sources and acceptance (A motion/scroll
+  edges/type, B AI chat engine, C layout physics/navigation, D dialogs/notices/surfaces/density), what is
+  deliberately not copied, owner decisions, backlog mapping and verification strategy.
+- Backlog: milestone M18, sessions S47–S50, features S47.1–S50.5 (24, all todo). No existing feature or criterion
+  was changed. Three real defects are recorded for S48/S50: the chat log scrolls to the end on every streamed
+  chunk (ChatPanel.tsx:168), the composer does not grow, and success/info notices use the danger fill.
+
+**Evidence:** `node harness/session.mjs check` OK (246 features, 51 sessions); `npm run verify` green before and
+after (2734 tests; one verify run had a transient unit-test failure under load whose name was not captured, and the
+standalone vitest run and the next verify passed). No product code changed.
+
+**Decisions:** Nothing from the source is copied as code, class strings or assets (Tailwind, Framer Motion,
+clay accent, CDN Storybook); only mechanisms and constants, each given one home as a token or tested constant.
+Preview-iframe hardening from the source does not apply (NoobIDE's bridge is main-process console-message).
+
+**Problems / risks:** The source repo contradicts itself on several numbers (button ladders, spring names,
+sweep durations); the plan names one value per token. Warm vs cool canvas, auto-dismiss, density default and
+the scope of mentions are owner decisions (plan §8) before S47 starts.
+
+**Owner action needed:** Read plan §8 and decide the four questions; then S47 can start (S48–S50 can run in
+parallel worktrees after S47).
+
+**Next up**
+
+1. Owner decisions on plan §8, then S47.1 (motion tokens + reduced-motion gate) as the first feature.
+2. Suggested first sitting after that: S48.1 → S48.2 → S50.2 (the three defects).
+
+**Ideas / backlog candidates:** tab drag-to-reorder once S49.1's drag model exists; floating selection pill;
+bottom-sheet chat in narrow windows; native Mica/vibrancy behind --bg (plan §7).
+
 ## Session 33 (side session) — 2026-10-17 — Hosted CI failure follow-up (S06.5)
 
 **Agent:** Codex on Windows x64, managed ci-cd-delivery checkout, PR #13.
