@@ -1161,10 +1161,20 @@ test('alert, confirm, prompt, print and beforeunload cannot block the IDE, refre
     addEventListener('beforeunload', (e) => { e.preventDefault(); e.returnValue = '真的要离开吗?'; });
     window.__doc`;
   const before = await evalInPreview<number>(app, arm);
-  await page.getByTestId('preview-reload').click();
-  await expect
-    .poll(() => evalInPreview<number | null>(app, 'window.__doc ?? null'), { timeout: 10_000 })
-    .not.toBe(before);
+  // The page that just ran alert/confirm/prompt/print can be marked hung for a moment on a loaded hosted runner, and
+  // the state machine refuses a refresh while hung (Stop is the way out); the screenshot of such a run then shows
+  // "running" again. So a click that changed nothing is repeated, with the state logged. A beforeunload handler that
+  // blocked refresh would fail every attempt.
+  let refreshClicks = 0;
+  await expect(async () => {
+    refreshClicks += 1;
+    if (refreshClicks > 1)
+      console.log(`S05.5 refresh attempt ${refreshClicks}: preview ${(await previewInfo(app)).status.state}`);
+    await page.getByTestId('preview-reload').click();
+    await expect
+      .poll(() => evalInPreview<number | null>(app, 'window.__doc ?? null'), { timeout: 10_000 })
+      .not.toBe(before);
+  }).toPass({ timeout: 35_000, intervals: [0] });
   await waitForPreviewState(page, 'running');
   await evalInPreview<number>(app, arm);
   // The IDE takes input (typing autosaves, and the save refreshes the page despite its beforeunload handler).
