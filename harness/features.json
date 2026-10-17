@@ -4857,8 +4857,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/checkpoint-store.test.ts (20 tests: whole project + ignore rules in app data only, dedupe with S21 blobs, limits refused with detail + usage, damaged/missing blob and damaged/unreadable/crafted manifest faults, pins vs history GC) + subagent review (2 rounds, findings fixed) + decision 0041 + verify --quick green"
     },
     {
       "id": "S56.2",
@@ -4875,8 +4875,8 @@
       "depends_on": [
         "S56.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/checkpoints.spec.ts (2 tests: save, break 3 files, compare list + diff, restore all -> preview shows old page; rename/delete) + tests/integration/checkpoint-restore.test.ts (14 tests: atomic save path, dirty save/keep choice, trash only after confirmation, TOCTOU, damaged copy, safety checkpoint, keep) + subagent review (2 rounds, blockers fixed) + vitest 224 files green"
     },
     {
       "id": "S56.3",
@@ -4892,8 +4892,8 @@
       "depends_on": [
         "S56.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/checkpoint-auto.test.ts (4 tests: before-ai once per proposal before its first write, labelled; before-history-restore labelled; change goes ahead without one; dedupe) + src/recovery/checkpoints.test.ts (5 tests: count/age pruning policy, newest auto kept, named never pruned) + tests/e2e/checkpoints.spec.ts S56.3 step (History window restore -> automatic checkpoint) + e2e checkpoints/history/ai-agent/commands 20 passed"
     },
     {
       "id": "S56.4",
@@ -4908,8 +4908,8 @@
       "depends_on": [
         "S56.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/i18n/checkpoints.test.ts (12 tests over zh-CN/en strings, glossary entries checkpoint/local history/undo, docs/product/checkpoints.md: three mechanisms kept apart, no checkpoint string claims version control/Git) + docs/product/checkpoints.md checked against the criteria"
     },
     {
       "id": "S57.1",

@@ -1,0 +1,58 @@
+/* S56.2: the Checkpoints window reuses the local-history window's layout (history.css); these are its own parts. */
+.checkpoints-new {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+.checkpoints-new .name-input {
+  flex: 1 1 220px;
+  height: 28px;
+}
+.checkpoint-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 6px;
+}
+.checkpoint-actions,
+.checkpoint-rename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.checkpoint-rename .name-input {
+  flex: 1 1 160px;
+  height: 26px;
+}
+/* The status word and its mark carry the meaning; the border only repeats it. */
+.checkpoint-status {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+}
+.checkpoints-restore,
+.checkpoints-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.checkpoints-choice {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 8px;
+}
+.checkpoints-choice label {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.checkpoints-details {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.checkpoints-damaged {
+  margin-top: 8px;
+}

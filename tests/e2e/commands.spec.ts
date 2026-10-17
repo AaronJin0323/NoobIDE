@@ -39,6 +39,7 @@ test('the two in-window menus derive their items and shortcut hints from the reg
     /^关闭项目$/,
     mac ? /^在访达中显示$/ : /^在文件资源管理器中显示$/,
     /^历史版本…$/,
+    /^项目检查点…$/, // S56.2
     /^课程$/,
   ]);
   await expect(page.getByTestId('project-path')).toHaveText(root);
