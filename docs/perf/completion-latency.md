@@ -17,8 +17,8 @@ the test judges the best of up to five such batches (S06.6), because on hosted C
 vitest workers) one descheduling inflated a whole batch to 11–21 ms p95 while the dev machine measures below 1 ms;
 contention and GC pauses add time to a sample and never remove any, so the quietest batch is the closest measurement of
 the provider's own cost, and every batch is judged against the unchanged budget. Reproduce with `npm run test:perf`
-(`NOOBIDE_PERF_PRINT=1` prints every batch); the numbers land in `reports/perf/<platform>-<arch>.json` (budgets
-enforced on developer machines, reported on GitHub Actions — docs/perf/ci-runners.md, decision 0038).
+(`NOOBIDE_PERF_PRINT=1` prints every batch); the numbers land in `reports/perf/<platform>-<arch>.json` (budgets enforced
+on developer machines, reported on GitHub Actions — docs/perf/ci-runners.md, decision 0038).
 
 | Request                         | p95 (best batch) | Budget |
 | ------------------------------- | ---------------- | ------ |

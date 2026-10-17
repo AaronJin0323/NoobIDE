@@ -65,6 +65,9 @@ describe('checkBudget', () => {
       /perf budget "p95 latency": measured 21\.40 ms, over the 10 ms budget \(enforced on developer machines\)/,
     );
     expect(() => checkBudget('p95 latency', 9.9, 10, { env })).not.toThrow();
+    expect(() => checkBudget('p95 latency', 21.4, 10, { env, detail: 'per batch: 21.40, 30.12 ms' })).toThrow(
+      'over the 10 ms budget (enforced on developer machines) (per batch: 21.40, 30.12 ms)',
+    );
   });
 
   it('on GitHub Actions a miss is recorded, not thrown, until it is more than 5× over budget', () => {

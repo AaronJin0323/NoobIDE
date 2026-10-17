@@ -86,7 +86,12 @@ describe('completion latency budget (S43.6)', () => {
     // The best batch is what the budget judges (docs/perf/completion-latency.md); the numbers also land in
     // reports/perf/<platform>-<arch>.json, and every batch in the console when NOOBIDE_PERF_PRINT is set.
     if (process.env.NOOBIDE_PERF_PRINT) console.log(JSON.stringify({ ...best, batches }));
-    checkBudget('completion provider: class items p95', best.selectorP95, BUDGET_MS);
-    checkBudget('completion provider: path items p95', best.pathP95, BUDGET_MS);
+    const perBatch = (key: 'selectorP95' | 'pathP95') => batches.map((r) => r[key].toFixed(2)).join(', ');
+    checkBudget('completion provider: class items p95', best.selectorP95, BUDGET_MS, {
+      detail: `selector p95 per batch: ${perBatch('selectorP95')} ms`,
+    });
+    checkBudget('completion provider: path items p95', best.pathP95, BUDGET_MS, {
+      detail: `path p95 per batch: ${perBatch('pathP95')} ms`,
+    });
   });
 });

@@ -50,15 +50,9 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
   assume that a fixed delay, a page's own timer or a "load then click" sequence orders events the way it does on a
   dev machine: wait for the state you need (a log line, a DOM attribute, a snapshot that walked) and let the test
   start what it measures (the busy loop of `tests/fixtures/预览 快照/忙碌.html` is started by the test, not by the page).
-  A per-call latency budget is judged on the best of several batches (`tests/perf/completion-latency.perf.test.ts`):
-  contention adds time to a sample and never removes any, so the quietest batch measures the code. Product thresholds
-  are never raised to make a runner pass.
-- A timing assertion is one of two things, never both (S58.3, decision 0038): a **performance budget** (p95, median,
-  max lag, throughput — measured on the dev machine) belongs in `tests/perf` and is read through
-  `tests/perf/budget.ts`; a **functional timeout** (an event must arrive within N s) stays in the ordinary suites
-  and is sized for a runner several times slower than the dev machine: at least 4× the local duration and at least
-  1.5× the longest hosted duration seen. Pauses that race a product timer (a debounce, a rename wait) need an order
-  of magnitude of margin, not 2×. Inventory and sizing: docs/perf/ci-runners.md.
+  A per-call latency budget is judged on the best of several batches (`tests/perf/completion-latency.perf.test.ts`): contention adds
+  time to a sample and never removes any, so the quietest batch measures the code. Product thresholds are never
+  raised to make a runner pass.
 - A unit or integration test that is bound by the disk or by an external tool (atomic writes, `signtool`) is a
   correctness check, not a speed check: give its `describe` a timeout sized for a hosted Windows runner under load
   (`history-store.test.ts`, `chat-store.test.ts` 30 s; the real-signtool checks 60 s) instead of Vitest's 5 s default.
@@ -70,6 +64,12 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
   hooks in every page of the app, and a page whose first navigation is still pending (the restored project's preview
   on a loaded Mac) answers no CDP command until it commits, so the fixture hung for the whole test timeout, outside any
   step (run 39033368439).
+- A timing assertion is one of two things, never both (S58.3, decision 0038): a **performance budget** (p95, median,
+  max lag, throughput — measured on the dev machine) belongs in `tests/perf` and is read through
+  `tests/perf/budget.ts`; a **functional timeout** (an event must arrive within N s) stays in the ordinary suites
+  and is sized for a runner several times slower than the dev machine: at least 4× the local duration and at least
+  1.5× the longest hosted duration seen. Pauses that race a product timer (a debounce, a rename wait) need an order
+  of magnitude of margin, not 2×. Inventory and sizing: docs/perf/ci-runners.md.
 
 ## CI shards and timing (S06.5)
 

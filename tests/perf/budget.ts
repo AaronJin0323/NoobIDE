@@ -102,7 +102,7 @@ export function checkBudget(
   name: string,
   value: number,
   budget: number,
-  options: { unit?: string; env?: NodeJS.ProcessEnv } = {},
+  options: { unit?: string; env?: NodeJS.ProcessEnv; detail?: string } = {},
 ): BudgetResult {
   const env = options.env ?? process.env;
   const mode = budgetMode(env);
@@ -116,7 +116,8 @@ export function checkBudget(
       mode === 'enforce'
         ? `the ${budget} ${unit} budget (enforced on developer machines)`
         : `${REPORT_FAIL_FACTOR}× the ${budget} ${unit} budget (the most a hosted runner is allowed; see docs/perf/ci-runners.md)`;
-    throw new Error(`perf budget "${name}": measured ${shown}, over ${limit}`);
+    const detail = options.detail ? ` (${options.detail})` : '';
+    throw new Error(`perf budget "${name}": measured ${shown}, over ${limit}${detail}`);
   }
   return result;
 }
