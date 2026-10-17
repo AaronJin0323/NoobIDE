@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
 import { collectConsoleErrors, documentText, focusEditor, makeProject, openFile, openProject } from './project';
-import { DOC_END } from './keys';
+import { DOC_END, DOC_START } from './keys';
 import { axeScan } from './a11y-helpers';
 
 /**
@@ -40,7 +40,7 @@ async function runCommand(id: string): Promise<void> {
 /** Puts the cursor on a new line inside <body> and types `text` there (the suggestion list, if any, is closed). */
 async function typeInBody(text: string): Promise<void> {
   await focusEditor(page);
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('End');
@@ -86,7 +86,7 @@ test('Tab expands an Emmet abbreviation; the first time a hint names the setting
   await expect(hint).toHaveCount(0);
   await page.keyboard.press(DOC_END);
   await focusEditor(page);
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.press('Enter');
   await page.keyboard.type('p.note');
   await page.keyboard.press('Escape');
@@ -126,7 +126,7 @@ test('the Edit menu switch turns Emmet off: Tab then indents as usual (S53.1)', 
 test('Edit › Wrap with tag wraps the selection with both tag names linked; one undo restores it (S53.2)', async () => {
   await openFile(page, 'wrap.html');
   await focusEditor(page);
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   for (let i = 0; i < 'Say '.length + 3; i += 1) await page.keyboard.press('ArrowRight');
   for (let i = 0; i < 'hello'.length; i += 1) await page.keyboard.press('Shift+ArrowRight');
   await clickMenuItem('wrap-with-tag');
@@ -146,7 +146,7 @@ test('Edit › Wrap with tag wraps the selection with both tag names linked; one
 
 test('renaming an opening tag renames its closing tag (S53.2)', async () => {
   await focusEditor(page);
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   await page.keyboard.press('ArrowRight'); // after "<"
   await page.keyboard.press('ArrowRight'); // after "<p"
   await page.waitForTimeout(500); // linked editing ranges are computed after the cursor rests
@@ -159,7 +159,7 @@ test('renaming an opening tag renames its closing tag (S53.2)', async () => {
 test('the colour at the cursor has its value as text; the picker works from the keyboard (S53.3)', async () => {
   await openFile(page, 'style.css');
   await focusEditor(page);
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('End');
   await page.keyboard.press('ArrowLeft'); // inside "#c0392b"
@@ -207,7 +207,7 @@ test('the colour at the cursor has its value as text; the picker works from the 
 test('Edit › Toggle line comment works from the menu as well as Ctrl/Cmd+/ (S53.4)', async () => {
   await openFile(page, 'style.css');
   await focusEditor(page);
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   await page.keyboard.press('ArrowDown');
   await clickMenuItem('toggle-line-comment');
   await expect.poll(() => documentText(editor())).toContain('/* color: #c0392b; */');
@@ -223,7 +223,7 @@ test('Format on save: off by default; when on, the saved bytes are formatted and
   await writeFile(path.join(root, 'messy.html'), '<ul><li>One</li></ul>');
   await openFile(page, 'messy.html');
   await focusEditor(page);
-  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press(DOC_END);
   await page.keyboard.type(' ');
   await page.keyboard.press('ControlOrMeta+S');
   await expect.poll(() => onDisk('messy.html')).toBe('<ul><li>One</li></ul> ');

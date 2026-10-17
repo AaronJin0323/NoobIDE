@@ -1,6 +1,7 @@
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import { DOC_START } from './keys';
 import { launchApp } from './launch';
 import { collectConsoleErrors, focusEditor, makeProject, openFile, openProject, tabOf } from './project';
 
@@ -27,7 +28,7 @@ const onDisk = (name: string) => readFile(path.join(root, name), 'utf8');
 /** Puts the cursor on `line` (1-based), `column` characters in. */
 async function cursorTo(line: number, column: number): Promise<void> {
   await focusEditor(page);
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   for (let i = 1; i < line; i += 1) await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Home');
   for (let i = 1; i < column; i += 1) await page.keyboard.press('ArrowRight');

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import path from 'node:path';
 import { chromium, expect, test, type Browser, type Page } from '@playwright/test';
+import { DOC_START } from './keys';
 import { tempRoot } from './launch';
 import { packagedExecutable } from './packaged';
 import { documentText, focusEditor, openFile } from './project';
@@ -124,7 +125,7 @@ test.afterAll(async () => {
 test('Emmet, linked tags and the comment toggle work in the packaged app offline (S53.5)', async () => {
   // Emmet on Tab, on a new line inside <body>.
   await focusEditor(page);
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   for (let i = 0; i < 3; i += 1) await page.keyboard.press('ArrowDown'); // the <h1> line
   await page.keyboard.press('End');
   await page.keyboard.press('Enter');
@@ -136,7 +137,7 @@ test('Emmet, linked tags and the comment toggle work in the packaged app offline
   await page.keyboard.press('Escape');
 
   // Linked tag editing: "h1" → "h2" in the opening tag renames the closing tag.
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   for (let i = 0; i < 3; i += 1) await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Home'); // before "<h1>" (after the indentation)
   await page.keyboard.press('ArrowRight'); // after "<"
@@ -157,7 +158,7 @@ test('Emmet, linked tags and the comment toggle work in the packaged app offline
 test('the colour picker edits a CSS colour in the packaged app offline (S53.5)', async () => {
   await openFile(page, 'style.css');
   await focusEditor(page);
-  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press(DOC_START);
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('End');
   await page.keyboard.press('ArrowLeft'); // inside "#c0392b"

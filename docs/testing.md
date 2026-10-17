@@ -51,6 +51,9 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
   A per-call latency budget is judged on the best of several batches (`completion-latency.test.ts`): contention adds
   time to a sample and never removes any, so the quietest batch measures the code. Product thresholds are never
   raised to make a runner pass.
+- Monaco binds Ctrl+Home / Ctrl+End on Windows and Linux but ⌘↑ / ⌘↓ on macOS, and `ControlOrMeta+Home` moves nothing
+  there: an E2E test that goes to the start or end of the document presses `DOC_START` / `DOC_END` from
+  `tests/e2e/keys.ts`. A test that happened to start at line 1 hides the mistake until a later step does not.
 
 ## CI shards and timing (S06.5)
 
