@@ -249,36 +249,7 @@
   font-size: var(--text-sm);
 }
 
-/* ── Scroll edge effect: content dissolves softly under a header ─ */
-@property --scroll-edge {
-  syntax: '<length>';
-  inherits: false;
-  initial-value: 0px;
-}
-@keyframes scroll-edge-reveal {
-  to {
-    --scroll-edge: 20px;
-  }
-}
-.tree-scroll,
-.problems-body,
-.ai-body {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-edge));
-  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-edge));
-  animation: scroll-edge-reveal linear both;
-  animation-timeline: scroll(self);
-  animation-range: 0 32px;
-  /* A row scrolled into view by the keyboard stops below the faded edge, so its focus ring stays visible. */
-  scroll-padding-top: 20px;
-}
-@media (prefers-contrast: more), (forced-colors: active) {
-  .tree-scroll,
-  .problems-body,
-  .ai-body {
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
-}
+/* The scroll-edge masks (S47.3: a seven-stop ladder with a sensor fallback) live in motion.css. */
 
 /* ── Motion (overlays only; controls change colour, never scale) ─ */
 @keyframes glass-pop {
@@ -315,6 +286,7 @@
     --dur-base: 0ms;
     --dur-sheet: 0ms;
     --dur-slow: 0ms;
+    --dur-stagger: 0ms;
   }
   .app-menu-list,
   .context-menu,

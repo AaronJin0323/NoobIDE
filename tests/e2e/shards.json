@@ -41,6 +41,7 @@
     "layout-splitters.spec.ts": 1,
     "logs.spec.ts": 1,
     "menus.spec.ts": 1,
+    "motion.spec.ts": 1,
     "not-found.spec.ts": 1,
     "offline.spec.ts": 2,
     "portability.spec.ts": 1,

@@ -4,11 +4,15 @@ import { I18nProvider } from './i18n/I18nProvider';
 import { ThemeProvider } from './theme/ThemeProvider';
 import { Workbench } from './workbench/Workbench';
 import { installImeGuard } from './workbench/ime';
+import { installScrollEdgeFallback } from './theme/scroll-edges';
 import './styles.css';
+import './motion.css'; // S47 motion and detail layer, before glass.css so its reduced-motion gate wins
 import './glass.css'; // S40 Liquid Glass layer, after the base styles
 
 // S48.3: before any other key handler, so an IME-owned Escape never reaches a panel or dialog.
 installImeGuard(window);
+// S47.3: the scroll-edge masks' sensor where the engine has no scroll-driven animations (a no-op in Electron's Chromium).
+installScrollEdgeFallback(document);
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('missing #root');

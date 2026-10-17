@@ -1,3 +1,4 @@
+import { Collapsible } from '../theme/Collapsible';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type {
   PreviewNoteId,
@@ -661,8 +662,9 @@ export function PreviewPane({
             </button>
           </div>
           {noticeList}
-          {advancedOpen && (
-            <div className="preview-advanced" id={advancedId} data-testid="preview-advanced-panel">
+          {/* S47.2: opens and closes with the grid-rows fold (theme/Collapsible.tsx). */}
+          <Collapsible open={advancedOpen} id={advancedId} className="preview-advanced-fold">
+            <div className="preview-advanced" data-testid="preview-advanced-panel">
               <div className="preview-advanced-item">
                 <button
                   type="button"
@@ -684,7 +686,7 @@ export function PreviewPane({
                 </span>
               </div>
             </div>
-          )}
+          </Collapsible>
         </div>
       )}
       {/* S41.5: the annotation steps sit in the layout flow between the controls and the stage (the native view never

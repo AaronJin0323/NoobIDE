@@ -49,6 +49,7 @@
   --dur-base: 200ms;
   --dur-sheet: 300ms;
   --dur-slow: 450ms;
+  --dur-stagger: 30ms; /* S47.2: the step between items that enter one after another (capped at 8, theme/stagger.ts) */
   --ease-swift: cubic-bezier(0.2, 0, 0, 1); /* hover and small state flips: quick start, no tail */
   --ease-expand: cubic-bezier(0.4, 0, 0.2, 1); /* grid accordions (grid-template-rows 0fr <-> 1fr) */
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1); /* a block entering: lands softly, no overshoot */
@@ -768,15 +769,7 @@ input[type='radio'] {
   min-width: 0;
   gap: 2px;
 }
-.tabs-strip[data-overflow-end] .tabs {
-  mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
-}
-.tabs-strip[data-overflow-start] .tabs {
-  mask-image: linear-gradient(to left, #000 calc(100% - 20px), transparent);
-}
-.tabs-strip[data-overflow-start][data-overflow-end] .tabs {
-  mask-image: linear-gradient(to right, transparent, #000 20px, #000 calc(100% - 20px), transparent);
-}
+/* The hidden side of the strip fades with the seven-stop scroll-edge mask (S47.3, motion.css). */
 .tabs-scroll {
   flex: none;
   display: inline-flex;

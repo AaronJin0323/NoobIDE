@@ -1,0 +1,316 @@
+/*
+ * S47 motion and detail layer (M18 Track A, docs/product/ui-ux-improvement-plan.md §5). Compositor-only motion
+ * (opacity, translate) timed by the --dur-* / --ease-* tokens of styles.css :root, so the one reduced-motion gate in
+ * glass.css makes all of it static. Nothing here changes a size the layout budget depends on (top bar 52, strip 32,
+ * gap 8); an entering panel is already in its final box and only its picture moves.
+ */
+
+/* ── S47.2 Panels, drawers and notices: enter and exit ───── */
+@keyframes motion-enter-up {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+@keyframes motion-enter-start {
+  from {
+    opacity: 0;
+    translate: -8px 0;
+  }
+}
+@keyframes motion-enter-end {
+  from {
+    opacity: 0;
+    translate: 8px 0;
+  }
+}
+@keyframes motion-exit-down {
+  to {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+@keyframes motion-exit-end {
+  to {
+    opacity: 0;
+    translate: 8px 0;
+  }
+}
+/* Enter: `backwards` only, so no transform stays on the panel once it has landed. */
+.workbench > .walkthrough,
+.app-notice-stack > *,
+.problems-panel:not([hidden]) {
+  animation: motion-enter-up var(--dur-base) var(--ease-enter) backwards;
+}
+.workbench .ai-chat {
+  animation: motion-enter-end var(--dur-base) var(--ease-enter) backwards;
+}
+.workbench.narrow .files:not([hidden]) {
+  animation: motion-enter-start var(--dur-base) var(--ease-enter) backwards;
+}
+/* Exit of a removed band, chat panel or notice: the inert copy theme/exit-motion.ts leaves in its place. */
+.workbench [data-motion='exit'] {
+  pointer-events: none;
+  animation: motion-exit-down var(--dur-fast) var(--ease-swift) forwards;
+}
+.workbench .ai-chat[data-motion='exit'] {
+  animation-name: motion-exit-end;
+}
+/* Exit of a panel that is hidden rather than removed (the open Problems panel, the narrow files drawer): `display`
+   holds until the fade is over. The shown state has no transition, so opening plays the enter keyframes instead. */
+.problems-panel[hidden],
+.workbench.narrow .files[hidden] {
+  opacity: 0;
+  translate: 0 6px;
+  transition:
+    opacity var(--dur-fast) var(--ease-swift),
+    translate var(--dur-fast) var(--ease-swift),
+    display var(--dur-fast) allow-discrete;
+}
+.workbench.narrow .files[hidden] {
+  translate: -8px 0;
+}
+
+/* Collapsible groups (theme/Collapsible.tsx): rows 0fr <-> 1fr, so nothing is measured and a growing child (a
+   streaming answer) never jumps. Visibility follows the rows, so a closed group is not painted or reachable. */
+.collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--dur-base) var(--ease-expand),
+    visibility var(--dur-base) var(--ease-expand);
+}
+.collapsible[data-open='false'] {
+  grid-template-rows: 0fr;
+  visibility: hidden;
+}
+.collapsible-inner {
+  min-height: 0;
+  /* Clips while the rows move, with room for the focus rings of the content. */
+  overflow: clip;
+  overflow-clip-margin: 4px;
+}
+/* Closed, nothing may poke out of the 0 px row: the margin would count as scrollable overflow of the container. */
+.collapsible[data-open='false'] > .collapsible-inner {
+  overflow-clip-margin: 0px;
+}
+.preview-advanced-fold {
+  flex: none;
+}
+/* Fold toggles: a chevron that turns, next to the words (the state is aria-expanded and the chevron, not colour). */
+.problems-section-toggle,
+.ai-steps-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 0 -4px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.problems-section-toggle:hover,
+.ai-steps-toggle:not([aria-disabled='true']):hover {
+  background: var(--hover-soft);
+  color: var(--text);
+}
+.ai-steps-toggle[aria-disabled='true'] {
+  cursor: default;
+}
+.problems-section-toggle > svg,
+.ai-steps-toggle > svg {
+  flex: none;
+  transition: rotate var(--dur-fast) var(--ease-swift);
+}
+.problems-section-toggle[aria-expanded='false'] > svg,
+.ai-steps-toggle[aria-expanded='false'] > svg {
+  rotate: -90deg;
+}
+.ai-steps {
+  margin: 4px 0;
+}
+.ai-steps-toggle {
+  min-height: 24px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.ai-steps-count {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.ai-steps .collapsible-inner {
+  padding-left: 20px;
+}
+/* Context chips enter one after another: 30 ms apart, capped at the 8th (theme/stagger.ts sets --stagger). */
+.ai-chip {
+  animation: motion-enter-up var(--dur-fast) var(--ease-enter) backwards;
+  animation-delay: calc(var(--stagger, 0) * var(--dur-stagger));
+}
+
+/* ── S47.3 Scroll-edge masks: a seven-stop ladder ───────── */
+/* Content dissolves under the edge it scrolls past: alpha 5/15/30/50/70/85/100 % at 15/30/45/60/75/87/100 % of a
+   28 px fade (theme/scroll-edges.ts EDGE_LADDER). The fade lengths are registered lengths that start at 0, so a list
+   that does not scroll has no mask at all. They follow the scroll position natively below; without scroll-driven
+   animations theme/scroll-edges.ts sets them from onScroll + ResizeObserver (0 within 2 px of either end). */
+@property --edge-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --edge-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --edge-inset {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --edge-start {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --edge-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes scroll-edge-top {
+  to {
+    --edge-top: 28px;
+  }
+}
+@keyframes scroll-edge-bottom {
+  from {
+    --edge-bottom: 28px;
+  }
+  to {
+    --edge-bottom: 0px;
+  }
+}
+.tree-scroll,
+.problems-body,
+.ai-body,
+.preview-console,
+.palette-list,
+.walkthrough-main {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 var(--edge-inset),
+    rgb(0 0 0 / 5%) calc(var(--edge-inset) + var(--edge-top) * 0.15),
+    rgb(0 0 0 / 15%) calc(var(--edge-inset) + var(--edge-top) * 0.3),
+    rgb(0 0 0 / 30%) calc(var(--edge-inset) + var(--edge-top) * 0.45),
+    rgb(0 0 0 / 50%) calc(var(--edge-inset) + var(--edge-top) * 0.6),
+    rgb(0 0 0 / 70%) calc(var(--edge-inset) + var(--edge-top) * 0.75),
+    rgb(0 0 0 / 85%) calc(var(--edge-inset) + var(--edge-top) * 0.87),
+    #000 calc(var(--edge-inset) + var(--edge-top)),
+    #000 calc(100% - var(--edge-bottom)),
+    rgb(0 0 0 / 85%) calc(100% - var(--edge-bottom) * 0.87),
+    rgb(0 0 0 / 70%) calc(100% - var(--edge-bottom) * 0.75),
+    rgb(0 0 0 / 50%) calc(100% - var(--edge-bottom) * 0.6),
+    rgb(0 0 0 / 30%) calc(100% - var(--edge-bottom) * 0.45),
+    rgb(0 0 0 / 15%) calc(100% - var(--edge-bottom) * 0.3),
+    rgb(0 0 0 / 5%) calc(100% - var(--edge-bottom) * 0.15)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 var(--edge-inset),
+    rgb(0 0 0 / 5%) calc(var(--edge-inset) + var(--edge-top) * 0.15),
+    rgb(0 0 0 / 15%) calc(var(--edge-inset) + var(--edge-top) * 0.3),
+    rgb(0 0 0 / 30%) calc(var(--edge-inset) + var(--edge-top) * 0.45),
+    rgb(0 0 0 / 50%) calc(var(--edge-inset) + var(--edge-top) * 0.6),
+    rgb(0 0 0 / 70%) calc(var(--edge-inset) + var(--edge-top) * 0.75),
+    rgb(0 0 0 / 85%) calc(var(--edge-inset) + var(--edge-top) * 0.87),
+    #000 calc(var(--edge-inset) + var(--edge-top)),
+    #000 calc(100% - var(--edge-bottom)),
+    rgb(0 0 0 / 85%) calc(100% - var(--edge-bottom) * 0.87),
+    rgb(0 0 0 / 70%) calc(100% - var(--edge-bottom) * 0.75),
+    rgb(0 0 0 / 50%) calc(100% - var(--edge-bottom) * 0.6),
+    rgb(0 0 0 / 30%) calc(100% - var(--edge-bottom) * 0.45),
+    rgb(0 0 0 / 15%) calc(100% - var(--edge-bottom) * 0.3),
+    rgb(0 0 0 / 5%) calc(100% - var(--edge-bottom) * 0.15)
+  );
+  /* A row scrolled into view by the keyboard stops below the faded edge, so its focus ring stays visible. */
+  scroll-padding-block: 28px;
+}
+/* The console's heading sticks to the top: the fade starts under it. */
+.preview-console {
+  --edge-inset: 32px;
+  scroll-padding-top: 60px;
+}
+@supports (animation-timeline: scroll()) {
+  .tree-scroll,
+  .problems-body,
+  .ai-body,
+  .preview-console,
+  .palette-list,
+  .walkthrough-main {
+    animation:
+      scroll-edge-top linear both,
+      scroll-edge-bottom linear both;
+    animation-timeline: scroll(self), scroll(self);
+    animation-range:
+      0 32px,
+      calc(100% - 32px) 100%;
+  }
+}
+/* The tab strip: the side where tabs are hidden (TabBar.tsx measures it and sets data-overflow-*). */
+.tabs-strip[data-overflow-start] .tabs {
+  --edge-start: 28px;
+}
+.tabs-strip[data-overflow-end] .tabs {
+  --edge-end: 28px;
+}
+.tabs-strip .tabs {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgb(0 0 0 / 5%) calc(var(--edge-start) * 0.15),
+    rgb(0 0 0 / 15%) calc(var(--edge-start) * 0.3),
+    rgb(0 0 0 / 30%) calc(var(--edge-start) * 0.45),
+    rgb(0 0 0 / 50%) calc(var(--edge-start) * 0.6),
+    rgb(0 0 0 / 70%) calc(var(--edge-start) * 0.75),
+    rgb(0 0 0 / 85%) calc(var(--edge-start) * 0.87),
+    #000 var(--edge-start),
+    #000 calc(100% - var(--edge-end)),
+    rgb(0 0 0 / 85%) calc(100% - var(--edge-end) * 0.87),
+    rgb(0 0 0 / 70%) calc(100% - var(--edge-end) * 0.75),
+    rgb(0 0 0 / 50%) calc(100% - var(--edge-end) * 0.6),
+    rgb(0 0 0 / 30%) calc(100% - var(--edge-end) * 0.45),
+    rgb(0 0 0 / 15%) calc(100% - var(--edge-end) * 0.3),
+    rgb(0 0 0 / 5%) calc(100% - var(--edge-end) * 0.15)
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgb(0 0 0 / 5%) calc(var(--edge-start) * 0.15),
+    rgb(0 0 0 / 15%) calc(var(--edge-start) * 0.3),
+    rgb(0 0 0 / 30%) calc(var(--edge-start) * 0.45),
+    rgb(0 0 0 / 50%) calc(var(--edge-start) * 0.6),
+    rgb(0 0 0 / 70%) calc(var(--edge-start) * 0.75),
+    rgb(0 0 0 / 85%) calc(var(--edge-start) * 0.87),
+    #000 var(--edge-start),
+    #000 calc(100% - var(--edge-end)),
+    rgb(0 0 0 / 85%) calc(100% - var(--edge-end) * 0.87),
+    rgb(0 0 0 / 70%) calc(100% - var(--edge-end) * 0.75),
+    rgb(0 0 0 / 50%) calc(100% - var(--edge-end) * 0.6),
+    rgb(0 0 0 / 30%) calc(100% - var(--edge-end) * 0.45),
+    rgb(0 0 0 / 15%) calc(100% - var(--edge-end) * 0.3),
+    rgb(0 0 0 / 5%) calc(100% - var(--edge-end) * 0.15)
+  );
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  .tree-scroll,
+  .problems-body,
+  .ai-body,
+  .preview-console,
+  .palette-list,
+  .walkthrough-main,
+  .tabs-strip .tabs {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}

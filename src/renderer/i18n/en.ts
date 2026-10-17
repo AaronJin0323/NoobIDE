@@ -16,6 +16,7 @@ import { annotationsEn } from './annotations'; // S41.5
 import { journeyEn } from './journey'; // beginner-journey fixes
 import { fileManagementEn } from './file-management'; // S52
 import { imageViewerEn } from './image-viewer'; // S52.6
+import { motionEn } from './motion'; // S47
 
 /** English (required locale). Must define exactly the keys of zh-CN.ts. */
 export const en: Record<MessageKey, string> = {
@@ -351,6 +352,7 @@ export const en: Record<MessageKey, string> = {
   ...annotationsEn, // S41.5 preview annotations strip
   ...journeyEn, // beginner-journey fixes: preview page path, missing-page page, editor overflow menu
   ...fileManagementEn, // S52 move, copy, multi-select, import, image viewer
+  ...motionEn, // S47 motion and detail
   ...imageViewerEn, // S52.6 image viewer tab
   // --- S18.3 formatting ---
   'format.button': 'Format',
