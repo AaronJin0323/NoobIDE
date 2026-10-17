@@ -19,6 +19,10 @@ the latest entry to the next session, so write it for a reader with zero context
   list had loaded (a real bug on a slow disk). MoveDialog now remembers that Enter and moves once the list
   arrives; typing again forgets it. New main test hooks `holdListings`/`releaseListings` (delay only) and a
   file-move.spec test that fails without the fix and passes 3/3 with it.
+- windows-x64 shard 2 later failed the S05.3 console-flood stress test: "20 workers" missed its stall budget by
+  10 ms because that budget reused one baseline taken earlier, while the runner alone stalled main ~1.5 s. Retry
+  windows now re-measure the 20-worker baseline right before they run, as the iframe cases already do; the budget is
+  still 200 ms over the larger baseline and never lower than before.
 - Started five parallel M18 sessions, each from this branch with its own PR to main: S47.2–S47.5, S48.4/S48.6/S48.7,
   S48.5/S48.8, S49.2/S49.4–S49.6, S50.1–S50.5.
 
