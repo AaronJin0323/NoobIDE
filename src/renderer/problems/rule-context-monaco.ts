@@ -15,7 +15,7 @@ import {
   type CompletionEntryLike,
   type NavigationItemLike,
 } from './declared-names';
-import { holdsIdentifier } from './fix-model';
+import { holdsText } from './fix-model';
 
 /** The language service must answer within this time, or the card is shown without did-you-mean names. */
 const WORKER_TIMEOUT_MS = 4000;
@@ -74,7 +74,7 @@ export type SpanEditResult =
 
 /**
  * S22.5: replaces exactly `span` (1-based line, UTF-16 columns, end exclusive) of the open file `uri`, which must
- * currently read `from`, with `to` — one undo step on the model's own undo stack, so Ctrl/Cmd+Z in the editor takes
+ * currently read `from` (as a whole identifier, or — S55.3 `exact` — exactly that text), with `to` — one undo step on the model's own undo stack, so Ctrl/Cmd+Z in the editor takes
  * it back like any typed edit. Nothing else in the file changes. `version` identifies the model state right after
  * the edit (for the card's Undo).
  */
@@ -83,6 +83,7 @@ export function replaceSpan(
   span: { line: number; column: number; endColumn: number },
   from: string,
   to: string,
+  match: 'identifier' | 'exact' = 'identifier',
 ): SpanEditResult {
   const model = modelOf(uri);
   if (!model) return { ok: false, reason: 'no-model' };
@@ -90,7 +91,7 @@ export function replaceSpan(
   // The span must still hold exactly the misspelled name as a whole identifier (not part of `usrNameList`).
   if (
     span.endColumn !== span.column + from.length ||
-    !holdsIdentifier(model.getLineContent(span.line), span.column, from)
+    !holdsText(model.getLineContent(span.line), span.column, from, match)
   ) {
     return { ok: false, reason: 'changed' };
   }
@@ -112,13 +113,14 @@ export function undoSpan(
   from: string,
   to: string,
   version: number,
+  match: 'identifier' | 'exact' = 'identifier',
 ): SpanEditResult {
   const model = modelOf(uri);
   if (!model) return { ok: false, reason: 'no-model' };
   if (model.getAlternativeVersionId() === version) {
     model.undo();
   } else {
-    if (span.line > model.getLineCount() || !holdsIdentifier(model.getLineContent(span.line), span.column, to)) {
+    if (span.line > model.getLineCount() || !holdsText(model.getLineContent(span.line), span.column, to, match)) {
       return { ok: false, reason: 'changed' };
     }
     const range = new monaco.Range(span.line, span.column, span.line, span.column + to.length);
@@ -126,6 +128,36 @@ export function undoSpan(
     model.pushEditOperations([], [{ range, text: from }], () => null);
     model.pushStackElement();
   }
+  return { ok: true, text: model.getValue(), version: model.getAlternativeVersionId() };
+}
+
+/**
+ * S55.3: the template of a just-created file goes into its model as one undo step — only while the model is still
+ * empty (the file was created empty a moment ago; anything else means it is not the new file).
+ */
+export function fillEmpty(uri: string, text: string): SpanEditResult {
+  const model = modelOf(uri);
+  if (!model) return { ok: false, reason: 'no-model' };
+  if (model.getValueLength() !== 0) return { ok: false, reason: 'changed' };
+  model.pushStackElement();
+  model.pushEditOperations([], [{ range: model.getFullModelRange(), text }], () => null);
+  model.pushStackElement();
+  return { ok: true, text: model.getValue(), version: model.getAlternativeVersionId() };
+}
+
+/**
+ * S55.3 card Undo of a created file: the editor's own undo while the model is as the fix left it; otherwise the
+ * template is taken out only if the file still holds exactly it. The file itself stays (deleting is the user's call).
+ */
+export function emptyAgain(uri: string, text: string, version: number): SpanEditResult {
+  const model = modelOf(uri);
+  if (!model) return { ok: false, reason: 'no-model' };
+  if (model.getAlternativeVersionId() === version) model.undo();
+  else if (model.getValue() === text) {
+    model.pushStackElement();
+    model.pushEditOperations([], [{ range: model.getFullModelRange(), text: '' }], () => null);
+    model.pushStackElement();
+  } else return { ok: false, reason: 'changed' };
   return { ok: true, text: model.getValue(), version: model.getAlternativeVersionId() };
 }
 
