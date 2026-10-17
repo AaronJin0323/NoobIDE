@@ -287,6 +287,13 @@
     --dur-sheet: 0ms;
     --dur-slow: 0ms;
     --dur-stagger: 0ms;
+    --dur-pulse: 0ms;
+    --dur-decay: 0ms;
+  }
+  /* S47.4: the status dot is still and "Copied" stays until it gives way (its timer), without a fade. */
+  .status-dot[data-pulse],
+  .md-copy-done {
+    animation: none;
   }
   .app-menu-list,
   .context-menu,

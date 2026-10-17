@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { parseMarkdown, type MdBlock, type MdInline } from './md-parse';
 import { copyText } from './clipboard';
+import { COPIED_MS } from '../theme/feedback';
 
 export interface MarkdownLabels {
   /** "Copy code" button. */
@@ -52,14 +53,23 @@ function CodeBlock({ block, labels }: { block: Extract<MdBlock, { type: 'code' }
           type="button"
           className="quiet-button md-copy"
           data-testid="md-copy"
+          data-copied={copied === 'copied' || undefined}
           onClick={() =>
             void copyText(block.text).then((ok) => {
               setCopied(ok ? 'copied' : 'failed');
-              setTimeout(() => setCopied('idle'), 2500);
+              // S47.4: "Copied" decays with its keyframe (motion.css) and gives way when it ends; the timer is the
+              // fallback where no animation runs (reduced motion).
+              setTimeout(() => setCopied('idle'), COPIED_MS + 100);
             })
           }
         >
-          {copied === 'copied' ? labels.copied : labels.copy}
+          {copied === 'copied' ? (
+            <span className="md-copy-done" onAnimationEnd={() => setCopied('idle')}>
+              {labels.copied}
+            </span>
+          ) : (
+            labels.copy
+          )}
         </button>
         <span className="sr-only" role="status">
           {copied === 'copied' ? labels.copied : copied === 'failed' ? labels.copyFailed : ''}

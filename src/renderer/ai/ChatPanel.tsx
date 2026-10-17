@@ -24,6 +24,7 @@ import { SavedProposal } from './SavedChatsList';
 import { useScrollLatch } from './useScrollLatch';
 import { StepsFold, groupAnswer } from './StepsFold';
 import { staggerStyle } from '../theme/stagger';
+import { StatusDot } from '../theme/StatusDot';
 import './ai-chat.css';
 
 /** `count` picks the singular form of a counted message (i18n/plural.ts). */
@@ -356,6 +357,7 @@ export function ChatPanelView({
                       )}
                       {statusKey && (
                         <p className="ai-turn-status" data-testid="ai-turn-status">
+                          {isRunning && <StatusDot pulse /> /* S47.4: thinking, next to the word */}
                           {t(statusKey)}
                         </p>
                       )}

@@ -314,3 +314,111 @@
     mask-image: none;
   }
 }
+
+/* ── S47.4 Counters and micro-feedback ─────────────────── */
+/* Every changing number keeps its width: problem and console counts, the caret position, pending messages. */
+.status-button,
+.status-cursor,
+.problems-badge,
+.problem-count,
+.preview-console-errors,
+.ai-jump-count,
+.ai-usage,
+.ai-steps-count {
+  font-variant-numeric: tabular-nums;
+}
+/* "Copied" holds, then fades and settles (saved-check-decay) over --dur-decay instead of switching back. */
+@keyframes saved-check-decay {
+  0%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.md-copy-done {
+  display: inline-block;
+  animation: saved-check-decay var(--dur-decay) var(--ease-smooth) forwards;
+}
+/* A 6 px status dot next to the state's word; it breathes while something runs (static under reduced motion). */
+@keyframes status-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.status-dot {
+  flex: none;
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status-dot[data-pulse] {
+  animation: status-pulse var(--dur-pulse) var(--ease-smooth) infinite;
+}
+.ai-turn-status:has(> .status-dot) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── S47.5 Type and wrapping details ───────────────────── */
+/* Headings of dialogs and the welcome break into lines of even length; prose avoids a lonely last word. */
+:is(.dialog, .recovery-dialog, [role='dialog'], [role='alertdialog']) :is(h1, h2, h3),
+.dialog-title,
+.welcome-title,
+.welcome :is(h1, h2) {
+  text-wrap: balance;
+}
+.ai-msg-answer :is(p, li),
+.ai-prompt,
+.walkthrough-body,
+.problem-card-text,
+.problem-card-list li,
+.problems-message,
+.alert-detail {
+  text-wrap: pretty;
+}
+/* Paths, file names and URLs: a long name breaks anywhere rather than overflow, never word by word in CJK, and its
+   flex item may shrink — so a Chinese file name with spaces never splits into a column of single characters. */
+.path-text,
+.tree-name,
+.tab-name,
+.problem-where,
+.problem-card-location,
+.preview-console-where,
+.preview-page-path,
+.annotation-where,
+.walkthrough-where,
+.welcome-recent-path,
+.wizard-path,
+.history-path,
+.recovery-file-names,
+.md-link-url,
+.ai-chip-label {
+  overflow-wrap: anywhere;
+  word-break: normal;
+  min-width: 0;
+}
+.problem-where {
+  flex-shrink: 1;
+}
+/* One alignment for an icon next to text. Inline icons sit at -0.125em (-0.075em in 11–12 px text); the leading icon
+   of a row that wraps (alerts, field errors, messages) is as tall as one line, so its drawing is centred on the first
+   line without a per-component nudge. */
+:where(p, li, span, label, summary, dt, dd, h1, h2, h3, a) > svg {
+  vertical-align: -0.125em;
+}
+:where(.ai-hint, .alert-detail, .name-error, .name-hint, .status-strip, .md-code-head, .problems-section-title) svg {
+  vertical-align: -0.075em;
+}
+.inline-alert > svg,
+.name-error > svg,
+.problems-message > svg,
+.icon-lead {
+  flex: none;
+  align-self: flex-start;
+  height: 1lh;
+}

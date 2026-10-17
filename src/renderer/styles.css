@@ -11,7 +11,8 @@
   --font-ui:
     'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei UI',
     'Microsoft YaHei', system-ui, sans-serif;
-  --font-code: 'Cascadia Mono', 'SF Mono', Menlo, Consolas, 'Microsoft YaHei UI', 'PingFang SC', monospace;
+  --font-code:
+    'Cascadia Mono', 'SF Mono', Menlo, Consolas, 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', monospace;
 
   /* Shape: four radii plus a pill for counters and status pills only */
   --radius-sm: 6px; /* chips, kbd, badges, tree rows, small icon buttons */
@@ -49,6 +50,8 @@
   --dur-base: 200ms;
   --dur-sheet: 300ms;
   --dur-slow: 450ms;
+  --dur-pulse: 1200ms; /* S47.4: one breath of the status dot */
+  --dur-decay: 2500ms; /* S47.4: "Copied" holds, then fades (theme/feedback.ts COPIED_MS) */
   --dur-stagger: 30ms; /* S47.2: the step between items that enter one after another (capped at 8, theme/stagger.ts) */
   --ease-swift: cubic-bezier(0.2, 0, 0, 1); /* hover and small state flips: quick start, no tail */
   --ease-expand: cubic-bezier(0.4, 0, 0.2, 1); /* grid accordions (grid-template-rows 0fr <-> 1fr) */
@@ -1336,9 +1339,7 @@ input[type='radio'] {
   line-height: 1.5;
 }
 .inline-alert > svg {
-  flex: none;
-  margin-top: 3px;
-  color: var(--warn);
+  color: var(--warn); /* aligned to the first line by the shared inline-icon rule (S47.5, motion.css) */
 }
 .save-alert {
   background: var(--danger-soft);
@@ -1637,9 +1638,7 @@ select.text-field {
   color: var(--text);
 }
 .name-error > svg {
-  flex: none;
-  margin-top: 2px;
-  color: var(--danger);
+  color: var(--danger); /* aligned by the shared inline-icon rule (S47.5, motion.css) */
 }
 .name-hint {
   color: var(--muted);

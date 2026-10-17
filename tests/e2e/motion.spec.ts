@@ -232,3 +232,72 @@ for (const scheme of ['light', 'dark'] as const) {
     await scroller.evaluate((el) => el.scrollTo({ top: 0, behavior: 'instant' }));
   });
 }
+
+test('S47.4: the running preview shows a breathing 6 px dot next to its word; counters use tabular figures', async () => {
+  await page.emulateMedia({ colorScheme: null });
+  const pill = page.getByTestId('preview-state');
+  if ((await pill.getAttribute('data-state')) !== 'running') {
+    const start = page.getByTestId('preview-start');
+    if ((await start.count()) > 0) await start.first().click();
+  }
+  await expect(pill).toHaveAttribute('data-state', 'running', { timeout: 20_000 });
+  const dot = pill.locator('.status-dot');
+  await expect(dot).toHaveCount(1);
+  const look = await dot.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      width: style.width,
+      height: style.height,
+      animation: style.animationName,
+      duration: style.animationDuration,
+      next: el.nextSibling?.textContent ?? '',
+    };
+  });
+  expect(look).toMatchObject({ width: '6px', height: '6px', animation: 'status-pulse', duration: '1.2s' });
+  expect(look.next.trim().length).toBeGreaterThan(0); // the word, right after the dot
+  for (const id of ['cursor-position', 'problems-toggle'])
+    expect(await page.getByTestId(id).evaluate((el) => getComputedStyle(el).fontVariantNumeric)).toBe('tabular-nums');
+  // Static under reduced motion.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  expect(await dot.evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+});
+
+test('S47.5: a Chinese file name with spaces never splits into a column in the 220 px sidebar', async () => {
+  const name = '我的 第一个 网页 作品 展示 页面 示例.html';
+  await writeFile(path.join(root, name), '<p>示例</p>\n');
+  const row = page.getByTestId('file-tree').locator(`[data-path="${name}"]`);
+  await expect(row).toHaveCount(1);
+  expect(await page.getByTestId('region-files').evaluate((el) => Math.round(el.getBoundingClientRect().width))).toBe(
+    220,
+  );
+  await row.scrollIntoViewIfNeeded();
+  const label = row.locator('.tree-name');
+  const box = await label.evaluate((el) => {
+    const style = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    return {
+      width: r.width,
+      height: r.height,
+      lineHeight: parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5,
+      fontSize: parseFloat(style.fontSize),
+      wrap: style.overflowWrap,
+      breakRule: style.wordBreak,
+      minWidth: style.minWidth,
+    };
+  });
+  expect(box).toMatchObject({ wrap: 'anywhere', breakRule: 'normal', minWidth: '0px' });
+  // One line, many characters wide: never a vertical column of single characters.
+  expect(box.height).toBeLessThanOrEqual(box.lineHeight * 1.5);
+  expect(box.width).toBeGreaterThan(box.fontSize * 6);
+  // Its tab, too.
+  await row.click();
+  const tab = page.locator(`[data-testid="tab"][data-path="${name}"] .tab-name`);
+  await expect(tab).toBeVisible();
+  const tabBox = await tab.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { width: r.width, height: r.height, fontSize: parseFloat(getComputedStyle(el).fontSize) };
+  });
+  expect(tabBox.height).toBeLessThanOrEqual(tabBox.fontSize * 2);
+  expect(tabBox.width).toBeGreaterThan(tabBox.fontSize * 3);
+});

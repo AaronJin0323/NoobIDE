@@ -5006,8 +5006,8 @@
       "depends_on": [
         "S47.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/theme/feedback.test.ts (7: tabular-nums on strip counts, caret, badges, console errors, pending messages and usage; 6 px status dot pulsing over --dur-pulse 1200ms, static under the reduced-motion gate, renderToStaticMarkup next to the word on the preview running pill and the chat thinking state; Copied saved-check-decay hold-to-75 % over --dur-decay 2500ms = COPIED_MS) + tests/e2e/motion.spec.ts S47.4 (running pill dot 6x6 status-pulse 1.2s, none under reduced motion; tabular-nums computed) + ai-chat.spec green; verify green"
     },
     {
       "id": "S47.5",
@@ -5021,8 +5021,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/theme/type-details.test.ts (6: .path-text + every path/file/URL class get overflow-wrap:anywhere/word-break:normal/min-width:0, no break-all anywhere, balance on dialog + welcome headings, pretty on prose, one inline-icon rule -0.125em/-0.075em + 1lh lead icons with the margin-top nudges removed, PingFang SC + Microsoft YaHei in --font-ui and --font-code) + tests/e2e/motion.spec.ts S47.5 (a Chinese name with spaces stays one line in the 220 px tree and its tab); verify green"
     },
     {
       "id": "S48.1",
