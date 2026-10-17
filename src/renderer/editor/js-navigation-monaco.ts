@@ -10,7 +10,7 @@
 import { getJavaScriptWorker } from 'monaco-editor/languages/features/typescript/register';
 import { monaco, languageDefaults } from './monaco-setup';
 import { htmlRegionAt } from './completion-context';
-import { currentProjectScripts } from './project-scripts-monaco';
+import { currentProjectScripts, whenProjectIndexed } from './project-scripts-registry';
 import {
   hasWord,
   planRename,
@@ -29,6 +29,8 @@ export type Unsupported =
 
 export type NavigationResult =
   | { readonly kind: 'unsupported'; readonly reason: Unsupported }
+  /** The project's scripts were still being read after the bounded wait (INDEX_WAIT_MS): no answer is safe yet. */
+  | { readonly kind: 'indexing' }
   | { readonly kind: 'locations'; readonly locations: readonly NavLocation[] };
 
 /** The text the service holds for a file name: the open model's, or the extra lib's. */
@@ -38,13 +40,17 @@ function serviceText(fileName: string): string | null {
   return languageDefaults.javascript.getExtraLibs()[fileName]?.content ?? null;
 }
 
-/** The open project's scripts (project-scripts.ts) as navigation paths. */
+/**
+ * The open project's scripts (project-scripts.ts) as navigation paths. The instance is looked up on each call, since
+ * it may not exist yet while the project is opening (the registry's `whenIndexed` waits for it).
+ */
 export function projectPaths(): NavigationPaths {
-  const scripts = currentProjectScripts();
+  const scripts = () => currentProjectScripts();
   return {
-    relPathOf: (fileName) => scripts?.relPathOf(fileName) ?? null,
+    relPathOf: (fileName) => scripts()?.relPathOf(fileName) ?? null,
     textOf: serviceText,
-    complete: () => scripts?.complete() ?? false,
+    complete: () => scripts()?.complete() ?? false,
+    whenIndexed: () => whenProjectIndexed(),
   };
 }
 
@@ -54,6 +60,7 @@ export function folderPaths(folder: string): NavigationPaths {
     relPathOf: (fileName) => (fileName.startsWith(folder) ? decodeURIComponent(fileName.slice(folder.length)) : null),
     textOf: serviceText,
     complete: () => true,
+    whenIndexed: async () => true,
   };
 }
 
@@ -79,6 +86,8 @@ export async function navigate(
   position: monaco.IPosition,
   paths: NavigationPaths = projectPaths(),
 ): Promise<NavigationResult> {
+  // First the index: whether this file is a project script, and what the service knows, both depend on it.
+  if (!(await paths.whenIndexed())) return { kind: 'indexing' };
   const offset = model.getOffsetAt(position);
   const unsupported = unsupportedAt(model, offset, paths);
   if (unsupported) return { kind: 'unsupported', reason: unsupported };
@@ -100,6 +109,7 @@ export async function renamePlanAt(
   htmlPages: readonly { readonly relPath: string; readonly text: string }[],
   paths: NavigationPaths = projectPaths(),
 ): Promise<RenamePlan> {
+  if (!(await paths.whenIndexed())) return { ok: false, reason: 'indexing' };
   const offset = model.getOffsetAt(position);
   if (unsupportedAt(model, offset, paths)) return { ok: false, reason: 'not-a-script' };
   const ts = await service(model);

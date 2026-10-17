@@ -4,6 +4,7 @@ import type { MessageKey } from '../i18n/index';
 import { fill } from '../recovery/format';
 import { Sheet } from './Sheet';
 import type { NavLocation } from '../editor/js-navigation';
+import { INDEX_WAIT_MS } from '../editor/project-scripts-registry';
 
 export type NavigationView =
   | {
@@ -35,7 +36,7 @@ export function NavigationDialog({
   const title =
     view.kind === 'list'
       ? fill(t(view.title), { name: view.name, count: String(view.locations.length) })
-      : fill(t(view.message), { name: view.name });
+      : fill(t(view.message), { name: view.name, seconds: String(INDEX_WAIT_MS / 1000) });
 
   return (
     <Sheet
