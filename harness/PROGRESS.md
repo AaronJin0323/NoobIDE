@@ -35,7 +35,9 @@ three 60-run batches (a descheduled worker inflates a whole batch; the budget an
 docs/perf/completion-latency.md notes the method). The run after that timed out tests/integration/history-groups.test.ts
 "keeps the newest groups within the limit" at vitest's 5 s default (5.2 s on the Windows runner: 103 atomic index writes;
 Session 20 had already seen it fail under a saturated CPU); it now carries the same 60 s real-IO hang guard as
-history-triggers.test.ts, assertions unchanged.
+history-triggers.test.ts, assertions unchanged. The fourth run failed only not-found.spec.ts:105 (the Session 26 locale
+flake): the English 404 navigation raced main's adoption of the new locale, which happens after the settings write;
+the spec now waits for settings.json to hold the locale before navigating (tests only, 2/2 pass locally on the package).
 
 **Decisions:** Nothing from the source is copied as code, class strings or assets (Tailwind, Framer Motion,
 clay accent, CDN Storybook); only mechanisms and constants, each given one home as a token or tested constant.
