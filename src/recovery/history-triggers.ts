@@ -37,7 +37,7 @@ export class HistoryTriggers implements SaveHistoryHook {
   private pending = new Set<Promise<void>>();
 
   constructor(
-    private readonly store: Pick<SnapshotStore, 'snapshot' | 'limits'>,
+    private readonly store: Pick<SnapshotStore, 'snapshot' | 'limits'> & Partial<Pick<SnapshotStore, 'movePath'>>,
     private readonly log: RecoveryLogger = silentLogger,
   ) {}
 
@@ -65,6 +65,12 @@ export class HistoryTriggers implements SaveHistoryHook {
   /** Resolves when every queued save snapshot has been stored (tests, orderly shutdown). */
   async whenIdle(): Promise<void> {
     while (this.pending.size > 0) await Promise.all([...this.pending]);
+  }
+
+  /** S52.1 (decision 0006): after NoobIDE renamed or moved a file or folder, its versions follow it. */
+  async afterMove(rootPath: string, from: string, to: string): Promise<void> {
+    const result = await this.store.movePath?.(rootPath, from, to);
+    if (result && !result.ok) this.log('history.trigger-failed', { reason: 'after-move', code: result.message });
   }
 
   /** Before the formatter rewrites a file. */

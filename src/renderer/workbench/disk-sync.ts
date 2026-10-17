@@ -13,6 +13,8 @@ import { isUnsaved } from './save-machine';
  *   changed, buffer has no edits    → reload silently with a notice (S11.1)
  *   changed, buffer has edits       → conflict: autosave stops, the user compares and chooses (S11.2)
  *   gone                            → marked deleted, text kept, re-save offered (S11.3)
+ *   renamed/moved (S52.1)           → the tab follows when the file at the new path has the buffer's base content;
+ *                                     otherwise it is a delete + create: the tab stays, marked deleted
  *
  * Pure apart from the injected deps, so every rule is unit-tested.
  */
@@ -34,6 +36,36 @@ export interface DiskSyncDeps {
   conflict(relPath: string, content: FileContent): void;
   /** The file is gone from disk. */
   deleted(relPath: string): void;
+  /** S52.1: the file moved to `to` with the same content: the tab follows it (unsaved edits included). */
+  moved(from: string, to: string, content: FileContent): void;
+}
+
+/** S52.1: an open file that a rename or move on disk took from `from` to `to`. */
+export interface TabMove {
+  readonly from: string;
+  readonly to: string;
+}
+
+/**
+ * S52.1: what a batch of watcher events means for the open files. A rename or move of an open file (or of a folder
+ * holding open files) is replayed as a move ({@link DiskSync.replayMove} decides by content hash); every other open
+ * file the batch may concern is checked as before ({@link pathsToCheck}). A file in a move is not checked again.
+ */
+export function planWatchEvents(
+  events: readonly WatchEvent[],
+  open: readonly string[],
+): { readonly moves: readonly TabMove[]; readonly check: readonly string[] } {
+  const moves = new Map<string, string>();
+  for (const event of events) {
+    if (event.type !== 'renamed' || event.from === event.to) continue;
+    for (const path of open) {
+      if (isSameOrBelow(path, event.from) && event.from !== '' && !moves.has(path)) {
+        moves.set(path, event.to + path.slice(event.from.length));
+      }
+    }
+  }
+  const check = pathsToCheck(events, open).filter((path) => !moves.has(path));
+  return { moves: [...moves].map(([from, to]) => ({ from, to })), check };
 }
 
 /** Open files a batch of watcher events may concern (a folder event concerns every open file below it). */
@@ -72,6 +104,36 @@ export class DiskSync {
       if (this.queues.get(relPath) === run) this.queues.delete(relPath);
     });
     return run;
+  }
+
+  /**
+   * S52.1: the watcher saw the open file `from` renamed or moved to `to`. The tab follows only when the file at `to`
+   * has exactly the content the buffer is based on (its hash); anything else is a delete + create: `from` is checked
+   * as usual, so the tab is kept with its text and marked deleted. Runs in `from`'s queue, after any write of ours.
+   */
+  replayMove(from: string, to: string): Promise<void> {
+    const previous = this.queues.get(from) ?? Promise.resolve();
+    const run = previous.then(() => this.replayNow(from, to)).catch(() => undefined);
+    this.queues.set(from, run);
+    void run.then(() => {
+      if (this.queues.get(from) === run) this.queues.delete(from);
+    });
+    return run;
+  }
+
+  private async replayNow(from: string, to: string): Promise<void> {
+    const before = this.deps.tab(from);
+    if (!before) return;
+    await before.saver.whenIdle();
+    const read = await this.deps.read(to);
+    const tab = this.deps.tab(from);
+    if (!tab || tab.saver !== before.saver) return; // closed or reopened meanwhile
+    const known = tab.known();
+    if (read.ok && known !== undefined && !versionChanged(known, read.content.version) && !tab.saver.busy) {
+      this.deps.moved(from, to, read.content);
+      return;
+    }
+    await this.checkNow(from);
   }
 
   private async checkNow(relPath: string): Promise<void> {

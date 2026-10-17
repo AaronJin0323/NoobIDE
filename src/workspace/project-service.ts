@@ -27,12 +27,30 @@ import type { SaveHistoryHook } from '../recovery/history-triggers';
 /** S21 history hooks the service calls; `beforeDelete` (S08.3) snapshots files before they go to the trash. */
 export type ProjectHistoryHook = SaveHistoryHook & {
   beforeDelete?(rootPath: string, relPath: string, absPath: string): Promise<void>;
+  /** S52.1 (decision 0006): a file or folder was renamed or moved; its versions follow it to the new path. */
+  afterMove?(rootPath: string, from: string, to: string): Promise<void>;
 };
+
+/** S52.1: crash-recovery copies of files that were renamed or moved follow them (src/recovery/journal.ts). */
+export interface ProjectJournalHook {
+  movePath(rootPath: string, from: string, to: string): Promise<unknown>;
+}
 import { FileInUseError, replaceFileAtomic, writeFileAtomic, type AtomicWriteOptions } from './atomic-write';
 import { errorCode, isInside, resolveExisting, toFileUri } from './paths';
 import { protectedFolderCauseOf } from '../platform/protected-folders';
 import { listDirectory } from './tree';
-import { createEntry, renameEntry, resolveEntry, trashEntry } from './file-ops';
+import { copyEntry, createEntry, moveEntry, renameEntry, resolveEntry, trashEntry } from './file-ops';
+import type {
+  BatchFailure,
+  CopiedEntry,
+  CopyEntriesRequest,
+  CopyEntriesResult,
+  TrashEntriesRequest,
+  TrashEntriesResult,
+  MovedEntry,
+  MoveEntriesRequest,
+  MoveEntriesResult,
+} from '../shared/ipc/file-ops-contract';
 import { isListedEntry } from './listing-filter';
 import { decodeForDisplay, decodeText, encodeText, hasMixedEol } from './text-codec';
 
@@ -67,6 +85,8 @@ export interface ProjectServiceOptions {
   readonly history?: ProjectHistoryHook;
   /** Fault injection for the replace step (S21 tests). Default: replaceFileAtomic. */
   readonly replaceFile?: typeof replaceFileAtomic;
+  /** S52.1: the crash-recovery journal, so copies of moved files follow them. */
+  readonly journal?: ProjectJournalHook;
 }
 
 /** A project file whose new content is confirmed on disk. */
@@ -140,7 +160,83 @@ export class ProjectService {
   async renameEntry(request: RenameEntryRequest): Promise<Result<{ from: string; to: string }, FileOpError>> {
     const root = this.rootOf(request.projectId);
     if (root === undefined) return err('unknown-project', 'project is not open');
-    return renameEntry(root, request.from, request.to);
+    const renamed = await renameEntry(root, request.from, request.to);
+    if (renamed.ok) await this.followMove(root, renamed.value.from, renamed.value.to);
+    return renamed;
+  }
+
+  /**
+   * S52.1/S52.3: moves a selection into one folder. Entries inside another selected folder move with it and are not
+   * moved again. Each entry is moved on its own: a refusal (an existing name, a folder into itself) is listed with
+   * its cause and the others still move. Local history and recovery copies follow every moved entry.
+   */
+  async moveEntries(request: MoveEntriesRequest): Promise<Result<MoveEntriesResult, FileOpError>> {
+    const root = this.rootOf(request.projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    const moved: MovedEntry[] = [];
+    const failed: BatchFailure[] = [];
+    for (const from of outermost(request.from)) {
+      const result = await moveEntry(root, from, request.toFolder);
+      if (!result.ok) {
+        failed.push({ relPath: from, code: result.code, message: result.message });
+        continue;
+      }
+      if (result.value.to === from) continue; // already in that folder
+      moved.push(result.value);
+      await this.followMove(root, result.value.from, result.value.to);
+    }
+    return ok({ moved, failed });
+  }
+
+  /**
+   * S52.2: copies a selection (paste into a folder, or duplicate each entry next to itself). Entries inside another
+   * selected folder are copied with it. Each entry is copied on its own; a failure is listed with its cause.
+   */
+  async copyEntries(request: CopyEntriesRequest): Promise<Result<CopyEntriesResult, FileOpError>> {
+    const root = this.rootOf(request.projectId);
+    if (root === undefined) return err('unknown-project', 'project is not open');
+    const copied: CopiedEntry[] = [];
+    const failed: BatchFailure[] = [];
+    for (const from of outermost(request.from)) {
+      const result = await copyEntry(root, from, request.toFolder, request.mode);
+      if (result.ok) copied.push(result.value);
+      else failed.push({ relPath: from, code: result.code, message: result.message });
+    }
+    return ok({ copied, failed });
+  }
+
+  /**
+   * S52.3: moves a selection to the OS trash, entry by entry (each snapshotted into local history first, like a
+   * single delete). Entries inside another selected folder go with it. A failure leaves that entry where it is and
+   * is listed with its cause; the others are still trashed.
+   */
+  async trashEntries(
+    request: TrashEntriesRequest,
+    trashItem: (fullPath: string) => Promise<void>,
+  ): Promise<Result<TrashEntriesResult, FileOpError>> {
+    if (this.rootOf(request.projectId) === undefined) return err('unknown-project', 'project is not open');
+    const trashed: string[] = [];
+    const failed: BatchFailure[] = [];
+    for (const relPath of outermost(request.relPaths)) {
+      const result = await this.trashEntry({ projectId: request.projectId, relPath }, trashItem);
+      if (result.ok) trashed.push(relPath);
+      else failed.push({ relPath, code: result.code, message: result.message });
+    }
+    return ok({ trashed, failed });
+  }
+
+  /** History and recovery copies follow a rename or move; their failures never undo or fail the move itself. */
+  private async followMove(root: string, from: string, to: string): Promise<void> {
+    try {
+      await this.history?.afterMove?.(root, from, to);
+    } catch {
+      // logged by the history triggers; the files are moved either way
+    }
+    try {
+      await this.options.journal?.movePath(root, from, to);
+    } catch {
+      // the journal logs its own failures; a copy left under the old path is still offered by recovery
+    }
   }
 
   /** `trashItem` is Electron's shell.trashItem in the app (never a permanent delete). */
@@ -604,4 +700,9 @@ class ChangedOnDiskError extends Error {
     super('the file was changed outside NoobIDE');
     this.name = 'ChangedOnDiskError';
   }
+}
+
+/** The entries of a selection that are not inside another selected entry (those move or go with their folder). */
+export function outermost(relPaths: readonly string[]): string[] {
+  return relPaths.filter((p) => !relPaths.some((other) => other !== p && p.startsWith(`${other}/`)));
 }
