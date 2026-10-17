@@ -5,6 +5,7 @@ import {
   lineMatches,
   matchKey,
   replaceInText,
+  replacementForMatch,
   splitLines,
   textFingerprint,
   type SearchQuery,
@@ -96,6 +97,14 @@ describe('replacing (S51.4)', () => {
     expect(replaceInText('cost', q('cost'), '$1 $&', null)?.text).toBe('$1 $&');
     const match = /(a)(b)/.exec('ab') as RegExpExecArray;
     expect(expandReplacement('$10|$2|$3', match, true)).toBe('a0|b|$3');
+  });
+
+  it('previews what one listed match becomes, with captured groups', () => {
+    const regex = q('class="(\\w+)"', { regex: true });
+    expect(replacementForMatch(regex, 'id="$1"', '<p class="intro">', 3)).toBe('id="intro"');
+    expect(replacementForMatch(q('card'), 'panel', 'a card', 2)).toBe('panel');
+    expect(replacementForMatch(q('card'), 'panel', 'a card', 0)).toBeNull();
+    expect(replacementForMatch(q('(', { regex: true }), 'x', '(', 0)).toBeNull();
   });
 
   it('returns null for an invalid query', () => {

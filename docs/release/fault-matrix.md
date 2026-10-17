@@ -21,7 +21,8 @@ still exists until a save is confirmed, the error code explains the cause, and t
 cause is gone. Paths contain Chinese characters and spaces.
 
 Abbreviations: **SF** `tests/integration/faults/save-faults.test.ts`, **JF** `…/faults/journal-faults.test.ts`,
-**HF** `…/faults/history-faults.test.ts`, **FF** `…/faults/file-faults.test.ts`, **MC** `harness/MANUAL-CHECKS.md`.
+**HF** `…/faults/history-faults.test.ts`, **FF** `…/faults/file-faults.test.ts`, **RF** `…/faults/replace-faults.test.ts`
+(S51.4 replace in files), **MC** `harness/MANUAL-CHECKS.md`.
 
 ## PLAN §11 required failure cases
 
@@ -44,7 +45,7 @@ Abbreviations: **SF** `tests/integration/faults/save-faults.test.ts`, **JF** `�
 
 | Fault                                                            | Where it is injected                                                             | Automated proof                                                                                                                                                                                                                                                  |
 | ---------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Disk full / quota (ENOSPC, EDQUOT)                               | temp write, fsync; journal; history blob + index; project creation copy          | SF table; JF "a ENOSPC/EDQUOT while recording"; HF "disk full writing the version / the index"; FF "creating a project runs out of space half-way"                                                                                                               |
+| Disk full / quota (ENOSPC, EDQUOT)                               | temp write, fsync; journal; history blob + index; project creation copy          | SF table; JF "a ENOSPC/EDQUOT while recording"; HF "disk full writing the version / the index"; FF "creating a project runs out of space half-way"; RF "one file fails to save (disk full): the others apply"                                                    |
 | Permission denied / read-only (EACCES, EROFS)                    | temp create; journal dir; history dir; create/rename                             | SF table + real chmod tests; SF "a failing recovery journal never blocks saving"; JF EACCES; HF EACCES; FF create/rename                                                                                                                                         |
 | macOS privacy protection (TCC), Windows Controlled Folder Access | simulated EPERM/EACCES below Documents/Desktop                                   | `tests/integration/protected-folder.test.ts`, `src/platform/protected-folders.test.ts` (S25.3)                                                                                                                                                                   |
 | Locked file (EBUSY, Windows EPERM sharing violation)             | rename over the target; stat; journal and history reads; unlink during a move    | SF "file locked … through every retry", "EPERM rename", "a lock that clears during the retries"; JF "a record that cannot be read right now", "a discard that fails"; HF "a briefly locked index"; FF "removing the old name fails after the new one was linked" |

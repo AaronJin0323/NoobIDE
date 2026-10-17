@@ -114,6 +114,7 @@ import { setEditorContextActionGroup } from '../editor/editor-handle';
 import { useAiFix, type AiFixHost } from '../problems/useAiFix';
 import { AiFixCard } from '../problems/AiFixCard';
 import { useFindInFiles } from '../search/useFindInFiles'; // S51.3
+import type { ReplaceHost } from '../search/replace-apply'; // S51.4
 
 /**
  * The five workbench regions of PLAN §3 backed by real files: open a folder, open files as tabs (S09), edit, and
@@ -1028,6 +1029,49 @@ export function Workbench() {
     [],
   );
 
+  // --- S51.4: replace in files reaches each file through its editor tab and save pipeline — the S34.2 agent host's
+  // replaceOpenText (one undo step, journaled, atomic save + version check + local history). The preview's automatic
+  // refresh is held with the S14.2 typing pause while the files are written, so the page reloads once at the end. ---
+  const replaceHost = useMemo<ReplaceHost | undefined>(() => {
+    if (!bridge) return undefined;
+    return {
+      prepare: async (relPath, planProject) => {
+        // A plan belongs to the project it was searched in; another project may have files of the same names.
+        const project = docRef.current.project;
+        if (!project || project.projectId !== planProject) return { error: 'project-changed' };
+        if (narrow) dispatchLayout({ type: 'showNarrowView', view: 'code' }); // the change lands where it is seen
+        await openFile(relPath);
+        if (docRef.current.project?.projectId !== planProject) return { error: 'project-changed' };
+        const tab = await eventually(() => docRef.current.tabs.find((open) => open.relPath === relPath));
+        const info = tab ? agentHostRef.current?.openTab(relPath) : undefined;
+        if (!info) return { error: 'open-failed' };
+        if (info.readOnly) return { error: 'read-only' };
+        if (info.blocked) return { error: 'blocked' };
+        return { text: info.text };
+      },
+      commit: async (relPath, before, after, planProject) => {
+        const host = agentHostRef.current;
+        if (!host || docRef.current.project?.projectId !== planProject) return { ok: false, code: 'project-changed' };
+        // A rename, move or trash may have started since prepare: the file is left alone (S08 lock).
+        if (lockedRef.current.some((locked) => isSameOrBelow(relPath, locked))) return { ok: false, code: 'blocked' };
+        const failure = await host.replaceOpenText(relPath, before, after);
+        if (failure === null) return { ok: true };
+        // The editor model did not take the change: nothing was edited, so it is not a failed save.
+        if (failure.code === 'write-failed' && failure.detail === 'editor') return { ok: false, code: 'editor-failed' };
+        return { ok: false, code: failure.code };
+      },
+      holdPreview: () => {
+        const pause = () => void bridge.preview.typing?.();
+        pause();
+        const timer = setInterval(pause, 150);
+        return () => {
+          clearInterval(timer);
+          pause(); // the one refresh follows the typing pause after the last save
+        };
+      },
+    };
+  }, [bridge, openFile, narrow]);
+  // --- end S51.4 ---
   // --- S51.3: find in files (bottom region, beside Problems); open buffers are searched instead of the disk copy ---
   const findInFiles = useFindInFiles({
     api: bridge?.search,
@@ -1036,6 +1080,7 @@ export function Workbench() {
     onOpenHit: goTo,
     problemsOpen: visible.problemsPanel,
     closeProblems: () => dispatchLayout({ type: 'toggleProblems' }),
+    replaceHost, // S51.4
   });
   // --- end S51.3 ---
 
@@ -1102,6 +1147,7 @@ export function Workbench() {
     find: () => activeEditor()?.openFind?.('find'),
     replace: () => activeEditor()?.openFind?.('replace'),
     'find-in-files': bridge?.search ? findInFiles.show : undefined, // S51.3
+    'replace-in-files': bridge?.search ? findInFiles.showReplace : undefined, // S51.4
     ...PREVIEW_COMMAND_HANDLERS, // S15.4: preview toolbar commands (forwarded to the preview pane)
     'command-palette': () =>
       setPalette(

@@ -2445,3 +2445,53 @@ select.text-field {
   font-size: var(--text-sm);
   color: var(--muted);
 }
+
+/* ── S51.4: replace in files ── */
+.replace-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.replace-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.replace-field {
+  flex: 1;
+  min-width: 0;
+}
+.replace-hint {
+  margin: 0 2px;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.replace-summary p {
+  margin: 2px;
+  font-size: var(--text-sm);
+}
+.replace-failed {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: var(--text-sm);
+}
+.replace-failed-path {
+  margin-right: 6px;
+  font-weight: var(--weight-medium);
+}
+.replace-check {
+  flex: none;
+  margin: 0 2px;
+}
+/* Old text struck through, new text underlined: the change reads without colour. */
+.search-hit-old {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.search-hit-new {
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

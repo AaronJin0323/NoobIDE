@@ -164,19 +164,27 @@ function matchesIn(text: string, regex: RegExp, room: number): { list: SearchMat
     const line = lines[i] as string;
     for (const match of lineMatches(line, regex)) {
       if (list.length >= room) return { list, more: true };
-      list.push({ line: i + 1, column: match.index + 1, length: match.length, ...previewOf(line, match.index) });
+      list.push({
+        line: i + 1,
+        column: match.index + 1,
+        length: match.length,
+        ...previewOf(line, match.index, match.length),
+      });
     }
   }
   return { list, more: false };
 }
 
-/** The line around a match: up to a third of the preview before it, trimmed leading whitespace. */
-function previewOf(line: string, index: number): { preview: string; previewStart: number } {
+/**
+ * The line around a match: up to a third of the preview before it (leading whitespace trimmed), the whole match
+ * however long, and some context after it — so the replace preview can always re-run the match on it (S51.4).
+ */
+function previewOf(line: string, index: number, length: number): { preview: string; previewStart: number } {
   const lead = line.length - line.trimStart().length;
   const from = Math.max(lead, index - Math.floor(SEARCH_PREVIEW_CHARS / 3));
   const start = Math.min(from, index);
-  const preview = line.slice(start, start + SEARCH_PREVIEW_CHARS * 2);
-  return { preview, previewStart: index - start };
+  const end = Math.max(start + SEARCH_PREVIEW_CHARS * 2, index + length + SEARCH_PREVIEW_CHARS);
+  return { preview: line.slice(start, end), previewStart: index - start };
 }
 
 /** Text files of the project in no particular order, inside the root only; truncated at `maxFiles`. */

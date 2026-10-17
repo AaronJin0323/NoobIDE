@@ -172,3 +172,22 @@ export function textFingerprint(text: string): string {
   const hash = 4294967296 * (2097151 & h2) + (h1 >>> 0);
   return `${normalized.length.toString(36)}-${hash.toString(36)}`;
 }
+
+/**
+ * What one listed match becomes, for the replace preview: the match in its context line re-run with the same
+ * regular expression (so `$1` shows the captured text). Null when the query is invalid or the match is not found there.
+ */
+export function replacementForMatch(
+  query: SearchQuery,
+  replacement: string,
+  preview: string,
+  previewStart: number,
+): string | null {
+  const built = buildQueryRegex(query);
+  if (!built.ok) return null;
+  for (const match of lineMatches(preview, built.regex)) {
+    if (match.index === previewStart) return expandReplacement(replacement, match.groups, query.regex);
+    if (match.index > previewStart) break;
+  }
+  return null;
+}

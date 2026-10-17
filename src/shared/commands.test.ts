@@ -127,4 +127,16 @@ describe('command registry (S24.1)', () => {
     expect(isCommandEnabled('find', { ...editing, hasActiveTab: false })).toBe(false);
     expect(isCommandEnabled('replace', { ...editing, modalOpen: true })).toBe(false);
   });
+
+  it('find and replace in files: Ctrl/Cmd+Shift+F and Ctrl/Cmd+Shift+H, with a project or without (S51.3, S51.4)', () => {
+    expect(commandShortcutLabel('find-in-files', 'windows')).toBe('Ctrl+Shift+F');
+    expect(commandShortcutLabel('find-in-files', 'mac')).toBe('⇧⌘F');
+    expect(commandShortcutLabel('replace-in-files', 'windows')).toBe('Ctrl+Shift+H');
+    expect(commandShortcutLabel('replace-in-files', 'mac')).toBe('⇧⌘H');
+    expect(en['command.findInFiles']).toBe('Find in Files');
+    expect(zhCN['command.replaceInFiles']).toBe('在文件中替换');
+    // Without a project the panel explains how to start (it opens, but has nothing to search).
+    expect(isCommandEnabled('find-in-files', INITIAL_COMMAND_CONTEXT)).toBe(true);
+    expect(isCommandEnabled('replace-in-files', { ...INITIAL_COMMAND_CONTEXT, modalOpen: true })).toBe(false);
+  });
 });

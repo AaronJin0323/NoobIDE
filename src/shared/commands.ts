@@ -67,6 +67,8 @@ export const COMMAND_IDS = [
   'replace',
   // S51.3 find in files (bottom panel)
   'find-in-files',
+  // S51.4 replace in files (the same panel with its replace row)
+  'replace-in-files',
 ] as const;
 export type CommandId = (typeof COMMAND_IDS)[number];
 
@@ -211,6 +213,13 @@ export const COMMANDS: readonly CommandDefinition[] = [
     id: 'find-in-files',
     label: 'command.findInFiles',
     keys: { all: { key: 'f', primary: true, shift: true } },
+    when: noModal,
+  },
+  // S51.4: the same panel with its replace row open (Ctrl/Cmd+Shift+H, as in other editors).
+  {
+    id: 'replace-in-files',
+    label: 'command.replaceInFiles',
+    keys: { all: { key: 'h', primary: true, shift: true } },
     when: noModal,
   },
 ];

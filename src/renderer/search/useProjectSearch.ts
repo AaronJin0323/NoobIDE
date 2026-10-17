@@ -43,7 +43,7 @@ export function useProjectSearch(
         .run({ searchId, projectId, query: wanted, openBuffers: buffersRef.current() })
         .then((result) => {
           if (searchId !== latest.current) return; // a newer search owns the panel
-          if (result.ok) setState({ kind: 'done', results: result.value });
+          if (result.ok) setState({ kind: 'done', results: result.value, query: wanted, projectId });
           else if (result.code !== 'cancelled')
             setState({ kind: 'failed', code: result.code, message: result.message });
         })
@@ -63,6 +63,9 @@ export function useProjectSearch(
     const timer = setTimeout(() => start(query), query.text === '' ? 0 : SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [query, start]);
+
+  // Another project: the old results go at once (a replace can never act on another project's list).
+  useEffect(() => setState({ kind: 'idle' }), [projectId]);
 
   // Nothing keeps scanning for a closed project or panel.
   useEffect(

@@ -4451,8 +4451,8 @@
         "S51.2",
         "S51.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/replace-in-files.spec.ts (4: per-file preview of every change with file and single-match exclusion + axe; class rename across 3 files through each tab's save pipeline, preview reloaded exactly once, history 2 versions/1 after-save per file, per-file undo; real host refuses a file changed on disk after the search) + tests/integration/replace-in-files.test.ts (8: DocumentSaver + ProjectService atomic write, changed-on-disk refusal, version-check conflict, stale buffer, other project, stale query) + tests/integration/faults/replace-faults.test.ts (ENOSPC on one file: others apply, edit kept in memory with failed state, summary, retry) on Windows x64; subagent review findings fixed"
     },
     {
       "id": "S51.5",

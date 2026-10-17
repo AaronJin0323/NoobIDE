@@ -30,7 +30,12 @@ const file = (relPath: string, n: number) => ({
   fingerprint: 'x',
   matches: Array.from({ length: n }, (_, i) => match(i + 1, 3)),
 });
-const done = (r: SearchResults): SearchState => ({ kind: 'done', results: r });
+const done = (r: SearchResults): SearchState => ({
+  kind: 'done',
+  results: r,
+  query,
+  projectId: '0f8fad5b-d9cb-469f-a165-70867728950e',
+});
 
 describe('find in files panel states (S51.3)', () => {
   it('explains the no-project, idle, searching and empty states in both languages', () => {

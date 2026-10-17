@@ -13,6 +13,7 @@ import {
   type SearchOption,
 } from './search-model';
 import type { ProjectSearch } from './useProjectSearch';
+import type { SearchFileResult } from '../../shared/ipc/search-contract';
 
 const TOGGLE_ICON: Record<SearchOption, () => ReactNode> = {
   caseSensitive: CaseIcon,
@@ -32,7 +33,11 @@ export interface SearchPanelProps {
   /** S51.4: the replace row and the per-file preview, under the query. */
   readonly replace?: ReactNode;
   /** S51.4: extra content per result (the include checkbox of replace), keyed by the hit. */
-  readonly renderHitExtra?: (hit: FlatHit) => ReactNode;
+  readonly renderHitExtra?: ((hit: FlatHit) => ReactNode) | undefined;
+  /** S51.4: extra content in a file's heading (the include checkbox of replace). */
+  readonly renderFileExtra?: ((file: SearchFileResult) => ReactNode) | undefined;
+  /** S51.4: what a result becomes; the result then shows the old text struck through and the new text. */
+  readonly replacementFor?: ((hit: FlatHit) => string | null) | undefined;
 }
 
 const fill = (text: string, n: number) => text.replace('{n}', String(n));
@@ -53,6 +58,8 @@ export function SearchPanel({
   onOpenHit,
   replace,
   renderHitExtra,
+  renderFileExtra,
+  replacementFor,
 }: SearchPanelProps) {
   const { t } = useI18n();
   const input = useRef<HTMLInputElement>(null);
@@ -221,6 +228,7 @@ export function SearchPanel({
                   data-path={file.relPath}
                 >
                   <h3 className="search-file-head" id={headingId}>
+                    {renderFileExtra?.(file)}
                     <span className="search-file-name">{name}</span>
                     {folder && <span className="search-file-folder">{folder}</span>}
                     <span className="problems-badge" data-testid="search-file-count">
@@ -233,6 +241,7 @@ export function SearchPanel({
                       flatIndex += 1;
                       const hit = hits[index] as FlatHit;
                       const parts = previewParts(match);
+                      const becomes = replacementFor?.(hit) ?? null;
                       return (
                         <li key={hit.key} className="search-hit-row">
                           {renderHitExtra?.(hit)}
@@ -251,7 +260,21 @@ export function SearchPanel({
                             <span className="search-hit-line">{fill(t('search.line'), match.line)}</span>
                             <span className="search-hit-text">
                               {parts.before}
-                              <mark className="search-hit-mark">{parts.hit}</mark>
+                              {becomes === null ? (
+                                <mark className="search-hit-mark">{parts.hit}</mark>
+                              ) : (
+                                // The change in words for screen readers; struck through and underlined on screen.
+                                <>
+                                  <del className="search-hit-old" data-testid="replace-old">
+                                    <span className="sr-only">{t('replace.was')}</span>
+                                    {parts.hit}
+                                  </del>
+                                  <ins className="search-hit-new" data-testid="replace-new">
+                                    <span className="sr-only">{t('replace.becomes')}</span>
+                                    {becomes}
+                                  </ins>
+                                </>
+                              )}
                               {parts.after}
                             </span>
                           </button>

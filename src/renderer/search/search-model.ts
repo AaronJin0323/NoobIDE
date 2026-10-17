@@ -10,7 +10,13 @@ import type { MessageKey, Translate } from '../i18n/index';
 export type SearchState =
   | { readonly kind: 'idle' }
   | { readonly kind: 'searching'; readonly searchId: number }
-  | { readonly kind: 'done'; readonly results: SearchResults }
+  | {
+      readonly kind: 'done';
+      readonly results: SearchResults;
+      /** The query and project these results were found for (the field may already hold a newer query). */
+      readonly query: SearchQuery;
+      readonly projectId: string;
+    }
   | { readonly kind: 'failed'; readonly code: SearchError | RequestError | 'unavailable'; readonly message: string };
 
 export const DEFAULT_QUERY: SearchQuery = { text: '', regex: false, caseSensitive: false, wholeWord: false };
