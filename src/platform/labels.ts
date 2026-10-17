@@ -42,7 +42,8 @@ export function trashLabelKey(id: PlatformId): TrashLabelKey {
   return 'trash.other';
 }
 
-export type TreeCommand = 'rename' | 'delete' | 'reveal';
+/** S52.2 adds copy, paste and duplicate (Ctrl/Cmd+C/V/D while the tree has the focus). */
+export type TreeCommand = 'rename' | 'delete' | 'reveal' | 'copy' | 'paste' | 'duplicate';
 
 /** Shortcut text shown in the file tree's menu: Finder conventions on macOS, File Explorer / VS Code on Windows. */
 export function treeShortcutLabel(id: PlatformId, command: TreeCommand): string {
@@ -53,6 +54,12 @@ export function treeShortcutLabel(id: PlatformId, command: TreeCommand): string 
       return isMac(id) ? '⌘⌫' : 'Delete';
     case 'reveal':
       return isMac(id) ? '⌥⌘R' : 'Shift+Alt+R';
+    case 'copy':
+      return isMac(id) ? '⌘C' : 'Ctrl+C';
+    case 'paste':
+      return isMac(id) ? '⌘V' : 'Ctrl+V';
+    case 'duplicate':
+      return isMac(id) ? '⌘D' : 'Ctrl+D';
   }
 }
 
@@ -68,6 +75,14 @@ export function treeCommandForKey(
   const r = e.key.toLowerCase() === 'r' || e.key === '®';
   if (isMac(id) && r && e.metaKey && e.altKey && !e.ctrlKey && !e.shiftKey) return 'reveal';
   if (!isMac(id) && r && e.shiftKey && e.altKey && !e.ctrlKey && !e.metaKey) return 'reveal';
+  // S52.2: the platform's primary modifier alone (⌘ on macOS, Ctrl elsewhere) with C, V or D.
+  const primary = isMac(id) ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+  if (primary && !e.altKey && !e.shiftKey) {
+    const k = e.key.toLowerCase();
+    if (k === 'c') return 'copy';
+    if (k === 'v') return 'paste';
+    if (k === 'd') return 'duplicate';
+  }
   return null;
 }
 

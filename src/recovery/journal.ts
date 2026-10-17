@@ -346,6 +346,54 @@ export class RecoveryJournal {
     });
   }
 
+  /**
+   * S52.1: NoobIDE renamed or moved a file or folder of the open project at `rootPath`; every record of a file at or
+   * below `from` (this run's buffers and copies left by a crash alike) is rewritten for the same path below `to`,
+   * then the old record is removed — write first, remove second, so an interruption leaves a copy in at least one
+   * place. Unreadable records stay where they are; recovery still offers them under the old name.
+   */
+  movePath(rootPath: string, from: string, to: string): Promise<Result<{ moved: number }, 'write-failed'>> {
+    return this.queue.run(async () => {
+      if (from === to || !isPortableRelPath(to)) return ok({ moved: 0 });
+      const key = projectKey(rootPath);
+      let names: string[];
+      try {
+        names = await readdir(path.join(this.dir, key));
+      } catch {
+        return ok({ moved: 0 }); // no records for this project
+      }
+      const sizes = await this.loadSizes();
+      let moved = 0;
+      for (const name of names) {
+        if (!name.endsWith('.json')) continue;
+        const rel = path.join(key, name);
+        const result = await this.readRecord(rel);
+        if (!result.ok) continue;
+        const old = result.value.record;
+        // Compared in NFC: macOS may hand out NFD names for what the tab knows as NFC (like history keys).
+        const recorded = old.relPath.normalize('NFC');
+        const source = from.normalize('NFC');
+        if (old.rootPath !== rootPath || !(recorded === source || recorded.startsWith(`${source}/`))) continue;
+        const relPath = to + recorded.slice(source.length);
+        const newRel = this.entryRel({ rootPath, relPath }, old.bufferId);
+        const record: EntryRecord = { ...old, relPath };
+        const data = Buffer.from(JSON.stringify(record), 'utf8');
+        try {
+          await writeFileAtomic(path.join(this.dir, newRel), data);
+        } catch (e) {
+          this.log('recovery.move-failed', { code: errorCode(e) });
+          return err('write-failed', errorCode(e), e);
+        }
+        sizes.set(newRel, data.length);
+        const floor = this.floors.get(rel);
+        if (floor !== undefined) this.floors.set(newRel, Math.max(floor, this.floors.get(newRel) ?? -Infinity));
+        if (await this.remove(rel)) moved += 1;
+      }
+      if (moved > 0) this.log('recovery.moved', { moved });
+      return ok({ moved });
+    });
+  }
+
   usage(): Promise<JournalUsage> {
     return this.queue.run(async () => {
       const sizes = await this.loadSizes();

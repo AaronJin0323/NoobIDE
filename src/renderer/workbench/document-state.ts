@@ -17,6 +17,11 @@ export interface OpenTab {
   readonly diskNotice?: 'reloaded';
   /** The disk version that conflicts with unsaved edits (S11.2), for the comparison. */
   readonly conflictDisk?: FileContent;
+  /**
+   * S52.6: an image viewer tab (png, jpg, gif, svg, webp, ico). `uri` is then the image's app-protocol URL, the
+   * content is empty and read-only, and the tab has no saver: there is nothing to edit or save.
+   */
+  readonly image?: { readonly bytes: number };
 }
 
 export type OpenErrorCode = ReadFileError | 'invalid-request' | 'forbidden-sender';
@@ -44,11 +49,18 @@ export type DocumentAction =
   | { type: 'projectClosed' }
   /** `background`: a tab of the session restore (S13.4); it becomes visible only while no tab is. */
   | { type: 'docLoaded'; relPath: string; content: FileContent; background?: boolean }
+  /** S52.6: an image opened in the viewer tab. */
+  | { type: 'imageLoaded'; relPath: string; url: string; bytes: number; background?: boolean; refresh?: boolean }
   | { type: 'docFailed'; relPath: string; code: OpenErrorCode }
   | { type: 'activate'; relPath: string }
   /** S13.4: the restored session's visible tab, unless the user chose a tab meanwhile. */
   | { type: 'restoreActive'; relPath: string }
   | { type: 'closed'; relPath: string }
+  /**
+   * S52.1: the file was renamed or moved (by NoobIDE or outside it, same content): the tab keeps its place and stays
+   * visible if it was, under the new path with the disk version read there. The save state comes from its new saver.
+   */
+  | { type: 'tabMoved'; from: string; to: string; content: FileContent }
   | { type: 'saveState'; relPath: string; save: SaveSnapshot }
   // --- S11: external changes ---
   /** The buffer now holds this disk version (clean reload, or "use the disk version"). */
@@ -84,6 +96,34 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
       if (action.background) return { ...state, tabs, active: state.active ?? action.relPath };
       return { ...state, tabs, active: action.relPath, docError: null, userChose: true };
     }
+    case 'imageLoaded': {
+      const known = state.tabs.some((tab) => tab.relPath === action.relPath);
+      if (known && action.refresh) {
+        // Changed on disk: the open tab shows the new picture (a new ?v= in the URL) and size, in place.
+        return mapTab(state, action.relPath, (tab) =>
+          tab.image
+            ? { ...tab, uri: action.url, content: { ...tab.content, uri: action.url }, image: { bytes: action.bytes } }
+            : tab,
+        );
+      }
+      const content: FileContent = {
+        text: '',
+        eol: '\n',
+        bom: false,
+        mixedEol: false,
+        uri: action.url,
+        version: { mtimeMs: 0, size: action.bytes, hash: '' },
+        readOnly: true,
+      };
+      const tabs = known
+        ? state.tabs
+        : [
+            ...state.tabs,
+            { relPath: action.relPath, uri: action.url, content, save: INITIAL_SAVE, image: { bytes: action.bytes } },
+          ];
+      if (action.background) return { ...state, tabs, active: state.active ?? action.relPath };
+      return { ...state, tabs, active: action.relPath, docError: null, userChose: true };
+    }
     case 'docFailed':
       return { ...state, docError: { relPath: action.relPath, code: action.code } };
     case 'activate':
@@ -102,6 +142,18 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
       const active =
         state.active === action.relPath ? (tabs[Math.min(index, tabs.length - 1)]?.relPath ?? null) : state.active;
       return { ...state, tabs, active };
+    }
+    case 'tabMoved': {
+      if (action.from === action.to || state.tabs.some((tab) => tab.relPath === action.to)) return state;
+      if (!state.tabs.some((tab) => tab.relPath === action.from)) return state;
+      const tabs = state.tabs.map((tab) =>
+        tab.relPath === action.from
+          ? { relPath: action.to, uri: action.content.uri, content: action.content, save: tab.save }
+          : tab,
+      );
+      const active = state.active === action.from ? action.to : state.active;
+      const docError = state.docError?.relPath === action.from ? null : state.docError;
+      return { ...state, tabs, active, docError };
     }
     case 'saveState':
       return mapTab(state, action.relPath, (tab) => {
