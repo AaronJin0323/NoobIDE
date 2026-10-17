@@ -6,6 +6,7 @@ import type {
   RefreshMode,
 } from '../../shared/ipc/preview-contract';
 import { useI18n } from '../i18n/I18nProvider';
+import { RovingGroup } from './RovingGroup'; // S49.2
 import type { MessageKey } from '../i18n/index';
 import { DotIcon, MonitorIcon, PlayIcon, RefreshIcon, RevealIcon, StopIcon, WarningIcon } from './icons';
 // S17.3: console view (levels, filter, clear, page-load attribution) on the same bounded log model.
@@ -520,7 +521,7 @@ export function PreviewPane({
         {projectId !== null && annotations && (
           <span className="preview-annotate-slot" ref={setEntrySlot} data-testid="preview-annotate-slot" />
         )}
-        <div className="preview-actions" role="toolbar" aria-label={t('preview.toolbar')}>
+        <RovingGroup className="preview-actions" role="toolbar" aria-label={t('preview.toolbar')}>
           {projectId !== null && (
             <button
               type="button"
@@ -552,7 +553,7 @@ export function PreviewPane({
               {t('preview.stop')}
             </button>
           )}
-        </div>
+        </RovingGroup>
       </div>
       {/* The rows between the header and the stage: always at their natural size, never scrolled away. When the
           window is short the stage gives way (styles.css .preview-stage), not these controls. */}
@@ -622,7 +623,7 @@ export function PreviewPane({
               <label htmlFor={refreshId}>{t('preview.refreshMode')}</label>
             </span>
             {/* S15.3: honest labels — "width", and a note that this is not phone emulation. */}
-            <span
+            <RovingGroup
               className="viewport-switch"
               role="group"
               aria-label={t('preview.viewport.label')}
@@ -647,7 +648,7 @@ export function PreviewPane({
               <span id="preview-viewport-note" className="viewport-note" hidden={viewport !== 'mobile'}>
                 {t('preview.viewport.note')}
               </span>
-            </span>
+            </RovingGroup>
             <button
               type="button"
               className="quiet-button"

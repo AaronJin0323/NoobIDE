@@ -22,6 +22,7 @@ import { Markdown, type MarkdownLabels } from './Markdown';
 import { AiIcon, CloseIcon, JumpLatestIcon, NewChatIcon, PastChatsIcon } from './ai-icons';
 import { SavedProposal } from './SavedChatsList';
 import { useScrollLatch } from './useScrollLatch';
+import { RovingGroup } from '../workbench/RovingGroup'; // S49.2
 import './ai-chat.css';
 
 /** `count` picks the singular form of a counted message (i18n/plural.ts). */
@@ -440,7 +441,7 @@ export function ChatPanelView({
               </p>
             )}
             {projectId !== null && (
-              <div className="ai-context-add">
+              <RovingGroup className="ai-context-add">
                 <button
                   type="button"
                   className="quiet-button"
@@ -465,7 +466,7 @@ export function ChatPanelView({
                 >
                   {t('ai.chat.context.addPreview')}
                 </button>
-              </div>
+              </RovingGroup>
             )}
           </div>
           <p className="ai-notice" role="status" data-testid="ai-notice">

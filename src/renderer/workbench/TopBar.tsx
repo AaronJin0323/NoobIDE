@@ -9,6 +9,7 @@ import { ChevronDownIcon, DotIcon, NewFileIcon, NoobIdeMark, SaveIcon, SaveState
 import { commandShortcutLabel } from '../../shared/commands';
 import type { NarrowView } from './layout';
 import { AppMenu, type AppMenuItem } from './AppMenu'; // S13
+import { RovingGroup } from './RovingGroup'; // S49.2
 
 interface TopBarProps {
   platform: PlatformId;
@@ -112,7 +113,7 @@ export function TopBar({
         )}
       </div>
       {narrow && (
-        <div className="segmented" role="group" aria-label={t('narrow.switch')} data-testid="narrow-switch">
+        <RovingGroup className="segmented" role="group" aria-label={t('narrow.switch')} data-testid="narrow-switch">
           {(['code', 'preview'] as const).map((view) => (
             <button
               key={view}
@@ -124,7 +125,7 @@ export function TopBar({
               {t(view === 'code' ? 'narrow.code' : 'narrow.preview')}
             </button>
           ))}
-        </div>
+        </RovingGroup>
       )}
       {narrow && onNewFile && (
         <button
