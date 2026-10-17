@@ -404,17 +404,11 @@ test.describe('the PLAN §2 journey (S23.2) and the final task (S23.3)', () => {
     await expect(panel()).toHaveAttribute('data-step', 'reopen');
     await expect(panel()).toHaveAttribute('data-done', 'true');
     await expect(next()).toHaveText('完成课程');
-    const state = await stored(userData());
-    expect(state.completed).toEqual([
-      'create',
-      'files',
-      'heading',
-      'style',
-      'interaction',
-      'error',
-      'restore',
-      'reopen',
-    ]);
+    // The panel shows the detected step at once; main writes walkthrough.json afterwards (IPC save → serial queue →
+    // atomic temp + rename), so the stored list is polled rather than read once (run 39033418043, Windows shard 1).
+    await expect
+      .poll(async () => (await stored(userData()))?.completed)
+      .toEqual(['create', 'files', 'heading', 'style', 'interaction', 'error', 'restore', 'reopen']);
     await next().click();
     await expect(panel()).toHaveAttribute('data-step', 'offer');
   });

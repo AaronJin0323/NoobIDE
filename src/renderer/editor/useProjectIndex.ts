@@ -42,6 +42,11 @@ export function useProjectIndex(bridge: NoobideApi | undefined, project: OpenedP
     void import('./smart-monaco').then(({ setSmartProject }) => {
       if (!disposed) setSmartProject({ index, rootPath });
     });
+    // S55.2/S55.3: the beginner checks (and their lightbulb fixes) compare paths and selectors with the project's
+    // files, ids and classes.
+    void import('../problems/quick-fix-monaco').then(({ setBeginnerProject }) => {
+      if (!disposed) setBeginnerProject({ projectId, index, rootPath });
+    });
     const unsubscribe = bridge.workspace.onChanged((change) => {
       if (change.projectId === projectId) void index.changed(change.events);
     });
@@ -51,6 +56,7 @@ export function useProjectIndex(bridge: NoobideApi | undefined, project: OpenedP
       index.close();
       setCurrent((shown) => (shown === index ? null : shown));
       void import('./smart-monaco').then(({ setSmartProject }) => setSmartProject(null));
+      void import('../problems/quick-fix-monaco').then(({ setBeginnerProject }) => setBeginnerProject(null));
     };
   }, [bridge, project]);
   return current;

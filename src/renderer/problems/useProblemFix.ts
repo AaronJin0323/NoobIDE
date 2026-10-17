@@ -2,32 +2,37 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ProblemRecord } from '../../shared/problem';
 import {
   canRecheck,
-  isJudged,
+  fixFile,
   nextPhase,
+  recheckOnSave,
   startFix,
+  type FixAction,
   type FixState,
   type NotAppliedReason,
-  type ReplaceTextAction,
 } from './fix-model';
 import { NO_LOADS, type PreviewLoads } from './usePreviewLoads';
 
 export type ApplyOutcome =
   | { readonly kind: 'applied'; readonly version: number }
   | { readonly kind: 'save-failed'; readonly version: number; readonly code: string }
-  | { readonly kind: 'not-applied'; readonly reason: NotAppliedReason };
+  /** `code`: why a file could not be created (S55.3, a workspace FileOpError). */
+  | { readonly kind: 'not-applied'; readonly reason: NotAppliedReason; readonly code?: string };
 
 export type UndoOutcome =
   { readonly kind: 'undone' } | { readonly kind: 'save-failed'; readonly code: string } | { readonly kind: 'changed' };
 
 /** What the workbench provides: the editor edit, the file's save pipeline and the language service's re-check. */
 export interface FixHost {
-  /** Opens the file, puts the fix in as one editor edit and saves it through the file's save pipeline. */
-  apply(action: ReplaceTextAction): Promise<ApplyOutcome>;
+  /**
+   * Opens the file, puts the fix in as one editor edit and saves it through the file's save pipeline (S55.3: for a
+   * missing file, creates it first — never over anything that exists).
+   */
+  apply(action: FixAction, record?: ProblemRecord): Promise<ApplyOutcome>;
   /** Takes the fix back (the editor's undo when nothing changed since) and saves. */
   undo(fix: FixState): Promise<UndoOutcome>;
   /** Saves the file again through its save pipeline. */
   retrySave(relPath: string): Promise<{ readonly ok: true } | { readonly ok: false; readonly code: string }>;
-  /** Asks the language service whether the file still reports the misspelled name on that line (null: no answer). */
+  /** Asks the language service (or the beginner checks) whether the problem is still reported (null: no answer). */
   stillReported(fix: FixState): Promise<boolean | null>;
   /** Calls the listener after every confirmed save of any open file. */
   onSaved(listener: (relPath: string) => void): () => void;
@@ -37,7 +42,10 @@ export interface ProblemFix {
   readonly fix: FixState | null;
   /** Bumped whenever a new fix starts (the card takes focus once per fix). */
   readonly serial: number;
-  apply(record: ProblemRecord, action: ReplaceTextAction): void;
+  /** Where the latest fix was chosen (S55.3): a lightbulb fix leaves focus in the editor. */
+  readonly origin: 'card' | 'lightbulb';
+  /** `origin`: the lightbulb keeps the keyboard in the editor (the card does not take focus). */
+  apply(record: ProblemRecord, action: FixAction, origin?: 'card' | 'lightbulb'): void;
   undo(): void;
   retrySave(): void;
   recheck(): void;
@@ -57,6 +65,7 @@ export function useProblemFix(
   const [fix, setFix] = useState<FixState | null>(null);
   const [staticReports, setStaticReports] = useState<boolean | null>(null);
   const [serial, setSerial] = useState(0);
+  const [origin, setOrigin] = useState<'card' | 'lightbulb'>('card');
   const current = useRef(fix);
   current.current = fix;
   const checks = useRef(0);
@@ -100,26 +109,29 @@ export function useProblemFix(
     if (!host) return undefined;
     return host.onSaved((relPath) => {
       const now = current.current;
-      if (!now || relPath !== now.action.span.file) return;
       // Heard only after the save: a refresh it triggered may already be counted, so this can wait for one more
       // load than needed (never less) — conservative, and the preview's Refresh settles it.
-      if (isJudged(now.phase) || now.phase === 'save-failed' || now.phase === 'unchecked') {
-        recheckNow(now, loadsRef.current.started);
-      }
+      if (now && recheckOnSave(now, relPath)) recheckNow(now, loadsRef.current.started);
     });
   }, [host, recheckNow]);
 
   const apply = useCallback(
-    (record: ProblemRecord, action: ReplaceTextAction) => {
+    (record: ProblemRecord, action: FixAction, from: 'card' | 'lightbulb' = 'card') => {
       if (!host || current.current?.phase === 'applying' || current.current?.phase === 'undoing') return;
       const started = startFix(record, action);
       checks.current += 1;
       setStaticReports(null);
       setFix(started);
+      setOrigin(from);
       setSerial((n) => n + 1);
       const loadsAtRequest = loadsRef.current.started;
-      void host.apply(action).then((outcome) => {
-        if (outcome.kind === 'not-applied') update(started, { phase: 'not-applied', reason: outcome.reason });
+      void host.apply(action, record).then((outcome) => {
+        if (outcome.kind === 'not-applied')
+          update(started, {
+            phase: 'not-applied',
+            reason: outcome.reason,
+            ...(outcome.code ? { saveError: outcome.code } : {}),
+          });
         else if (outcome.kind === 'save-failed')
           update(started, { phase: 'save-failed', version: outcome.version, saveError: outcome.code });
         else {
@@ -148,7 +160,7 @@ export function useProblemFix(
     const now = current.current;
     if (!host || !now || now.phase !== 'save-failed') return;
     const loadsAtRequest = loadsRef.current.started;
-    void host.retrySave(now.action.span.file).then((result) => {
+    void host.retrySave(fixFile(now.action)).then((result) => {
       if (result.ok) recheckNow(now, loadsAtRequest);
       else update(now, { saveError: result.code });
     });
@@ -165,5 +177,5 @@ export function useProblemFix(
     setStaticReports(null);
   }, []);
 
-  return { fix, serial, apply, undo, retrySave, recheck, clear };
+  return { fix, serial, origin, apply, undo, retrySave, recheck, clear };
 }
