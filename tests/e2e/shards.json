@@ -49,6 +49,7 @@
     "palette-quick-open.spec.ts": 1,
     "portability.spec.ts": 1,
     "preview-annotations.spec.ts": 2,
+    "preview-css-swap.spec.ts": 2,
     "preview-isolation.spec.ts": 2,
     "preview-layout.spec.ts": 1,
     "preview-manager.spec.ts": 1,

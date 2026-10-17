@@ -4753,8 +4753,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/decisions/0040-css-hot-swap.md: CDP CSS domain over the page guard session (no preload, no page IPC, no page-world or inline script), qualifying saves, fallback table (HTML/JS, @import, inline style, iframe, syntax, failed), zh-CN/en toolbar wording"
     },
     {
       "id": "S54.2",
@@ -4771,8 +4771,8 @@
       "depends_on": [
         "S54.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/preview-css-swap.spec.ts S54.2 test (no navigation: navigations/timeOrigin/generation unchanged, no page-visible DOM mutation; typed input + scrollY survive a colour change) + preview-isolation.spec.ts green with hot swap (49 e2e passed incl. preview, manager, annotations, runtime-problems) + src/preview/css-swap.test.ts; subagent isolation review: no violations, defects fixed; verify green"
     },
     {
       "id": "S54.3",
@@ -4789,8 +4789,8 @@
       "depends_on": [
         "S54.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/preview-css-swap.spec.ts S54.3 tests (HTML/JS save, @import both ways, not linked → reload with zh-CN/en toolbar words; broken CSS + injected failed swap → reload and NoobIDE warning in Problems, not stale; manual mode waits) @ 6a22fc4; S16 flood/rate-limit tests in preview-isolation.spec.ts green; verify green"
     },
     {
       "id": "S55.1",
