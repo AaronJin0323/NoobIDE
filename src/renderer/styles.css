@@ -31,9 +31,17 @@
   --weight-medium: 500; /* buttons, tabs, titles */
   --weight-strong: 600; /* dialog and welcome headings, the label of a selected / current / pressed control */
 
-  /* Elevation: overlays are the only thing with a shadow; filled controls get a rim */
-  --shadow-overlay: 0 0 0 1px var(--line), 0 12px 32px -12px var(--glass-shadow);
+  /* Elevation: overlays are the only thing with a shadow; filled controls get a rim. S50.3: the shadow takes a tenth
+     of the surface it falls from (one color-mix recipe for both themes), and the overlay's edge is --overlay-rim: a
+     1px line outside it on light, a 1px inner highlight on dark (glass.css), never a lighter border. */
+  --overlay-rim: 0 0 0 1px var(--line);
+  --shadow-overlay: var(--overlay-rim), 0 12px 32px -12px color-mix(in srgb, var(--panel) 10%, var(--glass-shadow));
   --ring-accent: inset 0 0 0 1px var(--accent-rim);
+  /* S50.3: state changes are inset rings, never border changes, so nothing shifts by a pixel. --ring-line is the
+     at-rest frame of a field or card and the frame of a disabled control (with muted text, no opacity); --ring-hover
+     is the frame under the pointer. */
+  --ring-line: inset 0 0 0 1px var(--line);
+  --ring-hover: inset 0 0 0 1px color-mix(in srgb, var(--muted) 40%, var(--line));
 
   /* Sheets (S50.1): the top bar is the window's title bar (S46.9), so a sheet keeps that much clear above and below
      it - at least 32px - and never runs under the window controls. */
@@ -307,7 +315,7 @@ input[type='radio'] {
   justify-content: center;
   gap: 6px;
   height: 32px;
-  padding: 0 10px;
+  padding: 0 11px;
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
@@ -353,7 +361,8 @@ input[type='radio'] {
 }
 .quiet-button:disabled,
 .icon-button:disabled {
-  opacity: 0.5;
+  color: var(--muted);
+  box-shadow: var(--ring-line);
   cursor: default;
 }
 .segmented {
@@ -716,9 +725,11 @@ input[type='radio'] {
 .tab-item:not(.selected):hover {
   background: var(--hover-soft);
 }
-/* The selected tab: the --hover fill, the text colour and a strong label (plus aria-selected). */
+/* The selected tab (S50.3, spec): the --raised fill with the line ring, the text colour and a strong label (plus
+   aria-selected). */
 .tab-item.selected {
-  background: var(--hover);
+  background: var(--raised);
+  box-shadow: var(--ring-line);
 }
 .tab-item.selected .tab {
   color: var(--text);
@@ -801,7 +812,8 @@ input[type='radio'] {
 /* No more tabs on this side: the chevron stays (the strip keeps its width) but fades out. */
 .tabs-scroll:disabled {
   background: none;
-  opacity: 0.35;
+  color: var(--muted);
+  box-shadow: var(--ring-line);
   cursor: default;
 }
 /* "Editor options": Format and the code font size, in a small panel under the button. */
@@ -885,8 +897,8 @@ input[type='radio'] {
 }
 /* S43.2: indentation of the file on screen; a button that opens the indentation menu */
 .editor-status-indent {
-  padding: 0 4px;
-  border: 1px solid transparent;
+  padding: 0 5px;
+  border: 0;
   border-radius: var(--radius-control);
   background: none;
   color: inherit;
@@ -894,7 +906,7 @@ input[type='radio'] {
   cursor: pointer;
 }
 .editor-status-indent:hover {
-  border-color: var(--line);
+  box-shadow: var(--ring-line);
   color: var(--text);
 }
 /* Its menu is open: the --hover fill and the strong label. */
@@ -949,7 +961,9 @@ input[type='radio'] {
   background: color-mix(in srgb, var(--hover) 70%, var(--line));
 }
 .secondary-button:disabled {
-  opacity: 0.5;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: var(--ring-line);
   cursor: not-allowed;
 }
 /* A chip: --raised fill, no border. */
@@ -1298,7 +1312,8 @@ input[type='radio'] {
   font-size: var(--text-md);
   font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease-smooth);
+  /* No fill transition (S50.3): a disabled primary has no fill, and fading the fill in under the white label when it
+     becomes enabled would pass through unreadable contrast. */
 }
 .primary-button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent-fill) 86%, var(--muted));
@@ -1307,7 +1322,9 @@ input[type='radio'] {
   background: color-mix(in srgb, var(--accent-fill) 76%, var(--muted));
 }
 .primary-button:disabled {
-  opacity: 0.5;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: var(--ring-line);
   cursor: not-allowed;
 }
 .file-row {
@@ -1679,17 +1696,18 @@ input[type='radio'] {
   min-width: 0;
   height: 32px;
   padding: 0 10px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: var(--radius-control);
   background: var(--panel);
+  box-shadow: var(--ring-line);
   color: var(--text);
   font: inherit;
-  transition: border-color var(--dur-fast) var(--ease-smooth);
+  transition: box-shadow var(--dur-fast) var(--ease-smooth);
 }
 textarea.text-field {
   height: auto;
   min-height: 32px;
-  padding: 8px 10px;
+  padding: 9px 11px;
   line-height: 1.5;
 }
 select.text-field {
@@ -1699,18 +1717,18 @@ select.text-field {
 .name-input:hover:not(:disabled),
 .preview-select:hover:not(:disabled),
 .preview-console-filter select:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--muted) 40%, var(--line));
+  box-shadow: var(--ring-hover);
 }
 .text-field:focus,
 .name-input:focus,
 .preview-select:focus,
 .preview-console-filter select:focus {
-  border-color: var(--focus);
+  box-shadow: inset 0 0 0 1px var(--focus);
 }
-/* An error is the border plus the message in words (.name-error), never the colour alone. */
+/* An error is the ring plus the message in words (.name-error), never the colour alone. */
 .text-field[aria-invalid='true'],
 .name-input[aria-invalid='true'] {
-  border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
 }
 /* Disabled: muted text on the raised fill, and the not-allowed cursor (not colour alone: the field also stops
    reacting to hover). */
@@ -1725,10 +1743,10 @@ select.text-field {
 .name-input {
   width: 100%;
   height: 24px;
-  padding: 0 6px;
+  padding: 0 7px;
 }
 .name-input[aria-invalid='true'] {
-  border-width: 2px;
+  box-shadow: inset 0 0 0 2px var(--danger);
 }
 .name-error,
 .name-hint {
@@ -1914,10 +1932,7 @@ select.text-field {
 .recovery-actions .primary-button {
   margin-top: 0;
 }
-.recovery-actions .primary-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+
 /* S49.1: "clear all recovery data" lives behind a disclosure, not next to the way out. */
 .recovery-advanced {
   padding-top: 10px;
@@ -2319,11 +2334,7 @@ select.text-field {
   height: 26px;
   padding: 0 8px;
 }
-.preview-toolbar .quiet-button:disabled,
-.preview-advanced .quiet-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+
 .preview-field {
   display: inline-flex;
   align-items: center;
@@ -2485,8 +2496,9 @@ select.text-field {
 }
 .viewport-choice {
   height: 24px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
+  padding: 0 11px;
+  border: 0;
+  box-shadow: var(--ring-line);
   border-radius: var(--radius-control);
   background: transparent;
   color: var(--muted);
@@ -2504,8 +2516,8 @@ select.text-field {
   background: var(--hover);
   color: var(--text);
   font-weight: var(--weight-strong);
-  /* Not colour alone: the chosen width also has the strong (600) label and an outline in the text colour. */
-  border-color: currentColor;
+  /* Not colour alone: the chosen width also has the strong (600) label and a ring in the text colour. */
+  box-shadow: inset 0 0 0 1px currentColor;
 }
 .viewport-note {
   flex-basis: 100%;

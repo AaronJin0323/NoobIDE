@@ -5271,8 +5271,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/design-rules.test.ts (S50.3 block, 6 tests: selector-aware scan — no border change on :hover/:active/[aria-selected|current|pressed|checked|expanded]/.selected and no opacity on :disabled in any stylesheet, forced-colours exempt; --ring-line/--ring-hover tokens; --shadow-overlay = var(--overlay-rim) + color-mix with --panel; dark :root --overlay-rim inner glass-stroke highlight; disabled buttons muted + ring; selected tab --raised; template card hover fill + ring, no scale) + glass/glass-visual/theme/tabs/templates/a11y/key-features-visible/sheets/js-navigation/preview-annotations/reduced-motion e2e green"
     },
     {
       "id": "S50.4",
