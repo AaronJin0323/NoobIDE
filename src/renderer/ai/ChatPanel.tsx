@@ -1,6 +1,6 @@
 import { isImeKey } from '../workbench/ime';
 import { useEffect, useRef, type ReactNode } from 'react';
-import type { MessageKey } from '../i18n/index';
+import type { Locale, MessageKey } from '../i18n/index';
 import { useI18n } from '../i18n/I18nProvider';
 import { fill } from '../recovery/format';
 import {
@@ -22,6 +22,10 @@ import { Markdown, type MarkdownCode, type MarkdownLabels } from './Markdown';
 import { AiIcon, CloseIcon, JumpLatestIcon, NewChatIcon, PastChatsIcon } from './ai-icons';
 import { SavedProposal } from './SavedChatsList';
 import { useScrollLatch } from './useScrollLatch';
+import { useComposerSuggestions, type ComposerSources } from './ComposerSuggestions';
+import { CopyMessageButton, MessageActions, ReaskButton, UserPrompt } from './ChatMessage';
+import { RetryControls, causeText } from './RetryControls';
+import { canRetry } from './chat-controller';
 import { RovingGroup } from '../workbench/RovingGroup'; // S49.2
 import { StepsFold, groupAnswer } from './StepsFold';
 import { staggerStyle } from '../theme/stagger';
@@ -40,6 +44,10 @@ export interface ChatPanelActions {
   setKind(kind: TurnKind): void;
   removeChip(id: string): void;
   addCurrentFile(): boolean;
+  /** S48.4: an accepted @file mention becomes a file chip. */
+  addFile?(relPath: string): void;
+  /** S48.7: asks a failed question again (Retry, Retry now). */
+  retry?(turnId: string): Promise<void>;
   addSelection(): boolean;
   /** S38.2: adds a Preview chip (snapshot of the running preview). */
   addPreview(): Promise<boolean>;
@@ -59,6 +67,8 @@ export interface ChatPanelProps {
   readonly extensions?: AiChatExtensions | undefined;
   /** S39.1: saved chats of the open project (absent without a project or a history bridge). */
   readonly pastChats?: PastChatsSlot | undefined;
+  /** S48.4: the `/` command list and the `@` file list (absent: typing / or @ is just text). */
+  readonly composer?: ComposerSources | undefined;
   /** S48.5: code blocks coloured in the current scheme, with Insert at cursor / Replace selection into the editor. */
   readonly codeBlocks?: MarkdownCode | undefined;
 }
@@ -72,8 +82,8 @@ export interface PastChatsSlot {
 }
 
 export function ChatPanel(props: ChatPanelProps) {
-  const { t } = useI18n();
-  return <ChatPanelView {...props} t={t} />;
+  const { t, locale } = useI18n();
+  return <ChatPanelView {...props} t={t} locale={locale} />;
 }
 
 const STATE_TEXT: Partial<Record<ChatState['availability']['kind'], MessageKey>> = {
@@ -166,9 +176,11 @@ export function ChatPanelView({
   onOpenSettings,
   extensions,
   pastChats,
+  composer,
   codeBlocks,
   t,
-}: ChatPanelProps & { t: Translate }) {
+  locale = 'zh-CN',
+}: ChatPanelProps & { t: Translate; locale?: Locale }) {
   const key = projectKeyOf(projectId);
   const draft = draftOf(state, key);
   const conversation = activeConversation(state, key);
@@ -179,6 +191,16 @@ export function ChatPanelView({
   const grow = growByCss() ? 'css' : 'mirror';
   const input = useRef<HTMLTextAreaElement>(null);
   const body = useRef<HTMLDivElement>(null);
+  const suggest = useComposerSuggestions({
+    prompt: draft.prompt,
+    setPrompt: (prompt) => actions.setPrompt(prompt),
+    input,
+    sources: composer,
+    addFile: (relPath) => actions.addFile?.(relPath),
+    projectId,
+    t,
+    locale,
+  });
 
   useEffect(() => {
     if (state.focusSeq === 0) return;
@@ -222,6 +244,15 @@ export function ChatPanelView({
   ) : (
     <p className="ai-hint">{t('ai.settingsWhere')}</p>
   );
+
+  // S48.6 "Ask again": the question goes back into the composer (nothing is sent until the user sends).
+  const reask = (prompt: string) => {
+    actions.setPrompt(prompt);
+    const area = input.current;
+    if (!area) return;
+    area.focus();
+    requestAnimationFrame(() => area.setSelectionRange(area.value.length, area.value.length));
+  };
 
   const stateKey = STATE_TEXT[availability.kind];
   const showConsent = ready && projectId !== null && state.consentFor === key;
@@ -330,18 +361,26 @@ export function ChatPanelView({
                 const isRunning = turn.status === 'sending' || turn.status === 'streaming';
                 return (
                   <article key={turn.id} className="ai-turn" data-testid="ai-turn" data-status={turn.status}>
-                    <div className="ai-msg ai-msg-user">
-                      <p className="ai-who">{t('ai.chat.you')}</p>
-                      <p className="ai-prompt" data-testid="ai-prompt">
-                        {turn.prompt}
-                      </p>
-                      <p className="ai-sent-with" data-testid="ai-sent-with">
-                        {turn.context.length > 0
-                          ? fill(t('ai.chat.sentWith'), {
-                              items: turn.context.map((item) => contextLabel(t, item)).join(t('ai.chat.separator')),
-                            })
-                          : t('ai.chat.sentNothing')}
-                      </p>
+                    {/* S48.6: the user's bubble (long ones collapse) and its quiet action row. */}
+                    <div className="ai-msg-group ai-msg-group-user">
+                      <div className="ai-msg ai-msg-user">
+                        <p className="ai-who">{t('ai.chat.you')}</p>
+                        <UserPrompt text={turn.prompt} t={t} />
+                        <p className="ai-sent-with" data-testid="ai-sent-with">
+                          {turn.context.length > 0
+                            ? fill(t('ai.chat.sentWith'), {
+                                items: turn.context.map((item) => contextLabel(t, item)).join(t('ai.chat.separator')),
+                              })
+                            : t('ai.chat.sentNothing')}
+                        </p>
+                      </div>
+                      <MessageActions
+                        t={t}
+                        actions={[
+                          <CopyMessageButton key="copy" text={turn.prompt} t={t} />,
+                          <ReaskButton key="reask" t={t} onReask={() => reask(turn.prompt)} />,
+                        ]}
+                      />
                     </div>
                     <div className="ai-msg ai-msg-answer" aria-busy={isRunning} data-testid="ai-answer">
                       <p className="ai-who">{t('ai.chat.assistant')}</p>
@@ -364,6 +403,11 @@ export function ChatPanelView({
                       {turn.error && (
                         <div className="ai-error" role="alert" data-testid="ai-error" data-code={turn.error.code}>
                           <p>{errorExplanation(t, turn.error.code)}</p>
+                          {causeText(turn, t) !== null && (
+                            <p className="ai-hint" data-testid="ai-error-cause">
+                              {causeText(turn, t)}
+                            </p>
+                          )}
                           {turn.error.message && (
                             <p className="ai-hint">{fill(t('ai.error.details'), { message: turn.error.message })}</p>
                           )}
@@ -371,6 +415,9 @@ export function ChatPanelView({
                             turn.error.code === 'no-key' ||
                             turn.error.code === 'disabled') &&
                             settingsHelp}
+                          {actions.retry && canRetry(turn) && turn === conversation.turns.at(-1) && (
+                            <RetryControls turn={turn} t={t} onRetry={() => void actions.retry?.(turn.id)} />
+                          )}
                         </div>
                       )}
                       {statusKey && (
@@ -386,6 +433,12 @@ export function ChatPanelView({
                             output: turn.usage.outputTokens.toLocaleString(),
                           })}
                         </p>
+                      )}
+                      {!isRunning && answerText(turn) !== '' && (
+                        <MessageActions
+                          t={t}
+                          actions={[<CopyMessageButton key="copy" text={answerText(turn)} t={t} />]}
+                        />
                       )}
                     </div>
                   </article>
@@ -537,6 +590,7 @@ export function ChatPanelView({
             </p>
           )}
           {/* S48.2: grows with its content (field-sizing, or the hidden mirror where that is unsupported). */}
+          {suggest.list /* S48.4 */}
           <div className="ai-input-grow" data-grow={grow}>
             <textarea
               ref={input}
@@ -546,8 +600,15 @@ export function ChatPanelView({
               aria-describedby="ai-input-hint"
               data-testid="ai-input"
               value={draft.prompt}
-              onChange={(event) => actions.setPrompt(event.target.value)}
+              {...suggest.inputProps}
+              {...suggest.focusProps}
+              onChange={(event) => {
+                suggest.trackCaret(event.target);
+                actions.setPrompt(event.target.value);
+              }}
+              onSelect={(event) => suggest.trackCaret(event.currentTarget)}
               onKeyDown={(event) => {
+                if (suggest.onKeyDown(event)) return;
                 if (event.key !== 'Enter' || event.shiftKey || isImeKey(event.nativeEvent)) return;
                 event.preventDefault();
                 if (canSend) void actions.send();
@@ -563,6 +624,7 @@ export function ChatPanelView({
           <div className="ai-composer-row">
             <p className="ai-hint" id="ai-input-hint">
               {t('ai.chat.inputHint')}
+              {composer && ` ${t('ai.composer.triggerHint')}`}
             </p>
             {running ? (
               <button

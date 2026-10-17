@@ -8,6 +8,8 @@ import type { AiModelInfo } from '../../shared/ipc/ai-contract';
 import { guardedFetch, PROVIDER_ORIGINS, SILENT_LOGGER } from './egress';
 import {
   ProviderError,
+  requestOptions,
+  retryAfterOf,
   toolInputProblem,
   type AiProvider,
   type ProviderEvent,
@@ -185,7 +187,7 @@ async function* streamTurn(client: OpenAiClientLike, request: ProviderStreamRequ
   let usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 };
   const pending = new Map<number, { id: string; name: string; args: string }>();
   try {
-    const stream = await client.chat.completions.create(params, request.signal ? { signal: request.signal } : {});
+    const stream = await client.chat.completions.create(params, requestOptions(request));
     for await (const chunk of stream) {
       if (chunk.usage) {
         usage = {
@@ -258,14 +260,16 @@ export function mapOpenAiError(e: unknown, signal?: AbortSignal): ProviderError 
   if (e instanceof OpenAI.AuthenticationError || e instanceof OpenAI.PermissionDeniedError) {
     return new ProviderError('unauthorized', `openai ${e.status}`, e.status);
   }
-  if (e instanceof OpenAI.RateLimitError) return new ProviderError('rate-limited', 'openai 429', 429);
+  if (e instanceof OpenAI.RateLimitError) {
+    return new ProviderError('rate-limited', 'openai 429', 429, retryAfterOf(e.headers));
+  }
   if (e instanceof OpenAI.NotFoundError) return new ProviderError('model-not-found', 'openai 404', 404);
   if (e instanceof OpenAI.APIConnectionError) return new ProviderError('offline', 'openai connection failed');
   if (e instanceof OpenAI.APIError) {
     if (e.status === 413 || e.code === 'context_length_exceeded') {
       return new ProviderError('context-too-large', `openai ${e.status ?? 'error'}`, e.status);
     }
-    return new ProviderError('provider-error', `openai ${e.status ?? 'error'}`, e.status);
+    return new ProviderError('provider-error', `openai ${e.status ?? 'error'}`, e.status, retryAfterOf(e.headers));
   }
   return new ProviderError('provider-error', e instanceof Error ? e.name : 'unknown');
 }

@@ -219,7 +219,16 @@ export type AiEvent =
       readonly type: 'done';
       readonly usage?: { readonly inputTokens: number; readonly outputTokens: number };
     }
-  | { readonly requestId: string; readonly type: 'error'; readonly code: AiErrorCode; readonly message: string };
+  | {
+      readonly requestId: string;
+      readonly type: 'error';
+      readonly code: AiErrorCode;
+      readonly message: string;
+      /** S48.7: the provider's HTTP status (429, 503, …) when the failure came from a response. */
+      readonly status?: number;
+      /** S48.7: the provider's Retry-After in seconds, when it sent one. */
+      readonly retryAfterSeconds?: number;
+    };
 
 export interface AiProposalDecision {
   readonly requestId: string;

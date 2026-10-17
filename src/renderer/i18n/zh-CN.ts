@@ -18,6 +18,7 @@ import { searchZhCN } from './search'; // S51
 import { fileManagementZhCN } from './file-management'; // S52
 import { noticesZhCN } from './notices'; // S50.2
 import { imageViewerZhCN } from './image-viewer'; // S52.6
+import { aiComposerZhCN } from './ai-composer'; // S48.4/S48.6/S48.7
 import { navigationZhCN } from './navigation'; // S49.4 / S49.5
 import { motionZhCN } from './motion'; // S47
 /**
@@ -338,6 +339,7 @@ export const zhCN = {
   ...motionZhCN, // S47 motion and detail
   ...noticesZhCN, // S50.2 app notices
   ...imageViewerZhCN, // S52.6 image viewer tab
+  ...aiComposerZhCN, // S48.4/S48.6/S48.7 chat composer, long messages, drafts and backoff
   ...navigationZhCN, // S49.4 / S49.5 console search and copy, palette recents, All tabs
   // --- S18.3 formatting ---
   'format.button': '整理格式',

@@ -1,7 +1,7 @@
 import { isImeKey } from '../workbench/ime';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
-import { otherLocale, translate, type MessageKey } from '../i18n/index';
+import { otherLocale, translate, type Locale, type MessageKey } from '../i18n/index';
 import type { CommandId } from '../../shared/commands';
 import { SearchIcon } from '../workbench/icons';
 import { SheetFrame } from '../workbench/Sheet';
@@ -22,6 +22,28 @@ export interface PaletteCommand {
   readonly shortcut: string | null;
   /** A choice among several (theme): whether it is the current one; null for actions. */
   readonly checked: boolean | null;
+}
+
+/**
+ * The commands as the matcher reads them: labels in the interface language and the other one, plus keywords. Shared
+ * with the chat composer's `/` list (S48.4), so both find a command by the same words.
+ */
+export function paletteEntriesOf(
+  commands: readonly PaletteCommand[],
+  t: (key: MessageKey) => string,
+  locale: Locale,
+): PaletteEntry[] {
+  const other = otherLocale(locale);
+  return commands.map((command) => {
+    const keywords = PALETTE_KEYWORDS[command.id];
+    return {
+      id: command.id,
+      label: t(command.label),
+      otherLabel: translate(other, command.label),
+      shortcut: command.shortcut,
+      ...(keywords ? { keywords: [...keywordList(t(keywords)), ...keywordList(translate(other, keywords))] } : {}),
+    };
+  });
 }
 
 interface CommandPaletteProps {
@@ -57,22 +79,7 @@ export function CommandPalette({ commands, onClose, files, onOpenFile, recents =
   const listId = useId();
   const optionId = (index: number) => `${listId}-option-${index}`;
 
-  const entries: PaletteEntry[] = useMemo(
-    () =>
-      commands.map((command) => {
-        const keywords = PALETTE_KEYWORDS[command.id];
-        return {
-          id: command.id,
-          label: t(command.label),
-          otherLabel: translate(otherLocale(locale), command.label),
-          shortcut: command.shortcut,
-          ...(keywords
-            ? { keywords: [...keywordList(t(keywords)), ...keywordList(translate(otherLocale(locale), keywords))] }
-            : {}),
-        };
-      }),
-    [commands, t, locale],
-  );
+  const entries: PaletteEntry[] = useMemo(() => paletteEntriesOf(commands, t, locale), [commands, t, locale]);
   // S51.5: quick open searches files until the query starts with ">" (then the rest of it searches commands).
   const filesMode = files !== undefined && !query.startsWith('>');
   const commandQuery = files !== undefined ? query.replace(/^>\s*/, '') : query;

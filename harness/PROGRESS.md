@@ -22,6 +22,77 @@ the latest entry to the next session, so write it for a reader with zero context
 
 **Next up:** PR #33 (S48.4/S48.6/S48.7) is the last open M18 PR.
 
+## Session S48c (side session) — 2026-10-18 — Chat composer, long messages, zero-loss drafts and backoff (S48.4, S48.6, S48.7)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m18-s48-composer-071b54` (PR
+#33), cut from the M18 plan branch with S47.1. One of five parallel M18 sessions (S47, S48 blocks, S48 composer,
+S49, S50).
+
+**Done**
+
+- **S48.4** `ai/composer-triggers.ts`: the trigger grammar (`/` opens the command list, `@` the project's files, only
+  at the start or after whitespace; trailing Latin and CJK punctuation stripped, backslashes normalised, mentions
+  capped at 256 and paths at 1024 characters). `ComposerSuggestions.tsx` is the list: the `/` list is the palette's
+  list of runnable commands (`paletteEntriesOf`, shared with CommandPalette) ranked by the palette matcher
+  (`searchPalette`, now generic over `MatchEntry`); the `@` list is the project index's files (or a bounded
+  `listDir` walk, `ai/project-files.ts`, while the index loads). ↑/↓ wrap, Enter/Tab accept, Escape closes only the
+  list (stopPropagation), all behind `isImeKey`. An accepted command removes `/word` and runs it; an accepted file
+  replaces `@word` with its path and becomes a file chip (`controller.addFile`). The textarea stays a textbox
+  (aria-controls / aria-activedescendant / aria-autocomplete while open). The three Add buttons are unchanged.
+- **S48.6** `ai/ChatMessage.tsx`: user messages over 300 px get `data-collapse="collapsed"` (max-height 300px, 3rem
+  mask fade) and a Show more / Show less button (word + chevron, aria-expanded/aria-controls), measured with a
+  ResizeObserver. Each finished message has a `role=group` action row (Copy; Ask again on questions, which puts the
+  question back in the composer) at opacity 0 until `:hover`, shown by `:focus-within` (never display:none, so Tab
+  reaches it); always visible under `(hover: none)`.
+- **S48.7** Drafts: chat-model drafts are now per conversation (`draftKeyOf`: the new conversation keeps the old
+  per-project key, a started one is `project\0conversation`; the draft moves into its conversation on send).
+  `ai/draft-sync.ts` keeps the shown draft 300 ms after the last change through the new `window.noobide.aiDrafts`
+  bridge (`shared/ipc/ai-draft-contract.ts` + strict parser `ai-draft-parse.ts`, `main/ai-draft-ipc.ts` with the
+  usual sender/payload checks) into `ai/draft-store.ts`: `<userData>/ai-drafts/<projectKey>.json` (and
+  `no-project.json`), atomic, serialized, 50 drafts per file and 8 MB, damaged file moved aside, newer-version file
+  never written. Key = saved chat id or `new`. On start / project switch the `new` draft is restored (never over
+  typed text) with the status line “已恢复你上次没有发送的内容。”; a saved chat's draft comes back when it is reopened.
+  Preview chips are not kept (their snapshot expires). Deleting a project's saved chats also deletes its drafts.
+  Flushed on `beforeunload`. A save failure keeps the text and says so once.
+  Retry/backoff: error events carry the provider's `status` and `retryAfterSeconds` (ProviderError →
+  requestErrorOf / ModelPortError → agent loop; `retryAfterOf` reads only the header). `ai/backoff.ts` is the pure
+  model: 429/`rate-limited` and 503 wait min(max(Retry-After, 5 s)·2^(n−1)·jitter 0.85–1.15, 600 s), three automatic
+  retries, then manual. The controller re-asks the failed turn in place (`retry`, `retryStarted`), never one that
+  proposed changes. `RetryControls.tsx`: cause line (HTTP 429 / 503) always shown, a `role=timer` countdown in words
+  (“12 秒后自动重试（第 1 次，最多 3 次）”, “1 minute 20 seconds”), Retry now / Retry, and the “tried 3 times” note.
+- Separate subagent review of S48.7 (CLAUDE.md) found five should-fix issues, all fixed with tests: an empty draft
+  in another unsaved conversation deleted the shared `new` draft; an unreadable drafts file (locked) was overwritten;
+  the quit did not wait for draft writes (main's `will-quit` now awaits `AiDraftStore.flush()`, the renderer sends
+  the last batch unchained on `beforeunload`); the SDKs' own retries (2 by default) stacked on the backoff
+  (`requestOptions`: `maxRetries: 0` for chat and agent streams, inline/edit keep them); a stale countdown on an
+  earlier question (a new question ends it; Retry only on the last question). Also: a draft cut to the store's
+  limits is announced, and deleting a saved chat deletes its draft.
+- Install guide (both languages): `ai-drafts\` added to the app-data table.
+
+**Evidence:** see each feature's evidence in features.json. Unit: composer-triggers (9), project-files (3),
+chat-composer (9), backoff (5), drafts-retry (15), retry-after (3); integration tests/integration/ai-drafts.test.ts
+(6). e2e `tests/e2e/ai-composer.spec.ts` (new, shard 2) 7/7 on the packaged build; ai-chat, ai-chat-engine,
+ai-history, ai-agent, ai-preview, a11y, commands specs re-run. Separate subagent review of S48.7 against the criteria
+and AGENTS.md invariants before marking it done.
+
+**Decisions:** Retry re-asks the failed question in place (same turn, same context) rather than refilling the
+composer; the question stays visible in the log. A conversation that is not saved yet keeps its draft under `new`
+(it is what the panel shows after a restart). HTTP status reaches the renderer as two optional fields on the error
+event (no new error code), so the 503 cause is shown without changing the provider error mapping.
+
+Accepted after review: text typed before a project's drafts finish loading wins over the kept `new` draft; a
+restored annotation chip has no ranges (proposals are not marked inside it); Retry is offered for every failed
+question without proposals (after fixing a key or switching AI on, Retry works).
+
+**Problems / risks:** e2e builds of parallel sessions share `%TEMP%\electron-packager`; one build failed with ENOENT
+on another session's template and passed when re-run.
+
+**Next up**
+
+1. Remaining M18 work is in the sibling sessions' PRs (S47.2–S47.5, S48.5/S48.8, S49.x, S50.x).
+2. Ideas / backlog candidates: a “Stop retrying” control during the countdown; restoring Preview chips by taking a
+   fresh snapshot.
+
 ## Session 49 (side session) — 2026-10-18 — Roving focus, console tools, palette recents, container queries (S49.2, S49.4–S49.6)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m18-s49-nav-193d79` (PR #35), cut

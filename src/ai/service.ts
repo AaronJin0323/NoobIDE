@@ -533,7 +533,7 @@ export class AiService {
           ? ({ code: 'cancelled', message: 'cancelled' } as const)
           : requestErrorOf(e);
       code = mapped.code;
-      send({ requestId, type: 'error', code: mapped.code, message: mapped.message });
+      send({ requestId, type: 'error', ...mapped });
     } finally {
       clearTimeout(timer);
       this.running.delete(requestId);
@@ -699,11 +699,31 @@ function testErrorOf(e: unknown): AiTestError {
   return (e instanceof ProviderError && TEST_ERRORS[e.code]) || 'provider-error';
 }
 
-export function requestErrorOf(e: unknown): { code: AiErrorCode; message: string } {
+export function requestErrorOf(e: unknown): {
+  code: AiErrorCode;
+  message: string;
+  status?: number;
+  retryAfterSeconds?: number;
+} {
   if (e instanceof RefusedError) return { code: 'refused', message: e.message };
   if (e instanceof ProviderError) {
     if (e.code === 'model-not-found') return { code: 'provider-error', message: `model not found: ${e.message}` };
-    return { code: REQUEST_ERRORS[e.code] ?? 'provider-error', message: e.message };
+    return {
+      code: REQUEST_ERRORS[e.code] ?? 'provider-error',
+      message: e.message,
+      ...httpDetails(e.status, e.retryAfterSeconds),
+    };
   }
   return { code: 'provider-error', message: e instanceof Error ? e.name : 'unknown error' };
+}
+
+/** S48.7: the HTTP status and Retry-After of a provider failure, for the renderer's backoff (never a body). */
+export function httpDetails(
+  status: number | undefined,
+  retryAfterSeconds: number | undefined,
+): { status?: number; retryAfterSeconds?: number } {
+  return {
+    ...(status !== undefined && Number.isInteger(status) ? { status } : {}),
+    ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+  };
 }

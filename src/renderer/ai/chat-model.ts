@@ -76,7 +76,24 @@ export interface ChatTurn {
   readonly parts: readonly TurnPart[];
   readonly usage?: { readonly inputTokens: number; readonly outputTokens: number };
   /** An AiErrorCode, or an IPC error code ('invalid-request', 'forbidden-sender') shown with the generic text. */
-  readonly error?: { readonly code: AiErrorCode | string; readonly message: string };
+  readonly error?: {
+    readonly code: AiErrorCode | string;
+    readonly message: string;
+    /** S48.7: the provider's HTTP status and Retry-After, for the backoff (backoff.ts). */
+    readonly status?: number;
+    readonly retryAfterSeconds?: number;
+  };
+  /** S48.7: the question's automatic retries after 429/503 (backoff.ts). */
+  readonly retry?: TurnRetry;
+}
+
+export interface TurnRetry {
+  /** Automatic retries started so far (at most BACKOFF.maxAutomatic). */
+  readonly automatic: number;
+  /** When the next automatic retry starts (ms since the epoch); null while none is waiting. */
+  readonly dueAt: number | null;
+  /** Why the provider made us wait (429 / 503), or null. */
+  readonly cause: 429 | 503 | null;
 }
 
 export interface Conversation {
@@ -123,6 +140,14 @@ export interface ChatState {
   readonly notice: string | null;
   /** Bumped when the input should take the keyboard focus (panel opened by a command, Explain, Ask AI). */
   readonly focusSeq: number;
+}
+
+/**
+ * S48.7: drafts are per conversation. The draft of a project's conversation not started yet is under the project's
+ * key (as before); a started conversation's draft is under the project key and its id.
+ */
+export function draftKeyOf(projectKey: ProjectKey, conversationId: string | null | undefined): string {
+  return conversationId ? `${projectKey}\u0000${conversationId}` : projectKey;
 }
 
 export const INITIAL_CHAT_STATE: ChatState = {
@@ -172,7 +197,21 @@ export type ChatAction =
   /** S39.1: a saved chat was reopened: it joins the list (once) and is shown. */
   | { readonly type: 'restoreConversation'; readonly conversation: Conversation }
   /** S39.1: a saved chat was deleted: it leaves the list (a running one is kept). */
-  | { readonly type: 'removeConversation'; readonly id: string };
+  | { readonly type: 'removeConversation'; readonly id: string }
+  /**
+   * S48.7: a draft kept in app data comes back (after a restart, or when its saved chat is reopened). It never
+   * replaces anything typed meanwhile: only an empty draft is filled, and the notice says so.
+   */
+  | {
+      readonly type: 'restoreDraft';
+      readonly projectKey: ProjectKey;
+      readonly conversationId: string | null;
+      readonly draft: ChatDraft;
+    }
+  /** S48.7: an automatic retry of a failed question is waiting (dueAt) or was given up (dueAt null). */
+  | { readonly type: 'retryScheduled'; readonly turnId: string; readonly retry: TurnRetry }
+  /** S48.7: a failed question is asked again in place (Retry, or an automatic retry). */
+  | { readonly type: 'retryStarted'; readonly turnId: string; readonly automatic: boolean };
 
 const TITLE_CHARS = 40;
 export function titleOf(prompt: string): string {
@@ -187,8 +226,11 @@ export function chipKey(item: AiContextItem): string {
 }
 
 export function draftOf(state: ChatState, key: ProjectKey): ChatDraft {
-  return state.drafts[key] ?? EMPTY_DRAFT;
+  return state.drafts[draftKeyOf(key, state.active[key])] ?? EMPTY_DRAFT;
 }
+
+/** S48.7: nothing typed and nothing added. */
+export const isEmptyDraft = (draft: ChatDraft): boolean => draft.prompt === '' && draft.chips.length === 0;
 
 export function activeConversation(state: ChatState, key: ProjectKey): Conversation | null {
   const id = state.active[key];
@@ -222,7 +264,7 @@ export function historyOf(conversation: Conversation | null): AiChatMessage[] {
 }
 
 function withDraft(state: ChatState, key: ProjectKey, update: (draft: ChatDraft) => ChatDraft): ChatState {
-  return { ...state, drafts: { ...state.drafts, [key]: update(draftOf(state, key)) } };
+  return { ...state, drafts: { ...state.drafts, [draftKeyOf(key, state.active[key])]: update(draftOf(state, key)) } };
 }
 
 function mapTurn(state: ChatState, match: (turn: ChatTurn) => boolean, update: (turn: ChatTurn) => ChatTurn) {
@@ -268,7 +310,17 @@ function applyEvent(turn: ChatTurn, event: AiEvent): ChatTurn {
     case 'error':
       return event.code === 'cancelled'
         ? { ...turn, status: 'cancelled', stopping: false }
-        : { ...turn, status: 'error', stopping: false, error: { code: event.code, message: event.message } };
+        : {
+            ...turn,
+            status: 'error',
+            stopping: false,
+            error: {
+              code: event.code,
+              message: event.message,
+              ...(event.status !== undefined ? { status: event.status } : {}),
+              ...(event.retryAfterSeconds !== undefined ? { retryAfterSeconds: event.retryAfterSeconds } : {}),
+            },
+          };
   }
 }
 
@@ -314,6 +366,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // A conversation still answering keeps going in the list; Explain starts a fresh one.
       const active =
         current && current.turns.length > 0 ? { ...state.active, [action.projectKey]: null } : state.active;
+      const draftKey = draftKeyOf(action.projectKey, active[action.projectKey]);
       return {
         ...state,
         open: true,
@@ -323,7 +376,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         focusSeq: state.focusSeq + 1,
         drafts: {
           ...state.drafts,
-          [action.projectKey]: {
+          [draftKey]: {
             prompt: action.prompt,
             chips: action.chips,
             mode: action.mode,
@@ -334,9 +387,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     }
     case 'turnStarted': {
       const exists = state.conversations.some((c) => c.id === action.conversationId);
+      // S48.7: a new question ends an earlier one's waiting automatic retry.
+      const settled = (turn: ChatTurn): ChatTurn =>
+        turn.retry?.dueAt ? { ...turn, retry: { ...turn.retry, dueAt: null } } : turn;
       const conversations = exists
         ? state.conversations.map((c) =>
-            c.id === action.conversationId ? { ...c, turns: [...c.turns, action.turn] } : c,
+            c.id === action.conversationId ? { ...c, turns: [...c.turns.map(settled), action.turn] } : c,
           )
         : [
             ...state.conversations,
@@ -348,9 +404,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             },
           ];
       // The chips stay for a follow-up question (the user removes what no longer applies); the mode is per question.
-      const drafts = {
-        ...state.drafts,
-        [action.projectKey]: { ...draftOf(state, action.projectKey), prompt: '', mode: 'chat' as const },
+      // S48.7: the draft moves with the question into its conversation; a new conversation starts empty.
+      const drafts: Record<string, ChatDraft> = { ...state.drafts };
+      delete drafts[draftKeyOf(action.projectKey, state.active[action.projectKey])];
+      drafts[draftKeyOf(action.projectKey, action.conversationId)] = {
+        ...draftOf(state, action.projectKey),
+        prompt: '',
+        mode: 'chat' as const,
       };
       return {
         ...state,
@@ -413,7 +473,43 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       if (!target || runningTurn(target)) return state;
       const active =
         state.active[target.projectKey] === action.id ? { ...state.active, [target.projectKey]: null } : state.active;
-      return { ...state, conversations: state.conversations.filter((c) => c.id !== action.id), active };
+      const drafts: Record<string, ChatDraft> = { ...state.drafts };
+      delete drafts[draftKeyOf(target.projectKey, target.id)];
+      return { ...state, conversations: state.conversations.filter((c) => c.id !== action.id), active, drafts };
     }
+    case 'restoreDraft': {
+      const key = draftKeyOf(action.projectKey, action.conversationId);
+      if (isEmptyDraft(action.draft) || !isEmptyDraft(state.drafts[key] ?? EMPTY_DRAFT)) return state;
+      const shown = draftKeyOf(action.projectKey, state.active[action.projectKey]) === key;
+      return {
+        ...state,
+        drafts: { ...state.drafts, [key]: action.draft },
+        ...(shown ? { notice: 'ai.draft.restored' } : {}),
+      };
+    }
+    case 'retryScheduled':
+      return mapTurn(
+        state,
+        (turn) => turn.id === action.turnId && turn.status === 'error',
+        (turn) => ({ ...turn, retry: action.retry }),
+      );
+    case 'retryStarted':
+      return mapTurn(
+        state,
+        (turn) => turn.id === action.turnId && turn.status === 'error',
+        (turn) => {
+          const { error: _error, usage: _usage, ...rest } = turn;
+          // An automatic retry counts; a Retry by hand starts the count again.
+          const automatic = action.automatic ? (turn.retry?.automatic ?? 0) + 1 : 0;
+          return {
+            ...rest,
+            requestId: null,
+            status: 'sending',
+            stopping: false,
+            parts: [],
+            retry: { automatic, dueAt: null, cause: turn.retry?.cause ?? null },
+          };
+        },
+      );
   }
 }

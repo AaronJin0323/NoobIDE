@@ -5102,8 +5102,8 @@
       "depends_on": [
         "S48.3"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/ai/composer-triggers.test.ts (9 tests: / and @ at start/after whitespace incl. ideographic space, never inside words, Latin+CJK trailing punctuation, backslashes, 256/1024 caps, replace) + project-files.test.ts (3) + chat-composer.test.ts (3 renderToStaticMarkup, both locales); / list = Workbench paletteCommands() via paletteEntriesOf + generic searchPalette; tests/e2e/ai-composer.spec.ts S48.4 (3 passed on the packaged build: arrows wrap, Enter runs toggle-problems found via English, Escape closes only the list, @页面 Tab -> file chip '子 文件夹/页面 二.html' with Add buttons visible, ，and backslash matching, composing Enter/Escape ignored); verify --quick green @ 6ef253b"
     },
     {
       "id": "S48.5",
@@ -5131,8 +5131,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/ai/chat-composer.test.ts S48.6 (6 tests: 300px threshold model, CSS 300px + 3rem mask fade, renderToStaticMarkup action rows with group/button names in zh-CN and en, none while streaming, opacity 0 + :hover/:focus-within reveal, never display:none); tests/e2e/ai-composer.spec.ts S48.6 on the packaged build (40-line question collapsed <=300px, 展开全文 + icon, aria-expanded, 收起 restores; row opacity 0 -> Tab reaches Copy and Ask again (opacity 1) -> Ask again refills the composer; hover reveals; axeScan serious/critical = []) @ e1778ab"
     },
     {
       "id": "S48.7",
@@ -5146,8 +5146,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/ai/backoff.test.ts (5: 429/503 only, min(max(base,5s)*2^(n-1)*jitter 0.85-1.15,600s), 3 automatic then manual, countdown parts) + drafts-retry.test.ts (18: 300ms debounce, restore after restart with notice, never over typed text, per-conversation keys incl. reopened saved chat, unsaved/no-project slot, Preview chips not kept, failure/truncation notice, Retry in place with same context, 5/10/20s then manual, Retry-After base, Retry now cancels, stale countdown ended, no retry after proposals, worded timer zh-CN/en) + tests/integration/ai-drafts.test.ts (7: sender/payload checks, app-data only (project folder untouched), atomic, corrupt moved aside, newer/unreadable never written, caps, no-project file, no draft text in logs) + src/ai/providers/retry-after.test.ts (4); e2e tests/e2e/ai-composer.spec.ts S48.7 on the packaged build (offline failure keeps the question + Retry answers in place; 503 cause + role=timer '5 秒后自动重试（第 1 次，最多 3 次）' then automatic answer; draft in <userData>/ai-drafts, project unchanged, restored after a real restart with 已恢复… status); separate subagent review: 5 findings fixed and re-verified; verify green @ 7e30755"
     },
     {
       "id": "S48.8",

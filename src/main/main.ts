@@ -322,12 +322,16 @@ function start(): void {
     // A project opened (or a tab changed) right before quitting is still remembered: the quit waits briefly for the
     // recent list and session writes already queued. app.exit afterwards, as the quit events have already run once.
     let appDataFlushed = false;
+    /** S48.7: the AI chat's unsent drafts (set up further below); the quit waits for their writes too. */
+    let aiDrafts: { flush(): Promise<void> } | null = null;
     app.on('will-quit', (event) => {
       if (appDataFlushed) return;
       appDataFlushed = true;
       event.preventDefault();
       const cap = new Promise<void>((resolve) => setTimeout(resolve, 3_000));
-      void Promise.race([Promise.allSettled([recent.flush(), sessionStore.flush()]), cap]).then(() => app.exit(0));
+      void Promise.race([Promise.allSettled([recent.flush(), sessionStore.flush(), aiDrafts?.flush()]), cap]).then(() =>
+        app.exit(0),
+      );
     });
     const projectOpened = (projectId: string, root: string, sender: WebContents) => {
       watchHub.watch(projectId, root, sender);
@@ -618,6 +622,7 @@ function start(): void {
       problems: problems.capture, // S34: the agent's get_problems tool
       preview, // S34: console records and refresh for the agent
     });
+    aiDrafts = ai.drafts; // S48.7
     Object.assign((globalThis as { __noobideTestHooks?: object }).__noobideTestHooks ?? {}, {
       // Fake provider only: what it was asked (purpose, model, provider). Never set in a normal run.
       aiRequests: () =>
