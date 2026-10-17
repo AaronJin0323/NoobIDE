@@ -1,5 +1,5 @@
 /**
- * S54.2/S54.3: updating linked stylesheets of the running preview without a reload (docs/decisions/0037). Main
+ * S54.2/S54.3: updating linked stylesheets of the running preview without a reload (docs/decisions/0040). Main
  * process only; structural Electron types keep it unit-testable.
  *
  * Over the page guard's existing DevTools protocol session (decision 0016), with the DOM domain borrowed from the
@@ -13,7 +13,7 @@ import type { PreviewReloadReason } from '../shared/ipc/preview-contract';
 import type { Locale } from '../renderer/i18n/index';
 import { resolveInRoot } from './request-path';
 
-/** Why a save reloaded the page instead of swapping its styles (decision 0037's fallback table). */
+/** Why a save reloaded the page instead of swapping its styles (decision 0040's fallback table). */
 export type CssReloadReason = PreviewReloadReason;
 
 export const CSS_SWAP_LIMITS = {
@@ -344,7 +344,7 @@ const SYNTAX_DETAIL: Record<Locale, Record<CssSyntaxKind, string>> = {
 
 /**
  * The IDE's own record for Problems when a swap fell back to a reload because of the CSS itself or a failure
- * (decision 0037). Names the file and line only — never CSS text (AGENTS.md: logs never contain source code).
+ * (decision 0040). Names the file and line only — never CSS text (AGENTS.md: logs never contain source code).
  */
 export function swapProblemMessage(
   locale: Locale,

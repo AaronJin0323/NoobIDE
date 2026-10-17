@@ -36,11 +36,17 @@ import { createTypingReporter } from './typing-reporter';
 import type { Annotation } from '../../shared/ipc/annotations-contract';
 import { AnnotationsStrip } from '../annotations/AnnotationsStrip';
 import { pagePathOf } from '../annotations/annotations-model';
+import type { SplitterPhase } from './Splitter';
 
 interface PreviewPaneProps {
   hidden: boolean;
   /** Something of the workbench is drawn over the stage (e.g. the narrow-layout files overlay). */
   covered?: boolean;
+  /**
+   * S49.1: the editor / preview divider is pressed (take a picture of the page while it is still shown) or dragged
+   * (the native view would swallow the pointer: it is hidden and the picture stands in for it until release).
+   */
+  resizing?: SplitterPhase;
   projectId: string | null;
   /** A file of the project failed to save: the page is older than the editor (S10.5). */
   saveFailed?: boolean;
@@ -80,6 +86,7 @@ const TYPING_THROTTLE_MS = 150;
 export function PreviewPane({
   hidden,
   covered = false,
+  resizing = 'idle',
   projectId,
   saveFailed = false,
   onRenamePage,
@@ -240,7 +247,36 @@ export function PreviewPane({
   // S41.5: while a region is drawn, the frozen picture of the page replaces the native view.
   const annotations = window.noobide?.annotations;
   const [drawing, setDrawing] = useState(false);
-  const showView = !covered && !drawing && !overlaid && !noPage && viewVisible(status, !hidden);
+  const dragging = resizing === 'dragging';
+  const showView = !covered && !dragging && !drawing && !overlaid && !noPage && viewVisible(status, !hidden);
+
+  // --- S49.1: the last picture of the page (the S41.5 region shot, existing IPC: main takes it only while the view
+  // is shown), requested when the divider is pressed and shown on the stage while it is dragged. Never waited for:
+  // without one the stage shows what it shows when the view is hidden. ---
+  const [resizeShot, setResizeShot] = useState<{
+    readonly dataUrl: string;
+    readonly projectId: string;
+    readonly generation: number;
+  } | null>(null);
+  const shotRequest = useRef(0);
+  const running = status.state === 'running' && status.projectId === projectId;
+  // A layout effect: the request reaches main before the bounds that hide the view once the drag starts.
+  useLayoutEffect(() => {
+    if (resizing !== 'pressed' || !running || !showView || !projectId || !annotations?.regionShot) return;
+    const asked = { request: ++shotRequest.current, projectId, generation: status.generation ?? 0 };
+    void annotations.regionShot({ projectId }).then(
+      (result) => {
+        if (result.ok && asked.request === shotRequest.current)
+          setResizeShot({ dataUrl: result.value.dataUrl, projectId: asked.projectId, generation: asked.generation });
+      },
+      () => undefined,
+    );
+    // Only a new press asks again (showView turns false once the drag starts).
+  }, [resizing]);
+  const shownShot =
+    dragging && running && resizeShot?.projectId === projectId && resizeShot.generation === (status.generation ?? 0)
+      ? resizeShot.dataUrl
+      : null;
 
   // Keep the native view exactly over the stage: size changes (ResizeObserver), window resizes and layout changes
   // that move the stage without resizing it (checked after every render).
@@ -448,6 +484,7 @@ export function PreviewPane({
       aria-label={t('region.preview')}
       data-testid="region-preview"
       data-drawing={drawing ? 'true' : undefined}
+      data-resizing={dragging ? 'true' : undefined}
       hidden={hidden}
     >
       {/* The header row wraps instead of clipping in a narrow pane; it never scrolls. */}
@@ -680,6 +717,14 @@ export function PreviewPane({
           void bridge?.focus();
         }}
       >
+        {shownShot !== null && (
+          <img
+            className="preview-resize-shot"
+            data-testid="preview-resize-shot"
+            src={shownShot}
+            alt={t('layout.resizeSnapshot')}
+          />
+        )}
         {noPage ? (
           <div className="empty-state" data-testid="preview-no-page">
             <span className="empty-icon">

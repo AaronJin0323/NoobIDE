@@ -122,7 +122,7 @@ export class ElementPicker {
   }
 
   /**
-   * S54 (decision 0037): runs `work` while the DOM domain is on, sharing the count with picking and highlighting so
+   * S54 (decision 0040): runs `work` while the DOM domain is on, sharing the count with picking and highlighting so
    * neither turns it off under the other. Throws when the domains cannot be enabled.
    */
   async withDom<T>(work: () => Promise<T>): Promise<T> {

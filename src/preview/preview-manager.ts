@@ -48,7 +48,7 @@ import { parseRequestTarget, resolveInRoot } from './request-path';
 import type { Locale } from '../renderer/i18n/index';
 import { NotOwnerError, ServerRegistry, type ServerOwner } from './server-registry';
 import { DEFAULT_TYPING_PAUSE_MS, RefreshScheduler } from './refresh-scheduler';
-// S54 (decision 0037): linked stylesheets are swapped in place on a CSS-only save, else the page reloads.
+// S54 (decision 0040): linked stylesheets are swapped in place on a CSS-only save, else the page reloads.
 import {
   isCssPath,
   portablePath,
@@ -610,7 +610,7 @@ export class PreviewManager {
   }
 
   /**
-   * S54 (decision 0037): the automatic update after the saves since the last one. Only CSS files that the page links:
+   * S54 (decision 0040): the automatic update after the saves since the last one. Only CSS files that the page links:
    * their stylesheets are swapped in place and the page is not reloaded. Anything else — or a swap that cannot be
    * applied — is the S14.2 full reload, and the status says which happened and why.
    */

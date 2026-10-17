@@ -1,4 +1,4 @@
-# 0037 — Updating linked stylesheets without reloading the preview
+# 0040 — Updating linked stylesheets without reloading the preview
 
 - **Status:** accepted
 - **Date:** 2026-10-17

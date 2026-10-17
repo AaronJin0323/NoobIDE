@@ -62,14 +62,14 @@ export interface PreviewStatus {
    */
   readonly notFound?: boolean;
   /**
-   * S54 (docs/decisions/0037): what the last automatic update after a save did — the linked stylesheets were swapped
+   * S54 (docs/decisions/0040): what the last automatic update after a save did — the linked stylesheets were swapped
    * in place (`styles`, the page was not reloaded) or the page was reloaded, and why. `seq` grows with every update
    * so the toolbar can announce a repeat. Cleared by a start, a navigation, a manual refresh or Stop.
    */
   readonly saveUpdate?: PreviewSaveUpdate;
 }
 
-/** S54: why a save reloaded the page instead of swapping its stylesheets (decision 0037's fallback table). */
+/** S54: why a save reloaded the page instead of swapping its stylesheets (decision 0040's fallback table). */
 export type PreviewReloadReason = 'not-css' | 'not-linked' | 'import' | 'frame' | 'syntax' | 'failed';
 export const PREVIEW_RELOAD_REASONS: readonly PreviewReloadReason[] = [
   'not-css',

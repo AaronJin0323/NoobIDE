@@ -234,7 +234,7 @@ export function pageLocation(status: PreviewStatus, entryPage: string): PageLoca
 }
 
 /**
- * S54 (docs/decisions/0037): what the last automatic update after a save did, in words — the styles were swapped in
+ * S54 (docs/decisions/0040): what the last automatic update after a save did, in words — the styles were swapped in
  * place, or the page was reloaded and why. Null when the page is not showing one (a start, navigation or manual
  * refresh came after it).
  */

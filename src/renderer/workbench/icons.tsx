@@ -207,12 +207,126 @@ export const TreeFolderIcon = ({ open }: { open: boolean }) => (
   </IconBase>
 );
 
-export const TreeFileIcon = () => (
-  <IconBase size={16}>
+/** The kinds of file the tree draws a distinct icon for (S49.3). */
+export type FileIconKind = 'html' | 'css' | 'js' | 'json' | 'image' | 'font' | 'text' | 'other';
+
+const ICON_KIND_BY_EXTENSION: Readonly<Record<string, FileIconKind>> = {
+  html: 'html',
+  htm: 'html',
+  css: 'css',
+  js: 'js',
+  mjs: 'js',
+  cjs: 'js',
+  json: 'json',
+  png: 'image',
+  jpg: 'image',
+  jpeg: 'image',
+  gif: 'image',
+  svg: 'image',
+  webp: 'image',
+  ico: 'image',
+  woff: 'font',
+  woff2: 'font',
+  ttf: 'font',
+  otf: 'font',
+  txt: 'text',
+  md: 'text',
+};
+
+/** The icon for a file name, by its extension (case-insensitive); names without one, and dotfiles, are "other". */
+export function iconForName(name: string): FileIconKind {
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0) return 'other';
+  return ICON_KIND_BY_EXTENSION[name.slice(dot + 1).toLowerCase()] ?? 'other';
+}
+
+/** The page outline every file icon except images shares; the type mark sits in its lower half. */
+const FileOutline = () => (
+  <>
     <path d="M9 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V6L9 2z" />
     <path d="M9 2v4h4" />
+  </>
+);
+
+export const OtherFileIcon = () => (
+  <IconBase size={16}>
+    <FileOutline />
   </IconBase>
 );
+
+/** Angle brackets: a page's structure. */
+export const HtmlFileIcon = () => (
+  <IconBase size={16}>
+    <FileOutline />
+    <path d="M6.5 8.5 5 10l1.5 1.5M9.5 8.5 11 10l-1.5 1.5" />
+  </IconBase>
+);
+
+/** A colour swatch: appearance. */
+export const CssFileIcon = () => (
+  <IconBase size={16}>
+    <FileOutline />
+    <circle cx="8" cy="10" r="1.75" />
+  </IconBase>
+);
+
+/** Curly braces: code. */
+export const JsFileIcon = () => (
+  <IconBase size={16}>
+    <FileOutline />
+    <path d="M6.5 8c-.7 0-1 .4-1 1v.5L5 10l.5.5v.5c0 .6.3 1 1 1M9.5 8c.7 0 1 .4 1 1v.5l.5.5-.5.5v.5c0 .6-.3 1-1 1" />
+  </IconBase>
+);
+
+/** Square brackets: data. */
+export const JsonFileIcon = () => (
+  <IconBase size={16}>
+    <FileOutline />
+    <path d="M6.5 8.5h-1v3h1M9.5 8.5h1v3h-1" />
+  </IconBase>
+);
+
+/** A picture: a frame with a sun and hills. */
+export const ImageFileIcon = () => (
+  <IconBase size={16}>
+    <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
+    <circle cx="6" cy="6.5" r="1" />
+    <path d="M3 12l3.5-3.5 2.5 2.5 1.5-1.5 2.5 2.5" />
+  </IconBase>
+);
+
+/** A "T": type. */
+export const FontFileIcon = () => (
+  <IconBase size={16}>
+    <FileOutline />
+    <path d="M6 8.5h4M8 8.5V12" />
+  </IconBase>
+);
+
+/** Lines of text. */
+export const TextFileIcon = () => (
+  <IconBase size={16}>
+    <FileOutline />
+    <path d="M5.5 9h5M5.5 11h3.5" />
+  </IconBase>
+);
+
+const FILE_ICONS: Readonly<Record<FileIconKind, () => ReactNode>> = {
+  html: HtmlFileIcon,
+  css: CssFileIcon,
+  js: JsFileIcon,
+  json: JsonFileIcon,
+  image: ImageFileIcon,
+  font: FontFileIcon,
+  text: TextFileIcon,
+  other: OtherFileIcon,
+};
+
+/** A tree row's file icon, chosen by the file's extension (S49.3). Decorative: the name and role label carry meaning. */
+export const TreeFileIcon = ({ name }: { name?: string }) => {
+  const Icon = FILE_ICONS[name === undefined ? 'other' : iconForName(name)];
+  return <Icon />;
+};
 
 export const LinkIcon = () => (
   <IconBase size={14}>

@@ -38,7 +38,7 @@ export const previewToolbarZhCN = {
   'preview.outdated': '有未显示的保存',
   'preview.outdatedDetail': '手动刷新：页面还是上次保存前的样子。点“刷新”查看最新的文件。',
   'preview.reloadNote': '提示：刷新会重新加载页面——在页面里输入的内容、滚动位置和变量都会从头开始。',
-  // ── S54 保存后的更新方式（docs/decisions/0037）──
+  // ── S54 保存后的更新方式（docs/decisions/0040）──
   'preview.update.styles': '样式已更新（页面没有重新加载）',
   'preview.update.stylesDetail': '只保存了 CSS：新样式已直接换上，页面里输入的内容和滚动位置都还在。',
   'preview.update.reload': '页面已重新加载',

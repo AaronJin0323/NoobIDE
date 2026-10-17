@@ -180,7 +180,7 @@ describe('page location in the preview toolbar', () => {
   });
 });
 
-describe('save update note (S54, decision 0037)', () => {
+describe('save update note (S54, decision 0040)', () => {
   const running: PreviewStatus = { state: 'running', projectId: 'p', generation: 3 };
 
   it('says in words whether the styles were swapped or the page reloaded, and why', () => {

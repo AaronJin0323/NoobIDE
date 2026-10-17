@@ -13,6 +13,14 @@ On Windows x64 (Microsoft Pinyin) and Apple Silicon macOS (Pinyin):
    and an annotation note. Candidate arrows must not move the file-tree selection; Escape must not close a dialog.
 4. Record OS and input-method versions and results. No physical macOS or native candidate-window check was run
    during the automated S35.4 repair.
+5. **S48.3, macOS Pinyin (Apple Silicon, built-in 简体拼音).** WebKit-style key order: the composition ends before
+   the confirming key arrives. In AI chat type `nihao`, press Enter to pick 你好: nothing is sent and the text stays.
+   Within half a second press Enter again: still nothing; wait a moment, press Enter: it sends. Type `nihao` again
+   and press ⌘+Enter right after confirming: it sends at once (a deliberate shortcut). Then, with candidates open,
+   press Escape in the command palette, a file rename, the project-name wizard and an annotation note: only the
+   candidate list closes, never the palette, dialog or panel; a second Escape a moment later closes it as usual.
+   The automated cases (tests/e2e/ai-edit.spec.ts, tests/e2e/ai-chat-engine.spec.ts) report the engine as WebKit
+   in Electron; only this step uses the real macOS input method.
 
 Checks that need real hardware (Windows x64, physical Apple Silicon Mac) or a human judgement. Agents add a section
 here when they set a feature to `needs_manual_check`. The owner runs the steps, records the result, and then closes

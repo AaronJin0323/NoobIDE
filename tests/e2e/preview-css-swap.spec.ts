@@ -6,7 +6,7 @@ import { collectConsoleErrors, openFile } from './project';
 import { evalInPreview, openProject, previewInfo, replaceEditorText, waitForPreviewState } from './preview-helpers';
 
 /**
- * S54 end to end (docs/decisions/0037): a save that touches only linked stylesheets updates them in place — no
+ * S54 end to end (docs/decisions/0040): a save that touches only linked stylesheets updates them in place — no
  * navigation, typed input and scroll position survive — through the page guard's protocol session; everything else
  * is a full reload, and the toolbar says which happened. Project path with Chinese characters and spaces.
  */
