@@ -1896,6 +1896,11 @@ select.text-field {
 .preview-header > .state-pill {
   margin-left: 0;
 }
+/* S54: what the last save did to the page, in words (never colour alone). */
+.preview-save-update {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
 .preview-annotate-slot {
   display: contents;
 }
