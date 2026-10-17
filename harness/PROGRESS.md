@@ -3,6 +3,54 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session S54 (side session) — 2026-10-17 — CSS without reload (S54.1–S54.3)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s54-css-swap-a8fc96`, based
+on the M19 backlog commit 824b6fa. One of six parallel M19 sessions (S51, S52, S53+S57, S54, S55, S56).
+
+**Done**
+
+- S54.1: `docs/decisions/0037-css-hot-swap.md` (extends 0019 and 0030). Linked stylesheets are replaced with the
+  DevTools protocol's `CSS.setStyleSheetText` over the page guard's existing protocol session (decision 0016), with
+  the DOM domain borrowed from the element picker's counter (0030). No preload, no IPC the page can reach, no
+  page-world or isolated-world script, no inline script, no DOM/attribute change, no extra request. Fallback table
+  (HTML/JS in the save incl. inline `<style>`, `@import` both ways, iframe, not linked, syntax error, failure) and
+  the zh-CN / en toolbar wording.
+- S54.2: `src/preview/css-swap.ts` (tokenizer for structural CSS errors and `@import`, header matching, the swap,
+  realpath-checked reader). `PreviewManager.applySaves` collects saved paths between refreshes (S14.2 scheduler
+  unchanged) and swaps when every saved file is `.css` and the page is running; otherwise the old reload.
+  `PreviewStatus.saveUpdate` (`styles` | `reload` + reason + seq); `ElementPicker.withDom`; main passes
+  `file.relPath` to `fileSaved`.
+- S54.3: toolbar text next to the state pill (`preview-save-update`, `role="status"`, reason as tooltip and
+  screen-reader text): "样式已更新（页面没有重新加载）/ Styles updated (page not reloaded)" vs "页面已重新加载 /
+  Page reloaded". Syntax errors and failed swaps add a localised "NoobIDE：…" warning (file + line, never CSS text)
+  to the reloaded page's log, so it reaches Problems for the current generation. Test hook `failNextCssSwap`.
+
+**Evidence:** `tests/e2e/preview-css-swap.spec.ts` (7 tests: no navigation / same `timeOrigin` / same generation /
+no page-visible DOM mutation, typed input and scroll survive, relative `url()` still resolves, no bridge globals;
+HTML and JS saves reload with the reason; `@import` (either side) and unlinked CSS reload; broken CSS and an
+injected failure reload and reach Problems, not stale; en wording; manual mode waits for the user) green on Windows
+x64. Existing preview e2e (`preview`, `preview-isolation` incl. console flood/rate limits, `preview-manager`,
+`preview-annotations`, `preview-layout`, `preview-snapshot`, `preview-permissions`, `preview-no-page`,
+`runtime-problems`): 60 passed; after the review fixes, a rebuilt run of the CSS swap, isolation, preview, manager,
+annotations and runtime-problems specs: 49 passed. Unit: `src/preview/css-swap.test.ts`, `preview-model.test.ts` (saveUpdateNote, every
+reason has zh-CN + en). `npm run verify` green. Independent subagent review of the diff against AGENTS.md "Preview
+isolation" and decision 0037: no isolation violations; it found five defects, all fixed before marking done (an empty save set reloaded spuriously, a save-reload reason could leak into a later manual Refresh, non-UTF-8 CSS would swap in garbled, fallback records could attach to a later load, the outer timeout kept changing sheets) plus hardening (sheets with `/*# sourceURL= */` never match; dot-folder CSS is `not-linked`).
+
+**Decisions:** Protocol CSS domain instead of an isolated-world `<link href>` rewrite (that is visible to the page's
+MutationObserver and adds a request). A broken stylesheet reloads (criteria) rather than applying partially; the
+tokenizer only finds structural errors (unclosed `{`, stray `}`, unclosed comment/string) — grammar errors stay the
+static checks' job. A save while the page is loading, hung or showing a 404 keeps the old reload path (reason
+`failed`). S54.2 and S54.3 share the manager and toolbar code, so the S54.2 commit (6a22fc4) carries all code and both
+features' tests; the S54.3 commit records its evidence and decision 0037's amendments from the review.
+
+**Problems / risks:** macOS arm64 not run here (the CI matrix runs the e2e spec). A sheet linked with a different
+path spelling than the file (`Style.css` vs `style.css` on Windows) does not match and reloads — always correct,
+just not optimal.
+
+**Next up:** the other M19 sessions; merging the six M19 branches needs only `harness/features.json` status fields and
+this file reconciled.
+
 ## Session 35 (side session) — 2026-10-17 — M19 backlog records for S51–S57 (owner approval of review §4)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/dazzling-shtern-8a5721`, based

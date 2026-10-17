@@ -44,16 +44,20 @@ swap; otherwise it reloads as before. In manual refresh mode (S14.2) nothing hap
 **The swap** (`src/preview/css-swap.ts`, main only, structural Electron types so it is unit-tested):
 
 1. Pre-checks on the saved text, read from disk inside the project root (`resolveInRoot`, realpath-checked) and at
-   most 1 MiB: a small tokenizer (comments, strings, braces) finds a **syntax error** (unclosed `{`, a stray `}`, an
-   unclosed comment or string) and a top-level **`@import`**.
+   most 1 MiB, decoded as strict UTF-8 (a file in another encoding reloads, so the page's own charset rules apply): a
+   small tokenizer (comments, strings, braces) finds a **syntax error** (unclosed `{`, a stray `}`, an unclosed
+   comment or string) and an **`@import`** anywhere outside comments and strings. A file the static server would
+   refuse (a dotfile or dot-folder) cannot be linked by the page: `not-linked`.
 2. `DOM.enable` + `CSS.enable` through the picker's counted DOM user (0030: DOM is on only while something needs it),
    collecting the `CSS.styleSheetAdded` headers; `Page.getFrameTree` gives the main frame id.
 3. Matching: a header matches a saved file when its `sourceURL` (query and hash ignored) is on the preview's own
    origin and maps to the saved project path. Every saved file must match at least one header of the **main frame**
    with an `ownerNode` (a `<link>`) and not `isInline`; a match in another frame, or a matching header without an
-   owner node (the sheet is pulled in by an `@import` of another sheet), means fallback.
+   owner node (the sheet is pulled in by an `@import` of another sheet), means fallback. A header with
+   `hasSourceURL` (page CSS that names itself with a `/*# sourceURL=… */` comment) never matches. Child protocol
+   sessions (out-of-process iframes, workers) are ignored.
 4. `CSS.setStyleSheetText` for each matching sheet, then the domains are disabled. Each command is bounded (2 s); the
-   whole swap is bounded too.
+   whole swap is bounded too (5 s); once that runs out no further sheet is changed and the page reloads.
 5. The page's generation (S16.3) does not change: no navigation happened, so problems of the page are not marked
    stale and the console stays as it is.
 
@@ -68,11 +72,15 @@ generation). Cases:
 | A saved CSS file is also used inside an `<iframe>` of the page                                           | `frame`      |
 | The saved CSS has a syntax error (also reported to Problems, below)                                      | `syntax`     |
 | The swap failed: protocol unavailable (guard not installed), a command failed or timed out, file too big | `failed`     |
+| The file is not UTF-8, cannot be read, or the page was loading, hung or showing a missing page (404)     | `failed`     |
 
 For `syntax` and `failed` main also records an IDE warning for the new page load (source `console`, the CSS file and
 line, localised message starting "NoobIDE:"), so it reaches Problems through the S16.2 capture adapter like any page
-record; it is attributed to the reloaded page's generation, so it is not stale. The console flood guard and rate
-limits of decision 0016 are untouched: the swap adds no page output.
+record; it is attributed to the reloaded page's generation, so it is not stale (and dropped if that reload does not
+happen or fails). The "page was loading" case only states the reason in the toolbar, without a Problems record. The console flood guard and rate
+limits of decision 0016 are untouched: the swap adds no page output (the one IDE record per fallback goes through
+the same bounded log buffer). Saves are applied one update at a time; an update that finds nothing new to apply (an
+earlier one took its saves) does nothing.
 
 **Toolbar wording** (next to the state pill, a `role="status"` text, so it is announced and never colour-only; it
 is shown only for updates caused by a save and cleared by the next start, navigation or manual refresh):

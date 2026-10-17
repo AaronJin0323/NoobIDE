@@ -4700,8 +4700,8 @@
       "depends_on": [
         "S54.2"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/e2e/preview-css-swap.spec.ts S54.3 tests (HTML/JS save, @import both ways, not linked → reload with zh-CN/en toolbar words; broken CSS + injected failed swap → reload and NoobIDE warning in Problems, not stale; manual mode waits) @ 6a22fc4; S16 flood/rate-limit tests in preview-isolation.spec.ts green; verify green"
     },
     {
       "id": "S55.1",
