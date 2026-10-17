@@ -9,15 +9,16 @@ Measured on the Windows x64 dev machine (Windows 11, 32 logical cores), 2026-10-
 
 ## Provider work (unit)
 
-`src/renderer/editor/completion-latency.test.ts`: 100 HTML pages (10 ids and 11 classes each) + 100 CSS files
+`tests/perf/completion-latency.perf.test.ts` (the perf project, S58.3): 100 HTML pages (10 ids and 11 classes each) + 100 CSS files
 (10 classes each) + 300 images = 500 files, 200 of them indexed, 2 100 classes. Per request: find the context in a
 2 000-character window, merge the project's names (open files' unsaved edits included), build one item per class; and
 for a path request, list `../images/` relative to a page. 60 measured runs each, after 10 warm-up runs; since 2026-10-17
 the test judges the best of up to five such batches (S06.6), because on hosted CI runners (3–4 vCPUs shared by four
 vitest workers) one descheduling inflated a whole batch to 11–21 ms p95 while the dev machine measures below 1 ms;
 contention and GC pauses add time to a sample and never remove any, so the quietest batch is the closest measurement of
-the provider's own cost, and every batch is judged against the unchanged budget. Reproduce with
-`NOOBIDE_PERF_PRINT=1 npx vitest run src/renderer/editor/completion-latency.test.ts` (prints every batch).
+the provider's own cost, and every batch is judged against the unchanged budget. Reproduce with `npm run test:perf`
+(`NOOBIDE_PERF_PRINT=1` prints every batch); the numbers land in `reports/perf/<platform>-<arch>.json` (budgets enforced
+on developer machines, reported on GitHub Actions — docs/perf/ci-runners.md, decision 0038).
 
 | Request                         | p95 (best batch) | Budget |
 | ------------------------------- | ---------------- | ------ |
@@ -25,8 +26,8 @@ the provider's own cost, and every batch is judged against the unchanged budget.
 | `<img src="../images/` (paths)  | 0.23 ms          | 10 ms  |
 
 Symbol extraction runs once per file read, not per request: 200 files (≈ 3 200 classes) take ≈ 2.6 ms in total
-(`completion-perf.test.ts`). Indentation detection of a 5 000-line file takes ≈ 0.3 ms (JS) / ≈ 1.4 ms (HTML with
-`<script>`/`<style>`) (`indent-detect.test.ts`).
+(`tests/perf/completion-perf.perf.test.ts`). Indentation detection of a 5 000-line file takes ≈ 0.3 ms (JS) / ≈ 1.4 ms (HTML with
+`<script>`/`<style>`) (`tests/perf/indent-detect.perf.test.ts`).
 
 ## In the app (e2e)
 

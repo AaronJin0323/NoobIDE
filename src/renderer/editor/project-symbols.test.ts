@@ -63,15 +63,12 @@ describe('extractHtmlSymbols (S43.4)', () => {
     expect(extractHtmlSymbols(html)).toEqual({ ids, classes });
   });
 
-  it('copes with a 256 KB document', () => {
+  it('copes with a 256 KB document (its time budget: tests/perf/project-symbols.perf.test.ts)', () => {
     const chunk = '<div id="i{n}" class="c{n} shared"><style>.s{n} { color: #fff; margin: .5em }</style></div>\n';
     let text = '';
     for (let n = 0; text.length < 256 * 1024; n++) text += chunk.replaceAll('{n}', String(n));
-    const t0 = performance.now();
     const symbols = extractHtmlSymbols(text);
-    const ms = performance.now() - t0;
     expect(symbols.ids.length).toBeGreaterThan(1000);
     expect(symbols.classes).toContain('shared');
-    expect(ms).toBeLessThan(500);
   });
 });

@@ -182,7 +182,10 @@ describe('snapshot store (S21.1)', () => {
     const kept = await versions(s, root, REL);
     expect(kept.length).toBeGreaterThanOrEqual(60);
     expect(kept.length).toBeLessThanOrEqual(63);
-  }, 30_000); // 125 atomic snapshot writes: a correctness check, not a speed check (slow on CI Windows disks).
+    // 125 atomic snapshot writes: a correctness check, not a speed check. 1.1 s on the dev machine; a starved hosted
+    // Windows runner exceeded 30 s (run 39018194387). The timeout is sized for such a runner (S58.3,
+    // docs/perf/ci-runners.md).
+  }, 180_000);
 
   it('skips contents over the snapshot size limit and clamps inconsistent limits', async () => {
     const s = store({ maxSnapshotBytes: 10 });
