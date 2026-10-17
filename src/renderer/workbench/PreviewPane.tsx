@@ -1,3 +1,5 @@
+import { Collapsible } from '../theme/Collapsible';
+import { PreviewStateIcon } from './PreviewStateIcon';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type {
   PreviewNoteId,
@@ -8,7 +10,7 @@ import type {
 import { useI18n } from '../i18n/I18nProvider';
 import { RovingGroup } from './RovingGroup'; // S49.2
 import type { MessageKey } from '../i18n/index';
-import { DotIcon, MonitorIcon, PlayIcon, RefreshIcon, RevealIcon, StopIcon, WarningIcon } from './icons';
+import { MonitorIcon, PlayIcon, RefreshIcon, RevealIcon, StopIcon, WarningIcon } from './icons';
 // S17.3: console view (levels, filter, clear, page-load attribution) on the same bounded log model.
 import { ConsoleView } from './ConsoleView';
 import {
@@ -501,7 +503,7 @@ export function PreviewPane({
           title={pill.detail ? t(pill.detail) : undefined}
           role="status"
         >
-          {pill.warning ? <WarningIcon /> : status.state === 'stopped' ? <StopIcon /> : <DotIcon />}
+          <PreviewStateIcon state={status.state} warning={Boolean(pill.warning)} />
           {t(pill.label)}
         </span>
         {updateNote && (
@@ -681,8 +683,9 @@ export function PreviewPane({
             </button>
           </div>
           {noticeList}
-          {advancedOpen && (
-            <div className="preview-advanced" id={advancedId} data-testid="preview-advanced-panel">
+          {/* S47.2: opens and closes with the grid-rows fold (theme/Collapsible.tsx). */}
+          <Collapsible open={advancedOpen} id={advancedId} className="preview-advanced-fold">
+            <div className="preview-advanced" data-testid="preview-advanced-panel">
               <div className="preview-advanced-item">
                 <button
                   type="button"
@@ -704,7 +707,7 @@ export function PreviewPane({
                 </span>
               </div>
             </div>
-          )}
+          </Collapsible>
         </div>
       )}
       {/* S41.5: the annotation steps sit in the layout flow between the controls and the stage (the native view never

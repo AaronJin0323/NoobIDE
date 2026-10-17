@@ -207,6 +207,10 @@ describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
     await rename(p('index.html'), p('子 文件夹', 'index.html'));
     raw('index.html');
     await new Promise((r) => setTimeout(r, 120));
+    // The first half must be classified (and held) before the second arrives, or a starved CI runner reports the
+    // creation unpaired and the deletion after its wait (windows-x64 shard 2, PR #34: [created, deleted]). The two
+    // halves still arrive in different batches; the 1 s rename wait is a functional timeout, not a speed budget.
+    await watcher.idle();
     raw('子 文件夹/index.html');
     await expect
       .poll(() => events, { timeout: 5000 })

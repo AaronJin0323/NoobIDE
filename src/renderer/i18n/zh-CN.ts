@@ -19,6 +19,7 @@ import { fileManagementZhCN } from './file-management'; // S52
 import { noticesZhCN } from './notices'; // S50.2
 import { imageViewerZhCN } from './image-viewer'; // S52.6
 import { navigationZhCN } from './navigation'; // S49.4 / S49.5
+import { motionZhCN } from './motion'; // S47
 /**
  * zh-CN is the default locale and the source of truth for message keys (AGENTS.md: i18n invariant).
  * Every key must also exist in en.ts — the type system and i18n.test.ts enforce it.
@@ -334,6 +335,7 @@ export const zhCN = {
   ...journeyZhCN, // beginner-journey fixes: preview page path, missing-page page, editor overflow menu
   ...searchZhCN, // S51 find, replace and quick open
   ...fileManagementZhCN, // S52 move, copy, multi-select, import, image viewer
+  ...motionZhCN, // S47 motion and detail
   ...noticesZhCN, // S50.2 app notices
   ...imageViewerZhCN, // S52.6 image viewer tab
   ...navigationZhCN, // S49.4 / S49.5 console search and copy, palette recents, All tabs

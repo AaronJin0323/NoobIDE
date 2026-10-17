@@ -14,6 +14,7 @@ import {
 import { CheckIcon, SeverityIcon } from '../problems/problem-icons';
 import { ChevronDownIcon, UncheckedIcon } from './icons';
 import { AiIcon } from '../ai/ai-icons';
+import { Collapsible } from '../theme/Collapsible';
 
 interface ProblemsPanelProps {
   open: boolean;
@@ -74,6 +75,13 @@ export function ProblemsPanel({
 }: ProblemsPanelProps) {
   const { t, locale } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
+  const [folded, setFolded] = useState<ReadonlySet<SectionId>>(() => new Set());
+  const toggleSection = (section: SectionId) =>
+    setFolded((current) => {
+      const next = new Set(current);
+      if (!next.delete(section)) next.add(section);
+      return next;
+    });
   const announcement = useAnnouncement(view, projectOpen);
 
   const info = view.total - view.errors - view.warnings;
@@ -142,29 +150,42 @@ export function ProblemsPanel({
               const headingId = `problems-section-${section}`;
               return (
                 <section key={section} className="problems-section" aria-labelledby={headingId} data-section={section}>
+                  {/* S47.2: a section folds with the grid-rows collapsible; its count stays in the heading. */}
                   <h3 className="problems-section-title" id={headingId}>
-                    {t(SECTION_LABEL[section])}{' '}
-                    <span className="problems-badge" data-testid={`problems-badge-${section}`}>
-                      {records.filter((r) => !r.stale).length}
-                    </span>
+                    <button
+                      type="button"
+                      className="problems-section-toggle"
+                      aria-expanded={!folded.has(section)}
+                      aria-controls={`${headingId}-items`}
+                      data-testid={`problems-section-toggle-${section}`}
+                      onClick={() => toggleSection(section)}
+                    >
+                      <ChevronDownIcon />
+                      {t(SECTION_LABEL[section])}{' '}
+                      <span className="problems-badge" data-testid={`problems-badge-${section}`}>
+                        {records.filter((r) => !r.stale).length}
+                      </span>
+                    </button>
                   </h3>
-                  {records.length === 0 ? (
-                    <p className="problems-section-empty">{t('problems.sectionEmpty')}</p>
-                  ) : (
-                    <ul className="problems-items">
-                      {records.map((record) => (
-                        <ProblemRow
-                          key={record.id}
-                          record={record}
-                          title={formatMessage(locale, explain(record).title)}
-                          expanded={selected === record.id}
-                          onToggle={() => setSelected((id) => (id === record.id ? null : record.id))}
-                          details={selected === record.id && renderDetails ? renderDetails(record) : null}
-                          onFixWithAi={onFixWithAi}
-                        />
-                      ))}
-                    </ul>
-                  )}
+                  <Collapsible open={!folded.has(section)} id={`${headingId}-items`}>
+                    {records.length === 0 ? (
+                      <p className="problems-section-empty">{t('problems.sectionEmpty')}</p>
+                    ) : (
+                      <ul className="problems-items">
+                        {records.map((record) => (
+                          <ProblemRow
+                            key={record.id}
+                            record={record}
+                            title={formatMessage(locale, explain(record).title)}
+                            expanded={selected === record.id}
+                            onToggle={() => setSelected((id) => (id === record.id ? null : record.id))}
+                            details={selected === record.id && renderDetails ? renderDetails(record) : null}
+                            onFixWithAi={onFixWithAi}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </Collapsible>
                 </section>
               );
             })}
