@@ -1,8 +1,8 @@
-# 0037 — CI stability and speed (S50)
+# 0037 — CI stability and speed (S58)
 
-- **Status:** accepted (the "Measured result" section is still to be filled after S50.1–S50.4 are merged)
+- **Status:** accepted (the "Measured result" section is still to be filled after S58.1–S58.4 are merged)
 - **Date:** 2026-10-17
-- **Feature:** S50.6 (tooling and this record); decisions for S50.1–S50.5
+- **Feature:** S58.6 (tooling and this record); decisions for S58.1–S58.5
 - **Plan:** [docs/ci/ci-stability-and-speed-plan.md](../ci/ci-stability-and-speed-plan.md) (§1 causes, §2 baseline,
   §3 targets, §4 packages, §6 owner decisions). Continues [ADR 0035](0035-ci-latency.md) (two shards per OS) and
   [ADR 0021](0021-ci-matrix-and-arch-inspection.md) (the matrix itself).
@@ -35,7 +35,7 @@ green run hid:
 1. **macOS shard 1 usually spends 14–16 minutes in Playwright, not 7.** `app-startup-restore.spec.ts` (the S05.8
    restart-under-load loop) takes 10:08–10:17 on 8 of the 10 completed macOS shard-1 jobs, against 2:01 on the one
    fast run and 2:17–4:29 on Windows. The macOS shard-1 median is 14:20; the §2 table shows the fastest run of the
-   day. Plan §4 S50.5 (move the two measurement tests to a nightly workflow) is therefore worth about 10 minutes
+   day. Plan §4 S58.5 (move the two measurement tests to a nightly workflow) is therefore worth about 10 minutes
    of macOS wall-clock on most runs, not 2.
 2. **Queue delay on macOS is the largest and most variable item**: median 2:33, maximum 32:16 (run 39014627704,
    wall-clock 41 min). Windows never queued for more than 25 s.
@@ -46,16 +46,16 @@ green run hid:
   macOS jobs per push make the queue worse; more Playwright workers on one desktop risk focus and native-menu
   interference (ADR 0035).
 - **Playwright retries.** Rejected: hides the bugs the tests exist to catch (`docs/testing.md`: a flaky test is a
-  bug). Traces on failure instead (S50.2).
+  bug). Traces on failure instead (S58.2).
 - **Paid or larger runners.** Not proposed: an owner budget question; the plan should get PR CI under 12 minutes
   without them.
-- **Dropping tests from PRs.** Only as an explicit owner decision with nightly full runs (S50.5), never silently.
+- **Dropping tests from PRs.** Only as an explicit owner decision with nightly full runs (S58.5), never silently.
 
 ## Decision
 
 Six packages, each owning disjoint files so they run as parallel sub-sessions (plan §4–§5):
 
-1. **S50.1 — run less.** (a) A `changes` job classifies each push as code or docs-only with a unit-tested Node
+1. **S58.1 — run less.** (a) A `changes` job classifies each push as code or docs-only with a unit-tested Node
    script; docs-only pushes skip the OS matrix. (b) Typecheck, lint, format, harness check and the workflow/docs
    tests run **once** on an `ubuntu-latest` static job for every push; the OS jobs keep harness check and `npm test`.
    (c) **Draft pull requests skip the build matrix**; pushes to `main` and `workflow_dispatch` always run it. Agent
@@ -64,22 +64,22 @@ Six packages, each owning disjoint files so they run as parallel sub-sessions (p
    docs-only push; a failed or cancelled shard still fails them. (e) **Installers are built and uploaded only on
    push to `main` and on `workflow_dispatch`**; PR runs still package the app for E2E but skip the 1.5 min Squirrel
    step. Owner decisions 1 and 2 of plan §6; default "yes" applies if unanswered.
-2. **S50.2 — deterministic, time-balanced E2E shards.** `tests/e2e/shards.json` assigns every spec file to a
+2. **S58.2 — deterministic, time-balanced E2E shards.** `tests/e2e/shards.json` assigns every spec file to a
    shard; `scripts/e2e-shards.mjs balance` regenerates it from the timing reports (longest file first onto the
    emptier shard). A file missing from the manifest goes to the lighter shard and is named by the integration
    test instead of failing on a boundary. `trace: 'retain-on-failure'`, `screenshot: 'only-on-failure'`,
    `retries` stays 0.
-3. **S50.3 — budgets enforced locally, reported on hosted runners.** Performance budgets move to a `perf` Vitest
+3. **S58.3 — budgets enforced locally, reported on hosted runners.** Performance budgets move to a `perf` Vitest
    project that `npm run verify` still enforces on developer machines; on GitHub Actions they report to
    `reports/perf/` and the job summary and fail only on an error or a result more than 5× over budget. The
    required matrix contains no p95 or lag assertion; `perf.yml` runs the project on `main` and nightly as a
    non-required check (ADR 0038, owner decision 3).
-4. **S50.4 — fix the Windows intermittents** in `walkthrough.spec.ts` (poll the stored file; wait for the menu
+4. **S58.4 — fix the Windows intermittents** in `walkthrough.spec.ts` (poll the stored file; wait for the menu
    item) and the preview-isolation dialog test (measured budget or per-dialog poll), each proven 20/20 under CPU
    load.
-5. **S50.5 — measurement-heavy E2E tests nightly, smoke versions on PRs.** Blocked on owner decision 4; the
+5. **S58.5 — measurement-heavy E2E tests nightly, smoke versions on PRs.** Blocked on owner decision 4; the
    baseline above says it is worth ~10 min of macOS shard-1 time on most runs.
-6. **S50.6 — measure it (this record).** `scripts/ci-timings.mjs` (gh wrappers) + `scripts/ci-timings-parse.mjs`
+6. **S58.6 — measure it (this record).** `scripts/ci-timings.mjs` (gh wrappers) + `scripts/ci-timings-parse.mjs`
    (pure parser/formatter, tested on fixtures of runs 39015143213 and 39011559538 under `tests/fixtures/ci/`):
    per job the queue delay, every step's duration, the Playwright time from the `e2e-report-<target>-<shard>`
    artifact, and for failed runs the failing step with the first error line. `scripts/e2e.mjs` appends the 10
@@ -97,14 +97,14 @@ Six packages, each owning disjoint files so they run as parallel sub-sessions (p
   untouched (ADR 0036).
 - Perf budgets are no longer a pass/fail oracle on hosted runners. The dev-machine `verify` still enforces them,
   and `perf.yml` keeps a per-OS record so a drift is visible in the reports rather than as a random red run.
-- Verification: `tests/integration/ci-workflow.test.ts` (S50.1 conditions and gates), `e2e-shards.test.ts` (manifest
+- Verification: `tests/integration/ci-workflow.test.ts` (S58.1 conditions and gates), `e2e-shards.test.ts` (manifest
   complete and disjoint on both OSes), `ci-timings.test.ts` (the parser reproduces the §2 table from fixtures:
   queue 2:33 / 9:21 on the macOS shards, Playwright 7:03 / 7:10 / 7:07 / 9:01, installers 1:33, within 5 s), the
   job summary on the first hosted run after merge, and the "Measured result" section below, filled from real runs
   on both targets. Targets (plan §3): code PR ≤ 9 min without queue, ≤ 12 min with five PRs at once, docs-only PR
   ≤ 3 min, lint/format/typecheck feedback ≤ 2 min, zero red runs whose cause is not the PR's code.
 
-## Baseline (before S50.1–S50.4), 2026-10-17
+## Baseline (before S58.1–S58.4), 2026-10-17
 
 `node scripts/ci-timings.mjs --runs 20 --no-steps`, run at 2026-10-17 11:45 UTC against the last 20 `CI` runs
 (2026-10-17 03:40 → 08:41; three were still queued or in progress). Columns: queue = job start − run creation; Playwright = `stats.duration`
@@ -360,9 +360,9 @@ Successful runs, by measure (median / max):
 
 <!-- BASELINE-END -->
 
-## Measured result (after S50.1–S50.4 are merged)
+## Measured result (after S58.1–S58.4 are merged)
 
-TODO — fill in once S50.1–S50.4 are on `main` and at least 20 `CI` runs have completed on top of them:
+TODO — fill in once S58.1–S58.4 are on `main` and at least 20 `CI` runs have completed on top of them:
 
 ```bash
 node scripts/ci-timings.mjs --runs 20 --no-steps

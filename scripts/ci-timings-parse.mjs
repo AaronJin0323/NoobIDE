@@ -1,4 +1,4 @@
-// S50.6 — pure parsing and formatting for scripts/ci-timings.mjs (docs/ci/ci-stability-and-speed-plan.md §2).
+// S58.6 — pure parsing and formatting for scripts/ci-timings.mjs (docs/ci/ci-stability-and-speed-plan.md §2).
 // No network, no gh: everything here works on the JSON that `gh run list` / `gh run view --json` return, on a
 // Playwright JSON report (reports/e2e/results.json) and on the text of `gh run view --log-failed`, so
 // tests/integration/ci-timings.test.ts can run it on saved fixtures under tests/fixtures/ci/.

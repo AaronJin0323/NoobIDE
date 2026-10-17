@@ -1,8 +1,8 @@
 // S06.1 — structural checks of .github/workflows/ci.yml (ADR 0021). The repo has no YAML dependency and the
 // workflow uses a plain block-style subset, so this test reads it line by line: top-level keys, the indented block
 // under a key, and `- name:` steps. Actions themselves only run on GitHub (owner steps: MANUAL-CHECKS.md#S06.1).
-// S50.1 — the `changes` / `static` / `build` / `complete` jobs, their conditions and the gate rule
-// (docs/ci/ci-stability-and-speed-plan.md §4; owner steps: MANUAL-CHECKS.md#S50.1).
+// S58.1 — the `changes` / `static` / `build` / `complete` jobs, their conditions and the gate rule
+// (docs/ci/ci-stability-and-speed-plan.md §4; owner steps: MANUAL-CHECKS.md#S58.1).
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -136,7 +136,7 @@ describe('ci.yml', () => {
     expect(b.keys['runs-on']).toBe('${{ matrix.os }}');
   });
 
-  describe('changes job (S50.1)', () => {
+  describe('changes job (S58.1)', () => {
     it('runs on ubuntu with the full history and exposes the classifier result as output kind', () => {
       const c = job('changes');
       expect(c.keys['runs-on']).toBe('ubuntu-latest');
@@ -162,7 +162,7 @@ describe('ci.yml', () => {
     });
   });
 
-  describe('static job (S50.1)', () => {
+  describe('static job (S58.1)', () => {
     it('runs the platform-independent gates once on ubuntu for every push, unconditionally', () => {
       const s = job('static');
       expect(s.keys['runs-on']).toBe('ubuntu-latest');
@@ -275,7 +275,7 @@ describe('ci.yml', () => {
     expect(checkout?.with['persist-credentials']).toBe('false');
   });
 
-  it('makes, inspects and uploads installers only on push to main and workflow_dispatch (S50.1)', () => {
+  it('makes, inspects and uploads installers only on push to main and workflow_dispatch (S58.1)', () => {
     const makeIdx = steps.findIndex((s) => s.run === 'npm run make -- --from-package');
     const inspect = steps.find((s) => s.run === 'node scripts/inspect-arch.mjs');
     const upload = steps.findIndex(
@@ -310,7 +310,7 @@ describe('ci.yml', () => {
     expect([...distinct].sort()).toEqual([CHECKOUT, SETUP_NODE, UPLOAD].sort());
   });
 
-  describe('aggregate gates (S50.1)', () => {
+  describe('aggregate gates (S58.1)', () => {
     const gate = job('complete');
     const run = gateSteps[0]!.run!;
     const code = /^node -e "(.*)"$/.exec(run)?.[1];

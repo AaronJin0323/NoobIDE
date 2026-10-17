@@ -1,4 +1,4 @@
-// S50.2 — deterministic, time-balanced E2E shards (docs/ci/ci-stability-and-speed-plan.md §4 S50.2).
+// S58.2 — deterministic, time-balanced E2E shards (docs/ci/ci-stability-and-speed-plan.md §4 S58.2).
 //
 // Part 1 unit-tests scripts/e2e-shards.mjs on trimmed copies of the four Playwright reports CI uploaded for run
 // 39015143213 (tests/fixtures/e2e-shards). Part 2 proves, against the real `playwright test --list` output on this

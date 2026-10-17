@@ -1,7 +1,7 @@
-# CI stability and speed plan (S50)
+# CI stability and speed plan (S58)
 
 Owner request 2026-10-17: "CI keeps failing; troubleshoot it and speed it up." This document records what the red
-runs of 16–17 October actually failed on, where a green run spends its time, and the work packages (S50.1–S50.6 in
+runs of 16–17 October actually failed on, where a green run spends its time, and the work packages (S58.1–S58.6 in
 `harness/features.json`) that fix the causes and shorten the pipeline. Each package is sized for one agent
 sub-session and names the files it owns, so packages can run in parallel without touching the same files.
 
@@ -24,7 +24,7 @@ Not one of the five failures was caused by the product code the run was testing.
 | 38885242882 | claude/s49-1-sheet          | E2E on Windows                   | `preview-isolation.spec.ts:1114` (alert/confirm/beforeunload): the 10 s `expect.poll` for `window.__doc` timed out once.                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Intermittent E2E (timing)                           |
 | 39015145940 | claude/s49-splitter-physics | Verify on both macOS shards      | `tests/integration/e2e-shards.test.ts:55` expects `preview-isolation.spec.ts` in shard 2. The branch adds `splitter-physics.spec.ts`; Playwright splits shards by _test count in file order_, so the extra file moved the boundary and `preview-isolation` fell into shard 1 on macOS (the per-file count differs by platform). Windows passed on the same commit. On main the boundary sits exactly there: a local `--list` gives shard 1 = 31 files ending with `preview-annotations.spec.ts` (166 tests), shard 2 = 27 files starting with `preview-isolation.spec.ts` (161 tests). | Fragile shard assertion: any new spec file flips it |
 
-The second PR run (39018194387, after that fix) failed on three more timing cases, again with no product change: Windows shard 1 ran the unit suite in 86 s instead of about 25 s and six disk-heavy tests in `history-groups.test.ts`, `history-store.test.ts` and `watcher.test.ts` hit their 5 s / 30 s timeouts (a starved runner; now in S50.3 scope); Windows shard 2 failed `walkthrough.spec.ts:304` (the stored steps lacked "reopen"); macOS shard 2 failed `preview-snapshot.spec.ts:241` (the busy page answered an outline before it was busy). The two E2E cases are added to S50.4.
+The second PR run (39018194387, after that fix) failed on three more timing cases, again with no product change: Windows shard 1 ran the unit suite in 86 s instead of about 25 s and six disk-heavy tests in `history-groups.test.ts`, `history-store.test.ts` and `watcher.test.ts` hit their 5 s / 30 s timeouts (a starved runner; now in S58.3 scope); Windows shard 2 failed `walkthrough.spec.ts:304` (the stored steps lacked "reopen"); macOS shard 2 failed `preview-snapshot.spec.ts:241` (the busy page answered an outline before it was busy). The two E2E cases are added to S58.4.
 
 Found while this plan was in review (run 39017707753, PR 21, docs-only change): Windows shard 2 failed in `tests/integration/watcher.test.ts` ("entries that came and went within one batch"). The test interleaved awaited disk operations with fake raw watcher events under a 20 ms debounce; a slow runner split the batch, `临时` was classified as created, and its deletion sat in the 400 ms rename hold that `idle()` does not await. Fixed in the test on this branch (events delivered after the disk work). Same class as the rows above: a test timing assumption, not the product.
 
@@ -76,7 +76,7 @@ Where the minutes are:
 
 ## 3. Targets
 
-| Measure                                           | Now                                        | Target after S50                                                                                  |
+| Measure                                           | Now                                        | Target after S58                                                                                  |
 | ------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | Red runs whose cause is not the PR's code         | 3 of the last 5 red runs                   | 0 (budgets informational on hosted runners; shard split deterministic; the two known races fixed) |
 | Wall-clock for a code PR, no queue                | ~11.5 min (critical path: windows shard 1) | ≤ 9 min (no installers on PRs, static gates off the OS jobs, time-balanced shards)                |
@@ -85,17 +85,17 @@ Where the minutes are:
 | Time to first failure for lint/format/typecheck   | after verify on each OS job (2–12 min)     | ≤ 2 min (ubuntu static job)                                                                       |
 | Debuggability of an E2E failure                   | screenshot + stack line                    | Playwright trace per failed test, kept 7 days                                                     |
 
-Measurements come from `scripts/ci-timings.mjs` (S50.6), run against the last 20 runs before and after each package
-lands, so the ADR for S50 records real numbers (ADR 0035 asked for exactly this comparison).
+Measurements come from `scripts/ci-timings.mjs` (S58.6), run against the last 20 runs before and after each package
+lands, so the ADR for S58 records real numbers (ADR 0035 asked for exactly this comparison).
 
 ## 4. Work packages
 
-Each package is one feature in `harness/features.json` (session S50) and one agent sub-session. "Owns" lists the
+Each package is one feature in `harness/features.json` (session S58) and one agent sub-session. "Owns" lists the
 only files that package may edit, so packages marked _parallel_ can run at the same time in separate worktrees.
 
-### S50.1 — Run less: path filter, draft gating, static gates once, no PR installers
+### S58.1 — Run less: path filter, draft gating, static gates once, no PR installers
 
-_Parallel with S50.2, S50.3, S50.4, S50.6._ Owns `.github/workflows/ci.yml`, `scripts/ci-changes.mjs` (new),
+_Parallel with S58.2, S58.3, S58.4, S58.6._ Owns `.github/workflows/ci.yml`, `scripts/ci-changes.mjs` (new),
 `tests/integration/ci-workflow.test.ts`, `tests/integration/ci-changes.test.ts` (new), the AGENTS.md line on drafts.
 
 1. A first `changes` job on `ubuntu-latest` (seconds) classifies the push with `git diff --name-only` against the
@@ -118,11 +118,11 @@ _Parallel with S50.2, S50.3, S50.4, S50.6._ Owns `.github/workflows/ci.yml`, `sc
 
 Acceptance: `ci-workflow.test.ts` covers the new jobs, the gate logic and the `if:` conditions; a docs-only PR shows
 both required checks green in under 3 minutes; a code PR's `static` job reports lint/format failures before any
-OS job finishes. Decision record: folded into the S50 ADR (S50.6).
+OS job finishes. Decision record: folded into the S58 ADR (S58.6).
 
-### S50.2 — Deterministic, time-balanced E2E shards
+### S58.2 — Deterministic, time-balanced E2E shards
 
-_Parallel with S50.1, S50.3, S50.4, S50.6._ Owns `tests/e2e/playwright.config.ts`, `tests/e2e/shards.json`
+_Parallel with S58.1, S58.3, S58.4, S58.6._ Owns `tests/e2e/playwright.config.ts`, `tests/e2e/shards.json`
 (new), `scripts/e2e.mjs`, `scripts/e2e-shards.mjs` (new), `tests/integration/e2e-shards.test.ts`.
 
 1. Replace Playwright's count-based `--shard` with an explicit manifest: `tests/e2e/shards.json` maps each shard to
@@ -143,9 +143,9 @@ Acceptance: both shards on both OSes within 60 s of each other in `reports/e2e` 
 merge; a synthetic new spec file in a temp copy does not fail the shards test; a forced E2E failure in CI uploads a
 `trace.zip`.
 
-### S50.3 — Wall-clock budgets: enforced locally, reported on hosted runners
+### S58.3 — Wall-clock budgets: enforced locally, reported on hosted runners
 
-_Parallel with S50.1, S50.2, S50.4, S50.6._ Owns `vitest.config.ts`, `vitest.perf.config.ts` (new),
+_Parallel with S58.1, S58.2, S58.4, S58.6._ Owns `vitest.config.ts`, `vitest.perf.config.ts` (new),
 `package.json` scripts, `harness/verify.mjs`, `.github/workflows/perf.yml` (new), `docs/testing.md`,
 `docs/perf/ci-runners.md` (new), and the test files it moves.
 
@@ -159,7 +159,7 @@ _Parallel with S50.1, S50.2, S50.4, S50.6._ Owns `vitest.config.ts`, `vitest.per
    asserted: the numbers go to `reports/perf/<platform>.json` and the job summary, and the test fails only on an
    error or a result more than 5× over budget (a regression, not runner noise).
 3. `perf.yml` runs `test:perf` on both OSes on `push` to `main` and nightly, uploads the reports, and is **not**
-   a required check. The OS jobs in `ci.yml` run `npm test` without the perf project, so S50.1 and S50.3 do not
+   a required check. The OS jobs in `ci.yml` run `npm test` without the perf project, so S58.1 and S58.3 do not
    edit the same workflow file.
 4. ADR `0038-perf-budgets-on-hosted-runners.md`: why a budget measured on a fixed dev machine is not a pass/fail
    oracle on a shared hosted runner, and what stays enforced where.
@@ -167,9 +167,9 @@ _Parallel with S50.1, S50.2, S50.4, S50.6._ Owns `vitest.config.ts`, `vitest.per
 Acceptance: `npm run verify` locally still fails when a budget is exceeded (proven with a deliberately tightened
 budget); the CI matrix no longer contains a p95/lag assertion; `perf.yml` leaves one report per OS on `main`.
 
-### S50.4 — Fix the three Windows E2E intermittents
+### S58.4 — Fix the three Windows E2E intermittents
 
-_Parallel with S50.1, S50.2, S50.3, S50.6._ Owns `tests/e2e/walkthrough.spec.ts`,
+_Parallel with S58.1, S58.2, S58.3, S58.6._ Owns `tests/e2e/walkthrough.spec.ts`,
 `tests/e2e/preview-isolation.spec.ts` (the dialog test only, lines ~1114–1175), the shared e2e helpers if the menu
 fix belongs there, and renderer code only if the cause turns out to be in the app.
 
@@ -187,9 +187,9 @@ fix belongs there, and renderer code only if the cause turns out to be in the ap
 Acceptance: 20/20 local repeats under load for each test; the next five hosted runs show no failure in these
 files (checked with `scripts/ci-timings.mjs --failures`).
 
-### S50.5 — Measurement-heavy E2E tests out of the PR path (owner decision)
+### S58.5 — Measurement-heavy E2E tests out of the PR path (owner decision)
 
-_After S50.4 (same file) and S50.2 (manifest)._ Owns `tests/e2e/app-startup-restore.spec.ts`,
+_After S58.4 (same file) and S58.2 (manifest)._ Owns `tests/e2e/app-startup-restore.spec.ts`,
 `tests/e2e/preview-isolation.spec.ts`, `.github/workflows/measurements.yml` (new), `tests/e2e/shards.json`.
 
 Two tests are measurements, not regression checks: the S05.8 startup-under-load restart loop (2.3 min) and the
@@ -201,7 +201,7 @@ removed, the full tests still run every night and on `workflow_dispatch`.
 
 Acceptance: PR shards each lose ≥ 90 s; `measurements.yml` ran green on `main` at least once per OS; ADR written.
 
-### S50.6 — Measure it: CI timing tool, job summaries, decision record
+### S58.6 — Measure it: CI timing tool, job summaries, decision record
 
 _Parallel with everything; do it first so the comparison is honest._ Owns `scripts/ci-timings.mjs` (new),
 `tests/integration/ci-timings.test.ts` (new, fixture-based), `docs/decisions/0037-ci-stability-and-speed.md`
@@ -213,37 +213,37 @@ _Parallel with everything; do it first so the comparison is honest._ Owns `scrip
    saved fixtures from the runs in §1.
 2. An E2E step summary: after each Playwright run, `scripts/e2e.mjs` appends the 10 slowest files and the shard
    total to `$GITHUB_STEP_SUMMARY` (the data is already in `reports/e2e/results.json`).
-3. ADR 0037 records the baseline from §2, the targets from §3, the decisions in S50.1 (draft gating, path filter,
-   installers only on `main`) and, after S50.1–S50.4 are merged, the measured result.
+3. ADR 0037 records the baseline from §2, the targets from §3, the decisions in S58.1 (draft gating, path filter,
+   installers only on `main`) and, after S58.1–S58.4 are merged, the measured result.
 
 Acceptance: the tool reproduces the §2 table for run 39015143213 from fixtures; the ADR has before/after numbers.
 
 ## 5. Order and parallelism
 
 ```
-S50.6 (tooling, baseline)  ──┐
-S50.1 (workflow)           ──┤
-S50.2 (shards + traces)    ──┼──▶ merge, measure 20 runs ──▶ S50.5 (needs owner yes) ──▶ ADR final numbers
-S50.3 (perf budgets)       ──┤
-S50.4 (flaky tests)        ──┘
+S58.6 (tooling, baseline)  ──┐
+S58.1 (workflow)           ──┤
+S58.2 (shards + traces)    ──┼──▶ merge, measure 20 runs ──▶ S58.5 (needs owner yes) ──▶ ADR final numbers
+S58.3 (perf budgets)       ──┤
+S58.4 (flaky tests)        ──┘
 ```
 
-S50.1, S50.2, S50.3, S50.4 and S50.6 touch disjoint files and can each run in its own worktree session. S50.3 puts
-its CI job in a separate workflow file for exactly that reason. S50.5 waits for S50.4 (same spec file), S50.2
+S58.1, S58.2, S58.3, S58.4 and S58.6 touch disjoint files and can each run in its own worktree session. S58.3 puts
+its CI job in a separate workflow file for exactly that reason. S58.5 waits for S58.4 (same spec file), S58.2
 (manifest) and the owner's decision.
 
 Every package: `npm run verify` green, PROGRESS.md entry, one commit per feature, status through
-`node harness/session.mjs set S50.x …`. Hosted evidence (a green run URL, the timing table) goes into the
+`node harness/session.mjs set S58.x …`. Hosted evidence (a green run URL, the timing table) goes into the
 feature's `--evidence`.
 
 ## 6. Decisions the owner is asked to make
 
-1. **Draft PRs skip the matrix** (S50.1): agent sessions must open drafts and mark them ready. Saves most of the
+1. **Draft PRs skip the matrix** (S58.1): agent sessions must open drafts and mark them ready. Saves most of the
    macOS queue. Default if no answer: yes.
-2. **Installers only on `main` and manual dispatch** (S50.1), not on PR pushes. Default: yes.
-3. **Performance budgets informational on hosted runners** (S50.3), still enforced by local `verify`. Default: yes.
-4. **Full startup-under-load and console-flood measurements nightly, smoke versions on PRs** (S50.5). This is the
-   only item that changes what a PR run proves; no default. S50.5 stays `todo` until answered.
+2. **Installers only on `main` and manual dispatch** (S58.1), not on PR pushes. Default: yes.
+3. **Performance budgets informational on hosted runners** (S58.3), still enforced by local `verify`. Default: yes.
+4. **Full startup-under-load and console-flood measurements nightly, smoke versions on PRs** (S58.5). This is the
+   only item that changes what a PR run proves; no default. S58.5 stays `todo` until answered.
 5. Not proposed: more shards (macOS concurrency is the limit, not shard count), Playwright retries (hides bugs),
    paid runners (an owner budget question; the plan should get PR CI under 12 minutes without them).
 

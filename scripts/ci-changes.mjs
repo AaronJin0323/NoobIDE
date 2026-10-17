@@ -1,4 +1,4 @@
-// S50.1 — classify a CI push as `code` or `docs-only` (docs/ci/ci-stability-and-speed-plan.md §4).
+// S58.1 — classify a CI push as `code` or `docs-only` (docs/ci/ci-stability-and-speed-plan.md §4).
 // The `changes` job in .github/workflows/ci.yml runs this script and the OS build matrix is skipped when the
 // result is `docs-only`. No third-party action: `git diff --name-only` against the base commit, then a pure
 // path classifier (unit-tested in tests/integration/ci-changes.test.ts). Any doubt resolves to `code`.

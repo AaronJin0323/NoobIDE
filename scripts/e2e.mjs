@@ -4,7 +4,7 @@
 // Playwright, e.g. `npm run test:e2e -- -g "language"`.
 //
 // `--shard=N/M` is not handed to Playwright (its split by test count moves whenever a spec file is added): the files
-// of shard N come from tests/e2e/shards.json (S50.2, scripts/e2e-shards.mjs) and are passed as file filters.
+// of shard N come from tests/e2e/shards.json (S58.2, scripts/e2e-shards.mjs) and are passed as file filters.
 //
 // Windows / macOS: windows open briefly on the desktop; no interaction needed (CI runners have a desktop session).
 // Linux without a display (containers, CI): wraps the run in xvfb-run when available.
@@ -46,7 +46,7 @@ if (!process.argv.includes('--no-build')) {
   run(npx, ['electron-forge', 'package']);
 }
 
-// S50.2: resolve --shard=N/M (or --shard N/M) against the manifest instead of passing it to Playwright.
+// S58.2: resolve --shard=N/M (or --shard N/M) against the manifest instead of passing it to Playwright.
 const passthrough = [];
 let shardSpec;
 const argv = process.argv.slice(2);
@@ -86,7 +86,7 @@ function spawnStatus(cmd, args) {
   return r.status ?? 1;
 }
 
-// S50.6: on GitHub Actions, append the 10 slowest spec files and the shard total to the job summary after every
+// S58.6: on GitHub Actions, append the 10 slowest spec files and the shard total to the job summary after every
 // Playwright run, pass or fail (the data is the JSON report playwright.config.ts writes to reports/e2e/results.json).
 function summarizeForGitHub() {
   if (!process.env.GITHUB_STEP_SUMMARY) return;

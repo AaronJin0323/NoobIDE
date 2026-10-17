@@ -35,7 +35,7 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 
 ## Open checks
 
-### S50.1 — CI runs less: path filter, draft gating, static gates once, no PR installers
+### S58.1 — CI runs less: path filter, draft gating, static gates once, no PR installers
 
 - **Platform:** GitHub Actions (hosted runners), repository AaronJin0323/NoobIDE
 - **Build:** branch `claude/dreamy-feistel-668709` merged into `main` (the workflow runs from the PR's own copy of
@@ -58,22 +58,22 @@ architectures` / `Upload installers` step runs (they show as skipped) and the ru
 changes` logs `kind=code`, `Static gates` fails on the Lint step within about 2 minutes, both required
      checks fail (the gate's log line shows `static=failure`), and the OS jobs run but cannot turn the gates green.
      Revert the commit (or close the PR).
-  6. Run `node scripts/ci-timings.mjs --runs 10` (S50.6) once ten runs exist after the merge and record the
+  6. Run `node scripts/ci-timings.mjs --runs 10` (S58.6) once ten runs exist after the merge and record the
      median wall-clock of code PR runs and docs-only runs in `docs/ci/`.
 - **Expected:** steps 1–5 behave as described; the two required check names in the Protect main ruleset
   (id 25212312) are unchanged and still required.
 - **Result:** _(owner fills in: pass/fail, notes, date)_
 
-### S50.2 — Time-balanced E2E shards on hosted runners (first CI run after merge)
+### S58.2 — Time-balanced E2E shards on hosted runners (first CI run after merge)
 
 - **Platform:** GitHub Actions, both OS jobs (windows-x64 and macos-arm64, shards 1 and 2)
-- **Build:** the first `CI` run of `main` after the S50.2 merge (or the PR run of the S50.2 branch)
+- **Build:** the first `CI` run of `main` after the S58.2 merge (or the PR run of the S58.2 branch)
 - **Steps:**
   1. Open the run and check the four "Run E2E" steps: each logs `shard N/2: 29 spec files from tests/e2e/shards.json`
      and no `warning: add … to tests/e2e/shards.json` line.
   2. Download the four `e2e-report-<target>-<shard>` artifacts and compare `stats.duration` of the two shards per OS
      (`node -e "console.log(require(./results.json).stats.duration/1000)"` in each folder), or run
-     `node scripts/ci-timings.mjs --runs 1` once S50.6 has landed.
+     `node scripts/ci-timings.mjs --runs 1` once S58.6 has landed.
   3. To regenerate the manifest from those reports:
      `node scripts/e2e-shards.mjs balance <folder-with-the-four-results.json-files>`, then commit
      `tests/e2e/shards.json`.

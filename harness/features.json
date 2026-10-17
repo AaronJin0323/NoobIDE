@@ -693,10 +693,10 @@
       "plan_refs": "docs/product/calm-design-spec.md; docs/decisions/0034-calm-design-language.md"
     },
     {
-      "id": "S50",
+      "id": "S58",
       "milestone": "M20",
       "title": "CI stability and speed",
-      "goal": "Remove the three failure classes found in the 16-17 October runs (fragile shard assertion, wall-clock budgets on hosted runners, Windows E2E races) and cut PR CI wall-clock by running less per push, moving static gates to one cheap job and balancing E2E shards by measured time. Packages S50.1-S50.4 and S50.6 own disjoint files and run as parallel sub-sessions; S50.5 waits for an owner decision.",
+      "goal": "Remove the three failure classes found in the 16-17 October runs (fragile shard assertion, wall-clock budgets on hosted runners, Windows E2E races) and cut PR CI wall-clock by running less per push, moving static gates to one cheap job and balancing E2E shards by measured time. Packages S58.1-S58.4 and S58.6 own disjoint files and run as parallel sub-sessions; S58.5 waits for an owner decision.",
       "depends_on": [
         "S06"
       ],
@@ -4293,11 +4293,11 @@
       "evidence": "ime.test.ts; 50 Electron tests across ai-edit, file-tree, ai-chat, welcome, commands and preview-annotations; verify green (2722 passed, 15 skipped); native IME checklist in MANUAL-CHECKS.md"
     },
     {
-      "id": "S50.1",
-      "session": "S50",
+      "id": "S58.1",
+      "session": "S58",
       "milestone": "M20",
       "title": "Run less: path filter, draft gating, static gates once, no PR installers",
-      "description": "Plan §4 S50.1. Owns .github/workflows/ci.yml, scripts/ci-changes.mjs, tests/integration/ci-workflow.test.ts, tests/integration/ci-changes.test.ts.",
+      "description": "Plan §4 S58.1. Owns .github/workflows/ci.yml, scripts/ci-changes.mjs, tests/integration/ci-workflow.test.ts, tests/integration/ci-changes.test.ts.",
       "acceptance": [
         "A changes job classifies each push as code or docs-only with a unit-tested Node script (no third-party action); docs-only pushes skip the OS build matrix",
         "typecheck, lint, format:check, harness check and the workflow/docs integration tests run once on an ubuntu static job for every push; OS jobs run harness check and npm test only",
@@ -4309,14 +4309,14 @@
       "verify": "auto",
       "depends_on": [],
       "status": "needs_manual_check",
-      "evidence": "tests/integration/ci-workflow.test.ts (32) + ci-changes.test.ts (24), verify green; owner steps in harness/MANUAL-CHECKS.md#S50.1 (Actions only run on GitHub)"
+      "evidence": "tests/integration/ci-workflow.test.ts (32) + ci-changes.test.ts (24), verify green; owner steps in harness/MANUAL-CHECKS.md#S58.1 (Actions only run on GitHub)"
     },
     {
-      "id": "S50.2",
-      "session": "S50",
+      "id": "S58.2",
+      "session": "S58",
       "milestone": "M20",
       "title": "Deterministic, time-balanced E2E shards with traces on failure",
-      "description": "Plan §4 S50.2. Owns tests/e2e/playwright.config.ts, tests/e2e/shards.json, scripts/e2e.mjs, scripts/e2e-shards.mjs, tests/integration/e2e-shards.test.ts.",
+      "description": "Plan §4 S58.2. Owns tests/e2e/playwright.config.ts, tests/e2e/shards.json, scripts/e2e.mjs, scripts/e2e-shards.mjs, tests/integration/e2e-shards.test.ts.",
       "acceptance": [
         "tests/e2e/shards.json assigns every spec file to a shard; node scripts/e2e-shards.mjs balance regenerates it from reports/e2e timing reports (longest file first onto the emptier shard)",
         "npm run test:e2e -- --shard=N/2 selects the manifest files; a spec file missing from the manifest runs in the lighter shard and the integration test names it instead of failing on a boundary position",
@@ -4327,14 +4327,14 @@
       "verify": "auto",
       "depends_on": [],
       "status": "needs_manual_check",
-      "evidence": "tests/integration/e2e-shards.test.ts (10 tests: fixtures from run 39015143213 + real --list coverage); npm run test:e2e -- --shard=2/2 on Windows: 158 passed / 2 skipped / 0 failed, 29 manifest files, 6.1 min; --shard=1/2 --list 167 tests in 29 files; verify green; hosted 60 s check: steps in harness/MANUAL-CHECKS.md#S50.2"
+      "evidence": "tests/integration/e2e-shards.test.ts (10 tests: fixtures from run 39015143213 + real --list coverage); npm run test:e2e -- --shard=2/2 on Windows: 158 passed / 2 skipped / 0 failed, 29 manifest files, 6.1 min; --shard=1/2 --list 167 tests in 29 files; verify green; hosted 60 s check: steps in harness/MANUAL-CHECKS.md#S58.2"
     },
     {
-      "id": "S50.3",
-      "session": "S50",
+      "id": "S58.3",
+      "session": "S58",
       "milestone": "M20",
       "title": "Wall-clock budgets enforced locally, reported on hosted runners",
-      "description": "Plan §4 S50.3. Owns vitest.config.ts, vitest.perf.config.ts, package.json scripts, harness/verify.mjs, .github/workflows/perf.yml, docs/testing.md, docs/perf/ci-runners.md, docs/decisions/0038-perf-budgets-on-hosted-runners.md and the test files it moves.",
+      "description": "Plan §4 S58.3. Owns vitest.config.ts, vitest.perf.config.ts, package.json scripts, harness/verify.mjs, .github/workflows/perf.yml, docs/testing.md, docs/perf/ci-runners.md, docs/decisions/0038-perf-budgets-on-hosted-runners.md and the test files it moves.",
       "acceptance": [
         "docs/perf/ci-runners.md lists every toBeLessThan(ms) assertion in unit and integration tests and classifies each as functional timeout (stays in npm test) or performance budget (moves to the perf project)",
         "npm run test:perf runs the perf project; npm run verify runs it with budgets enforced on developer machines, proven by a deliberately tightened budget failing verify",
@@ -4349,11 +4349,11 @@
       "evidence": ""
     },
     {
-      "id": "S50.4",
-      "session": "S50",
+      "id": "S58.4",
+      "session": "S58",
       "milestone": "M20",
       "title": "Fix the Windows E2E intermittents (walkthrough, dialog test)",
-      "description": "Plan §4 S50.4. Owns tests/e2e/walkthrough.spec.ts, the dialog test in tests/e2e/preview-isolation.spec.ts, shared e2e helpers, and renderer code only if the cause is in the app.",
+      "description": "Plan §4 S58.4. Owns tests/e2e/walkthrough.spec.ts, the dialog test in tests/e2e/preview-isolation.spec.ts, shared e2e helpers, and renderer code only if the cause is in the app.",
       "acceptance": [
         "walkthrough.spec.ts reads walkthrough.json through expect.poll and opens the Help menu only once the menu item is visible and stable; the root cause of the menu click opening nothing on Windows is identified and fixed in the helper or the app",
         "The preview-isolation dialog test either has a measured budget with headroom or polls per dialog so a failure names the dialog",
@@ -4367,11 +4367,11 @@
       "evidence": ""
     },
     {
-      "id": "S50.5",
-      "session": "S50",
+      "id": "S58.5",
+      "session": "S58",
       "milestone": "M20",
       "title": "Measurement-heavy E2E tests nightly, smoke versions on PRs (owner decision)",
-      "description": "Plan §4 S50.5 and §6 item 4. Blocked until the owner decides; owns tests/e2e/app-startup-restore.spec.ts, tests/e2e/preview-isolation.spec.ts, .github/workflows/measurements.yml, tests/e2e/shards.json.",
+      "description": "Plan §4 S58.5 and §6 item 4. Blocked until the owner decides; owns tests/e2e/app-startup-restore.spec.ts, tests/e2e/preview-isolation.spec.ts, .github/workflows/measurements.yml, tests/e2e/shards.json.",
       "acceptance": [
         "Owner decision recorded in an ADR before any test changes",
         "The PR suite keeps a short smoke version of the startup-under-load restart (S05.8) and of the console-flood bound (S05.3/S05.7); the full tests run nightly and on workflow_dispatch on both OSes from .github/workflows/measurements.yml with uploaded reports",
@@ -4379,23 +4379,23 @@
       ],
       "verify": "auto",
       "depends_on": [
-        "S50.2",
-        "S50.4"
+        "S58.2",
+        "S58.4"
       ],
       "status": "todo",
       "evidence": ""
     },
     {
-      "id": "S50.6",
-      "session": "S50",
+      "id": "S58.6",
+      "session": "S58",
       "milestone": "M20",
       "title": "CI timing tool, E2E step summary and ADR 0037",
-      "description": "Plan §4 S50.6. Do first so the comparison is honest. Owns scripts/ci-timings.mjs, tests/integration/ci-timings.test.ts, docs/decisions/0037-ci-stability-and-speed.md, docs/ci/.",
+      "description": "Plan §4 S58.6. Do first so the comparison is honest. Owns scripts/ci-timings.mjs, tests/integration/ci-timings.test.ts, docs/decisions/0037-ci-stability-and-speed.md, docs/ci/.",
       "acceptance": [
         "node scripts/ci-timings.mjs [--runs N] [--failures] prints per job the queue delay, step durations, Playwright test time from e2e-report artifacts when present, and for failed runs the failing step and first error line; pure Node, parser unit-tested on saved fixtures",
         "The tool reproduces the plan §2 table for run 39015143213 from fixtures",
         "scripts/e2e.mjs appends the 10 slowest spec files and the shard total to the GitHub job summary after every Playwright run",
-        "ADR 0037 records the baseline, the targets, the S50.1 decisions and, once S50.1-S50.4 are merged, measured before/after numbers"
+        "ADR 0037 records the baseline, the targets, the S58.1 decisions and, once S58.1-S58.4 are merged, measured before/after numbers"
       ],
       "verify": "agent-check",
       "depends_on": [],

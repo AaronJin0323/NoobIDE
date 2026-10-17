@@ -2,7 +2,7 @@
 # Each target is built and tested on its own OS (PLAN §5: no cross-packaging): Windows x64 on windows-latest,
 # Apple Silicon on macos-14 (arm64 runner). Every action is pinned to a full commit SHA; the comment names the tag.
 #
-# S50.1 — run less (docs/ci/ci-stability-and-speed-plan.md §4): a `changes` job classifies the push as `code` or
+# S58.1 — run less (docs/ci/ci-stability-and-speed-plan.md §4): a `changes` job classifies the push as `code` or
 # `docs-only` (scripts/ci-changes.mjs); a `static` job on ubuntu runs the platform-independent gates once for
 # every push; the OS `build` matrix runs only for code changes on non-draft pull requests, pushes to main and
 # manual dispatch, and runs only the platform-dependent gates (harness check + npm test); installers are made
@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # S50.1: classify the push so docs-only changes (docs/, *.md, PROGRESS.md, MANUAL-CHECKS.md) skip the OS matrix.
+  # S58.1: classify the push so docs-only changes (docs/, *.md, PROGRESS.md, MANUAL-CHECKS.md) skip the OS matrix.
   # fetch-depth 0 so the base commit (PR base, or the previous head of main for a push) is in the clone; a missing
   # or all-zero base is treated as `code` by the script, never as docs-only.
   changes:
@@ -52,7 +52,7 @@ jobs:
           CI_BEFORE_SHA: ${{ github.event.before }}
         run: node scripts/ci-changes.mjs
 
-  # S50.1: the gates whose result does not depend on the OS run once, on the cheapest runner, for every push
+  # S58.1: the gates whose result does not depend on the OS run once, on the cheapest runner, for every push
   # (drafts and docs-only pushes included), so lint/format/backlog failures report before any OS job finishes.
   # The e2e-shards test is not here: it needs Playwright on the target OS and stays in `npm test` on the matrix.
   static:
@@ -147,7 +147,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      # S50.1: the two commands are called directly rather than through `npm run verify -- --quick`, because
+      # S58.1: the two commands are called directly rather than through `npm run verify -- --quick`, because
       # --quick still runs typecheck (40–60 s per OS job) that the `static` job has already proved once on this
       # commit. Only the tests depend on the platform; the harness check is cheap and keeps the backlog honest.
       - name: Harness backlog check
@@ -170,7 +170,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # S50.1: installers only on push to main and workflow_dispatch. PR runs still package the app (the E2E suite
+      # S58.1: installers only on push to main and workflow_dispatch. PR runs still package the app (the E2E suite
       # needs it) but skip the Squirrel/DMG step, which was 1.5 min on the critical path of every PR push.
       - name: Make installers
         if: matrix.shard == 1 && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -201,7 +201,7 @@ jobs:
   complete:
     # Preserve the required check names in the existing Protect main ruleset.
     # Each gate requires the static job and the whole matrix, so neither can hide a failed or cancelled shard.
-    # S50.1: a gate passes when static succeeded and build succeeded, or build was skipped because the push was
+    # S58.1: a gate passes when static succeeded and build succeeded, or build was skipped because the push was
     # docs-only. On a draft pull request the gates are skipped, so the required checks stay pending (not
     # mergeable yet) instead of red; marking the draft ready re-runs the workflow with the matrix.
     name: ${{ matrix.target }}
