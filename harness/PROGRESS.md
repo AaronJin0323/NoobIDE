@@ -128,6 +128,7 @@ handler, FixCard `takeFocus`) and `useProjectIndex.ts`. Not run on macOS.
 
 **Next up:** Merge the M19 branches; then the remaining M19 sessions per `node harness/session.mjs next --all`. When
 H.6 reports, compare its hesitations with rules 16–25 (supersede through new features, never edit silently).
+
 ## Session 37 (side session) — 2026-10-17 — S52 complete file management (M19)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s52-files-402d45` (based on
