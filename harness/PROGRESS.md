@@ -196,6 +196,72 @@ parallel worktrees after S47).
 **Ideas / backlog candidates:** tab drag-to-reorder once S49.1's drag model exists; floating selection pill;
 bottom-sheet chat in narrow windows; native Mica/vibrancy behind --bg (plan §7).
 
+## Session 35 (parallel lane) — 2026-10-17 — M19 backlog records for S51–S57 (owner approval of review §4)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/dazzling-shtern-8a5721`, based
+on `claude/noobide-vs-mainstream-ides-310020` (review commit d5c3990).
+
+**Done**
+
+- Added milestone M19 "Everyday editing parity (v0.2)", sessions S51–S57 and 28 features (S51.1–S57.2) to
+  `harness/features.json`, turning the acceptance sketches of `docs/reviews/mainstream-ide-gap-2026-10-17.md` §4
+  into precise criteria (each names its test kind: unit, integration, fault, e2e, a11y, capability case, or doc).
+- ROADMAP.md gains an M19 section. No existing feature changed.
+- Renumbered from the original M18/S47–S53 because M18 and S47–S50 belong to the UI/UX refinement work on PR #14.
+
+**Evidence:** `node harness/session.mjs check` OK (251 features, 54 sessions); `npm run verify -- --quick` green
+(see commit); `node harness/session.mjs show S51` lists the features with criteria.
+
+**Decisions:** Session dependencies point at completed sessions (S08–S10, S12, S14, S18, S19, S21, S22, S24, S34,
+S41, S43), like M14–M17, not at S29; whether v0.2 waits for MVP stability / H.6 stays the owner's call (review §6
+item 2). `verify` kinds: `auto` except S54.1, S55.1, S56.4 (`agent-check`: decision record, rule choice, wording)
+and S52.5 (`manual-win`, with Finder steps in the same criteria: Explorer/Finder drag-and-drop needs real hardware).
+Rules 16–25 (S55.1) default to a set that avoids duplicating rules 1–15; H.6 findings replace defaults if available.
+
+**Problems / risks:** Thresholds (search under 1 s on 2 000 files, main blocked ≤ 100 ms, quick-open filter
+< 50 ms) are proposals, not measurements; a session may refine them with a measurement but must not loosen them
+without a superseding feature. S53.1 needs the Emmet package decision (review §6 item 3).
+
+**Owner action needed:** Review §6 items 2 and 3. S52.5 manual check once S52.4 lands.
+
+**Next up**
+
+1. Any of S51–S57 (independent lanes); suggested order S51 → S52 → S53 → S55 → S54 → S56 → S57.
+
+**Ideas / backlog candidates:** none new.
+
+## Session 34 (parallel lane) — 2026-10-17 — Functional gap assessment vs VS Code / IntelliJ (S01.6, owner request)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch
+`claude/noobide-vs-mainstream-ides-310020` (node_modules junctioned to the main checkout).
+
+**Done:** Owner asked for an assessment of NoobIDE against mainstream IDEs and an improvement plan. Wrote
+`docs/reviews/mainstream-ide-gap-2026-10-17.md`: what is shipped (by milestone), what NoobIDE does that VS Code and
+WebStorm do not, a six-area gap matrix (files, editing, preview/debug, diagnostics, VCS/terminal/extensibility,
+shell) with each NoobIDE status tied to a feature id or source file, a ranked list of gaps by beginner impact, and
+a candidate milestone M19 (sessions S51–S57: find/replace/quick open, complete file management incl. move/import/
+image viewer, Emmet + linked tags + colour picker, CSS without reload, more checks and quick fixes, project
+checkpoints, JS navigation/rename) with acceptance sketches and estimates. Recorded as feature S01.6 (agent-check),
+mirroring S01.5. No runtime code changed; nothing added to the backlog beyond S01.6. Numbering corrected the same day: M18 and S47–S50 belong to the UI/UX refinement work on PR #14, so the proposal uses M19 / S51–S57.
+
+**Evidence:** S01.6 evidence string; `npm run verify -- --quick` green (see commit). Key findings verified in source:
+`file-ops.ts` exports only create/rename/trash (no move/copy/import); `commands.ts` has no find/replace or quick-open
+command; binary files are refused by `text-codec.ts` with no image viewer; one Monaco instance (no split editor);
+a single `BrowserWindow`; go-to-definition/rename explicitly unclaimed in `docs/capabilities.md`.
+
+**Decisions:** None binding. Proposed sequence S51 → S52 → S53 → S55 → S54 → S56 → S57; owner to approve M19 before
+it enters `features.json`. Recommended against copying VS Code settings sprawl, a marketplace, an early debugger, or
+a Theia/Code-OSS migration (reasons in the review §5).
+
+**Problems / risks:** Ranking is an engineering reading of PLAN §2/§4; the H.3 and H.6 beginner studies are still
+todo and may reorder P2 items. VS Code / JetBrains facts are general product knowledge, not re-verified today.
+
+**Ideas / backlog candidates:** "Export project as zip to share" as the beginner-sized publish step; a status-bar
+hint the first time Emmet or linked editing fires.
+
+**Next up:** Owner decisions in review §6 (approve M19/S51–S57; start v0.2 with S51/S52 or wait for H.6). Otherwise
+M7 release items remain the current blocked front.
+
 ## Session 33 (side session) — 2026-10-17 — Hosted CI failure follow-up (S06.5)
 
 **Agent:** Codex on Windows x64, managed ci-cd-delivery checkout, PR #13.
