@@ -67,21 +67,21 @@
     "restore": {
       "title": { "zh-CN": "恢复：回到之前保存的版本", "en": "Recover: go back to an earlier saved version" },
       "body": {
-        "zh-CN": "打开左边工具栏的“历史”，选 script.js，挑一个拼错之前的版本。先看差异，再点恢复——恢复前会先把现在的版本也保存一份，所以随时还能换回来。",
+        "zh-CN": "打开左边工具栏的“历史版本”，选 script.js，挑一个拼错之前的版本。先看差异，再点恢复——恢复前会先把现在的版本也保存一份，所以随时还能换回来。",
         "en": "Open History in the tool rail on the left, choose script.js and pick a version from before the mistake. Look at the differences first, then restore — the current version is saved before the restore, so you can always go back."
       },
-      "where": { "zh-CN": "左边工具栏的“历史”", "en": "History in the tool rail on the left" },
+      "where": { "zh-CN": "左边工具栏的“历史版本”", "en": "History in the tool rail on the left" },
       "terms": ["local history", "diff"]
     },
     "reopen": {
       "title": { "zh-CN": "下次继续：关掉再打开", "en": "Continue next time: close and reopen" },
       "body": {
-        "zh-CN": "关掉 NoobIDE，再重新打开它。你的项目、打开的文件标签和布局都会回来。顶栏写着项目保存在哪个文件夹里。",
-        "en": "Close NoobIDE and open it again. Your project, its open file tabs and the layout come back. The top bar shows which folder the project is stored in."
+        "zh-CN": "关掉 NoobIDE，再重新打开它。你的项目、打开的文件标签和布局都会回来。把鼠标停在顶栏的项目名上，或打开项目名旁边的项目菜单，就能看到项目保存在哪个文件夹里。",
+        "en": "Close NoobIDE and open it again. Your project, its open file tabs and the layout come back. Hover the project name in the top bar, or open the project menu next to it, to see which folder the project is stored in."
       },
       "where": {
-        "zh-CN": "顶栏里项目名下面的文件夹路径",
-        "en": "The folder path under the project name in the top bar"
+        "zh-CN": "顶栏里项目名旁边的项目菜单",
+        "en": "The project menu next to the project name in the top bar"
       },
       "terms": ["project", "folder"]
     }

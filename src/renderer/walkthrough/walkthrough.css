@@ -8,6 +8,10 @@
 .workbench.narrow {
   --walkthrough-min: 76px;
 }
+/* S47.6: the compact band is one row (the 24 px buttons plus padding), in every window width. */
+.workbench:has(> .walkthrough.is-compact) {
+  --walkthrough-min: 40px;
+}
 .walkthrough {
   /* Gives way when the window is short (with the open Problems list, before the editor and the preview): the step
      text scrolls inside the band while the progress check and the buttons on the side always stay in view. The
@@ -101,6 +105,43 @@
 .walkthrough-actions .primary-button {
   margin-top: 0;
 }
+/* S47.6: the compact state — one line: step n of 8 · title · Show me · Next (· Expand). The title gives way with an
+   ellipsis; the buttons never wrap. The done state is the Next button's own label (下一步 vs 跳过这一步), never a
+   colour. The band is at most 56 px: 40 px of row plus its border. */
+.walkthrough.is-compact {
+  align-items: center;
+  gap: 16px;
+  padding: 7px 16px;
+}
+.walkthrough.is-compact .walkthrough-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+}
+.walkthrough.is-compact .walkthrough-progress {
+  flex: none;
+}
+.walkthrough.is-compact .walkthrough-title {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.walkthrough.is-compact .walkthrough-side,
+.workbench.narrow .walkthrough.is-compact .walkthrough-side {
+  flex: none;
+  max-width: none;
+  flex-direction: row;
+}
+.workbench.narrow .walkthrough.is-compact {
+  flex-direction: row;
+}
+.workbench.narrow .walkthrough.is-compact .walkthrough-main {
+  flex: 1 1 auto;
+}
 /* The step's anchor: a solid outline (a shape, not only a colour) around the element the step points at. 3 px at
    offset 4 px, so it never looks like the 2 px focus outline (spec: Selected / current / pressed). */
 [data-walkthrough-anchor] {
@@ -126,18 +167,12 @@
   min-width: 0;
 }
 
-.glossary-dialog {
-  width: min(640px, calc(100vw - 32px));
-  max-height: calc(100vh - 64px);
-  display: flex;
-  flex-direction: column;
-}
-/* The shared .text-field; only its spacing in the dialog is set here. */
+/* The shared .text-field; it stays in view while the list below scrolls (the sheet's content gives it room). */
 .glossary-search {
-  margin: 8px 0;
+  margin: 0;
 }
-.glossary-list {
-  flex: 1;
+.sheet-content > .glossary-list {
+  flex: 1 1 auto;
   min-height: 0;
   margin: 0;
   padding: 0;

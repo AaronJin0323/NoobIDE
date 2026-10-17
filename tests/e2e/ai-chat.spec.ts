@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { axeScan } from './a11y-helpers';
 import { launchApp } from './launch';
-import { collectConsoleErrors, focusEditor, makeProject, openFile, openProject } from './project';
+import { collectConsoleErrors, focusEditor, makeProject, openFile, openProject, switchLanguage } from './project';
 
 /**
  * S33 AI chat panel and "Explain" entry points, against the scripted fake provider of S31 (decision 0025: no test calls
@@ -131,14 +131,14 @@ test.describe('AI chat (S33)', () => {
   });
 
   test('en: an offline error is explained; answers follow the UI locale (S33.1)', async () => {
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
     await panel().getByTestId('ai-new').click();
     await input().fill('[[offline]] hello');
     await panel().getByTestId('ai-send').click();
     const error = lastTurn().getByTestId('ai-error');
     await expect(error).toHaveAttribute('data-code', 'offline');
     await expect(error).toContainText('Cannot reach the AI service. Check the network connection.');
-    await page.getByTestId('switch-language').click(); // back to zh-CN
+    await switchLanguage(page); // back to zh-CN
   });
 
   test('"Explain this code" on a selection opens the chat in explain mode with the selection (S33.2)', async () => {

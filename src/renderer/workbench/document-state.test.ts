@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { FileContent, OpenedProject } from '../../shared/ipc/contract';
 import {
   INITIAL_DOCUMENT_STATE,
+  activeSaveRetrying,
   activeSaveStatus,
   activeTab,
   cycleTab,
@@ -49,6 +50,24 @@ describe('open tabs (S09.2)', () => {
     expect(s.active).toBe('index.html');
     expect(activeTab(s)?.content.text).toBe('<p>index.html</p>\n');
     expect(activeSaveStatus(s)).toBe('clean');
+  });
+
+  it('S47.3: a write in flight counts as a retry only while the error of a failed write is still set', () => {
+    const failed = saveReducer(dirty, { type: 'saveFailed', error: { code: 'permission-denied', message: 'EACCES' } });
+    const retrying = saveReducer(failed, { type: 'saveStarted' });
+    const firstWrite = saveReducer(dirty, { type: 'saveStarted' });
+    const s = run(...opened('index.html'));
+    expect(activeSaveRetrying(INITIAL_DOCUMENT_STATE)).toBe(false);
+    expect(activeSaveRetrying(s)).toBe(false);
+    expect(activeSaveRetrying(documentReducer(s, { type: 'saveState', relPath: 'index.html', save: failed }))).toBe(
+      false,
+    );
+    expect(activeSaveRetrying(documentReducer(s, { type: 'saveState', relPath: 'index.html', save: retrying }))).toBe(
+      true,
+    );
+    expect(activeSaveRetrying(documentReducer(s, { type: 'saveState', relPath: 'index.html', save: firstWrite }))).toBe(
+      false,
+    );
   });
 
   it('keeps every tab its own save state', () => {

@@ -53,9 +53,9 @@ function render(records: ProblemRecord[], onFixWithAi?: () => void, locale: Loca
 describe('"Fix with AI" right on a problem row', () => {
   it('is on the collapsed row of a located problem while AI is offered', () => {
     const html = render([located], noop);
-    expect(html).toMatch(/data-testid="problem-row-fix-ai"[^>]*><svg[^]*?<\/svg>用 AI 修复<\/button>/);
+    expect(html).toMatch(/data-testid="problem-row-fix-ai"[^>]*><svg[^]*?<\/svg>AI 修复<\/button>/);
     // Its name says which problem it fixes (several rows each have one).
-    expect(html).toMatch(/aria-label="用 AI 修复：[^"]+" [^>]*data-testid="problem-row-fix-ai"/);
+    expect(html).toMatch(/aria-label="AI 修复：[^"]+" [^>]*data-testid="problem-row-fix-ai"/);
     expect(render([located], noop, 'en')).toContain('>Fix with AI</button>');
   });
 

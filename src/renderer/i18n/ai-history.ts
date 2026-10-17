@@ -51,7 +51,7 @@ export const aiHistoryZhCN = {
   'ai.usage.budget.off': '没有每日上限。',
   'ai.usage.budget.state': '今天已用 {used} / {budget} 个 token。',
   'ai.usage.budget.reached':
-    '今天的 token 上限已用完：新的 AI 请求和自动补全会暂停到明天，正在进行的请求会完成。其他功能不受影响。',
+    '今天的 token 上限已用完：新的 AI 请求和 AI 建议会暂停到明天，正在进行的请求会完成。其他功能不受影响。',
   'ai.usage.budget.invalid': '请输入 {min} 到 {max} 之间的整数。',
   'ai.usage.budget.saved': '每日上限已保存。',
   'ai.error.budget-reached':
@@ -110,7 +110,7 @@ export const aiHistoryEn: Record<keyof typeof aiHistoryZhCN, string> = {
   'ai.usage.budget.off': 'No daily limit.',
   'ai.usage.budget.state': 'Used today: {used} of {budget} tokens.',
   'ai.usage.budget.reached':
-    'Today’s token limit is used up: new AI requests and completions are paused until tomorrow; requests already running finish. Everything else works as usual.',
+    'Today’s token limit is used up: new AI requests and AI suggestions are paused until tomorrow; requests already running finish. Everything else works as usual.',
   'ai.usage.budget.invalid': 'Enter a whole number from {min} to {max}.',
   'ai.usage.budget.saved': 'Daily limit saved.',
   'ai.error.budget-reached':

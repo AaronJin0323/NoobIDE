@@ -12,7 +12,7 @@ import {
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { fill } from '../recovery/format';
-import { useModalKeys } from '../workbench/focus-trap';
+import { Sheet } from '../workbench/Sheet';
 import { AiConsentPrompt } from './AiConsentPrompt';
 import { AiUsageSection, RevokeChatsPrompt } from './AiHistorySettings';
 import { aiHistoryBridge } from './chat-history';
@@ -53,10 +53,11 @@ export function useAiSettingsRequests(): { open: boolean; close: () => void } {
 type Message = { readonly tone: 'ok' | 'error'; readonly key: MessageKey } | null;
 
 /**
- * Settings → AI (S31.4, decision 0025): AI on/off, provider, API key (masked, write-only: once saved it is never
- * shown or sent back — the field empties and the status says "saved"), Test, a model per purpose from the provider's
- * list, inline completions on/off, and the open project's consent. Every state is said in words (never colour
- * alone); everything is reachable with Tab; Escape or Close dismisses it.
+ * Settings → AI (S31.4, decision 0025) on the shared Sheet (S49.1): AI on/off, provider, API key (masked, write-only:
+ * once saved it is never shown or sent back — the field empties and the status says "saved"), Test, a model per
+ * purpose from the provider's list, inline suggestions on/off, and the open project's consent. Every state is said
+ * in words (never colour alone); everything is reachable with Tab; focus starts in the first field once the settings
+ * arrive; Escape or Close dismisses it, and a click outside never loses a half-typed key.
  */
 export function AiSettingsDialog({
   api,
@@ -71,11 +72,9 @@ export function AiSettingsDialog({
   readonly history?: AiHistoryApi | undefined;
 }) {
   const { t, locale } = useI18n();
-  const titleId = useId();
   const keyId = useId();
   const dialog = useRef<HTMLDivElement>(null);
-  const closeButton = useRef<HTMLButtonElement>(null);
-  useModalKeys(dialog, onClose);
+  const firstField = useRef<HTMLInputElement>(null);
 
   const [status, setStatus] = useState<AiStatus | null>(null);
   // The key being typed lives only in this field's state and is cleared as soon as it was sent.
@@ -96,8 +95,17 @@ export function AiSettingsDialog({
 
   useEffect(() => {
     void refresh();
-    closeButton.current?.focus();
   }, [refresh]);
+
+  // The settings arrive after the sheet opened (focus sat on Close meanwhile): the first field takes it, unless the
+  // user already moved somewhere inside.
+  const loaded = status !== null;
+  useEffect(() => {
+    if (!loaded) return;
+    const active = document.activeElement;
+    const sheet = dialog.current;
+    if (!sheet || !active || active === document.body || active.closest('.sheet-close')) firstField.current?.focus();
+  }, [loaded]);
 
   const provider: AiProviderId = status?.config.provider ?? 'anthropic';
   const keyStored = status?.keyStored[provider] ?? false;
@@ -188,268 +196,254 @@ export function AiSettingsDialog({
       : t('ai.settings.models.auto');
 
   return (
-    <div className="dialog-backdrop" onMouseDown={onClose}>
-      <div
-        ref={dialog}
-        className="dialog ai-settings"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid="ai-settings"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <h2 className="dialog-title" id={titleId}>
-          {t('ai.settings.title')}
-        </h2>
-        <div className="dialog-body ai-settings-body">
-          <p className="dialog-hint">{t('ai.settings.intro')}</p>
-          {status && !status.secureStorage && (
-            <p className="ais-message ais-message-error" role="alert" data-testid="ai-no-secure-storage">
-              {withKeyStore(t('ai.settings.noSecureStorage'), t)}
+    <Sheet
+      title={t('ai.settings.title')}
+      description={t('ai.settings.intro')}
+      width={720}
+      className="ai-settings"
+      sheetRef={dialog}
+      onClose={onClose}
+      closeLabel={t('ai.settings.close')}
+      testId="ai-settings"
+      closeTestId="ai-settings-close"
+    >
+      <div className="dialog-body ai-settings-body">
+        {status && !status.secureStorage && (
+          <p className="ais-message ais-message-error" role="alert" data-testid="ai-no-secure-storage">
+            {withKeyStore(t('ai.settings.noSecureStorage'), t)}
+          </p>
+        )}
+
+        {config && (
+          <>
+            <label className="ais-check">
+              <input
+                ref={firstField}
+                type="checkbox"
+                checked={config.enabled}
+                data-testid="ai-enabled"
+                onChange={(event) => void saveConfig({ ...config, enabled: event.target.checked })}
+              />
+              <span>{t('ai.settings.enabled')}</span>
+            </label>
+            <p className="dialog-hint" role="status" data-testid="ai-enabled-state">
+              {!config.enabled
+                ? t('ai.settings.enabled.off')
+                : keyStored
+                  ? t('ai.settings.enabled.on')
+                  : t('ai.settings.enabled.noKey')}
             </p>
-          )}
 
-          {config && (
-            <>
-              <label className="ais-check">
-                <input
-                  type="checkbox"
-                  checked={config.enabled}
-                  data-testid="ai-enabled"
-                  onChange={(event) => void saveConfig({ ...config, enabled: event.target.checked })}
-                />
-                <span>{t('ai.settings.enabled')}</span>
-              </label>
-              <p className="dialog-hint" role="status" data-testid="ai-enabled-state">
-                {!config.enabled
-                  ? t('ai.settings.enabled.off')
-                  : keyStored
-                    ? t('ai.settings.enabled.on')
-                    : t('ai.settings.enabled.noKey')}
-              </p>
-
-              <fieldset className="ais-fieldset">
-                <legend>{t('ai.settings.provider')}</legend>
-                {AI_PROVIDERS.map((id) => (
-                  <label key={id} className="ais-check">
-                    <input
-                      type="radio"
-                      name="ai-provider"
-                      value={id}
-                      checked={provider === id}
-                      data-testid={`ai-provider-${id}`}
-                      onChange={() => {
-                        setKeyMessage(null);
-                        setTestMessage(null);
-                        void saveConfig({ ...config, provider: id });
-                      }}
-                    />
-                    <span>
-                      {t(PROVIDER_LABEL[id])}
-                      {status.keyStored[id] ? ` · ${t('ai.settings.key.stored')}` : ''}
-                    </span>
-                  </label>
-                ))}
-              </fieldset>
-
-              <div className="ais-section">
-                <label className="ais-label" htmlFor={keyId}>
-                  {t('ai.settings.key')}
-                </label>
-                <p className="ais-key-state" role="status" data-testid="ai-key-state">
-                  {keyStored ? `✓ ${t('ai.settings.key.stored')}` : t('ai.settings.key.missing')}
-                </p>
-                <form
-                  className="ais-row"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (keyDraft.trim()) void saveKey();
-                  }}
-                >
+            <fieldset className="ais-fieldset">
+              <legend>{t('ai.settings.provider')}</legend>
+              {AI_PROVIDERS.map((id) => (
+                <label key={id} className="ais-check">
                   <input
-                    id={keyId}
-                    className="text-field ais-input"
-                    type="password"
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={keyDraft}
-                    placeholder={t('ai.settings.key.placeholder')}
-                    disabled={!status.secureStorage || busy}
-                    data-testid="ai-key-input"
-                    onChange={(event) => setKeyDraft(event.target.value)}
-                  />
-                  <button
-                    type="submit"
-                    className="secondary-button"
-                    disabled={!status.secureStorage || busy || keyDraft.trim() === ''}
-                    data-testid="ai-key-save"
-                  >
-                    {t('ai.settings.key.save')}
-                  </button>
-                </form>
-                <p className="dialog-hint">{withKeyStore(t('ai.settings.key.hint'), t)}</p>
-                {keyMessage && (
-                  <p
-                    className={`ais-message ais-message-${keyMessage.tone}`}
-                    role={keyMessage.tone === 'error' ? 'alert' : 'status'}
-                    data-testid="ai-key-message"
-                  >
-                    {withKeyStore(t(keyMessage.key), t)}
-                  </p>
-                )}
-                <div className="ais-row">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={!keyStored || busy}
-                    data-testid="ai-test"
-                    onClick={() => void test()}
-                  >
-                    {t('ai.settings.test')}
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={!keyStored || busy}
-                    data-testid="ai-key-remove"
-                    onClick={() => void removeKey()}
-                  >
-                    {t('ai.settings.key.remove')}
-                  </button>
-                </div>
-                {testMessage && (
-                  <p
-                    className={`ais-message ais-message-${testMessage.tone}`}
-                    role={testMessage.tone === 'error' ? 'alert' : 'status'}
-                    data-testid="ai-test-message"
-                  >
-                    {testMessage.tone === 'ok' && testMessage.key === 'ai.settings.test.ok' ? '✓ ' : ''}
-                    {testMessage.tone === 'error' ? '✗ ' : ''}
-                    {t(testMessage.key)}
-                  </p>
-                )}
-              </div>
-
-              <fieldset className="ais-fieldset" disabled={!keyStored}>
-                <legend>{t('ai.settings.models')}</legend>
-                <p className="dialog-hint">{t('ai.settings.models.hint')}</p>
-                {PURPOSE_ORDER.map((purpose) => (
-                  <label key={purpose} className="ais-model-row">
-                    <span>{t(PURPOSE_LABEL[purpose])}</span>
-                    <select
-                      className="text-field ais-select"
-                      value={config.models[purpose]}
-                      data-testid={`ai-model-${purpose}`}
-                      onChange={(event) =>
-                        void saveConfig({ ...config, models: { ...config.models, [purpose]: event.target.value } })
-                      }
-                    >
-                      <option value="">{defaultLabel(purpose)}</option>
-                      {modelChoices(config.models[purpose], models[provider] ?? null).map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.displayName === model.id ? model.id : `${model.displayName} (${model.id})`}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ))}
-                <div className="ais-row">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={!keyStored || loadingModels}
-                    data-testid="ai-models-refresh"
-                    onClick={() => void loadModels(provider)}
-                  >
-                    {t('ai.settings.models.refresh')}
-                  </button>
-                  {loadingModels && (
-                    <span className="dialog-hint" role="status">
-                      {t('ai.settings.models.loading')}
-                    </span>
-                  )}
-                </div>
-              </fieldset>
-
-              <label className="ais-check">
-                <input
-                  type="checkbox"
-                  checked={config.inlineCompletions}
-                  data-testid="ai-inline"
-                  onChange={(event) => void saveConfig({ ...config, inlineCompletions: event.target.checked })}
-                />
-                <span>{t('ai.settings.inline')}</span>
-              </label>
-
-              <div className="ais-section" data-testid="ai-consent-section">
-                <h3 className="ais-label">{t('ai.settings.consent')}</h3>
-                {projectId === null ? (
-                  <p className="dialog-hint">{t('ai.settings.consent.noProject')}</p>
-                ) : status.projectConsent ? (
-                  <div className="ais-row">
-                    <p className="ais-key-state" role="status" data-testid="ai-consent-state">
-                      {`✓ ${t('ai.settings.consent.allowed')}`}
-                    </p>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      data-testid="ai-consent-revoke"
-                      onClick={() => void revokeConsent()}
-                    >
-                      {t('ai.settings.consent.revoke')}
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <p className="dialog-hint" data-testid="ai-consent-state">
-                      {t('ai.settings.consent.notAllowed')}
-                    </p>
-                    <AiConsentPrompt
-                      api={api}
-                      projectId={projectId}
-                      providerName={t(PROVIDER_LABEL[provider])}
-                      onAllowed={() => void refresh()}
-                      onDeclined={() => undefined}
-                    />
-                  </>
-                )}
-                {history && projectId !== null && revokeChats > 0 && (
-                  <RevokeChatsPrompt
-                    api={history}
-                    projectId={projectId}
-                    count={revokeChats}
-                    t={t}
-                    onDone={(deleted) => {
-                      setRevokeChats(0);
-                      setRevokeMessage(
-                        deleted === null ? null : fill(t('ai.history.revoke.deleted', deleted), { n: deleted }),
-                      );
+                    type="radio"
+                    name="ai-provider"
+                    value={id}
+                    checked={provider === id}
+                    data-testid={`ai-provider-${id}`}
+                    onChange={() => {
+                      setKeyMessage(null);
+                      setTestMessage(null);
+                      void saveConfig({ ...config, provider: id });
                     }}
                   />
-                )}
-                {revokeMessage && (
-                  <p className="dialog-hint" role="status" data-testid="ai-revoke-chats-result">
-                    {revokeMessage}
-                  </p>
+                  <span>
+                    {t(PROVIDER_LABEL[id])}
+                    {status.keyStored[id] ? ` · ${t('ai.settings.key.stored')}` : ''}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+
+            <div className="ais-section">
+              <label className="ais-label" htmlFor={keyId}>
+                {t('ai.settings.key')}
+              </label>
+              <p className="ais-key-state" role="status" data-testid="ai-key-state">
+                {keyStored ? `✓ ${t('ai.settings.key.stored')}` : t('ai.settings.key.missing')}
+              </p>
+              <form
+                className="ais-row"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (keyDraft.trim()) void saveKey();
+                }}
+              >
+                <input
+                  id={keyId}
+                  className="text-field ais-input"
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={keyDraft}
+                  placeholder={t('ai.settings.key.placeholder')}
+                  disabled={!status.secureStorage || busy}
+                  data-testid="ai-key-input"
+                  onChange={(event) => setKeyDraft(event.target.value)}
+                />
+                <button
+                  type="submit"
+                  className="secondary-button"
+                  disabled={!status.secureStorage || busy || keyDraft.trim() === ''}
+                  data-testid="ai-key-save"
+                >
+                  {t('ai.settings.key.save')}
+                </button>
+              </form>
+              <p className="dialog-hint">{withKeyStore(t('ai.settings.key.hint'), t)}</p>
+              {keyMessage && (
+                <p
+                  className={`ais-message ais-message-${keyMessage.tone}`}
+                  role={keyMessage.tone === 'error' ? 'alert' : 'status'}
+                  data-testid="ai-key-message"
+                >
+                  {withKeyStore(t(keyMessage.key), t)}
+                </p>
+              )}
+              <div className="ais-row">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={!keyStored || busy}
+                  data-testid="ai-test"
+                  onClick={() => void test()}
+                >
+                  {t('ai.settings.test')}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={!keyStored || busy}
+                  data-testid="ai-key-remove"
+                  onClick={() => void removeKey()}
+                >
+                  {t('ai.settings.key.remove')}
+                </button>
+              </div>
+              {testMessage && (
+                <p
+                  className={`ais-message ais-message-${testMessage.tone}`}
+                  role={testMessage.tone === 'error' ? 'alert' : 'status'}
+                  data-testid="ai-test-message"
+                >
+                  {testMessage.tone === 'ok' && testMessage.key === 'ai.settings.test.ok' ? '✓ ' : ''}
+                  {testMessage.tone === 'error' ? '✗ ' : ''}
+                  {t(testMessage.key)}
+                </p>
+              )}
+            </div>
+
+            <fieldset className="ais-fieldset" disabled={!keyStored}>
+              <legend>{t('ai.settings.models')}</legend>
+              <p className="dialog-hint">{t('ai.settings.models.hint')}</p>
+              {PURPOSE_ORDER.map((purpose) => (
+                <label key={purpose} className="ais-model-row">
+                  <span>{t(PURPOSE_LABEL[purpose])}</span>
+                  <select
+                    className="text-field ais-select"
+                    value={config.models[purpose]}
+                    data-testid={`ai-model-${purpose}`}
+                    onChange={(event) =>
+                      void saveConfig({ ...config, models: { ...config.models, [purpose]: event.target.value } })
+                    }
+                  >
+                    <option value="">{defaultLabel(purpose)}</option>
+                    {modelChoices(config.models[purpose], models[provider] ?? null).map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.displayName === model.id ? model.id : `${model.displayName} (${model.id})`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+              <div className="ais-row">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={!keyStored || loadingModels}
+                  data-testid="ai-models-refresh"
+                  onClick={() => void loadModels(provider)}
+                >
+                  {t('ai.settings.models.refresh')}
+                </button>
+                {loadingModels && (
+                  <span className="dialog-hint" role="status">
+                    {t('ai.settings.models.loading')}
+                  </span>
                 )}
               </div>
+            </fieldset>
 
-              {history && <AiUsageSection api={history} t={t} locale={locale} />}
-            </>
-          )}
-        </div>
-        <div className="dialog-actions">
-          <button
-            type="button"
-            className="primary-button dialog-button"
-            ref={closeButton}
-            data-testid="ai-settings-close"
-            onClick={onClose}
-          >
-            {t('ai.settings.close')}
-          </button>
-        </div>
+            <label className="ais-check">
+              <input
+                type="checkbox"
+                checked={config.inlineCompletions}
+                data-testid="ai-inline"
+                onChange={(event) => void saveConfig({ ...config, inlineCompletions: event.target.checked })}
+              />
+              <span>{t('ai.settings.inline')}</span>
+            </label>
+
+            <div className="ais-section" data-testid="ai-consent-section">
+              <h3 className="ais-label">{t('ai.settings.consent')}</h3>
+              {projectId === null ? (
+                <p className="dialog-hint">{t('ai.settings.consent.noProject')}</p>
+              ) : status.projectConsent ? (
+                <div className="ais-row">
+                  <p className="ais-key-state" role="status" data-testid="ai-consent-state">
+                    {`✓ ${t('ai.settings.consent.allowed')}`}
+                  </p>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    data-testid="ai-consent-revoke"
+                    onClick={() => void revokeConsent()}
+                  >
+                    {t('ai.settings.consent.revoke')}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <p className="dialog-hint" data-testid="ai-consent-state">
+                    {t('ai.settings.consent.notAllowed')}
+                  </p>
+                  <AiConsentPrompt
+                    api={api}
+                    projectId={projectId}
+                    providerName={t(PROVIDER_LABEL[provider])}
+                    onAllowed={() => void refresh()}
+                    onDeclined={() => undefined}
+                  />
+                </>
+              )}
+              {history && projectId !== null && revokeChats > 0 && (
+                <RevokeChatsPrompt
+                  api={history}
+                  projectId={projectId}
+                  count={revokeChats}
+                  t={t}
+                  onDone={(deleted) => {
+                    setRevokeChats(0);
+                    setRevokeMessage(
+                      deleted === null ? null : fill(t('ai.history.revoke.deleted', deleted), { n: deleted }),
+                    );
+                  }}
+                />
+              )}
+              {revokeMessage && (
+                <p className="dialog-hint" role="status" data-testid="ai-revoke-chats-result">
+                  {revokeMessage}
+                </p>
+              )}
+            </div>
+
+            {history && <AiUsageSection api={history} t={t} locale={locale} />}
+          </>
+        )}
       </div>
-    </div>
+    </Sheet>
   );
 }

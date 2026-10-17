@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
+import { switchLanguage, projectMenu } from './project';
 import { copyFixture, evalInPreview, openProject, previewInfo, waitForPreviewState } from './preview-helpers';
 
 /**
@@ -269,13 +270,13 @@ test('S15.3: the mobile choice changes only the width, and says so', async () =>
   await expect.poll(() => evalInPreview<number>(electron(), 'innerWidth')).toBe(before.width);
 
   // English labels say "width" too.
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(mobile).toHaveText('Mobile width 375px');
   await expect(desktop).toHaveText('Desktop width');
   await mobile.click();
   await expect(page.getByTestId('viewport-switch')).toContainText('not phone emulation');
   await desktop.click();
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(desktop).toHaveText('桌面宽度');
 });
 
@@ -506,8 +507,7 @@ test('S15.6: the view follows the window into and out of fullscreen', async () =
 test('a 1280×800 window with the walkthrough and Problems open keeps a usable preview (zh-CN and en)', async () => {
   // 1280×720 content: what a 1280×800 window leaves under the Windows title and menu bars (≈ 1266×737 at 150 %).
   await setContentSize(1280, 720);
-  await page.getByTestId('app-menu').click();
-  await page.getByTestId('menu-help-walkthrough').click();
+  await projectMenu(page, 'help-walkthrough');
   await expect(page.getByTestId('walkthrough')).toBeVisible();
   if ((await page.getByTestId('problems-panel').isHidden()) === true) await page.getByTestId('rail-problems').click();
   await expect(page.getByTestId('problems-panel')).toBeVisible();
@@ -563,10 +563,10 @@ test('a 1280×800 window with the walkthrough and Problems open keeps a usable p
     await expect(page.getByTestId('annotate-menu')).toHaveAttribute('data-available', 'true');
   };
   await check('zh-CN');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(page.getByTestId('viewport-desktop')).toHaveText('Desktop width');
   await check('en');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   // A 1280×800 content area keeps it too.
   await setContentSize(1280, 800);
   await expectViewOverStage();
