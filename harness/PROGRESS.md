@@ -130,8 +130,11 @@ raw reports it delivers with a 20 ms debounce, so on the saturated runner the ba
 "created") and idle() could not wait for the unfired second timer; the disk work now runs first and the reports are
 delivered back to back, which is the premise the test states (tests only, 21/21 three runs). The sixth run (now carrying
 S48 and S49.3) timed out history-ipc.test.ts "the content kept before a restore survives the save" at the 5 s default;
-all three describes in that file do fsynced snapshot writes and now carry the 60 s real-IO hang guard. Six distinct
-hosted-runner flakes in six runs of one PR: the common thread is tests that assume an idle machine.
+all three describes in that file do fsynced snapshot writes and now carry the 60 s real-IO hang guard. The seventh run timed out
+tree.test.ts "stops at the per-folder limit" (MAX_DIR_ENTRIES + 1 real files) at the 5 s default; it now carries the
+60 s hang guard. Seven distinct hosted-runner flakes in seven runs of one PR: the common thread is tests that assume an
+idle machine. PR #20 (another session) fixes an overlapping set, including completion-latency.test.ts; whichever
+merges second resolves that file.
 
 **Decisions:** Nothing from the source is copied as code, class strings or assets (Tailwind, Framer Motion,
 clay accent, CDN Storybook); only mechanisms and constants, each given one home as a token or tested constant.
