@@ -4,11 +4,14 @@ import { models } from './editor-models';
 import { forwardsEdits } from './model-registry';
 import { MONACO_THEME_NAME } from '../theme/monaco-theme';
 import { useColorScheme } from '../theme/ThemeProvider';
+import { editorMotionOptions, useReducedMotion } from '../theme/motion';
 // S17.2 / S18.3: Monaco-free handle for the workbench (format, go to code).
 import {
   registerEditor,
   subscribeEditorContextActions,
   takePendingReveal,
+  type CodeInsertMode,
+  type CodeInsertOutcome,
   type EditorSelection,
   type RevealTarget,
 } from './editor-handle';
@@ -92,6 +95,32 @@ function selectionIn(editor: monaco.editor.IStandaloneCodeEditor, uri: string | 
   return { uri, startLine: selection.startLineNumber, endLine, text };
 }
 
+/** S48.5: chat code at the cursor or over the selection, as one undo step (an ordinary edit for the saver). */
+function insertCodeIn(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  uri: string | null,
+  text: string,
+  mode: CodeInsertMode,
+): CodeInsertOutcome {
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  if (!uri || !model || !selection) return 'no-editor';
+  if (editor.getOption(monaco.editor.EditorOption.readOnly)) return 'read-only';
+  if (mode === 'replace' && selection.isEmpty()) return 'no-selection';
+  const position = selection.getPosition();
+  const range = mode === 'replace' ? selection : monaco.Range.fromPositions(position, position);
+  const start = model.getOffsetAt(range.getStartPosition());
+  editor.pushUndoStop();
+  editor.executeEdits('noobide.chatCode', [{ range, text, forceMoveMarkers: true }]);
+  editor.pushUndoStop();
+  // The model normalises line endings; place the cursor after what actually went in.
+  const end = model.getPositionAt(start + text.replace(/\r?\n/g, model.getEOL()).length);
+  editor.setSelection(monaco.Range.fromPositions(end, end));
+  editor.revealPositionInCenterIfOutsideViewport(end);
+  editor.focus();
+  return 'ok';
+}
+
 /** S53.4: formats the model on screen with its language's formatter; the outcome comes from the format hook. */
 async function formatForSave(editor: monaco.editor.IStandaloneCodeEditor): Promise<FormatOutcome> {
   const model = editor.getModel();
@@ -133,6 +162,7 @@ export function CodeEditor({
   const host = useRef<HTMLDivElement>(null);
   const scheme = useColorScheme();
   const themeName = MONACO_THEME_NAME[scheme];
+  const reducedMotion = useReducedMotion();
   // Monaco's `theme` option is global; a newly mounted editor must use the current theme, not the first one.
   const currentTheme = useRef(themeName);
   // Callbacks change every render; the editor reads the latest ones without being re-created.
@@ -141,7 +171,7 @@ export function CodeEditor({
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   // Label and font size are read once at creation; later values go through updateOptions, never a re-creation
   // (re-creating would lose the view state; a language switch must not touch the buffer).
-  const initial = useRef({ ariaLabel, fontSize });
+  const initial = useRef({ ariaLabel, fontSize, reducedMotion });
   // The registry key of the model on screen. Monaco's Uri.toString() re-encodes file URIs (e.g. `c%3A` for `C:`),
   // so the workbench's own URI string is kept instead of being read back from the model.
   const shown = useRef<{ uri: string; model: monaco.editor.ITextModel } | null>(null);
@@ -175,6 +205,7 @@ export function CodeEditor({
       inlineSuggest: { enabled: true, showToolbar: 'never' },
       // S53.2: renaming an opening tag renames its closing tag (pairs from tag-match.ts).
       linkedEditing: true,
+      ...editorMotionOptions(initial.current.reducedMotion), // S47.1
     });
     const caret = new CaretRest({
       setBlinking: (blinking) => editor.updateOptions({ cursorBlinking: blinking ? 'blink' : 'solid' }),
@@ -248,6 +279,7 @@ export function CodeEditor({
         return replaceColorAtCursor(editor, rgba); // S53.3
       },
       focus: () => editor.focus(),
+      insertCode: (text, mode) => insertCodeIn(editor, uriOf(), text, mode), // S48.5
       formatForSave: () => formatForSave(editor), // S53.4
       navigate: async (query) => {
         const model = editor.getModel();
@@ -339,9 +371,22 @@ export function CodeEditor({
   }, [fontSize]);
 
   useEffect(() => {
+    initial.current.reducedMotion = reducedMotion;
+    editorRef.current?.updateOptions(editorMotionOptions(reducedMotion));
+  }, [reducedMotion]);
+
+  useEffect(() => {
     currentTheme.current = themeName;
     monaco.editor.setTheme(themeName);
   }, [themeName]);
 
-  return <div ref={host} className="code-editor" data-testid="code-editor" data-font-size={fontSize} />;
+  return (
+    <div
+      ref={host}
+      className="code-editor"
+      data-testid="code-editor"
+      data-font-size={fontSize}
+      data-smooth-scrolling={String(!reducedMotion)}
+    />
+  );
 }

@@ -4,6 +4,7 @@
   "files": {
     "a11y.spec.ts": 2,
     "ai-agent.spec.ts": 2,
+    "ai-chat-code.spec.ts": 2,
     "ai-chat-engine.spec.ts": 1,
     "ai-chat.spec.ts": 1,
     "ai-edit.spec.ts": 1,
@@ -64,6 +65,7 @@
     "project-config.spec.ts": 1,
     "recent-projects.spec.ts": 2,
     "recovery.spec.ts": 2,
+    "reduced-motion.spec.ts": 1,
     "runtime-problems.spec.ts": 2,
     "save.spec.ts": 2,
     "session.spec.ts": 2,
