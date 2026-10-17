@@ -3,6 +3,66 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 36 (side session) — 2026-10-17 — S53 HTML/CSS authoring aids and S57 JavaScript navigation (M19)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s53-s57-editor-4026ce`
+(based on 824b6fa). Own `node_modules` (the `emmet` dependency was added; electron binary from the local cache).
+
+**Done**
+
+- S53.1 Emmet on Tab (`emmet` 2.4.11, MIT, pinned; decision 0039 with the measured size: 75.4 KB min / 27.2 KB gz).
+  NoobIDE's own context rules (`emmet-expand.ts`): only text content in HTML, only property starts in CSS, only real
+  element names / known CSS abbreviations; anything else gets the normal Tab. Edit menu switch (`emmet` setting) and
+  a one-time status-bar hint (`emmetHintShown`).
+- S53.2 Linked tag editing (Monaco `linkedEditing` + NoobIDE's own HTML pair finder `tag-match.ts`, since Monaco's
+  HTML mode has no provider) and Edit › Wrap selection with tag (snippet with both tag names linked).
+- S53.3 Colour hints in CSS files: Monaco swatches proven per format; a status-bar colour chip (value as text,
+  accessible name) and NoobIDE's own keyboard-operable colour picker (HSL sliders + value field) that writes the
+  colour back in its own format as one undo step. Glossary "Colour value".
+- S53.4 Toggle line / block comment in the Edit menu and palette (Ctrl/Cmd+/, Shift+Alt+A; editor-scoped shortcuts:
+  `scope: 'editor'` in the command registry); inside `<script>` / `<style>` NoobIDE writes `//` and `/* */`
+  (Monaco wrote `<!-- -->`). Opt-in Format on save (`formatOnSave` setting, explicit saves only; failure or a 3 s
+  timeout saves the text as it was and the status bar says why).
+- S53.5 Packaged-app offline e2e (`tests/e2e/authoring-offline.spec.ts`): the packaged binary has the inspector fused
+  off, so the test starts it with `--remote-debugging-port` and drives it over CDP; the project opens through a
+  pre-written `session.json`; network cut by proxy + resolver switches, every load / request checked local.
+- S57.1 Go to definition (F12) and Find all references (Shift+F12) through the JavaScript worker directly
+  (`js-navigation*.ts`); closed scripts work (Monaco's own providers only knew open models and are switched off in
+  `language-config.ts`). Inline `<script>` is explicitly unsupported (case + message).
+- S57.2 Rename (F2) with a per-file preview; `rename-apply.ts` checks every file first (any change since the preview
+  stops the whole rename), then one undoable edit per tab and each tab's own saver. Refusals with reasons: built-in
+  names, properties and methods, a new name already used (project scripts or the browser window), globals also used by an
+  HTML page's inline script / on… attribute, incomplete script set or unreadable pages, invalid / same names.
+- New capability case kinds: `edit`, `colors`, `definition`, `references`, `rename` (+ `closedFiles` as extra libs).
+
+**Evidence:** per-feature evidence strings in features.json; all capability cases pass in the packaged app offline
+(`tests/e2e/language.spec.ts`); `tests/e2e/authoring.spec.ts`, `authoring-offline.spec.ts`, `js-navigation.spec.ts`,
+`editing.spec.ts` pass on Windows x64; integration `format-on-save.test.ts`, `rename-apply.test.ts`; `npm run verify`
+green. A subagent reviewed S53.4 (findings fixed in 6caac99) and S57.2 (partial-rename revert, name collisions, property
+renames, HTML check limited to inline scripts / on… attributes of globals, dialog locked while applying: all fixed
+before c06e968).
+
+**Decisions:** decision 0039 (Emmet). Colour picker is NoobIDE's own dialog (Monaco's inline picker is not keyboard
+accessible); Monaco's swatches stay. Rename of a closed file opens it in a background tab and creates its model early
+(`models.acquire`) so the change is undoable in that tab. Editor-scoped shortcuts match only the workbench editor
+(`.code-editor`).
+
+**Problems / risks:** macOS not run (CDP launch of the packaged `.app` binary is expected to work; CI covers it).
+With the suggestion list open, Tab accepts the suggestion, not Emmet (documented). A format that answers after the
+3 s timeout still lands in the buffer afterwards (unsaved, autosave writes it; no data loss). Merge conflicts
+expected with the parallel M19 sessions in `src/shared/commands.ts` (new command ids), `menu-template.ts` (Edit
+menu), `settings.ts`, `Workbench.tsx`, i18n spreads, `features.json` status fields and this file. F2 / F12 are
+editor-scoped, so a file-tree F2 (S52) does not collide.
+
+**Owner action needed:** none.
+
+**Next up**
+
+1. The remaining M19 sessions (S51, S52, S54, S55, S56) from their own branches; merge order is free.
+
+**Ideas / backlog candidates:** Emmet items in the suggestion list (VS Code style) so Tab works with it open; wrap
+with tag as an Emmet abbreviation; colour swatches inside HTML `<style>` blocks (needs a provider of our own).
+
 ## Session 35 (side session) — 2026-10-17 — M19 backlog records for S51–S57 (owner approval of review §4)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/dazzling-shtern-8a5721`, based
