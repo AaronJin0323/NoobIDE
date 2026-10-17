@@ -23,6 +23,9 @@ the latest entry to the next session, so write it for a reader with zero context
   10 ms because that budget reused one baseline taken earlier, while the runner alone stalled main ~1.5 s. Retry
   windows now re-measure the 20-worker baseline right before they run, as the iframe cases already do; the budget is
   still 200 ms over the larger baseline and never lower than before.
+- macOS shard 2 on PR #37 failed `file-multi-select.spec.ts` (trash by keyboard): the previous test waited for the
+  Ctrl/Cmd+D copies on disk only, so the row order was read before the watcher had listed the second copy.
+  `focusByKeyboard` now waits for both rows first (3/3 local repeats green).
 - Started five parallel M18 sessions, each from this branch with its own PR to main: S47.2–S47.5, S48.4/S48.6/S48.7,
   S48.5/S48.8, S49.2/S49.4–S49.6, S50.1–S50.5.
 
