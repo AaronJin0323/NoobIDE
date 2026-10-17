@@ -20,6 +20,7 @@ function paths(files = FILES, complete = true): NavigationPaths {
     relPathOf: (fileName) => (fileName in files ? fileName.slice(ROOT.length) : null),
     textOf: (fileName) => files[fileName] ?? null,
     complete: () => complete,
+    whenIndexed: async () => true,
   };
 }
 

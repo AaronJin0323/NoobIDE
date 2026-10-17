@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { activeEditor, setEditorContextActionGroup } from '../editor/editor-handle';
 import type { NavLocation } from '../editor/js-navigation';
+import { projectIndexing } from '../editor/project-scripts-registry';
 import { useI18n } from '../i18n/I18nProvider';
 import { NavigationDialog, type NavigationView } from './NavigationDialog';
 import { RenameDialog } from './RenameDialog';
 import { applyRename, type RenameHost } from './rename-apply';
+import { publishNavigationWait } from './navigation-wait-state';
 import '../editor/authoring.css';
 
 export interface RenameDeps {
@@ -22,6 +24,10 @@ export interface RenameDeps {
  * its file at the place; several, or the references, are listed; nothing found or an unsupported place (an HTML
  * page's inline `<script>`) is explained. S57.2: Rename (F2) with a per-file preview, applied through the save
  * pipeline. The editor's context menu offers the same commands.
+ *
+ * Pressed while the project's scripts are still being read (right after opening a project), the command waits for
+ * the index — the status strip says so — and then answers as if pressed later; after INDEX_WAIT_MS it explains that
+ * the scripts are still being read instead of guessing.
  */
 export function useJsNavigation(
   goTo: (target: { file: string; line: number; column?: number }) => void,
@@ -30,14 +36,29 @@ export function useJsNavigation(
   const { t } = useI18n();
   const [view, setView] = useState<NavigationView | null>(null);
   const [renaming, setRenaming] = useState<{ name: string } | null>(null);
+  const waitToken = useRef(0);
 
   const run = useCallback(
     async (query: 'definition' | 'references') => {
       const editor = activeEditor();
-      const result = await editor?.navigate?.(query);
-      if (!result) return;
-      const name = editor?.nameAtCursor?.() ?? '';
+      if (!editor?.navigate) return;
       const heading = query === 'definition' ? 'command.goToDefinition' : 'command.findReferences';
+      // The name is read before the wait: the cursor may move while the index is being read.
+      const name = editor.nameAtCursor?.() ?? '';
+      // The newest waiting command owns the note; an earlier one finishing must not clear it (waitToken).
+      const token = ++waitToken.current;
+      if (projectIndexing()) publishNavigationWait(heading);
+      let result;
+      try {
+        result = await editor.navigate(query);
+      } finally {
+        if (waitToken.current === token) publishNavigationWait(null);
+      }
+      if (!result) return;
+      if (result.kind === 'indexing') {
+        setView({ kind: 'notice', heading, name, message: 'nav.indexing.timeout' });
+        return;
+      }
       if (result.kind === 'unsupported') {
         setView({
           kind: 'notice',
