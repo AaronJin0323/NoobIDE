@@ -25,6 +25,7 @@ import { ignoreMonacoCancellations } from './monaco-cancellation';
 // S19.2: NoobIDE's own unclosed-element check for HTML files (Monaco's HTML service reports no problems).
 import './html-check-monaco';
 import { holdProjectScriptReads, releaseProjectScriptReads } from './project-scripts-registry'; // S57.3
+import { getAiPromptHooks } from './editor-handle';
 
 /** Labels of the workers Monaco has started — read by the worker probe (self-test / e2e). */
 export const startedWorkers: string[] = [];
@@ -105,6 +106,8 @@ export const editorTestHooks = {
   /** S57.3: project-script reads wait until released (a slow disk on demand); nothing is read differently. */
   holdProjectScriptReads,
   releaseProjectScriptReads,
+  /** S42.3: whether the editor handles `/ai` lines right now (AI ready); the flag Enter reads, never prompt text. */
+  aiPromptsEnabled: (): boolean => getAiPromptHooks()?.enabled === true,
   /** Current diagnostics (language-service messages name identifiers; they hold no file contents). */
   markers: () =>
     monaco.editor.getModelMarkers({}).map((m) => ({
