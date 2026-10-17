@@ -42,7 +42,10 @@ window the toggle resized the editor and showed a scrollbar). The gate now pins 
 `animation-duration` inside `.monaco-editor` and `.monaco-scrollable-element` to `var(--dur-instant)` (0ms under
 reduce); the spec gained a deterministic editor-scroll case with a no-preference control. Reproduced locally
 before the fix (vertical + horizontal scrollbar `0.1s`), green 6/6 runs after; glass, tabs and editing specs green.
-Merged the plan branch (S48.1–S48.3, S49.3, test-robustness fixes) first.
+Merged the plan branch (S48.1–S48.3, S49.3, test-robustness fixes) first. Second round: the hosted Windows
+runner scrolls even `behavior: 'smooth'` at once (OS animation effects off), so the "glide is back" check now
+asserts the behaviour the app passes to `scrollBy` (`auto` under reduce, `smooth` without) and that the strip ends
+up scrolled, not that nothing moved in the same task. Merged the plan branch again (S49.1).
 
 **Next up**
 

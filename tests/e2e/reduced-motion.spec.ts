@@ -222,7 +222,21 @@ test('with reduced motion, the tab strip scrolls at once and Monaco does not scr
     const bar = page.getByTestId('tab-bar');
     expect(await bar.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
     await expect(page.getByTestId('tabs-scroll-start')).toBeEnabled();
-    // Click and read the position in the same task: an instant scroll has already moved, a smooth one has not.
+    // What the app asks for is recorded on the way to the browser: whether the scroll then animates also depends on
+    // the OS (the hosted Windows runner has animation effects off, so Chromium scrolls even 'smooth' at once).
+    await page.evaluate(() => {
+      const calls: (ScrollBehavior | undefined)[] = [];
+      (window as unknown as { __scrolls: typeof calls }).__scrolls = calls;
+      const original = Element.prototype.scrollBy;
+      Element.prototype.scrollBy = function (this: Element, ...args: unknown[]) {
+        const options = args[0];
+        if (typeof options === 'object' && options !== null) calls.push((options as ScrollToOptions).behavior);
+        return (original as (...a: unknown[]) => void).apply(this, args);
+      } as typeof Element.prototype.scrollBy;
+    });
+    const behaviors = () =>
+      page.evaluate(() => (window as unknown as { __scrolls: (ScrollBehavior | undefined)[] }).__scrolls.splice(0));
+    // Under reduced motion the strip has moved by the time the click returns: read in the same task.
     const moved = await page.evaluate(() => {
       const strip = document.querySelector<HTMLElement>('[data-testid="tab-bar"]')!;
       const before = strip.scrollLeft;
@@ -230,21 +244,19 @@ test('with reduced motion, the tab strip scrolls at once and Monaco does not scr
       return before - strip.scrollLeft;
     });
     expect(moved).toBeGreaterThan(0);
+    expect(await behaviors()).toEqual(['auto']);
     expect(await motionDuring(() => page.getByTestId('tabs-scroll-end').click())).toEqual([]);
+    expect(await behaviors()).toEqual(['auto']);
 
-    // The preference is live: lifting it brings the glide back (nothing has moved yet in the same task) and Monaco's
-    // smooth scrolling with it.
+    // The preference is live: lifting it asks for the glide again (and Monaco's smooth scrolling comes back); the strip
+    // still ends up scrolled toward the start.
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await expect(page.getByTestId('code-editor')).toHaveAttribute('data-smooth-scrolling', 'true');
     await expect(page.getByTestId('tabs-scroll-start')).toBeEnabled();
-    const glide = await page.evaluate(() => {
-      const strip = document.querySelector<HTMLElement>('[data-testid="tab-bar"]')!;
-      const before = strip.scrollLeft;
-      document.querySelector<HTMLButtonElement>('[data-testid="tabs-scroll-start"]')!.click();
-      return { before, now: strip.scrollLeft };
-    });
-    expect(glide.now).toBe(glide.before);
-    await expect.poll(() => bar.evaluate((el) => el.scrollLeft)).toBeLessThan(glide.before);
+    const before = await bar.evaluate((el) => el.scrollLeft);
+    await page.getByTestId('tabs-scroll-start').click();
+    expect(await behaviors()).toEqual(['smooth']);
+    await expect.poll(() => bar.evaluate((el) => el.scrollLeft)).toBeLessThan(before);
   } finally {
     await app.evaluate(({ BrowserWindow }, bounds) => BrowserWindow.getAllWindows()[0]!.setBounds(bounds), original);
   }
