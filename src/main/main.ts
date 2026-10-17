@@ -49,6 +49,7 @@ import { consoleLogger } from '../recovery/atomic-file';
 import { RecoveryJournal } from '../recovery/journal';
 import { SnapshotStore } from '../recovery/history';
 import { HistoryTriggers } from '../recovery/history-triggers';
+import { CheckpointStore } from '../recovery/checkpoints'; // S56.1
 import { selfTestOffline, selfTestRequested, selfTestUserDataDir, watchSelfTest, withSelfTestQuery } from './self-test';
 // S13 app data: settings, recent projects, session, logs
 import { registerAppDataIpcHandlers, resolveThirdPartyNotices } from './app-data-ipc';
@@ -84,6 +85,7 @@ import { WakeRecovery } from './wake-recovery'; // S25.1/S25.2
 import { wakeSignals } from '../platform/power-events';
 import { AnnotationStore } from './annotation-store'; // S41.4 preview annotations (decision 0030)
 import { registerAnnotationsIpcHandlers } from './annotations-ipc';
+import { registerCheckpointsIpcHandlers } from './checkpoints-ipc'; // S56
 import { registerFileOpsIpcHandlers } from './file-ops-ipc'; // S52
 
 // Windows installer events: create/remove shortcuts and quit without opening a window (S02.7, S28.4: also quits
@@ -355,6 +357,9 @@ function start(): void {
     // --- S21: local history (snapshots around saves) in app data ---
     const history = new SnapshotStore({ dir: appDataPath(appData, 'history'), log: logger });
     const historyTriggers = new HistoryTriggers(history, logger);
+    // S56.1: project checkpoints share history's blobs; loading them lets history's clean-up delete blobs again.
+    const checkpoints = new CheckpointStore({ dir: appDataPath(appData, 'checkpoints'), history, log: logger });
+    void checkpoints.load();
     // --- end S21 ---
     projects = new ProjectService({ history: historyTriggers, journal }); // S52.1: history and copies follow moves
     // S14.4/S14.2: preview trust and one-time notes in app data (never inside a project).
@@ -450,6 +455,8 @@ function start(): void {
       },
     });
     registerProblemsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, bridge: problems }); // S16.2
+    // S56: project checkpoints (store created with local history above; restores write through the save path).
+    registerCheckpointsIpcHandlers(ipcMain, { allowedOrigin: devOrigin ?? APP_ORIGIN, store: checkpoints, projects });
     // S52: move, copy/paste/duplicate, multi-select trash, import and the image viewer.
     registerFileOpsIpcHandlers(ipcMain, {
       allowedOrigin: devOrigin ?? APP_ORIGIN,

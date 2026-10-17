@@ -78,9 +78,9 @@ describe('command registry (S24.1)', () => {
     const entries = [...PROJECT_MENU_COMMANDS, ...HELP_MENU_COMMANDS].filter((entry) => entry !== '-');
     for (const entry of entries) expect(isCommandId(entry)).toBe(true);
     expect(new Set(entries).size).toBe(entries.length);
-    // The project menu: close, history, lessons (reveal is added by the workbench); the help menu: theme, AI,
+    // The project menu: close, history, checkpoints (S56.2), lessons (reveal is added by the workbench); the help menu: theme, AI,
     // glossary, logs, settings (language is added by the workbench).
-    expect(PROJECT_MENU_COMMANDS).toEqual(['close-project', 'show-history', 'help-walkthrough']);
+    expect(PROJECT_MENU_COMMANDS).toEqual(['close-project', 'show-history', 'show-checkpoints', 'help-walkthrough']); // S56.2
     expect(HELP_MENU_COMMANDS[0]).toBe('theme-system');
     expect(HELP_MENU_COMMANDS.at(-1)).toBe('ai-settings');
   });

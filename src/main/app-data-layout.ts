@@ -39,6 +39,8 @@ export const APP_DATA_ENTRIES = {
   recovery: 'recovery',
   /** Local history: per-project indexes and content-addressed blobs (S21). */
   history: 'history',
+  /** Project checkpoints: one manifest per checkpoint, per project (hashed real root); contents in history's blobs (S56.1). */
+  checkpoints: 'checkpoints',
   /** Rotating, content-free logs (S13.6). */
   logs: 'logs',
 } as const;
