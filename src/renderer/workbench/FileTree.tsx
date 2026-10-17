@@ -38,7 +38,6 @@ import { fileRoleFor, fileRoleLabelKey } from './file-role';
 import { isMac, treeCommandForKey, type PlatformId } from '../../platform/labels';
 import { TREE_DRAG_TYPE, dropFolder, folderLabel, moveRefusal, type MoveSource } from './move-model';
 import { fill } from './file-op-messages';
-import { treeCommandForKey, type PlatformId } from '../../platform/labels';
 import { isImeKey } from './ime';
 
 /** Tree commands the panel handles (rename, delete, context menu: S08.2–S08.5). */
