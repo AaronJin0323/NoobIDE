@@ -4443,8 +4443,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "ime.test.ts (8 tests: WebKit Enter within 500ms of compositionend ignored, Ctrl/Cmd+Enter allowed, Escape stage 2, other engines/keys unchanged, installImeGuard stops IME Escape before later window listeners without cancelling it, structural check that chat/inline edit/rename/wizard/palette/annotation notes/dialogs all use the one isImeKey); installed in main.tsx before createRoot; S35.4 regression extended in tests/e2e/ai-edit.spec.ts (post-composition Enter+Escape under a WebKit vendor, Escape never reaches document capture; Chromium Enter after compositionend still sends) + tests/e2e/ai-chat-engine.spec.ts S48.3 (chat Enter ignored, Ctrl+Enter sends, palette Escape contained); 69 e2e passed on the packaged build across ai-chat-engine/ai-edit/file-tree/welcome/commands/preview-annotations/ai-prompt/glass/ai-chat; macOS Pinyin step 5 in MANUAL-CHECKS.md#S35.4; verify green"
     },
     {
       "id": "S48.4",

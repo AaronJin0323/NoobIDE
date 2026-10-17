@@ -149,4 +149,48 @@ test.describe('AI chat engine (S48)', () => {
     await expect.poll(height).toBeLessThanOrEqual(48);
     expect(consoleErrors).toEqual([]);
   });
+
+  test('on WebKit, Enter and Escape right after compositionend stay the IME’s in chat and the palette (S48.3)', async () => {
+    await expect(panel().getByTestId('ai-turn').last()).not.toHaveAttribute('data-status', /sending|streaming/);
+    // Electron is Chromium; report the engine as WebKit (macOS) the way the guard reads it.
+    await page.evaluate(() => {
+      const w = window as unknown as { realVendor?: PropertyDescriptor | undefined };
+      w.realVendor = Object.getOwnPropertyDescriptor(Navigator.prototype, 'vendor');
+      Object.defineProperty(Navigator.prototype, 'vendor', { configurable: true, get: () => 'Apple Computer, Inc.' });
+    });
+    const turns = panel().getByTestId('ai-turn');
+    const before = await turns.count();
+
+    // Chat: the Enter that confirmed a candidate does not send; Ctrl+Enter right after it is deliberate and sends.
+    await input().fill('输入法测试');
+    await input().dispatchEvent('compositionend', { data: '测试' });
+    await input().dispatchEvent('keydown', { key: 'Enter', keyCode: 13, isComposing: false });
+    await page.waitForTimeout(300);
+    await expect(turns).toHaveCount(before);
+    await expect(input()).toHaveValue('输入法测试');
+    await input().dispatchEvent('compositionend', { data: '测试' });
+    await input().dispatchEvent('keydown', { key: 'Enter', keyCode: 13, isComposing: false, ctrlKey: true });
+    await expect(turns).toHaveCount(before + 1);
+    await expect(turns.last()).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
+
+    // The palette (a modal): the Escape that closed the candidate list does not close it; a later Escape does.
+    await page.getByTestId('open-palette').click();
+    const palette = page.getByTestId('command-palette');
+    const field = palette.getByTestId('palette-input');
+    await expect(field).toBeFocused();
+    await field.dispatchEvent('compositionend', { data: '主题' });
+    await field.dispatchEvent('keydown', { key: 'Escape', keyCode: 27, isComposing: false });
+    await page.waitForTimeout(300);
+    await expect(palette).toBeVisible();
+    await page.waitForTimeout(300); // past the 500 ms grace
+    await field.press('Escape');
+    await expect(palette).toHaveCount(0);
+
+    await page.evaluate(() => {
+      const real = (window as unknown as { realVendor?: PropertyDescriptor | undefined }).realVendor;
+      if (real) Object.defineProperty(Navigator.prototype, 'vendor', real);
+    });
+    expect(await page.evaluate(() => navigator.vendor)).not.toMatch(/Apple/);
+    expect(consoleErrors).toEqual([]);
+  });
 });
