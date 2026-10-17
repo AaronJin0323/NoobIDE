@@ -132,16 +132,19 @@ describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
     events = [];
     watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { debounceMs: 20, watch });
     await watcher.start();
-    // The OS reports each step, but all of them before the batch is classified.
+    // The OS reports each step, but all of them before the batch is classified. The raw events are delivered
+    // synchronously after the disk work, so they always form one batch: interleaving them with awaited file
+    // operations let a slow CI disk exceed the 20 ms debounce, split the batch, and report 临时 as created
+    // (then hold its deletion for the rename wait, which idle() does not cover).
     await writeFile(p('外部 新建.js'), '');
-    raw('外部 新建.js');
     await rm(p('外部 新建.js'));
-    raw('外部 新建.js');
     await mkdir(p('临时'));
-    raw('临时');
     await writeFile(p('临时', 'a.js'), '');
-    raw(path.join('临时', 'a.js'));
     await rm(p('临时'), { recursive: true });
+    raw('外部 新建.js');
+    raw('外部 新建.js');
+    raw('临时');
+    raw(path.join('临时', 'a.js'));
     raw(path.join('临时', 'a.js'));
     raw('临时');
     await expect.poll(() => events.length).toBeGreaterThan(0);

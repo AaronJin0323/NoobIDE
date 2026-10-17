@@ -18,7 +18,7 @@ Playwright shards by test count in file order (confirmed locally: shard 1 ends e
 min because macOS shard 2 queued 9 min 21 s behind five PRs pushed at once (free-plan limit: 5 concurrent macOS
 jobs). Wrote `docs/ci/ci-stability-and-speed-plan.md` (causes, timing table, targets, six work packages with file
 ownership so they run as parallel sub-sessions, owner decisions) and added milestone M20, session S50 and
-features S50.1–S50.6 to the backlog. No workflow or test was changed in this session.
+features S50.1–S50.6 to the backlog. The PR run itself (39017707753) then failed on Windows shard 2 in tests/integration/watcher.test.ts ("came and went within one batch"): the test interleaved awaited disk operations with fake raw events under a 20 ms debounce, so a slow runner split the batch and reported 临时 as created while its deletion sat in the 400 ms rename hold that idle() does not await. Fixed the test to deliver the raw events after the disk work (8/8 local repeats); no other test or workflow was changed.
 
 **Evidence:** `docs/ci/ci-stability-and-speed-plan.md` §1–§2 (run ids, failing lines, per-step durations);
 `node harness/session.mjs check` OK (228 features, 48 sessions); `npm run verify` green (see commit).
