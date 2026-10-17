@@ -15,7 +15,7 @@
 
   /* Shape: four radii plus a pill for counters and status pills only */
   --radius-sm: 6px; /* chips, kbd, badges, tree rows, small icon buttons */
-  --radius-control: 8px; /* buttons, inputs, tabs, list rows, menu items, callouts */
+  --radius-control: 8px; /* buttons, inputs, tabs, list rows, menu items, callouts (6px when compact, S50.4) */
   --radius-panel: 12px; /* panels, menus, popovers, cards, composer */
   --radius-sheet: 14px; /* dialogs, palette */
   --radius-capsule: 999px; /* counters and status pills only */
@@ -91,6 +91,15 @@
   );
 
   --gap: 8px;
+
+  /* Density (S50.4): data-density on <html> (theme/density.ts) picks comfortable (the default) or compact. */
+  --control-h: 32px; /* buttons and text fields */
+  --row-h: 32px; /* list rows and menu items */
+}
+:root[data-density='compact'] {
+  --control-h: 28px;
+  --row-h: 28px;
+  --radius-control: 6px;
 }
 * {
   box-sizing: border-box;
@@ -938,7 +947,7 @@ input[type='radio'] {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 32px;
+  height: var(--control-h);
   padding: 0 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
@@ -1113,7 +1122,7 @@ input[type='radio'] {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  min-height: 32px;
+  min-height: var(--row-h);
   padding: 6px 10px;
   border: 0;
   border-radius: var(--radius-control);
@@ -1302,7 +1311,7 @@ input[type='radio'] {
   justify-content: center;
   gap: 6px;
   margin-top: 10px;
-  height: 32px;
+  height: var(--control-h);
   padding: 0 14px;
   border: 0;
   border-radius: var(--radius-control);
@@ -1330,7 +1339,7 @@ input[type='radio'] {
 .file-row {
   display: block;
   width: 100%;
-  height: 32px;
+  height: var(--row-h);
   padding: 0 10px;
   border: 0;
   border-radius: var(--radius-control);
@@ -1570,7 +1579,7 @@ input[type='radio'] {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
+  height: calc(var(--row-h) - 2px);
   padding-right: 8px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
@@ -1694,7 +1703,7 @@ input[type='radio'] {
 .preview-select,
 .preview-console-filter select {
   min-width: 0;
-  height: 32px;
+  height: var(--control-h);
   padding: 0 10px;
   border: 0;
   border-radius: var(--radius-control);

@@ -5285,8 +5285,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/settings.test.ts (density default comfortable, persisted, validated), src/shared/commands.test.ts (density-comfortable/compact radio choice via optional compact context, help menu), src/platform/menu-template.test.ts (View menu, checked), src/renderer/design-rules.test.ts (S50.4: :root 32/32/8 and :root[data-density='compact'] 28/28/6 match theme/density.ts DENSITY_TOKENS, calm rules pass, controls/rows read the tokens) + tests/e2e/key-features-visible.spec.ts (all five sizes at both densities; compact chosen from the palette and back from the native View menu, settings.json density checked) + commands e2e green"
     },
     {
       "id": "S50.5",

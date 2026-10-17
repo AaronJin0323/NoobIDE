@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { DENSITY_TOKENS } from './theme/density';
 
 /**
  * S46 calm design language (docs/product/calm-design-spec.md, decision 0034): every stylesheet of the renderer uses
@@ -373,5 +374,35 @@ describe('rings, overlay edge and disabled controls (S50.3)', () => {
         rule.decls.filter((d) => /^(transform|scale)$/.test(d.prop)),
         rule.selector,
       ).toEqual([]);
+  });
+});
+
+describe('density tokens (S50.4)', () => {
+  const css = readFileSync(path.join(RENDERER, TOKEN_SHEET), 'utf8');
+  const rules = styleRules(TOKEN_SHEET, css);
+  const tokens = (selector: string) =>
+    Object.fromEntries(
+      rules
+        .filter((r) => r.selector === selector && r.media.length === 0)
+        .flatMap((r) => r.decls)
+        .filter((d) => d.prop in DENSITY_TOKENS.comfortable)
+        .map((d) => [d.prop, d.value]),
+    );
+
+  it('comfortable (the :root default) and compact select the control height, row height and control radius', () => {
+    expect(tokens(':root')).toEqual(DENSITY_TOKENS.comfortable);
+    expect(tokens(":root[data-density='compact']")).toEqual(DENSITY_TOKENS.compact);
+  });
+
+  it('the density block passes the calm rules, and controls and rows read the tokens', () => {
+    const compact = rules.filter((r) => r.selector === ":root[data-density='compact']");
+    expect(compact).toHaveLength(1);
+    expect(violations(declarations(TOKEN_SHEET, css))).toEqual([]);
+    const height = (selector: string) =>
+      rules.filter((r) => r.selector === selector).flatMap((r) => r.decls.filter((d) => /height$/.test(d.prop)));
+    expect(height('.primary-button').map((d) => d.value)).toContain('var(--control-h)');
+    expect(height('.secondary-button').map((d) => d.value)).toContain('var(--control-h)');
+    expect(height('.file-row').map((d) => d.value)).toContain('var(--row-h)');
+    expect(height('.app-menu-item').map((d) => d.value)).toContain('var(--row-h)');
   });
 });

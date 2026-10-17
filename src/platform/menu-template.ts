@@ -183,6 +183,9 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuEntry[] {
       command('theme-light'),
       command('theme-dark'),
       SEPARATOR,
+      command('density-comfortable'), // S50.4
+      command('density-compact'),
+      SEPARATOR,
       command('next-tab'),
       command('previous-tab'),
       command('focus-next-region'),

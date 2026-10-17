@@ -11,6 +11,8 @@ import { collectConsoleErrors, makeProject, openFile, openProject, treeRow, type
  * through the same path as Ctrl+S, and a narrow window offers New file without opening the files drawer first.
  * S47.3: the save state lives in a fixed slot and the Save button shows only while a save cannot happen on its own,
  * so nothing in the top bar or the tab strip moves during a typing → autosave cycle.
+ * S50.4: the window-size checks run at both densities; the compact one is chosen from the palette and the
+ * comfortable one again from the native View menu, both persisted in the settings.
  */
 test.describe.configure({ mode: 'serial' });
 
@@ -237,53 +239,109 @@ test('the Lessons rail button opens the walkthrough', async () => {
   await expect(page.getByTestId('walkthrough')).toBeVisible();
 });
 
-for (const [width, height] of [
-  [1280, 800],
-  [1366, 768],
-  [1280, 720],
-  [960, 600],
-  [640, 480],
-] as const) {
-  test(`at ${width}x${height} with the walkthrough and Problems open, every key control is on screen`, async () => {
-    await setContentSize(width, height);
-    if ((await page.getByTestId('walkthrough').count()) === 0) await page.getByTestId('rail-lessons').click();
-    if (await page.getByTestId('problems-panel').isHidden()) await page.getByTestId('problems-toggle').click();
-    await expect(page.getByTestId('problems-panel')).toBeVisible();
+/** Runs a native menu item (main's application menu, the View menu on macOS) by its command id. */
+const clickMenuItem = (id: string) =>
+  app.evaluate(({ Menu }, itemId) => {
+    const item = Menu.getApplicationMenu()?.getMenuItemById(itemId);
+    if (!item) throw new Error(`no menu item ${itemId}`);
+    (item.click as () => void)();
+  }, id);
 
-    await expectInViewport(page.locator('.status-strip'), 'status strip');
-    await expectInViewport(page.getByTestId('problems-toggle'), 'Problems toggle');
-    for (const id of ['rail-files', 'rail-problems', 'rail-history', 'rail-lessons']) {
-      await expectInViewport(page.getByTestId(id), id);
-    }
-    if ((await page.getByTestId('rail-ai').count()) > 0) await expectInViewport(page.getByTestId('rail-ai'), 'rail-ai');
-    await expectInViewport(page.getByTestId('walkthrough-back'), 'walkthrough Back');
-    await expectInViewport(page.getByTestId('walkthrough-next'), 'walkthrough Next');
-    await expectInViewport(page.getByTestId('save-status'), 'save status');
-    // S47.5: the editor's controls at the end of the status strip, next to the toggle, never over it.
-    await expectInViewport(page.getByTestId('indent-status'), 'indent status');
-    await expectInViewport(page.getByTestId('cursor-position'), 'caret position');
-    if ((await page.getByTestId('editor-ai-edit').count()) > 0) {
-      await expectInViewport(page.getByTestId('editor-ai-edit'), 'Edit with AI');
-      await expectInViewport(page.getByTestId('editor-ai-explain'), 'Explain');
-    }
-    const toggle = await page.getByTestId('problems-toggle').boundingBox();
-    const group = await page.getByTestId('region-status').boundingBox();
-    expect(
-      toggle && group && toggle.x + toggle.width <= group.x + 0.5,
-      'the editor group never reaches the toggle',
-    ).toBe(true);
-    // Nothing overflows the window vertically: the frame fits, it never needs a scroll.
-    expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 0.5)).toBe(true);
-
-    // S47.3: typing never adds a Save button; the fixed save slot stays on screen through the autosave cycle.
-    if (width >= 960) {
-      await typeAtEnd(page, `K${width}`);
-      await expect(page.getByTestId('topbar-save')).toHaveCount(0);
-      await expectInViewport(page.getByTestId('save-status'), 'save status');
-      await expect(page.getByTestId('save-status')).toHaveText('已保存');
-    }
+const densityTokens = () =>
+  page.evaluate(() => {
+    const style = getComputedStyle(document.documentElement);
+    return {
+      density: document.documentElement.dataset.density,
+      control: style.getPropertyValue('--control-h').trim(),
+      row: style.getPropertyValue('--row-h').trim(),
+      radius: style.getPropertyValue('--radius-control').trim(),
+    };
   });
+
+/** S50.4: the persisted density in the app-data settings file. */
+const storedDensity = async () => {
+  const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'));
+  return (JSON.parse(await readFile(path.join(userData, 'settings.json'), 'utf8')) as { density?: string }).density;
+};
+
+for (const density of ['comfortable', 'compact'] as const) {
+  if (density === 'compact') {
+    test('S50.4: the palette switches to the compact density, persisted in the settings', async () => {
+      await setContentSize(1280, 800);
+      expect(await densityTokens()).toEqual({ density: 'comfortable', control: '32px', row: '32px', radius: '8px' });
+      await page.keyboard.press('ControlOrMeta+Shift+P');
+      await page.getByTestId('palette-input').fill('紧凑');
+      await expect(page.getByTestId('palette-density-compact')).toBeVisible();
+      await page.keyboard.press('Enter');
+      await expect(page.getByTestId('command-palette')).toHaveCount(0);
+      await expect(page.locator('html')).toHaveAttribute('data-density', 'compact');
+      expect(await densityTokens()).toEqual({ density: 'compact', control: '28px', row: '28px', radius: '6px' });
+      await expect.poll(storedDensity).toBe('compact');
+      // The native View menu follows (it is rebuilt from the context the renderer reports).
+      await expect
+        .poll(() => app.evaluate(({ Menu }) => Menu.getApplicationMenu()?.getMenuItemById('density-compact')?.checked))
+        .toBe(true);
+    });
+  }
+
+  for (const [width, height] of [
+    [1280, 800],
+    [1366, 768],
+    [1280, 720],
+    [960, 600],
+    [640, 480],
+  ] as const) {
+    test(`${density}: at ${width}x${height} with the walkthrough and Problems open, every key control is on screen`, async () => {
+      await expect(page.locator('html')).toHaveAttribute('data-density', density);
+      await setContentSize(width, height);
+      if ((await page.getByTestId('walkthrough').count()) === 0) await page.getByTestId('rail-lessons').click();
+      if (await page.getByTestId('problems-panel').isHidden()) await page.getByTestId('problems-toggle').click();
+      await expect(page.getByTestId('problems-panel')).toBeVisible();
+
+      await expectInViewport(page.locator('.status-strip'), 'status strip');
+      await expectInViewport(page.getByTestId('problems-toggle'), 'Problems toggle');
+      for (const id of ['rail-files', 'rail-problems', 'rail-history', 'rail-lessons']) {
+        await expectInViewport(page.getByTestId(id), id);
+      }
+      if ((await page.getByTestId('rail-ai').count()) > 0)
+        await expectInViewport(page.getByTestId('rail-ai'), 'rail-ai');
+      await expectInViewport(page.getByTestId('walkthrough-back'), 'walkthrough Back');
+      await expectInViewport(page.getByTestId('walkthrough-next'), 'walkthrough Next');
+      await expectInViewport(page.getByTestId('save-status'), 'save status');
+      // S47.5: the editor's controls at the end of the status strip, next to the toggle, never over it.
+      await expectInViewport(page.getByTestId('indent-status'), 'indent status');
+      await expectInViewport(page.getByTestId('cursor-position'), 'caret position');
+      if ((await page.getByTestId('editor-ai-edit').count()) > 0) {
+        await expectInViewport(page.getByTestId('editor-ai-edit'), 'Edit with AI');
+        await expectInViewport(page.getByTestId('editor-ai-explain'), 'Explain');
+      }
+      const toggle = await page.getByTestId('problems-toggle').boundingBox();
+      const group = await page.getByTestId('region-status').boundingBox();
+      expect(
+        toggle && group && toggle.x + toggle.width <= group.x + 0.5,
+        'the editor group never reaches the toggle',
+      ).toBe(true);
+      // Nothing overflows the window vertically: the frame fits, it never needs a scroll.
+      expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 0.5)).toBe(true);
+
+      // S47.3: typing never adds a Save button; the fixed save slot stays on screen through the autosave cycle.
+      if (width >= 960) {
+        await typeAtEnd(page, `K${width}`);
+        await expect(page.getByTestId('topbar-save')).toHaveCount(0);
+        await expectInViewport(page.getByTestId('save-status'), 'save status');
+        await expect(page.getByTestId('save-status')).toHaveText('已保存');
+      }
+    });
+  }
 }
+
+test('S50.4: the View menu switches back to the comfortable density', async () => {
+  await clickMenuItem('density-comfortable');
+  await expect(page.locator('html')).toHaveAttribute('data-density', 'comfortable');
+  expect(await densityTokens()).toEqual({ density: 'comfortable', control: '32px', row: '32px', radius: '8px' });
+  await expect.poll(storedDensity).toBe('comfortable');
+  await setContentSize(1280, 800);
+});
 
 test('a narrow window offers New file in the top bar, which opens the drawer and names the new file', async () => {
   await setContentSize(800, 600);

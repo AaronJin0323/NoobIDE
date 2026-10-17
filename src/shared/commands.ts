@@ -37,6 +37,9 @@ export const COMMAND_IDS = [
   'theme-system',
   'theme-light',
   'theme-dark',
+  // S50.4 interface density
+  'density-comfortable',
+  'density-compact',
   // S24.3
   'focus-next-region',
   'focus-previous-region',
@@ -96,10 +99,12 @@ export interface CommandContext {
   /** S53: editor switches shown as checked menu items (absent: off). */
   readonly emmet?: boolean;
   readonly formatOnSave?: boolean;
+  /** S50.4: the compact density is on (absent: comfortable, the default). */
+  readonly compact?: boolean;
 }
 
 /** Context keys that may be left out (switches; absent means off). */
-const OPTIONAL_CONTEXT_KEYS = ['emmet', 'formatOnSave'] as const;
+const OPTIONAL_CONTEXT_KEYS = ['emmet', 'formatOnSave', 'compact'] as const;
 
 export const INITIAL_COMMAND_CONTEXT: CommandContext = {
   hasProject: false,
@@ -168,6 +173,9 @@ export const COMMANDS: readonly CommandDefinition[] = [
   { id: 'theme-system', label: 'command.theme.system', checked: (c) => c.theme === 'system' },
   { id: 'theme-light', label: 'command.theme.light', checked: (c) => c.theme === 'light' },
   { id: 'theme-dark', label: 'command.theme.dark', checked: (c) => c.theme === 'dark' },
+  // S50.4: interface density, persisted in the app settings (View menu, help menu and palette).
+  { id: 'density-comfortable', label: 'command.density.comfortable', checked: (c) => c.compact !== true },
+  { id: 'density-compact', label: 'command.density.compact', checked: (c) => c.compact === true },
   // S24.3: F6 moves between the regions (Tab stays in the code editor, where it indents).
   { id: 'focus-next-region', label: 'command.focusNextRegion', keys: { all: { key: 'F6' } }, when: noModal },
   {
@@ -330,6 +338,9 @@ export const HELP_MENU_COMMANDS: readonly (CommandId | '-')[] = [
   'theme-system',
   'theme-light',
   'theme-dark',
+  '-',
+  'density-comfortable', // S50.4
+  'density-compact',
   '-',
   'ai-toggle-chat', // S33
   'ai-explain-code',
