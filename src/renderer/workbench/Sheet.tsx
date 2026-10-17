@@ -155,9 +155,9 @@ export function SheetFrame({
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
         data-testid={testId}
-        data-mode={dataMode}
         data-sheet=""
         data-covered={layer.covered ? '' : undefined}
+        data-mode={dataMode}
         onMouseDown={(event) => {
           event.stopPropagation();
           onSheetMouseDown?.(event);

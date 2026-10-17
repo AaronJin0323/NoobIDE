@@ -2607,8 +2607,10 @@ select.text-field {
   box-shadow: var(--ring-selected);
   color: var(--text);
 }
+/* Disabled: muted text and the line ring, never a faded control (S50.3). */
 .search-toggle:disabled {
-  opacity: 0.5;
+  color: var(--muted);
+  box-shadow: var(--ring-line);
   cursor: default;
 }
 .search-status {
