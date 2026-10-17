@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { completionContextAt } from './completion-context';
-import { suggestPaths } from './path-suggest';
-import { ProjectIndex } from './project-index';
+import { completionContextAt } from '../../src/renderer/editor/completion-context';
+import { suggestPaths } from '../../src/renderer/editor/path-suggest';
+import { ProjectIndex } from '../../src/renderer/editor/project-index';
+import { checkBudget } from './budget';
 
 /**
  * S43.6 latency budget (decision 0032): what the completion provider does per request — merge the project's ids and
  * classes, find the context, build the items — stays within 10 ms p95 for 200 HTML/CSS files and 2 000 classes.
- * Extraction happens once when files are read, not per request; it is measured in completion-perf.test.ts.
+ * Extraction happens once when files are read, not per request; it is measured in completion-perf.perf.test.ts.
+ * Perf project (S50.3, ADR 0038): enforced by `npm run verify` on the dev machine, reported on GitHub Actions.
  */
 function project(): Record<string, string> {
   const disk: Record<string, string> = {};
@@ -56,10 +58,8 @@ describe('completion latency budget (S43.6)', () => {
       expect(pathContext?.kind).toBe('path');
       expect(suggestions.length).toBeGreaterThan(0);
     }
-    // Numbers only (docs/perf/completion-latency.md): NOOBIDE_PERF_PRINT=1 npx vitest run completion-latency
-    if (process.env.NOOBIDE_PERF_PRINT)
-      console.log(JSON.stringify({ selectorP95: p95(selector), pathP95: p95(paths) }));
-    expect(p95(selector)).toBeLessThanOrEqual(10);
-    expect(p95(paths)).toBeLessThanOrEqual(10);
+    // Numbers (docs/perf/completion-latency.md) also land in reports/perf/<platform>-<arch>.json.
+    checkBudget('completion provider: class items p95', p95(selector), 10);
+    checkBudget('completion provider: path items p95', p95(paths), 10);
   });
 });

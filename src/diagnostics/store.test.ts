@@ -110,26 +110,7 @@ describe('ProblemStore volume limits (S16.5)', () => {
     expect(store.list('console').at(-1)?.originalMessage).toBe('spam 19999');
   });
 
-  it('handles 100k events quickly with bounded memory', () => {
-    // Budget is CPU time of this test process, best of 3 runs, not wall-clock: under machine load (parallel test
-    // workers, other jobs) a wall-clock timer also counts the time the process waits to be scheduled and failed with
-    // the store unchanged. CPU time only counts work done, so it still catches a real regression — the run takes
-    // ~30-50 ms of CPU; an accidental O(n²) step over 100k events would exceed 2 s by orders of magnitude.
-    const cpuMs = () => {
-      const u = process.cpuUsage();
-      return (u.user + u.system) / 1000;
-    };
-    let best = Infinity;
-    for (let run = 0; run < 3; run++) {
-      const store = new ProblemStore({ now: () => 0 });
-      const t = cpuMs();
-      for (let i = 0; i < 100000; i++)
-        store.add(err({ source: 'console', code: 'console.log', message: `m${i % 5000}` }));
-      best = Math.min(best, cpuMs() - t);
-      expect(store.list().length).toBeLessThanOrEqual(1000);
-    }
-    expect(best).toBeLessThan(2000);
-  });
+  // The 100k-event throughput budget (CPU time) lives in tests/perf/problem-store.perf.test.ts (S50.3).
 
   it('revision changes on every visible change; update/clear/get work by id', () => {
     const store = new ProblemStore();

@@ -1,0 +1,76 @@
+# S50.3 — performance budgets on hosted runners (docs/decisions/0038-perf-budgets-on-hosted-runners.md).
+# Runs the `perf` Vitest project (vitest.perf.config.ts) on both targets and keeps the numbers: on GitHub Actions the
+# budgets are reported, not asserted (tests/perf/budget.ts fails only on an error or a result more than 5× over
+# budget), because a budget measured on the dev machine is no pass/fail oracle on a shared hosted runner. This
+# workflow is NOT a required check and never runs for pull requests; ci.yml runs `npm test` without the perf project.
+# Every action is pinned to the same commit SHAs as ci.yml; tests/integration/perf-workflow.test.ts checks this file.
+name: Perf
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Nightly at 03:17 UTC (11:17 Beijing), off the hour to avoid the queue peak.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+# Least privilege: the workflow only reads the repository. Artifacts upload with the run's own token scope.
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  perf:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [windows-x64, macos-arm64]
+        include:
+          - target: windows-x64
+            os: windows-latest
+            arch: x64
+          - target: macos-arm64
+            os: macos-14
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          architecture: ${{ matrix.arch }}
+          cache: npm
+
+      - name: Check runner architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: node -e "console.log(process.platform, process.arch); if (process.arch !== process.env.EXPECTED_ARCH) process.exit(1)"
+
+      # The perf project never imports Electron (perf-workflow.test.ts checks), so the binary download is skipped.
+      - name: Install dependencies
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+        run: npm ci
+
+      # GITHUB_ACTIONS is set by the runner: tests/perf/budget.ts records instead of asserting (ADR 0038).
+      - name: Performance budgets (reported, not asserted)
+        run: npm run test:perf
+
+      - name: Upload perf report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-report-${{ matrix.target }}
+          path: reports/perf/
+          if-no-files-found: error
+          retention-days: 90

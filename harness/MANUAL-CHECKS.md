@@ -35,6 +35,25 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 
 ## Open checks
 
+### S50.3 — First hosted `perf.yml` runs (budgets reported, not asserted)
+
+- **Platform:** GitHub Actions, windows-latest (x64) and macos-14 (arm64) — no local hardware needed
+- **Build:** the merge of branch `claude/hopeful-gates-e43ecf` (S50.3) into `main`
+- **Steps:**
+  1. After the merge, open Actions → "Perf": the push to `main` started one run with two jobs (`windows-x64`,
+     `macos-arm64`). Alternatively start one with "Run workflow" on `main`.
+  2. Both jobs end green (or, if one is red, the failure line names a measurement "over 5× the … budget" or an error —
+     not a plain budget miss). The job summary of each shows a "Perf budgets — <platform>-<arch> (report mode)" table
+     with eight rows; hosted values over budget read "over budget (reported)".
+  3. The run has two artifacts, `perf-report-windows-x64` and `perf-report-macos-arm64`, each containing one
+     `<platform>-<arch>.json` with `"runner": "github-actions"` and eight results.
+  4. Confirm "Perf" is not among the required checks of the "Protect main" ruleset (Settings → Rules), and that a pull
+     request does not trigger it.
+  5. Paste the two tables into docs/perf/ci-runners.md §3 (the hosted-runner columns) and, the next morning, check
+     that the nightly schedule (03:17 UTC) produced a run too.
+- **Expected:** one report per OS on `main`, no required check involved, the macOS completion p95 (21 ms in run 39011559538) listed as reported-over rather than failing.
+- **Result:** _(owner fills in: run id, date, both tables or a link)_
+
 ### S46.9 — Integrated title bar
 
 - **Platform:** Windows 11 x64 and macOS on Apple Silicon

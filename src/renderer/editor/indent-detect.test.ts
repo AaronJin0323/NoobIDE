@@ -231,35 +231,7 @@ describe('reindentPasted', () => {
   });
 });
 
-describe('detectIndentation performance', () => {
-  it('handles a 5 000-line file quickly', () => {
-    const block = [
-      'function f(a) {',
-      '    // comment',
-      '    const s = `x ${a} y`;',
-      '    if (a) {',
-      "        return 'b';",
-      '    }',
-      '    /* block */',
-      '    return s;',
-      '}',
-      '',
-    ];
-    const lines: string[] = [];
-    while (lines.length < 5000) lines.push(...block);
-    const text = lines.slice(0, 5000).join('\n');
-    detectIndentation(text, 'javascript'); // warm up
-    const times: number[] = [];
-    for (let run = 0; run < 7; run++) {
-      const t0 = performance.now();
-      const g = detectIndentation(text, 'javascript');
-      times.push(performance.now() - t0);
-      expect(g).toMatchObject({ insertSpaces: true, tabSize: 4, confidence: 'high' });
-    }
-    times.sort((a, b) => a - b);
-    expect(times[3]).toBeLessThan(20);
-  });
-});
+// The 5 000-line timing budget of detectIndentation lives in tests/perf/indent-detect.perf.test.ts (S50.3).
 
 describe('reindentPasted safety (S43.2 review)', () => {
   const spaces2 = { insertSpaces: true, tabSize: 2 };

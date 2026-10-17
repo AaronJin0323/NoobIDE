@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { completionContextAt } from './completion-context';
-import { extractCssSymbols, extractHtmlSymbols } from './project-symbols';
+import { completionContextAt } from '../../src/renderer/editor/completion-context';
+import { extractCssSymbols, extractHtmlSymbols } from '../../src/renderer/editor/project-symbols';
+import { checkBudget } from './budget';
 
 /**
  * Decision 0032 budget (S43.4 / S43.5): for a project of 200 HTML/CSS files with 2 000 classes, extracting the
  * symbols, finding the context and filtering the classes by prefix stays well inside a typing frame. The assertion is
- * generous (50 ms median) so CI noise never flakes it; the unit budget for the provider itself is 10 ms p95.
+ * generous (50 ms median); the unit budget for the provider itself is 10 ms p95 (completion-latency.perf.test.ts).
+ * Perf project (S50.3, ADR 0038): enforced by `npm run verify` on the dev machine, reported on GitHub Actions.
  */
 function project(): { html: string[]; css: string[] } {
   const html: string[] = [];
@@ -48,7 +50,7 @@ describe('completion performance (S43.4)', () => {
     }
     expect(classCount).toBeGreaterThanOrEqual(2000);
     expect(hits).toBeGreaterThan(0);
-    expect(median(samples)).toBeLessThan(50);
+    checkBudget('symbol extraction: 200 files + context + filter, median', median(samples), 50);
   });
 
   it('context alone on a 2 000-char window: median < 50 ms over many calls', () => {
@@ -64,6 +66,6 @@ describe('completion performance (S43.4)', () => {
       for (let k = 0; k < 100; k++) for (const [lang, before] of windows) completionContextAt(lang, before);
       samples.push((performance.now() - t0) / 100);
     }
-    expect(median(samples)).toBeLessThan(50);
+    checkBudget('completion context on a 2 000-char window, median', median(samples), 50);
   });
 });

@@ -8,11 +8,12 @@ Measured on the Windows x64 dev machine (Windows 11, 32 logical cores), 2026-10-
 
 ## Provider work (unit)
 
-`src/renderer/editor/completion-latency.test.ts`: 100 HTML pages (10 ids and 11 classes each) + 100 CSS files
+`tests/perf/completion-latency.perf.test.ts` (the perf project, S50.3): 100 HTML pages (10 ids and 11 classes each) + 100 CSS files
 (10 classes each) + 300 images = 500 files, 200 of them indexed, 2 100 classes. Per request: find the context in a
 2 000-character window, merge the project's names (open files' unsaved edits included), build one item per class; and
 for a path request, list `../images/` relative to a page. 60 measured runs each, after 10 warm-up runs. Reproduce with
-`NOOBIDE_PERF_PRINT=1 npx vitest run src/renderer/editor/completion-latency.test.ts`.
+`npm run test:perf`; the numbers land in `reports/perf/<platform>-<arch>.json` (budgets enforced on developer machines,
+reported on GitHub Actions — docs/perf/ci-runners.md, decision 0038).
 
 | Request                         | p95     | Budget |
 | ------------------------------- | ------- | ------ |
@@ -20,8 +21,8 @@ for a path request, list `../images/` relative to a page. 60 measured runs each,
 | `<img src="../images/` (paths)  | 0.44 ms | 10 ms  |
 
 Symbol extraction runs once per file read, not per request: 200 files (≈ 3 200 classes) take ≈ 2.6 ms in total
-(`completion-perf.test.ts`). Indentation detection of a 5 000-line file takes ≈ 0.3 ms (JS) / ≈ 1.4 ms (HTML with
-`<script>`/`<style>`) (`indent-detect.test.ts`).
+(`tests/perf/completion-perf.perf.test.ts`). Indentation detection of a 5 000-line file takes ≈ 0.3 ms (JS) / ≈ 1.4 ms (HTML with
+`<script>`/`<style>`) (`tests/perf/indent-detect.perf.test.ts`).
 
 ## In the app (e2e)
 
