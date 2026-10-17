@@ -261,7 +261,9 @@ const densityTokens = () =>
 /** S50.4: the persisted density in the app-data settings file. */
 const storedDensity = async () => {
   const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'));
-  return (JSON.parse(await readFile(path.join(userData, 'settings.json'), 'utf8')) as { density?: string }).density;
+  // Not written yet (a fresh profile writes it on the first change): keep polling.
+  const text = await readFile(path.join(userData, 'settings.json'), 'utf8').catch(() => '{}');
+  return (JSON.parse(text) as { density?: string }).density;
 };
 
 for (const density of ['comfortable', 'compact'] as const) {
