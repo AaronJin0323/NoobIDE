@@ -56,6 +56,47 @@ budget failed once while sibling sessions loaded the machine; three re-runs pass
    component's own scoped block.
 2. Owner: a look at the motion on real hardware (Windows and Apple Silicon) is welcome but not required.
 
+## Session S48b (side session) — 2026-10-18 — Chat code blocks and proposal tones (S48.5, S48.8)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m18-s48-blocks-0f6df9` (cut
+from the M18 plan branch with S47.1), PR #37. One of five parallel M18 sessions; the composer session owns the rest
+of ChatPanel.
+
+**Done**
+
+- **S48.5** `md-parse.ts` reads the fence info string into a lowercase `lang` and an optional `file`
+  (` ```js app.js`, ` ```js:app.js`, `title="app.js"`, ` ```app.js`; no `..`, no markup). `Markdown.tsx` code blocks:
+  caption = the language as written in lowercase (a localised word when none), the file name (sr-only "File: …"),
+  an `aria-hidden` line gutter outside `<code>` (`tabular-nums`, `user-select: none`), `white-space: pre` with
+  horizontal scroll. Colours: `code-highlight-monaco.ts` (lazy chunk) loads the language with `colorize` and
+  tokenizes with `monaco.editor.tokenize`; `code-highlight.ts` (pure) resolves each token type against the editor's
+  own `buildMonacoTheme(scheme).rules` the way Monaco matches dotted prefixes, so chat code uses the editor colours
+  of the current scheme; results are cached; `<code>`'s text content stays exactly the code. Actions Copy /
+  Insert at cursor / Replace selection (a named group, Tab-reachable; `aria-disabled` but focusable without an open
+  text file, then they say what to do). Insert/replace go through `EditorAccess.insertCode` (new): one
+  `executeEdits` between undo stops → the ordinary `onChange` → saver path (dirty state, journal, Save); outcomes
+  `ok | no-editor | read-only | no-selection` with a sentence each in zh-CN and en. Wired via `AiWorkbenchHost`
+  (`codeEditorOpen`, `insertCode`) and a `codeBlocks` prop on ChatPanel (scheme from `useColorScheme`).
+- **S48.8** `proposal-tone.ts`: pending→attention, applying→running, applied→ok, failed→danger, rejected→muted,
+  expired→quiet, each with its own icon shape (`ProposalStateIcon`) and the existing state word. Only an attention
+  change has the accent border; the badge uses `--ok-soft/--danger-soft/--raised` fills. One primary action per
+  card: the only pending change's Accept, or Accept all when several are pending (per-change Accept becomes
+  secondary). Each change has two closed `<details>`: what it changes (file, action, lines from `changedLines`) and
+  the result (lines added/removed — moved here from the always-visible summary — and the save state).
+
+**Evidence:** `chat-code-blocks.test.ts` (11), `proposal-tone.test.ts` (9, both locales), `markdown.test.ts`;
+`tests/e2e/ai-chat-code.spec.ts` 5/5 on the packaged build (shard 2); ai-chat, ai-agent, preview-annotations, a11y
+e2e green; verify green.
+
+**Decisions:** Colours come from Monaco's tokenizer plus NoobIDE's theme rules rather than the `mtkN` classes of
+`colorize` HTML: no HTML string is ever parsed or injected, and the static markup carries real colours per scheme.
+Token types that only the inherited base theme colours (e.g. `delimiter`) fall back to the text colour in chat.
+Insert at cursor moves the focus into the editor (the result is visible and Undo works at once).
+
+**Next up**
+
+1. Remaining M18 features in the sibling sessions (S48.4/S48.6/S48.7 composer, S47.2–S47.5, S49.x, S50.x).
+
 ## Session 38 (side session) — 2026-10-17 — Motion token ladder and reduced-motion gate (S47.1)
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/beautiful-shirley-d2ba80`,
