@@ -1,7 +1,7 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
 import { DOC_END } from './keys';
-import { documentText } from './project';
+import { documentText, switchLanguage } from './project';
 
 let app: ElectronApplication;
 let page: Page;
@@ -34,13 +34,14 @@ test('renders the five workbench regions (S02.3)', async () => {
   await expect(page.getByTestId('region-topbar')).toBeVisible();
   await expect(page.getByTestId('region-files')).toBeVisible();
   await expect(page.getByTestId('region-editor')).toBeVisible();
-  await expect(page.getByTestId('region-preview')).toBeVisible();
+  // S47.2: without a project the welcome owns the window — the preview column exists but is hidden until a project opens.
+  await expect(page.getByTestId('region-preview')).toBeHidden();
   await expect(page.getByTestId('region-problems')).toBeVisible();
   // …and by accessible role + zh-CN name (default locale)
   await expect(page.getByRole('banner', { name: '顶栏' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: '文件' })).toBeVisible();
   await expect(page.getByRole('main', { name: '编辑器' })).toBeVisible();
-  await expect(page.getByRole('region', { name: '预览' })).toBeVisible();
+  await expect(page.getByRole('region', { name: '预览' })).toBeHidden();
   await expect(page.getByRole('region', { name: '问题和控制台' })).toBeVisible();
 });
 
@@ -283,12 +284,12 @@ test('renderer has no Node, eval is blocked by the CSP, webPreferences are secur
 
 test('language switch: zh-CN default, en on click, kept across a reload (S02.5)', async () => {
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(page.getByRole('navigation', { name: 'Files' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await page.reload();
   await expect(page.getByRole('navigation', { name: 'Files' })).toBeVisible();
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(page.getByRole('navigation', { name: '文件' })).toBeVisible();
 });
 

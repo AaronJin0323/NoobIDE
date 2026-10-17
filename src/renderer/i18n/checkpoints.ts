@@ -2,15 +2,15 @@
  * Messages of project checkpoints (S56). Kept in their own file and spread into zh-CN.ts / en.ts.
  *
  * Wording rules (S56.4, PLAN §7): a checkpoint (检查点) is the *whole project*, *named* by the user (or taken
- * automatically before a bulk change); local history (本地历史) is *per file*, *automatic*, on every save; undo
+ * automatically before a bulk change); History (历史版本) is *per file*, *automatic*, on every save; undo
  * (撤销) is *in the editor*, for the open file. None of them is version control: never "commit", "version", "Git",
- * "branch" or "backup" for a checkpoint. zh-CN restores a checkpoint with 还原, local history with 恢复.
+ * "branch" or "backup" for a checkpoint. zh-CN restores a checkpoint with 还原, History with 恢复.
  */
 export const checkpointsZhCN = {
   'command.showCheckpoints': '项目检查点…',
   'checkpoints.title': '项目检查点',
   'checkpoints.intro':
-    '检查点记下整个项目此刻的样子（所有文件），由你命名，之后可以比较或还原。它不同于“本地历史”（每次保存时自动为单个文件保留的旧版本），也不同于编辑器里的“撤销”（只针对正在编辑的文件）。检查点保存在这台电脑上 NoobIDE 的数据文件夹里，不会写进项目文件夹；它不是 Git 这样的版本控制，也不能代替备份。',
+    '检查点记下整个项目此刻的样子（所有文件），由你命名，之后可以比较或还原。它不同于“历史版本”（每次保存时自动为单个文件保留的旧版本），也不同于编辑器里的“撤销”（只针对正在编辑的文件）。检查点保存在这台电脑上 NoobIDE 的数据文件夹里，不会写进项目文件夹；它不是 Git 这样的版本控制，也不能代替备份。',
   'checkpoints.close': '关闭',
   'checkpoints.storage': '检查点占用的空间',
   'checkpoints.new': '保存新的检查点',
@@ -25,7 +25,7 @@ export const checkpointsZhCN = {
   'checkpoints.kind.auto': '自动',
   'checkpoints.cause.manual': '你保存的',
   'checkpoints.cause.before-ai': '应用 AI 助手的修改之前',
-  'checkpoints.cause.before-history-restore': '从本地历史恢复之前',
+  'checkpoints.cause.before-history-restore': '从历史版本恢复之前',
   'checkpoints.cause.before-checkpoint-restore': '还原检查点之前',
   'checkpoints.detail': '{files} 个文件 · {size}',
   'checkpoints.compare': '比较',
@@ -86,7 +86,7 @@ export const checkpointsZhCN = {
   'checkpoints.skip.trash-failed': '{path}：没能移到回收站',
   'checkpoints.safetyName': '还原“{name}”之前',
   'checkpoints.autoName.before-ai': 'AI 助手修改之前：{label}',
-  'checkpoints.autoName.before-history-restore': '从本地历史恢复 {path} 之前',
+  'checkpoints.autoName.before-history-restore': '从历史版本恢复 {path} 之前',
   'checkpoints.error.too-many-files': '项目有 {n} 个文件，超过检查点的上限 {limit} 个。没有保存检查点。',
   'checkpoints.error.file-too-large': '“{path}”有 {size}，超过检查点单个文件的上限 {limit}。没有保存检查点。',
   'checkpoints.error.checkpoint-too-large': '项目共有 {size}，超过一个检查点的上限 {limit}。没有保存检查点。',
@@ -100,14 +100,14 @@ export const checkpointsZhCN = {
   'checkpoints.error.read-failed': '有文件或文件夹无法读取，没有保存检查点。',
   'checkpoints.error.damaged': '这个检查点已损坏，无法使用。',
   'checkpoints.error.generic': '操作没有完成，请再试一次。',
-  'history.checkpointNote': '本地历史一次只看一个文件。要保存或还原整个项目，请用菜单里的“项目检查点…”。',
+  'history.checkpointNote': '历史版本一次只看一个文件。要保存或还原整个项目，请用菜单里的“项目检查点…”。',
 } as const;
 
 export const checkpointsEn: Record<keyof typeof checkpointsZhCN, string> = {
   'command.showCheckpoints': 'Project checkpoints…',
   'checkpoints.title': 'Project checkpoints',
   'checkpoints.intro':
-    'A checkpoint records the whole project as it is now (every file), under a name you choose, so you can compare with it or restore it later. It is not local history (earlier versions NoobIDE keeps automatically for each file when you save), and not undo in the editor (which works on the file you are editing). Checkpoints are kept on this computer in NoobIDE’s own data folder, never in the project folder. They are not version control like Git, and not a replacement for backups.',
+    'A checkpoint records the whole project as it is now (every file), under a name you choose, so you can compare with it or restore it later. It is not History (earlier versions NoobIDE keeps automatically for each file when you save), and not undo in the editor (which works on the file you are editing). Checkpoints are kept on this computer in NoobIDE’s own data folder, never in the project folder. They are not version control like Git, and not a replacement for backups.',
   'checkpoints.close': 'Close',
   'checkpoints.storage': 'Space used by checkpoints',
   'checkpoints.new': 'Save a new checkpoint',
@@ -122,7 +122,7 @@ export const checkpointsEn: Record<keyof typeof checkpointsZhCN, string> = {
   'checkpoints.kind.auto': 'Automatic',
   'checkpoints.cause.manual': 'Saved by you',
   'checkpoints.cause.before-ai': 'Before applying AI assistant changes',
-  'checkpoints.cause.before-history-restore': 'Before restoring from local history',
+  'checkpoints.cause.before-history-restore': 'Before restoring from History',
   'checkpoints.cause.before-checkpoint-restore': 'Before restoring a checkpoint',
   'checkpoints.detail': '{files} files · {size}',
   'checkpoints.compare': 'Compare',
@@ -190,7 +190,7 @@ export const checkpointsEn: Record<keyof typeof checkpointsZhCN, string> = {
   'checkpoints.skip.trash-failed': '{path}: could not be moved to the trash',
   'checkpoints.safetyName': 'Before restoring “{name}”',
   'checkpoints.autoName.before-ai': 'Before AI assistant changes: {label}',
-  'checkpoints.autoName.before-history-restore': 'Before restoring {path} from local history',
+  'checkpoints.autoName.before-history-restore': 'Before restoring {path} from History',
   'checkpoints.error.too-many-files':
     'The project has {n} files, more than the {limit} a checkpoint can hold. No checkpoint was saved.',
   'checkpoints.error.file-too-large':
@@ -211,5 +211,5 @@ export const checkpointsEn: Record<keyof typeof checkpointsZhCN, string> = {
   'checkpoints.error.damaged': 'This checkpoint is damaged and cannot be used.',
   'checkpoints.error.generic': 'That did not work. Please try again.',
   'history.checkpointNote':
-    'Local history works on one file at a time. To save or restore the whole project, use “Project checkpoints…” in the menu.',
+    'History works on one file at a time. To save or restore the whole project, use “Project checkpoints…” in the menu.',
 };

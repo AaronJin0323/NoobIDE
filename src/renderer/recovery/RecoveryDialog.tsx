@@ -10,6 +10,7 @@ import type {
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { WarningIcon } from '../workbench/icons';
+import { Sheet, sheetButtonClass } from '../workbench/Sheet';
 import { rendererPlatform } from '../workbench/file-op-messages';
 import { protectedFolderKey } from '../../platform/labels';
 import { fill, formatBytes } from './format';
@@ -20,8 +21,10 @@ import type { JournalHealth } from './journal-scheduler';
 /**
  * Restore prompt after an abnormal termination (S12.2) and the clear-data control (S12.3). On start it asks main
  * for journal records left by an earlier run. The user reopens the project, compares each recovered copy with the
- * file on disk and restores it into the editor (as unsaved edits) or discards it. "Decide later" keeps everything.
- * Recovered text is only ever shown in the diff and handed to the editor; it is never logged.
+ * file on disk and restores it into the editor (as unsaved edits) or discards it. "Decide later" keeps everything,
+ * and so do Escape, Close and a click outside (S49.1: the sheet says so in words; nothing here is ever discarded
+ * without its own confirmation, Cancel first). "Clear all recovery data" sits under an Advanced disclosure, away from
+ * the way out. Recovered text is only ever shown in the diff and handed to the editor; it is never logged.
  *
  * Decision 0033: when the project folder cannot be opened (moved, renamed, drive not connected) the copies are shown
  * read-only with Copy, Save as… and Discard, and the user can point at the folder's new location. Main shows every
@@ -108,10 +111,11 @@ export function RecoveryDialog({ bridge, onProjectOpened, onRestore, onCleared }
     };
   }, [bridge]);
 
-  // Keyboard users land in the dialog when it opens and when it switches between the list and a review step.
+  // Keyboard users land on the first action of the content when the dialog opens and when it switches between the
+  // list and a review step (the sheet's Close control comes first in the DOM and is not where work starts).
   const step = review !== null ? 'review' : orphan !== null ? `orphan:${orphan.project.key}` : 'list';
   useEffect(() => {
-    if (open) dialogRef.current?.querySelector<HTMLElement>('button')?.focus();
+    if (open) dialogRef.current?.querySelector<HTMLElement>('.sheet-content button:not(:disabled)')?.focus();
   }, [open, step]);
 
   const close = useCallback(() => {
@@ -392,202 +396,216 @@ export function RecoveryDialog({ bridge, onProjectOpened, onRestore, onCleared }
   return (
     <>
       {open && pending && (
-        <div className="recovery-backdrop">
-          <div
-            ref={dialogRef}
-            className="recovery-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="recovery-title"
-            data-testid="recovery-dialog"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') close();
-            }}
-          >
-            <h2 id="recovery-title" className="recovery-title">
-              <WarningIcon size={16} />
-              {t('recovery.title')}
-            </h2>
-            <p className="recovery-intro">{t('recovery.intro')}</p>
-            {error && (
-              <p className="inline-alert" role="alert" data-testid="recovery-error">
-                {t(error)}
-              </p>
-            )}
-            {notice && (
-              <p className="alert-detail recovery-notice" role="status" data-testid="recovery-notice">
-                {fill(t(notice.key), notice.vars ?? {})}
-              </p>
-            )}
+        <Sheet
+          title={t('recovery.title')}
+          titleIcon={<WarningIcon size={16} />}
+          description={t('recovery.intro')}
+          width={720}
+          className="recovery-dialog"
+          backdropClassName="recovery-backdrop"
+          sheetRef={dialogRef}
+          onClose={close}
+          closeDisabled={busy}
+          closeLabel={t(pending.projects.length === 0 ? 'recovery.close' : 'recovery.later')}
+          testId="recovery-dialog"
+          closeTestId="recovery-dismiss"
+          leading={
+            pending.projects.length > 0 && (
+              <span data-testid="recovery-usage">
+                {fill(t('recovery.usage'), {
+                  used: formatBytes(pending.usage.bytes),
+                  limit: formatBytes(pending.usage.maxTotalBytes),
+                })}
+              </span>
+            )
+          }
+          actions={
+            pending.projects.length === 0 ? (
+              // Decision 0033: every copy of a missing folder was saved or discarded; the notice says where to.
+              <button
+                type="button"
+                className={sheetButtonClass('primary')}
+                onClick={close}
+                data-testid="recovery-close"
+              >
+                {t('recovery.close')}
+              </button>
+            ) : (
+              <button type="button" className={sheetButtonClass('cancel')} onClick={close} data-testid="recovery-later">
+                {t('recovery.later')}
+              </button>
+            )
+          }
+        >
+          <p className="dialog-hint" data-testid="recovery-keep-note">
+            {t('recovery.keepNote')}
+          </p>
+          {error && (
+            <p className="inline-alert" role="alert" data-testid="recovery-error">
+              {t(error)}
+            </p>
+          )}
+          {notice && (
+            <p className="alert-detail recovery-notice" role="status" data-testid="recovery-notice">
+              {fill(t(notice.key), notice.vars ?? {})}
+            </p>
+          )}
 
-            {orphan && !review ? (
-              <OrphanSection
-                orphan={orphan}
-                busy={busy}
-                confirmDiscard={confirmDiscard}
-                time={time}
-                onSelect={(file) => {
-                  setConfirmDiscard(null);
-                  setNotice(null);
-                  setOrphan((o) => (o ? { ...o, selected: file.bufferId } : o));
-                }}
-                onCopy={(entry) => void copyOrphan(entry)}
-                onSaveAs={(file) => void saveOrphanAs(orphan.project.key, file)}
-                onAskDiscard={(file) => setConfirmDiscard(file?.bufferId ?? null)}
-                onDiscard={(file) => void discardOrphan(orphan.project.key, file)}
-                onRelocate={(choiceId) => void relocate(orphan, choiceId)}
-                onCancelRelocate={() => setOrphan((o) => (o ? { ...o, confirm: null } : o))}
-                onBack={() => {
-                  setOrphan(null);
-                  setError(null);
-                  setNotice(null);
-                  setConfirmDiscard(null);
-                }}
-              />
-            ) : !review ? (
-              <ul className="recovery-projects">
-                {pending.projects.map((p) => (
-                  <li key={p.key} className="recovery-project" data-testid="recovery-project">
-                    <strong>{p.name}</strong>
-                    <span className="alert-detail">{p.rootPath}</span>
-                    <span className="alert-detail">
-                      {fill(t('recovery.files', p.files.length), { n: p.files.length })}
-                    </span>
-                    <ul className="recovery-file-names">
-                      {p.files.map((f) => (
-                        <li key={f.bufferId}>{f.relPath}</li>
-                      ))}
-                    </ul>
+          {orphan && !review ? (
+            <OrphanSection
+              orphan={orphan}
+              busy={busy}
+              confirmDiscard={confirmDiscard}
+              time={time}
+              onSelect={(file) => {
+                setConfirmDiscard(null);
+                setNotice(null);
+                setOrphan((o) => (o ? { ...o, selected: file.bufferId } : o));
+              }}
+              onCopy={(entry) => void copyOrphan(entry)}
+              onSaveAs={(file) => void saveOrphanAs(orphan.project.key, file)}
+              onAskDiscard={(file) => setConfirmDiscard(file?.bufferId ?? null)}
+              onDiscard={(file) => void discardOrphan(orphan.project.key, file)}
+              onRelocate={(choiceId) => void relocate(orphan, choiceId)}
+              onCancelRelocate={() => setOrphan((o) => (o ? { ...o, confirm: null } : o))}
+              onBack={() => {
+                setOrphan(null);
+                setError(null);
+                setNotice(null);
+                setConfirmDiscard(null);
+              }}
+            />
+          ) : !review ? (
+            <ul className="recovery-projects">
+              {pending.projects.map((p) => (
+                <li key={p.key} className="recovery-project" data-testid="recovery-project">
+                  <strong>{p.name}</strong>
+                  <span className="alert-detail">{p.rootPath}</span>
+                  <span className="alert-detail">
+                    {fill(t('recovery.files', p.files.length), { n: p.files.length })}
+                  </span>
+                  <ul className="recovery-file-names">
+                    {p.files.map((f) => (
+                      <li key={f.bufferId}>{f.relPath}</li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={busy}
+                    onClick={() => void startReview(p)}
+                    data-testid="recovery-review"
+                  >
+                    {t('recovery.review')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="recovery-review">
+              <div className="recovery-file-tabs" role="tablist" aria-label={t('recovery.compareTitle')}>
+                {review.files.map((f) => (
+                  <button
+                    key={f.bufferId}
+                    type="button"
+                    role="tab"
+                    aria-selected={f.bufferId === review.selected}
+                    className="file-row"
+                    onClick={() => select(f)}
+                  >
+                    {f.relPath}
+                  </button>
+                ))}
+              </div>
+              {selectedFile && (
+                <section className="recovery-compare" aria-label={t('recovery.compareTitle')}>
+                  <p className="alert-detail">
+                    {t('recovery.updatedAt')}: {time.format(selectedFile.updatedAt)}
+                  </p>
+                  {selectedEntry === 'failed' ? (
+                    <p className="inline-alert" role="alert">
+                      {t('recovery.readFailed')}
+                    </p>
+                  ) : selectedEntry ? (
+                    <EntryDiff entry={selectedEntry} />
+                  ) : (
+                    <p className="placeholder">{t('editor.loading')}</p>
+                  )}
+                  <div className="recovery-actions">
                     <button
                       type="button"
                       className="primary-button"
-                      disabled={busy}
-                      onClick={() => void startReview(p)}
-                      data-testid="recovery-review"
+                      data-testid="recovery-restore"
+                      disabled={busy || !selectedEntry || selectedEntry === 'failed' || !selectedEntry.disk}
+                      onClick={() => void restore(selectedFile)}
                     >
-                      {t('recovery.review')}
+                      {t('recovery.restore')}
                     </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="recovery-review">
-                <div className="recovery-file-tabs" role="tablist" aria-label={t('recovery.compareTitle')}>
-                  {review.files.map((f) => (
-                    <button
-                      key={f.bufferId}
-                      type="button"
-                      role="tab"
-                      aria-selected={f.bufferId === review.selected}
-                      className="file-row"
-                      onClick={() => select(f)}
-                    >
-                      {f.relPath}
-                    </button>
-                  ))}
-                </div>
-                {selectedFile && (
-                  <section className="recovery-compare" aria-label={t('recovery.compareTitle')}>
-                    <p className="alert-detail">
-                      {t('recovery.updatedAt')}: {time.format(selectedFile.updatedAt)}
-                    </p>
-                    {selectedEntry === 'failed' ? (
-                      <p className="inline-alert" role="alert">
-                        {t('recovery.readFailed')}
-                      </p>
-                    ) : selectedEntry ? (
-                      <EntryDiff entry={selectedEntry} />
-                    ) : (
-                      <p className="placeholder">{t('editor.loading')}</p>
-                    )}
-                    <div className="recovery-actions">
-                      <button
-                        type="button"
-                        className="primary-button"
-                        data-testid="recovery-restore"
-                        disabled={busy || !selectedEntry || selectedEntry === 'failed' || !selectedEntry.disk}
-                        onClick={() => void restore(selectedFile)}
-                      >
-                        {t('recovery.restore')}
-                      </button>
-                      {confirmDiscard === selectedFile.bufferId ? (
-                        <>
-                          <button
-                            type="button"
-                            className="quiet-button danger-button"
-                            data-testid="recovery-discard-confirm"
-                            disabled={busy}
-                            onClick={() => void discard(selectedFile)}
-                          >
-                            {t('recovery.discardConfirm')}
-                          </button>
-                          <button type="button" className="quiet-button" onClick={() => setConfirmDiscard(null)}>
-                            {t('recovery.cancel')}
-                          </button>
-                        </>
-                      ) : (
+                    {confirmDiscard === selectedFile.bufferId ? (
+                      <>
+                        <button type="button" className="quiet-button" onClick={() => setConfirmDiscard(null)}>
+                          {t('recovery.cancel')}
+                        </button>
                         <button
                           type="button"
-                          className="quiet-button"
-                          data-testid="recovery-discard"
+                          className="secondary-button danger-button"
+                          data-testid="recovery-discard-confirm"
                           disabled={busy}
-                          onClick={() => setConfirmDiscard(selectedFile.bufferId)}
+                          onClick={() => void discard(selectedFile)}
                         >
-                          {t('recovery.discard')}
+                          {t('recovery.discardConfirm')}
                         </button>
-                      )}
-                    </div>
-                  </section>
-                )}
-              </div>
-            )}
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="quiet-button"
+                        data-testid="recovery-discard"
+                        disabled={busy}
+                        onClick={() => setConfirmDiscard(selectedFile.bufferId)}
+                      >
+                        {t('recovery.discard')}
+                      </button>
+                    )}
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
 
-            {pending.projects.length === 0 ? (
-              // Decision 0033: every copy of a missing folder was saved or discarded; the notice says where to.
-              <footer className="recovery-footer">
-                <button type="button" className="primary-button" onClick={close} data-testid="recovery-close">
-                  {t('recovery.close')}
-                </button>
-              </footer>
-            ) : (
-              <footer className="recovery-footer">
-                <span className="alert-detail" data-testid="recovery-usage">
-                  {fill(t('recovery.usage'), {
-                    used: formatBytes(pending.usage.bytes),
-                    limit: formatBytes(pending.usage.maxTotalBytes),
-                  })}
-                </span>
+          {!review && !orphan && pending.projects.length > 0 && (
+            // S49.1: clearing every copy is an advanced step, out of the way of the exit and behind a disclosure.
+            <details className="recovery-advanced" data-testid="recovery-advanced">
+              <summary className="recovery-advanced-summary">{t('recovery.advanced')}</summary>
+              <div className="recovery-actions">
                 {confirmClear ? (
                   <>
+                    <button type="button" className="quiet-button" onClick={() => setConfirmClear(false)}>
+                      {t('recovery.cancel')}
+                    </button>
                     <button
                       type="button"
-                      className="quiet-button danger-button"
+                      className="secondary-button danger-button"
                       onClick={() => void clearAll()}
                       data-testid="recovery-clear-confirm"
                     >
                       {t('recovery.clearConfirm')}
                     </button>
-                    <button type="button" className="quiet-button" onClick={() => setConfirmClear(false)}>
-                      {t('recovery.cancel')}
-                    </button>
                   </>
                 ) : (
                   <button
                     type="button"
-                    className="quiet-button"
+                    className="secondary-button"
                     onClick={() => setConfirmClear(true)}
                     data-testid="recovery-clear"
                   >
                     {t('recovery.clearAll')}
                   </button>
                 )}
-                <button type="button" className="quiet-button" onClick={close} data-testid="recovery-later">
-                  {t('recovery.later')}
-                </button>
-              </footer>
-            )}
-          </div>
-        </div>
+              </div>
+            </details>
+          )}
+        </Sheet>
       )}
     </>
   );
@@ -644,18 +662,18 @@ function OrphanSection(props: OrphanSectionProps) {
             ))}
           </ul>
           <div className="recovery-actions">
+            <button type="button" className="quiet-button" onClick={props.onCancelRelocate}>
+              {t('recovery.cancel')}
+            </button>
             <button
               type="button"
-              className="quiet-button"
+              className="secondary-button"
               ref={confirmRef}
               data-testid="recovery-relocate-confirm"
               disabled={busy}
               onClick={() => props.onRelocate(orphan.confirm?.choiceId)}
             >
               {t('recovery.relocateConfirm')}
-            </button>
-            <button type="button" className="quiet-button" onClick={props.onCancelRelocate}>
-              {t('recovery.cancel')}
             </button>
           </div>
         </div>
@@ -731,17 +749,17 @@ function OrphanSection(props: OrphanSectionProps) {
             </button>
             {confirmDiscard === file.bufferId ? (
               <>
+                <button type="button" className="quiet-button" onClick={() => props.onAskDiscard(null)}>
+                  {t('recovery.cancel')}
+                </button>
                 <button
                   type="button"
-                  className="quiet-button danger-button"
+                  className="secondary-button danger-button"
                   data-testid="recovery-discard-confirm"
                   disabled={busy}
                   onClick={() => props.onDiscard(file)}
                 >
                   {t('recovery.discardConfirm')}
-                </button>
-                <button type="button" className="quiet-button" onClick={() => props.onAskDiscard(null)}>
-                  {t('recovery.cancel')}
                 </button>
               </>
             ) : (

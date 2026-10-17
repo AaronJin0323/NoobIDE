@@ -11,8 +11,8 @@ import { VersionDiff } from '../history/HistoryDialog';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
 import { fill, formatBytes } from '../recovery/format';
-import { useModalKeys, useReturnFocus } from '../workbench/focus-trap';
 import { WarningIcon } from '../workbench/icons';
+import { Sheet } from '../workbench/Sheet';
 import { causeKey, checkpointErrorText, restoreReportText, usageText } from './checkpoint-model';
 import { planRestore, restoreFromCheckpoint, type CheckpointRestoreHost, type RestorePlan } from './checkpoint-restore';
 import '../history/history.css';
@@ -52,10 +52,8 @@ const STATUS_MARK: Record<'added' | 'changed' | 'removed', string> = { added: '+
 export function CheckpointsDialog(props: CheckpointsDialogProps) {
   const { api, project, currentText, restoreHost, onClose } = props;
   const { t, locale } = useI18n();
-  const titleId = useId();
   const nameId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
-  useReturnFocus();
   const [listing, setListing] = useState<CheckpointListing | null>(null);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -222,14 +220,16 @@ export function CheckpointsDialog(props: CheckpointsDialogProps) {
     }
   };
 
-  useModalKeys(dialogRef, () => {
-    if (busy) return;
+  // Escape first backs out of a staged restore, rename or delete confirmation; with nothing staged it closes (the
+  // sheet's own Close). While a change runs, the sheet disables both so the result stays visible.
+  const staged = restore !== null || confirmDelete !== null || renaming !== null;
+  const cancelStaged = () => {
     if (restore) setRestore(null);
-    else if (confirmDelete || renaming) {
+    else {
       setConfirmDelete(null);
       setRenaming(null);
-    } else onClose();
-  });
+    }
+  };
 
   const changed = comparison?.entries.filter((e) => e.status !== 'same') ?? [];
   const same = (comparison?.entries.length ?? 0) - changed.length;
@@ -237,382 +237,371 @@ export function CheckpointsDialog(props: CheckpointsDialogProps) {
   const diff = fileView?.mode === 'diff' ? compareVersion(fileView.current, fileView.checkpoint) : null;
 
   return (
-    <div className="dialog-backdrop history-backdrop">
-      <div
-        ref={dialogRef}
-        className="dialog history-dialog checkpoints-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid="checkpoints-dialog"
-      >
-        <div className="history-head">
-          <h2 className="dialog-title" id={titleId}>
-            {t('checkpoints.title')}
-          </h2>
-          <button
-            type="button"
-            className="quiet-button"
-            data-testid="checkpoints-close"
-            disabled={busy}
-            onClick={onClose}
-          >
-            {t('checkpoints.close')}
-          </button>
-        </div>
-        <p className="dialog-hint history-intro" data-testid="checkpoints-intro">
-          {t('checkpoints.intro')}
-        </p>
-        {notice && (
-          <div
-            className={notice.kind === 'error' ? 'inline-alert history-notice' : 'history-notice history-ok'}
-            role={notice.kind === 'error' ? 'alert' : 'status'}
-            data-testid="checkpoints-notice"
-            data-kind={notice.kind}
-          >
-            {notice.kind === 'error' && <WarningIcon />}
-            <span>
-              {notice.text}
-              {notice.details && notice.details.length > 0 && (
-                <ul className="checkpoints-details">
-                  {notice.details.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
-              )}
-            </span>
-          </div>
-        )}
-
-        <form
-          className="checkpoints-new"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!busy && name.trim() !== '') void save();
-          }}
+    <Sheet
+      title={t('checkpoints.title')}
+      width={960}
+      className="history-dialog checkpoints-dialog"
+      backdropClassName="history-backdrop"
+      sheetRef={dialogRef}
+      onClose={onClose}
+      closeDisabled={busy}
+      onEscape={staged ? cancelStaged : undefined}
+      closeLabel={t('checkpoints.close')}
+      testId="checkpoints-dialog"
+      closeTestId="checkpoints-close"
+    >
+      <p className="dialog-hint history-intro" data-testid="checkpoints-intro">
+        {t('checkpoints.intro')}
+      </p>
+      {notice && (
+        <div
+          className={notice.kind === 'error' ? 'inline-alert history-notice' : 'history-notice history-ok'}
+          role={notice.kind === 'error' ? 'alert' : 'status'}
+          data-testid="checkpoints-notice"
+          data-kind={notice.kind}
         >
-          <label htmlFor={nameId}>{t('checkpoints.nameLabel')}</label>
-          <input
-            id={nameId}
-            type="text"
-            className="name-input"
-            data-testid="checkpoints-name"
-            data-autofocus
-            maxLength={80}
-            value={name}
-            placeholder={t('checkpoints.namePlaceholder')}
-            onChange={(e) => setName(e.target.value)}
-            disabled={busy}
-          />
-          <button
-            type="submit"
-            className="primary-button"
-            data-testid="checkpoints-save"
-            disabled={busy || name.trim() === ''}
-          >
-            {busy ? t('checkpoints.saving') : t('checkpoints.save')}
-          </button>
-        </form>
+          {notice.kind === 'error' && <WarningIcon />}
+          <span>
+            {notice.text}
+            {notice.details && notice.details.length > 0 && (
+              <ul className="checkpoints-details">
+                {notice.details.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            )}
+          </span>
+        </div>
+      )}
 
-        <div className="history-columns checkpoints-columns">
-          <section className="history-column" aria-label={t('checkpoints.list')}>
-            <h3 className="history-column-title">{t('checkpoints.list')}</h3>
-            {listing && listing.checkpoints.length === 0 && <p className="dialog-hint">{t('checkpoints.empty')}</p>}
-            <ul className="history-list" data-testid="checkpoints-list">
-              {listing?.checkpoints.map((c) => (
-                <li
-                  key={c.id}
-                  className="checkpoint-item"
-                  data-testid="checkpoint"
-                  data-id={c.id}
-                  data-kind={c.kind}
-                  data-cause={c.cause}
-                >
-                  {renaming?.id === c.id ? (
-                    <form
-                      className="checkpoint-rename"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void saveRename();
-                      }}
+      <form
+        className="checkpoints-new"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!busy && name.trim() !== '') void save();
+        }}
+      >
+        <label htmlFor={nameId}>{t('checkpoints.nameLabel')}</label>
+        <input
+          id={nameId}
+          type="text"
+          className="name-input"
+          data-testid="checkpoints-name"
+          data-autofocus
+          maxLength={80}
+          value={name}
+          placeholder={t('checkpoints.namePlaceholder')}
+          onChange={(e) => setName(e.target.value)}
+          disabled={busy}
+        />
+        <button
+          type="submit"
+          className="primary-button"
+          data-testid="checkpoints-save"
+          disabled={busy || name.trim() === ''}
+        >
+          {busy ? t('checkpoints.saving') : t('checkpoints.save')}
+        </button>
+      </form>
+
+      <div className="history-columns checkpoints-columns">
+        <section className="history-column" aria-label={t('checkpoints.list')}>
+          <h3 className="history-column-title">{t('checkpoints.list')}</h3>
+          {listing && listing.checkpoints.length === 0 && <p className="dialog-hint">{t('checkpoints.empty')}</p>}
+          <ul className="history-list" data-testid="checkpoints-list">
+            {listing?.checkpoints.map((c) => (
+              <li
+                key={c.id}
+                className="checkpoint-item"
+                data-testid="checkpoint"
+                data-id={c.id}
+                data-kind={c.kind}
+                data-cause={c.cause}
+              >
+                {renaming?.id === c.id ? (
+                  <form
+                    className="checkpoint-rename"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void saveRename();
+                    }}
+                  >
+                    <input
+                      type="text"
+                      className="name-input"
+                      aria-label={t('checkpoints.renameLabel')}
+                      data-testid="checkpoint-rename-input"
+                      maxLength={80}
+                      value={renaming.name}
+                      onChange={(e) => setRenaming({ id: c.id, name: e.target.value })}
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="secondary-button"
+                      data-testid="checkpoint-rename-save"
+                      disabled={busy}
                     >
-                      <input
-                        type="text"
-                        className="name-input"
-                        aria-label={t('checkpoints.renameLabel')}
-                        data-testid="checkpoint-rename-input"
-                        maxLength={80}
-                        value={renaming.name}
-                        onChange={(e) => setRenaming({ id: c.id, name: e.target.value })}
-                        autoFocus
-                      />
-                      <button
-                        type="submit"
-                        className="secondary-button"
-                        data-testid="checkpoint-rename-save"
-                        disabled={busy}
-                      >
-                        {t('checkpoints.renameSave')}
-                      </button>
-                      <button type="button" className="quiet-button" onClick={() => setRenaming(null)}>
-                        {t('checkpoints.cancel')}
-                      </button>
-                    </form>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        className="history-item"
-                        aria-current={comparison?.checkpoint.id === c.id}
-                        aria-label={fill(t('checkpoints.compareLabel'), { name: c.name })}
-                        data-testid="checkpoint-compare"
-                        disabled={busy}
-                        onClick={() => void compare(c)}
-                      >
-                        <span className="history-item-main" data-testid="checkpoint-name">
-                          {c.name}
-                        </span>
-                        <span className="history-item-detail">
-                          <span className="history-tag" data-testid="checkpoint-kind">
-                            {t(c.kind === 'named' ? 'checkpoints.kind.named' : 'checkpoints.kind.auto')}
-                          </span>{' '}
-                          {time.format(c.createdAt)} · {t(causeKey(c.cause))}
-                        </span>
-                        <span className="history-item-detail">
-                          {fill(t('checkpoints.detail'), { files: c.fileCount, size: formatBytes(c.bytes) })}
-                        </span>
-                      </button>
-                      {confirmDelete === c.id ? (
-                        <span className="alert-actions" role="alert">
-                          <span>{fill(t('checkpoints.deleteConfirm'), { name: c.name })}</span>
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            autoFocus
-                            onClick={() => setConfirmDelete(null)}
-                          >
-                            {t('checkpoints.cancel')}
-                          </button>
-                          <button
-                            type="button"
-                            className="secondary-button danger-button"
-                            data-testid="checkpoint-delete-confirm"
-                            disabled={busy}
-                            onClick={() => void remove(c.id)}
-                          >
-                            {t('checkpoints.deleteYes')}
-                          </button>
-                        </span>
-                      ) : (
-                        <span className="checkpoint-actions">
-                          <button
-                            type="button"
-                            className="quiet-button"
-                            data-testid="checkpoint-rename"
-                            disabled={busy}
-                            onClick={() => setRenaming({ id: c.id, name: c.name })}
-                          >
-                            {t('checkpoints.rename')}
-                          </button>
-                          <button
-                            type="button"
-                            className="quiet-button"
-                            data-testid="checkpoint-delete"
-                            disabled={busy}
-                            onClick={() => setConfirmDelete(c.id)}
-                          >
-                            {t('checkpoints.delete')}
-                          </button>
-                        </span>
-                      )}
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-            {listing && listing.damaged.length > 0 && (
-              <div className="checkpoints-damaged" data-testid="checkpoints-damaged">
-                <p className="dialog-hint">
-                  <WarningIcon size={14} />{' '}
-                  {fill(t('checkpoints.damaged', listing.damaged.length), { n: listing.damaged.length })}
-                </p>
-                <ul className="history-list">
-                  {listing.damaged.map((d) => (
-                    <li key={d.id} className="checkpoint-item">
-                      <span className="history-item-detail">
-                        {fill(t('checkpoints.damagedItem'), { when: time.format(Number(d.id.split('-')[0])) })}
+                      {t('checkpoints.renameSave')}
+                    </button>
+                    <button type="button" className="quiet-button" onClick={() => setRenaming(null)}>
+                      {t('checkpoints.cancel')}
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="history-item"
+                      aria-current={comparison?.checkpoint.id === c.id}
+                      aria-label={fill(t('checkpoints.compareLabel'), { name: c.name })}
+                      data-testid="checkpoint-compare"
+                      disabled={busy}
+                      onClick={() => void compare(c)}
+                    >
+                      <span className="history-item-main" data-testid="checkpoint-name">
+                        {c.name}
                       </span>
-                      {confirmDelete === d.id ? (
-                        <span className="alert-actions" role="alert">
-                          <span>
-                            {fill(t('checkpoints.deleteConfirm'), {
-                              name: fill(t('checkpoints.damagedItem'), {
-                                when: time.format(Number(d.id.split('-')[0])),
-                              }),
-                            })}
-                          </span>
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            autoFocus
-                            onClick={() => setConfirmDelete(null)}
-                          >
-                            {t('checkpoints.cancel')}
-                          </button>
-                          <button
-                            type="button"
-                            className="secondary-button danger-button"
-                            data-testid="checkpoint-damaged-delete-confirm"
-                            disabled={busy}
-                            onClick={() => void remove(d.id)}
-                          >
-                            {t('checkpoints.deleteYes')}
-                          </button>
-                        </span>
-                      ) : (
+                      <span className="history-item-detail">
+                        <span className="history-tag" data-testid="checkpoint-kind">
+                          {t(c.kind === 'named' ? 'checkpoints.kind.named' : 'checkpoints.kind.auto')}
+                        </span>{' '}
+                        {time.format(c.createdAt)} · {t(causeKey(c.cause))}
+                      </span>
+                      <span className="history-item-detail">
+                        {fill(t('checkpoints.detail'), { files: c.fileCount, size: formatBytes(c.bytes) })}
+                      </span>
+                    </button>
+                    {confirmDelete === c.id ? (
+                      <span className="alert-actions" role="alert">
+                        <span>{fill(t('checkpoints.deleteConfirm'), { name: c.name })}</span>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          autoFocus
+                          onClick={() => setConfirmDelete(null)}
+                        >
+                          {t('checkpoints.cancel')}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-button danger-button"
+                          data-testid="checkpoint-delete-confirm"
+                          disabled={busy}
+                          onClick={() => void remove(c.id)}
+                        >
+                          {t('checkpoints.deleteYes')}
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="checkpoint-actions">
                         <button
                           type="button"
                           className="quiet-button"
-                          data-testid="checkpoint-damaged-delete"
+                          data-testid="checkpoint-rename"
                           disabled={busy}
-                          onClick={() => setConfirmDelete(d.id)}
+                          onClick={() => setRenaming({ id: c.id, name: c.name })}
+                        >
+                          {t('checkpoints.rename')}
+                        </button>
+                        <button
+                          type="button"
+                          className="quiet-button"
+                          data-testid="checkpoint-delete"
+                          disabled={busy}
+                          onClick={() => setConfirmDelete(c.id)}
                         >
                           {t('checkpoints.delete')}
                         </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
-
-          <section
-            className="history-column"
-            aria-label={
-              comparison ? fill(t('checkpoints.compareTitle'), { name: comparison.checkpoint.name }) : undefined
-            }
-            data-testid="checkpoints-compare"
-          >
-            {comparison && (
-              <>
-                <h3 className="history-column-title">
-                  {fill(t('checkpoints.compareTitle'), { name: comparison.checkpoint.name })}
-                </h3>
-                {comparison.incomplete && <p className="dialog-hint">{t('checkpoints.incomplete')}</p>}
-                {changed.length === 0 ? (
-                  <p className="dialog-hint" data-testid="checkpoints-no-changes">
-                    {t('checkpoints.noChanges')}
-                  </p>
-                ) : (
-                  <ul className="history-list" data-testid="checkpoints-entries">
-                    {changed.map((e) => {
-                      const status = e.status as 'added' | 'changed' | 'removed';
-                      return (
-                        <li key={e.relPath}>
-                          <button
-                            type="button"
-                            className="history-item"
-                            aria-current={fileView?.relPath === e.relPath}
-                            data-testid="checkpoint-entry"
-                            data-path={e.relPath}
-                            data-status={status}
-                            disabled={busy}
-                            onClick={() => void chooseFile(e.relPath)}
-                          >
-                            <span className="history-item-main">{e.relPath}</span>
-                            <span className={`history-tag checkpoint-status checkpoint-${status}`}>
-                              <span aria-hidden="true">{STATUS_MARK[status]}</span> {t(STATUS_KEY[status])}
-                            </span>
-                            {!e.available && (
-                              <span className="history-tag" data-testid="checkpoint-unavailable">
-                                <WarningIcon size={14} />
-                                {t('checkpoints.unavailableFile')}
-                              </span>
-                            )}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                      </span>
+                    )}
+                  </>
                 )}
-                {same > 0 && <p className="dialog-hint">{fill(t('checkpoints.unchanged', same), { n: same })}</p>}
-                {changed.length > 0 && !restore && (
-                  <div className="history-actions">
-                    <button
-                      type="button"
-                      className="primary-button"
-                      data-testid="checkpoints-restore-all"
-                      disabled={busy}
-                      onClick={() => askRestore(null)}
-                    >
-                      {t('checkpoints.restoreAll')}
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </section>
-
-          <section className="history-column history-compare" data-testid="checkpoints-file">
-            {comparison && changed.length > 0 && !fileView && !restore && (
-              <p className="dialog-hint">{t('checkpoints.pickFile')}</p>
-            )}
-            {fileView?.mode === 'added' && <p className="dialog-hint">{t('checkpoints.addedNote')}</p>}
-            {fileView?.mode === 'not-text' && <p className="dialog-hint">{t('checkpoints.notText')}</p>}
-            {fileView?.mode === 'unavailable' && (
-              <p className="inline-alert">
-                <WarningIcon />
-                {t('checkpoints.unavailableFile')}
+              </li>
+            ))}
+          </ul>
+          {listing && listing.damaged.length > 0 && (
+            <div className="checkpoints-damaged" data-testid="checkpoints-damaged">
+              <p className="dialog-hint">
+                <WarningIcon size={14} />{' '}
+                {fill(t('checkpoints.damaged', listing.damaged.length), { n: listing.damaged.length })}
               </p>
-            )}
-            {diff?.mode === 'deleted' && (
-              <>
-                <p className="dialog-hint">{t('checkpoints.removedNote')}</p>
-                <pre className="diff-lines history-text" tabIndex={0}>
-                  {diff.text}
-                </pre>
-              </>
-            )}
-            {diff?.mode === 'diff' && <VersionDiff diff={diff.diff} />}
-            {fileView && fileView.mode !== 'added' && fileView.mode !== 'unavailable' && !restore && (
-              <div className="history-restore">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  data-testid="checkpoints-restore-file"
-                  disabled={busy}
-                  onClick={() => askRestore(fileView.relPath)}
-                >
-                  {t('checkpoints.restoreFile')}
-                </button>
-              </div>
-            )}
-            {restore && comparison && (
-              <RestorePanel
-                name={comparison.checkpoint.name}
-                state={restore}
-                busy={busy}
-                onChange={(next) => setRestore({ ...restore, ...next })}
-                onCancel={() => setRestore(null)}
-                onConfirm={() => void runRestore()}
-              />
-            )}
-          </section>
-        </div>
+              <ul className="history-list">
+                {listing.damaged.map((d) => (
+                  <li key={d.id} className="checkpoint-item">
+                    <span className="history-item-detail">
+                      {fill(t('checkpoints.damagedItem'), { when: time.format(Number(d.id.split('-')[0])) })}
+                    </span>
+                    {confirmDelete === d.id ? (
+                      <span className="alert-actions" role="alert">
+                        <span>
+                          {fill(t('checkpoints.deleteConfirm'), {
+                            name: fill(t('checkpoints.damagedItem'), {
+                              when: time.format(Number(d.id.split('-')[0])),
+                            }),
+                          })}
+                        </span>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          autoFocus
+                          onClick={() => setConfirmDelete(null)}
+                        >
+                          {t('checkpoints.cancel')}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-button danger-button"
+                          data-testid="checkpoint-damaged-delete-confirm"
+                          disabled={busy}
+                          onClick={() => void remove(d.id)}
+                        >
+                          {t('checkpoints.deleteYes')}
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="quiet-button"
+                        data-testid="checkpoint-damaged-delete"
+                        disabled={busy}
+                        onClick={() => setConfirmDelete(d.id)}
+                      >
+                        {t('checkpoints.delete')}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
 
-        <section className="history-storage" aria-label={t('checkpoints.storage')} data-testid="checkpoints-storage">
-          {usage && (
+        <section
+          className="history-column"
+          aria-label={
+            comparison ? fill(t('checkpoints.compareTitle'), { name: comparison.checkpoint.name }) : undefined
+          }
+          data-testid="checkpoints-compare"
+        >
+          {comparison && (
             <>
-              <p className="history-usage" data-testid="checkpoints-usage">
-                {usage.usage}
-              </p>
-              <p className="dialog-hint">{usage.policy}</p>
+              <h3 className="history-column-title">
+                {fill(t('checkpoints.compareTitle'), { name: comparison.checkpoint.name })}
+              </h3>
+              {comparison.incomplete && <p className="dialog-hint">{t('checkpoints.incomplete')}</p>}
+              {changed.length === 0 ? (
+                <p className="dialog-hint" data-testid="checkpoints-no-changes">
+                  {t('checkpoints.noChanges')}
+                </p>
+              ) : (
+                <ul className="history-list" data-testid="checkpoints-entries">
+                  {changed.map((e) => {
+                    const status = e.status as 'added' | 'changed' | 'removed';
+                    return (
+                      <li key={e.relPath}>
+                        <button
+                          type="button"
+                          className="history-item"
+                          aria-current={fileView?.relPath === e.relPath}
+                          data-testid="checkpoint-entry"
+                          data-path={e.relPath}
+                          data-status={status}
+                          disabled={busy}
+                          onClick={() => void chooseFile(e.relPath)}
+                        >
+                          <span className="history-item-main">{e.relPath}</span>
+                          <span className={`history-tag checkpoint-status checkpoint-${status}`}>
+                            <span aria-hidden="true">{STATUS_MARK[status]}</span> {t(STATUS_KEY[status])}
+                          </span>
+                          {!e.available && (
+                            <span className="history-tag" data-testid="checkpoint-unavailable">
+                              <WarningIcon size={14} />
+                              {t('checkpoints.unavailableFile')}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {same > 0 && <p className="dialog-hint">{fill(t('checkpoints.unchanged', same), { n: same })}</p>}
+              {changed.length > 0 && !restore && (
+                <div className="history-actions">
+                  <button
+                    type="button"
+                    className="primary-button"
+                    data-testid="checkpoints-restore-all"
+                    disabled={busy}
+                    onClick={() => askRestore(null)}
+                  >
+                    {t('checkpoints.restoreAll')}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </section>
+
+        <section className="history-column history-compare" data-testid="checkpoints-file">
+          {comparison && changed.length > 0 && !fileView && !restore && (
+            <p className="dialog-hint">{t('checkpoints.pickFile')}</p>
+          )}
+          {fileView?.mode === 'added' && <p className="dialog-hint">{t('checkpoints.addedNote')}</p>}
+          {fileView?.mode === 'not-text' && <p className="dialog-hint">{t('checkpoints.notText')}</p>}
+          {fileView?.mode === 'unavailable' && (
+            <p className="inline-alert">
+              <WarningIcon />
+              {t('checkpoints.unavailableFile')}
+            </p>
+          )}
+          {diff?.mode === 'deleted' && (
+            <>
+              <p className="dialog-hint">{t('checkpoints.removedNote')}</p>
+              <pre className="diff-lines history-text" tabIndex={0}>
+                {diff.text}
+              </pre>
+            </>
+          )}
+          {diff?.mode === 'diff' && <VersionDiff diff={diff.diff} />}
+          {fileView && fileView.mode !== 'added' && fileView.mode !== 'unavailable' && !restore && (
+            <div className="history-restore">
+              <button
+                type="button"
+                className="secondary-button"
+                data-testid="checkpoints-restore-file"
+                disabled={busy}
+                onClick={() => askRestore(fileView.relPath)}
+              >
+                {t('checkpoints.restoreFile')}
+              </button>
+            </div>
+          )}
+          {restore && comparison && (
+            <RestorePanel
+              name={comparison.checkpoint.name}
+              state={restore}
+              busy={busy}
+              onChange={(next) => setRestore({ ...restore, ...next })}
+              onCancel={() => setRestore(null)}
+              onConfirm={() => void runRestore()}
+            />
+          )}
+        </section>
       </div>
-    </div>
+
+      <section className="history-storage" aria-label={t('checkpoints.storage')} data-testid="checkpoints-storage">
+        {usage && (
+          <>
+            <p className="history-usage" data-testid="checkpoints-usage">
+              {usage.usage}
+            </p>
+            <p className="dialog-hint">{usage.policy}</p>
+          </>
+        )}
+      </section>
+    </Sheet>
   );
 }
 

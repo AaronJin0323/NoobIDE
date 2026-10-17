@@ -15,15 +15,21 @@ import {
   type WalkthroughState,
   type WalkthroughStepId,
 } from '../../shared/walkthrough';
+import type { Locale } from '../i18n/index';
+import { glossaryEntry } from './lessons';
 
 export type WalkthroughAction =
   | { readonly type: 'loaded'; readonly state: WalkthroughState }
-  /** Help → Walkthrough (or the first project created with the wizard). */
+  /** Help → Walkthrough. */
   | { readonly type: 'open' }
+  /** The wizard created a project: a walkthrough that never ran starts at "meet the files" (S23.2). */
+  | { readonly type: 'projectCreated' }
   | { readonly type: 'next' }
   | { readonly type: 'back' }
   /** Close the walkthrough (skip it); it can be revisited from Help. */
   | { readonly type: 'close' }
+  /** S47.6: the user switches between the compact one-line band and the full text (remembered across starts). */
+  | { readonly type: 'toggleCompact' }
   | { readonly type: 'detected'; readonly step: WalkthroughStepId }
   | { readonly type: 'baseline'; readonly step: WalkthroughStepId; readonly baseline: string }
   // S23.3 final task
@@ -36,9 +42,19 @@ export interface ModelState {
   /** False until the stored state arrived: nothing is shown or saved before. */
   readonly loaded: boolean;
   readonly value: WalkthroughState;
+  /**
+   * Help → Walkthrough or the wizard was used before the stored state arrived (a slow start): applied to that state,
+   * in order, as soon as it is loaded instead of being lost. Empty once loaded.
+   */
+  readonly pending: readonly PendingAction[];
 }
 
-export const INITIAL_MODEL: ModelState = { loaded: false, value: DEFAULT_WALKTHROUGH };
+/** The user actions worth keeping until the stored state is loaded (the rest need a shown walkthrough). */
+export type PendingAction = Extract<WalkthroughAction, { type: 'open' | 'projectCreated' }>;
+const isPending = (action: WalkthroughAction): action is PendingAction =>
+  action.type === 'open' || action.type === 'projectCreated';
+
+export const INITIAL_MODEL: ModelState = { loaded: false, value: DEFAULT_WALKTHROUGH, pending: [] };
 
 export const stepIndex = (step: WalkthroughStepId) => WALKTHROUGH_STEPS.indexOf(step);
 export const isLastStep = (step: WalkthroughStepId) => stepIndex(step) === WALKTHROUGH_STEPS.length - 1;
@@ -48,15 +64,26 @@ export function firstOpenStep(state: WalkthroughState): WalkthroughStepId | null
   return WALKTHROUGH_STEPS.find((id) => !state.completed.includes(id)) ?? null;
 }
 
+/** S47.6: the step's full text has been on screen; from now on the band may be compact for it. */
+const markViewed = (state: WalkthroughState, step: WalkthroughStepId): readonly WalkthroughStepId[] =>
+  state.viewed.includes(step) ? state.viewed : orderSteps([...state.viewed, step]);
+
+/** Leaving a step ends its first view (S47.6); the next step's baseline starts over. */
 const moveTo = (state: WalkthroughState, step: WalkthroughStepId): WalkthroughState =>
-  step === state.step ? state : { ...state, step, baseline: null };
+  step === state.step ? state : { ...state, step, baseline: null, viewed: markViewed(state, state.step) };
 
 export function walkthroughReducer(model: ModelState, action: WalkthroughAction): ModelState {
-  if (action.type === 'loaded') return { loaded: true, value: action.state };
-  if (!model.loaded) return model;
+  if (action.type === 'loaded') {
+    const loaded: ModelState = { loaded: true, value: action.state, pending: [] };
+    return model.pending.reduce(walkthroughReducer, loaded);
+  }
+  if (!model.loaded) {
+    if (!isPending(action) || model.pending.some((p) => p.type === action.type)) return model;
+    return { ...model, pending: [...model.pending, action] };
+  }
   const state = model.value;
   const next = reduce(state, action);
-  return next === state ? model : { loaded: true, value: next };
+  return next === state ? model : { ...model, value: next };
 }
 
 function reduce(state: WalkthroughState, action: WalkthroughAction): WalkthroughState {
@@ -65,6 +92,10 @@ function reduce(state: WalkthroughState, action: WalkthroughAction): Walkthrough
       const step = firstOpenStep(state) ?? WALKTHROUGH_STEPS[0];
       return { ...moveTo(state, step), status: 'active' };
     }
+    case 'projectCreated':
+      // Only a walkthrough that never ran: one that was closed or finished stays as the user left it.
+      if (state.status !== 'not-started') return state;
+      return reduce(reduce(state, { type: 'detected', step: 'create' }), { type: 'open' });
     case 'next': {
       if (state.status !== 'active') return state;
       if (isLastStep(state.step)) {
@@ -78,7 +109,14 @@ function reduce(state: WalkthroughState, action: WalkthroughAction): Walkthrough
       return moveTo(state, WALKTHROUGH_STEPS[stepIndex(state.step) - 1] as WalkthroughStepId);
     }
     case 'close':
-      return state.status === 'active' ? { ...state, status: 'closed', baseline: null } : state;
+      return state.status === 'active'
+        ? { ...state, status: 'closed', baseline: null, viewed: markViewed(state, state.step) }
+        : state;
+    case 'toggleCompact':
+      // The toggle counts as having seen the step: compact takes effect at once, also on a step's first view.
+      return state.status === 'active'
+        ? { ...state, compact: !state.compact, viewed: markViewed(state, state.step) }
+        : state;
     case 'detected':
       if (state.completed.includes(action.step)) return state;
       return { ...state, completed: orderSteps([...state.completed, action.step]) };
@@ -114,10 +152,16 @@ function reduce(state: WalkthroughState, action: WalkthroughAction): Walkthrough
   }
 }
 
-/** What the panel shows. */
+/** What the panel shows. S47.6: `compact` — the one-line band, never on a step's first view. */
 export type PanelView =
   | { readonly kind: 'hidden' }
-  | { readonly kind: 'step'; readonly step: WalkthroughStepId; readonly done: boolean; readonly index: number }
+  | {
+      readonly kind: 'step';
+      readonly step: WalkthroughStepId;
+      readonly done: boolean;
+      readonly index: number;
+      readonly compact: boolean;
+    }
   | { readonly kind: 'task-offer' }
   | { readonly kind: 'task'; readonly done: boolean };
 
@@ -130,12 +174,25 @@ export function panelView(model: ModelState): PanelView {
       step: state.step,
       done: state.completed.includes(state.step),
       index: stepIndex(state.step),
+      compact: state.compact && state.viewed.includes(state.step),
     };
   }
   if (state.task === 'active') return { kind: 'task', done: false };
   if (state.status === 'finished' && state.task === 'done') return { kind: 'task', done: true };
   if (state.status === 'finished' && state.task === 'not-started') return { kind: 'task-offer' };
   return { kind: 'hidden' };
+}
+
+/**
+ * S47.6: what a term chip says. The glossary keeps the standard (English) term; in zh-CN the chip shows the Chinese
+ * name and the English word together ("自动保存 autosave"), so a beginner meets both. A Chinese name that already
+ * contains the term ("JavaScript 脚本语言") is shown as it is; in en the term alone.
+ */
+export function termChipLabel(term: string, locale: Locale): string {
+  if (locale === 'en') return term;
+  const name = glossaryEntry(term)?.['zh-CN'].name;
+  if (!name || name === term) return term;
+  return name.includes(term) ? name : `${name} ${term}`;
 }
 
 /**
@@ -150,5 +207,7 @@ export const STEP_ANCHORS: Readonly<Record<WalkthroughStepId, string>> = {
   interaction: '[data-testid="file-tree"] [data-path="script.js"]',
   error: '[data-testid="problems-toggle"]',
   restore: '[data-testid="rail-history"]',
-  reopen: '[data-testid="project-path"]',
+  // S47.4: the folder path is the project name's tooltip and a line of the project menu, so the step points at the
+  // menu button next to the name (the lesson text says where the path is).
+  reopen: '[data-testid="project-menu"]',
 };

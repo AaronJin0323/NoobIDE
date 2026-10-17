@@ -1,10 +1,5 @@
 /* S31.4 Settings → AI and the AI consent prompt, in the S46 calm language: sections are separated by spacing and one
    divider (no boxes in the dialog), messages are soft callouts. States are always written out, never colour alone. */
-.ai-settings {
-  width: min(560px, calc(100vw - 32px));
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
-}
 .ai-settings-body {
   display: flex;
   flex-direction: column;

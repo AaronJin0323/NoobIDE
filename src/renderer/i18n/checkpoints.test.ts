@@ -9,7 +9,7 @@ import { zhCN } from './zh-CN';
 
 /**
  * S56.4 (PLAN §7: separate mechanisms, separate UI states): the wording keeps checkpoint (whole project, named),
- * local history (per file, automatic) and undo (in the editor) apart, and no checkpoint text claims to be version
+ * History (per file, automatic) and undo (in the editor) apart, and no checkpoint text claims to be version
  * control or Git. Checked over the zh-CN and en strings, the glossary and the user documentation.
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -39,7 +39,7 @@ describe('S56.4 checkpoint wording', () => {
       it('the intro says what a checkpoint is (whole project, named) and is not (history, undo, Git, backup)', () => {
         const intro = checkpoints['checkpoints.intro'] ?? '';
         if (name === 'zh-CN') {
-          for (const part of ['整个项目', '命名', '本地历史', '单个文件', '撤销', '不是 Git', '版本控制', '备份']) {
+          for (const part of ['整个项目', '命名', '历史版本', '单个文件', '撤销', '不是 Git', '版本控制', '备份']) {
             expect(intro, part).toContain(part);
           }
           expect(intro).toMatch(/不会写进项目文件夹/);
@@ -47,7 +47,7 @@ describe('S56.4 checkpoint wording', () => {
           for (const part of [
             'whole project',
             'name you choose',
-            'local history',
+            'History',
             'each file',
             'undo',
             'not version control like Git',
@@ -86,18 +86,18 @@ describe('S56.4 checkpoint wording', () => {
     });
   }
 
-  it('zh-CN: a checkpoint is 检查点 and is restored with 还原; local history restores with 恢复', () => {
+  it('zh-CN: a checkpoint is 检查点 and is restored with 还原; History restores with 恢复', () => {
     for (const [key, text] of Object.entries(checkpointsZhCN)) {
-      if (!key.startsWith('checkpoints.restore') || /本地历史/.test(text)) continue;
+      if (!key.startsWith('checkpoints.restore') || /历史版本/.test(text)) continue;
       expect(text, key).not.toMatch(/恢复/);
     }
     expect(checkpointsZhCN['checkpoints.restoreAll']).toMatch(/还原/);
     expect(zhCN['history.restore']).toMatch(/恢复/);
     expect(zhCN['checkpoints.title']).toContain('检查点');
-    expect(zhCN['history.title']).toBe('本地历史');
+    expect(zhCN['history.title']).toBe('历史版本');
   });
 
-  it('the glossary explains checkpoint, local history and undo as three different things', () => {
+  it('the glossary explains checkpoint, History and undo as three different things', () => {
     const checkpoint = glossaryEntry('checkpoint');
     const history = glossaryEntry('local history');
     const undo = glossaryEntry('undo');

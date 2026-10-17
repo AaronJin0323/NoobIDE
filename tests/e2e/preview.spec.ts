@@ -220,7 +220,7 @@ test('a failed save does not refresh the preview and shows "preview not updated"
   try {
     await replaceEditorText(app, page, onDisk.replace('保存后的新标题', '只读时的标题'));
     await page.keyboard.press('ControlOrMeta+S');
-    await expect(page.getByTestId('save-status')).toHaveText('保存失败 — 你的修改还在');
+    await expect(page.getByTestId('save-status')).toHaveText('保存失败');
     const pill = page.getByTestId('preview-state');
     await expect(pill).toHaveAttribute('data-not-updated', 'true');
     await expect(pill).toContainText('预览未更新');

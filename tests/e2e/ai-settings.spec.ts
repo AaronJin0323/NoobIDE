@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { axeScan } from './a11y-helpers';
 import { launchApp, tempRoot } from './launch';
-import { makeProject, openProject } from './project';
+import { makeProject, openProject, switchLanguage } from './project';
 
 /**
  * S31.4 Settings → AI end to end, against the scripted fake provider (NOOBIDE_AI_FAKE, decision 0025: no test calls a
@@ -189,14 +189,14 @@ test('AI off removes the AI surfaces; inline completions switch off on their own
     await expect(page.getByTestId('rail-ai')).toBeVisible();
 
     // English.
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
     await openSettings(page);
     await expect(page.getByRole('heading', { name: 'AI settings' })).toBeVisible();
     await expect(page.getByTestId('ai-key-state')).toHaveText('✓ Key saved (never shown again)');
     await page.getByTestId('ai-test').click();
     await expect(page.getByTestId('ai-test-message')).toHaveText('✓ Connected: this key works.');
     await page.getByTestId('ai-settings-close').click();
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
   } finally {
     await app.close();
     await rm(projectTmp, { recursive: true, force: true }).catch(() => undefined);
@@ -229,11 +229,11 @@ test('without secure storage the key is not stored and AI stays off, explained (
     );
     expect(refused).toMatchObject({ ok: false, code: 'no-key' });
     await page.getByTestId('ai-settings-close').click();
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
     await openSettings(page);
     await expect(page.getByTestId('ai-no-secure-storage')).toContainText('No secure storage');
     await page.getByTestId('ai-settings-close').click();
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
   } finally {
     await app.close();
   }

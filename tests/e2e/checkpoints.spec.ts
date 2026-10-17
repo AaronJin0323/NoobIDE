@@ -41,7 +41,7 @@ const dialog = () => page.getByTestId('checkpoints-dialog');
 const notice = () => dialog().getByTestId('checkpoints-notice');
 
 async function openCheckpoints() {
-  await page.getByTestId('app-menu').click();
+  await page.getByTestId('project-menu').click();
   await page.getByTestId('menu-show-checkpoints').click();
   await expect(dialog()).toBeVisible();
 }
@@ -95,7 +95,7 @@ test('save a checkpoint, break three files, restore all: the preview shows the o
   await expect.poll(pageState).toEqual({ title: '旧的 页面', color: 'rgb(0, 128, 0)', script: 'old script' });
 
   await openCheckpoints();
-  await expect(dialog().getByTestId('checkpoints-intro')).toContainText('本地历史');
+  await expect(dialog().getByTestId('checkpoints-intro')).toContainText('历史版本');
   await dialog().getByTestId('checkpoints-name').fill('能用的 版本');
   await dialog().getByTestId('checkpoints-save').click();
   await expect(notice()).toHaveAttribute('data-kind', 'ok');
@@ -175,7 +175,7 @@ test('rename and delete a checkpoint', async () => {
 
 test('S56.3: a restore from local history takes an automatic checkpoint first, labelled with its cause', async () => {
   // The checkpoint restore above kept the broken index.html as a local-history version (before-save).
-  await page.getByTestId('app-menu').click();
+  await page.getByTestId('project-menu').click();
   await page.getByTestId('menu-show-history').click();
   const history = page.getByTestId('history-dialog');
   await expect(history).toBeVisible();
