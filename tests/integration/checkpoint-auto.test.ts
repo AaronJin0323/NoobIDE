@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
@@ -32,7 +32,9 @@ let projectId: string;
 let api: CheckpointsApi;
 
 beforeEach(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-cp-auto-'));
+  // The real path: on hosted Windows runners TEMP is an 8.3 short name (C:UsersRUNNER~1...) and the store
+  // keys projects by the real root ProjectService opens, so the raw mkdtemp path would never be found.
+  tmp = await realpath(await mkdtemp(path.join(os.tmpdir(), 'noobide-cp-auto-')));
   root = path.join(tmp, '我的 网站');
   await mkdir(root, { recursive: true });
   await writeFile(path.join(root, 'style.css'), 'red');

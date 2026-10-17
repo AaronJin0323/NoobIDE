@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
@@ -98,7 +98,9 @@ function host(): CheckpointRestoreHost {
 }
 
 beforeEach(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-cp-restore-'));
+  // The real path: on hosted Windows runners TEMP is an 8.3 short name (C:UsersRUNNER~1...) and the store
+  // keys projects by the real root ProjectService opens, so the raw mkdtemp path would never be found.
+  tmp = await realpath(await mkdtemp(path.join(os.tmpdir(), 'noobide-cp-restore-')));
   root = path.join(tmp, '我的 网站');
   trashDir = path.join(tmp, 'trash');
   await mkdir(path.join(root, '样式 文件'), { recursive: true });
