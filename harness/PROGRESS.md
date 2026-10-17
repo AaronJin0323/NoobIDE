@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 45 (side session) — 2026-10-18 — PR #22 (S51) green on hosted CI without loosening a threshold
+## Session 46 (side session) — 2026-10-18 — PR #22 (S51) green on hosted CI without loosening a threshold
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree `window-frame-styling-bcf1ff` on a local
 branch pushed to `claude/m19-s51-search-ba5619` (PR #22). Task from the parent session: make the PR green on hosted
