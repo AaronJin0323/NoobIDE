@@ -5169,8 +5169,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/workbench/roving-focus.test.ts (10 tests: arrows per orientation, Home/End/PageUp/PageDown, loop, RTL, stop selection) + roving-groups.test.ts (5 groups wired: rail vertical; narrow switch, preview toolbar, viewport switch, chat add-context, proposal rows horizontal) + tests/e2e/roving-focus.spec.ts (5 tests on the packaged build: one tab stop per group, arrows/Home/End/wrap, Tab leaves, F6 order and landing on the stop, axe clean with a live proposal) + a11y.spec (5 passed: F6 order unchanged) + verify green @ b9c71e4"
     },
     {
       "id": "S49.3",
