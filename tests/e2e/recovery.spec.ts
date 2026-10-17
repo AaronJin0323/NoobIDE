@@ -28,7 +28,8 @@ async function journalRecords(): Promise<string[]> {
   const dirs = await readdir(journalDir(), { withFileTypes: true }).catch(() => []);
   for (const d of dirs) {
     if (!d.isDirectory() || d.name === 'quarantine') continue;
-    for (const name of await readdir(path.join(journalDir(), d.name))) {
+    // A project's directory can be removed (its last record cleared after a save) between the two listings.
+    for (const name of await readdir(path.join(journalDir(), d.name)).catch(() => [])) {
       if (name.endsWith('.json')) out.push(path.join(d.name, name));
     }
   }
@@ -103,7 +104,7 @@ async function openProjectAndFile(relPath: string) {
     (dialog as unknown as { showOpenDialog: typeof fake }).showOpenDialog = fake;
   }, root);
   // S13.4: after a normal quit the project is already reopened; then the files panel offers "open other folder".
-  const first = page.getByTestId('open-folder');
+  const first = page.getByTestId('welcome-open-folder');
   await ((await first.count()) > 0 ? first : page.getByTestId('open-other-folder')).click();
   await expect(page.getByTestId('project-name')).toHaveText('中文 路径 项目');
   // S08.1 file tree: expand the folders on the way, then open the file.
@@ -289,8 +290,16 @@ test('"decide later" keeps the copy; the clear-data control removes it (S12.3)',
   await start();
   const dialog = page.getByTestId('recovery-dialog');
   await expect(dialog).toBeVisible();
+  // S49.1: "clear all recovery data" is not in the action row any more; it sits behind the Advanced disclosure.
+  await expect(dialog.locator('.sheet-actions').getByTestId('recovery-clear')).toHaveCount(0);
+  await expect(dialog.getByTestId('recovery-clear')).toBeHidden();
+  await dialog.getByTestId('recovery-advanced').locator('summary').click();
   await dialog.getByTestId('recovery-clear').click();
-  await dialog.getByTestId('recovery-clear-confirm').click();
+  // Cancel comes first, then the destructive verb (drawn with the danger style).
+  const confirm = dialog.getByTestId('recovery-clear-confirm');
+  await expect(confirm).toHaveClass(/\bdanger-button\b/);
+  await expect(confirm.locator('xpath=preceding-sibling::button[1]')).toHaveText('取消');
+  await confirm.click();
   await expect(dialog).toHaveCount(0);
   expect(await journalRecords()).toHaveLength(0);
   expect(await readFile(path.join(root, 'style.css'), 'utf8')).not.toContain('稍后处理');
@@ -301,6 +310,61 @@ test('"decide later" keeps the copy; the clear-data control removes it (S12.3)',
   await stop();
   // A copy written by that run is hidden from its own dialog: only the journal itself shows it.
   expect(await journalRecords()).toHaveLength(0);
+});
+
+test('Escape, Close and a click outside keep every recovered copy, and the dialog says so (S49.1)', async () => {
+  await start();
+  await openProjectAndFile('index.html');
+  await readOnly('index.html');
+  await typeAtEnd('按 Esc 也会保留');
+  await journaled(1);
+  await kill();
+  await writable('index.html');
+
+  await start();
+  const dialog = () => page.getByTestId('recovery-dialog'); // page changes with every start()
+  await expect(dialog()).toBeVisible();
+  // The sheet: a titled modal with Close top-right named for what it does, Escape and a focus trap.
+  await expect(dialog()).toHaveAttribute('aria-modal', 'true');
+  await expect(dialog()).toHaveClass(/\bdialog\b/);
+  await expect(dialog().getByRole('heading', { name: '恢复上次未保存的修改' })).toBeVisible();
+  await expect(dialog().getByTestId('recovery-dismiss')).toHaveAccessibleName('稍后处理');
+  await expect(dialog().getByTestId('recovery-keep-note')).toContainText('按 Esc 或“稍后处理”不会丢弃任何内容');
+  // Focus starts inside, on the first action of the content, and Tab cannot leave.
+  await expect(dialog().getByTestId('recovery-review')).toBeFocused();
+  for (let i = 0; i < 8; i += 1) {
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => !!document.activeElement?.closest('[data-testid="recovery-dialog"]'))).toBe(true);
+  }
+  // A click outside the sheet discards nothing and does not even close it (the sheet holds decisions, not a note).
+  await page.mouse.click(5, 300);
+  await expect(dialog()).toBeVisible();
+  expect(await journalRecords()).toHaveLength(1);
+  // Escape closes the dialog and keeps the copy: the next start offers it again.
+  await page.keyboard.press('Escape');
+  await expect(dialog()).toHaveCount(0);
+  expect(await journalRecords()).toHaveLength(1);
+  expect(await readFile(path.join(root, 'index.html'), 'utf8')).not.toContain('按 Esc 也会保留');
+  await kill();
+
+  await start();
+  await expect(dialog()).toBeVisible();
+  // Close top-right does the same.
+  await dialog().getByTestId('recovery-dismiss').click();
+  await expect(dialog()).toHaveCount(0);
+  expect(await journalRecords()).toHaveLength(1);
+  await kill();
+
+  // Clean up through the dialog itself so the next test starts without a copy.
+  await start();
+  await expect(dialog()).toBeVisible();
+  await dialog().getByTestId('recovery-review').click();
+  await expect(dialog().getByTestId('recovery-diff')).toContainText('按 Esc 也会保留');
+  await dialog().getByTestId('recovery-discard').click();
+  await dialog().getByTestId('recovery-discard-confirm').click();
+  await expect(dialog()).toHaveCount(0);
+  expect(await journalRecords()).toHaveLength(0);
+  await stop();
 });
 
 test('a project restored at startup and quit at once leaves no crash copy and no changed file', async () => {

@@ -268,22 +268,28 @@ export function commandForKeyStroke(platform: PlatformId, stroke: KeyStroke): Co
   return null;
 }
 
-/** Commands of the workbench's in-window "more actions" menu, in order; `-` separates groups. */
-export const APP_MENU_COMMANDS: readonly (CommandId | '-')[] = [
+/**
+ * S47.4: the workbench has two in-window menus. The project menu sits next to the project name and holds what is
+ * about this project (close, reveal — added by the workbench, it is a platform label — history, lessons); the
+ * trailing help/more menu holds theme, language (added by the workbench), the AI entries, glossary, logs and
+ * settings. `-` separates groups; the workbench drops the items whose command does not apply.
+ */
+export const PROJECT_MENU_COMMANDS: readonly (CommandId | '-')[] = [
   'close-project',
   'show-history',
-  '-',
-  'ai-toggle-chat', // S33
-  'ai-explain-code',
-  'ai-inline-edit', // S35.1
-  '-',
+  'help-walkthrough',
+];
+
+export const HELP_MENU_COMMANDS: readonly (CommandId | '-')[] = [
   'theme-system',
   'theme-light',
   'theme-dark',
   '-',
+  'ai-toggle-chat', // S33
+  'ai-explain-code',
+  'ai-inline-edit', // S35.1
   'toggle-inline-ai', // S32.1
   '-',
-  'help-walkthrough',
   'help-glossary',
   'open-logs',
   '-',

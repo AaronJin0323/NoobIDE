@@ -3,7 +3,15 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp } from './launch';
 import { DOC_START } from './keys';
-import { collectConsoleErrors, documentText, focusEditor, makeProject, openFile, openProject } from './project';
+import {
+  collectConsoleErrors,
+  documentText,
+  focusEditor,
+  makeProject,
+  openFile,
+  openProject,
+  switchLanguage,
+} from './project';
 
 /**
  * S42.3 end to end against the scripted fake provider (decision 0031): an inline `/ai` prompt typed into the code, in
@@ -252,7 +260,7 @@ test('Enter is not taken over: an /ai line from disk, Shift+Enter, and Enter tha
 });
 
 test('en: an English prompt from the context menu, labels in English, Accept and undo', async () => {
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   try {
     await openFile(page, 'style.css');
     await lineEnd(3);
@@ -301,7 +309,7 @@ test('en: an English prompt from the context menu, labels in English, Accept and
     await page.keyboard.press(`${mod}+z`);
     await expect.poll(editorText).toContain('/ai center this heading');
   } finally {
-    await page.getByTestId('switch-language').click(); // back to zh-CN
+    await switchLanguage(page); // back to zh-CN
   }
 });
 

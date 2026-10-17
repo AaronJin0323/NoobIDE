@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  APP_MENU_COMMANDS,
+  HELP_MENU_COMMANDS,
+  PROJECT_MENU_COMMANDS,
   COMMANDS,
   COMMAND_IDS,
   INITIAL_COMMAND_CONTEXT,
@@ -73,8 +74,15 @@ describe('command registry (S24.1)', () => {
     expect(isCommandEnabled('open-logs', none)).toBe(true);
   });
 
-  it('the in-window menu only names registered commands', () => {
-    for (const entry of APP_MENU_COMMANDS) if (entry !== '-') expect(isCommandId(entry)).toBe(true);
+  it('the in-window menus only name registered commands, each in one menu (S47.4)', () => {
+    const entries = [...PROJECT_MENU_COMMANDS, ...HELP_MENU_COMMANDS].filter((entry) => entry !== '-');
+    for (const entry of entries) expect(isCommandId(entry)).toBe(true);
+    expect(new Set(entries).size).toBe(entries.length);
+    // The project menu: close, history, lessons (reveal is added by the workbench); the help menu: theme, AI,
+    // glossary, logs, settings (language is added by the workbench).
+    expect(PROJECT_MENU_COMMANDS).toEqual(['close-project', 'show-history', 'help-walkthrough']);
+    expect(HELP_MENU_COMMANDS[0]).toBe('theme-system');
+    expect(HELP_MENU_COMMANDS.at(-1)).toBe('ai-settings');
   });
 
   it('validates the context the renderer reports', () => {

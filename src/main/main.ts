@@ -494,12 +494,17 @@ function start(): void {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       settings: {
         snapshot: () => settings.snapshot(),
-        // S24.2: a language change re-translates the native menus.
+        // S24.2: a language change re-translates the native menus. The language applies as soon as the request
+        // arrives (the interface already shows it): main's uses of it — the preview's "page not found" page, the
+        // menus — must not wait for the settings file to be written, which takes a while on a slow disk (S06.6).
+        // Updates are served in arrival order, so the latest request is the current language.
         update: async (patch) => {
+          if (patch.locale !== undefined) {
+            uiLocale = patch.locale;
+            appMenu.setLocale(patch.locale);
+          }
           const next = await settings.update(patch);
           if (patch.theme !== undefined) applyFrameTheme();
-          uiLocale = next.locale;
-          appMenu.setLocale(next.locale);
           return next;
         },
       },

@@ -65,6 +65,393 @@ key-features-visible, preview-layout, editing, shell (updated S30.3 control list
 menu-template.ts, Workbench.tsx, styles.css, shell.spec's control list; re-run the e2e shard test). Then the next M19
 session per `node harness/session.mjs next`.
 
+## Session 32 (side session) — 2026-10-16 — S47.5 one status row, S47.6 compact walkthrough
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/s47-5-6-frame-93b3b8` cut
+from `claude/recursing-dewdney-9752a3` @ `86169b6` (S47.2–S47.4 in place). Started by the assessment session in
+parallel with the S48 (preview, problems) and S49 (sheet) sessions, with disjoint file ownership: this one owns the
+editor frame, the notices and the walkthrough band; `ProblemsPanel.tsx`, `PreviewPane.tsx` and the dialogs were not
+touched. Owner rule (Session 23) kept: nothing moved into a menu; decision 0034 and `design-rules.test.ts` unchanged.
+
+**Done**
+
+- S47.5 — One status row and fewer bands around the editor.
+  - **One status row.** The editor's own bottom row is gone. `EditorStatusStrip.tsx` (new) renders Edit with AI,
+    Explain, the indentation button, the caret position and the AI-suggestions state at the end of the global status
+    strip, next to the Problems toggle at its start. The strip's markup stays in `ProblemsPanel.tsx` (another session's
+    file), so the group is a sibling region (`region-status`, `.status-editor`) laid over the strip's free end: same
+    row and height, right-aligned, capped at the strip minus 250 px so it never reaches the toggle, and `pointer-events`
+    pass through its empty part. The caret comes through a tiny store (`editor-status-state.ts`, like
+    `indent-state.ts`) so the workbench never re-renders on a cursor move. The suggestions state is now a real toggle
+    button (`aria-pressed`, the `toggle-inline-ai` command; short word `ai.inline.state.*`, the sentence as tooltip).
+    In a narrow window the shortcut, the Explain label and the indentation source give way (`ai-entry.css`,
+    `styles.css`); the accessible names stay.
+  - **At most one persistent band above the code.** `FileRoleHint` shows on a file's first showing per app run and
+    stays collapsed once the user moved to another file (`RoleHintMemory` in `file-role.ts`, keyed by project + path;
+    marked on the key change, not on unmount, because of React's development double-mount). The tree tag keeps the role
+    and the tab tooltip gains it on a second line (`tabTooltip(relPath, state, role)`, `fileRole.tooltip`). The non-UTF-8
+    and mixed line-ending notes are short status-strip items (`gb18030 · 只能查看`, `混用换行符 · 保存为 CRLF`) with
+    the full sentence as tooltip; their test ids (`read-only-notice`, `mixed-eol`) and words are kept. The save, open,
+    conflict and deleted alerts are states, not bands, and stay where they were.
+  - **Notices.** The stack joins the layout flow between the walkthrough band and Problems in every window width
+    (the narrow rule of S30.4 generalised; `frameMinimums` counts the notice reserve for wide windows too): a notice
+    sits above the strip and below the code, never over the tree, the code or the native preview. `SessionNotice` is
+    removed with `session.restored` (the top bar shows the name; the folder is its tooltip and a project-menu line).
+    `EntryNotice` (success) and `TransferNotice` dismiss themselves after 12 s through `useAutoDismiss` (paused while
+    hovered or focused; the Dismiss button stays); the settings alert and the journal alert still wait for the user.
+  - **F6.** `focus-regions.ts` adds the walkthrough band / final-task card, the notice stack and the status group to the
+    region order (after the AI chat, before and after Problems); empty or hidden ones are skipped as before.
+- S47.6 — Compact walkthrough band.
+  - **State.** `WalkthroughState` gains `compact` (the user's choice) and `viewed` (steps whose full text was on
+    screen); `loadWalkthroughState` fills both from a file written before this (full band, nothing viewed), the IPC
+    parser requires them. The reducer marks a step viewed when the user leaves it (Next, Back, Close) and on
+    `toggleCompact`, so a toggle takes effect at once; `panelView` shows compact only for `compact && viewed` — a
+    step's first view is always the full text, a step seen before folds, and the choice comes back after a restart
+    with the rest of `walkthrough.json`.
+  - **Band.** Compact is one line: 第 n 步，共 8 步 · title · 指给我看 · 下一步 · 展开 (the done state is the Next
+    button's own label, 下一步 vs 跳过这一步). The full band gains 收起 before 关闭课程. `--walkthrough-min` is 40 px
+    while compact (`FRAME.walkthroughMin.compact`, the rule after the narrow one so it wins there too), so the band
+    measures 42 px with its border, under the 56 px limit, and the frame arithmetic in `layout.ts` follows.
+  - **Terms.** `termChipLabel(term, locale)`: in zh-CN a chip shows the glossary's Chinese name and the standard term
+    (自动保存 autosave, 标签 tag, 超文本标记语言 HTML; a name that already holds the term, JavaScript 脚本语言, as it is);
+    in en the term alone. The close hint already names the rail button (课程 / Lessons) — now checked by a unit test.
+
+**Evidence:** S47.5 — `tests/e2e/key-features-visible.spec.ts` "S47.5: one status row …" (no `.editor-status` in the
+editor; `region-status` in the strip's row and height, its left edge right of the Problems toggle; at most one band above
+the code; the entry notice below the editor's bottom and above the strip; F6 from the code visits preview → walkthrough →
+app-notice-stack → problems → status → topbar → rail → files → editor; the notice leaves by itself) and the size loop
+1280×800 … 640×480 (indent, caret, AI edit / explain in the viewport, the group never reaches the toggle);
+`tests/e2e/a11y.spec.ts` F6 order; `tests/e2e/file-roles.spec.ts` "S47.5: …" (no hint on a second visit, tree tag
+and tab tooltip keep the role, nothing else above the code); `tests/e2e/session.spec.ts` (no reopened-project notice,
+empty stack); `file-role.test.ts` (RoleHintMemory), `a11y-labels.test.ts` (tooltip role line), `terms.test.ts`
+(the new `ai.inline.state.*` keys name AI 建议). e2e key-features, a11y, shell, file-roles, session, encodings, save,
+editing, ai-edit, ai-inline, smart-editing, external-change: 91 passed on Windows. S47.6 — `walkthrough-model.test.ts`
+"compact band (S47.6)" (5 tests: default full, toggle, first view full / seen before compact, close and revisit, term
+chip labels, close hint names Lessons), `src/shared/walkthrough.test.ts` (older file loads as full, strict parse),
+`layout.test.ts` (compact reserve and CSS order); `tests/e2e/walkthrough.spec.ts` "S47.6: …" (compact band ≤ 56 px,
+the four pieces on one row, no body / check, stored `compact`, a new step full, a seen step compact, expand) and
+"progress and the compact choice survive a restart", zh-CN chips 超文本标记语言 HTML / 层叠样式表 CSS / JavaScript
+脚本语言, en chips HTML / CSS / JavaScript. e2e walkthrough, key-features, a11y, shell, editing green on Windows after the
+S47.6 build. `npm run verify` green at each commit.
+
+**Decisions:** no new decision record. The status group is an overlay sibling of the strip rather than a slot in
+`ProblemsPanel` only because of the parallel ownership this session had; S48.3 (the strip's count) or a later tidy-up
+may move it inside the strip's markup — the test ids and the `.status-editor` rules carry over. Auto-dismiss is 12 s
+and only for `role="status"` notices. The role-hint memory lives for the app run, not in app data: a restart shows
+each file's hint once more, which a beginner coming back after days should get. The compact band keeps 展开 as a
+fifth control (the way back); Close lives in the full band only.
+
+**Problems / risks:** macOS not run (renderer-only changes; the strip overlay uses `position: absolute` inside the
+workbench column, which is the same on both platforms). `glass-visual.spec` screenshots of the editor and the band
+differ by design. The first `npm run verify` of the session had one 5 s timeout in `beginner-diagnostics.test.ts`
+under the load of four parallel sessions; it passed alone and in every later run. Possible merge touch points with the
+sibling sessions: `Workbench.tsx` (two lines: the strip element and the `onToggleCompact` prop), `styles.css`
+(`.status-editor`, `.app-notice-stack`, `.workbench > .problems { order: 2 }`), `zh-CN.ts` / `en.ts` (keys only).
+
+**Owner action needed:** none new; S46.8 visual pass still open (now includes the one status row and the compact band).
+
+**Next up**
+
+1. S48 / S49 continue in their sessions; S48.3 may fold `EditorStatusStrip` into the strip's own markup.
+2. S49.6 can drop the indentation source from the button text (it is already the tooltip and narrow windows hide it).
+
+**Ideas / backlog candidates:** the compact band could show the step check as a ✓ before the title once there is a
+spec-approved glyph; the role hint could learn a per-project "seen" list in `.noobide/project.json` (no secrets, but
+it writes into the project, so it needs the owner's call).
+
+## Session 31 (side session) — 2026-10-16 — S49.1 one Sheet shell for every dialog
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/s49-1-sheet-024346`, cut from
+`claude/recursing-dewdney-9752a3` @ `86169b6`, then fast-forwarded onto the integration branch
+`claude/noobide-ui-ux-assessment-d4624a` @ `42f3ea4` (PR #9 merged; same tree). S47.1–S47.4 in place. Started by the assessment session as one of
+four parallel sessions with disjoint file ownership (this one: dialogs). Sibling branches (S47.5/6 frame, S48.1–4
+preview, S48.2/3 problems) are not merged here.
+
+**Done**
+
+- S49.1 — One Sheet shell for every dialog (assessment P1 item 6, P2 item 12, S49 table).
+  - **`src/renderer/workbench/Sheet.tsx`** is the shell; its header comment is the API contract for S49.2–S49.4:
+    `title` (+ `titleIcon`), one-line `description`, scrolling `children`, `actions` in reading order Cancel →
+    Primary, `leading` (text or a control set apart at the left of the action row), `onClose` (Close top-right, Esc,
+    and the backdrop only with `dismissOnBackdrop`), `onEscape` (step in before closing: History cancels an open
+    confirmation), `closeLabel` (the caller's own word: Close / Cancel / Decide later), `closeDisabled` (a restore
+    or create in flight), `role` (`alertdialog` is described by its content), `width` 480 | 720 | 960,
+    `className` / `backdropClassName` (a feature's z-index), `testId` / `closeTestId`, `sheetRef`. Focus moves in
+    when it opens (a child that took focus keeps it → `[data-autofocus]` → first control of the content → Close) and
+    returns to the opener on close (`useReturnFocus`). `sheetButtonClass('cancel' | 'primary' | 'danger')` names the
+    three button jobs; `escapeAction` is the pure Esc rule. The element keeps the `dialog` / `dialog-backdrop`
+    classes, so glass.css (frosted overlay, solid twin under reduced transparency / contrast / forced colours), the
+    glass e2e frost probe and `preview-viewport.ts` OVERLAY_SELECTOR (native preview hidden under any sheet, decision 0019) apply unchanged; Workbench's explicit `covered` list did not change.
+  - **focus-trap.ts**: the wrap rule is the pure `tabWrapTarget(items, active, shiftKey, inside)`; `trapTab` and
+    `useModalKeys` are unchanged in behaviour.
+  - **Migrated** (behaviour — what each restores, saves, lists — unchanged): `ConfirmDialog` (480, alertdialog, Cancel
+    autofocused, `tone="danger"` for Move to trash from FilesPanel), `AboutDialog` (480), `GlossaryDialog` (720; the
+    search stays in view, the list scrolls), `CreateProjectDialog` (720, was 820; Close = Cancel, disabled while
+    creating; a backdrop click never loses the typed name), `AiSettingsDialog` (720, was 560; the bottom primary
+    Close is gone, Close is top-right; a backdrop click no longer discards a half-typed key; focus moves to the first
+    field — the AI on/off box — once the settings arrive, unless the user already moved), `HistoryDialog` (960, was
+    1100; Close top-right with `history-close`, disabled while busy; first Esc still cancels an inline confirmation),
+    `RecoveryDialog` (720, was 760; see below), `SavedChatsList` delete confirm (Cancel, then "Delete chat" drawn
+    `danger-button`; focus still lands on the verb, as the ai-history e2e expects).
+  - **Recovery** (P1 item 6): a real modal now — the sheet traps focus and starts on "Open project and review"; Esc,
+    the Close control (named 稍后处理 / Decide later) and the footer button all keep every record, and the sheet says
+    so under the title (`recovery.keepNote`: 按 Esc 或“稍后处理”不会丢弃任何内容…). A backdrop click does nothing at all.
+    "清除全部恢复数据" left the footer for a `<details>` disclosure 高级 / Advanced under the project list (list step
+    only); its confirmation, the discard confirmations and the relocate question are Cancel → verb, destructive verbs
+    `secondary-button danger-button`. The usage line is the action row's leading text.
+  - **Styles** (`styles.css`): one `.dialog` block (flex column, 480 default, `.sheet-720` / `.sheet-960`, 16 px
+    backdrop padding so a sheet never touches the window edge, `.sheet-content` is the only scrolling part, `.sheet-
+content > * { flex: none }` so sections never shrink into each other — the glossary list opts in), `.sheet-close`
+    (the shared `.icon-button` pulled into the title corner), `.dialog-hint` now has `margin: 0` everywhere,
+    `.danger-button` stays red text and `.primary-button.danger-button` is the danger fill. Removed the hand-built
+    `.recovery-dialog/.recovery-title/.recovery-intro/.recovery-footer`, `.history-head`, `.dialog.wizard`,
+    `.glossary-dialog`, `.ai-settings` width rules. `design-rules.test.ts` green (one radius scale, no literal colours).
+  - **Tests**: `src/renderer/workbench/sheet.test.ts` (20 tests: anatomy order, Close top-right with the caller's
+    label, alertdialog semantics, leading slot, widths, button classes and the danger CSS, ConfirmDialog order and
+    tone, the focus-trap wrap rule, the Esc rule, "no component other than Sheet sets aria-modal", every dialog
+    renders `<Sheet>`, a sheet with a field never has `dismissOnBackdrop`, inline confirmations are Cancel → danger
+    verb). `tests/e2e/recovery.spec.ts`: the clear-data test opens the Advanced disclosure and checks the Cancel →
+    danger order; new test "Escape, Close and a click outside keep every recovered copy, and the dialog says so" (aria-
+    modal, heading, Close accessible name, keep note, focus start, Tab trap over 8 presses, backdrop click keeps the
+    dialog open, Esc and Close keep the journal record across relaunches).
+
+**Evidence:** `npm run verify` green (typecheck, lint, format, 220 unit files). e2e on Windows, run 1: recovery, history,
+ai-settings, ai-history, walkthrough (glossary), welcome (wizard), files, file-tree (delete confirm), a11y, glass,
+distribution (About), menus, session, problem-card — 87 passed, 2 failed (a strict-mode clash between the confirm
+sheet's X and its Cancel, both named 取消, and a stale locator across a relaunch in the new test); fixed (the X of a
+confirmation is named 关闭 / Close, `dialog.close`), run 2: recovery + file-tree 24 passed, including the new test
+"Escape, Close and a click outside keep every recovered copy, and the dialog says so".
+
+**Decisions:** no new decision record (the shell implements decision 0034's overlay rules and 0019's cover rule).
+Choices worth knowing:
+
+- **Esc in Recovery says so before, not after.** Esc, Close and "Decide later" are one action (keep everything, close,
+  ask again next start), and the sheet's note under the title states it in words. A notice after closing would need
+  the workbench notice stack, owned by the frame session this round; if the owner wants an after-the-fact
+  confirmation, add it there (S47.5) rather than a second floating mechanism in the dialog.
+- **Close top-right on every sheet, including confirmations.** One shell means the X is always there; on a
+  confirmation it does what Cancel does but is named 关闭 / Close (new key `dialog.close`), so Cancel stays the one
+  control with its name for screen readers and locators. Only sheets without a field (`ConfirmDialog`, `About`)
+  close on a backdrop click.
+- **Widths**: History 960 (S49.2 asks for 960), Recovery / Wizard / AI settings / Glossary 720, Confirm / About 480.
+- **S45.9, Sheet part — taken from `docs/archive/s44-s45-hig/.../Sheet.tsx` and `Sheet.test.ts`:** the anatomy and
+  its order (title → description → content → trailing actions, Cancel before the default), `alertdialog` described
+  by its content, the `leading` slot, the `[data-autofocus]` → first control rule with "a child that took focus keeps
+  it", focus return, `data-sheet`, the static-markup test style and the renderer scan (no other `aria-modal`).
+  **Dropped:** `titleHidden`/`sr-only` header and the `footer` slot (the command palette keeps its own shell — a
+  search field with a list is not a titled dialog; it stays the one exception in the scan), the named sizes
+  small/medium/wide/large (replaced by the 480/720/960 scale the assessment fixes), the `onMouseDown` passthrough, its
+  `focusSnapshot`/`returnFocus` helpers (the existing `useReturnFocus` does this), and `i18n/sheets.ts` (its four
+  strings — wizard description, history backup note, recovery discard/clear questions — are not needed: the existing
+  confirm strings stay). **Added over the archive:** Close top-right as an icon button carrying the caller's word,
+  `closeDisabled`, `onEscape`, `dismissOnBackdrop` off by default, the danger-filled primary. Notice anatomy, button
+  hierarchy and the rest of S45.9 remain open.
+
+**Problems / risks:** macOS not run. After the merge of the integration head `cd21a2d` (S46.9 integrated title
+bar) the dialog e2e specs were re-run locally: 77 passed; the sheets sit inside `.dialog-backdrop`, which S46.9 already
+marks `no-drag`. The first CI run failed only in `walkthrough.spec` (a poll read `walkthrough.json` between the
+store's temp write and its rename; the read now counts as "not yet"). `glass.css` still names `.recovery-dialog` / `.recovery-backdrop` in its
+selector lists (harmless; the recovery sheet now carries `.dialog`) — left alone to avoid conflicts with the parallel
+sessions; prune in S49.2. `glass-visual.spec` screenshots that include a dialog will differ by design (not run
+here). `FilesPanel.tsx` got one attribute (`tone="danger"`) outside the owned file list.
+
+**Owner action needed:** none new.
+
+**Next up**
+
+1. S49.2 (History focused on restoring, 960 sheet; move storage / orphans to a settings sheet via the History footer
+   `leading` slot), S49.3 (one diff review), S49.4 (AI set-up) — all on `<Sheet>`; keep its header contract.
+2. When the frame branch (S47.5) lands: decide whether Recovery's Esc should also post an after-the-fact notice.
+
+**Ideas / backlog candidates:** a `Sheet.stories`-style e2e that opens every sheet once and checks Tab order and the
+Close focus return in one place (today each feature's spec does its own).
+
+## Session 30 (side session) — 2026-10-16 — S47.4 one name, one home per feature
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/recursing-dewdney-9752a3`:
+main @ `65c95a0` merged with `claude/xenodochial-hopper-116d81` @ `41ae221` (S47.2 + S47.3, Session 29), so the
+welcome layout and the fixed save slot are in place. Started by the assessment session; owner rule (Session 23): no
+key feature moves into a menu — the rail keeps Files, Problems, History, Lessons, AI; decision 0034 and
+`design-rules.test.ts` unchanged.
+
+**Done**
+
+- S47.4 — One name, one home per feature.
+  - **Term table as a test.** `src/renderer/i18n/terms.test.ts` encodes the assessment's table (History 历史版本 /
+    History, Lessons 课程 / Lessons, Problems 问题 / Problems, Ask AI 问 AI / Ask AI, AI edit AI 修改 / Edit with AI,
+    AI fix AI 修复 / Fix with AI, AI suggestions AI 建议 / AI suggestions, Change project 修改项目 / Change project,
+    crash recovery 恢复上次未保存的修改 / Recover unsaved edits, external change 文件在外部被改动 / Changed outside
+    NoobIDE). For each term it checks the keys that _are_ the term (rail buttons, headings, buttons), the menu / palette
+    labels (term plus an optional …) and the longer messages that must name the feature (tooltips, toggles, hints), and
+    it fails if any catalogue value brings a retired name back (本地历史, 入门导览, AI 编辑, 内联编辑, 自动补全,
+    智能体, AI 代码建议, 用 AI 修复/修改, 更多操作; local history, walkthrough, inline edit, completions, agent, AI
+    edit, more actions). Renamed accordingly: `rail.history`/`history.title`/`command.showHistory`, `rail.ai`/
+    `ai.chat.title`/`command.ai.toggleChat`, `command.walkthrough`/`walkthrough.*`, `ai.editor.editButton`/
+    `ai.editor.inlineEdit`/`command.ai.inlineEdit`/`ai.edit.region`, `problems.card.fixWithAi`/`problems.row.fixWithAiLabel`,
+    `command.toggleInlineAi`/`ai.settings.inline`/`ai.purpose.*`, `recovery.title`, `disk.reloaded`/`conflict.title`,
+    and the prose that still said "local history" (agent notes, history group) or "completions" (budget notice). The
+    lessons' content follows: glossary entry 历史版本, the restore step says 历史版本, the reopen step points at the
+    project menu.
+  - **Two menus.** `src/shared/commands.ts` replaces `APP_MENU_COMMANDS` with `PROJECT_MENU_COMMANDS` (close,
+    history, lessons) and `HELP_MENU_COMMANDS` (theme, AI chat / explain / edit / suggestions, glossary, logs, AI
+    settings); `useAppMenuItems` takes the list. `Workbench.tsx` adds the two items that are not registry commands:
+    Reveal (platform label, second in the project menu) and the language choice (中文 / English as `menuitemradio`,
+    after the theme group of the help menu). `AppMenu.tsx` takes a name, test id, icon, `alignEnd` and a `detail`
+    line; the project menu (`project-menu`, ▾ next to the project name, list `#project-menu-list`) shows the project
+    folder as its first line (`project-path`); the help/more menu keeps `app-menu` / `#app-menu-list`, opens flush
+    right, and is named 帮助与更多 / Help and more.
+  - **Top bar.** `TopBar.tsx`: the path is the project name's `title` (hover) and the menu line, no second line
+    (`.project-detail` and `topbar.language`/`topbar.switchLanguage` removed); the reveal icon button and the
+    language button leave the bar; the trailing group is command search + help menu. The S47.2/S47.3 box tests still
+    hold (`shell.spec` measures `app-menu` in place of the language button). The walkthrough's reopen anchor is the
+    project menu button (`walkthrough-model.ts`).
+  - **Tests moved with the UI.** `tests/e2e/project.ts` gains `switchLanguage(page)` (help menu → the other
+    language, waits for `html[lang]`) and `projectMenu(page, id)`; the 45 direct clicks on `switch-language` in 20
+    specs use the helper, path assertions read the name's `title`, close-project / lessons clicks go through the
+    project menu (`walkthrough.spec`'s `menu()` uses the rail's Lessons button while no project is open, since the
+    project menu exists only with a project).
+
+**Evidence:** `src/renderer/i18n/terms.test.ts` (22 tests); `src/shared/commands.test.ts` (menus name registered
+commands, each in one menu, project menu order); `tests/e2e/shell.spec.ts` "S47.4: …" (no `.project-detail` and no
+path text in the bar, name tooltip = path, no `switch-language` / `reveal-project`, project menu = folder line + 关闭项目
+· 在…中显示 · 历史版本… · 课程 and its Lessons item opens the walkthrough, help menu radios = three themes + 中文 /
+English, switching to en re-labels the rail and the menu and back, and every measured top-bar box is unchanged
+afterwards); `tests/e2e/commands.spec.ts` (both menus' items from the registry, path line); `tests/e2e/a11y.spec.ts`
+(both menus keyboard-only with axe clean, Tab order from the project menu). `npm run verify` green. Full e2e suite on the
+Windows build: 332 tests — 318 passed + 4 skipped (macOS-only) in one run, the 4 that failed (ai-edit, history,
+not-found, smoke: all test-side, see Problems) fixed and green on a rerun of those specs (30 passed).
+
+**Decisions:** no new decision record. Reveal and the language choice are menu items built in `Workbench.tsx`, not
+registry commands: Reveal's label is per platform (`revealLabelKey`) and the native menus / palette did not need them;
+the language items would otherwise need a `locale` field in the IPC-validated `CommandContext`. The project menu
+exists only with a project (its items are all about one), so without a project Lessons is reached from the rail and
+the welcome, never only from a menu.
+
+**Problems / risks:** macOS not run (renderer-only changes; the reveal label in the project menu is checked for both
+platforms in `commands.spec`). `glass-visual.spec` screenshots of the top bar and the menu differ by design. Two
+test-side fixes outside the feature: `smoke.spec` "five regions" still expected a preview column without a project
+(S47.2 made it hidden; the suite was not run in Session 29), and `switchLanguage` now waits until main reports the
+new locale — the renderer sets the language before main has persisted it, and the preview's "page not found" page
+(served by main in the interface language) could still come up in the old language when a test navigated right after
+the switch (`not-found.spec`). The product behaves the same as before; only the test ordering is deterministic now.
+
+**Owner action needed:** none new; S46.8 visual pass still open.
+
+**Next up**
+
+1. S47.5 (one status row, fewer bands), S47.6 (compact walkthrough).
+2. S48.1 should reuse the fixed-slot pattern of S47.3 for the preview header's state pill.
+
+## Session 29 (side session) — 2026-10-16 — S47.2 welcome owns the window, S47.3 stable save state and tabs
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/xenodochial-hopper-116d81`,
+fast-forwarded onto `claude/noobide-ui-ux-assessment-d4624a` @ `2edb98e` (the assessment, on main @ `cfc3232`) so
+the M18 backlog entries exist. Started by the assessment session; owner rule (Session 23): no key feature moves into a
+menu; decision 0034 and `design-rules.test.ts` unchanged — both features are structural, not a restyle.
+
+**Done**
+
+- S47.2 — Welcome owns the window. `layout.ts` `visibleRegions(state, narrow, projectOpen)`: without a project the
+  editor column (welcome + sample) is the only middle region — no preview column, no editor splitter, no narrow
+  Code / Preview switch, whatever narrow view was chosen before the project closed (`layout.test.ts`). `Workbench.tsx`
+  gives the column the whole free width (`--editor-grow: 1` without a project; a flex-grow below 1 left the preview's
+  share empty). The files panel's empty state has no button any more (`files.emptyHint` explains where files come
+  from); the welcome keeps the window's one filled button (create), Open folder… as a secondary, and gains a Lessons
+  quiet button (`welcome-lessons`, the same `help-walkthrough` command as the rail). "The sample is not saved" is said
+  once: the badge next to the sample tab; `topbar.sampleNotice` is removed (the top bar shows the path line only with a
+  project) and `welcome.sampleBelow` no longer repeats it. e2e helpers and specs that clicked the files panel's
+  `open-folder` now click `welcome-open-folder`.
+- S47.3 — Stable save state and tabs. `TopBar.tsx` `saveButtonShown(save, autosave)`: the prominent Save button is
+  offered only for `failed`, `conflict`, `deleted` or autosave off with unsaved edits; ordinary typing changes the
+  state word inside a fixed-width slot (`.save-status` width `--save-slot-w` 136 px, the icon in a 14 px box, every
+  `SaveStateIcon` variant 14 px). Pill words are short in both languages (`save.failed` 保存失败 / Save failed,
+  `save.conflict` 文件有冲突 / File conflict, `save.deleted` 文件已删除 / File deleted); the full sentences stay in the
+  editor banners (`save.kept`, `conflict.*`, `deleted.*`). `TabBar.tsx`: the tab's state is an icon in a fixed 14 px
+  slot (`.tab-state-slot`) with the word in the tooltip (`tabTooltip`) and as screen-reader text, so a tab never widens
+  or narrows while it is typed in and saved. The save command (Ctrl+S and the button) over a conflict or a deleted
+  file moves the focus to the banner's first choice (`conflict-compare` / `deleted-resave`) instead of doing nothing;
+  nothing is written on its own there (S11.2, S11.3 unchanged). A retry in flight after a failed write keeps the button
+  (`activeSaveRetrying`: the error is cleared only on success), so the blur retry that focusing the button triggers
+  never removes the button under the focus. S45 kept: the button stays while a save cannot happen on its own, and the
+  focus returns to the state word when it leaves.
+
+**Evidence:** S47.2 — `tests/e2e/shell.spec.ts` "S47.2: …" (1280×800 and 640×480: the welcome's column reaches the
+window's right gutter, no preview column / splitter / switch, exactly one filled button and it is `welcome-create`,
+Open folder is secondary, the files panel's empty state has no button, "not saved" matches once, Lessons opens the
+walkthrough, opening a project keeps every measured top-bar box identical and the S30.3 equal split holds);
+`layout.test.ts`. S47.3 — `tests/e2e/key-features-visible.spec.ts` "S47.3: …" (typing never shows the button; a
+read-only file shows it with the short word and the banner sentence; the focused button saves on Enter through the
+save command and the focus lands on the state word; the bounding-box test records every element of the top bar and the
+tab strip before typing, during the autosave pause and after `saved` — all equal); `a11y-labels.test.ts`
+(`saveButtonShown` matrix incl. autosave off, pill word lengths, `tabTooltip`). `npm run verify` green; e2e run:
+shell, welcome, files, walkthrough, recent-projects, key-features-visible, tabs, save, external-change, problem-card,
+a11y, recovery, preview, session, editing, smart-editing green on the Windows build (see the commit messages for the
+counts).
+
+**Decisions:** no new decision record. Two small calls to note: (1) the rail is unchanged without a project (the
+assessment's S47 table says "the rail shows only Files until a project is open"; the feature's acceptance criteria
+do not, and hiding Problems / Lessons / AI from the rail would contradict the key-features-visible rule — left for the
+owner to confirm); (2) a mouse click on the top-bar Save button first blurs the editor, whose blur autosave already
+retries the save, so the button is removed before it receives focus — the S45 focus-return is a keyboard guarantee and
+is tested as one.
+
+**Problems / risks:** macOS not run (renderer-only changes; no platform code touched). `tests/e2e/glass-visual.spec.ts`
+screenshots now differ for the welcome (by design). The e2e suites not in the list above were not re-run in this
+session; none of them assert the removed strings or the files-panel button (grep-checked).
+
+**Owner action needed:** confirm the two calls under Decisions; S46.8 visual pass still open.
+
+**Next up**
+
+1. S47.4 (term table test, ⋯ menu split, path on hover), then S47.5, S47.6.
+2. S48.1 should reuse the fixed-slot pattern of S47.3 for the preview header's state pill.
+
+## Session 28 (side session) — 2026-10-16 — UI/UX assessment and refine plan (owner request)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/noobide-ui-ux-assessment-d4624a`,
+merged with `origin/main` @ `cfc3232` (S46 calm refinement) before assessing. Three read-only audit subagents
+(shell and first run; preview, problems, console, annotations; AI, history, recovery, walkthrough, settings), findings
+cross-checked by the lead against the merged tree.
+
+**Done**
+
+- S47.1 — `docs/reviews/ui-ux-assessment-2026-10-16.md`: the packaged build was driven through the PLAN §2 journey
+  with a Playwright script (welcome → wizard → walkthrough → three files → misspelled variable → Problems → menu →
+  palette → History → AI panel → 900×620, 640×480, 1366×700; light and dark). The S46 look is taken as given; the
+  review covers structure, flows, wording and state communication. Six P1 findings: the first run is a workbench
+  with a welcome inside it (two filled buttons, three empty regions); the top bar and tabs move on every autosave
+  cycle (Save button appears per typing pause); up to six rows of preview chrome with Refresh as the filled button and
+  the header changing on every refresh; one mistake counted three ways (console badge, status strip, Problems) with
+  no link from the console to the card; the problem card puts buttons and AI before the explanation; Recovery has no
+  focus trap and Esc silently means "later". Eight P2 (names and entry points, two status bars and stacked bands,
+  top-bar contents, walkthrough size, History's four jobs, dialog and diff inconsistency, AI composer before set-up,
+  jargon) and six P3.
+- Refine plan registered as milestone **M18** with sessions **S47** (frame and first run, 6 features), **S48**
+  (preview, problems, console, 4 features) and **S49** (AI, history, dialogs, wording, 7 features incl. the owner
+  walk-through S49.7); every feature has testable acceptance criteria. A term table fixes one zh-CN/en name per
+  feature. Non-goals: no key feature into menus (owner rule), AI-off keeps removing AI surfaces (0025), S46 tokens and
+  design rules unchanged, no change to preview isolation or saving.
+
+**Evidence:** `npm run verify` green on the merged tree (harness, typecheck, lint, format, 2713 tests). The
+assessment is `agent-check`; no app code changed.
+
+**Decisions:** none new. The plan is sequenced S47 → S48 → S49 (S49.1 can run in parallel with S48 in its own
+worktree).
+
+**Problems / risks:** no beginner has used this build (H.3/H.6 still open); every "a beginner will…" in the review
+is a design judgement. macOS not run. The S46 visual pass (S46.8) is still the owner's.
+
+**Owner action needed:** read the assessment; confirm the term table (it renames 历史 → 历史版本 on the rail, keeps
+课程) and the priority order before S47.2 starts.
+
+**Next up**
+
+1. S47.2 (welcome owns the window) and S47.3 (stable save state and tabs), then S47.4 (term table test, menu split).
+2. S45.9 (rebuild of the archived HIG parts) should be re-scoped against this plan: the Sheet anatomy it archived is
+   S49.1 now.
+
+## Session 35 (side session) — 2026-10-17 — M19 backlog records for S51–S57 (owner approval of review §4)
+
 ## Session 39 (side session) — 2026-10-17 — CI timing tool, E2E job summary, ADR 0037 (S58.6)
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/nervous-nash-544128`
@@ -530,6 +917,60 @@ hint the first time Emmet or linked editing fires.
 
 **Next up:** Owner decisions in review §6 (approve M19/S51–S57; start v0.2 with S51/S52 or wait for H.6). Otherwise
 M7 release items remain the current blocked front.
+
+## Session 34 (side session) — 2026-10-17 — Hosted CI flakes on main and PR #15 (S06.6)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/laughing-brattain-d2dcf0`.
+
+**Done:** Investigated main's red run 39011559538 (commit 90a9fc5) and PR #15's run 39014627704 (attempt 1,
+macOS shard 2). Four failures, four causes, none a product threshold:
+
+- S06.6 — `completion-latency.test.ts`: 21 ms p95 on the macOS runner for a request that costs 0.4 ms (the
+  file took 376 ms for 140 requests, so the mean was ≈ 1.3 ms: spikes, not slowness). The test now measures the best
+  of up to five batches of 60 runs and judges every batch against the unchanged 10 ms p95; contention and GC add time
+  to a sample and never remove any. docs/perf/completion-latency.md records the method and new numbers.
+- S06.6 — `walkthrough.spec.ts:84` (Windows shard 2): Help → Walkthrough ran before the stored progress had
+  loaded, and `walkthroughReducer` dropped the `open`. Product bug: a user on a slow start lost the click too,
+  and the wizard's "first project starts the walkthrough" was dropped the same way (the hook checked `loaded`).
+  Both are model actions now (`open`, `projectCreated`); those that arrive before the load are kept and replayed
+  in order once the state is loaded (unit tests added). Reproduced locally by delaying main's walkthrough get by
+  3 s: the same "element(s) not found" at line 84 without the fix, then the wizard test failing alike with only the
+  open fixed, then all 12 tests green under the delay.
+- S06.6 — `preview-layout.spec.ts:282` (macOS shard 2): the About dialog ignored the first Escape (the dialog was
+  on screen with Close focused 20 s later). `useModalKeys` installed its window listener in a passive effect, which
+  runs in a later task; Blink hands a key press (high priority) to the page before that task when the process is
+  slow. It is a layout effect now, so the listener exists in the same task as the dialog's DOM, for every modal that
+  uses it (About, AI settings, glossary, history, create project).
+- S06.6 — `preview-snapshot.spec.ts:241` (macOS shard 2): the busy page started its 8 s loop by itself 300 ms after
+  loading; the page switch after the 200 000-element page took 13 s on the runner, the loop had started, been
+  marked unresponsive and ended before the test looked, and the snapshot measured an idle page ("37 ms (outline)").
+  The fixture exposes `window.忙碌(ms)` and the test starts the loop itself (as a task, after `pageSettled()`),
+  then waits for the page's log line as before.
+- S06.6 — `glass.spec.ts:355` (PR #20's first run 39017135521, Windows shard 1): "the code itself has detail" measured
+  0.14 right after a theme switch. The test waits on `data-theme`, but the editor's token colours follow in a later
+  passive effect (`monaco.editor.setTheme`), so a captured frame in between shows text without contrast. The
+  baseline capture now polls until a frame shows the code; the frosted-sheet ratio (< 0.03) is unchanged.
+- S06.6 — `not-found.spec.ts:105` (PR #20's second run 39018329181, Windows shard 1): the preview's "page not found"
+  page came in English after the previous test switched to English and back. Product bug: main applied a language
+  change only after the settings file had been written (atomic write, serial queue), so on a slow disk the preview
+  server and the native menus lagged behind the interface. The language now applies when the request arrives.
+- S06.6 — `recovery.spec.ts:224` (same run, Windows shard 2): the spec's `journalRecords()` listed a project's journal
+  directory that the app had just removed (last record cleared after a save) between its two `readdir` calls
+  (ENOENT). The inner listing treats a vanished directory as empty.
+- docs/testing.md: hosted-runner conventions (wait for state, let the test start what it measures, best-of batches).
+
+**Evidence:** `npm run verify` green on the Windows dev machine (2736 passed, 15 skipped; 221 files). `npm run test:e2e -- tests/e2e/walkthrough.spec.ts tests/e2e/preview-layout.spec.ts tests/e2e/preview-snapshot.spec.ts`: 27 passed (busy page snapshot 1502 ms, outline timeout, as designed). Reproduction logs in the session scratchpad (not committed).
+
+**Decisions:** No product rate limit or latency threshold was increased; no test skipped or retried. A modal's key
+handling in a layout effect is a product behaviour change (Escape works from the first frame) small enough to live
+in the code comment rather than an ADR.
+
+**Problems / risks:** Each hosted run so far surfaced one or two further flakes of the same class (seven causes in
+all); more may exist in specs that did not run red yet. The About-dialog Escape loss is reasoned from the snapshot and Blink's input priority, not
+reproduced locally (it needs a starved renderer). The hosted matrix must pass twice on the PR before this counts
+as settled (S06.6 last criterion). Vitest console output needs `--silent=false` to show `NOOBIDE_PERF_PRINT` lines.
+
+**Next up:** Merge once the matrix is green twice, then rebase the S51–S57 sessions on it.
 
 ## Session 33 (side session) — 2026-10-17 — Hosted CI failure follow-up (S06.5)
 

@@ -4,6 +4,8 @@ import type { MessageKey } from '../i18n/index';
 import type { OpenTab } from './document-state';
 import { saveStatus, type SaveStatus } from './save-machine';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, SaveStateIcon } from './icons';
+import { fileRoleDetailKey, fileRoleFor, fileRoleLabelKey } from './file-role';
+import { fill } from './file-op-messages';
 
 interface TabBarProps {
   tabs: readonly OpenTab[];
@@ -27,8 +29,17 @@ export function tabTitle(relPath: string): string {
 }
 
 /**
+ * S47.3: the tab's tooltip — the relative path, plus the state word while the tab is not clean. S47.5: the file's role
+ * ("页面结构：写网页上有什么内容…") on a second line, where it stays after the hint above the code has collapsed.
+ */
+export function tabTooltip(relPath: string, state: string | null, role: string | null = null): string {
+  const first = state ? `${relPath} · ${state}` : relPath;
+  return role ? `${first}\n${role}` : first;
+}
+
+/**
  * Open files as an ARIA tablist (S09.2): one tab stop (roving tabindex), 鈫?鈫?Home/End move and show a tab, Delete
- * closes it; middle-click and the 脳 button close too. Unsaved, saving, failed and conflict states are written out
+ * closes it; middle-click and the × button close too. Unsaved, saving, failed and conflict states show a distinct
  * next to a distinct icon 鈥?never colour alone.
  */
 export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
@@ -144,6 +155,10 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
         {tabs.map((tab, index) => {
           const status = saveStatus(tab.save);
           const label = TAB_STATE_LABEL[status];
+          const role = fileRoleFor(tab.relPath);
+          const roleText = role
+            ? fill(t('fileRole.tooltip'), { role: t(fileRoleLabelKey(role)), detail: t(fileRoleDetailKey(role)) })
+            : null;
           const selected = tab.relPath === active;
           const closeLabel = `${t('tabs.close')} ${tab.relPath}`;
           return (
@@ -179,7 +194,7 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
                 // S24.3: Delete closes the tab; the mouse-only × next to it is hidden from the tablist's children.
                 aria-keyshortcuts="Delete"
                 tabIndex={selected || (active === null && index === 0) ? 0 : -1}
-                title={tab.relPath}
+                title={tabTooltip(tab.relPath, label ? t(label) : null, roleText)}
                 onClick={() => {
                   onActivate(tab.relPath);
                   showTab(tab.relPath); // also when it is already active but scrolled partly out of view
@@ -187,12 +202,14 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
                 onKeyDown={(event) => onKeyDown(event, index)}
               >
                 <span className="tab-name">{tabTitle(tab.relPath)}</span>
-                {label && (
-                  <span className="tab-state" data-testid="tab-state">
-                    <SaveStateIcon state={status} />
-                    {t(label)}
-                  </span>
-                )}
+                <span className="tab-state-slot" aria-hidden={label ? undefined : 'true'}>
+                  {label && (
+                    <span className="tab-state" data-testid="tab-state" title={t(label)}>
+                      <SaveStateIcon state={status} />
+                      <span className="sr-only">{t(label)}</span>
+                    </span>
+                  )}
+                </span>
               </button>
               <button
                 type="button"

@@ -4,6 +4,7 @@ import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { launchApp, repoRoot } from './launch';
+import { switchLanguage } from './project';
 import { packagedExecutable } from './packaged';
 import { copyFixture, openProject, previewInfo, waitForPreviewState } from './preview-helpers';
 
@@ -34,7 +35,7 @@ test('About shows the app version and runtime versions, translated, and closes w
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
 
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
     await page.evaluate(() => window.dispatchEvent(new Event('noobide:open-about')));
     await expect(dialog.getByRole('heading')).toHaveText('About NoobIDE');
     await expect(page.getByTestId('about-version')).toHaveText(`Version ${appVersion}`);

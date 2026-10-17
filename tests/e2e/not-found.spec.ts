@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
-import { collectConsoleErrors, openFile, openProject, typeAtEnd } from './project';
+import { collectConsoleErrors, openFile, openProject, typeAtEnd, switchLanguage } from './project';
 import { evalInPreview, waitForPreviewState } from './preview-helpers';
 
 /**
@@ -79,11 +79,11 @@ test('a misspelled image path names the similar file the project has (images/ava
   await expect(card.getByTestId('problem-causes')).toContainText(
     '文件名可能拼错了：项目里有一个相似的文件 images/avatar.svg。',
   );
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(card.getByTestId('problem-causes')).toContainText(
     'The file name may be misspelled: the project has a similar file, images/avatar.svg.',
   );
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await toggle().click();
   expect(consoleErrors).toEqual([]);
 });
@@ -94,9 +94,10 @@ const backToEntry = () => page.getByTestId('preview-go-to-entry');
 const previewTitle = () => evalInPreview<string>(app, 'document.title');
 
 /**
- * The 404 page is rendered by main in the interface language, which main adopts only after the renderer's settings
- * update has been written (main.ts: `uiLocale = next.locale` after `settings.update`). Navigating in the preview right
- * after the language button click raced that write on hosted CI (the title stayed zh-CN), so wait for the saved locale.
+ * The 404 page is rendered by main in the interface language. Main used to adopt it only after the renderer's settings
+ * update had been written, and navigating in the preview right after the language button click raced that write on
+ * hosted CI (the title stayed zh-CN). Main now applies the language as soon as the update arrives (S06.6); waiting
+ * for the saved locale as well keeps this check independent of how fast that message travels.
  */
 async function waitForSavedLocale(locale: 'zh-CN' | 'en') {
   const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'));
@@ -150,7 +151,7 @@ test('a broken link never traps the preview: the page says so, Back to entry pag
   await expect(card.getByTestId('problem-checks')).toContainText('检查 index.html 里这个链接的 href');
 
   // In English, the toolbar and the page speak English too.
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await waitForSavedLocale('en');
   await evalInPreview(app, `document.getElementById('about').click(); true`);
   await expect(missing()).toHaveText('This page does not exist');
@@ -158,7 +159,7 @@ test('a broken link never traps the preview: the page says so, Back to entry pag
   await expect(backToEntry()).toHaveText('Back to entry page');
   await backToEntry().click();
   await expect(pagePath()).toHaveText('index.html');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await toggle().click();
   expect(consoleErrors).toEqual([]);
 });
