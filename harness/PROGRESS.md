@@ -3,6 +3,47 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 37 (side session) — 2026-10-17 — S49.1 splitter physics (M18 Track C1)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s49-splitter-physics-c88bff`
+(node_modules junctioned to the main checkout), started from the M18 plan session in parallel with S47.1, S48 and
+S49.3 (their files untouched).
+
+**Done**
+
+- `workbench/splitter-model.ts` (pure): 4 px dead zone (`DRAG_DEAD_ZONE`), Escape → start value, double-click
+  defaults (files 220, share 0.5), files collapse under 120 px (`FILES_COLLAPSE_BELOW`; collapsed keeps the drag's
+  start width so the toggle reopens at it), aria-valuetext in words (`layout.filesWidthText`,
+  `layout.filesCollapsedText`, `layout.editorShareText`, zh-CN + en). New layout action `dragFiles` puts the layout in
+  exactly the toggle-files state (unit-tested equal), so the rail button reflects it.
+- `Splitter.tsx`: drag via the model, Escape listener on window (capture) while pressed, `onDoubleClick` reset,
+  `onPhase` (idle/pressed/dragging), `onDrag` separate from keyboard `onChange` (Home/End never collapse).
+  Workbench keeps the files divider mounted while a drag has collapsed the panel, so it can be dragged back out.
+- `PreviewPane` prop `resizing`: on press it asks for a picture with the existing S41.5 `annotations.regionShot` IPC
+  (no new channel; main takes it only while the view is shown; requested in a layout effect so it reaches main before
+  the bounds that hide the view); while dragging the native view is hidden (`data-resizing`) and the picture
+  (`preview-resize-shot`, alt text in both locales) fills the stage; without one the stage shows its usual content.
+  Release or Escape gives the live view back.
+
+**Evidence:** `splitter-model.test.ts` (8 tests); `tests/e2e/layout-splitters.spec.ts` 5/5 on the packaged build;
+preview-layout, session, key-features-visible, preview-annotations, a11y e2e 36/36; `npm run verify` green.
+
+**Decisions:** The S38.1 AI snapshot channel was not reused: it builds an outline and is tied to the chat; the S41.5
+region shot is the same `capturePage` picture with no side effects. Playwright mouse events go to the renderer, so
+the e2e proves the cover/picture/live states and final share; that a real OS pointer is not swallowed by the native
+view follows from the view being hidden after the dead zone (could be added to a manual check later).
+
+**CI shard placement (follow-up on PR #18):** macOS verify failed `tests/integration/e2e-shards.test.ts`
+(preview-isolation landed in shard 1/2). Playwright splits by _non-skipped_ tests, and on macOS ai-keychain is
+skipped at file level, so the macOS split point is one test lower than Windows'; with the spec named
+`splitter-physics.spec.ts` (sorting after the preview files) the PR merge ref put preview-isolation at test 165
+against a macOS split at 166. Renamed to `layout-splitters.spec.ts` (sorts before the preview files, ADR 0035's
+file-order lever): on the merged tree preview-isolation now starts at 177 (macOS, split 169) / 178 (Windows, split
+170), a margin of 8. Spec files added after `preview-isolation` move the split by half their tests; keep that margin
+in mind.
+
+**Next up:** the rest of S49 (S49.2+), then S50. Tab drag-to-reorder can now reuse `splitter-model` dead-zone logic.
+
 ## Session 35 (side session) — 2026-10-17 — S48.1–S48.3 chat panel engine: scroll latch, growing composer, IME stage 2
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/s48-chat-core-9b1e35` cut from
