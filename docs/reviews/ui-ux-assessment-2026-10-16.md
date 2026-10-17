@@ -7,6 +7,13 @@ given and assesses what the restyle did not touch: structure, flows, wording and
 against PLAN §2 (the ten-minute journey), §3 (interface), §7 (separate recovery mechanisms), §8 (preview) and §9
 (error explanations).
 
+> **Backlog status (2026-10-17).** The milestone and session ids in this document (M18, S47–S49) were registered in
+> `harness/features.json` on 2026-10-16 and **withdrawn on 2026-10-17** by owner decision: PR #14 (the Claude Desktop
+> study plan) owns milestone M18 and the ids S47–S50, and PR #7 dropped its records rather than renumber them. The
+> ids below are therefore plan-local labels, not backlog ids. The work they describe for S47.2–S47.6 and S49.1 was
+> built, proven and merged into this branch (PRs #9, #10, #11) before the withdrawal; the remaining items (S48.1–S48.4,
+> S49.2–S49.7) are not in the backlog and need new ids if the owner wants them tracked.
+
 ## Method and evidence boundary
 
 - **Seen:** the packaged Windows x64 build at `cfc3232` (main after S46), driven by a Playwright script through the
@@ -165,10 +172,10 @@ Non-goals, so later sessions do not reopen them: no key feature moves into a men
 still removes every AI surface (decision 0025); the S46 tokens and design rules stay; nothing floats over the native
 preview (decision 0019).
 
-## Refine plan (milestone M18, sessions S47–S49)
+## Refine plan (plan-local labels M18, S47–S49; see the backlog status note)
 
-Each session is one worktree session with a green `npm run verify` and full e2e at the end. Features are registered
-in `harness/features.json` with the acceptance criteria below; the ids are the plan.
+Each session is one worktree session with a green `npm run verify` and full e2e at the end. The acceptance criteria below
+are the plan; the ids were withdrawn from `harness/features.json` on 2026-10-17 (see the status note at the top).
 
 ### S47 — Frame and first run (P1 1, 2; P2 7, 8, 9, 10)
 
