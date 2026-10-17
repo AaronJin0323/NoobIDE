@@ -246,4 +246,88 @@ export const en: Record<DiagnosticsMessageKey, string> = {
     'The browser reported this error inside a script loaded from another website ({url}), not in a file of your project, so NoobIDE cannot take you to a line in your code. The page itself only receives "Script error." for it: browsers hide the details of errors in scripts from other websites.',
   'crossOrigin.external.check.calls':
     'Check the lines of your own code that use this library just before the error: the values you pass to it, and whether the page is ready (for example, the element exists).',
+  // S55.2 rules 16–25 (docs/product/explanation-rules-16-25.md) and their quick-fix labels (S55.3)
+  'action.usePath': 'Change the path to {path}',
+  'action.createFile': 'Create the file {path}',
+  'action.addAlt': 'Add alt="" to this <img>',
+  'action.fixClosingTag': 'Change </{from}> to </{to}>',
+  'action.useSelector': "Change '{from}' to '{to}'",
+  // Rule 16 — broken relative path, found statically
+  'brokenRef.title': 'No file in the project matches {attr}="{ref}".',
+  'brokenRef.explanation':
+    "NoobIDE did not find {path} in the project's file list, so this file may fail to load when the page runs. The file list can lag a moment behind the disk; if you just created the file, save and look again.",
+  'brokenRef.cause.similar': 'The project has a similarly named file, {actual}; the path may be mistyped.',
+  'brokenRef.cause.several': 'The project has several similarly named files ({candidates}); it may be one of them.',
+  'brokenRef.cause.missing': 'The file may not exist yet, or it may be in another folder.',
+  'brokenRef.check.relative': 'The path starts from the folder of {file}: ../ means one folder up.',
+  'brokenRef.check.compare':
+    'Find the file in the file tree and compare the path letter by letter (extension included).',
+  // Rule 17 — duplicate id
+  'dupId.title': 'The id “{id}” is used more than once in this file (first on line {firstLine}).',
+  'dupId.explanation':
+    'An id may be used only once per page. With two, getElementById("{id}") finds only the first element, while #{id} styles both.',
+  'dupId.check.rename':
+    'Give one of the elements a different id; if several elements should share a style, use a class instead.',
+  'dupId.check.code': 'Check the JavaScript and CSS that use {id}, and which element they mean.',
+  // Rule 18 — <img> without alt
+  'imgAlt.title': 'This <img> has no alt attribute.',
+  'imgAlt.explanation':
+    'alt is the text description of an image: screen readers read it aloud, and it is shown when the image fails to load. An image that is only decoration can have alt="" (empty).',
+  'imgAlt.check.describe':
+    'Describe the image in a few words inside the quotes of alt="", for example alt="Site logo".',
+  // Rule 19 — mismatched closing tag
+  'mismatch.title': 'The closing tag </{tag}> has no matching start tag.',
+  'mismatch.explanation.open':
+    'The browser ignores this </{tag}>. The element open here is <{open}>, so you may have meant </{open}>, or this closing tag may be one too many.',
+  'mismatch.explanation.none':
+    'No <{tag}> is open here, so the browser ignores this closing tag. It may be one too many, or the start tag may be misspelled.',
+  'mismatch.check.pair': 'Look upwards from this line for where <{open}> starts and where its closing tag belongs.',
+  'mismatch.check.spelling': 'Check that the start tag and the closing tag are spelled exactly the same.',
+  // Rule 20 — CSS length without unit
+  'unitless.title': '{property}: {value} has no unit, so the browser ignores this declaration.',
+  'unitless.explanation':
+    'Apart from 0, lengths need a unit, such as {value}px, {value}%, {value}em or {value}rem. You may have meant {value}px, but the right unit depends on the effect you want.',
+  'unitless.check.unit': 'Write the unit right after the number (no space), save and look at the preview.',
+  // Rule 21 — inline handler calling an undefined function
+  'inlineHandler.title': 'An on… attribute in the page calls {name}, but the browser cannot find that function.',
+  'inlineHandler.explanation':
+    'An attribute like onclick="{name}()" can only call global functions. When the click (or other event) happened, the browser did not find {name}; the possible causes are listed below.',
+  'inlineHandler.cause.module':
+    'The function may be in a <script type="module">: functions in a module are not global, so onclick cannot find them.',
+  'inlineHandler.cause.notLoaded':
+    'The .js file that defines it may not be included with <script src="…">, or its path may be wrong.',
+  'inlineHandler.cause.spelling': 'The name in the attribute and the declared name may differ in spelling or case.',
+  'inlineHandler.cause.nested': 'The function may be declared inside another function, where the page cannot see it.',
+  'inlineHandler.check.compare':
+    'Compare on…="{name}()" in the HTML with function {name} in the JavaScript, letter by letter.',
+  'inlineHandler.check.listener':
+    'You can also use addEventListener instead: find the element in JavaScript and add the event there.',
+  // Rule 22 — script runs before the element it reads
+  'scriptEarly.title': 'The script got null for #{id}, although the HTML does have an element with id="{id}".',
+  'scriptEarly.explanation':
+    'The element exists but was not found, so the likely cause is timing: the <script> comes before this element, and the browser ran it before it had read the element.',
+  'scriptEarly.check.move': 'Move the <script> to just before </body>, or add defer: <script src="…" defer>.',
+  'scriptEarly.check.dynamic': 'If the element is added to the page later by JavaScript, look it up after adding it.',
+  'scriptEarly.check.page': 'Make sure the page with the error is the HTML file that has id="{id}".',
+  // Rule 23 — selector-prefix mistakes
+  'selPrefix.title.byIdHash': "getElementById('{selector}') has an extra {prefix}.",
+  'selPrefix.title.queryBare': "querySelector('{selector}') is missing a # or a dot.",
+  'selPrefix.explanation.byIdHash':
+    'getElementById takes the id itself, without # or a dot, so it likely finds no element here and returns null.',
+  'selPrefix.explanation.queryBare':
+    'querySelector takes a CSS selector: {selector} without a symbol means a <{selector}> tag. In the page, “{selector}” is an id or a class, so it likely needs to be #{selector} or .{selector}.',
+  'selPrefix.cause.isId': 'The project’s HTML has id="{name}".',
+  'selPrefix.cause.isClass': 'The project’s HTML has class="{name}".',
+  'selPrefix.check.prefix': 'Remember: getElementById("name"), but querySelector("#name") or querySelector(".name").',
+  // Rule 24 — reference differs only in letter case
+  'refCase.title': '{attr}="{ref}" differs from the project file {actual} only in letter case.',
+  'refCase.explanation':
+    'On Windows and most Macs the file may still open, but it may fail on another system or a web server that tells capital and small letters apart.',
+  'refCase.check.match': 'Write every letter of the path exactly like the file name (case and extension included).',
+  // Rule 25 — assignment in an if/while condition
+  'assignCond.title': 'The {keyword} condition contains a single =.',
+  'assignCond.explanation':
+    'A single = assigns: it changes the variable, then the condition tests the new value. You may have meant to compare the two values, which is written ===.',
+  'assignCond.check.compare':
+    'To compare, change = to ===; if you really want to assign, do it on the line before the condition.',
 };

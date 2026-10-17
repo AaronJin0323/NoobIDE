@@ -3,7 +3,7 @@ import { createProblemRecord } from '../../shared/problem';
 import { INITIAL_SAVE, type SaveSnapshot } from '../workbench/save-machine';
 import { createSavedFileEvents } from '../workbench/saved-file-events';
 import { createFixHost, type FixEditor, type FixSaver } from './fix-host';
-import { holdsIdentifier, startFix, type ReplaceTextAction } from './fix-model';
+import { holdsText, startFix, type CreateFileAction, type ReplaceTextAction } from './fix-model';
 
 const TEXT = "const userName = '林小雨';\nconsole.log(userNmae);\nconsole.log(userNmae + '!');\n";
 const action: ReplaceTextAction = {
@@ -29,26 +29,41 @@ function fakeEditor(initial: string) {
   };
   const editor: FixEditor = {
     waitForModel: async () => model,
-    replaceSpan(_uri, span, from, to) {
-      if (!holdsIdentifier(model.text.split('\n')[span.line - 1] ?? '', span.column, from)) {
+    replaceSpan(_uri, span, from, to, match) {
+      if (!holdsText(model.text.split('\n')[span.line - 1] ?? '', span.column, from, match)) {
         return { ok: false, reason: 'changed' };
       }
       replace(span.line, span.column, span.endColumn, to);
       return { ok: true, text: model.text, version: model.version };
     },
-    undoSpan(_uri, span, from, to, version) {
+    undoSpan(_uri, span, from, to, version, match) {
       if (model.version === version) {
         model.text = model.undo.pop() ?? model.text;
         model.version += 1;
       } else {
-        if (!holdsIdentifier(model.text.split('\n')[span.line - 1] ?? '', span.column, to)) {
+        if (!holdsText(model.text.split('\n')[span.line - 1] ?? '', span.column, to, match)) {
           return { ok: false, reason: 'changed' };
         }
         replace(span.line, span.column, span.column + to.length, from);
       }
       return { ok: true, text: model.text, version: model.version };
     },
+    fillEmpty(_uri, text) {
+      if (model.text !== '') return { ok: false, reason: 'changed' };
+      model.undo.push(model.text);
+      model.text = text;
+      model.version += 1;
+      return { ok: true, text: model.text, version: model.version };
+    },
+    emptyAgain(_uri, text, version) {
+      if (model.version !== version && model.text !== text) return { ok: false, reason: 'changed' };
+      model.text = '';
+      model.version += 1;
+      return { ok: true, text: model.text, version: model.version };
+    },
     stillReportsUndefinedName: async (_uri, line, name) => model.text.split('\n')[line - 1]?.includes(name) ?? false,
+    stillReportsBeginner: async () => null,
+    reportsNow: () => null,
   };
   return { model, editor };
 }
@@ -196,5 +211,143 @@ describe('one-click fix through the editor and the save pipeline (S22.5)', () =>
     const inside = { ...action, span: { ...action.span, line: 2, column: 13, endColumn: 21 } };
     expect(await longer.host.apply(inside)).toEqual({ kind: 'not-applied', reason: 'changed' });
     expect(longer.model.undo).toEqual([]);
+  });
+});
+
+describe('S55.3 quick fixes through the editor and the save pipeline', () => {
+  const PAGE = '<img src="images/logoo.png" alt="标志">\n<img src="images/logoo.png" alt="二">\n';
+  const usePath: ReplaceTextAction = {
+    kind: 'replace-text',
+    label: { key: 'action.usePath', params: { path: 'images/logo.png' } },
+    span: { file: 'index.html', line: 1, column: 11, endColumn: 27 },
+    from: 'images/logoo.png',
+    to: 'images/logo.png',
+    match: 'exact',
+  };
+  const pageRecord = createProblemRecord(
+    {
+      source: 'static',
+      severity: 'warning',
+      projectId: 'p',
+      file: 'index.html',
+      line: 1,
+      column: 11,
+      code: 'html-broken-ref',
+      message: '`src` path `images/logoo.png` does not match any file in the project.',
+      data: { ref: 'images/logoo.png', attr: 'src', endLine: 1, endColumn: 27 },
+      at: 1,
+    },
+    'q',
+  );
+  const create: CreateFileAction = {
+    kind: 'create-file',
+    label: { key: 'action.createFile', params: { path: 'css/main.css' } },
+    path: 'css/main.css',
+    template: 'css',
+    problemFile: 'index.html',
+    problemLine: 4,
+  };
+
+  it('an exact replacement changes only that span (not the same text on the next line), as one undo step, saved', async () => {
+    const { host, model, disk } = setup({ text: PAGE });
+    expect(await host.apply(usePath)).toEqual({ kind: 'applied', version: 2 });
+    const expected = '<img src="images/logo.png" alt="标志">\n<img src="images/logoo.png" alt="二">\n';
+    expect(model.text).toBe(expected);
+    expect(disk.text).toBe(expected);
+    expect(model.undo).toEqual([PAGE]);
+    const fix = { ...startFix(pageRecord, usePath), phase: 'resolved' as const, version: 2 };
+    expect(await host.undo(fix)).toEqual({ kind: 'undone' });
+    expect(disk.text).toBe(PAGE);
+  });
+
+  it('an exact replacement is not applied when the span no longer reads the old text', async () => {
+    const moved = setup({ text: `<p>\n${PAGE}` });
+    expect(await moved.host.apply(usePath)).toEqual({ kind: 'not-applied', reason: 'changed' });
+    expect(moved.disk.text).toBe(`<p>\n${PAGE}`);
+  });
+
+  /** A host for a file that does not exist yet: createFile succeeds once (or reports `exists`). */
+  function createSetup(opts: { exists?: boolean; fail?: { code: string }; code?: string } = {}) {
+    const { model, editor } = fakeEditor('');
+    const { saver, disk } = fakeSaver('', opts.fail ?? null);
+    const created: string[] = [];
+    const host = createFixHost({
+      showFile: async () => ({ uri: 'file:///p/css/main.css', readOnly: false }),
+      saverOf: () => saver,
+      recordEdit: (_relPath, text) => saver.edit(text),
+      uriOf: () => 'file:///p/css/main.css',
+      savedFiles: createSavedFileEvents(),
+      createFile: async (relPath) => {
+        if (opts.exists) return { ok: false, code: 'exists' };
+        if (opts.code) return { ok: false, code: opts.code };
+        created.push(relPath);
+        return { ok: true };
+      },
+      locale: () => 'en',
+      editor: async () => editor,
+    });
+    return { host, model, disk, created, saver, editor };
+  }
+
+  it('create-file: created exclusively, the template is one editor edit in the empty file, saved', async () => {
+    const { host, model, disk, created } = createSetup();
+    expect(await host.apply(create)).toEqual({ kind: 'applied', version: 2 });
+    expect(created).toEqual(['css/main.css']);
+    expect(model.text).toBe('/* main: write your styles here. */\n');
+    expect(disk.text).toBe(model.text);
+    const fix = { ...startFix(pageRecord, create), phase: 'resolved' as const, version: 2 };
+    expect(await host.undo(fix)).toEqual({ kind: 'undone' });
+    expect(disk.text).toBe(''); // the template is taken out; the file itself stays (deleting is the user's call)
+  });
+
+  it('create-file never overwrites: when the path exists nothing is created, opened or written', async () => {
+    const { host, model, created } = createSetup({ exists: true });
+    expect(await host.apply(create)).toEqual({ kind: 'not-applied', reason: 'exists' });
+    expect(created).toEqual([]);
+    expect(model.undo).toEqual([]);
+  });
+
+  it('create-file: a file that is not empty when opened is left alone', async () => {
+    const { host, model } = createSetup();
+    model.text = 'body { color: red; }\n';
+    expect(await host.apply(create)).toEqual({ kind: 'not-applied', reason: 'created-empty' });
+    expect(model.text).toBe('body { color: red; }\n');
+  });
+
+  it('create-file: a failed save keeps the template in the editor and the pipeline, and reports it', async () => {
+    const { host, model, disk, saver } = createSetup({ fail: { code: 'permission-denied' } });
+    expect(await host.apply(create)).toEqual({ kind: 'save-failed', version: 2, code: 'permission-denied' });
+    expect(model.text).toContain('write your styles here');
+    expect(saver.text).toBe(model.text);
+    expect(disk.text).toBe('');
+  });
+
+  it('a stale quick fix (the finding is gone from the current text) changes nothing', async () => {
+    const { host, model, disk, editor } = setup({ text: PAGE });
+    editor.reportsNow = () => false;
+    expect(await host.apply(usePath, pageRecord)).toEqual({ kind: 'not-applied', reason: 'changed' });
+    expect(model.undo).toEqual([]);
+    expect(disk.text).toBe(PAGE);
+    editor.reportsNow = () => true;
+    expect((await host.apply(usePath, pageRecord)).kind).toBe('applied');
+  });
+
+  it('create-file: a stale reference creates nothing; a refused create keeps its cause', async () => {
+    const stale = createSetup();
+    stale.editor.reportsNow = () => false;
+    expect(await stale.host.apply(create, pageRecord)).toEqual({ kind: 'not-applied', reason: 'changed' });
+    expect(stale.created).toEqual([]);
+    const { host, created } = createSetup({ code: 'permission-denied' });
+    expect(await host.apply(create, pageRecord)).toEqual({
+      kind: 'not-applied',
+      reason: 'create-failed',
+      code: 'permission-denied',
+    });
+    expect(created).toEqual([]);
+  });
+
+  it('without a createFile dependency nothing is created', async () => {
+    const { host } = setup({ text: '' });
+    expect(await host.apply(create)).toEqual({ kind: 'not-applied', reason: 'not-open' });
   });
 });
