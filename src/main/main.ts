@@ -20,7 +20,8 @@ import {
 import { platformId } from '../platform/index';
 import { isWindows } from '../platform/labels';
 import { currentSquirrelAction, runSquirrelAction } from '../platform/squirrel';
-import { APP_ENTRY_URL, APP_ORIGIN } from './app-asset';
+import { APP_ENTRY_URL, APP_ORIGIN, APP_SCHEME } from './app-asset';
+import { serveProjectImage } from './project-images'; // S52.6
 import { handleAppProtocol, registerAppSchemePrivileges } from './app-protocol';
 import { buildCsp } from './csp';
 import {
@@ -256,11 +257,13 @@ function start(): void {
     installNetworkGuard(ses, devOrigin);
     // S18.1: the offline self-test proves the language services need no network.
     if (selfTestOffline()) ses.enableNetworkEmulation({ offline: true });
-    if (devOrigin) {
-      installDevCsp(ses, devOrigin, buildCsp('development', devOrigin));
-    } else {
-      handleAppProtocol(protocol, path.join(__dirname, '..', 'renderer', MAIN_WINDOW_VITE_NAME));
-    }
+    if (devOrigin) installDevCsp(ses, devOrigin, buildCsp('development', devOrigin));
+    // S52.6: project images for the image viewer tab on the `project` host (development and production alike).
+    handleAppProtocol(
+      protocol,
+      devOrigin ? null : path.join(__dirname, '..', 'renderer', MAIN_WINDOW_VITE_NAME),
+      (request) => serveProjectImage(request, { scheme: APP_SCHEME, rootOf: (id) => projects?.rootOf(id) }),
+    );
     // S25.3: the real known folders, also when Documents/Desktop are redirected (e.g. by OneDrive).
     configureProtectedFolders({
       known: {
@@ -444,6 +447,7 @@ function start(): void {
       allowedOrigin: devOrigin ?? APP_ORIGIN,
       projects: openProjects,
       trashItem: (fullPath) => shell.trashItem(fullPath), // S52.3: the OS trash, never a permanent delete
+      rootOf: (projectId) => openProjects.rootOf(projectId), // S52.6
     });
     // S41.4: preview annotations, kept per project in app data (never in the project folder).
     registerAnnotationsIpcHandlers(ipcMain, {

@@ -4568,8 +4568,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/shared/image-files.test.ts (types incl. dotfiles refused, URL round-trip, relativeHref/imgTag), tests/integration/project-images.test.ts (9: app-protocol project host, realpath/junction refusal, NTFS stream/device/encoded traversal refused, SVG CSP sandbox no script-src, imageInfo + contract), src/main/csp.test.ts, document-state tests, tests/e2e/image-viewer.spec.ts (8: png/gif/svg/jpg/webp/ico with pixel+byte size, font refusal, SVG script never runs, copy tag/path relative to the HTML tab, en labels, external change/move); subagent review findings 1-6, 8 fixed"
     },
     {
       "id": "S53.1",

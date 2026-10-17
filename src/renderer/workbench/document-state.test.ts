@@ -176,3 +176,22 @@ describe('tabs follow a move (S52.1)', () => {
     expect(documentReducer(before, moved('missing.html', 'y.html'))).toBe(before);
   });
 });
+
+describe('image viewer tabs (S52.6)', () => {
+  const url = 'noobide://project/3f1c2a9e-8b7d-4c6e-9f00-1a2b3c4d5e6f/%E5%9B%BE.png?v=1';
+  it('an image opens as a read-only tab with its size and the app-protocol URL as its uri', () => {
+    const state = run(...opened('index.html'), { type: 'imageLoaded', relPath: '图 一.png', url, bytes: 1234 });
+    const tab = activeTab(state);
+    expect(tab).toMatchObject({ relPath: '图 一.png', uri: url, image: { bytes: 1234 } });
+    expect(tab?.content).toMatchObject({ text: '', readOnly: true, uri: url });
+    expect(state.tabs.map((t) => t.relPath)).toEqual(['index.html', '图 一.png']);
+  });
+
+  it('opening it again only shows it; a background restore does not take the visible tab', () => {
+    let state = run(...opened('index.html'), { type: 'imageLoaded', relPath: 'a.png', url, bytes: 1 });
+    state = documentReducer(state, { type: 'activate', relPath: 'index.html' });
+    state = documentReducer(state, { type: 'imageLoaded', relPath: 'a.png', url, bytes: 1, background: true });
+    expect(state.tabs).toHaveLength(2);
+    expect(state.active).toBe('index.html');
+  });
+});

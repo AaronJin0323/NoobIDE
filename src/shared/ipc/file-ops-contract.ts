@@ -8,6 +8,7 @@
  * inside the project root by main.
  */
 import { isListedRelPath, isPortableRelPath, isProjectId, type FileOpError, type IpcResult } from './contract';
+import { isImagePath } from '../image-files';
 
 export const FILE_OPS_CHANNELS = {
   /** S52.1/S52.3: moves entries into a folder of the project. */
@@ -16,6 +17,8 @@ export const FILE_OPS_CHANNELS = {
   copyEntries: 'workspace:copy-entries',
   /** S52.3: moves a selection to the OS trash, item by item. */
   trashEntries: 'workspace:trash-entries',
+  /** S52.6: the byte size of a project image for the image viewer tab (the picture comes by the app protocol). */
+  imageInfo: 'workspace:image-info',
 } as const;
 
 /** Most entries one request may name (a selection in the tree). */
@@ -82,7 +85,18 @@ export interface TrashEntriesResult {
   readonly failed: readonly BatchFailure[];
 }
 
+/** S52.6: an image of the project the viewer can show. */
+export interface ImageInfo {
+  readonly bytes: number;
+  readonly mtimeMs: number;
+}
+
 export interface FileOpsApi {
+  /** S52.6: size of a png/jpg/gif/svg/webp/ico inside the project; anything else is refused. */
+  imageInfo(request: {
+    readonly projectId: string;
+    readonly relPath: string;
+  }): Promise<IpcResult<ImageInfo, FileOpError>>;
   /** S52.3: moves files and folders to the OS trash one by one; a partial failure lists what stayed. */
   trashEntries(request: TrashEntriesRequest): Promise<IpcResult<TrashEntriesResult, FileOpError>>;
   /** S52.2: copies files and folders byte for byte; never overwrites, a failed copy removes only what it made. */
@@ -127,4 +141,10 @@ export function parseTrashEntriesRequest(payload: unknown): TrashEntriesRequest 
   const { projectId, relPaths } = payload;
   if (!isProjectId(projectId) || !isEntryList(relPaths)) return null;
   return { projectId, relPaths: [...relPaths] };
+}
+
+export function parseImageInfoRequest(payload: unknown): { projectId: string; relPath: string } | null {
+  if (!isRecord(payload) || !hasExactKeys(payload, ['projectId', 'relPath'])) return null;
+  const { projectId, relPath } = payload;
+  return isProjectId(projectId) && isPortableRelPath(relPath) && isImagePath(relPath) ? { projectId, relPath } : null;
 }

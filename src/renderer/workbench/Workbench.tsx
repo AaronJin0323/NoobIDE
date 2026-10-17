@@ -75,6 +75,8 @@ const releaseFileModels = () =>
 // S11: external changes
 import { DiskSync, planWatchEvents } from './disk-sync';
 import { moveTab as moveOpenTab } from './tab-move'; // S52.1
+import { isImagePath, projectImageUrl } from '../../shared/image-files'; // S52.6
+import { APP_SCHEME } from '../../shared/app-scheme'; // S52.6
 import type { DiskActions } from './DiskStateBanner';
 const editorModels = () => import('../editor/editor-models');
 // S13 app data
@@ -145,6 +147,16 @@ export function Workbench() {
   const visible = visibleRegions(layout, narrow);
   /** Bumped by the narrow window's top-bar "New file" button: the files panel starts a new file (key-features pass). */
   const [newFileRequest, setNewFileRequest] = useState(0);
+  /** S52.6: the last HTML tab shown; the image viewer's copied paths are relative to it. */
+  const [lastHtml, setLastHtml] = useState<string | null>(null);
+  useEffect(() => {
+    if (doc.active && /\.html?$/i.test(doc.active)) setLastHtml(doc.active);
+  }, [doc.active]);
+  useEffect(() => setLastHtml(null), [doc.project?.projectId]);
+  // A closed (or moved, or trashed) HTML tab is no longer a base for copied paths.
+  useEffect(() => {
+    if (lastHtml !== null && !doc.tabs.some((tab) => tab.relPath === lastHtml)) setLastHtml(null);
+  }, [doc.tabs, lastHtml]);
   /** S52.1/S52.2: palette commands on the file tree's selection. */
   const [fileCommand, setFileCommand] = useState<{ id: number; command: FileCommand } | undefined>(undefined);
   const runFileCommand = (command: FileCommand) => setFileCommand((last) => ({ id: (last?.id ?? 0) + 1, command }));
@@ -362,6 +374,29 @@ export function Workbench() {
     async (relPath: string, options: { readonly quiet?: boolean; readonly background?: boolean } = {}) => {
       const project = docRef.current.project;
       if (!bridge || !project) return;
+      // S52.6: images open in the viewer tab, served by the app protocol (never the preview server).
+      if (isImagePath(relPath) && bridge.fileOps) {
+        if (docRef.current.tabs.some((tab) => tab.relPath === relPath)) {
+          if (!options.background) dispatch({ type: 'activate', relPath });
+          return;
+        }
+        const seq = projectSeq.current;
+        const info = await bridge.fileOps.imageInfo({ projectId: project.projectId, relPath });
+        if (seq !== projectSeq.current) return;
+        if (info.ok) {
+          // The mtime in the URL makes a changed image load again instead of coming from the cache.
+          const url = projectImageUrl(APP_SCHEME, project.projectId, relPath, Math.round(info.value.mtimeMs));
+          const bytes = info.value.bytes;
+          dispatch({ type: 'imageLoaded', relPath, url, bytes, ...(options.background ? { background: true } : {}) });
+        } else if (!options.quiet) {
+          dispatch({
+            type: 'docFailed',
+            relPath,
+            code: info.code === 'not-found' ? 'not-found' : info.code === 'too-large' ? 'too-large' : 'read-failed',
+          });
+        }
+        return;
+      }
       if (savers.current.has(relPath)) {
         if (!options.background) dispatch({ type: 'activate', relPath });
         return;
@@ -402,6 +437,10 @@ export function Workbench() {
   const closeTab = useCallback(async (relPath: string) => {
     const saver = saverOf(relPath);
     const tab = docRef.current.tabs.find((open) => open.relPath === relPath);
+    if (tab?.image) {
+      dropTab(relPath); // S52.6: an image tab has nothing to save
+      return;
+    }
     if (!saver || !tab) return;
     if (saver.state.deleted) {
       // S11.3: the file is gone from disk; its text exists only here. Ask before closing.
@@ -515,8 +554,16 @@ export function Workbench() {
         .filter((relPath) => !lockedRef.current.some((locked) => isSameOrBelow(relPath, locked)));
       // S52.1: renames and moves of open files are replayed as moves (same content), the rest is checked.
       const plan = planWatchEvents(change.events, open);
-      for (const move of plan.moves) void diskSync.current.replayMove(move.from, move.to);
-      for (const relPath of plan.check) void diskSync.current.check(relPath);
+      // S52.6: image tabs have no saver: they are re-read (new picture, size) or follow a move as a reopen.
+      const isImageTab = (relPath: string) => docRef.current.tabs.some((t) => t.relPath === relPath && t.image);
+      for (const move of plan.moves) {
+        if (isImageTab(move.from)) void imageChangedRef.current(move.from, move.to);
+        else void diskSync.current.replayMove(move.from, move.to);
+      }
+      for (const relPath of plan.check) {
+        if (isImageTab(relPath)) void imageChangedRef.current(relPath, relPath);
+        else void diskSync.current.check(relPath);
+      }
     });
   }, [bridge, projectIdNow]);
 
@@ -598,11 +645,46 @@ export function Workbench() {
   );
   const moveTabs = useCallback(
     async (from: string, to: string) => {
-      const open = docRef.current.tabs.map((tab) => tab.relPath).filter((relPath) => isSameOrBelow(relPath, from));
-      for (const relPath of open) await moveTab(relPath, to + relPath.slice(from.length));
+      const tabs = docRef.current.tabs.filter((tab) => isSameOrBelow(tab.relPath, from));
+      for (const tab of tabs) {
+        const moved = to + tab.relPath.slice(from.length);
+        if (tab.image) {
+          // S52.6: an image tab is simply opened again at its new path (nothing unsaved can be in it).
+          const wasActive = docRef.current.active === tab.relPath;
+          dropTab(tab.relPath);
+          await openFile(moved, { background: !wasActive });
+        } else await moveTab(tab.relPath, moved);
+      }
     },
-    [moveTab],
+    [moveTab, openFile],
   );
+  /**
+   * S52.6: an open image changed on disk (`from === to`) or moved there from `from`: the tab shows the file as it is
+   * now, in place; a vanished image's tab is closed (it holds nothing that could be lost).
+   */
+  const imageChanged = useCallback(
+    async (from: string, to: string) => {
+      const project = docRef.current.project;
+      if (!bridge?.fileOps || !project) return;
+      const wasActive = docRef.current.active === from;
+      const info = await bridge.fileOps.imageInfo({ projectId: project.projectId, relPath: to });
+      if (docRef.current.project !== project || !docRef.current.tabs.some((t) => t.relPath === from)) return;
+      if (from !== to || !info.ok) dropTab(from);
+      if (!info.ok) return;
+      const url = projectImageUrl(APP_SCHEME, project.projectId, to, Math.round(info.value.mtimeMs));
+      dispatch({
+        type: 'imageLoaded',
+        relPath: to,
+        url,
+        bytes: info.value.bytes,
+        ...(from === to ? { refresh: true } : {}),
+        ...(wasActive ? {} : { background: true }),
+      });
+    },
+    [bridge],
+  );
+  const imageChangedRef = useRef(imageChanged);
+  imageChangedRef.current = imageChanged;
   const moveTabRef = useRef(moveTab);
   moveTabRef.current = moveTab;
   const moveTabsRef = useRef(moveTabs);
@@ -1327,6 +1409,7 @@ export function Workbench() {
         <EditorPane
           hidden={!visible.editor}
           state={doc}
+          lastHtml={lastHtml}
           fontSize={fontSize}
           onZoom={(step) => setFontSize((size) => zoomFontSize(size, step))}
           onActivate={(relPath) => dispatch({ type: 'activate', relPath })}

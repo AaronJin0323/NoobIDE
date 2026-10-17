@@ -21,6 +21,7 @@ import { saveErrorKey } from './file-op-messages';
 import { useInlineAiState } from '../ai/useInlineAiState'; // S32.1
 import { IndentStatus } from './IndentStatus'; // S43.2
 import { EditorAiActions } from '../ai/EditorAiActions';
+import { ImageView } from './ImageView'; // S52.6
 
 const FORMATTABLE = new Set(['html', 'css', 'javascript']);
 
@@ -63,6 +64,8 @@ interface EditorPaneProps {
   welcome?: ReactNode;
   /** S21.3: opens the local history of the active file. */
   onShowHistory?: ((relPath: string) => void) | undefined;
+  /** S52.6: the HTML file the image viewer's copied paths are relative to (the last HTML tab shown). */
+  lastHtml?: string | null | undefined;
 }
 
 function openErrorKey(code: string): MessageKey {
@@ -97,21 +100,25 @@ export function EditorPane(props: EditorPaneProps) {
   }, [comparingPath, tabs]);
   const comparing = tab !== null && comparingPath === tab.relPath && tab.save.conflict && !!tab.conflictDisk;
   const notice = copyNotice && tab && copyNotice.relPath === tab.relPath ? copyNotice : null;
-  const editorFile = tab
-    ? {
-        uri: tab.uri,
-        language: languageForPath(tab.relPath),
-        initialValue: tab.content.text,
-        eol: tab.content.eol,
-        readOnly: (tab.content.readOnly ?? false) || props.lockedPaths.some((path) => isSameOrBelow(tab.relPath, path)),
-        // S32.1: AI suggestions need to know which project file this is.
-        projectId: project?.projectId,
-        relPath: tab.relPath,
-        encoding: tab.content.encoding,
-      }
-    : !project
-      ? { uri: 'inmemory://noobide/welcome.html', language: 'html', initialValue: SAMPLE_HTML }
-      : null;
+  const imageTab = tab?.image ? tab : null; // S52.6: shown in the image viewer, not in the code editor
+  const editorFile = imageTab
+    ? null
+    : tab
+      ? {
+          uri: tab.uri,
+          language: languageForPath(tab.relPath),
+          initialValue: tab.content.text,
+          eol: tab.content.eol,
+          readOnly:
+            (tab.content.readOnly ?? false) || props.lockedPaths.some((path) => isSameOrBelow(tab.relPath, path)),
+          // S32.1: AI suggestions need to know which project file this is.
+          projectId: project?.projectId,
+          relPath: tab.relPath,
+          encoding: tab.content.encoding,
+        }
+      : !project
+        ? { uri: 'inmemory://noobide/welcome.html', language: 'html', initialValue: SAMPLE_HTML }
+        : null;
 
   return (
     // Hidden, not unmounted, in the narrow Preview view: the buffer and cursor survive switching back.
@@ -132,7 +139,7 @@ export function EditorPane(props: EditorPaneProps) {
             {t('editor.sampleBadge')}
           </span>
         )}
-        {tab && props.onShowHistory && (
+        {tab && !imageTab && props.onShowHistory && (
           <button
             type="button"
             className="quiet-button history-button"
@@ -238,7 +245,7 @@ export function EditorPane(props: EditorPaneProps) {
           onCloseDiscarding={props.onCloseDiscarding}
         />
       )}
-      {tab?.content.readOnly && (
+      {tab?.content.readOnly && !imageTab && (
         // S07.4: another encoding — shown read-only so a save can never re-encode (and damage) the file.
         <p className="inline-alert" role="status" data-testid="read-only-notice">
           <WarningIcon />
@@ -248,7 +255,7 @@ export function EditorPane(props: EditorPaneProps) {
           </span>
         </p>
       )}
-      {tab?.content.mixedEol && (
+      {tab?.content.mixedEol && !imageTab && (
         <p className="inline-alert" role="note" data-testid="mixed-eol">
           <WarningIcon />
           {t(tab.content.eol === '\r\n' ? 'editor.mixedEol.crlf' : 'editor.mixedEol.lf')}
@@ -269,6 +276,15 @@ export function EditorPane(props: EditorPaneProps) {
               }
             />
           </Suspense>
+        </div>
+      ) : imageTab?.image ? (
+        <div className="editor-surface" id="editor-surface" role="tabpanel">
+          <ImageView
+            relPath={imageTab.relPath}
+            url={imageTab.uri}
+            bytes={imageTab.image.bytes}
+            htmlRelPath={props.lastHtml ?? null}
+          />
         </div>
       ) : editorFile ? (
         <div className="editor-surface" id="editor-surface" role="tabpanel">

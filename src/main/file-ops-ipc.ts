@@ -3,11 +3,13 @@ import { toIpcResult, type IpcResult } from '../shared/ipc/contract';
 import {
   FILE_OPS_CHANNELS,
   parseCopyEntriesRequest,
+  parseImageInfoRequest,
   parseMoveEntriesRequest,
   parseTrashEntriesRequest,
 } from '../shared/ipc/file-ops-contract';
 import type { ProjectService } from '../workspace/project-service';
 import { isTrustedSender, senderInfo } from './ipc';
+import { projectImageInfo } from './project-images'; // S52.6
 
 /**
  * IPC handlers of S52 file management (file-ops-contract.ts). The same checks as every other handler, in the same
@@ -17,6 +19,8 @@ import { isTrustedSender, senderInfo } from './ipc';
 export interface FileOpsIpcDeps {
   readonly allowedOrigin: string;
   readonly projects: Pick<ProjectService, 'moveEntries' | 'copyEntries' | 'trashEntries'>;
+  /** S52.6: the real root of an open project (image sizes for the viewer). */
+  rootOf?(projectId: string): string | undefined;
   /** Electron's shell.trashItem: moves to the OS trash, never deletes permanently. */
   trashItem(fullPath: string): Promise<void>;
 }
@@ -48,4 +52,9 @@ export function registerFileOpsIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: F
   handle(FILE_OPS_CHANNELS.trashEntries, parseTrashEntriesRequest, async (request) =>
     toIpcResult(await deps.projects.trashEntries(request, deps.trashItem)),
   );
+  handle(FILE_OPS_CHANNELS.imageInfo, parseImageInfoRequest, async ({ projectId, relPath }) => {
+    const root = deps.rootOf?.(projectId);
+    if (root === undefined) return { ok: false, code: 'unknown-project', message: 'project is not open' };
+    return toIpcResult(await projectImageInfo(root, relPath));
+  });
 }
