@@ -132,16 +132,19 @@ describe('file watcher (S07.3)', { timeout: 15_000 }, () => {
     events = [];
     watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { debounceMs: 20, watch });
     await watcher.start();
-    // The OS reports each step, but all of them before the batch is classified.
+    // The OS reports each step, but all of them before the batch is classified. The disk work runs first and the
+    // reports are delivered back to back: with disk operations between them, a saturated CI runner let the 20 ms
+    // debounce fire mid-sequence, which classified the folder as created and left the rest for a batch that idle()
+    // could not wait for (PR #14 CI).
     await writeFile(p('外部 新建.js'), '');
-    raw('外部 新建.js');
     await rm(p('外部 新建.js'));
-    raw('外部 新建.js');
     await mkdir(p('临时'));
-    raw('临时');
     await writeFile(p('临时', 'a.js'), '');
-    raw(path.join('临时', 'a.js'));
     await rm(p('临时'), { recursive: true });
+    raw('外部 新建.js');
+    raw('外部 新建.js');
+    raw('临时');
+    raw(path.join('临时', 'a.js'));
     raw(path.join('临时', 'a.js'));
     raw('临时');
     await expect.poll(() => events.length).toBeGreaterThan(0);

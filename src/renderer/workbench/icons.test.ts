@@ -102,3 +102,38 @@ describe('icon sources (S46.7)', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('file-type icons (S49.3)', () => {
+  it('maps extensions to icon kinds, case-insensitively', () => {
+    const cases: [string, wb.FileIconKind][] = [
+      ['index.html', 'html'],
+      ['OLD.HTM', 'html'],
+      ['style.css', 'css'],
+      ['app.js', 'js'],
+      ['tool.mjs', 'js'],
+      ['legacy.cjs', 'js'],
+      ['data.json', 'json'],
+      ...['png', 'jpg', 'JPEG', 'gif', 'svg', 'webp', 'ico'].map((e): [string, wb.FileIconKind] => [
+        `照片 1.${e}`,
+        'image',
+      ]),
+      ...['woff', 'woff2', 'ttf', 'otf'].map((e): [string, wb.FileIconKind] => [`字体.${e}`, 'font']),
+      ['说明 文档.txt', 'text'],
+      ['README.md', 'text'],
+      ['README', 'other'],
+      ['.gitignore', 'other'],
+      ['archive.zip', 'other'],
+      ['trailing.', 'other'],
+      ['my.page.html', 'html'],
+    ];
+    for (const [name, kind] of cases) expect(wb.iconForName(name), name).toBe(kind);
+  });
+
+  it('draws a distinct glyph per kind in the tree, decorative only', () => {
+    const kinds = ['a.html', 'a.css', 'a.js', 'a.json', 'a.png', 'a.woff', 'a.txt', 'a.bin'];
+    const markup = kinds.map((name) => renderToStaticMarkup(createElement(wb.TreeFileIcon, { name })));
+    expect(new Set(markup).size).toBe(kinds.length);
+    for (const html of markup) expect(html).toContain('aria-hidden="true"');
+    expect(renderToStaticMarkup(createElement(wb.TreeFileIcon, {}))).toBe(markup[markup.length - 1]);
+  });
+});
