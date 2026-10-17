@@ -13,6 +13,8 @@ import {
   type PreviewBounds,
   type PreviewEvent,
   type PreviewLogEntry,
+  type PreviewReloadReason,
+  type PreviewSaveUpdate,
   type PreviewStartError,
   type PreviewStatus,
   type RefreshMode,
@@ -46,6 +48,15 @@ import { parseRequestTarget, resolveInRoot } from './request-path';
 import type { Locale } from '../renderer/i18n/index';
 import { NotOwnerError, ServerRegistry, type ServerOwner } from './server-registry';
 import { DEFAULT_TYPING_PAUSE_MS, RefreshScheduler } from './refresh-scheduler';
+// S54 (decision 0040): linked stylesheets are swapped in place on a CSS-only save, else the page reloads.
+import {
+  isCssPath,
+  portablePath,
+  readSavedStylesheets,
+  swapProblemMessage,
+  swapStylesheets,
+  type SwapOutcome,
+} from './css-swap';
 import { PermissionNotices } from './permission-policy';
 import { ResourceFailureTracker, type RequestOutcome } from './resource-failures';
 import { INITIAL_MACHINE, transition, type PreviewMachine, type PreviewMachineEvent } from './state-machine';
@@ -142,6 +153,12 @@ interface LivePreview {
   pageMissing: boolean;
   /** Counts loads the manager asks for; a load decided before an await is dropped when a newer one was asked for. */
   navSeq: number;
+  /** S54: main-frame navigations that began (for the e2e suite: a style swap must not add one). */
+  navigations: number;
+  /** S54: style swaps applied without a reload. */
+  cssSwaps: number;
+  /** S54: IDE records for Problems that belong to the next page load (a swap fell back to a reload). */
+  afterLoadRecords: PreviewLogEntry[];
 }
 
 /** One flood guard decision: a stop sent, or its answer. `ms` is main's time since the counting window began. */
@@ -215,6 +232,8 @@ export class PreviewManager {
   );
   /** A save arrived while the page was loading; reload when the load finishes. */
   private reloadPending = false;
+  /** S54: the save-update reason of that pending reload (dropped with it). */
+  private reloadPendingReason: PreviewReloadReason | null = null;
   /** S15.5/S15.6: a start or refresh must not take the keyboard focus away from the workbench. */
   private readonly focusGuard = new FocusGuard();
   private startQueue: Promise<unknown> = Promise.resolve();
@@ -230,11 +249,22 @@ export class PreviewManager {
   private readonly refresher: RefreshScheduler;
   /** S25.4: one console notice per denied permission kind and page load. */
   private readonly permissionNotices = new PermissionNotices();
+  /** S54: project paths saved since the last automatic update (consumed when the refresh fires). */
+  private readonly savedSince = new Set<string>();
+  /** S54: why the next refresh happens, when it is the automatic update after a save. */
+  private nextReloadReason: PreviewReloadReason | null = null;
+  private saveUpdateSeq = 0;
+  /** S54: automatic updates run one at a time (a swap awaits the page). */
+  private saveQueue: Promise<void> = Promise.resolve();
+  /** Fault injection for the e2e suite: the next style swap fails as if a protocol command had. */
+  private failNextSwap = false;
 
   constructor(private readonly deps: PreviewManagerDeps) {
     this.refresher = new RefreshScheduler({
       quietMs: deps.typingPauseMs ?? DEFAULT_TYPING_PAUSE_MS,
-      refresh: () => void this.reload({ afterSave: true }),
+      refresh: () => {
+        this.saveQueue = this.saveQueue.then(() => this.applySaves()).catch(() => undefined);
+      },
     });
   }
 
@@ -275,6 +305,7 @@ export class PreviewManager {
     this.startingOwner = owner;
     this.reloadPending = false;
     this.refresher.cancel();
+    this.forgetSaves();
     this.apply(window, projectId, { type: 'start' });
 
     let server: PreviewServer;
@@ -415,6 +446,9 @@ export class PreviewManager {
       entryUrl: `${server.origin}/${entryPath}`,
       pageMissing: false,
       navSeq: 0,
+      navigations: 0,
+      cssSwaps: 0,
+      afterLoadRecords: [],
     };
     this.live = live;
     this.startingWindow = null;
@@ -443,6 +477,7 @@ export class PreviewManager {
     this.generation += 1;
     this.reloadPending = false;
     this.refresher.cancel();
+    this.forgetSaves();
     if (!live) {
       const starting = this.startingWindow;
       this.startingWindow = null;
@@ -478,18 +513,26 @@ export class PreviewManager {
    * (404, e.g. after following a broken link), reloading it would only show the 404 again, so the preview goes back
    * to the entry page instead, unless the missing file exists by now (then that page is loaded).
    */
-  reload(options: { readonly afterSave?: boolean } = {}): PreviewStatus {
+  reload(
+    options: {
+      readonly afterSave?: boolean;
+      /** S54: why a save reloads (the toolbar says so). */ readonly reason?: PreviewReloadReason;
+    } = {},
+  ): PreviewStatus {
     const live = this.live;
     if (!live || live.view.webContents.isDestroyed()) return this.status;
     // Still loading: refresh once the load has finished, so a save during startup is not lost.
     if (this.status.state === 'starting' || this.status.state === 'refreshing') {
       this.reloadPending = true;
+      this.reloadPendingReason = options.reason ?? null;
       return this.status;
     }
     // A hung page cannot reload itself (the user has to Stop, which recreates the view on the next Start); a
     // crashed page has nothing to reload. The state machine refuses both.
     const before = this.machine;
+    this.nextReloadReason = options.reason ?? null; // read by apply() for this refresh only
     this.update(live, { type: 'refresh' });
+    this.nextReloadReason = null;
     if (this.machine === before) return this.status;
     this.focusGuard.loadStarted(!live.window.isDestroyed() && live.window.webContents.isFocused(), Date.now());
     const seq = ++live.navSeq;
@@ -509,6 +552,7 @@ export class PreviewManager {
       if (this.machine === before) return err('not-running', 'the page cannot load now');
     }
     this.reloadPending = false; // the entry page is loaded fresh anyway
+    this.reloadPendingReason = null;
     this.focusGuard.loadStarted(!live.window.isDestroyed() && live.window.webContents.isFocused(), Date.now());
     const seq = ++live.navSeq;
     const target = await this.entryUrlOf(live);
@@ -551,16 +595,92 @@ export class PreviewManager {
    * A file of the project was saved (confirmed write). S14.2: in automatic mode the page refreshes once the user
    * pauses typing (PLAN §3); in manual mode it only notes that the page may be older than the files.
    */
-  fileSaved(projectId: string, mode: RefreshMode = 'auto'): void {
+  fileSaved(projectId: string, mode: RefreshMode = 'auto', relPath?: string): void {
     const live = this.live;
     if (live?.projectId !== projectId) return;
     if (mode === 'auto') {
+      // S54: an unknown file counts as "not CSS", so it reloads.
+      this.savedSince.add(relPath === undefined ? '' : portablePath(relPath));
       this.refresher.saved();
       return;
     }
     if (!this.status.outdated && this.status.state !== 'stopped') {
       this.setStatus(live.window, { ...this.status, outdated: true });
     }
+  }
+
+  /**
+   * S54 (decision 0040): the automatic update after the saves since the last one. Only CSS files that the page links:
+   * their stylesheets are swapped in place and the page is not reloaded. Anything else — or a swap that cannot be
+   * applied — is the S14.2 full reload, and the status says which happened and why.
+   */
+  private async applySaves(): Promise<void> {
+    const paths = [...this.savedSince];
+    this.savedSince.clear();
+    const live = this.live;
+    if (!live || live.view.webContents.isDestroyed()) return;
+    if (paths.length === 0) return; // an earlier update already took these saves (or a Stop / Start dropped them)
+    if (!paths.every(isCssPath)) return this.reloadAfterSave('not-css');
+    // Loading, hung, failed or a missing page: the reload path already handles these.
+    if (this.status.state !== 'running' || live.pageMissing) return this.reloadAfterSave('failed');
+    const generation = this.machine.generation;
+    const read = await readSavedStylesheets(live.server.root, paths);
+    if (this.live !== live || live.view.webContents.isDestroyed()) return;
+    const contents = live.view.webContents;
+    const failing = this.failNextSwap;
+    this.failNextSwap = false;
+    const outcome: SwapOutcome = !read.ok
+      ? read
+      : await swapStylesheets(failing || !live.pageGuarded ? null : contents.debugger, read.files, {
+          origin: live.server.origin,
+          useDom: (work) => live.picker.withDom(work),
+        });
+    if (this.live !== live || contents.isDestroyed()) return;
+    // The page loaded a new document meanwhile: it read the saved files itself.
+    if (this.machine.generation !== generation) return;
+    if (outcome.ok) {
+      live.cssSwaps += 1;
+      this.setStatus(live.window, { ...this.status, saveUpdate: { kind: 'styles', seq: ++this.saveUpdateSeq } });
+      return;
+    }
+    if (outcome.reason === 'syntax' || outcome.reason === 'failed') {
+      const file = outcome.file ?? paths[0] ?? '';
+      const url = `${live.server.origin}/${file.split('/').map(encodeURIComponent).join('/')}`;
+      live.afterLoadRecords.push({
+        source: 'console',
+        level: 'warning',
+        message: swapProblemMessage(this.deps.locale?.() ?? 'zh-CN', {
+          reason: outcome.reason,
+          file,
+          ...(outcome.kind ? { kind: outcome.kind } : {}),
+          ...(outcome.line ? { line: outcome.line } : {}),
+        }),
+        url,
+        ...(outcome.line ? { line: outcome.line } : {}),
+        at: Date.now(),
+      });
+    }
+    this.reloadAfterSave(outcome.reason);
+  }
+
+  private reloadAfterSave(reason: PreviewReloadReason): void {
+    const live = this.live;
+    const before = this.machine;
+    const pending = this.reloadPending;
+    this.reload({ afterSave: true, reason });
+    // No reload started or queued (a hung or failed page): its records must not attach to some later page load.
+    if (live && this.machine === before && !(this.reloadPending && !pending)) live.afterLoadRecords = [];
+  }
+
+  private forgetSaves(): void {
+    this.savedSince.clear();
+    this.reloadPendingReason = null;
+    if (this.live) this.live.afterLoadRecords = [];
+  }
+
+  /** Fault injection for the e2e suite (S54.3): the next style swap fails. */
+  debugFailNextCssSwap(): void {
+    this.failNextSwap = true;
   }
 
   /** S14.2: a key was typed in the code editor; a pending automatic refresh waits for the pause. */
@@ -950,6 +1070,8 @@ export class PreviewManager {
       pageGuarded: live?.pageGuarded ?? null,
       guardTrace: guardTraceOf(contents), // S05.8
       floodTrace: live ? [...live.floodTrace] : [],
+      navigations: live?.navigations ?? null, // S54
+      cssSwaps: live?.cssSwaps ?? null, // S54
       recentRecords: [...this.recent],
     };
   }
@@ -1276,6 +1398,7 @@ export class PreviewManager {
       if (!isCurrent() || !event.isMainFrame || event.isSameDocument) return;
       live.ping = null; // A ping sent to the previous document may never be answered.
       live.picker.dispose(); // S41.3: a pick or highlight belongs to the page that was shown
+      live.navigations += 1;
       this.update(live, { type: 'navigate' });
       // S16.3: a new page load is on its way. Its generation is the state machine's (a Start or refresh already
       // counted it; a navigation the page makes by itself was counted just now), so problem records, the status and
@@ -1295,17 +1418,24 @@ export class PreviewManager {
       // without this the watchdog would wait for it forever and keep a page that answers marked unresponsive.
       live.ping = null;
       this.deps.capture?.navigationCommitted(live.loadGeneration ?? this.machine.generation);
+      // S54: why the style swap fell back to this reload (syntax error, failure) belongs to this page load.
+      const records = live.afterLoadRecords;
+      live.afterLoadRecords = [];
+      for (const record of records) this.pushLog(record);
     });
     contents.on('did-stop-loading', () => {
       if (!isCurrent()) return;
       this.update(live, { type: 'load-finished' });
       if (this.reloadPending && this.status.state === 'running') {
+        const reason = this.reloadPendingReason;
         this.reloadPending = false;
-        this.reload();
+        this.reloadPendingReason = null;
+        this.reload(reason === null ? {} : { reason });
       }
     });
     contents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
       if (!isCurrent() || !isMainFrame || errorCode === -3) return; // -3: aborted by a newer navigation.
+      live.afterLoadRecords = []; // S54: the page load they belonged to did not happen
       this.pushLog({
         source: 'page-load',
         level: 'error',
@@ -1385,6 +1515,14 @@ export class PreviewManager {
     const outdated = !fresh && next.state !== 'stopped' && this.status.outdated === true;
     // The missing-page mark belongs to the page showing (`url`); the next page that loads sets it again.
     const notFound = url !== undefined && this.status.notFound === true;
+    // S54: an automatic update after a save names itself; a start, navigation, manual refresh or Stop clears it.
+    let saveUpdate: PreviewSaveUpdate | undefined;
+    if (event.type === 'refresh') {
+      saveUpdate =
+        this.nextReloadReason === null
+          ? undefined
+          : { kind: 'reload', reason: this.nextReloadReason, seq: ++this.saveUpdateSeq };
+    } else if (!fresh && next.state !== 'stopped') saveUpdate = this.status.saveUpdate;
     const status: PreviewStatus = {
       state: next.state,
       projectId: next.state === 'stopped' ? null : projectId,
@@ -1393,6 +1531,7 @@ export class PreviewManager {
       generation: next.generation,
       ...(outdated ? { outdated } : {}),
       ...(notFound ? { notFound } : {}),
+      ...(saveUpdate ? { saveUpdate } : {}),
     };
     if (window) this.setStatus(window, status);
     else this.status = status;
