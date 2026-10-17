@@ -8,7 +8,9 @@ source for the in-app help text. Code: `src/recovery/history.ts`, `src/main/hist
 
 NoobIDE keeps earlier versions of each file **on this computer**, in the app-data folder, so a beginner can undo an
 unintended change after it was saved. It is independent of the editor's undo, of autosave and of crash recovery
-(PLAN §7), and it is **not a backup**: it lives on the same disk and has a size limit.
+(PLAN §7), and it is **not a backup**: it lives on the same disk and has a size limit. It works on **one file at a
+time**; to save or restore the **whole project**, use project checkpoints (`docs/product/checkpoints.md`, S56). Every
+restore from this window first takes an automatic checkpoint of the project ("Before restoring … from local history").
 
 Versions are taken:
 

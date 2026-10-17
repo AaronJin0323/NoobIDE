@@ -67,6 +67,11 @@ export interface AgentApplyHost {
   restoreText(relPath: string, text: string, expect: string): Promise<RestoreOutcome>;
   /** Shows a file in a tab (a created or restored file). */
   openFile(relPath: string): void;
+  /**
+   * S56.3: takes an automatic project checkpoint right before the first change of a proposal is applied (labelled
+   * with the user's request). Never throws; the change goes ahead when it cannot be taken. Absent: none is taken.
+   */
+  checkpointBeforeAi?(label: string): Promise<void>;
 }
 
 export type ApplyFailureCode =
