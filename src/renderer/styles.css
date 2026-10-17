@@ -133,7 +133,7 @@ input[type='radio'] {
   /* What the walkthrough band and the open Problems panel keep at least (set below while they are shown). */
   --walkthrough-reserve: 0px;
   --problems-reserve: 0px;
-  /* Narrow window only: room kept for a shown notice, which joins the layout flow there (.app-notice-stack). */
+  /* Room kept for a shown notice (S47.5: the stack sits in the layout flow above the strip, .app-notice-stack). */
   --notice-reserve: 0px;
   /* 430 px (a preview stage of about 270 px under its toolbar), never more than the window can hold next to the top
      bar, the status strip and the minimums of the band and the panel. */
@@ -147,6 +147,7 @@ input[type='radio'] {
       )
     )
   );
+  position: relative; /* S47.5: the editor's end of the status strip is laid over the strip's row */
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -245,9 +246,12 @@ input[type='radio'] {
   font-size: var(--text-lg);
   font-weight: var(--weight-medium);
 }
+/* S47.4: the project name with its menu button beside it; the folder path is the name's tooltip and a line in the
+   project menu, never a second line of the bar. */
 .project {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   min-width: 0;
   margin-left: 16px;
   line-height: 1.3;
@@ -259,20 +263,15 @@ input[type='radio'] {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.project-detail {
-  font-size: var(--text-sm);
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .spacer {
   flex: 1;
 }
 /* The save state is plain text with an icon: muted while there is nothing to save, the status colour (with its icon
-   and word) only for a success or a failure. */
+   and word) only for a success or a failure. S47.3: it sits in a fixed-width slot (the longest word of either
+   language fits), so the top bar never moves while the user types and the file saves itself. */
 .save-status {
-  min-width: 0;
+  flex: none;
+  width: var(--save-slot-w, 136px);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -432,13 +431,13 @@ input[type='radio'] {
 /* Key features in the top bar: Save and (narrow window) New file. */
 .save-group {
   display: inline-flex;
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: none;
   align-items: center;
   gap: 4px;
 }
-/* While there are unsaved edits (or a save failed), Save is the one primary action of the window: the primary
-   button style. The word, the icon and the shortcut say what it does; the colour is never the only cue. */
+/* While a save cannot happen on its own (failed, conflict, deleted, autosave off), Save is the one primary action of
+   the window: the primary button style. The word, the icon and the shortcut say what it does; the colour is never
+   the only cue. */
 .save-button {
   display: inline-flex;
   flex: none;
@@ -470,8 +469,18 @@ input[type='radio'] {
   flex: none;
   white-space: nowrap;
 }
-/* The state word gives way (ellipsis) before any control leaves the top bar; the full word stays in the status. */
+/* Inside the slot the icon keeps one 14 px box for every state and the word takes the rest (ellipsis if a locale's
+   word were ever longer than the slot); the full sentence is in the banner. */
+.save-status-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
 .save-status-text {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -702,11 +711,20 @@ input[type='radio'] {
   color: var(--text);
   font-weight: var(--weight-strong);
 }
+/* S47.3: the state lives in a fixed 14 px slot inside the tab (icon with a tooltip; the word for screen readers),
+   so a tab never widens or narrows as it is typed in and saved. */
+.tab-state-slot {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
 .tab-state {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: var(--text-xs);
+  justify-content: center;
   color: var(--text);
 }
 .tab-failed .tab-state,
@@ -815,22 +833,45 @@ input[type='radio'] {
   min-height: 0;
   flex-direction: column;
 }
-.editor-status {
-  flex: none;
-  padding: 4px 14px;
-  border-top: 1px solid var(--line);
+/* S47.5: the editor's end of the global status strip (EditorStatusStrip.tsx): one status row for the window. The
+   strip's markup (the Problems toggle and its live count) belongs to the Problems region, so this group is a sibling
+   laid over the strip's free end — same row, same height, right-aligned — and it never reaches the toggle: at most
+   the strip minus the room the toggle needs, clipped on its own side. The empty part of its box lets clicks through. */
+.status-editor {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  height: var(--strip-h, 32px);
+  max-width: calc(100% - 250px);
+  padding: 0 16px 0 8px;
+  overflow: hidden;
   font-size: var(--text-sm);
   color: var(--muted);
-  text-align: right;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
 }
-/* S32.1: AI suggestions on/off, as text next to the cursor position */
-.editor-status-ai {
-  margin-left: 16px;
+.status-editor > * {
+  flex: none;
+  pointer-events: auto;
+}
+/* A narrow window: the indentation's source gives way (it stays in the button's tooltip and accessible name). */
+.workbench.narrow .status-editor .editor-status-indent-source {
+  display: none;
+}
+/* S47.5: the encoding / line-ending note (the sentence is its tooltip), with the warning shape next to the words. */
+.status-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 /* S43.2: indentation of the file on screen; a button that opens the indentation menu */
 .editor-status-indent {
-  margin-right: 16px;
   padding: 0 4px;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
@@ -966,20 +1007,25 @@ input[type='radio'] {
 .splitter:focus-visible {
   box-shadow: 0 0 0 2px var(--accent-text);
 }
-/* S13: app-level notices (session restored, settings reset, entry page, transfer report, journal health) share one
-   stack bottom-left, right of the rail and above the status strip: they never cover the Problems toggle or each
-   other, and a long stack scrolls. The native preview view would cover the right side; in a narrow window the stack
-   is registered as covering the preview ([data-covers-preview]) when it overlaps it. */
+/* S13: app-level notices (settings reset, entry page, transfer report, journal health) share one stack. S47.5: the
+   stack sits in the layout flow between the walkthrough band and the Problems panel (flex order), anchored above the
+   status strip: it never covers the code, the tree, the native preview view or the Problems toggle, in any window
+   width. It gives way first when the window is short (a long stack scrolls inside); informational notices leave by
+   themselves (useAutoDismiss). Empty, it takes no room and is skipped by F6. */
+.workbench:has(> .app-notice-stack:not(:empty)) {
+  --notice-reserve: clamp(8px, calc(100vh - 430px), 120px);
+}
 .app-notice-stack {
-  position: fixed;
-  left: 80px;
-  bottom: calc(var(--strip-h, 32px) + var(--gap));
-  z-index: 40;
+  order: 1;
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
   gap: var(--gap);
-  width: min(420px, calc(100vw - 96px));
-  max-height: calc(100vh - var(--topbar-h, 52px) - var(--strip-h, 32px) - 3 * var(--gap));
+  /* The gap above is padding, so the reserved height covers it. */
+  min-height: var(--notice-reserve);
+  max-height: 35vh;
+  margin: 0 var(--gap) 0 72px;
+  padding-top: var(--gap);
   overflow-y: auto;
 }
 .app-notice-stack:empty {
@@ -989,40 +1035,20 @@ input[type='radio'] {
   flex: none;
   margin: 0;
 }
-/* A floating notice is an overlay: the one overlay shadow. */
-.app-notice-stack > .inline-alert {
-  box-shadow: var(--shadow-overlay);
-}
-.workbench.narrow .app-notice-stack > .inline-alert {
-  box-shadow: none;
-}
-/* Narrow window: the preview fills the column, so a floating stack would cover the native view (and hide it). The
-   stack joins the layout flow instead, between the walkthrough band and the Problems panel (flex order), and gives
-   way first when the window is short (it scrolls inside). */
-.workbench.narrow:has(> .app-notice-stack:not(:empty)) {
-  --notice-reserve: clamp(8px, calc(100vh - 430px), 120px);
-}
-.workbench.narrow .app-notice-stack {
-  position: static;
-  order: 1;
-  flex: 0 1 auto;
-  width: auto;
-  /* The gap above is padding, so the reserved height covers it. */
-  min-height: var(--notice-reserve);
-  max-height: 35vh;
-  margin: 0 var(--gap) 0 72px;
-  padding-top: var(--gap);
-}
-.workbench.narrow > .problems {
+.workbench > .problems {
   order: 2;
 }
-/* S13: command menu next to the project name (opens over the left half, never under the native preview) */
+/* S13 / S47.4: the in-window menus (the project menu next to the project name, the help/more menu at the end of
+   the bar). An open menu is an overlay: the native preview view hides under it (preview-viewport.ts). */
 .app-menu {
   position: relative;
   flex: none;
 }
 .app-menu .icon-button {
   margin-left: 4px;
+}
+.project .app-menu .icon-button {
+  margin-left: 0;
 }
 /* The menu's overlay material, shadow and motion come from glass.css. */
 .app-menu-list {
@@ -1034,6 +1060,26 @@ input[type='radio'] {
   flex-direction: column;
   min-width: 240px;
   padding: 6px;
+}
+/* S47.4: the trailing menu opens flush with the bar's right edge instead of running off the window */
+.app-menu-list-end {
+  left: auto;
+  right: 0;
+}
+/* S47.4: the project folder, as plain text above the project menu's items */
+.app-menu-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 480px;
+  padding: 6px 10px 8px;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.app-menu-detail-text {
+  color: var(--text);
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 .app-menu-item {
   display: flex;
@@ -1209,8 +1255,7 @@ input[type='radio'] {
 }
 
 /* ── Narrow window (S30.4) ─────────────────────────────── */
-.workbench.narrow .app-name,
-.workbench.narrow .project-detail {
+.workbench.narrow .app-name {
   display: none;
 }
 .workbench.narrow .project {
@@ -1277,9 +1322,6 @@ input[type='radio'] {
 }
 .list-note {
   padding: 8px 14px;
-}
-.reveal-button {
-  margin-left: 0;
 }
 .inline-alert {
   display: flex;
@@ -1387,41 +1429,12 @@ input[type='radio'] {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+/* Recovery opens at start, under every other sheet (confirmations, settings) that may follow. */
 .recovery-backdrop {
-  position: fixed;
-  inset: 0;
   z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
 }
-.recovery-dialog {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: min(760px, 100%);
-  max-height: 100%;
-  padding: 24px;
-  overflow: auto;
-  border-radius: var(--radius-sheet);
-  background: var(--panel);
-}
-.recovery-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: var(--weight-strong);
-}
-.recovery-title > svg {
+.recovery-dialog .sheet-title-icon {
   color: var(--warn);
-}
-.recovery-intro {
-  margin: 0;
-  color: var(--muted);
 }
 .recovery-projects,
 .recovery-file-names {
@@ -1655,6 +1668,7 @@ select.text-field {
   color: var(--muted);
   font-size: var(--text-sm);
 }
+/* ── Sheets (S49.1, workbench/Sheet.tsx): the one shell of every dialog ── */
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -1662,19 +1676,65 @@ select.text-field {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
   background: var(--scrim);
 }
-/* A sheet: the overlay material, shadow and motion come from glass.css. */
+/* The sheet: title row, optional description, scrolling content, one action row. Its overlay material, shadow and
+   motion come from glass.css. Widths come from one scale (480 / 720 / 960) and never exceed the window. */
 .dialog {
-  width: min(420px, calc(100vw - 32px));
-  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(480px, 100%);
+  max-height: 100%;
+  padding: 20px 24px 24px;
   border-radius: var(--radius-sheet);
   background: var(--panel);
 }
+.sheet-720 {
+  width: min(720px, 100%);
+}
+.sheet-960 {
+  width: min(960px, 100%);
+}
+.sheet-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
 .dialog-title {
-  margin: 0 0 8px;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
   font-size: var(--text-xl);
   font-weight: var(--weight-strong);
+}
+.sheet-title-icon {
+  display: inline-flex;
+  flex: none;
+}
+/* Close top-right: the shared icon button, pulled into the title row's corner. */
+.sheet-close {
+  flex: none;
+  margin: -2px -6px 0 0;
+}
+.sheet-description {
+  margin: -6px 0 0;
+}
+/* Only the content scrolls; its sections never shrink into each other (a feature opts a list in with flex: 1). */
+.sheet-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+}
+.sheet-content > * {
+  flex: none;
 }
 .dialog-body {
   font-size: var(--text-lg);
@@ -1682,15 +1742,29 @@ select.text-field {
 .dialog-body p {
   margin: 0 0 8px;
 }
+.dialog-body p:last-child {
+  margin-bottom: 0;
+}
 .dialog-hint {
+  margin: 0;
   color: var(--muted);
   font-size: var(--text-sm);
 }
+/* The action row: Cancel → Primary, trailing; leading content (a usage line, a disclosure) sits at the left. */
 .dialog-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 16px;
+  margin: 4px 0 0;
+}
+.sheet-actions-leading {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: auto;
+  color: var(--muted);
+  font-size: var(--text-sm);
 }
 .dialog-button {
   margin-top: 0;
@@ -1719,8 +1793,7 @@ select.text-field {
 .recovery-file-tabs .file-row {
   width: auto;
 }
-.recovery-actions,
-.recovery-footer {
+.recovery-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1733,15 +1806,40 @@ select.text-field {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.recovery-footer {
+/* S49.1: "clear all recovery data" lives behind a disclosure, not next to the way out. */
+.recovery-advanced {
   padding-top: 10px;
   border-top: 1px solid var(--line);
 }
-.recovery-footer .alert-detail {
-  margin-right: auto;
+.recovery-advanced-summary {
+  width: fit-content;
+  padding: 4px 6px;
+  border-radius: var(--radius-control);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
 }
+.recovery-advanced-summary:hover {
+  background: var(--hover-soft);
+  color: var(--text);
+}
+.recovery-advanced[open] .recovery-actions {
+  margin-top: 8px;
+}
+/* A destructive verb (S49.1): red text on a quiet or secondary button; the danger fill on the one primary. */
 .danger-button {
   color: var(--danger);
+}
+.primary-button.danger-button {
+  background: var(--danger);
+  color: var(--panel);
+  box-shadow: none;
+}
+.primary-button.danger-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 86%, var(--text));
+}
+.primary-button.danger-button:active:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 76%, var(--text));
 }
 .recovery-diff-summary {
   margin: 4px 0;

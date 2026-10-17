@@ -811,11 +811,8 @@ export function FilesPanel({
             <FolderIcon />
           </span>
           <p className="empty-title">{t('files.empty')}</p>
-          {onOpenFolder && (
-            <button type="button" className="primary-button" data-testid="open-folder" onClick={onOpenFolder}>
-              {t('files.openFolder')}
-            </button>
-          )}
+          {/* S47.2: no button here — the welcome owns the window's one Open folder action. */}
+          <p className="empty-detail">{t('files.emptyHint')}</p>
         </div>
       )}
       {menu && (
@@ -878,6 +875,7 @@ export function FilesPanel({
           title={fill(t('delete.title'), { trash })}
           confirmLabel={fill(t('delete.confirm'), { trash })}
           cancelLabel={t('delete.cancel')}
+          tone="danger"
           testId="delete-dialog"
           onConfirm={() => void deleteConfirmed()}
           onCancel={() => {

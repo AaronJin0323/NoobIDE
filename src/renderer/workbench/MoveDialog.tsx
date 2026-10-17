@@ -2,10 +2,10 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 import { useI18n } from '../i18n/I18nProvider';
 import type { NoobideApi, TreeEntry } from '../../shared/ipc/contract';
 import { fill } from './file-op-messages';
-import { trapTab } from './focus-trap';
 import { isImeKey } from './ime';
 import { filterFolders, moveRefusal, type MoveSource } from './move-model';
 import { TreeFolderIcon } from './icons';
+import { Sheet, sheetButtonClass } from './Sheet';
 
 /** Folders the dialog lists at most (breadth first), and how deep it looks. */
 export const MOVE_DIALOG_LIMITS = { maxFolders: 1000, maxDepth: 12 } as const;
@@ -22,15 +22,14 @@ interface MoveDialogProps {
 }
 
 /**
- * "Move to…" (S52.1): a modal list of the project's folders with a filter field (combobox + listbox pattern).
- * Up/Down/Home/End choose, Enter moves, Escape cancels, Tab stays inside. Folders the selection cannot go into
- * (itself, a folder below it, the folder it is already in) stay listed but are disabled, with the reason as text.
+ * "Move to…" (S52.1): a modal list of the project's folders with a filter field (combobox + listbox pattern), built
+ * on the shared {@link Sheet} (S49.1). Up/Down/Home/End choose, Enter moves, Escape and Close cancel, Tab stays
+ * inside. Folders the selection cannot go into (itself, a folder below it, the folder it is already in) stay listed
+ * but are disabled, with the reason as text.
  */
 export function MoveDialog({ projectId, projectName, sources, name, listDir, onMove, onCancel }: MoveDialogProps) {
   const { t } = useI18n();
-  const titleId = useId();
   const listId = useId();
-  const dialog = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [folders, setFolders] = useState<string[] | null>(null);
   const [truncated, setTruncated] = useState(false);
@@ -81,6 +80,7 @@ export function MoveDialog({ projectId, projectName, sources, name, listDir, onM
     if (folder !== undefined && refusals[index] === null) onMove(folder);
   };
 
+  // Escape and Tab belong to the sheet (close, stay inside); the list keys are handled here.
   const onKeyDown = (event: KeyboardEvent) => {
     if (isImeKey(event.nativeEvent)) return;
     const move = (to: number) => setSelected(Math.max(0, Math.min(shown.length - 1, to)));
@@ -102,12 +102,6 @@ export function MoveDialog({ projectId, projectName, sources, name, listDir, onM
       case 'Enter':
         choose(active);
         break;
-      case 'Escape':
-        onCancel();
-        break;
-      case 'Tab':
-        trapTab(event, dialog.current);
-        return;
       default:
         return;
     }
@@ -121,20 +115,36 @@ export function MoveDialog({ projectId, projectName, sources, name, listDir, onM
 
   const activeRefusal = refusals[active] ?? 'same-folder';
   return (
-    <div className="dialog-backdrop" onMouseDown={onCancel}>
-      <div
-        ref={dialog}
-        className="dialog move-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid="move-dialog"
-        onMouseDown={(event) => event.stopPropagation()}
-        onKeyDown={onKeyDown}
-      >
-        <h2 className="dialog-title" id={titleId}>
-          {name === null ? fill(t('move.titleMany'), { n: String(sources.length) }) : fill(t('move.title'), { name })}
-        </h2>
+    <Sheet
+      title={name === null ? fill(t('move.titleMany'), { n: String(sources.length) }) : fill(t('move.title'), { name })}
+      width={480}
+      className="move-dialog"
+      onClose={onCancel}
+      closeLabel={t('dialog.close')}
+      testId="move-dialog"
+      leading={
+        <p className="dialog-hint" aria-hidden="true">
+          {t('move.keys')}
+        </p>
+      }
+      actions={
+        <>
+          <button type="button" className={sheetButtonClass('cancel')} onClick={onCancel}>
+            {t('move.cancel')}
+          </button>
+          <button
+            type="button"
+            className={sheetButtonClass('primary')}
+            data-testid="move-confirm"
+            disabled={shown.length === 0 || activeRefusal !== null}
+            onClick={() => choose(active)}
+          >
+            {t('move.confirm')}
+          </button>
+        </>
+      }
+    >
+      <div className="move-dialog-body" onKeyDown={onKeyDown}>
         <label className="sr-only" htmlFor={`${listId}-input`}>
           {t('move.filter')}
         </label>
@@ -153,6 +163,7 @@ export function MoveDialog({ projectId, projectName, sources, name, listDir, onM
           placeholder={t('move.filterPlaceholder')}
           value={query}
           data-testid="move-filter"
+          data-autofocus
           onChange={(event) => {
             setQuery(event.target.value);
             setSelected(0);
@@ -195,24 +206,7 @@ export function MoveDialog({ projectId, projectName, sources, name, listDir, onM
           </ul>
         )}
         {truncated && <p className="dialog-hint">{t('move.truncated')}</p>}
-        <p className="dialog-hint" aria-hidden="true">
-          {t('move.keys')}
-        </p>
-        <div className="dialog-actions">
-          <button type="button" className="quiet-button dialog-button" onClick={onCancel}>
-            {t('move.cancel')}
-          </button>
-          <button
-            type="button"
-            className="primary-button dialog-button"
-            data-testid="move-confirm"
-            disabled={shown.length === 0 || activeRefusal !== null}
-            onClick={() => choose(active)}
-          >
-            {t('move.confirm')}
-          </button>
-        </div>
       </div>
-    </div>
+    </Sheet>
   );
 }

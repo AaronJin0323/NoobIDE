@@ -7,12 +7,14 @@
   <body>
     <h1>一会儿就会卡住</h1>
     <script>
-      // S38.1 hostile page: loads normally, then its main thread is busy for 8 seconds.
-      setTimeout(() => {
+      // S38.1 hostile page: loads normally, then its main thread is busy for a while. The e2e starts the loop itself
+      // (window.忙碌, scheduled as a task) once the page is shown: a loop that started on its own after a fixed delay
+      // could run — and end — while a slow runner was still switching pages, and the test then measured an idle page.
+      window.忙碌 = (ms) => {
         console.log('忙碌开始'); // the e2e waits for this instead of guessing when the loop starts
-        const end = Date.now() + 8000;
+        const end = Date.now() + ms;
         while (Date.now() < end) {}
-      }, 300);
+      };
     </script>
   </body>
 </html>

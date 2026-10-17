@@ -12,6 +12,7 @@ import {
   tabOf,
   treeRow,
   typeAtEnd,
+  switchLanguage,
 } from './project';
 import { replaceEditorText } from './preview-helpers';
 
@@ -68,7 +69,7 @@ async function stubShell() {
   );
 }
 
-async function openFolder(root: string, testId: 'open-folder' | 'open-other-folder') {
+async function openFolder(root: string, testId: 'welcome-open-folder' | 'open-other-folder') {
   await answerFolderDialog(app, root);
   await page.getByTestId(testId).click();
   await expect(page.getByTestId('project-name')).toHaveText(path.basename(root));
@@ -88,7 +89,7 @@ test.beforeAll(async () => {
   consoleErrors = collectConsoleErrors(page);
   await page.locator('.monaco-editor .view-lines').waitFor();
   await stubShell();
-  await openFolder(rootA, 'open-folder');
+  await openFolder(rootA, 'welcome-open-folder');
 });
 
 test.afterAll(async () => {
@@ -296,11 +297,11 @@ test('clearing asks first and removes the project history; project files are unt
 });
 
 test('the history window follows the interface language (en)', async () => {
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(page.getByTestId('show-history')).toHaveText('History');
   await page.getByTestId('rail-history').click();
-  await expect(dialog().getByRole('heading', { name: 'Local history' })).toBeVisible();
+  await expect(dialog().getByRole('heading', { name: 'History', exact: true })).toBeVisible();
   await expect(page.getByTestId('history-usage')).toHaveText(/^History uses .+ \(limit 256\.0 MB\)$/);
   await page.keyboard.press('Escape');
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
 });

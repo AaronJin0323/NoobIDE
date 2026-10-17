@@ -101,7 +101,7 @@ describe('local history view model (S21.3, S21.4)', () => {
       text: '1 change undone; 1 not undone: style.css: changed',
     });
     expect(groupUndoText(en, { undone: 0, failed: [{ relPath: null, reason: 'x' }] }).text).toBe(
-      'This turn is no longer in local history (it may have been cleared).',
+      'This turn is no longer in History (it may have been cleared).',
     );
     expect(zh('history.reason.before-ai' as MessageKey)).toBe('AI 助手修改前');
     expect(zh('history.group.title' as MessageKey)).toBe('AI 助手的修改 · {n} 个文件');

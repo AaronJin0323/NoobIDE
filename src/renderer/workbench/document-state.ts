@@ -203,6 +203,12 @@ export function activeSaveStatus(state: DocumentState): SaveStatus | null {
   return tab ? saveStatus(tab.save) : null;
 }
 
+/** S47.3: the visible file's write in flight is a retry after a failed one (its error is cleared only on success). */
+export function activeSaveRetrying(state: DocumentState): boolean {
+  const tab = activeTab(state);
+  return tab !== null && tab.save.savingRevision !== null && tab.save.error !== null;
+}
+
 /** The tab after (`step` 1) or before (`step` -1) the visible one, wrapping around; for Ctrl+Tab switching. */
 export function cycleTab(state: DocumentState, step: 1 | -1): string | null {
   if (state.tabs.length === 0) return null;

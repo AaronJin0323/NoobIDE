@@ -22,6 +22,7 @@ import { useInlineAiState } from '../ai/useInlineAiState'; // S32.1
 import { IndentStatus } from './IndentStatus'; // S43.2
 import { EditorAiActions } from '../ai/EditorAiActions';
 import { ImageView } from './ImageView'; // S52.6
+import { publishCursor } from './editor-status-state'; // S47.5: the caret shows in the global status strip
 
 const FORMATTABLE = new Set(['html', 'css', 'javascript']);
 
@@ -84,9 +85,7 @@ function openErrorKey(code: string): MessageKey {
 export function EditorPane(props: EditorPaneProps) {
   const { hidden, state, fontSize, onZoom, copyNotice } = props;
   const { t } = useI18n();
-  const [cursor, setCursor] = useState<{ line: number; column: number } | null>(null);
   const { project, docError, tabs } = state;
-  const inlineAi = useInlineAiState(project?.projectId ?? null); // S32.1
   const tab = activeTab(state);
   // S11: a conflict or a deleted file explains itself in the disk banner instead of the generic save error.
   const diskState = tab !== null && (tab.save.conflict || tab.save.deleted);
@@ -119,6 +118,11 @@ export function EditorPane(props: EditorPaneProps) {
       : !project
         ? { uri: 'inmemory://noobide/welcome.html', language: 'html', initialValue: SAMPLE_HTML }
         : null;
+  // S47.5: no code on screen, no caret in the status strip (the editor publishes the next position when it mounts).
+  const hasEditor = editorFile !== null;
+  useEffect(() => {
+    if (!hasEditor) publishCursor(null);
+  }, [hasEditor]);
 
   return (
     // Hidden, not unmounted, in the narrow Preview view: the buffer and cursor survive switching back.
@@ -180,7 +184,9 @@ export function EditorPane(props: EditorPaneProps) {
           )}
         </EditorTools>
       </div>
-      {tab && <FileRoleHint relPath={tab.relPath} />}
+      {/* S47.5: the only persistent band above the code, and only on a file's first showing; the encoding and
+          line-ending notes live in the status strip (EditorStatusStrip). The alerts below are states, not bands. */}
+      {tab && <FileRoleHint relPath={tab.relPath} projectId={project?.projectId ?? null} />}
       {docError && (
         <p className="inline-alert" role="alert" data-testid="open-error">
           <WarningIcon />
@@ -245,22 +251,6 @@ export function EditorPane(props: EditorPaneProps) {
           onCloseDiscarding={props.onCloseDiscarding}
         />
       )}
-      {tab?.content.readOnly && !imageTab && (
-        // S07.4: another encoding — shown read-only so a save can never re-encode (and damage) the file.
-        <p className="inline-alert" role="status" data-testid="read-only-notice">
-          <WarningIcon />
-          <span>
-            {t('editor.readOnlyEncoding')} <strong>{tab.content.encoding}</strong>
-            {tab.content.encodingGuessed && <> {t('editor.encodingGuessed')}</>}
-          </span>
-        </p>
-      )}
-      {tab?.content.mixedEol && !imageTab && (
-        <p className="inline-alert" role="note" data-testid="mixed-eol">
-          <WarningIcon />
-          {t(tab.content.eol === '\r\n' ? 'editor.mixedEol.crlf' : 'editor.mixedEol.lf')}
-        </p>
-      )}
       {comparing && tab?.conflictDisk ? (
         <div className="editor-surface" id="editor-surface" role="tabpanel">
           <Suspense fallback={<p className="placeholder">{t('editor.loading')}</p>}>
@@ -297,33 +287,13 @@ export function EditorPane(props: EditorPaneProps) {
               onSave={tab ? props.onSave : undefined}
               onBlur={tab ? props.onBlur : undefined}
               onComposition={tab ? props.onComposition : undefined}
-              onCursor={(line, column) => setCursor({ line, column })}
+              onCursor={(line, column) => publishCursor({ line, column })}
             />
           </Suspense>
         </div>
       ) : (
         <div className="empty-state" data-testid="editor-empty">
           <p className="empty-detail">{t('editor.pickFile')}</p>
-        </div>
-      )}
-      {editorFile && cursor && (
-        <div className="editor-status">
-          {/* Edit with AI / Explain: always in view under the code while AI is offered (the same actions as the editor's
-              context menu), without taking room from the open-file tabs. */}
-          {tab && <EditorAiActions />}
-          <IndentStatus />
-          <span data-testid="cursor-position">{`${t('editor.line')} ${cursor.line}, ${t('editor.column')} ${cursor.column}`}</span>
-          {inlineAi && (
-            <span className="editor-status-ai" data-testid="inline-ai-state" data-state={inlineAi}>
-              {t(
-                inlineAi === 'on'
-                  ? 'ai.inline.status.on'
-                  : inlineAi === 'paused'
-                    ? 'ai.inline.status.paused'
-                    : 'ai.inline.status.off',
-              )}
-            </span>
-          )}
         </div>
       )}
     </main>

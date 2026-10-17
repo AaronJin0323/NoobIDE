@@ -240,7 +240,12 @@ test('200 000 elements before the first item: the visit limit ends the walk with
 
 test('a busy page gives "not available" within the budget; an unresponsive one at once (S38.1)', async () => {
   await showPage('忙碌.html');
-  // Its 8-second loop has started (it logs just before; a fixed wait raced a slow load on the Windows runner).
+  await pageSettled(); // the previous page's teardown is over and this one answers: the loop below is all it does
+  // Start its 8-second loop as a task of the page (the evaluation returns first), then wait for the log line it
+  // writes just before looping. The page used to start the loop by itself 300 ms after loading: on a slow runner
+  // (macOS, hosted) the whole loop ran and ended while the test was still waiting for the page switch, and the
+  // snapshot then measured an idle page.
+  await evalInPreview(app, 'setTimeout(() => window.忙碌(8000), 0); "scheduled"');
   await expect
     .poll(async () => {
       const info = (await previewInfo(app)) as unknown as { recentRecords: { message: string }[] };

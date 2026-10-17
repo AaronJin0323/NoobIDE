@@ -11,7 +11,8 @@ import { ProjectIndex } from './project-index';
  * The budget is the provider's compute cost. On hosted CI runners (3–4 vCPUs shared by four vitest workers) a single
  * descheduling of this worker inflates every sample of a batch (main saw 21 ms p95 against 0.9 ms on the dev
  * machine), so the test measures up to BATCHES independent batches and judges the best one: a batch that fits the
- * budget proves the compute cost does, and a stalled batch is noise, not provider work.
+ * budget proves the compute cost does, and a stalled batch is noise, not provider work (contention and GC add time
+ * to a sample and never remove any). Every batch is judged against the same, unchanged budget (S06.6).
  */
 function project(): Record<string, string> {
   const disk: Record<string, string> = {};
@@ -31,7 +32,7 @@ const BUDGET_MS = 10;
 const RUNS = 60;
 /** The first runs include JIT compilation, which a user pays once per session, not per request. */
 const WARM_UP = 10;
-const BATCHES = 3;
+const BATCHES = 5;
 
 describe('completion latency budget (S43.6)', () => {
   it('a selector and a path request each take <= 10 ms p95 on a 200-file project', async () => {
@@ -82,7 +83,8 @@ describe('completion latency budget (S43.6)', () => {
     };
     // Numbers only (docs/perf/completion-latency.md): NOOBIDE_PERF_PRINT=1 npx vitest run completion-latency
     if (process.env.NOOBIDE_PERF_PRINT) console.log(JSON.stringify({ ...best, batches }));
-    expect(best.selectorP95).toBeLessThanOrEqual(BUDGET_MS);
-    expect(best.pathP95).toBeLessThanOrEqual(BUDGET_MS);
+    const perBatch = (key: 'selectorP95' | 'pathP95') => batches.map((r) => r[key].toFixed(2)).join(', ');
+    expect(best.selectorP95, `selector p95 per batch: ${perBatch('selectorP95')} ms`).toBeLessThanOrEqual(BUDGET_MS);
+    expect(best.pathP95, `path p95 per batch: ${perBatch('pathP95')} ms`).toBeLessThanOrEqual(BUDGET_MS);
   });
 });

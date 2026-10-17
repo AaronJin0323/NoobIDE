@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import { fill, nameProblemMessage } from './file-op-messages';
-import { trapTab } from './focus-trap';
 import { isImeKey } from './ime';
 import { sameName } from '../../shared/file-names';
+import { Sheet, sheetButtonClass } from './Sheet';
 
 interface ImportNameDialogProps {
   /** The name the file would get. */
@@ -20,13 +20,12 @@ interface ImportNameDialogProps {
 
 /**
  * S52.4: an added file's name is taken (or not valid on Windows and macOS). NoobIDE never replaces the existing
- * entry: the user types another name or skips this file. Enter adds, Escape skips, Tab stays inside.
+ * entry: the user types another name or skips this file. Built on the shared {@link Sheet} (S49.1): Enter adds,
+ * Escape and Close skip, Tab stays inside; no click outside closes it, so a half-typed name is never lost.
  */
 export function ImportNameDialog({ name, existing, folder, suggestion, onRename, onSkip }: ImportNameDialogProps) {
   const { t } = useI18n();
-  const titleId = useId();
   const inputId = useId();
-  const dialog = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState(suggestion);
   const problem = nameProblemMessage(t, value);
@@ -42,69 +41,64 @@ export function ImportNameDialog({ name, existing, folder, suggestion, onRename,
   };
 
   return (
-    <div className="dialog-backdrop">
-      <div
-        ref={dialog}
-        className="dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid="import-name-dialog"
-        onMouseDown={(event) => event.stopPropagation()}
-        onKeyDown={(event) => {
-          if (isImeKey(event.nativeEvent)) return;
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            onSkip();
-          } else if (event.key === 'Enter') {
-            event.preventDefault();
-            submit();
-          } else if (event.key === 'Tab') trapTab(event, dialog.current);
-        }}
-      >
-        <h2 className="dialog-title" id={titleId}>
-          {t('import.conflictTitle')}
-        </h2>
-        <div className="dialog-body">
-          <p>
-            {existing === null
-              ? fill(t('import.invalidBody'), { name })
-              : fill(t('import.conflictBody'), { folder, existing, name })}
-          </p>
-          <label htmlFor={inputId}>{t('import.newName')}</label>
-          <input
-            ref={input}
-            id={inputId}
-            className="palette-input move-filter"
-            type="text"
-            value={value}
-            spellCheck={false}
-            aria-invalid={problem !== null || unchanged}
-            aria-describedby={problem || unchanged ? `${inputId}-problem` : undefined}
-            data-testid="import-name-input"
-            onChange={(event) => setValue(event.target.value)}
-          />
-          {(problem || unchanged) && (
-            <p className="dialog-hint" id={`${inputId}-problem`} role="alert">
-              {problem ?? t('import.stillTaken')}
-            </p>
-          )}
-        </div>
-        <div className="dialog-actions">
-          <button type="button" className="quiet-button dialog-button" data-testid="import-skip" onClick={onSkip}>
+    <Sheet
+      title={t('import.conflictTitle')}
+      width={480}
+      onClose={onSkip}
+      closeLabel={t('dialog.close')}
+      testId="import-name-dialog"
+      actions={
+        <>
+          <button type="button" className={sheetButtonClass('cancel')} data-testid="import-skip" onClick={onSkip}>
             {t('import.skip')}
           </button>
           <button
             type="button"
-            className="primary-button dialog-button"
+            className={sheetButtonClass('primary')}
             data-testid="import-rename"
             disabled={problem !== null || unchanged}
             onClick={submit}
           >
             {t('import.rename')}
           </button>
-        </div>
+        </>
+      }
+    >
+      <div
+        className="dialog-body"
+        onKeyDown={(event) => {
+          if (isImeKey(event.nativeEvent)) return;
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            submit();
+          }
+        }}
+      >
+        <p>
+          {existing === null
+            ? fill(t('import.invalidBody'), { name })
+            : fill(t('import.conflictBody'), { folder, existing, name })}
+        </p>
+        <label htmlFor={inputId}>{t('import.newName')}</label>
+        <input
+          ref={input}
+          id={inputId}
+          className="palette-input move-filter"
+          type="text"
+          value={value}
+          spellCheck={false}
+          aria-invalid={problem !== null || unchanged}
+          aria-describedby={problem || unchanged ? `${inputId}-problem` : undefined}
+          data-testid="import-name-input"
+          data-autofocus
+          onChange={(event) => setValue(event.target.value)}
+        />
+        {(problem || unchanged) && (
+          <p className="dialog-hint" id={`${inputId}-problem`} role="alert">
+            {problem ?? t('import.stillTaken')}
+          </p>
+        )}
       </div>
-    </div>
+    </Sheet>
   );
 }

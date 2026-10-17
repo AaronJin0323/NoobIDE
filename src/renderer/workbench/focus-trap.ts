@@ -1,5 +1,5 @@
 import { isImeKey } from './ime';
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 
 /**
  * Keeps Tab and Shift+Tab inside a modal dialog (accessibility invariant: dialogs trap focus). Only visible, enabled
@@ -22,6 +22,20 @@ export interface KeyLike {
   preventDefault(): void;
 }
 
+/**
+ * Pure rule of the trap: where a Tab press from `active` goes among the dialog's focusable `items` (in DOM order),
+ * or null when the browser's own order already stays inside. Tab on the last item (or from outside the dialog) wraps
+ * to the first; Shift+Tab on the first (or from outside) wraps to the last.
+ */
+export function tabWrapTarget<T>(items: readonly T[], active: T | null, shiftKey: boolean, inside: boolean): T | null {
+  if (items.length === 0) return null;
+  const first = items[0] as T;
+  const last = items[items.length - 1] as T;
+  if (shiftKey && (active === first || !inside)) return last;
+  if (!shiftKey && (active === last || !inside)) return first;
+  return null;
+}
+
 export function trapTab(event: KeyLike, container: HTMLElement | null): void {
   if (event.key !== 'Tab' || !container) return;
   const items = focusableIn(container);
@@ -29,26 +43,26 @@ export function trapTab(event: KeyLike, container: HTMLElement | null): void {
     event.preventDefault();
     return;
   }
-  const first = items[0] as HTMLElement;
-  const last = items[items.length - 1] as HTMLElement;
-  const active = document.activeElement;
-  if (event.shiftKey && (active === first || !container.contains(active))) {
+  const active = document.activeElement as HTMLElement | null;
+  const target = tabWrapTarget(items, active, event.shiftKey, container.contains(active));
+  if (target) {
     event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && (active === last || !container.contains(active))) {
-    event.preventDefault();
-    first.focus();
+    target.focus();
   }
 }
 
 /**
  * Window-wide keys of a modal dialog: Tab / Shift+Tab stay inside `ref`, Escape calls `onEscape`. Captured before
  * the workbench's own shortcuts while the dialog is open.
+ *
+ * A layout effect, so the listener exists from the moment the dialog is in the DOM: a passive effect runs in a later
+ * task, and the browser hands a key press (high priority) to the page before that task when the process is slow
+ * (hosted CI runner) — the first Escape was then lost while the dialog was already on screen.
  */
 export function useModalKeys(ref: RefObject<HTMLElement | null>, onEscape: () => void): void {
   const escape = useRef(onEscape);
   escape.current = onEscape;
-  useEffect(() => {
+  useLayoutEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isImeKey(event)) return;
       if (event.key === 'Escape') {

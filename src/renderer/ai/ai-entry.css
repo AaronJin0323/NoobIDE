@@ -59,25 +59,14 @@
   background: color-mix(in srgb, var(--accent-fill) 86%, var(--muted));
 }
 
-/* The editor's AI actions (EditorAiActions.tsx), at the start of the editor's status bar under the code: always in
-   view, and they never take room from the open-file tabs. Sized by the status bar's own width (a container query).
-   The buttons keep their accessible names when only the icon shows. */
-.editor-status:has(> .editor-ai-actions) {
-  container: editor-status / inline-size;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 2px 0;
-  padding-left: 6px;
-}
+/* The editor's AI actions (EditorAiActions.tsx), at the start of the editor's end of the status strip (S47.5,
+   styles.css .status-editor): always in view, and they never take room from the open-file tabs. In a narrow window
+   the shortcut and the Explain label give way (the buttons keep their accessible names when only the icon shows). */
 .editor-ai-actions {
   display: inline-flex;
   flex: none;
   align-items: center;
   gap: 2px;
-  margin-right: auto;
-  padding-right: 12px;
 }
 .editor-ai-actions .ai-entry {
   height: 24px;
@@ -89,15 +78,13 @@
   font-size: var(--text-sm);
   white-space: nowrap;
 }
-@container editor-status (max-width: 460px) {
-  .editor-ai-actions .ai-entry-kbd,
-  .editor-ai-actions .editor-ai-explain-label {
-    display: none;
-  }
-  .editor-ai-actions .quiet-button {
-    width: 26px;
-    padding: 0;
-  }
+.workbench.narrow .editor-ai-actions .ai-entry-kbd,
+.workbench.narrow .editor-ai-actions .editor-ai-explain-label {
+  display: none;
+}
+.workbench.narrow .editor-ai-actions .quiet-button {
+  width: 26px;
+  padding: 0;
 }
 
 /* A problem row: the summary toggle and, beside it (never inside it), the row's "Fix with AI". */

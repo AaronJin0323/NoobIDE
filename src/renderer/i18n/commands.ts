@@ -8,7 +8,7 @@ export const commandsZhCN = {
   'command.openFolder': '打开文件夹…',
   'command.save': '保存',
   'command.closeTab': '关闭标签页',
-  'command.showHistory': '本地历史…',
+  'command.showHistory': '历史版本…',
   'command.toggleFiles': '显示或隐藏文件列表',
   'command.toggleProblems': '显示或隐藏问题面板',
   'command.nextTab': '下一个标签页',
@@ -20,8 +20,8 @@ export const commandsZhCN = {
   // ── S24.3 键盘 ──
   'command.focusNextRegion': '转到下一个区域',
   'command.focusPreviousRegion': '转到上一个区域',
-  // ── S23 帮助（在“帮助”菜单里，不再需要“帮助：”前缀）──
-  'command.walkthrough': '入门导览',
+  // ── S23 帮助（在“帮助”菜单里，不再需要“帮助：”前缀）。S47.4：导览只有一个名字——“课程” ──
+  'command.walkthrough': '课程',
   'command.glossary': '术语表',
   // ── S24.2 系统菜单 ──
   'menu.about': '关于 NoobIDE',
@@ -55,9 +55,9 @@ export const commandsEn: Record<keyof typeof commandsZhCN, string> = {
   'command.openFolder': 'Open folder…',
   'command.save': 'Save',
   'command.closeTab': 'Close tab',
-  'command.showHistory': 'Local history…',
+  'command.showHistory': 'History…',
   'command.toggleFiles': 'Show or hide files',
-  'command.toggleProblems': 'Show or hide problems',
+  'command.toggleProblems': 'Show or hide Problems',
   'command.nextTab': 'Next tab',
   'command.previousTab': 'Previous tab',
   // ── S24.4 theme ──
@@ -68,7 +68,7 @@ export const commandsEn: Record<keyof typeof commandsZhCN, string> = {
   'command.focusNextRegion': 'Focus next area',
   'command.focusPreviousRegion': 'Focus previous area',
   // ── S23 help (in the Help menu, no "Help:" prefix needed) ──
-  'command.walkthrough': 'Walkthrough',
+  'command.walkthrough': 'Lessons',
   'command.glossary': 'Glossary',
   // ── S24.2 native menus ──
   'menu.about': 'About NoobIDE',
