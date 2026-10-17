@@ -15,7 +15,50 @@ export interface PreFormatEvent {
   readonly languageId: string;
 }
 
+/** S53.4: how a document formatting request ended (no text: the outcome only). */
+export interface FormatOutcomeEvent {
+  readonly uri: string;
+  readonly ok: boolean;
+}
+
 type Listener = (event: PreFormatEvent) => void;
+type OutcomeListener = (event: FormatOutcomeEvent) => void;
+const outcomeListeners = new Set<OutcomeListener>();
+
+/** S53.4: subscribes to the outcome of document formatting (format on save tells a failure apart from success). */
+export function onFormatOutcome(listener: OutcomeListener): () => void {
+  outcomeListeners.add(listener);
+  return () => outcomeListeners.delete(listener);
+}
+
+function emitOutcome(event: FormatOutcomeEvent): void {
+  for (const listener of [...outcomeListeners]) {
+    try {
+      listener(event);
+    } catch {
+      // never blocks formatting
+    }
+  }
+}
+
+/** Reports when the provider's answer (a value or a promise) settles; returns the answer unchanged. */
+function reportOutcome(uri: string, run: () => unknown): unknown {
+  let answer: unknown;
+  try {
+    answer = run();
+  } catch (error) {
+    emitOutcome({ uri, ok: false });
+    throw error;
+  }
+  if (answer && typeof (answer as PromiseLike<unknown>).then === 'function') {
+    (answer as PromiseLike<unknown>).then(
+      // No edits (null / []) means the document is formatted already: only a rejection is a failure.
+      () => emitOutcome({ uri, ok: true }),
+      () => emitOutcome({ uri, ok: false }),
+    );
+  } else emitOutcome({ uri, ok: true });
+  return answer;
+}
 const listeners = new Set<Listener>();
 
 /** Subscribes to pre-format events; returns the unsubscribe function. */
@@ -73,7 +116,7 @@ export function installFormatHook<S>(registry: FormattingRegistry<S>): void {
     const wrapped = Object.create(provider) as FormattingProvider;
     wrapped.provideDocumentFormattingEdits = (model: ModelLike, ...rest: never[]) => {
       emitBeforeFormat(eventOf(model));
-      return provider.provideDocumentFormattingEdits(model, ...rest);
+      return reportOutcome(model.uri.toString(), () => provider.provideDocumentFormattingEdits(model, ...rest));
     };
     return registerDocument(selector, wrapped);
   };

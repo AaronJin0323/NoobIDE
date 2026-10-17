@@ -1,0 +1,151 @@
+/* S53: HTML/CSS authoring aids in the editor's status bar (Emmet hint, colour at the cursor). */
+.editor-status-hint {
+  margin-right: 16px;
+  color: var(--text);
+}
+.editor-status-hint-dismiss {
+  margin-left: 8px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.editor-status-hint-dismiss:hover {
+  background: var(--hover);
+}
+/* S53.3: the colour at the cursor — a swatch next to the value written out (state never by colour alone) */
+.editor-status-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 16px;
+  color: var(--text);
+}
+.color-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+}
+.color-swatch-large {
+  width: 40px;
+  height: 40px;
+}
+.color-dialog-body {
+  display: grid;
+  gap: 10px;
+}
+.color-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.color-slider,
+.color-value {
+  display: grid;
+  grid-template-columns: 6em 1fr 5em;
+  align-items: center;
+  gap: 8px;
+}
+.color-value {
+  grid-template-columns: 6em 1fr;
+}
+.color-value input {
+  font: inherit;
+  font-family: var(--font-code, monospace);
+}
+/* S57.1: the places Go to definition / Find all references found */
+.navigation-list {
+  display: grid;
+  gap: 4px;
+  max-height: 50vh;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.navigation-item {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.navigation-item:hover,
+.navigation-item:focus-visible {
+  border-color: var(--line);
+  background: var(--hover);
+}
+.navigation-file {
+  font-weight: var(--weight-medium);
+}
+.navigation-code {
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--font-code);
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+/* S57.2: rename preview — before and after are labelled in text, not told apart by colour alone */
+.rename-field {
+  display: grid;
+  gap: 4px;
+}
+.rename-field input {
+  font: inherit;
+  font-family: var(--font-code);
+}
+.rename-preview {
+  display: grid;
+  gap: 12px;
+  max-height: 55vh;
+  overflow: auto;
+}
+.rename-file-title {
+  margin: 0 0 4px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-strong);
+}
+.rename-lines,
+.rename-results {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rename-lines li {
+  display: grid;
+  gap: 2px;
+}
+.rename-line-number {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.rename-before,
+.rename-after {
+  display: grid;
+  grid-template-columns: 4em 1fr;
+  gap: 6px;
+  font-family: var(--font-code);
+  white-space: pre-wrap;
+}
+.rename-tag {
+  color: var(--muted);
+  font-family: inherit;
+  font-size: var(--text-sm);
+}
+.rename-before code {
+  text-decoration: line-through;
+}

@@ -8,6 +8,7 @@ import {
   defaultArtifacts,
   findSigntool,
   main,
+  SHARING_VIOLATION_BACKOFF_MS,
   signingStatus,
   verifyMacDmg,
   verifyWindowsFile,
@@ -157,6 +158,63 @@ describe('verifyWindowsFile', () => {
     const r = verifyWindowsFile(EXE, { run: mock({ signtool: SIGNTOOL_NO_TIMESTAMP }).run, signtool: SIGNTOOL });
     expect(r.ok).toBe(false);
     expect(r.checks.filter((c) => !c.ok).map((c) => c.name)).toEqual(['timestamped']);
+  });
+
+  // A file the antivirus or indexer still holds (hosted Windows run 39033368439 hit it on electron.exe): signtool could
+  // not open it at all, which says nothing about its signature, so the verifier waits and asks again — bounded.
+  const SIGNTOOL_BUSY = fail(
+    1,
+    `Verifying: ${EXE}\n\nNumber of files successfully Verified: 0\nNumber of warnings: 0\nNumber of errors: 1\n`,
+    'SignTool Error: The file is being used by another process.\n',
+  );
+
+  it('retries a sharing violation with the backoff delays and then passes the real result', () => {
+    const answers = [SIGNTOOL_BUSY, SIGNTOOL_BUSY, SIGNTOOL_OK];
+    const calls: string[][] = [];
+    const slept: number[] = [];
+    const run: Run = (_cmd, args) => {
+      calls.push(args);
+      return answers[Math.min(calls.length, answers.length) - 1]!;
+    };
+    const r = verifyWindowsFile(EXE, {
+      run,
+      signtool: SIGNTOOL,
+      sleep: (ms) => slept.push(ms),
+      backoffMs: [5, 10, 20],
+    });
+    expect(r.ok).toBe(true);
+    expect(calls).toHaveLength(3);
+    expect(slept).toEqual([5, 10]);
+  });
+
+  it('gives up after the last backoff delay and reports the sharing violation as it is', () => {
+    const slept: number[] = [];
+    const m = mock({ signtool: SIGNTOOL_BUSY });
+    const r = verifyWindowsFile(EXE, {
+      run: m.run,
+      signtool: SIGNTOOL,
+      sleep: (ms) => slept.push(ms),
+      backoffMs: [5, 10],
+    });
+    expect(r.ok).toBe(false);
+    expect(m.calls).toHaveLength(3);
+    expect(slept).toEqual([5, 10]);
+    expect(r.checks[0]?.detail).toBe('SignTool Error: The file is being used by another process.');
+  });
+
+  it('never retries a verdict: an unsigned file is reported after one run', () => {
+    const slept: number[] = [];
+    const m = mock({ signtool: SIGNTOOL_UNSIGNED });
+    const r = verifyWindowsFile(EXE, { run: m.run, signtool: SIGNTOOL, sleep: (ms) => slept.push(ms) });
+    expect(r.ok).toBe(false);
+    expect(m.calls).toHaveLength(1);
+    expect(slept).toEqual([]);
+  });
+
+  it('the default backoff is bounded (a few seconds in all)', () => {
+    const total = SHARING_VIOLATION_BACKOFF_MS.reduce((a, b) => a + b, 0);
+    expect(total).toBeGreaterThan(0);
+    expect(total).toBeLessThanOrEqual(10_000);
   });
 });
 

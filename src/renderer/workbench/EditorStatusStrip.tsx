@@ -5,6 +5,9 @@ import { fill } from '../recovery/format';
 import { EditorAiActions } from '../ai/EditorAiActions';
 import { toggleInlineAi, useInlineAiState } from '../ai/useInlineAiState'; // S32.1
 import { IndentStatus } from './IndentStatus'; // S43.2
+import { EmmetHint } from '../editor/EmmetHint'; // S53.1
+import { ColorStatus } from '../editor/ColorPicker'; // S53.3
+import { FormatSaveNotice } from './FormatSaveNotice'; // S53.4
 import { WarningIcon } from './icons';
 import type { OpenTab } from './document-state';
 import { cursorPosition, subscribeCursor } from './editor-status-state';
@@ -50,6 +53,9 @@ export function EditorStatusStrip({ tab, hasEditor, projectId }: EditorStatusStr
           without taking room from the open-file tabs. */}
       {tab && <EditorAiActions />}
       <IndentStatus />
+      <EmmetHint />
+      <ColorStatus />
+      <FormatSaveNotice />
       {readOnlyEncoding && (
         // S07.4: another encoding — shown read-only so a save can never re-encode (and damage) the file.
         <span

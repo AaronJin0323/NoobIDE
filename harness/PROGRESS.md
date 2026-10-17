@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 42 (side session) — 2026-10-17 — S58.3: perf budgets enforced locally, reported on hosted runners
+## Session 43 (side session) — 2026-10-17 — S58.3: perf budgets enforced locally, reported on hosted runners
 
 **Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, worktree branch `claude/hopeful-gates-e43ecf`
 (merged `origin/claude/ci-failures-optimization-f08cd1` first for the S58 plan and backlog). Parallel to S58.1, S58.2,
@@ -68,6 +68,131 @@ targets, paste the two tables into docs/perf/ci-runners.md §3), then `set S58.3
 **Ideas / backlog candidates:** a `scripts/perf-compare.mjs` that diffs two `reports/perf/*.json` files (dev vs
 hosted, run vs run) and flags drifts; self-hosted runners with known hardware for publishable numbers (ADR 0038
 option 4).
+
+## Session 42 (side session) — 2026-10-18 — PR #23 green on hosted CI: macOS cursor keys, CDP traces, Windows contention (S53/S57)
+
+**Agent:** Claude (Fable 5.1) on the Windows x64 dev machine, own worktree on branch `claude/m19-s53-s57-editor-4026ce`
+(started by the M19 coordination session to make PR #23 green without loosening thresholds or skipping tests). Own
+`node_modules` (the main checkout's lacks `emmet`).
+
+**Done**
+
+- Merged `origin/main` @ 65edc2a (PR #20 CI stabilisation, PR #7 UI/UX assessment) into the PR branch, plain merge.
+  Conflicts: `EditorPane.tsx` (main moved the editor's status row into `EditorStatusStrip.tsx`, S47.5 — the Emmet hint,
+  the cursor colour chip and the format-on-save notice now render there), `Workbench.tsx` (S47.3's conflict/deleted
+  focus and S53.4's format on save combined in `saveActive`), `PROGRESS.md` (both lanes). Main's sheet rule (S49.1,
+  `sheet.test.ts`: no component sets `aria-modal` itself) now covers S53's colour picker and S57's navigation and rename
+  dialogs, so all three sit on the shared `Sheet` (Close top-right, Escape, focus trap and return focus from the shell;
+  the forms submit through `form=` buttons in the action row).
+- macOS shard, `authoring.spec.ts:147` and `authoring-offline.spec.ts:124` (S53.2 / S53.5): Monaco binds Ctrl+Home
+  only on Windows/Linux (⌘↑ on macOS), so `ControlOrMeta+Home` moved nothing there — the second test typed into
+  `</body>` (the received text in the log reads `</2ody>`). The S53/S57 specs press `DOC_START` / `DOC_END` from
+  `tests/e2e/keys.ts`. Other specs still use `ControlOrMeta+Home` and pass only because their cursor already sits on
+  line 1 (follow-up below).
+- macOS shard, `upgrade.spec.ts:163` (S28.4): timed out with no step in progress. The trace shows the vN+1
+  `connectOverCDP` returning in 0.4 s and nothing for 232 s; teardown failed with "Tracing has been already started",
+  and the failure screenshot shows the restored preview still "Starting". Playwright starts a trace on a connected
+  context right after the connect (outside the recorded step), and with DOM snapshots and screenshots on that start
+  installs hooks in every page — a page whose first navigation is pending answers no CDP command until it commits. Both
+  CDP-driven specs (`upgrade`, `authoring-offline`) keep the action timeline and drop the per-page capture
+  (`test.use({ trace: { mode: 'retain-on-failure', snapshots: false, screenshots: false } })`). Not a product change:
+  S53/S57 touch neither settings nor session storage in a way the upgrade path reads (format-on-save is a plain
+  boolean setting with a default; the colour picker keeps no state).
+- Windows shard 1 unit tests: the whole suite ran slowly on that runner (watcher 24.7 s vs 19.7 s on green main,
+  history-store 14.9 s vs 8.6 s); S53/S57's new tests add under 0.7 s. `chat-store.test.ts` (several atomic writes)
+  and the real-signtool tests in `release-workflow.test.ts` (18.6 s for signtool to check its own chains) get timeouts
+  sized for a hosted Windows runner (30 s / 60 s, as `history-store.test.ts` has). `scripts/verify-signing.mjs` retries
+  only "SignTool Error: The file is being used by another process" (the file could not be opened; nothing about its
+  signature) with a bounded backoff 0.5/1/2/4 s and reports it as is after the last attempt; verdicts are never
+  retried (4 new unit tests with an injected sleep). `docs/testing.md` and `docs/release/signing.md` describe all three
+  conventions.
+
+**Evidence:** Windows: `npm run test:e2e -- authoring.spec.ts js-navigation.spec.ts authoring-offline.spec.ts` 16
+passed (31.4 s, packaged app included); `sheet.test.ts`, `verify-signing.test.ts`, `release-workflow.test.ts` (real
+signtool), `emmet-expand.test.ts` 65 passed; typecheck, lint, format, `session.mjs check` (282 features) green. Full
+`npm run verify`: harness, typecheck, lint, format green; tests 2992 passed / 15 skipped / 2 failed, the two failures being main's own walkthrough-model cases (see risks), nothing of this branch. macOS cannot be run here: the two macOS causes are reasoned from the run's traces,
+error contexts and screenshots (artifacts e2e-results-macos-arm64-1/2 of run 39033368439) and must be confirmed by
+the next hosted run.
+
+**Decisions:** Per-page trace capture is a diagnostic, not a gate, so turning it off for the two CDP specs costs no
+coverage; the bounded signtool retry never changes a verdict. No threshold raised, no test skipped (decision 0035).
+
+**Problems / risks:** main @ 65edc2a is itself red on two `walkthrough-model.test.ts` cases (PR #20's tests vs
+PR #7's `compact` field); the coordination session fixes that on main, so this branch shows the same two failures
+until main is merged again. The `upgrade.spec.ts` fix removes the stall but the pre-connect "no pending page" poll
+still cannot see a preview created after it; if the test stalls again, the next step is a direct `Runtime.evaluate`
+probe of every page over its own DevTools WebSocket before connecting.
+
+**Owner action needed:** none beyond merging PR #23 once the hosted matrix is green.
+
+**Next up**
+
+1. Watch the hosted run on PR #23; if green, merge. Then re-sync #24–#27 on main as planned.
+2. Follow-up (own session): sweep the 15 other e2e specs that press `ControlOrMeta+Home` / `+End` inside Monaco and a
+   lint-style test in `tests/integration` that forbids the literal in `tests/e2e`.
+
+**Ideas / backlog candidates:** a shared `startPackagedApp()` helper for the CDP specs (port poll, pending-page
+probe, connect, trace options) instead of two copies.
+
+## Session 36 (side session) — 2026-10-17 — S53 HTML/CSS authoring aids and S57 JavaScript navigation (M19)
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, worktree branch `claude/m19-s53-s57-editor-4026ce`
+(based on 824b6fa). Own `node_modules` (the `emmet` dependency was added; electron binary from the local cache).
+
+**Done**
+
+- S53.1 Emmet on Tab (`emmet` 2.4.11, MIT, pinned; decision 0039 with the measured size: 75.4 KB min / 27.2 KB gz).
+  NoobIDE's own context rules (`emmet-expand.ts`): only text content in HTML, only property starts in CSS, only real
+  element names / known CSS abbreviations; anything else gets the normal Tab. Edit menu switch (`emmet` setting) and
+  a one-time status-bar hint (`emmetHintShown`).
+- S53.2 Linked tag editing (Monaco `linkedEditing` + NoobIDE's own HTML pair finder `tag-match.ts`, since Monaco's
+  HTML mode has no provider) and Edit › Wrap selection with tag (snippet with both tag names linked).
+- S53.3 Colour hints in CSS files: Monaco swatches proven per format; a status-bar colour chip (value as text,
+  accessible name) and NoobIDE's own keyboard-operable colour picker (HSL sliders + value field) that writes the
+  colour back in its own format as one undo step. Glossary "Colour value".
+- S53.4 Toggle line / block comment in the Edit menu and palette (Ctrl/Cmd+/, Shift+Alt+A; editor-scoped shortcuts:
+  `scope: 'editor'` in the command registry); inside `<script>` / `<style>` NoobIDE writes `//` and `/* */`
+  (Monaco wrote `<!-- -->`). Opt-in Format on save (`formatOnSave` setting, explicit saves only; failure or a 3 s
+  timeout saves the text as it was and the status bar says why).
+- S53.5 Packaged-app offline e2e (`tests/e2e/authoring-offline.spec.ts`): the packaged binary has the inspector fused
+  off, so the test starts it with `--remote-debugging-port` and drives it over CDP; the project opens through a
+  pre-written `session.json`; network cut by proxy + resolver switches, every load / request checked local.
+- S57.1 Go to definition (F12) and Find all references (Shift+F12) through the JavaScript worker directly
+  (`js-navigation*.ts`); closed scripts work (Monaco's own providers only knew open models and are switched off in
+  `language-config.ts`). Inline `<script>` is explicitly unsupported (case + message).
+- S57.2 Rename (F2) with a per-file preview; `rename-apply.ts` checks every file first (any change since the preview
+  stops the whole rename), then one undoable edit per tab and each tab's own saver. Refusals with reasons: built-in
+  names, properties and methods, a new name already used (project scripts or the browser window), globals also used by an
+  HTML page's inline script / on… attribute, incomplete script set or unreadable pages, invalid / same names.
+- New capability case kinds: `edit`, `colors`, `definition`, `references`, `rename` (+ `closedFiles` as extra libs).
+
+**Evidence:** per-feature evidence strings in features.json; all capability cases pass in the packaged app offline
+(`tests/e2e/language.spec.ts`); `tests/e2e/authoring.spec.ts`, `authoring-offline.spec.ts`, `js-navigation.spec.ts`,
+`editing.spec.ts` pass on Windows x64; integration `format-on-save.test.ts`, `rename-apply.test.ts`; `npm run verify`
+green. A subagent reviewed S53.4 (findings fixed in 6caac99) and S57.2 (partial-rename revert, name collisions, property
+renames, HTML check limited to inline scripts / on… attributes of globals, dialog locked while applying: all fixed
+before c06e968).
+
+**Decisions:** decision 0039 (Emmet). Colour picker is NoobIDE's own dialog (Monaco's inline picker is not keyboard
+accessible); Monaco's swatches stay. Rename of a closed file opens it in a background tab and creates its model early
+(`models.acquire`) so the change is undoable in that tab. Editor-scoped shortcuts match only the workbench editor
+(`.code-editor`).
+
+**Problems / risks:** macOS not run (CDP launch of the packaged `.app` binary is expected to work; CI covers it).
+With the suggestion list open, Tab accepts the suggestion, not Emmet (documented). A format that answers after the
+3 s timeout still lands in the buffer afterwards (unsaved, autosave writes it; no data loss). Merge conflicts
+expected with the parallel M19 sessions in `src/shared/commands.ts` (new command ids), `menu-template.ts` (Edit
+menu), `settings.ts`, `Workbench.tsx`, i18n spreads, `features.json` status fields and this file. F2 / F12 are
+editor-scoped, so a file-tree F2 (S52) does not collide.
+
+**Owner action needed:** none.
+
+**Next up**
+
+1. The remaining M19 sessions (S51, S52, S54, S55, S56) from their own branches; merge order is free.
+
+**Ideas / backlog candidates:** Emmet items in the suggestion list (VS Code style) so Tab works with it open; wrap
+with tag as an Emmet abbreviation; colour swatches inside HTML `<style>` blocks (needs a provider of our own).
 
 ## Session 32 (side session) — 2026-10-16 — S47.5 one status row, S47.6 compact walkthrough
 

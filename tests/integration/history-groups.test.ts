@@ -264,7 +264,6 @@ describe('recording an agent turn (S34.2)', REAL_IO, () => {
 
   // Every step is an atomic index write on the real disk: a few ms here, but a hosted Windows runner with the CPU
   // saturated needed over 5 s for the burst (PR #14 CI). The timeout only bounds the wait; the assertions are unchanged.
-  const REAL_IO = { timeout: 60_000 };
   it('keeps the newest groups within the limit, newest first; a group-only index is not deleted', REAL_IO, async () => {
     for (let i = 0; i < GROUP_LIMITS.maxGroups + 3; i += 1) {
       clock += 1;
