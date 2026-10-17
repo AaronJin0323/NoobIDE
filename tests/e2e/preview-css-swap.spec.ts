@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
-import { collectConsoleErrors, openFile } from './project';
+import { collectConsoleErrors, openFile, switchLanguage } from './project';
 import { evalInPreview, openProject, previewInfo, replaceEditorText, waitForPreviewState } from './preview-helpers';
 
 /**
@@ -233,7 +233,7 @@ test('fault: broken CSS or a failed swap reloads and the problem reaches Problem
 });
 
 test('en: the toolbar says "Styles updated" or "Page reloaded" (S54.3)', async () => {
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page); // S47.4: through the help menu
   try {
     let loaded = await timeOrigin();
     await saveFile(THEME, '#title { color: rgb(10, 20, 30); }\n', 'Saved');
@@ -249,7 +249,7 @@ test('en: the toolbar says "Styles updated" or "Page reloaded" (S54.3)', async (
     await expectReload(loaded, 'syntax');
     await expect(update()).toHaveAttribute('title', 'The CSS has a syntax error; see Problems.');
   } finally {
-    await page.getByTestId('switch-language').click(); // back to zh-CN
+    await switchLanguage(page); // back to zh-CN
   }
   await saveFile(THEME, '#title { color: rgb(0, 128, 0); }\n');
   await expect.poll(titleColor, { timeout: 5_000 }).toBe('rgb(0, 128, 0)');
