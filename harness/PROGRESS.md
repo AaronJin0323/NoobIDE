@@ -25,7 +25,10 @@ UI/UX can take from it, and make it a plan on a new branch.
 
 **Evidence:** `node harness/session.mjs check` OK (246 features, 51 sessions); `npm run verify` green before and
 after (2734 tests; one verify run had a transient unit-test failure under load whose name was not captured, and the
-standalone vitest run and the next verify passed). No product code changed.
+standalone vitest run and the next verify passed). No product code changed. PR #14 CI: Windows shard 2 failed
+in walkthrough.spec.ts:80 with ENOENT reading walkthrough.json — the poll read the file before the store's first
+atomic write landed; the spec's reader now returns undefined until the file exists (tests only, 12/12 pass locally
+on the package). Main's own run at the branch point was red with unrelated failures.
 
 **Decisions:** Nothing from the source is copied as code, class strings or assets (Tailwind, Framer Motion,
 clay accent, CDN Storybook); only mechanisms and constants, each given one home as a token or tested constant.

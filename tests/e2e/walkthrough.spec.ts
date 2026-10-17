@@ -43,7 +43,16 @@ async function menu(id: string) {
   await page.getByTestId(`menu-${id}`).click();
 }
 
-const stored = async (userData: string) => JSON.parse(await readFile(path.join(userData, 'walkthrough.json'), 'utf8'));
+/** The stored walkthrough state, or undefined while main has not written walkthrough.json yet (the store writes
+ *  atomically through a queue, so a poll right after a click can run before the first write lands). */
+const stored = async (userData: string) => {
+  try {
+    return JSON.parse(await readFile(path.join(userData, 'walkthrough.json'), 'utf8'));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }
+};
 
 /** Replaces the active editor's text and saves it (Ctrl+S), then waits until the file on disk has it. */
 async function editAndSave(file: string, transform: (text: string) => string) {
@@ -107,7 +116,7 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     // Close (skip the walkthrough): hidden, stored as closed; Help reopens it at the first step not done yet.
     await page.getByTestId('walkthrough-close').click();
     await expect(panel()).toHaveCount(0);
-    await expect.poll(async () => (await stored(userData())).status).toBe('closed');
+    await expect.poll(async () => (await stored(userData()))?.status).toBe('closed');
     await menu('help-walkthrough');
     await expect(panel()).toHaveAttribute('data-step', 'create');
     // The rail's labelled "课程" button runs the same command: lessons are never only in a menu.
@@ -121,7 +130,7 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await next().click();
     await next().click();
     await expect(panel()).toHaveAttribute('data-step', 'heading');
-    await expect.poll(async () => (await stored(userData())).step).toBe('heading');
+    await expect.poll(async () => (await stored(userData()))?.step).toBe('heading');
     await app.close();
     await start(userData());
     await expect(panel()).toHaveAttribute('data-step', 'heading');
@@ -360,7 +369,7 @@ test.describe('the PLAN §2 journey (S23.2) and the final task (S23.3)', () => {
       .toBe('rgb(22, 163, 74)');
     await page.getByTestId('task-close').click();
     await expect(task).toHaveCount(0);
-    await expect.poll(async () => (await stored(userData())).task).toBe('done');
+    await expect.poll(async () => (await stored(userData()))?.task).toBe('done');
     expect(consoleErrors).toEqual([]);
   });
 });
