@@ -5,6 +5,7 @@ import { ThemeProvider } from './theme/ThemeProvider';
 import { Workbench } from './workbench/Workbench';
 import { installImeGuard } from './workbench/ime';
 import './styles.css';
+import './workbench/navigation.css'; // S49.4–S49.6 console, All tabs, container queries
 import './glass.css'; // S40 Liquid Glass layer, after the base styles
 
 // S48.3: before any other key handler, so an IME-owned Escape never reaches a panel or dialog.

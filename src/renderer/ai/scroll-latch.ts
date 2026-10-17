@@ -55,19 +55,22 @@ export function scrolled(state: LatchState, m: ScrollMetrics, now: number): Latc
 }
 
 /**
- * New content arrived in entry `key` (null when the change has no entry, e.g. a cleared log). `metrics` are taken
- * after the content rendered and before any scroll. Returns whether to scroll to the end now.
+ * New content arrived in entry `key` (null when the change has no entry, e.g. a cleared log). S49.4: a list of keys
+ * when one change adds several entries at once (a console batch adds lines). `metrics` are taken after the content
+ * rendered and before any scroll. Returns whether to scroll to the end now.
  */
 export function contentChanged(
   state: LatchState,
   m: ScrollMetrics,
   now: number,
-  key: string | null,
+  key: string | readonly string[] | null,
 ): { readonly state: LatchState; readonly follow: boolean } {
   if (state.pinned) return { state, follow: true };
   if (canRepin(state, m, now)) return { state: PINNED(state.lastInputAt), follow: true };
-  if (key === null || state.pending.includes(key)) return { state, follow: false };
-  return { state: { ...state, pending: [...state.pending, key] }, follow: false };
+  const keys = key === null ? [] : typeof key === 'string' ? [key] : key;
+  const added = keys.filter((k, i) => !state.pending.includes(k) && keys.indexOf(k) === i);
+  if (added.length === 0) return { state, follow: false };
+  return { state: { ...state, pending: [...state.pending, ...added] }, follow: false };
 }
 
 /** The Jump-to-latest control was used: pin and follow, whatever the last input. */

@@ -14,6 +14,7 @@
     "ai-prompt.spec.ts": 2,
     "ai-settings.spec.ts": 1,
     "app-startup-restore.spec.ts": 1,
+    "console-tools.spec.ts": 2,
     "authoring-offline.spec.ts": 2,
     "authoring.spec.ts": 1,
     "commands.spec.ts": 2,

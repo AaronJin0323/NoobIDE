@@ -1,0 +1,212 @@
+/* M18 Track C (S49.4–S49.6): console pinning, search and copy; the All-tabs list; the container-query ladder.
+   Loaded after styles.css (main.tsx), so these rules extend the base ones without touching their blocks. */
+
+/* ── S49.4: console — the toolbar stays put, the list scrolls (the scroll latch watches the list only) ── */
+.preview-console {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.preview-console-toolbar,
+.preview-console-dropped {
+  flex: none;
+}
+.preview-console-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.preview-console-search {
+  width: 10rem;
+  min-width: 6rem;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+.preview-console-search:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.preview-console-toolbar .preview-console-search {
+  margin-left: auto;
+}
+.preview-console-toolbar .preview-console-search + .quiet-button {
+  margin-left: 0;
+}
+.preview-console-toolbar .quiet-button {
+  gap: 4px;
+}
+.preview-console-copied {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+/* Copy line: quiet until the row is hovered or the button has the keyboard focus (the list is one tab stop). */
+.preview-console-line {
+  align-items: flex-start;
+}
+.preview-console-line .preview-console-copy {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: -2px 0 -2px auto;
+  opacity: 0;
+}
+.preview-console-line:hover .preview-console-copy,
+.preview-console-copy:focus-visible {
+  opacity: 1;
+}
+.preview-console-copy:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.preview-console-jump {
+  position: sticky;
+  bottom: 4px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: calc(100% - 16px);
+  margin: 4px auto 0;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.preview-console-jump:hover {
+  background: var(--hover-soft);
+}
+.preview-console-jump:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.preview-console-jump-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── S49.5: palette "Recent" group; the tab bar's All-tabs list ── */
+.palette-recent-group {
+  margin: 0 0 4px;
+  padding: 0 0 4px;
+  border-bottom: 1px solid var(--line);
+}
+.palette-group {
+  padding: 4px 6px 2px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.palette-group-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.all-tabs {
+  position: relative;
+  flex: none;
+}
+.tabs-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.tabs-all:hover {
+  background: var(--hover);
+}
+.tabs-all[aria-expanded='true'] {
+  background: var(--hover);
+  font-weight: var(--weight-medium);
+}
+.tabs-all:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.all-tabs-list {
+  min-width: 280px;
+  max-width: min(480px, 90vw);
+  max-height: min(420px, 70vh);
+  overflow-y: auto;
+}
+.all-tabs-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.all-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.all-tabs-open {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.all-tabs-check {
+  display: inline-flex;
+  flex: none;
+  width: 14px;
+}
+.all-tabs-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.all-tabs-folder {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.all-tabs-state {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.all-tabs-close {
+  flex: none;
+  margin-left: 0;
+}
+.all-tabs-open:hover :is(.all-tabs-folder, .all-tabs-state),
+.all-tabs-open:focus-visible :is(.all-tabs-folder, .all-tabs-state) {
+  color: inherit;
+}
+.all-tabs-close:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}

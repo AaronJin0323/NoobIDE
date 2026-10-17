@@ -328,6 +328,14 @@ export const TreeFileIcon = ({ name }: { name?: string }) => {
   return <Icon />;
 };
 
+/** S49.4: Copy line / Copy all visible in the console. */
+export const CopyIcon = () => (
+  <IconBase size={14}>
+    <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+    <path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5" />
+  </IconBase>
+);
+
 export const LinkIcon = () => (
   <IconBase size={14}>
     <path d="M7 9a3 3 0 0 0 4.2 0l2-2a3 3 0 0 0-4.2-4.2l-.6.6M9 7a3 3 0 0 0-4.2 0l-2 2a3 3 0 0 0 4.2 4.2l.6-.6" />
