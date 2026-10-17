@@ -325,6 +325,53 @@ export class SnapshotStore {
     });
   }
 
+  /**
+   * S52.1 (decision 0006): a file or folder was renamed or moved inside the project, by NoobIDE itself. The versions
+   * of every file at or below `from` move to the same path below `to` — an exact relink, because main did the move.
+   * A file that already has history at the new path (one deleted there earlier) keeps both, in the order they were
+   * taken, within the per-file limits. Change groups keep the paths they recorded.
+   */
+  movePath(rootPath: string, from: string, to: string): Promise<Result<{ moved: number }, 'write-failed'>> {
+    return this.queue.run(async () => {
+      await this.load();
+      const key = projectKey(rootPath);
+      const blocked = this.blocked(key);
+      if (blocked !== undefined) {
+        this.log('history.move-refused', { reason: blocked });
+        return err('write-failed', `history unavailable: ${blocked}`);
+      }
+      const index = this.indexes.get(key);
+      const source = historyKey(from);
+      const target = historyKey(to);
+      if (!index || source === target) return ok({ moved: 0 });
+      const below = Object.keys(index.files).filter((rel) => rel === source || rel.startsWith(`${source}/`));
+      if (below.length === 0) return ok({ moved: 0 });
+      try {
+        const released: string[] = [];
+        for (const rel of below) {
+          const versions = index.files[rel] ?? [];
+          delete index.files[rel];
+          const dest = target + rel.slice(source.length);
+          const existing = index.files[dest] ?? [];
+          // The moved file's own versions come first when the limits trim: older history at the new path (of a file
+          // deleted there earlier) goes before any of them.
+          const kept = trimPreferring(existing, versions, this.limits);
+          const merged = [...existing, ...versions];
+          const keptIds = new Set(kept.map((m) => m.id));
+          released.push(...merged.filter((m) => !keptIds.has(m.id)).flatMap((m) => this.releaseRef(m)));
+          index.files[dest] = kept;
+        }
+        await this.writeIndex(index);
+        await this.deleteBlobs(released);
+        return ok({ moved: below.length });
+      } catch (e) {
+        this.log('history.move-failed', { code: errorCode(e) });
+        this.invalidate();
+        return err('write-failed', errorCode(e), e);
+      }
+    });
+  }
+
   /** Versions of one file, newest first. */
   list(rootPath: string, relPath: string): Promise<Result<SnapshotMeta[], HistoryReadError>> {
     return this.queue.run(async () => {
@@ -925,6 +972,19 @@ function trimFile(list: SnapshotMeta[], limits: HistoryLimits): SnapshotMeta[] {
     bytes -= out.shift()?.size ?? 0;
   }
   return out;
+}
+
+/** {@link trimFile} for two histories merged by a move: `other` versions are dropped first, oldest first. */
+function trimPreferring(other: SnapshotMeta[], own: SnapshotMeta[], limits: HistoryLimits): SnapshotMeta[] {
+  const rest = [...other].sort((a, b) => a.seq - b.seq);
+  const mine = [...own];
+  const total = () => [...rest, ...mine].reduce((n, m) => n + m.size, 0);
+  const over = () => rest.length + mine.length > limits.maxVersionsPerFile || total() > limits.maxBytesPerFile;
+  while (rest.length > 0 && over()) rest.shift();
+  return trimFile(
+    [...rest, ...mine].sort((a, b) => a.seq - b.seq),
+    limits,
+  );
 }
 
 function nullRecord<T>(): Record<string, T> {

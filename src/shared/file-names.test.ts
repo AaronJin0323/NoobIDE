@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkFileName, differsOnlyByCase, sameName } from './file-names';
+import { MAX_NAME_BYTES, checkFileName, copyName, differsOnlyByCase, sameName } from './file-names';
 
 describe('checkFileName: cross-platform rules (S07.1, S08.2)', () => {
   it.each(['index.html', '页面 二.html', 'my page.css', 'a.b.c.js', 'CONSOLE.js', 'con-tact.html', 'COM10.txt'])(
@@ -61,5 +61,47 @@ describe('name comparison (S07.1)', () => {
     expect(differsOnlyByCase('Index.html', 'index.html')).toBe(true);
     expect(differsOnlyByCase('index.html', 'index.html')).toBe(false);
     expect(differsOnlyByCase('a.html', 'b.html')).toBe(false);
+  });
+});
+
+describe('names of copies (S52.2)', () => {
+  const free = (taken: string[]) => (name: string) => !taken.some((t) => sameName(t, name, false));
+
+  it('a copy is "name copy.ext", then "name copy 2.ext", and so on', () => {
+    expect(copyName('page.html', free(['page.html']))).toBe('page copy.html');
+    expect(copyName('page.html', free(['page.html', 'page copy.html']))).toBe('page copy 2.html');
+    expect(copyName('page.html', free(['page.html', 'page copy.html', 'page copy 2.html']))).toBe('page copy 3.html');
+  });
+
+  it('copying a copy counts on instead of piling up "copy copy"', () => {
+    expect(copyName('page copy.html', free(['page.html', 'page copy.html']))).toBe('page copy 2.html');
+    expect(copyName('page copy 2.html', free(['page copy.html', 'page copy 2.html']))).toBe('page copy 3.html');
+  });
+
+  it('folders, names without an ending and names with several dots; Chinese names with spaces', () => {
+    expect(copyName('图片 素材', free(['图片 素材']))).toBe('图片 素材 copy');
+    expect(copyName('README', free(['README']))).toBe('README copy');
+    expect(copyName('app.min.js', free(['app.min.js']))).toBe('app.min copy.js');
+    expect(copyName('页面 二.html', free(['页面 二.html']))).toBe('页面 二 copy.html');
+    expect(copyName('图片 素材', free(['图片 素材']), 'directory')).toBe('图片 素材 copy');
+    expect(copyName('v1.2', free(['v1.2']), 'directory')).toBe('v1.2 copy');
+  });
+
+  it('only a short number counts as a copy number, so a huge one cannot stall the counter', () => {
+    const big = 'page copy 9007199254740991.html';
+    expect(copyName(big, free([big]))).toBe('page copy 9007199254740991 copy.html');
+    expect(copyName('page copy 41.html', free(['page copy 41.html']))).toBe('page copy 42.html');
+  });
+
+  it('a taken name differing only in case counts as taken (Windows and macOS)', () => {
+    expect(copyName('page.html', free(['page.html', 'PAGE COPY.html']))).toBe('page copy 2.html');
+  });
+
+  it('every copy name is valid on Windows and macOS, also for very long names', () => {
+    const long = `${'长'.repeat(84)}.html`; // 252 + 5 bytes: right at the limit
+    const copy = copyName(long, free([long]));
+    expect(checkFileName(copy).ok).toBe(true);
+    expect(copy.endsWith(' copy.html')).toBe(true);
+    expect(new TextEncoder().encode(copy).length).toBeLessThanOrEqual(MAX_NAME_BYTES);
   });
 });

@@ -52,6 +52,7 @@ function harness(options: { initial?: string } = {}) {
       deletions.push('index.html');
       saver.markDeleted();
     },
+    moved: () => undefined,
   });
   return {
     saver,

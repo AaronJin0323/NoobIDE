@@ -1,10 +1,13 @@
 import { randomBytes } from 'node:crypto';
-import { link, lstat, mkdir, open, readdir, rename, unlink } from 'node:fs/promises';
+import { link, lstat, mkdir, open, readdir, rename, rmdir, stat, unlink } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
+import { COPY_LIMITS } from '../shared/copy-limits';
 import type { FileOpError } from '../shared/ipc/contract';
-import { checkFileName, sameName } from '../shared/file-names';
+import { checkFileName, copyName, sameName } from '../shared/file-names';
 import { err, ok, type Result } from '../shared/result';
-import { errorCode, isInside, resolveExisting, resolveNew } from './paths';
+import { errorCode, isInside, relativeToRoot, resolveExisting, resolveNew } from './paths';
 import { protectedFolderCauseOf } from '../platform/protected-folders';
 
 /**
@@ -83,7 +86,7 @@ export async function resolveEntry(
 }
 
 /** A new name must be valid on Windows and macOS alike; the message lists the problems (src/shared/file-names). */
-function checkName(name: string): Result<null, FileOpError> {
+export function checkName(name: string): Result<null, FileOpError> {
   const check = checkFileName(name);
   return check.ok ? ok(null) : err('invalid-name', check.problems.join(','));
 }
@@ -173,6 +176,38 @@ export async function renameEntry(
     return err(opErrorCode(e), errorCode(e), e);
   }
   return ok({ from, to });
+}
+
+/**
+ * S52.1: moves an entry into `toFolder` (`''` is the project root) under its own name. The destination folder must
+ * exist and really lie inside the project (realpath-checked, so a link or junction cannot lead out); the move itself
+ * is {@link renameEntry}: an existing target or one differing only in case is refused, never overwritten, and a
+ * folder cannot go into itself or a descendant. Moving into the folder it is already in changes nothing.
+ */
+export async function moveEntry(
+  root: string,
+  from: string,
+  toFolder: string,
+  fs: FileOpsFs = realFs,
+): Promise<Result<{ from: string; to: string }, FileOpError>> {
+  const { parent, name } = splitRel(from);
+  if (toFolder === from || toFolder.startsWith(`${from}${SEP}`)) {
+    return err('into-itself', 'a folder cannot be moved into itself');
+  }
+  if (toFolder === parent) return ok({ from, to: from });
+  const dest = await resolveExisting(root, toFolder);
+  if (!dest.ok) return err(dest.code, dest.message);
+  try {
+    if (!(await stat(dest.path)).isDirectory()) return err('not-a-folder', toFolder);
+  } catch (e) {
+    return err(opErrorCode(e), errorCode(e), e);
+  }
+  // The folder's real path inside the project (a link, a junction, a case or 8.3 spelling of it): the moved entry
+  // gets the path the file system and the watcher will report, so tabs, history and recovery copies agree with it.
+  const real = relativeToRoot(root, dest.path);
+  if (real === null) return err('outside-project', 'destination leaves the project');
+  if (real === parent) return ok({ from, to: from });
+  return renameEntry(root, from, real === '' ? name : `${real}${SEP}${name}`, fs);
 }
 
 /** Moves without ever replacing an existing target (see the module comment). */
@@ -300,4 +335,199 @@ export function opErrorCode(e: unknown): FileOpError {
     default:
       return 'op-failed';
   }
+}
+
+// ── S52.2: copy, paste and duplicate ─────────────────────────────────────────────────────────────────────────────
+
+/** The file-system calls a copy makes, injectable so a failure half-way can be tested. */
+export interface CopyFs {
+  readdir(dir: string): Promise<string[]>;
+  lstat(p: string): Promise<{ isFile(): boolean; isDirectory(): boolean; isSymbolicLink(): boolean; size: number }>;
+  /** Creates one folder; never reuses an existing one. */
+  mkdir(p: string): Promise<void>;
+  /**
+   * Copies the bytes of one file; refuses (EEXIST) when the target exists. If it created the target and then
+   * failed, it removes that target itself; a target it did not create is never touched.
+   */
+  copyFile(from: string, to: string): Promise<void>;
+  unlink(p: string): Promise<void>;
+  rmdir(p: string): Promise<void>;
+}
+
+export const realCopyFs: CopyFs = {
+  readdir: (dir) => readdir(dir),
+  lstat: (p) => lstat(p),
+  mkdir: async (p) => {
+    await mkdir(p);
+  },
+  copyFile: (from, to) => copyFileExclusive(from, to),
+  unlink,
+  rmdir: (p) => rmdir(p),
+};
+
+/** S52.2: a copy larger than this (files or bytes, counted before anything is written) is refused. */
+export { COPY_LIMITS } from '../shared/copy-limits';
+
+/**
+ * Copies one file without ever replacing anything: the target is created with `wx` (so "we created it" is certain),
+ * then the bytes are streamed in. A failure after the create removes that new file; EEXIST touches nothing.
+ */
+export async function copyFileExclusive(from: string, to: string): Promise<void> {
+  const target = await open(to, 'wx');
+  try {
+    await pipeline(createReadStream(from), target.createWriteStream());
+  } catch (e) {
+    await target.close().catch(() => undefined);
+    await unlink(to).catch(() => undefined);
+    throw e;
+  }
+}
+
+/** Counts what a copy would create (links are not followed), stopping as soon as a limit is passed. */
+export async function measure(source: string, fs: CopyFs = realCopyFs): Promise<{ entries: number; bytes: number }> {
+  const total = { entries: 0, bytes: 0 };
+  const walk = async (p: string): Promise<void> => {
+    if (total.entries > COPY_LIMITS.maxEntries || total.bytes > COPY_LIMITS.maxBytes) return;
+    const info = await fs.lstat(p);
+    if (info.isSymbolicLink()) return;
+    total.entries += 1;
+    if (info.isDirectory()) {
+      for (const child of await fs.readdir(p)) await walk(path.join(p, child));
+    } else if (info.isFile()) {
+      total.bytes += info.size;
+    }
+  };
+  await walk(source);
+  return total;
+}
+
+export interface CopiedEntry {
+  readonly from: string;
+  readonly to: string;
+  /** Links inside a copied folder are not copied (their target may lie outside the project); how many. */
+  readonly skippedLinks: number;
+}
+
+/**
+ * S52.2: copies a file or folder (recursively, byte for byte) into `toFolder` — `paste` keeps the name when it is
+ * free there and otherwise names it like a duplicate; `duplicate` copies into the entry's own folder as
+ * `name copy.ext` (src/shared/file-names copyName). Nothing is ever overwritten: folders are created without
+ * `recursive` and files with COPYFILE_EXCL, so a name that appears meanwhile fails the copy instead. A copy that
+ * fails half-way removes exactly what it created (newest first) and reports the cause; anything it did not create is
+ * never touched. Links are not followed: a link itself cannot be copied, and links inside a folder are skipped.
+ */
+export async function copyEntry(
+  root: string,
+  from: string,
+  toFolder: string,
+  mode: 'paste' | 'duplicate',
+  fs: CopyFs = realCopyFs,
+): Promise<Result<CopiedEntry, FileOpError>> {
+  const source = await resolveEntry(root, from);
+  if (!source.ok) return source;
+  const { parent, name } = splitRel(from);
+  // A name Windows or macOS cannot represent is renamed first (S08.2); its copy would not be portable either.
+  const named = checkName(name);
+  if (!named.ok) return named;
+  let isDirectory: boolean;
+  try {
+    const info = await fs.lstat(source.value);
+    if (info.isSymbolicLink() || (!info.isFile() && !info.isDirectory())) return err('op-failed', 'link');
+    isDirectory = info.isDirectory();
+  } catch (e) {
+    return err(opErrorCode(e), errorCode(e), e);
+  }
+  const dest = await resolveExisting(root, mode === 'duplicate' ? parent : toFolder);
+  if (!dest.ok) return err(dest.code, dest.message);
+  const real = relativeToRoot(root, dest.path);
+  if (real === null) return err('outside-project', 'destination leaves the project');
+  if (isDirectory && (dest.path === source.value || isInside(source.value, dest.path))) {
+    return err('into-itself', 'a folder cannot be copied into itself');
+  }
+  let names: string[];
+  try {
+    if (!(await stat(dest.path)).isDirectory()) return err('not-a-folder', toFolder);
+    names = await fs.readdir(dest.path);
+  } catch (e) {
+    return err(opErrorCode(e), errorCode(e), e);
+  }
+  const isFree = (candidate: string) => !names.some((n) => sameName(n, candidate, false));
+  const kind = isDirectory ? 'directory' : 'file';
+  let newName: string;
+  try {
+    newName = mode === 'paste' && isFree(name) ? name : copyName(name, isFree, kind);
+  } catch {
+    return err('invalid-name', 'no free name for a copy');
+  }
+  try {
+    const size = await measure(source.value, fs);
+    if (size.entries > COPY_LIMITS.maxEntries || size.bytes > COPY_LIMITS.maxBytes) {
+      return err('too-large', `${size.entries} entries, ${size.bytes} bytes`);
+    }
+  } catch (e) {
+    return err(opErrorCode(e), errorCode(e), e);
+  }
+  const copied = await copyNew(source.value, path.join(dest.path, newName), fs);
+  if (!copied.ok) return copied;
+  return ok({ from, to: real === '' ? newName : `${real}${SEP}${newName}`, skippedLinks: copied.value.skippedLinks });
+}
+
+/**
+ * Copies `source` (a file or folder, links inside not followed) to `target`, which must not exist yet: never
+ * overwrites, and a failure half-way removes exactly what was created and reports the cause. Shared by copy/paste
+ * (S52.2) and import from outside the project (S52.4, S52.5).
+ */
+export async function copyNew(
+  source: string,
+  target: string,
+  fs: CopyFs = realCopyFs,
+): Promise<Result<{ skippedLinks: number }, FileOpError>> {
+  const created: { path: string; directory: boolean }[] = [];
+  const counts = { skippedLinks: 0 };
+  try {
+    await copyTree(source, target, fs, created, counts);
+  } catch (e) {
+    const leftover = await rollback(created, fs);
+    return err(opErrorCode(e), leftover === 0 ? errorCode(e) : `${errorCode(e)}; ${leftover} left`, e);
+  }
+  return ok({ skippedLinks: counts.skippedLinks });
+}
+
+async function copyTree(
+  source: string,
+  target: string,
+  fs: CopyFs,
+  created: { path: string; directory: boolean }[],
+  counts: { skippedLinks: number },
+): Promise<void> {
+  const info = await fs.lstat(source);
+  if (info.isSymbolicLink()) {
+    counts.skippedLinks += 1;
+    return;
+  }
+  if (info.isDirectory()) {
+    await fs.mkdir(target);
+    created.push({ path: target, directory: true });
+    for (const child of (await fs.readdir(source)).sort()) {
+      await copyTree(path.join(source, child), path.join(target, child), fs, created, counts);
+    }
+    return;
+  }
+  if (!info.isFile()) return; // sockets, devices: not project content
+  // Exclusive create: copyFile itself removes a target it made and then failed on; an EEXIST target is not ours.
+  await fs.copyFile(source, target);
+  created.push({ path: target, directory: false });
+}
+
+/** Removes what a failed copy created, newest first. Returns how many entries could not be removed. */
+async function rollback(created: readonly { path: string; directory: boolean }[], fs: CopyFs): Promise<number> {
+  let left = 0;
+  for (const entry of [...created].reverse()) {
+    try {
+      await (entry.directory ? fs.rmdir(entry.path) : fs.unlink(entry.path));
+    } catch {
+      left += 1;
+    }
+  }
+  return left;
 }
