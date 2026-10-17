@@ -172,3 +172,27 @@ test('rename and delete a checkpoint', async () => {
   expect(await filesOf(root)).toEqual(['app.js', 'index.html', '新 文件.html', '样式/主 样式.css']);
   expect(consoleErrors).toEqual([]);
 });
+
+test('S56.3: a restore from local history takes an automatic checkpoint first, labelled with its cause', async () => {
+  // The checkpoint restore above kept the broken index.html as a local-history version (before-save).
+  await page.getByTestId('app-menu').click();
+  await page.getByTestId('menu-show-history').click();
+  const history = page.getByTestId('history-dialog');
+  await expect(history).toBeVisible();
+  await history.locator('[data-testid="history-file"][data-path="index.html"]').click();
+  await history.locator('[data-testid="history-version"][data-reason="before-save"]').first().click();
+  await history.getByTestId('history-restore').click();
+  await expect(history.getByTestId('history-notice')).toHaveAttribute('data-kind', 'ok');
+  await history.getByTestId('history-close').click();
+  await expect(history).toHaveCount(0);
+
+  await openCheckpoints();
+  const auto = dialog().locator('[data-testid="checkpoint"][data-cause="before-history-restore"]');
+  await expect(auto).toHaveCount(1);
+  await expect(auto.getByTestId('checkpoint-kind')).toHaveText('自动');
+  await expect(auto.getByTestId('checkpoint-name')).toContainText('index.html');
+  // The named checkpoint is still there: pruning never removes it.
+  await expect(dialog().locator('[data-testid="checkpoint"][data-kind="named"]')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  expect(consoleErrors).toEqual([]);
+});

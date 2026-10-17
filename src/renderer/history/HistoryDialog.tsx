@@ -46,6 +46,11 @@ interface HistoryDialogProps {
    * files changed since are skipped and named). Null when another change is running. Absent: no undo offered.
    */
   onUndoGroup?(group: HistoryGroup): Promise<GroupUndoOutcome | null>;
+  /**
+   * S56.3: right before any restore from this window (a version, a deleted file, an agent turn undone) — takes an
+   * automatic project checkpoint named after `what`. Never fails the restore.
+   */
+  beforeRestore?(what: string): Promise<void>;
   onClose(): void;
 }
 
@@ -60,7 +65,17 @@ type Confirm = 'project' | 'all' | { readonly orphan: string } | null;
  * gone (ADR 0006). Modal: focus stays inside, Escape closes.
  */
 export function HistoryDialog(props: HistoryDialogProps) {
-  const { api, project, initialRelPath, currentText, onRestore, onRestoredDeleted, onUndoGroup, onClose } = props;
+  const {
+    api,
+    project,
+    initialRelPath,
+    currentText,
+    onRestore,
+    onRestoredDeleted,
+    onUndoGroup,
+    beforeRestore,
+    onClose,
+  } = props;
   const { t, locale } = useI18n();
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -201,6 +216,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
     setBusy(true);
     setNotice(null);
     try {
+      await beforeRestore?.(content.relPath).catch(() => undefined); // S56.3
       if (content.exists) {
         const outcome = await onRestore(content.relPath, content.version.text);
         setNotice({ kind: outcome === 'restored' ? 'ok' : 'error', text: t(restoreOutcomeKey(outcome)) });
@@ -230,6 +246,7 @@ export function HistoryDialog(props: HistoryDialogProps) {
     setUndoing(group.id);
     setNotice(null);
     try {
+      await beforeRestore?.(group.files.join(', ')).catch(() => undefined); // S56.3
       const outcome = await onUndoGroup(group);
       if (outcome === null) {
         setNotice({ kind: 'error', text: t('history.group.undoBusy') });
@@ -319,6 +336,10 @@ export function HistoryDialog(props: HistoryDialogProps) {
           </button>
         </div>
         <p className="dialog-hint history-intro">{t('history.intro')}</p>
+        {/* S56.4: local history is per file; the whole project is the checkpoints window's. */}
+        <p className="dialog-hint" data-testid="history-checkpoint-note">
+          {t('history.checkpointNote')}
+        </p>
         {notice && (
           <p
             className={notice.kind === 'error' ? 'inline-alert history-notice' : 'history-notice history-ok'}

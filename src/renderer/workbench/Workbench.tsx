@@ -31,6 +31,8 @@ import { HistoryDialog } from '../history/HistoryDialog';
 // S56.2: project checkpoints window
 import { CheckpointsDialog } from '../checkpoints/CheckpointsDialog';
 import type { CheckpointRestoreHost } from '../checkpoints/checkpoint-restore';
+import { takeAutoCheckpoint } from '../checkpoints/auto-checkpoint'; // S56.3
+import { fill } from '../recovery/format';
 import type { GroupUndoOutcome, RestoreOutcome as HistoryRestoreOutcome } from '../history/history-model';
 import type { HistoryGroup } from '../../shared/ipc/history-contract';
 import { undoFailureText } from '../ai/ProposalReview';
@@ -822,8 +824,17 @@ export function Workbench() {
         return (await saver.save()) ? null : { code: 'save-failed' };
       },
       openFile: (relPath) => void openFile(relPath),
+      // S56.3: the whole project is kept right before an agent proposal's first change is applied.
+      checkpointBeforeAi: async (label) => {
+        await takeAutoCheckpoint(
+          bridge.checkpoints,
+          agentProject.projectId,
+          'before-ai',
+          fill(t('checkpoints.autoName.before-ai'), { label }),
+        );
+      },
     };
-  }, [bridge, agentProject, fileOps, openFile, recordEdit, restoreVersion]);
+  }, [bridge, agentProject, fileOps, openFile, recordEdit, restoreVersion, t]);
   // --- end S34.2 ---
 
   /** The journal was cleared: unsaved edits still open in the editor are journaled again right away. */
@@ -1426,6 +1437,15 @@ export function Workbench() {
           onRestore={restoreVersion}
           onRestoredDeleted={(relPath) => void openFile(relPath)}
           onUndoGroup={undoAgentGroup}
+          beforeRestore={async (what) => {
+            // S56.3: an automatic project checkpoint before every restore from local history.
+            await takeAutoCheckpoint(
+              bridge.checkpoints,
+              project.projectId,
+              'before-history-restore',
+              fill(t('checkpoints.autoName.before-history-restore'), { path: what }),
+            );
+          }}
           onClose={() => setHistoryFor(null)}
         />
       )}

@@ -4803,8 +4803,8 @@
       "depends_on": [
         "S56.1"
       ],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "tests/integration/checkpoint-auto.test.ts (4 tests: before-ai once per proposal before its first write, labelled; before-history-restore labelled; change goes ahead without one; dedupe) + src/recovery/checkpoints.test.ts (5 tests: count/age pruning policy, newest auto kept, named never pruned) + tests/e2e/checkpoints.spec.ts S56.3 step (History window restore -> automatic checkpoint) + e2e checkpoints/history/ai-agent/commands 20 passed"
     },
     {
       "id": "S56.4",
