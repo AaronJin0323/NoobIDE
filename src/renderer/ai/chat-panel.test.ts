@@ -184,7 +184,7 @@ describe('chat panel (S33.1)', () => {
     expect(noKey).toContain('还没有填写 AI 的 API 密钥');
     expect(noKey).toContain('打开 AI 设置');
     const where = render({ availability: { kind: 'no-key' } }, { locale: 'en' });
-    expect(where).toContain('Settings → AI is in the “More actions” menu');
+    expect(where).toContain('AI settings is in the “Help and more” menu');
     // Outside the app (no platform bridge) the key store is named generically, never the macOS Keychain.
     expect(render({ availability: { kind: 'no-secure-storage' } })).toContain('系统的安全存储不可用');
     expect(render({ availability: { kind: 'no-key' } })).not.toContain('{keyStore}');

@@ -45,3 +45,27 @@ export function fileRoleLabelKey(role: FileRole): MessageKey {
 export function fileRoleDetailKey(role: FileRole): MessageKey {
   return `fileRole.${role}.detail`;
 }
+
+/**
+ * S47.5: the role hint above the code shows once per file (per app run): the first time a file is the active tab the
+ * one-line hint is shown; after the user has moved on to another file it stays collapsed for that file — the tree's
+ * role tag and the tab's tooltip keep the role. Pure, so the rule is unit-tested; FileRole.tsx owns the instance.
+ */
+export class RoleHintMemory {
+  private readonly shown = new Set<string>();
+
+  /** True while `key` (project + file) has not had its first showing yet. */
+  firstShowing(key: string): boolean {
+    return !this.shown.has(key);
+  }
+
+  /** The file's first showing is over (the user moved to another file). */
+  markShown(key: string): void {
+    this.shown.add(key);
+  }
+}
+
+/** The memory key of a file: the project it belongs to and its relative path (the same path in two projects differs). */
+export function roleHintKey(projectId: string | null, relPath: string): string {
+  return `${projectId ?? ''}\n${relPath}`;
+}

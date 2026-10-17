@@ -361,8 +361,13 @@ test('a dialog sheet is frosted: the code behind it does not show through sharp 
       const lines = await page.locator('.monaco-editor .view-lines').boundingBox();
       if (!lines) throw new Error('no editor lines');
       const area = { x: lines.x + 8, y: lines.y + 4, width: Math.min(260, lines.width - 16), height: 90 };
-      const behind = await sharpness(area);
-      expect(behind, `${scheme}: the code itself has detail`).toBeGreaterThan(2);
+      // Right after the theme switch, a captured frame can still be in between: the app's tokens have changed but
+      // the editor's token colours (Monaco swaps its theme a frame later) or the compositor have not caught up, and
+      // the text shows almost no contrast (0.14 seen on the Windows runner, S06.6). Wait for a frame with the code.
+      let behind = 0;
+      await expect
+        .poll(async () => (behind = await sharpness(area)), { message: `${scheme}: the code itself has detail` })
+        .toBeGreaterThan(2);
       // An empty sheet with the real dialog classes, exactly over that code.
       await page.evaluate((a) => {
         const backdrop = document.createElement('div');

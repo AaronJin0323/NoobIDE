@@ -2,7 +2,6 @@ import { isImeKey } from '../workbench/ime';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { PlatformId } from '../../platform/labels';
 import {
-  APP_MENU_COMMANDS,
   INITIAL_COMMAND_CONTEXT,
   commandById,
   commandChecked,
@@ -71,17 +70,21 @@ export function useCommands(platform: PlatformId, context: CommandContext, handl
   return { run, canRun };
 }
 
-/** The in-window "more actions" menu, derived from the registry: commands that apply now, with shortcut hints. */
+/**
+ * An in-window menu derived from the registry (S47.4: the project menu or the help/more menu, `commands` names
+ * which): the commands that apply now, in order, with shortcut hints.
+ */
 export function useAppMenuItems(
   platform: PlatformId,
   context: CommandContext,
   handlers: CommandHandlers,
   run: (id: CommandId) => boolean,
+  commands: readonly (CommandId | '-')[],
 ): AppMenuItem[] {
   // A separator is kept only between two visible groups.
-  const visible = APP_MENU_COMMANDS.filter(
-    (id) => id === '-' || (handlers[id] !== undefined && isCommandEnabled(id, context)),
-  ).join(',');
+  const visible = commands
+    .filter((id) => id === '-' || (handlers[id] !== undefined && isCommandEnabled(id, context)))
+    .join(',');
   const theme = context.theme; // the checked theme item (S24.4)
   return useMemo(() => {
     const checkedIn = { ...INITIAL_COMMAND_CONTEXT, theme };

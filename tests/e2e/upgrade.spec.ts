@@ -5,7 +5,7 @@ import path from 'node:path';
 import { chromium, expect, test, type Browser, type Page } from '@playwright/test';
 import { repoRoot, tempRoot } from './launch';
 import { packagedExecutable } from './packaged';
-import { typeAtEnd } from './project';
+import { typeAtEnd, switchLanguage, projectMenu } from './project';
 
 /**
  * S28.4 (docs/decisions/0023-upgrade-and-uninstall.md), the macOS half of "vN → vN+1 manual upgrade keeps settings,
@@ -177,7 +177,7 @@ test('packaged vN → vN+1 keeps settings, session, history and recent projects;
   try {
     const { page } = vN;
     expect(await aboutVersion(page)).toBe(`版本 ${pkg.version}`);
-    await page.getByTestId('switch-language').click();
+    await switchLanguage(page);
     expect(await aboutVersion(page)).toBe(`Version ${pkg.version}`);
 
     await page.getByTestId('welcome-create').click();
@@ -187,7 +187,7 @@ test('packaged vN → vN+1 keeps settings, session, history and recent projects;
     expect(unprivate(project).startsWith(unprivate(path.join(home, 'Documents'))), project).toBe(true);
     project = path.join(home, path.relative(unprivate(home), unprivate(project))); // the real path the app opens
     await page.getByTestId('wizard-create').click();
-    await expect(page.getByTestId('project-path')).toHaveText(project);
+    await expect(page.getByTestId('project-name')).toHaveAttribute('title', project);
     await expect(
       page.locator('[data-testid="tab"][data-path="index.html"] [role="tab"][aria-selected="true"]'),
     ).toBeVisible();
@@ -212,7 +212,7 @@ test('packaged vN → vN+1 keeps settings, session, history and recent projects;
     expect(await aboutVersion(page)).toBe(`Version ${nextVersion}`); // the setting (English) was kept
     await expect(page.getByTestId('settings-notice')).toHaveCount(0);
     // The session reopened the project and its tab.
-    await expect(page.getByTestId('project-path')).toHaveText(project);
+    await expect(page.getByTestId('project-name')).toHaveAttribute('title', project);
     await expect(page.locator('[data-testid="tab"][data-path="index.html"]')).toBeVisible();
     // Local history from vN.
     await page.getByTestId('show-history').click();
@@ -222,8 +222,7 @@ test('packaged vN → vN+1 keeps settings, session, history and recent projects;
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('history-dialog')).toHaveCount(0);
     // Recent projects from vN.
-    await page.getByTestId('app-menu').click();
-    await page.getByTestId('menu-close-project').click();
+    await projectMenu(page, 'close-project');
     await expect(page.getByTestId('welcome')).toBeVisible();
     await expect(page.getByTestId('welcome-recent-item').filter({ hasText: path.basename(project) })).toBeVisible();
   } finally {

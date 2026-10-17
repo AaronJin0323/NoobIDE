@@ -1,79 +1,63 @@
-import { isImeKey } from './ime';
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { useI18n } from '../i18n/I18nProvider';
+import { Sheet, sheetButtonClass } from './Sheet';
 
 interface ConfirmDialogProps {
   title: string;
   children: ReactNode;
   confirmLabel: string;
   cancelLabel: string;
+  /** `danger` draws the confirming verb destructive (Move to trash, Clear). */
+  tone?: 'default' | 'danger' | undefined;
   onConfirm: () => void;
   onCancel: () => void;
   testId?: string;
 }
 
 /**
- * Small modal confirmation (S08.3). Focus starts on Cancel, so pressing Enter by habit never deletes anything;
- * Tab stays inside the dialog and Escape cancels. The caller returns focus to where it was.
+ * Small modal confirmation (S08.3) on the shared {@link Sheet} (S49.1): a question, Cancel → the confirming verb.
+ * Focus starts on Cancel, so pressing Enter by habit never deletes anything; Tab stays inside; Escape, Close and a
+ * click outside cancel (nothing typed here can be lost). The Close control is named "Close", so Cancel stays the one
+ * control with its name. The caller returns focus to where it was.
  */
 export function ConfirmDialog({
   title,
   children,
   confirmLabel,
   cancelLabel,
+  tone = 'default',
   onConfirm,
   onCancel,
   testId,
 }: ConfirmDialogProps) {
-  const titleId = useId();
-  const bodyId = useId();
-  const cancel = useRef<HTMLButtonElement>(null);
-  const confirm = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => cancel.current?.focus(), []);
-
+  const { t } = useI18n();
   return (
-    <div className="dialog-backdrop" onMouseDown={onCancel}>
-      <div
-        className="dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={bodyId}
-        data-testid={testId}
-        onMouseDown={(event) => event.stopPropagation()}
-        onKeyDown={(event) => {
-          if (isImeKey(event.nativeEvent)) return;
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            onCancel();
-          } else if (event.key === 'Tab') {
-            // Two buttons: Tab and Shift+Tab move between them and never leave the dialog.
-            event.preventDefault();
-            (document.activeElement === cancel.current ? confirm : cancel).current?.focus();
-          }
-        }}
-      >
-        <h2 className="dialog-title" id={titleId}>
-          {title}
-        </h2>
-        <div className="dialog-body" id={bodyId}>
-          {children}
-        </div>
-        <div className="dialog-actions">
-          <button type="button" className="quiet-button dialog-button" ref={cancel} onClick={onCancel}>
+    <Sheet
+      title={title}
+      role="alertdialog"
+      width={480}
+      onClose={onCancel}
+      closeLabel={t('dialog.close')}
+      dismissOnBackdrop
+      testId={testId ?? 'confirm-dialog'}
+      closeTestId="confirm-close"
+      actions={
+        <>
+          <button type="button" className={sheetButtonClass('cancel')} data-autofocus onClick={onCancel}>
             {cancelLabel}
           </button>
           <button
             type="button"
-            className="primary-button dialog-button"
-            ref={confirm}
+            className={sheetButtonClass(tone === 'danger' ? 'danger' : 'primary')}
             data-testid="confirm-button"
             onClick={onConfirm}
           >
             {confirmLabel}
           </button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <div className="dialog-body">{children}</div>
+    </Sheet>
   );
 }

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { listTemplates } from '../../src/workspace/templates';
 import { launchApp, repoRoot, tempRoot } from './launch';
+import { switchLanguage } from './project';
 
 /**
  * S20.3: a project made from the default template shows the role of index.html / style.css / script.js in the file
@@ -33,7 +34,7 @@ test.beforeAll(async () => {
     const fake = async () => ({ canceled: false, filePaths: [chosen] });
     (dialog as unknown as { showOpenDialog: typeof fake }).showOpenDialog = fake;
   }, root);
-  await page.getByTestId('open-folder').click();
+  await page.getByTestId('welcome-open-folder').click();
   await expect(page.getByTestId('project-name')).toHaveText('我的 主页');
 });
 
@@ -67,7 +68,7 @@ test('the editor shows the role hint of the open file, and none before a file is
 });
 
 test('roles follow the interface language (en)', async () => {
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(row('index.html').getByTestId('file-role')).toHaveText('Page structure');
   await expect(row('style.css').getByTestId('file-role')).toHaveText('Visual styling');
   await expect(row('script.js').getByTestId('file-role')).toHaveText('Interactive behavior');
@@ -82,6 +83,24 @@ test('roles follow the interface language (en)', async () => {
     });
     expect(fit, name).toEqual({ name: true, roleShown: true });
   }
-  await page.getByTestId('switch-language').click();
+  await switchLanguage(page);
   await expect(row('index.html').getByTestId('file-role')).toHaveText('页面结构');
+});
+
+test("S47.5: the hint shows on a file's first showing only; the tree tag and the tab tooltip keep the role", async () => {
+  // style.css had its showing before script.js and index.html were opened: back on it, the band is gone.
+  await row('style.css').click();
+  await expect(page.getByTestId('tab-bar').locator('[role="tab"][aria-selected="true"]')).toHaveText('style.css');
+  await expect(page.getByTestId('file-role-hint')).toHaveCount(0);
+  await expect(row('style.css').getByTestId('file-role')).toHaveText('视觉样式');
+  await expect(page.getByTestId('tab-bar').locator('[role="tab"][aria-selected="true"]')).toHaveAttribute(
+    'title',
+    /^style\.css\n视觉样式：决定网页长什么样/,
+  );
+  // Nothing else persists above the code either (the alerts are states: a failed save, a changed file).
+  await expect(
+    page.locator('[data-testid="region-editor"] > .inline-alert, [data-testid="region-editor"] > .file-role-hint'),
+  ).toHaveCount(0);
+  await row('index.html').click();
+  await expect(page.getByTestId('file-role-hint')).toHaveCount(0);
 });
