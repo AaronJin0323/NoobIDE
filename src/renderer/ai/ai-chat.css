@@ -472,6 +472,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 2px 4px 0 12px;
   color: var(--muted);
   font-size: var(--text-sm);
@@ -486,14 +487,72 @@
 .md-code-head .quiet-button:hover {
   color: var(--text);
 }
-.md-code pre {
-  margin: 0;
-  padding: 4px 12px 12px;
-  overflow-x: auto;
+
+/* ── S48.5: code block caption, file name, actions, gutter (no wrapping) ── */
+.md-code-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.md-code-lang {
+  /* The language as the fence names it, in lowercase (a localised word when it names none). */
+  flex: none;
+  font-family: var(--font-code);
+}
+.md-code-file {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-code);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.md-code-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.md-code-head .quiet-button[aria-disabled='true'] {
+  color: var(--faint);
+}
+.md-code-body {
+  display: flex;
+  align-items: flex-start;
   font-family: var(--font-code);
   font-size: var(--text-sm);
   line-height: 1.5;
 }
+.md-code-gutter {
+  flex: none;
+  padding: 4px 8px 12px 12px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: pre;
+  user-select: none;
+}
+.md-code pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 12px 12px 0;
+  overflow-x: auto;
+  font: inherit;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.md-code-note {
+  margin: 0;
+  padding: 0 12px 8px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.md-code-note[data-problem] {
+  color: var(--text);
+}
+/* ── end S48.5 ── */
 .md-copy-failed {
   margin: 0;
   padding: 0 12px 8px;

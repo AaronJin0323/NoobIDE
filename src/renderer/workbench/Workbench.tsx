@@ -77,7 +77,7 @@ import { createFixHost } from '../problems/fix-host';
 import { useProblemFix } from '../problems/useProblemFix';
 import { setQuickFixHandler } from '../problems/quick-fix-handler';
 import { usePreviewLoads } from '../problems/usePreviewLoads';
-import { activeEditor, requestReveal } from '../editor/editor-handle';
+import { activeEditor, requestReveal, type CodeInsertMode } from '../editor/editor-handle';
 // S23: onboarding walkthrough, final task and glossary
 import { useWalkthrough } from '../walkthrough/useWalkthrough';
 import { WalkthroughPanel } from '../walkthrough/WalkthroughPanel';
@@ -1204,6 +1204,13 @@ export function Workbench() {
       fileText: (relPath: string) => savers.current.get(relPath)?.text,
       relPathOf: (uri: string) => docRef.current.tabs.find((tab) => tab.uri === uri)?.relPath,
       editorSelection: () => activeEditor()?.selection?.() ?? null,
+      // S48.5: chat code goes into the text file on screen as an ordinary editor edit (undo, save state, journal).
+      codeEditorOpen: () => {
+        const { project, tabs, active } = docRef.current;
+        const tab = project ? tabs.find((open) => open.relPath === active) : undefined;
+        return tab !== undefined && !tab.image;
+      },
+      insertCode: (text: string, mode: CodeInsertMode) => activeEditor()?.insertCode?.(text, mode) ?? 'no-editor',
     }),
     [],
   );

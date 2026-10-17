@@ -81,3 +81,69 @@
   gap: 8px;
   margin: 0;
 }
+
+/* ── S48.8: one tone per proposal state (proposal-tone.ts). Only a pending change has the prominent border; the
+   state word sits on its tone's soft fill next to its own icon shape, so it never depends on colour alone. ── */
+.agent-change {
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+}
+.agent-change + .agent-change {
+  padding-top: 12px;
+}
+.agent-change[data-tone='attention'] {
+  border-color: var(--accent);
+}
+.agent-change-state {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+.agent-change-state[data-tone='attention'] {
+  color: var(--text);
+}
+.agent-change-state[data-tone='running'] {
+  color: var(--muted);
+}
+.agent-change-state[data-tone='ok'] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.agent-change-state[data-tone='danger'] {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.agent-change-state[data-tone='muted'] {
+  background: var(--raised);
+  color: var(--muted);
+}
+.agent-change-state[data-tone='quiet'] {
+  color: var(--faint);
+}
+.agent-change-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: var(--text-sm);
+}
+.agent-change-details summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+.agent-change-details dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  margin: 4px 0 0;
+}
+.agent-change-details dt {
+  color: var(--muted);
+}
+.agent-change-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.agent-change-path {
+  font-family: var(--font-code);
+}
+/* ── end S48.8 ── */

@@ -5117,8 +5117,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/ai/chat-code-blocks.test.ts (11 tests: fence info lang/file, Monaco token types coloured by the editor theme rules in dark and light, renderToStaticMarkup in both themes with lowercase caption, file name, aria-hidden gutter, exact code text, Copy/Insert/Replace names in zh-CN and en, aria-disabled without an editor, CSS tabular-nums gutter + white-space: pre) + markdown.test.ts; tests/e2e/ai-chat-code.spec.ts on the packaged build (5 tests: Monaco keyword/string colours offline, Tab reaches Copy -> Insert at cursor -> Replace selection with names, no-file note, Insert = one undo step with dirty state + redo + Ctrl+S on disk, Replace needs a selection and is one undo step); ai-chat e2e 6 passed; verify green"
     },
     {
       "id": "S48.6",
@@ -5160,8 +5160,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "done",
+      "evidence": "src/renderer/ai/proposal-tone.test.ts (9 tests, zh-CN and en via renderToStaticMarkup: six states -> six distinct tones and icon shapes with the state word, only pending has Accept/Reject, exactly one primary-button per card (the only pending Accept or Accept all), input and result <details> closed by default with file/action/lines and lines changed/save state, only data-tone=attention draws the border, ok/danger/muted soft fills from tokens) + icons.test.ts ProposalStateIcon x6 + design-rules clean; ai-agent/preview-annotations/a11y/ai-chat-code e2e 24 passed on the packaged build; verify green"
     },
     {
       "id": "S49.1",
