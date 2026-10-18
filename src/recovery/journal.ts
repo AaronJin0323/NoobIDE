@@ -376,6 +376,9 @@ export class RecoveryJournal {
         if (old.rootPath !== rootPath || !(recorded === source || recorded.startsWith(`${source}/`))) continue;
         const relPath = to + recorded.slice(source.length);
         const newRel = this.entryRel({ rootPath, relPath }, old.bufferId);
+        // A rename that only changes the Unicode normalisation (NFD → NFC) can map a record onto its own place:
+        // removing the "old" record after writing the new one would delete the only copy of the unsaved edits.
+        if (newRel === rel) continue;
         const record: EntryRecord = { ...old, relPath };
         const data = Buffer.from(JSON.stringify(record), 'utf8');
         try {

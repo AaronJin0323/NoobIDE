@@ -502,9 +502,18 @@ export class PreviewManager {
       contents.close();
     }
     this.logs.clear();
-    await live.proxy.close();
-    await this.servers.release(live.projectId);
-    this.apply((options.announce ?? true) ? live.window : null, null, { type: 'stop' });
+    const stopGeneration = this.generation;
+    // The registry drops the server's entry before release() first awaits: a Start that arrives while the proxy
+    // is closing gets a new server, never this one, which is about to close.
+    await Promise.all([live.proxy.close(), this.servers.release(live.projectId)]);
+    const announce = options.announce ?? true;
+    if (this.generation === stopGeneration) {
+      this.apply(announce ? live.window : null, null, { type: 'stop' });
+    } else if (this.status.state === 'stopped') {
+      // Another Stop (or a Start that then stopped) took over meanwhile and may have updated silently.
+      if (announce && !live.window.isDestroyed()) this.setStatus(live.window, this.status);
+    }
+    // else: a newer Start owns the status now; it already announced its own stop and start.
     return this.status;
   }
 

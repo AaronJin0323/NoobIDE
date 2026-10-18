@@ -304,27 +304,39 @@ export function FilesPanel({
       return;
     }
     const entry = entries?.[0];
-    if (!api || !projectId || !entry) return;
-    if (!(await fileOps.beforeChange(entry.relPath))) {
-      setOpError({ text: t('op.saveFirstFailed'), detail: entry.relPath });
-      reload([], entry.relPath);
-      return;
+    if (!api || !projectId || !entry || busy.current) return;
+    busy.current = true;
+    let locked = false; // beforeChange locked the path; unlocked again if the trash request throws
+    try {
+      if (!(await fileOps.beforeChange(entry.relPath))) {
+        setOpError({ text: t('op.saveFirstFailed'), detail: entry.relPath });
+        reload([], entry.relPath);
+        return;
+      }
+      locked = true;
+      const result = await api.trashEntry({ projectId, relPath: entry.relPath });
+      locked = false;
+      if (!result.ok) {
+        fileOps.cancelled?.(entry.relPath);
+        const text =
+          result.code === 'trash-failed'
+            ? fill(t('delete.failed'), { trash })
+            : opErrorMessage(t, result.code, result.message, entry.name);
+        setOpError({ text, detail: result.message });
+        reload([], entry.relPath);
+        return;
+      }
+      setOpError(null);
+      selected.current = null;
+      reload([parentOf(entry.relPath), entry.relPath], parentOf(entry.relPath));
+      fileOps.afterChange({ type: 'deleted', relPath: entry.relPath });
+    } catch {
+      // Never an unhandled rejection, and never a tab left read-only for good (like commitName and deleteMany).
+      if (locked) fileOps.cancelled?.(entry.relPath);
+      setOpError({ text: t('op.generic'), detail: '' });
+    } finally {
+      busy.current = false;
     }
-    const result = await api.trashEntry({ projectId, relPath: entry.relPath });
-    if (!result.ok) {
-      fileOps.cancelled?.(entry.relPath);
-      const text =
-        result.code === 'trash-failed'
-          ? fill(t('delete.failed'), { trash })
-          : opErrorMessage(t, result.code, result.message, entry.name);
-      setOpError({ text, detail: result.message });
-      reload([], entry.relPath);
-      return;
-    }
-    setOpError(null);
-    selected.current = null;
-    reload([parentOf(entry.relPath), entry.relPath], parentOf(entry.relPath));
-    fileOps.afterChange({ type: 'deleted', relPath: entry.relPath });
   };
 
   /**

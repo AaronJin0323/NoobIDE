@@ -111,6 +111,19 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
       bar.scrollBy({ left: direction * Math.max(80, bar.clientWidth * 0.8), behavior: scrollBehavior(reducedMotion) });
   };
 
+  // Delete on the focused tab: its button leaves the DOM once the tab is closed (after its save), which would drop the
+  // keyboard focus on the page body. The tab shown next takes the focus instead, so the arrows keep working.
+  const refocusAfterClose = useRef<string | null>(null);
+  useEffect(() => {
+    const closing = refocusAfterClose.current;
+    if (closing === null || tabs.some((tab) => tab.relPath === closing)) return; // not closed (yet)
+    refocusAfterClose.current = null;
+    const focused = document.activeElement;
+    if (focused !== null && focused !== document.body) return; // the focus went somewhere on purpose
+    const next = active ?? tabs[0]?.relPath;
+    if (next !== undefined) refs.current.get(next)?.focus();
+  }, [tabs, active]);
+
   const focusAndShow = (relPath: string | undefined) => {
     if (!relPath) return;
     onActivate(relPath);
@@ -125,7 +138,10 @@ export function TabBar({ tabs, active, onActivate, onClose }: TabBarProps) {
     } else if (event.key === 'Delete') {
       event.preventDefault();
       const tab = tabs[index];
-      if (tab) onClose(tab.relPath);
+      if (tab) {
+        refocusAfterClose.current = tab.relPath;
+        onClose(tab.relPath);
+      }
     }
   };
 

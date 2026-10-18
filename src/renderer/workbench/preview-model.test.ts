@@ -12,6 +12,7 @@ import {
   errorCount,
   nextGeneration,
   olderCount,
+  arrivedPage,
   pageLocation,
   visibleLog,
   previewNotUpdated,
@@ -177,6 +178,17 @@ describe('page location in the preview toolbar', () => {
     expect(pageLocation(at(`${origin}/about.html`), '')?.away).toBe(false); // entry not known yet
     expect(pageLocation(at(undefined), 'index.html')).toBeNull();
     expect(pageLocation(STOPPED, 'index.html')).toBeNull();
+  });
+  it('S15.8: a navigation to another existing page is an arrival the editor follows; nothing else is', () => {
+    const page = (path: string, missing = false) => ({ path, missing, away: path !== 'index.html' || missing });
+    expect(arrivedPage(page('index.html'), page('about.html'))).toBe('about.html');
+    expect(arrivedPage(page('about.html'), page('index.html'))).toBe('index.html'); // back, or "Back to entry page"
+    expect(arrivedPage(page('index.html'), page('关于 我/页面.html'))).toBe('关于 我/页面.html');
+    expect(arrivedPage(null, page('index.html'))).toBeNull(); // the first page of a start
+    expect(arrivedPage(page('index.html'), page('index.html'))).toBeNull(); // a refresh or a #hash
+    expect(arrivedPage(page('index.html'), page('gone.html', true))).toBeNull(); // no file behind a 404
+    expect(arrivedPage(page('gone.html', true), page('gone.html'))).toBeNull(); // the same page, created meanwhile
+    expect(arrivedPage(page('index.html'), null)).toBeNull(); // stopped
   });
 });
 

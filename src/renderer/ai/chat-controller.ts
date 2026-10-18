@@ -514,6 +514,8 @@ export class AiChatController {
       result = { ok: false, code: 'provider-error', message: '' };
     }
     if (!result.ok) {
+      // A Stop pressed while it was starting is settled: a later Retry of this turn (same id) must not be stopped.
+      this.stopOnAssign.delete(turn.id);
       this.dispatch({ type: 'requestFailed', turnId: turn.id, code: result.code, message: result.message });
       if (result.code === 'no-consent' && projectId) this.dispatch({ type: 'consent', projectKey: key });
       if (result.code === 'no-key' || result.code === 'disabled' || result.code === 'no-consent') {
