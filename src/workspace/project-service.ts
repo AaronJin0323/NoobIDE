@@ -329,13 +329,13 @@ export class ProjectService {
         // capture their before-bytes in save order.
         let before: Uint8Array | null = null;
         try {
-          if (!(await stat(target.value)).isFile()) return err('not-a-file', 'not a regular file');
+          const existing = await stat(target.value);
+          if (!existing.isFile()) return err('not-a-file', 'not a regular file');
           // Rename-over would silently replace a file the user marked read-only (POSIX allows it); refuse instead.
           await access(target.value, constants.W_OK);
           // S07.4: never replace a file that is not UTF-8 text (another encoding, binary): the save would destroy it.
           // A file over the limit was never opened in the editor, so it is not this text's file: refuse it outright
           // (never "skip the check" for big files). Otherwise the whole file must decode as UTF-8.
-          const existing = await stat(target.value);
           if (existing.size > MAX_TEXT_FILE_BYTES) {
             return err('too-large', `the file on disk has ${existing.size} bytes`);
           }
@@ -344,11 +344,11 @@ export class ProjectService {
             return err('unsupported-encoding', 'the file on disk is not UTF-8 text');
           }
           // S11.1: the check before write — the file must still be the version the editor knows.
-          if (expectedHash !== undefined && sha256(onDisk) !== expectedHash) {
+          const checkedHash = sha256(onDisk);
+          if (expectedHash !== undefined && checkedHash !== expectedHash) {
             return err('changed-on-disk', 'the file was changed outside NoobIDE');
           }
           before = await this.captureBeforeSave(target.value, onDisk); // S21.2, S21.5: no second read
-          const checkedHash = sha256(onDisk);
           await this.replaceFile(target.value, data, {
             ...this.options.atomic,
             beforeReplace: async () => {
