@@ -209,6 +209,9 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
   });
 
   test('progress and the compact choice survive a restart', async () => {
+    // A restart: on a loaded machine the quit itself finishes at once (the close log shows asked → answered-ok →
+    // app-quit within 3 s) but Electron's process teardown took 20–60 s under load, past the 90 s default (S58.4).
+    test.setTimeout(180_000);
     await expect(panel()).toHaveAttribute('data-step', 'heading');
     await expect(panel()).toHaveAttribute('data-compact', 'true');
     await expect.poll(async () => (await stored(userData()))?.step).toBe('heading');
@@ -238,6 +241,9 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
   });
 
   test('standard terms in a step link to the glossary, which keeps the terms as they are (S23.4)', async () => {
+    // A restart: on a loaded machine the quit itself finishes at once (the close log shows asked → answered-ok →
+    // app-quit within 3 s) but Electron's process teardown took 20–60 s under load, past the 90 s default (S58.4).
+    test.setTimeout(180_000);
     await page.getByTestId('walkthrough-back').click(); // "meet the files" links HTML, CSS, JavaScript
     // S47.6: in zh-CN a chip shows the Chinese name and the standard term; the glossary keeps the term itself.
     await expect(page.getByTestId('walkthrough-term')).toHaveText([
@@ -416,6 +422,9 @@ test.describe('the PLAN §2 journey (S23.2) and the final task (S23.3)', () => {
   });
 
   test('reopen: closing the app and opening it again restores the project and completes the journey', async () => {
+    // A restart: on a loaded machine the quit itself finishes at once (the close log shows asked → answered-ok →
+    // app-quit within 3 s) but Electron's process teardown took 20–60 s under load, past the 90 s default (S58.4).
+    test.setTimeout(180_000);
     await expect(panel()).toHaveAttribute('data-step', 'reopen');
     await expect(panel()).toHaveAttribute('data-done', 'false');
     await expect.poll(anchored).toEqual(['project-menu']); // S47.4: the path is the name's tooltip and a line of the menu

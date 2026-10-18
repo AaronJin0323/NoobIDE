@@ -5393,7 +5393,7 @@
       "verify": "auto",
       "depends_on": [],
       "status": "in_progress",
-      "evidence": ""
+      "evidence": "Code on PR (claude/s58-4-windows-intermittents). Windows x64 under NOOBIDE_E2E_LOAD=1 (loadCpu, 1.5 busy threads/core), --repeat-each=20: preview-isolation S05.5 tests 40/40; preview-snapshot busy page 20/20; walkthrough.spec 260/260 at 1024x768 (each of its 13 tests 20/20). Pending: the next five hosted runs after merge with no failure in these files."
     },
     {
       "id": "S58.5",
