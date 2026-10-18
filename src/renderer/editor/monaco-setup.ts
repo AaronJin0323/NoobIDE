@@ -15,12 +15,15 @@ import HtmlWorker from 'monaco-editor/languages/features/html/html.worker?worker
 import JsonWorker from 'monaco-editor/languages/features/json/json.worker?worker';
 import TsWorker from 'monaco-editor/languages/features/typescript/ts.worker?worker';
 import { javascriptDefaults } from 'monaco-editor/languages/features/typescript/register';
+// S59.5: the private class behind the TypeScript worker, for the idle stop (ts-idle-stop.ts).
+import { WorkerManager as TsWorkerManager } from 'monaco-editor/languages/features/typescript/workerManager';
 import { cssDefaults } from 'monaco-editor/languages/features/css/register';
 import { htmlDefaults } from 'monaco-editor/languages/features/html/register';
 import { MONACO_THEME_NAME, buildMonacoTheme } from '../theme/monaco-theme';
 import { configureLanguages } from './language-config';
 import { installFormatHook, onBeforeFormat, type FormattingRegistry } from './format-hook';
 import { WorkerSupervisor, type WorkerKind } from './worker-supervisor';
+import { TsWorkerIdleStop, installTsIdleStop } from './ts-idle-stop';
 import { ignoreMonacoCancellations } from './monaco-cancellation';
 // S19.2: NoobIDE's own unclosed-element check for HTML files (Monaco's HTML service reports no problems).
 import './html-check-monaco';
@@ -52,6 +55,14 @@ const restartLanguage: Record<WorkerKind, () => void> = {
   editor: () => undefined,
 };
 export const workerSupervisor = new WorkerSupervisor({ restart: (kind) => restartLanguage[kind]() });
+
+// S59.5: the TypeScript worker (~83 MB) stops after 5 minutes without a JavaScript request and starts again,
+// transparently, on the next one (ts-idle-stop.ts). Monaco already does this for its other workers.
+export const tsIdleStop = new TsWorkerIdleStop({
+  busy: () => workerSupervisor.busy('ts'),
+  retire: () => workerSupervisor.retire('ts'),
+});
+installTsIdleStop(TsWorkerManager?.prototype, tsIdleStop);
 
 function createWorker(kind: WorkerKind): Worker {
   switch (kind) {
@@ -103,6 +114,8 @@ export const editorTestHooks = {
     return live.length;
   },
   restartCount: () => workerSupervisor.restartCount,
+  /** S59.5: how often the idle TypeScript worker was stopped. */
+  tsIdleStopCount: () => tsIdleStop.stopCount,
   /** S57.3: project-script reads wait until released (a slow disk on demand); nothing is read differently. */
   holdProjectScriptReads,
   releaseProjectScriptReads,

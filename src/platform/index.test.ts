@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canSyncDirectory,
   lockedRenameBackoffMs,
+  memoryJsFlags,
   platformId,
   quitsWhenLastWindowCloses,
   recreatesWindowOnActivate,
@@ -28,5 +29,13 @@ describe('platform adapter', () => {
     expect(quitsWhenLastWindowCloses('darwin')).toBe(false);
     expect(recreatesWindowOnActivate('darwin')).toBe(true);
     expect(recreatesWindowOnActivate('win32')).toBe(false);
+  });
+});
+
+describe('memory flags (S59.5)', () => {
+  it('shrinks the V8 young generation on Windows only', () => {
+    expect(memoryJsFlags('win32')).toEqual(['--max-semi-space-size=2']);
+    expect(memoryJsFlags('darwin')).toEqual([]);
+    expect(memoryJsFlags('linux')).toEqual([]);
   });
 });

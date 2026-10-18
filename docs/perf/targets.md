@@ -6,20 +6,20 @@ is closed only by numbers from a new run, never by editing the generated documen
 
 ## Status (2026-10-16)
 
-| PLAN §11 metric                  | Target                    | macOS arm64 (`darwin-arm64.md`)                                                                      | Windows x64 (`win32-x64.md`)                                                                                             |
-| -------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Cold start → editor interactive  | p95 ≤ 5 s                 | p95 983 ms dev binary, 929 ms packaged (n=20) — no miss                                              | dev machine under partial load: p95 1806 ms dev binary (loaded), 1017 ms (idle, run 2), 447 ms packaged (n=20) — no miss |
-| Update after saving (≤ 50 files) | p95 ≤ 1 s                 | p95 54 ms, 50 files / 754 KB / 40 resources per load (n=20) — none                                   | p95 123 ms, same fixture (n=20) — no miss                                                                                |
-| Memory, idle and typical project | record; ~700 MB budget    | idle median 550 MB, typical median 551 MB, max 577 MB (n=3) — none; private 226 / 262 MB (memory.md) | idle median 581 MB; **typical median 709 MB, max 710 MB — miss (see Misses)**; private 302 / 385 MB                      |
-| Offline use                      | all core features offline | proven by `tests/e2e/offline.spec.ts` (S27.2)                                                        | same spec; runs in the owner's Windows e2e run                                                                           |
+| PLAN §11 metric                  | Target                    | macOS arm64 (`darwin-arm64.md`)                                                                      | Windows x64 (`win32-x64.md`)                                                                                                |
+| -------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Cold start → editor interactive  | p95 ≤ 5 s                 | p95 983 ms dev binary, 929 ms packaged (n=20) — no miss                                              | dev machine under partial load: p95 1806 ms dev binary (loaded), 1017 ms (idle, run 2), 447 ms packaged (n=20) — no miss    |
+| Update after saving (≤ 50 files) | p95 ≤ 1 s                 | p95 54 ms, 50 files / 754 KB / 40 resources per load (n=20) — none                                   | p95 123 ms, same fixture (n=20) — no miss                                                                                   |
+| Memory, idle and typical project | record; ~700 MB budget    | idle median 550 MB, typical median 551 MB, max 577 MB (n=3) — none; private 226 / 262 MB (memory.md) | idle median 581 MB; **typical median 709 MB, max 710 MB — miss, fix in progress (S59.5, see Misses)**; private 302 / 385 MB |
+| Offline use                      | all core features offline | proven by `tests/e2e/offline.spec.ts` (S27.2)                                                        | same spec; runs in the owner's Windows e2e run                                                                              |
 
 **Misses: one, on Windows x64.** The typical-project memory working-set sum is slightly over the ~700 MB budget
-(below). macOS arm64 meets every target with a wide margin (cold start ~5× under, save → preview ~18× under, memory ~120 MB under the
+(below); the owner did not accept it, and the fix is in progress (S59.5). macOS arm64 meets every target with a wide margin (cold start ~5× under, save → preview ~18× under, memory ~120 MB under the
 budget by the working-set sum). Windows meets the cold-start and save → preview targets with similar margins.
 
 ## Misses
 
-### Windows x64: typical-project memory (working-set sum) — accepted for now
+### Windows x64: typical-project memory (working-set sum) — fix in progress (S59.5)
 
 - **Device and run:** i9-13900KF, 32 GB RAM, Windows 11 26200. This is the dev machine, not the reference machine.
   Data: `win32-x64.md`, 2026-10-16.
@@ -31,16 +31,33 @@ budget by the working-set sum). Windows meets the cold-start and save → previe
 - **Cause:** every process has a larger working set on Windows than on macOS (551 MB typical). The GPU process holds
   more private memory (159–176 MB vs ~72 MB), and the Utility process is 56–102 MB vs 47 MB. Measurement load is not
   the cause: the two runs agree within 4 MB, and one ran idle while the other ran at 99 % CPU.
-- **Decision: accept it for now; no code change in S27.3.**
+- **S27.3 decision (superseded): accept it for now; no code change in S27.3.** The owner did not accept the miss
+  (2026-10-18); see "Fix in progress" below. The S27.3 reasoning, for the record:
   1. The budget is approximate. PLAN §11 asks for memory to be recorded against "~700 MB", not claimed, and this
      miss is ~1.5 %.
   2. The working-set sum counts the shared Electron framework once per process. The private sum is the closer
      estimate of what the app costs (decision 0024), and at 403 MB it is ~43 % under the budget.
   3. This is not the 8 GB reference machine (limit 1 below). On a machine with less RAM, Windows trims working sets
      sooner.
-- **Trigger:** act if the 8 GB Windows reference machine also misses. First profile the Windows GPU process with
-  `scripts/measure-memory.mjs`. Then apply the options under "Remaining gap" in `docs/perf/memory.md`, in order:
-  `--js-flags=--max-semi-space-size=2`, then an idle stop for the TypeScript worker.
+- **S27.3 trigger (superseded by S59.5):** act if the 8 GB Windows reference machine also misses. First profile the
+  Windows GPU process with `scripts/measure-memory.mjs`. Then apply the options under "Remaining gap" in
+  `docs/perf/memory.md`, in order: `--js-flags=--max-semi-space-size=2`, then an idle stop for the TypeScript worker.
+- **Fix in progress (S59.5, 2026-10-18).** Both "Remaining gap" options are implemented, with unit tests:
+  1. **`--js-flags=--max-semi-space-size=2`, Windows only** (`memoryJsFlags()` in `src/platform/index.ts`, appended
+     in `src/main/main.ts` next to the other Chromium switches). Chromium passes it to every renderer (workbench and
+     preview). macOS keeps V8's default young generation: it meets the budget by ~120 MB and need not pay the extra
+     minor GCs, so the macOS numbers cannot regress from this change.
+  2. **Idle stop for the TypeScript/JavaScript worker, all platforms** (`src/renderer/editor/ts-idle-stop.ts`, wired
+     in `monaco-setup.ts`): after 5 minutes without a JavaScript language request, and only while no request awaits a
+     reply, the worker is stopped (≈ −83 MB); the next request starts a fresh one. See `memory.md` → Changes.
+- **Not yet proven.** The new Windows numbers must come from `node scripts/measure-perf.mjs --write` on the Windows
+  x64 machine (steps: `harness/MANUAL-CHECKS.md` → S59.5); this miss closes only when that run's typical median is
+  ≤ 700 MB (n=3). No numbers here have been measured with the change yet (the change was made in a Linux container
+  without a display). **Caution:** the measured typical case opens `index.html` only and samples after 30 s idle, so
+  the TypeScript worker is probably not running there and its idle stop (5 min) cannot lower that number; the
+  expected gain comes from the semi-space flag (on macOS: idle unchanged, renderer with a JS file −25 MB). If the run
+  still misses, the next step is the one S27.3 named: profile the Windows GPU process (159–176 MB private) with
+  `scripts/measure-memory.mjs`.
 
 ## Limits of these numbers (decisions)
 
