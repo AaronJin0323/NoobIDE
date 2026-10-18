@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { toIpcResult } from '../../src/shared/ipc/contract';
 import { ProjectService } from '../../src/workspace/project-service';
 import { CHANGED_ON_DISK, DocumentSaver } from '../../src/renderer/workbench/save-controller';
@@ -27,11 +28,11 @@ beforeEach(async () => {
   await mkdir(root, { recursive: true });
   await writeFile(path.join(root, 'app.js'), APP);
   await writeFile(path.join(root, 'config.js'), CONFIG);
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const onDisk = (name: string) => readFile(path.join(root, name), 'utf8');
 
@@ -86,7 +87,7 @@ async function workbench(options: { failWrites?: Set<string> } = {}) {
   return { host, tabs, undo, openTab };
 }
 
-describe('cross-file rename through the save pipeline (S57.2)', () => {
+describe('cross-file rename through the save pipeline (S57.2)', REAL_IO, () => {
   it('writes every file through its saver; each file can be undone on its own', async () => {
     const { host, tabs, undo } = await workbench();
     const outcome = await applyRename(plan, host);

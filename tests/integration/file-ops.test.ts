@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, stat, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { ProjectService } from '../../src/workspace/project-service';
 import { RENAME_TEMP_PREFIX, renameEntry, resolveEntry, type FileOpsFs } from '../../src/workspace/file-ops';
 import { link, lstat, readdir as fsReaddir, rename as fsRename, unlink } from 'node:fs/promises';
@@ -42,17 +43,17 @@ beforeEach(async () => {
   const opened = await service.open(root);
   if (!opened.ok) throw new Error(opened.message);
   projectId = opened.value.projectId;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const create = (relPath: string, kind: 'file' | 'directory' = 'file') =>
   service.createEntry({ projectId, relPath, kind });
 const move = (from: string, to: string) => service.renameEntry({ projectId, from, to });
 
-describe('create (S08.2)', () => {
+describe('create (S08.2)', REAL_IO, () => {
   it('creates an empty file and a folder with Chinese names and spaces', async () => {
     expect(await create('子 文件夹/新 页面.html')).toEqual({ ok: true, value: { relPath: '子 文件夹/新 页面.html' } });
     expect(await readFile(p('子 文件夹', '新 页面.html'), 'utf8')).toBe('');
@@ -80,7 +81,7 @@ describe('create (S08.2)', () => {
   });
 });
 
-describe('never silently overwrite (S08.4)', () => {
+describe('never silently overwrite (S08.4)', REAL_IO, () => {
   it('creating onto an existing file or folder is refused and changes nothing', async () => {
     expect(await create('index.html')).toMatchObject({ ok: false, code: 'exists', message: 'index.html' });
     expect(await readFile(p('index.html'), 'utf8')).toBe('<p>首页</p>\n');
@@ -122,7 +123,7 @@ describe('never silently overwrite (S08.4)', () => {
   });
 });
 
-describe('rename and move (S08.2)', () => {
+describe('rename and move (S08.2)', REAL_IO, () => {
   it('renames a file and keeps its content', async () => {
     expect(await move('index.html', '首页.html')).toEqual({ ok: true, value: { from: 'index.html', to: '首页.html' } });
     expect(await readFile(p('首页.html'), 'utf8')).toBe('<p>首页</p>\n');
@@ -170,7 +171,7 @@ describe('rename and move (S08.2)', () => {
   });
 });
 
-describe('delete to the OS trash (S08.3)', () => {
+describe('delete to the OS trash (S08.3)', REAL_IO, () => {
   it('hands the exact path to the trash and nothing else', async () => {
     const trashItem = vi.fn(async (_full: string) => undefined);
     expect(await service.trashEntry({ projectId, relPath: '子 文件夹/页面 二.html' }, trashItem)).toEqual({
@@ -259,7 +260,7 @@ describe('delete to the OS trash (S08.3)', () => {
   });
 });
 
-describe('review findings (S08.2, S08.4)', () => {
+describe('review findings (S08.2, S08.4)', REAL_IO, () => {
   it('a case-only rename that must hop and cannot finish is rolled back and explained (finding 2)', async () => {
     let renames = 0;
     const fs = fsWith({
@@ -395,7 +396,7 @@ describe('review findings (S08.2, S08.4)', () => {
   });
 });
 
-describe('reveal (S08.5)', () => {
+describe('reveal (S08.5)', REAL_IO, () => {
   it('resolves the root, files and folders inside the project only', async () => {
     expect(await service.revealPath({ projectId, relPath: '' })).toEqual({ ok: true, value: root });
     expect(await service.revealPath({ projectId, relPath: '子 文件夹/页面 二.html' })).toEqual({

@@ -21,6 +21,11 @@ Apply the S58.9 `REAL_IO` pattern to them and to every other integration file th
   checkpoint-store, and the files in the same class (real writes or process spawns in every test, local tests at
   0.04-0.25 s, i.e. 5 s at the 20-50× a starved runner showed): recovery-journal, ai-drafts, checkpoint-auto,
   app-data-upgrade, faults/history-faults, project-search (S51.2 block), inspect-arch, ci-changes (git block).
+- PR #48's first run (39101039521) failed Windows shard 1 on `replace-in-files.test.ts:196`, the same 5 s timeout in
+  a file this list had skipped. Picking files by local duration was too narrow, so the rule is now: every
+  `tests/integration` file that makes a temp folder and had no explicit timeout gets `REAL_IO`, 60 s hooks and the
+  retrying cleanup (35 more files; delivery.test.ts, with top-level tests only, is left as it was). Files whose
+  timeouts were already chosen on purpose keep them.
   release-workflow's `bash -n` test (one Git Bash per step) has REAL_IO on the test only. docs/perf/ci-runners.md §2
   lists each file.
 - `tests/integration/real-io.test.ts`: the helper removes a folder while a writer is still adding files to it. Plain

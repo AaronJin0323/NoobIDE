@@ -1,9 +1,10 @@
-import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp } from 'node:fs/promises';
 import { request } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { GRANT_TTL_MS, PreviewServer, grantCookieName } from '../../src/preview/static-server';
 
 /**
@@ -54,14 +55,14 @@ beforeEach(async () => {
   await mkdir(path.dirname(root), { recursive: true });
   await cp(FIXTURE, root, { recursive: true });
   server = await PreviewServer.start(root);
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
   await server.close();
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
-describe('external-browser grant (S15.4)', () => {
+describe('external-browser grant (S15.4)', REAL_IO, () => {
   it('without a grant the browser gets 403 (the port alone is not access)', async () => {
     expect((await browserGet('/index.html')).status).toBe(403);
   });

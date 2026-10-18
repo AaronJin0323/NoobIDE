@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
-import { cp, lstat, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { scanPortability } from '../../src/workspace/portability-scan';
 import { ProjectService } from '../../src/workspace/project-service';
 import type { PortabilityIssue } from '../../src/shared/portability';
@@ -25,11 +26,11 @@ beforeEach(async () => {
   tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-transfer-'));
   root = path.join(tmp, '网页 练习', '跨平台 迁移');
   await cp(FIXTURE, root, { recursive: true });
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 /** Creates a file unless the volume refuses or already has that name (case/normalisation-insensitive). */
 async function tryCreate(relPath: string, text = 'x\n'): Promise<boolean> {
@@ -59,7 +60,7 @@ async function snapshot(dir: string, rel = ''): Promise<string[]> {
   return out;
 }
 
-describe('cross-platform project transfer (S13.5)', () => {
+describe('cross-platform project transfer (S13.5)', REAL_IO, () => {
   it('reports mixed line endings and leaves CRLF, LF and NFC files alone', async () => {
     const report = await scanPortability(root);
     expect(report.truncated).toBe(false);

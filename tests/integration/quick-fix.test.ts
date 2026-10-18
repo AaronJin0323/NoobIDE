@@ -7,10 +7,11 @@
  *   checks, with the created file counted) no longer reports the problem.
  * The editor model is a small stand-in with the same rules as rule-context-monaco (Monaco needs a browser).
  */
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { checkBeginner } from '../../src/diagnostics/beginner-checks';
 import { explain } from '../../src/diagnostics/rules';
 import { createFixHost, type FixEditor, type FixSaver } from '../../src/renderer/problems/fix-host';
@@ -45,10 +46,10 @@ beforeEach(async () => {
   await writeFile(path.join(root, 'index.html'), PAGE);
   await writeFile(path.join(root, 'images', 'logo.png'), 'png');
   await writeFile(path.join(root, 'css', 'base.css'), 'body { margin: 0; }');
-});
+}, REAL_IO.timeout);
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 /** The project's files as the index lists them (files only: the create fix needs its folder to hold a file). */
 const baseFiles = ['index.html', 'images/logo.png', 'css/base.css'];
@@ -180,7 +181,7 @@ async function runFix(ws: ReturnType<typeof workspace>, record: ProblemRecord): 
   return { ...fix, phase: nextPhase(fix, await ws.host.stillReported(fix), []) };
 }
 
-describe('S55.3 quick fixes on the real file system', () => {
+describe('S55.3 quick fixes on the real file system', REAL_IO, () => {
   it('create the missing file: created from the template, saved atomically, resolved after the re-check', async () => {
     const ws = workspace();
     await ws.open('index.html');

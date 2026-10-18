@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { ProjectService } from '../../src/workspace/project-service';
 import { createProjectPorts } from '../../src/ai/agent/ports';
 import { createAgentRunner, type AgentRun } from '../../src/ai/agent/runner';
@@ -52,11 +53,11 @@ beforeEach(async () => {
   const opened = await service.open(root);
   if (!opened.ok) throw new Error(opened.message);
   projectId = opened.value.projectId;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const agentRequest = (overrides: Partial<Extract<AiRequest, { kind: 'agent' }>> = {}): AiRequest => ({
   kind: 'agent',
@@ -181,7 +182,7 @@ const waitFor = async (condition: () => boolean, ms = 2000) => {
   }
 };
 
-describe('agent loop: read tools, proposals and decisions (S34.1)', () => {
+describe('agent loop: read tools, proposals and decisions (S34.1)', REAL_IO, () => {
   it('runs parallel read tools, answers them in one message, waits for the decision and reports the outcome', async () => {
     const h = start(
       [
@@ -440,7 +441,7 @@ describe('agent loop: read tools, proposals and decisions (S34.1)', () => {
   });
 });
 
-describe('prompt injection and path confinement (S34.1)', () => {
+describe('prompt injection and path confinement (S34.1)', REAL_IO, () => {
   it('file content that tries to self-approve cannot approve: the loop waits for the user, and a rejection stands', async () => {
     const h = start([
       { toolCalls: [{ name: 'read_file', input: { path: 'notes.txt' } }] },
@@ -553,7 +554,7 @@ describe('prompt injection and path confinement (S34.1)', () => {
   });
 });
 
-describe('hidden files behind links (S34.1 review)', () => {
+describe('hidden files behind links (S34.1 review)', REAL_IO, () => {
   it('an ordinary-looking link to .env or .git is refused by the real-path policy', async (ctx) => {
     if (!symlinks) ctx.skip();
     await mkdir(path.join(root, '.git'), { recursive: true });
@@ -583,7 +584,7 @@ describe('hidden files behind links (S34.1 review)', () => {
   });
 });
 
-describe('budgets, refusal and Stop (S34.1)', () => {
+describe('budgets, refusal and Stop (S34.1)', REAL_IO, () => {
   const looping: TurnScript = () => ({ toolCalls: [{ name: 'list_files', input: {} }] });
 
   it('stops at the step budget', async () => {
@@ -689,7 +690,7 @@ describe('budgets, refusal and Stop (S34.1)', () => {
   });
 });
 
-describe('fake provider agent script (e2e support)', () => {
+describe('fake provider agent script (e2e support)', REAL_IO, () => {
   it('edit-and-create proposes one edit and one new file against the e2e project shape', async () => {
     await writeFile(path.join(root, 'style.css'), 'h1 {\n  color: red;\n}\n');
     const h = start(fakeAgentScript('edit-and-create'), {

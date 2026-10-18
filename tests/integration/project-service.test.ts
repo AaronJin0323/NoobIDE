@@ -1,8 +1,9 @@
-import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile, chmod } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, realpath, symlink, writeFile, chmod } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { ProjectService, isInside } from '../../src/workspace/project-service';
 
 /**
@@ -25,15 +26,15 @@ beforeEach(async () => {
   const opened = await service.open(root);
   if (!opened.ok) throw new Error(opened.message);
   projectId = opened.value.projectId;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const request = (relPath: string) => ({ projectId, relPath });
 
-describe('opening a project (S03.3)', () => {
+describe('opening a project (S03.3)', REAL_IO, () => {
   it('startup restore cannot revoke a project opened by the user', async () => {
     const restored = await service.open(root, { restore: true });
     expect(restored.ok).toBe(false);
@@ -119,7 +120,7 @@ describe('opening a project (S03.3)', () => {
   });
 });
 
-describe('reading files (S03.3)', () => {
+describe('reading files (S03.3)', REAL_IO, () => {
   it('reads UTF-8 text with its line ending and URI', async () => {
     const result = await service.read(request('index.html'));
     expect(result.ok).toBe(true);
@@ -194,7 +195,7 @@ describe('reading files (S03.3)', () => {
   });
 });
 
-describe('saving files (S03.4)', () => {
+describe('saving files (S03.4)', REAL_IO, () => {
   it('saves an edit in a path with Chinese characters and spaces', async () => {
     const before = await service.read(request('index.html'));
     if (!before.ok) throw new Error(before.message);
@@ -258,7 +259,7 @@ describe('saving files (S03.4)', () => {
   );
 });
 
-describe('project containment', () => {
+describe('project containment', REAL_IO, () => {
   it('rejects a link that leads outside the project', async (ctx) => {
     const outside = path.join(tmp, 'secret.txt');
     await writeFile(outside, 'secret');

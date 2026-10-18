@@ -1,8 +1,9 @@
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { AiConfigStore, AiConsentStore } from '../../src/ai/config-store';
 import { createFakeProviders, parseFakeScript, type FakeProviderHub } from '../../src/ai/fake-provider';
 import { createTestEncryptor, KeyStore } from '../../src/ai/keys';
@@ -143,10 +144,10 @@ beforeEach(async () => {
     ok: true,
     value: null,
   });
-});
+}, REAL_IO.timeout);
 afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
-});
+  await removeTempDir(dir);
+}, REAL_IO.timeout);
 
 const chatWith = (item: Record<string, unknown>) => ({
   kind: 'chat',
@@ -157,7 +158,7 @@ const chatWith = (item: Record<string, unknown>) => ({
   locale: 'en',
 });
 
-describe('Preview chip in main (S38.2)', () => {
+describe('Preview chip in main (S38.2)', REAL_IO, () => {
   it('validates the payload and gives the snapshot only to the window that owns the preview', async () => {
     for (const bad of [
       { projectId: PROJECT },

@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { IMAGE_RESPONSE_CSP, projectImageInfo, serveProjectImage } from '../../src/main/project-images';
 import { parseImageInfoRequest } from '../../src/shared/ipc/file-ops-contract';
 import { projectImageUrl } from '../../src/shared/image-files';
@@ -26,13 +27,13 @@ beforeEach(async () => {
   await writeFile(path.join(root, '图片 素材', '标志 图.png'), PNG);
   await writeFile(path.join(root, '图标.svg'), SVG);
   await writeFile(path.join(root, 'font.woff2'), 'x');
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
-describe('project images on the app protocol (S52.6)', () => {
+describe('project images on the app protocol (S52.6)', REAL_IO, () => {
   it('serves an image of the open project with its type, size and a no-script CSP', async () => {
     const response = await get('图片 素材/标志 图.png');
     expect(response.status).toBe(200);
@@ -85,7 +86,7 @@ describe('project images on the app protocol (S52.6)', () => {
   });
 });
 
-describe('image size for the viewer tab (S52.6)', () => {
+describe('image size for the viewer tab (S52.6)', REAL_IO, () => {
   it('reports the byte size of a project image', async () => {
     expect(await projectImageInfo(root, '图片 素材/标志 图.png')).toMatchObject({
       ok: true,

@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { PreviewServer } from '../../src/preview/static-server';
 import {
   EMPTY_PROJECT_CONFIG,
@@ -28,15 +29,15 @@ beforeEach(async () => {
   await mkdir(path.dirname(chosen), { recursive: true });
   await cp(FIXTURE, chosen, { recursive: true });
   root = await realpath(chosen);
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const configFile = () => path.join(root, '.noobide', 'project.json');
 
-describe('schema (S13.2)', () => {
+describe('schema (S13.2)', REAL_IO, () => {
   it('stores only the entry page, preview preferences and the version', () => {
     expect(parseProjectConfig({ version: 1 })).toEqual({ ok: true, config: { version: 1 } });
     expect(
@@ -79,7 +80,7 @@ describe('schema (S13.2)', () => {
   });
 });
 
-describe('reading and writing in a project (S13.2)', () => {
+describe('reading and writing in a project (S13.2)', REAL_IO, () => {
   it('a project without the file is ordinary: defaults, nothing written', async () => {
     expect(await readProjectConfig(root)).toEqual({ kind: 'missing' });
     expect(await previewEntryPath(root)).toBe('');

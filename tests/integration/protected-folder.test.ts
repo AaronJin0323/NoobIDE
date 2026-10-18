@@ -1,8 +1,9 @@
-import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type * as FsPromises from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 
 /**
  * S25.3: macOS privacy protection (TCC) and Windows Controlled Folder Access errors reach the UI as
@@ -85,13 +86,13 @@ beforeEach(async () => {
     await mkdir(path.join(dir, 'css'), { recursive: true });
     await writeFile(path.join(dir, 'index.html'), '<h1>旧</h1>');
   }
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
   state.block = null;
   configureProtectedFolders(null);
-  await rm(home, { recursive: true, force: true });
-});
+  await removeTempDir(home);
+}, REAL_IO.timeout);
 
 async function opened(service: InstanceType<typeof ProjectService>, dir: string): Promise<string> {
   const result = await service.open(dir);
@@ -103,7 +104,7 @@ const text = { text: '<h1>新的内容</h1>', bom: false } as const;
 
 // The macOS simulation runs on the real temp folder, so it needs POSIX paths; the classifier itself is covered on every
 // platform with POSIX path strings in src/platform/protected-folders.test.ts.
-describe.runIf(path.sep === '/')('macOS privacy protection (TCC), simulated', () => {
+describe.runIf(path.sep === '/')('macOS privacy protection (TCC), simulated', REAL_IO, () => {
   beforeEach(() => configureProtectedFolders({ platform: 'darwin', home, probe }));
 
   it('opening a project in Documents explains the privacy setting instead of "could not open"', async () => {
@@ -173,7 +174,7 @@ describe.runIf(path.sep === '/')('macOS privacy protection (TCC), simulated', ()
   });
 });
 
-describe('Windows Controlled Folder Access, simulated', () => {
+describe('Windows Controlled Folder Access, simulated', REAL_IO, () => {
   // The adapter compares with Windows path rules; this host's real paths are only used as data.
   beforeEach(() => configureProtectedFolders({ platform: 'win32', home, probe }));
 

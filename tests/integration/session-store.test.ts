@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { SessionStore, blockingRecoveryCount, decideRestore } from '../../src/main/session-store';
 
 /** S13.4: session state in app data (path with Chinese characters and spaces); crash recovery takes precedence. */
@@ -15,13 +16,13 @@ beforeEach(async () => {
   file = path.join(tmp, '应用 数据', 'session.json');
   project = path.join(tmp, '网页 练习', '中文 路径 项目');
   await mkdir(project, { recursive: true });
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
-describe('session store (S13.4)', () => {
+describe('session store (S13.4)', REAL_IO, () => {
   it('remembers the last project, its tabs and the layout across runs', async () => {
     const store = new SessionStore({ file });
     await store.projectOpened(project);
@@ -63,7 +64,7 @@ describe('session store (S13.4)', () => {
   });
 });
 
-describe('restore decision (S13.4)', () => {
+describe('restore decision (S13.4)', REAL_IO, () => {
   const exists = async () => true;
   it('reopens the last project on a normal start', async () => {
     expect(

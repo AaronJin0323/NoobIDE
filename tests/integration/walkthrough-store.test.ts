@@ -1,8 +1,9 @@
 import type { IpcMainInvokeEvent } from 'electron';
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { WalkthroughStore } from '../../src/main/walkthrough-store';
 import { registerWalkthroughIpcHandlers } from '../../src/main/walkthrough-ipc';
 import { WALKTHROUGH_CHANNELS } from '../../src/shared/ipc/walkthrough-contract';
@@ -15,10 +16,10 @@ let file: string;
 beforeEach(async () => {
   dir = await mkdtemp(path.join(os.tmpdir(), 'noobide-walkthrough-'));
   file = path.join(dir, '应用 数据', 'walkthrough.json');
-});
+}, REAL_IO.timeout);
 afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
-});
+  await removeTempDir(dir);
+}, REAL_IO.timeout);
 
 const STATE: WalkthroughState = {
   ...DEFAULT_WALKTHROUGH,
@@ -27,7 +28,7 @@ const STATE: WalkthroughState = {
   completed: ['create', 'files', 'heading', 'style', 'interaction', 'error', 'restore'],
 };
 
-describe('WalkthroughStore', () => {
+describe('WalkthroughStore', REAL_IO, () => {
   it('starts from the defaults and survives a restart (a new store on the same file)', async () => {
     const first = new WalkthroughStore({ file });
     expect(await first.get()).toEqual(DEFAULT_WALKTHROUGH);
@@ -64,7 +65,7 @@ describe('WalkthroughStore', () => {
   });
 });
 
-describe('walkthrough IPC', () => {
+describe('walkthrough IPC', REAL_IO, () => {
   const ORIGIN = 'noobide://app';
   type Handler = (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown>;
   const eventFrom = (url: string | null, topLevel = true) =>

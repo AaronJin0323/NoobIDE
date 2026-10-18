@@ -5537,7 +5537,7 @@
       "acceptance": [
         "tests/integration/real-io.ts exports REAL_IO (60 s functional timeout, the S58.9 value) and a temp-folder removal that retries ENOTEMPTY/EBUSY/EPERM, so a test cut off mid-write does not also fail its cleanup; history-store, file-copy, history-ipc, history-groups and history-triggers use the shared REAL_IO instead of local copies",
         "ai-service, checkpoint-restore, checkpoint-store and the release-workflow bash -n test run under REAL_IO, with hook timeouts for their setup and cleanup",
-        "Every other tests/integration file whose tests write many real files (or spawn processes per case) and had only the 5 s default gets REAL_IO and the retrying cleanup; the list and the reason per file are in docs/perf/ci-runners.md §2",
+        "Every other tests/integration file that creates a temporary folder and had only the 5 s default (no explicit timeout of its own) gets REAL_IO and the retrying cleanup; files with deliberately chosen timeouts keep them; docs/perf/ci-runners.md §2 states the rule and the files",
         "A unit test proves the removal helper removes a folder that is still being written to while it runs",
         "The S51.6 per-file yield test in project-search counts the search's own setImmediate yields, not busy-loop turns that also accrue while the folder listing waits on a busy disk (it failed in this session with slow - normal = -635); without the per-file yield it still fails",
         "tests/integration/timing-budgets.test.ts (S58.8) still passes: no new wall-clock assertion, these are Vitest timeouts, not budgets",

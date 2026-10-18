@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { defaultEntryPath, listEntryPages, sortPages } from '../../src/preview/entry-pages';
 
 /** S14.3: pages offered by the entry picker (Chinese names and spaces, ignored folders, links, limits). */
@@ -35,13 +36,13 @@ beforeEach(async () => {
   } catch {
     // symlinks may be unavailable (Windows without developer mode); the rest still runs
   }
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
-describe('entry pages (S14.3)', () => {
+describe('entry pages (S14.3)', REAL_IO, () => {
   it('lists the html pages as portable relative paths, index.html first', async () => {
     const { pages, truncated } = await listEntryPages(root);
     expect(truncated).toBe(false);
@@ -73,7 +74,7 @@ describe('entry pages (S14.3)', () => {
   });
 });
 
-describe('default entry page (preview without index.html)', () => {
+describe('default entry page (preview without index.html)', REAL_IO, () => {
   it('uses the root index.html when there is one: the server serves it for /', async () => {
     expect(await defaultEntryPath(root)).toBe('');
   });

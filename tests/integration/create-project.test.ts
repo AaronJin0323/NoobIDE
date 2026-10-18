@@ -1,8 +1,9 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { CHANNELS } from '../../src/shared/ipc/contract';
 import { ok } from '../../src/shared/result';
 import { registerCreateProjectHandlers, DEFAULT_LOCATION_NAMES } from '../../src/main/create-project-ipc';
@@ -34,11 +35,11 @@ beforeEach(async () => {
   tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-create-'));
   parentDir = path.join(tmp, '网页 练习');
   await mkdir(parentDir);
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 async function tree(dir: string, prefix = ''): Promise<string[]> {
   const out: string[] = [];
@@ -50,7 +51,7 @@ async function tree(dir: string, prefix = ''): Promise<string[]> {
   return out.sort();
 }
 
-describe('createProjectFromTemplate (S20.2)', () => {
+describe('createProjectFromTemplate (S20.2)', REAL_IO, () => {
   it.each(templates.map((t) => [t.id, t] as const))(
     '%s: creates "<location>/<name>" with exactly the manifest files, byte for byte',
     async (_id, template) => {
@@ -170,7 +171,7 @@ describe('createProjectFromTemplate (S20.2)', () => {
   });
 });
 
-describe('checkNewProject (live wizard feedback)', () => {
+describe('checkNewProject (live wizard feedback)', REAL_IO, () => {
   it('returns the exact folder that will be created', async () => {
     const result = await checkNewProject({ parentDir, name: '我的 主页' });
     expect(result).toEqual({ ok: true, value: { folderPath: path.join(parentDir, '我的 主页') } });
@@ -190,7 +191,7 @@ describe('checkNewProject (live wizard feedback)', () => {
   });
 });
 
-describe('create-project IPC (S20.2)', () => {
+describe('create-project IPC (S20.2)', REAL_IO, () => {
   type Run = (payload: unknown, event: IpcMainInvokeEvent) => Promise<unknown>;
   const event = { sender: { id: 1 } } as unknown as IpcMainInvokeEvent;
   let handlers: Map<string, { parse: (p: unknown) => unknown; run: Run }>;
