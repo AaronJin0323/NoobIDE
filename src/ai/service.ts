@@ -587,6 +587,8 @@ export class AiService {
         if (event.reason === 'refusal') throw new RefusedError();
       }
     }
+    // A stream may end quietly when it is aborted (Stop, time budget): a cut-off answer is never sent as complete.
+    if (run.controller.signal.aborted) throw new ProviderError('cancelled', 'cancelled');
     if (buffered) {
       const cleaned = stripCodeFence(text);
       if (cleaned) onText(cleaned);
