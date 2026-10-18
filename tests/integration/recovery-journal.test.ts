@@ -153,6 +153,25 @@ describe('recovery journal in app data (S12.1)', () => {
     expect(await nextRun.listPending()).toEqual([]);
   });
 
+  it('S52.1: a rename that only changes Unicode normalisation keeps the record (it is already in place)', async () => {
+    // macOS hands out NFD names; the tab knows the file as NFC. The record's new place is its old place, so writing
+    // it there and then removing the "old" record would delete the only copy of the unsaved edits.
+    const nfc = { rootPath: root, relPath: 'café.html' };
+    await journal.record(nfc, snapshot(4, 'unsaved café edits'));
+    expect(await journal.movePath(root, 'café.html', 'café.html')).toEqual({ ok: true, value: { moved: 0 } });
+    expect(await journal.read(nfc, BUF_A)).toMatchObject({ ok: true, value: { text: 'unsaved café edits' } });
+    expect(await newJournal().listPending()).toMatchObject([{ files: [{ relPath: 'café.html', bufferId: BUF_A }] }]);
+  });
+
+  it('S52.1: a moved file keeps its record under the new path', async () => {
+    await journal.record(target, snapshot(2, 'moved edits'));
+    const moved = await journal.movePath(root, '子 文件夹', '新 文件夹');
+    expect(moved).toEqual({ ok: true, value: { moved: 1 } });
+    const to = { rootPath: root, relPath: '新 文件夹/页面 二.html' };
+    expect(await journal.read(to, BUF_A)).toMatchObject({ ok: true, value: { text: 'moved edits' } });
+    expect(await journal.read(target, BUF_A)).toMatchObject({ ok: false, code: 'not-found' });
+  });
+
   it('never logs buffer text or user paths', async () => {
     await journal.record(target, snapshot(1));
     await writeFile(path.join(journalDir, projectKey(root), `${fileKey('x')}-${BUF_B}.json`), `{"text":"${SECRET}"`);

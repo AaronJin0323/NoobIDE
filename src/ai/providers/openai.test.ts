@@ -206,6 +206,40 @@ describe('OpenAI provider (S31.1)', () => {
     });
   });
 
+  it('a stream stopped mid-answer fails as cancelled instead of ending like a complete answer', async () => {
+    // The openai SDK ends its stream iterator silently when the request is aborted; a partial answer (an inline or
+    // edit suggestion cut in half) must never be reported as a normal stop.
+    const controller = new AbortController();
+    const fetch = async (_input: string | URL | Request, init?: RequestInit) => {
+      const signal = init?.signal;
+      const body = new ReadableStream<Uint8Array>({
+        start(stream) {
+          stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk({ content: 'const a = ' }))}\n\n`));
+          signal?.addEventListener('abort', () => stream.error(new DOMException('aborted', 'AbortError')));
+        },
+      });
+      return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+    };
+    const client = new OpenAI({ apiKey: 'sk-openai-test', fetch, maxRetries: 0 }) as unknown as OpenAiClientLike;
+    const provider = createOpenAiProvider('u', { client });
+    const events: ProviderEvent[] = [];
+    const run = (async () => {
+      for await (const event of provider.stream({
+        model: 'gpt-x',
+        purpose: 'edit',
+        system: 's',
+        messages: [{ role: 'user', text: 'hi' }],
+        maxOutputTokens: 100,
+        signal: controller.signal,
+      })) {
+        events.push(event);
+        if (event.type === 'text') controller.abort();
+      }
+    })();
+    await expect(run).rejects.toMatchObject({ code: 'cancelled' });
+    expect(events.map((e) => e.type)).toEqual(['text']);
+  });
+
   it('lists chat models newest first and picks defaults from them', async () => {
     const { client } = clientWith(
       () =>

@@ -172,6 +172,10 @@ test('arrow keys move between tabs and Delete closes the focused one (S09.2)', a
   await page.keyboard.press('Delete');
   await expect(tabOf(page, 'script.js')).toHaveCount(0);
   await expect(tabOf(page, 'style.css')).toHaveAttribute('aria-selected', 'true');
+  // The keyboard focus stays in the tab strip (on the tab shown next), so the arrows keep working.
+  await expect(tabOf(page, 'style.css')).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(tabOf(page, 'long.js')).toBeFocused();
 });
 
 test('middle-click closes a tab (S09.2)', async () => {

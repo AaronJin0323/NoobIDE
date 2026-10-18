@@ -104,6 +104,12 @@ describe('mixed line endings (decision 0011)', () => {
     expect(hasMixedEol('a\r\nb\r\n')).toBe(false);
     expect(hasMixedEol('a\nb\n')).toBe(false);
     expect(hasMixedEol('')).toBe(false);
+    // Edges of the counting: a leading line feed, a lone CR (not a line ending), CR CR LF (one CRLF).
+    expect(hasMixedEol('\na\r\n')).toBe(true);
+    expect(hasMixedEol('a\rb\r\n')).toBe(false);
+    expect(hasMixedEol('a\r\r\nb\r\n')).toBe(false);
+    expect(detectEol('\r\n\n\n')).toBe('\n');
+    expect(detectEol('\r\n\r\n\n')).toBe('\r\n');
   });
 
   it('decodeText reports eol, BOM and mixed line endings', () => {

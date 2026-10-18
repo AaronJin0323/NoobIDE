@@ -57,7 +57,7 @@ export const THIRD_PARTY_NOTICES_FILE = 'THIRD_PARTY_NOTICES.txt';
 
 /**
  * Where the notices file is: next to app.asar in a packaged app (forge.config.ts extraResource), and in build/ of the
- * repository when running from source (written by 	hird-party-notices: 17 package(s) -> buildTHIRD_PARTY_NOTICES.txt or any package run).
+ * repository when running from source (written by `node scripts/third-party-notices.mjs` or any package run).
  */
 export function resolveThirdPartyNotices({
   isPackaged,

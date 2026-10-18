@@ -213,6 +213,8 @@ async function* streamTurn(client: OpenAiClientLike, request: ProviderStreamRequ
       }
       if (choice.finish_reason) finish = choice.finish_reason;
     }
+    // The SDK ends the iteration without an error when the request is aborted: a cut-off answer is never a stop.
+    if (request.signal?.aborted) throw new ProviderError('cancelled', 'cancelled');
   } catch (e) {
     throw mapOpenAiError(e, request.signal);
   }
