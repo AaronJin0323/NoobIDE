@@ -48,6 +48,18 @@ describe('beginner checks (S55.2): references', () => {
     expect(matchReference('images/zzz.png', files)).toEqual({ kind: 'missing', candidates: [] });
   });
 
+  it('a folder link without its trailing slash is not broken when the folder has an index.html', () => {
+    const files = ['index.html', 'about/index.html', '关于 我/index.html', 'blog/post.html'];
+    const check = (relPath: string, html: string) =>
+      checkBeginnerHtml(html, { relPath, projectFiles: files }).map((f) => f.code);
+    expect(check('index.html', '<a href="about">x</a> <a href="about?x=1#t">y</a>')).toEqual([]);
+    expect(check('index.html', '<a href="关于%20我">x</a>')).toEqual([]);
+    expect(check('about/index.html', '<a href=".">x</a> <a href="../about">y</a>')).toEqual([]);
+    // A folder without index.html (the server answers 404) is still reported.
+    expect(check('index.html', '<a href="blog">x</a>')).toEqual(['html-broken-ref']);
+    expect(check('blog/post.html', '<a href=".">x</a>')).toEqual(['html-broken-ref']);
+  });
+
   it('writes a target relative to the referring file', () => {
     expect(relativeReference('index.html', 'images/a.png')).toBe('images/a.png');
     expect(relativeReference('pages/x/a.html', 'pages/b.css')).toBe('../b.css');

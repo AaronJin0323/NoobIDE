@@ -174,6 +174,10 @@ export type ReferenceMatch =
 
 export function matchReference(path: string, files: readonly string[]): ReferenceMatch {
   if (files.some((f) => samePath(f, path))) return { kind: 'exact' };
+  // A folder written without its trailing `/` (`href="about"`, `href="."` in a subfolder): the preview server
+  // redirects it to the folder and serves its index.html, like any web server.
+  const index = `${path}/index.html`;
+  if (files.some((f) => samePath(f, index))) return { kind: 'exact' };
   const key = portableNameKey(path);
   const actuals = files.filter((f) => portableNameKey(f) === key);
   if (actuals.length) return { kind: 'case', actuals };
