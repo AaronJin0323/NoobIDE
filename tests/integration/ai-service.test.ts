@@ -1,8 +1,9 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { AiConfigStore, AiConsentStore } from '../../src/ai/config-store';
 import { createFakeProviders, parseFakeScript, type FakeProviderHub } from '../../src/ai/fake-provider';
 import { createTestEncryptor, KeyStore } from '../../src/ai/keys';
@@ -148,12 +149,14 @@ beforeEach(async () => {
   projectFiles = { 'index.html': '<h1>PROJECT-CODE-MARKER</h1>' };
   win = makeSender(1);
   win2 = makeSender(2);
-});
+}, REAL_IO.timeout);
 afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
-});
+  await removeTempDir(dir);
+}, REAL_IO.timeout);
 
-describe('AI IPC and service (S31.3)', () => {
+// Real key, config, consent and log files under app data: one test took over 5 s on a starved hosted Windows runner
+// (2026-10-18). REAL_IO is a functional timeout, not a speed budget (tests/integration/real-io.ts).
+describe('AI IPC and service (S31.3)', REAL_IO, () => {
   it('refuses senders that are not the workbench and malformed payloads on every channel', async () => {
     await setup({});
     for (const channel of Object.values(AI_CHANNELS)) {

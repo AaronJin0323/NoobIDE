@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { ProjectService } from '../../src/workspace/project-service';
 import { COPY_LIMITS, copyEntry, copyFileExclusive, realCopyFs, type CopyFs } from '../../src/workspace/file-ops';
 import { parseCopyEntriesRequest } from '../../src/shared/ipc/file-ops-contract';
@@ -34,19 +35,17 @@ beforeEach(async () => {
   const opened = await service.open(root);
   if (!opened.ok) throw new Error(opened.message);
   projectId = opened.value.projectId;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const paste = (from: string[], toFolder: string) => service.copyEntries({ projectId, from, toFolder, mode: 'paste' });
 const duplicate = (from: string[]) => service.copyEntries({ projectId, from, toFolder: '', mode: 'duplicate' });
 
 // Real copies on disk. A starved hosted Windows runner took over 5 s for one test (run 39061118593): functional timeouts
 // sized like history-groups (docs/perf/ci-runners.md §2, S58.8), not speed budgets.
-const REAL_IO = { timeout: 60_000 };
-
 describe('duplicate (S52.2)', REAL_IO, () => {
   it('duplicates a file next to itself as "name copy.ext", then "name copy 2.ext"', async () => {
     expect(await duplicate(['页面 二.html'])).toEqual({

@@ -1,8 +1,9 @@
 // S06.2 — scripts/inspect-arch.mjs against small synthetic Mach-O / PE headers (ADR 0021).
 // The fixtures are generated here: a few header bytes are all the script reads, so no real binaries are committed.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDirSync } from './real-io';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -76,12 +77,12 @@ function dir(name: string, files: Record<string, Buffer | string>): string {
 
 beforeAll(() => {
   tmp = mkdtempSync(path.join(os.tmpdir(), 'noobide-arch-'));
-});
+}, REAL_IO.timeout);
 afterAll(() => {
-  rmSync(tmp, { recursive: true, force: true });
-});
+  removeTempDirSync(tmp);
+}, REAL_IO.timeout);
 
-describe('inspect-arch: macOS app bundles', () => {
+describe('inspect-arch: macOS app bundles', REAL_IO, () => {
   it('passes a bundle whose Mach-O files are all arm64 and ignores other files', () => {
     const d = dir('mac-ok', {
       'NoobIDE.app/Contents/MacOS/noobide': machO(CPU.arm64),
@@ -142,7 +143,7 @@ describe('inspect-arch: macOS app bundles', () => {
   });
 });
 
-describe('inspect-arch: Windows app directories', () => {
+describe('inspect-arch: Windows app directories', REAL_IO, () => {
   it('passes x64 PE files (exe and dll)', () => {
     const d = dir('win-ok', {
       'noobide.exe': pe(PE.x64),
@@ -174,7 +175,7 @@ describe('inspect-arch: Windows app directories', () => {
   });
 });
 
-describe('inspect-arch: usage', () => {
+describe('inspect-arch: usage', REAL_IO, () => {
   it('handles paths with Chinese characters and spaces', () => {
     const d = dir('我的 应用', { '网页 工具.app/Contents/MacOS/x': machO(CPU.arm64) });
     expect(run([d]).status).toBe(0);

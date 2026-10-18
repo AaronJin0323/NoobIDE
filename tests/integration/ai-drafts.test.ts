@@ -1,8 +1,9 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { AiDraftStore, NO_PROJECT_FILE } from '../../src/ai/draft-store';
 import { registerAiDraftIpcHandlers } from '../../src/main/ai-draft-ipc';
 import { appDataPath } from '../../src/main/app-data-layout';
@@ -82,12 +83,12 @@ beforeEach(async () => {
     drafts: store,
     rootOf: (id) => projects.rootOf(id),
   });
-});
+}, REAL_IO.timeout);
 afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
-});
+  await removeTempDir(dir);
+}, REAL_IO.timeout);
 
-describe('unsent drafts over IPC (S48.7)', () => {
+describe('unsent drafts over IPC (S48.7)', REAL_IO, () => {
   it('refuses senders that are not the workbench and malformed payloads', async () => {
     for (const channel of Object.values(AI_DRAFT_CHANNELS)) {
       const payload = { projectId, key: 'new', draft: null };

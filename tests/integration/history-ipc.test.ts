@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { createFileExclusive, registerHistoryHandlers } from '../../src/main/history-ipc';
 import type { HandleFn } from '../../src/main/ipc';
 import { SnapshotStore } from '../../src/recovery/history';
@@ -53,18 +54,16 @@ beforeEach(async () => {
     { rootOf: (id) => (id === ID ? openRoot : undefined) },
     { store, triggers: new HistoryTriggers(store), revealFolder: reveal as never },
   );
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
   await store.idle();
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 // Every test here does real, fsynced snapshot writes: milliseconds on an idle machine, but a hosted Windows runner with
 // the CPU saturated pushed one restore sequence past vitest's 5 s default (PR #14 CI). The timeout is only a hang guard;
 // no assertion below depends on machine speed.
-const REAL_IO = { timeout: 60_000 };
-
 describe('browsing versions (S21.3)', REAL_IO, () => {
   it('lists files with history, deleted ones flagged, and versions newest first with their reason', async () => {
     await writeFile(path.join(root, 'index.html'), '<h1>3</h1>\n');

@@ -5521,6 +5521,28 @@
         "The preview-isolation console-flood fixes of PR #44 (91046e5, 1fdbbc1) are on this branch unchanged",
         "npm run verify gates that can run in the session are green; the e2e changes are proven by the hosted matrix of the PR"
       ]
+    },
+    {
+      "id": "S58.10",
+      "session": "S58",
+      "milestone": "M20",
+      "verify": "auto",
+      "depends_on": [
+        "S58.9"
+      ],
+      "status": "in_progress",
+      "evidence": "",
+      "title": "Real-I/O integration tests: functional timeouts and cleanup that survives a cut-off test",
+      "description": "Owner request 2026-10-18. Starved hosted Windows runners still hit the 5 s Vitest default in integration tests that do real file-system or process I/O, on main and on PRs: ai-service.test.ts:201, checkpoint-restore.test.ts:171 and :208 (whose cleanup then failed with ENOTEMPTY because the timed-out test was still writing), checkpoint-store.test.ts:89, release-workflow.test.ts:236 (main, run 39097174400). S58.9 fixed the same class in history-store and file-copy with a local REAL_IO 60 s timeout. Owns tests/integration/real-io.ts and the timeouts and cleanup of the files it lists.",
+      "acceptance": [
+        "tests/integration/real-io.ts exports REAL_IO (60 s functional timeout, the S58.9 value) and a temp-folder removal that retries ENOTEMPTY/EBUSY/EPERM, so a test cut off mid-write does not also fail its cleanup; history-store, file-copy, history-ipc, history-groups and history-triggers use the shared REAL_IO instead of local copies",
+        "ai-service, checkpoint-restore, checkpoint-store and the release-workflow bash -n test run under REAL_IO, with hook timeouts for their setup and cleanup",
+        "Every other tests/integration file whose tests write many real files (or spawn processes per case) and had only the 5 s default gets REAL_IO and the retrying cleanup; the list and the reason per file are in docs/perf/ci-runners.md §2",
+        "A unit test proves the removal helper removes a folder that is still being written to while it runs",
+        "The S51.6 per-file yield test in project-search counts the search's own setImmediate yields, not busy-loop turns that also accrue while the folder listing waits on a busy disk (it failed in this session with slow - normal = -635); without the per-file yield it still fails",
+        "tests/integration/timing-budgets.test.ts (S58.8) still passes: no new wall-clock assertion, these are Vitest timeouts, not budgets",
+        "npm run verify gates that can run in the session are green; the hosted Windows and macOS matrix of the PR is green"
+      ]
     }
   ]
 }
