@@ -67,7 +67,7 @@ network 7, workbench ~98), ws 409–453 MB. The first launch after a rebuild sho
 - **Monaco language workers** (threads in the workbench renderer): the TypeScript worker (JavaScript diagnostics,
   completion, hover; ES + DOM type libraries) costs **~83 MB** as soon as a `.js` file is open (219 → 136 MB renderer
   footprint when it is terminated). HTML + editor workers ~12 MB. Monaco stops idle HTML/CSS/JSON workers after 2 min
-  and the editor worker after 5 min, but never the TypeScript worker.
+  and the editor worker after 5 min, but never the TypeScript worker (NoobIDE stops it after 5 min since S59.5).
 - **Workbench renderer** without workers ~100 MB (Chromium/Blink baseline, React, Monaco; the V8 heap of the page is
   ~26 MB).
 - **Main process** ~50 MB (~66 MB packaged), **network service** ~7 MB, **preview renderer** ~25 MB for the template.
@@ -79,17 +79,18 @@ network 7, workbench ~98), ws 409–453 MB. The first launch after a rebuild sho
 | `5508422` | `scripts/measure-memory.mjs`: per-process working set + footprint, three scenarios, packaged idle                                     | measurement only                                         |
 | `61871d6` | Caret turns solid after 10 s without input in the editor (`caret-rest.ts`); any key, click, cursor move or focus makes it blink again | idle GPU 175 → 45; idle total 334 → 205 (−129 MB, −39 %) |
 | `c917d2f` | `measure-perf.mjs`: records the private-memory sum next to the working-set sum; idle before a memory sample 10 s → 30 s               | measurement only                                         |
+| S59.5     | Windows only: `--js-flags=--max-semi-space-size=2` (`memoryJsFlags()` in `src/platform/index.ts`, appended in `src/main/main.ts`)     | not measured yet (Windows run pending); macOS unchanged  |
 
 ## Tried and not taken (numbers: renderer or GPU footprint)
 
-| Experiment                                      | Result                                               | Why not                                                                                               |
-| ----------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Monaco `disableLayerHinting: true`              | GPU unchanged (~185 after typing)                    | no effect                                                                                             |
-| `--force-gpu-mem-available-mb=128`              | GPU unchanged                                        | no effect                                                                                             |
-| `--js-flags=--optimize-for-size`                | idle renderer 102 → 97; with a JS file 223 → 196     | slower JS in the IDE and in the user's page for a small gain                                          |
-| `--js-flags=--max-semi-space-size=2`            | idle unchanged; with a JS file 223/230/224 → 200/202 | more GC work in every renderer, including the user's page; first option if a reference machine misses |
-| Stop the TypeScript worker when idle            | would free ~83 MB                                    | Monaco re-validates every open JS model when its worker is restarted; needs a Monaco patch            |
-| Network service in-process / `--in-process-gpu` | one process less each                                | removes a process/sandbox boundary — never trade isolation for memory                                 |
+| Experiment                                      | Result                                               | Why not                                                                                                |
+| ----------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Monaco `disableLayerHinting: true`              | GPU unchanged (~185 after typing)                    | no effect                                                                                              |
+| `--force-gpu-mem-available-mb=128`              | GPU unchanged                                        | no effect                                                                                              |
+| `--js-flags=--optimize-for-size`                | idle renderer 102 → 97; with a JS file 223 → 196     | slower JS in the IDE and in the user's page for a small gain                                           |
+| `--js-flags=--max-semi-space-size=2`            | idle unchanged; with a JS file 223/230/224 → 200/202 | not on macOS (more GC work in every renderer, including the user's page); **taken on Windows (S59.5)** |
+| Stop the TypeScript worker when idle            | would free ~83 MB                                    | tried in S59.5 and removed: see "Remaining gap" below                                                  |
+| Network service in-process / `--in-process-gpu` | one process less each                                | removes a process/sandbox boundary — never trade isolation for memory                                  |
 
 ## Remaining gap and options
 
@@ -101,3 +102,25 @@ private sum ~205–267 MB). The heavier **files10** case (several JS files open)
 1. `--js-flags=--max-semi-space-size=2` (≈ −25 MB with JS open; GC CPU cost to be measured on the reference machine);
 2. an idle stop for the TypeScript worker (≈ −83 MB after the idle period; requires patching or replacing Monaco's
    TS worker manager so a restart re-syncs models lazily).
+
+**Windows x64 missed (S27.3: typical median 709 MB, max 710 MB) and the owner did not accept it: fix in progress
+(S59.5).** Option 1 is implemented:
+
+1. **Semi-space flag, Windows only.** `memoryJsFlags()` (`src/platform/index.ts`, the only place that reads the
+   platform) returns `--max-semi-space-size=2` on Windows and nothing elsewhere; `src/main/main.ts` appends it as
+   `--js-flags` before the app is ready, so Chromium hands it to every renderer it starts (workbench and preview). The
+   main process's V8 is already running and is not affected. macOS keeps the default, so its numbers cannot regress
+   from this flag, and the user's page on macOS does not pay the extra minor GCs. The GC CPU cost on Windows is
+   still to be checked: the save → preview row of the same run shows it (p95 123 ms before).
+2. **TypeScript worker idle stop: tried and removed.** A version that wrapped `getLanguageServiceWorker` on Monaco's
+   private TypeScript `WorkerManager` (imported statically from
+   `monaco-editor/languages/features/typescript/workerManager` in `monaco-setup.ts`) broke the Format Document
+   shortcut: `tests/e2e/history.spec.ts` "Format Document keeps the text…" failed on hosted Windows and macOS (CI run 39094652477) and, with the Linux shortcut, in a Linux container, and passed again with only that import removed.
+   The static import changes how Monaco's language modules load. It would also not lower the measured typical number
+   (below). Revisit only with an own worker manager or an upstream idle stop, behind an e2e of Format Document.
+
+**Not measured yet.** The new Windows numbers must come from `node scripts/measure-perf.mjs --write` on the Windows
+x64 machine (`harness/MANUAL-CHECKS.md` → S59.5; pass: typical median ≤ 700 MB, n=3). The measured typical case
+opens `index.html` only and samples after 30 s, so the TypeScript worker is probably not running; the gain there has
+to come from the semi-space flag. If Windows still misses, profile its
+GPU process (159–176 MB private vs ~72 MB on macOS) with `scripts/measure-memory.mjs` next.

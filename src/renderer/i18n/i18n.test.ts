@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { en } from './en';
 import { zhCN } from './zh-CN';
-import { DEFAULT_LOCALE, loadLocale, otherLocale, saveLocale, translate, type LocaleStore } from './index';
+import { DEFAULT_LOCALE, loadLocale, osLocale, otherLocale, saveLocale, translate, type LocaleStore } from './index';
 
 function memoryStore(): LocaleStore & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -48,5 +48,36 @@ describe('locale persistence for the session (S02.5)', () => {
     };
     expect(loadLocale(broken)).toBe('zh-CN');
     expect(() => saveLocale(broken, 'en')).not.toThrow();
+  });
+});
+
+describe('first-run language from the OS (S59.2)', () => {
+  it('maps the browser languages: zh* to zh-CN, anything else (or nothing) to en', () => {
+    for (const zh of ['zh-CN', 'zh-Hans', 'zh-Hans-CN', 'zh-TW', 'zh-HK', 'zh']) expect(osLocale([zh])).toBe('zh-CN');
+    expect(osLocale(['en-US'])).toBe('en');
+    expect(osLocale(['fr'])).toBe('en');
+    expect(osLocale([])).toBe('en');
+  });
+
+  it('the OS locale applies only when nothing is saved; a saved choice wins', () => {
+    const store = memoryStore();
+    expect(loadLocale(store, 'en')).toBe('en');
+    expect(loadLocale(undefined, 'en')).toBe('en');
+    saveLocale(store, 'zh-CN');
+    expect(loadLocale(store, 'en')).toBe('zh-CN');
+    saveLocale(store, 'en');
+    expect(loadLocale(store, 'zh-CN')).toBe('en');
+    store.data.set('noobide.locale', 'fr');
+    expect(loadLocale(store, 'en')).toBe('en');
+  });
+
+  it('falls back to the OS locale when storage throws', () => {
+    const broken: LocaleStore = {
+      getItem: () => {
+        throw new Error('denied');
+      },
+      setItem: () => undefined,
+    };
+    expect(loadLocale(broken, 'en')).toBe('en');
   });
 });

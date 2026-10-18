@@ -1,13 +1,14 @@
 import { SerialQueue, writeFileAtomic, type RecoveryLogger } from '../recovery/atomic-file';
 import {
-  DEFAULT_SETTINGS,
   readNewerSettings,
   SETTINGS_MIGRATIONS,
   SETTINGS_VERSION,
+  settingsDefaults,
   upgradeSettings,
   type AppSettings,
   type SettingsMigration,
   type SettingsNotice,
+  type SettingsLocale,
   type SettingsPatch,
 } from '../shared/settings';
 import { backupFile, readJsonFile } from './json-file';
@@ -16,6 +17,11 @@ export interface SettingsStoreOptions {
   /** `<userData>/settings.json` (app.getPath('userData'), never a hard-coded user path). */
   readonly file: string;
   readonly log?: RecoveryLogger;
+  /**
+   * S59.2: the interface language to use while none has been saved (main passes the OS language mapped by
+   * shared/os-locale). Defaults to DEFAULT_SETTINGS.locale. A saved valid locale always wins.
+   */
+  readonly defaultLocale?: SettingsLocale;
   /** Injected for tests of the migration chain. */
   readonly migrations?: readonly SettingsMigration[];
   readonly version?: number;
@@ -38,13 +44,17 @@ export interface SettingsState {
  * file contents; the log gets event names and codes only.
  */
 export class SettingsStore {
-  private state: SettingsState = { settings: DEFAULT_SETTINGS, notice: null, backupPath: null };
+  private readonly defaults: AppSettings;
+  private state: SettingsState;
   private loaded: Promise<SettingsState> | null = null;
   private readonly queue = new SerialQueue();
   /** False when the file could not be backed up or read: we keep working in memory and never overwrite it. */
   private writable = true;
 
-  constructor(private readonly options: SettingsStoreOptions) {}
+  constructor(private readonly options: SettingsStoreOptions) {
+    this.defaults = settingsDefaults(options.defaultLocale);
+    this.state = { settings: this.defaults, notice: null, backupPath: null };
+  }
 
   /** Loads once; later calls return the same state. */
   load(): Promise<SettingsState> {
@@ -76,7 +86,7 @@ export class SettingsStore {
     const { file } = this.options;
     const read = await readJsonFile(file);
     if (read.kind === 'missing') {
-      this.state = { settings: DEFAULT_SETTINGS, notice: null, backupPath: null };
+      this.state = { settings: this.defaults, notice: null, backupPath: null };
       return this.state;
     }
     if (read.kind === 'unreadable') {
@@ -90,6 +100,7 @@ export class SettingsStore {
             read.value,
             this.options.migrations ?? SETTINGS_MIGRATIONS,
             this.options.version ?? SETTINGS_VERSION,
+            this.defaults,
           )
         : ({ ok: false, reason: 'not-json' } as const);
     if (upgraded.ok) {
@@ -105,16 +116,20 @@ export class SettingsStore {
       // newer NoobIDE must find it intact after the next upgrade. Changes made now last until the app quits.
       this.writable = false;
       this.log('settings-newer-version', { readOnly: true });
-      this.state = { settings: readNewerSettings(read.value), notice: 'newer-version', backupPath: null };
+      this.state = {
+        settings: readNewerSettings(read.value, this.defaults),
+        notice: 'newer-version',
+        backupPath: null,
+      };
       return this.state;
     }
     // Unusable: keep the user's file as a backup, never overwrite it, then start from the defaults.
     const notice: SettingsNotice = 'corrupt';
     const backupPath = await backupFile(file, 'corrupt', this.now());
     this.log('settings-reset', { reason: upgraded.reason, backedUp: backupPath !== null });
-    this.state = { settings: DEFAULT_SETTINGS, notice, backupPath };
+    this.state = { settings: this.defaults, notice, backupPath };
     if (backupPath === null) this.writable = false;
-    else await this.persist(DEFAULT_SETTINGS);
+    else await this.persist(this.defaults);
     return this.state;
   }
 

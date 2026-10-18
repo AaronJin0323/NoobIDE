@@ -1,7 +1,8 @@
 # 0027 — Code signing: Developer ID + notarisation on macOS, Azure Artifact Signing on Windows
 
-- **Status:** proposed (the pipeline is built; the Windows route is the owner's choice in H.2)
-- **Date:** 2026-10-15
+- **Status:** proposed (the pipeline is built; the Windows route is the owner's choice in H.2). Amended
+  2026-10-18: the invite-only beta ships unsigned on both platforms (see the amendment at the end).
+- **Date:** 2026-10-15, amended 2026-10-18
 - **Feature:** S28.2, S28.3 (owner task H.2)
 
 ## Context
@@ -104,3 +105,24 @@ download. Notarisation has two credential routes:
     proves is needed.
   - The Artifact Signing client version pinned in the workflow (`ARTIFACT_SIGNING_CLIENT_VERSION`).
   - The `CodeSigningAccountName` key in `metadata.json`, if Microsoft renames it.
+
+## Amendment 2026-10-18: unsigned invite-only beta on both platforms
+
+The owner answered H.2 in chat on 2026-10-18 ([owner-decisions.md](../release/owner-decisions.md)).
+
+- **Decision:** the invite-only beta ships **unsigned on macOS and Windows** (option D on both). There is no Apple
+  Developer Program enrolment and no Windows certificate yet. The pipeline stays as built: with no signing
+  variables, `release.yml` logs `Signing status: SKIPPED` and makes unsigned artifacts.
+- **S28.2 and S28.3 stay `blocked`** until signing credentials exist. They close only on a signed `release.yml` run,
+  as described above. S28.5 waits for S28.2.
+- **Signing is required before the public beta.** It is revisited before the H.8 go/no-go; an unsigned build is not
+  a public release. The route recommendation in Decision §3 still applies when the owner chooses.
+- **Consequences for beta testers:**
+  - **Windows:** SmartScreen shows "Windows protected your PC". The tester clicks **More info → Run anyway**.
+    Some antivirus tools may also warn about an unsigned installer.
+  - **macOS:** the app is only ad-hoc signed (ADR 0023) and not notarised, so Gatekeeper blocks the first launch.
+    On macOS 15 and later, right-click → Open no longer bypasses this. The tester opens the app once, then goes
+    to **System Settings → Privacy & Security** and clicks **Open Anyway**.
+  - The install guides explain both paths and how to check the download's SHA-256 (S59.3). Release notes name
+    the warning (S59.4).
+- **Not affected:** the credential gating, the secret handling rules and the tests above stay as they are.

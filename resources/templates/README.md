@@ -1,7 +1,7 @@
 # Built-in webpage templates (S20.1)
 
 Exactly three templates in v1 (PLAN §2): plain HTML/CSS/JS projects a beginner can read, commented in Chinese
-(zh-CN is the default locale). No frameworks, no build step, no network: every asset is a local file referenced by a
+(the UI follows the OS language; zh-CN and en are both complete). No frameworks, no build step, no network: every asset is a local file referenced by a
 relative path, and fonts are the operating system's own (`system-ui`, PingFang SC, Microsoft YaHei), so no font files
 are bundled.
 

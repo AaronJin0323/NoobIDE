@@ -43,6 +43,37 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 
 ## Open checks
 
+### S59.5 — Windows memory after the reductions
+
+The S27.3 miss (Windows typical-project working-set sum median 709 MB, max 710 MB vs the ~700 MB budget) was not
+accepted. S59.5 adds `--js-flags=--max-semi-space-size=2` on Windows only (`docs/perf/memory.md` → "Remaining
+gap", `docs/perf/targets.md` → Misses). A unit test covers the switch; the memory effect can only be measured on real hardware. The agent session had no Windows machine.
+
+- **Platform:** Windows 11 x64 (the dev machine i9-13900KF / 32 GB as in S27.1, or the 8 GB reference machine — say
+  which). Then the Apple Silicon Mac for the no-regression check.
+- **Build:** the S59.5 commit or later
+- **Steps (Windows):**
+  1. In `D:\NoobIDE`: `npm install`, then `npm run package` (builds `.vite\` and `out\NoobIDE-win32-x64\`).
+  2. Close other heavy programs and make sure no other agent session runs Electron tests (S27.1 was disturbed by
+     that). Plug in the laptop if it is one. Do not touch the windows that open and close.
+  3. Optional check that the flag is live: start `npm start`, open Task Manager → Details, add the "Command line"
+     column, and find `--js-flags=--max-semi-space-size=2` on the `noobide.exe`/`electron.exe` renderer processes.
+     Close the app.
+  4. `node scripts/measure-perf.mjs --write` (about 4 minutes). It rewrites `docs\perf\win32-x64.md`.
+  5. Read the row "Memory, typical: built-in template "personal-intro" …": note median and max (n=3), and the
+     "… private memory, typical" row. Also note the save → preview p95 (more minor GCs must not slow it noticeably;
+     it was 123 ms, target ≤ 1000 ms).
+  6. Commit `docs\perf\win32-x64.md`. Update `docs/perf/targets.md` (status table and the Misses entry) with the new
+     numbers, or ask an agent session to do it.
+- **Steps (macOS, no regression):** on the Apple Silicon Mac, `npm install`, `npm run package`,
+  `node scripts/measure-perf.mjs --write`. The flag is not applied on macOS, so the memory rows of
+  `docs/perf/darwin-arm64.md` must stay within the earlier range (idle median ~550 MB, typical median ~551 MB,
+  max ≤ 577 MB plus the usual run-to-run spread; still within ~700 MB).
+- **Expected:** Windows typical-project working-set sum **median ≤ 700 MB (n=3)**; macOS memory rows within the
+  ~700 MB budget and not above their earlier range. If Windows still misses, record the numbers in `targets.md`,
+  leave S59.5 open, and profile the GPU process with `node scripts/measure-memory.mjs` (next step in `memory.md`).
+- **Result:** _(owner fills in: device, date, Windows typical median/max, macOS typical median/max, pass/fail)_
+
 ### S52.5 — Drag-and-drop import from Explorer / Finder
 
 The drop handling (renderer `FileTree` → preload `webUtils.getPathForFile` → main `workspace:register-dropped`, then

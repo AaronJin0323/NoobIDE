@@ -841,6 +841,16 @@
         "S06"
       ],
       "plan_refs": "docs/ci/ci-stability-and-speed-plan.md §4-§6"
+    },
+    {
+      "id": "S59",
+      "milestone": "M7",
+      "title": "Invite-only beta readiness (owner decisions 2026-10-18)",
+      "goal": "Apply the owner answers of 2026-10-18 (H.1 minimums, H.2 unsigned for now, H.4 UI follows the OS language, invite-only beta first, AI assistant in the beta, version 0.1.0-beta.1) and fix the Windows typical-project memory miss before the beta.",
+      "depends_on": [
+        "S28"
+      ],
+      "plan_refs": "PLAN §1, §5 distribution, §11; docs/release/owner-decisions.md"
     }
   ],
   "features": [
@@ -5544,6 +5554,96 @@
         "Replace in files holds the automatic preview refresh in main (RefreshScheduler.hold/release over typed, sender-checked preview IPC) instead of 150 ms typing pings against the 400 ms pause; a hold ends on release or after a 30 s lease, so a dead renderer never blocks refreshes; unit tests with fake time and IPC tests prove it, and find-replace-in-files.spec.ts:102 passes with a renderer busy 700 ms per file, where the old code reloaded twice",
         "npm run verify gates that can run in the session are green; the hosted Windows and macOS matrix of the PR is green"
       ]
+    },
+    {
+      "id": "S59.1",
+      "session": "S59",
+      "milestone": "M7",
+      "title": "Record the 2026-10-18 owner decisions",
+      "description": "Owner answers in chat 2026-10-18: H.1 macOS 13+ arm64 and Windows 10 22H2+ x64, test Mac MacBook Pro M3 Pro (macOS 27.2); H.2 ship unsigned on both platforms for the invite-only beta; H.4 UI language follows the OS, ~30 h/week, Windows arm64 out of v1; invite-only beta before public; AI assistant ships in the beta; first version 0.1.0-beta.1; Windows memory miss not accepted; S58.5 undecided.",
+      "acceptance": [
+        "docs/release/owner-decisions.md records each answer with date and what it unblocks",
+        "docs/decisions/0003-platform-support.md accepted with the minimums, test devices and Windows arm64 status",
+        "docs/decisions/0027-code-signing.md amended: unsigned beta on both platforms, S28.2/S28.3 stay blocked until signing credentials exist",
+        "PLAN.md and AGENTS.md i18n rule changed from zh-CN default to OS-language default with zh-CN and en both complete"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "docs/release/owner-decisions.md (Answers received 2026-10-18), ADR 0003 accepted, ADR 0027 amendment 2026-10-18, AGENTS.md + PLAN.md i18n rule @ 5112797"
+    },
+    {
+      "id": "S59.2",
+      "session": "S59",
+      "milestone": "M7",
+      "title": "UI language follows the OS language on first run",
+      "description": "Owner decision H.4 (2026-10-18): Chinese on a Chinese OS, English everywhere else. A saved user choice still wins.",
+      "acceptance": [
+        "With no saved choice, any zh* OS locale (zh-CN, zh-Hans, zh-TW, zh-HK, zh) starts in zh-CN and every other locale starts in en",
+        "A saved locale choice overrides the OS language",
+        "The OS locale comes from main via the typed IPC/preload API or navigator.languages, with no process.platform outside src/platform",
+        "Unit tests cover the mapping and the saved-choice precedence; verify green"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S59.1"
+      ],
+      "status": "needs_manual_check",
+      "evidence": "src/shared/os-locale.ts + tests (zh* -> zh-CN, else en), settings-store defaultLocale (tests/integration/settings-store.test.ts), saved choice wins (settings/i18n tests); unit suite 3677 passed @ 2e5876c. e2e zh-CN pin (--lang, -AppleLanguages, seeded settings.json in tests/e2e/launch.ts) not run here: confirm on the CI e2e jobs (macOS especially) and verify green on the dev machine"
+    },
+    {
+      "id": "S59.3",
+      "session": "S59",
+      "milestone": "M7",
+      "title": "Unsigned install steps in the install guides",
+      "description": "Owner decision H.2 (2026-10-18): the invite-only beta ships unsigned on both platforms.",
+      "acceptance": [
+        "docs/release/install.en.md and install.zh-CN.md explain the Windows SmartScreen \"More info → Run anyway\" path for the unsigned installer",
+        "Both guides explain the macOS path for an unsigned app on macOS 15+ (open once, then System Settings → Privacy & Security → Open Anyway), and say right-click → Open no longer works there",
+        "Both guides say the warning is expected for the beta and how to verify the download (SHA-256 from the release page)"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S59.1"
+      ],
+      "status": "done",
+      "evidence": "docs/release/install.en.md + install.zh-CN.md: SmartScreen Run anyway, macOS 15+ Open Anyway, macOS 13/14 Control-click Open, SHA-256 check (certutil/Get-FileHash/shasum) @ b461a84"
+    },
+    {
+      "id": "S59.4",
+      "session": "S59",
+      "milestone": "M7",
+      "title": "Version 0.1.0-beta.1 and beta release notes",
+      "description": "Owner decision 2026-10-18: first invite-only beta is 0.1.0-beta.1.",
+      "acceptance": [
+        "package.json and package-lock.json version 0.1.0-beta.1; the installer names and About dialog pick it up without other edits",
+        "docs/release/notes-0.1.0-beta.1.md drafted from release-notes-template.md, in en and zh-CN, claiming only capabilities a test proves, naming the unsigned warning and the AI assistant with its provider requirement",
+        "verify green"
+      ],
+      "verify": "agent-check",
+      "depends_on": [
+        "S59.1"
+      ],
+      "status": "needs_manual_check",
+      "evidence": "package.json/lock 0.1.0-beta.1, About + DMG name read package.json (distribution.test.ts 8/8), docs/release/notes-0.1.0-beta.1.md en+zh-CN @ b461a84. 'verify green' not provable in the Linux cloud container (5 root-uid permission tests + watcher perf budget fail there, same on main 6be5227); confirm on the Windows dev machine/CI, and check Squirrel nupkg name 0.1.0-beta1 on the first Windows make"
+    },
+    {
+      "id": "S59.5",
+      "session": "S59",
+      "milestone": "M7",
+      "title": "Windows typical-project memory under the ~700 MB budget",
+      "description": "Owner did not accept the S27.3 miss (2026-10-18). Apply the docs/perf/memory.md \"Remaining gap\" options in order: --js-flags=--max-semi-space-size=2, then an idle stop for the TypeScript worker.",
+      "acceptance": [
+        "The chosen reductions are implemented with unit tests and do not regress the macOS numbers in tests",
+        "scripts/measure-perf.mjs --write on the Windows x64 machine shows the typical-project working-set sum median ≤ 700 MB (n=3)",
+        "docs/perf/targets.md updates the Windows miss with the fix and the new numbers"
+      ],
+      "verify": "manual-win",
+      "depends_on": [
+        "S27.3"
+      ],
+      "status": "needs_manual_check",
+      "evidence": "memoryJsFlags (win32 only, src/platform/index.test.ts) wired in src/main/main.ts; TS worker idle stop removed (broke Format Document's shortcut, history.spec e2e); Windows measurement steps in harness/MANUAL-CHECKS.md#S59.5"
     }
   ]
 }

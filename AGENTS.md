@@ -90,7 +90,9 @@ npm run verify                   # must be green BEFORE you change anything
 - **Project folders stay ordinary.** Only `.noobide/project.json` (relative paths, no secrets) may be written into a
   project. Caches, history and recovery data live in the app-data directory.
 - **Offline first.** Core features never need the network. No CDN assets; Monaco and fonts are bundled.
-- **i18n.** No hardcoded UI strings in components; zh-CN is the default locale, en is required.
+- **i18n.** No hardcoded UI strings in components. On first run the UI language follows the OS language (any `zh*`
+  locale → zh-CN, every other locale → en). A saved user choice wins. zh-CN and en are both required and must stay
+  complete (owner decision 2026-10-18).
 - **Accessibility.** State is never communicated by colour alone; key actions are keyboard-reachable.
 - **Logs never contain source code.**
 

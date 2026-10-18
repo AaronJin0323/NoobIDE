@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { loadLocale, saveLocale, translate, type Locale, type MessageKey } from './index';
+import { loadLocale, osLocale, saveLocale, translate, type Locale, type MessageKey } from './index';
 
 interface I18nValue {
   locale: Locale;
@@ -19,13 +19,14 @@ function sessionStore(): Storage | undefined {
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => loadLocale(sessionStore()));
+  const [locale, setLocaleState] = useState<Locale>(() => loadLocale(sessionStore(), osLocale()));
 
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
 
   // S13.1: the persisted setting (app data) is the source of truth; sessionStorage only avoids a flash on reload.
+  // S59.2: with no saved choice main answers with the OS language's locale, the same one osLocale() starts with.
   // A choice the user makes before the stored value arrives wins over it.
   const chosen = useRef(false);
   useEffect(() => {

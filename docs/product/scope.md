@@ -6,8 +6,9 @@
 ## Who it is for
 
 People with **≤ 3 months of web-development experience** who build personal homepages and simple interactive pages
-([PLAN §1](../../PLAN.md)). They can type and use a file manager but have never configured a toolchain. Chinese-first
-UI with English available (assumption, owner to confirm — H.4).
+([PLAN §1](../../PLAN.md)). They can type and use a file manager but have never configured a toolchain. The UI
+follows the OS language (Chinese on a Chinese OS, English elsewhere; a saved choice wins), with both complete (owner
+decision 2026-10-18, H.4).
 
 **The promise:** in ten minutes a beginner can _create a page → edit → see the result → understand an error → fix
 it → recover a change → continue next time_, without help ([PLAN §2](../../PLAN.md)). v1 competes on how many

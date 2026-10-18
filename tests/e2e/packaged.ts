@@ -33,9 +33,13 @@ export async function runSelfTest(
     killAfterMs?: number;
   } = {},
 ): Promise<{ code: number | null; result: Record<string, unknown> | undefined }> {
-  // electronArgs() ends with '.', the app path for the development binary; the packaged binary needs no path.
+  // electronArgs() holds '.', the app path for the development binary; the packaged binary needs no path, so '.' is
+  // replaced by appArgs in place (on macOS the language pin's `-AppleLanguages (zh-CN)` must stay after the app path).
   const userData = mkdtempSync(path.join(tempRoot(), 'noobide-e2e-selftest-'));
-  const args = [`--user-data-dir=${userData}`, ...electronArgs().filter((a) => a !== '.'), ...(options.appArgs ?? [])];
+  const args = [
+    `--user-data-dir=${userData}`,
+    ...electronArgs().flatMap((a) => (a === '.' ? (options.appArgs ?? []) : [a])),
+  ];
   try {
     return await new Promise((resolve, reject) => {
       const child = spawn(executable, args, {

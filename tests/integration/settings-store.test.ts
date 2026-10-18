@@ -119,3 +119,34 @@ describe('settings store (S13.1)', REAL_IO, () => {
     expect((await readdir(dir)).filter((n) => n.endsWith('.noobide-tmp'))).toEqual([]);
   });
 });
+
+describe('first-run interface language from the OS (S59.2)', () => {
+  it('uses the OS-derived locale while none is saved, and persists it with the first change', async () => {
+    const store = new SettingsStore({ file, defaultLocale: 'en' });
+    expect((await store.load()).settings).toEqual({ ...DEFAULT_SETTINGS, locale: 'en' });
+    expect(await readdir(dir)).toEqual([]);
+    await store.update({ theme: 'dark' });
+    expect(await onDisk()).toMatchObject({ locale: 'en', theme: 'dark' });
+  });
+
+  it('a saved locale overrides the OS language', async () => {
+    await writeFile(file, JSON.stringify({ version: SETTINGS_VERSION, locale: 'zh-CN' }));
+    expect((await new SettingsStore({ file, defaultLocale: 'en' }).load()).settings.locale).toBe('zh-CN');
+    await writeFile(file, JSON.stringify({ version: SETTINGS_VERSION, locale: 'en' }));
+    expect((await new SettingsStore({ file, defaultLocale: 'zh-CN' }).load()).settings.locale).toBe('en');
+  });
+
+  it('a file without a valid locale, or a corrupt file, takes the OS-derived locale', async () => {
+    await writeFile(file, JSON.stringify({ version: SETTINGS_VERSION, theme: 'light' }));
+    expect((await new SettingsStore({ file, defaultLocale: 'en' }).load()).settings).toMatchObject({
+      locale: 'en',
+      theme: 'light',
+    });
+    await writeFile(file, JSON.stringify({ version: SETTINGS_VERSION, locale: 'fr' }));
+    expect((await new SettingsStore({ file, defaultLocale: 'en' }).load()).settings.locale).toBe('en');
+    await writeFile(file, '{"locale": "zh-CN", oops');
+    const corrupt = await new SettingsStore({ file, defaultLocale: 'en', now: fixedNow }).load();
+    expect(corrupt.settings.locale).toBe('en');
+    expect(await onDisk()).toMatchObject({ locale: 'en' });
+  });
+});

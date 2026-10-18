@@ -9,7 +9,10 @@
  */
 export const SETTINGS_VERSION = 1;
 
-/** Interface languages (must match src/renderer/i18n LOCALES; a unit test checks). zh-CN is the default. */
+/**
+ * Interface languages (must match src/renderer/i18n LOCALES; a unit test checks). zh-CN is the fallback default; on
+ * first run the store's defaults take the OS language instead (S59.2, {@link settingsDefaults}).
+ */
 export const SETTINGS_LOCALES = ['zh-CN', 'en'] as const;
 export type SettingsLocale = (typeof SETTINGS_LOCALES)[number];
 
@@ -62,6 +65,14 @@ export const DEFAULT_SETTINGS: AppSettings = {
   paletteRecents: [],
 };
 
+/**
+ * S59.2: the defaults with the first-run interface language (from the OS language, see shared/os-locale). Used where
+ * no valid locale was saved — no settings file, a file without `locale`, an invalid one, or a corrupt file.
+ */
+export function settingsDefaults(locale: SettingsLocale = DEFAULT_SETTINGS.locale): AppSettings {
+  return locale === DEFAULT_SETTINGS.locale ? DEFAULT_SETTINGS : { ...DEFAULT_SETTINGS, locale };
+}
+
 /** What the renderer may change. Validated field by field in main (parseSettingsPatch). */
 export type SettingsPatch = Partial<Omit<AppSettings, 'version'>>;
 
@@ -99,6 +110,7 @@ export function upgradeSettings(
   parsed: unknown,
   migrations: readonly SettingsMigration[] = SETTINGS_MIGRATIONS,
   targetVersion: number = SETTINGS_VERSION,
+  defaults: AppSettings = DEFAULT_SETTINGS,
 ): LoadedSettings {
   if (!isRecord(parsed)) return { ok: false, reason: 'not-an-object' };
   const declared = parsed.version;
@@ -118,17 +130,17 @@ export function upgradeSettings(
   } catch {
     return { ok: false, reason: 'migration-failed' };
   }
-  const { settings, resetFields } = pickSettings(raw);
+  const { settings, resetFields } = pickSettings(raw, defaults);
   return { ok: true, settings, migratedFrom: version === targetVersion ? null : version, resetFields };
 }
 
 /** Every known field that is valid; an invalid or missing one takes its default. Unknown fields are ignored. */
-function pickSettings(raw: Raw): { settings: AppSettings; resetFields: string[] } {
+function pickSettings(raw: Raw, defaults: AppSettings): { settings: AppSettings; resetFields: string[] } {
   const resetFields: string[] = [];
   const pick = <K extends keyof SettingsPatch>(key: K, valid: (value: unknown) => boolean): AppSettings[K] => {
     if (Object.hasOwn(raw, key) && valid(raw[key])) return raw[key] as AppSettings[K];
     if (Object.hasOwn(raw, key)) resetFields.push(key);
-    return DEFAULT_SETTINGS[key];
+    return defaults[key];
   };
   const settings: AppSettings = {
     version: SETTINGS_VERSION,
@@ -149,8 +161,8 @@ function pickSettings(raw: Raw): { settings: AppSettings; resetFields: string[] 
  * S28.4 downgrade: a settings file written by a newer NoobIDE (`upgradeSettings` says `newer-version`). The fields
  * this version knows are used as far as they are valid; the file itself is left alone (the store does not write it).
  */
-export function readNewerSettings(parsed: unknown): AppSettings {
-  return isRecord(parsed) ? pickSettings(parsed).settings : DEFAULT_SETTINGS;
+export function readNewerSettings(parsed: unknown, defaults: AppSettings = DEFAULT_SETTINGS): AppSettings {
+  return isRecord(parsed) ? pickSettings(parsed, defaults).settings : defaults;
 }
 
 export function isSettingsLocale(value: unknown): value is SettingsLocale {

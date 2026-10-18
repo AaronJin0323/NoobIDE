@@ -1,6 +1,7 @@
 import { en } from './en';
 import { zhCN, type MessageKey } from './zh-CN';
 import { ONE_FORMS } from './plural';
+import { localeFromOsLanguages } from '../../shared/os-locale';
 
 export type { MessageKey };
 export type Locale = 'zh-CN' | 'en';
@@ -42,15 +43,33 @@ export interface LocaleStore {
 const STORAGE_KEY = 'noobide.locale';
 
 /**
- * The language choice lasts for the app session (S02.5). Persistent settings arrive in S13; until then
- * sessionStorage survives reloads of the workbench but not an app restart. Storage errors fall back to the default.
+ * The language choice lasts for the app session (S02.5) in sessionStorage, which survives reloads of the workbench
+ * but not an app restart; the persisted setting (S13.1, in main) then replaces it. With nothing stored, or when
+ * storage throws, `fallback` applies: the workbench passes the OS language's locale (S59.2, `osLocale`) so a first
+ * run does not flash the wrong language before the settings arrive. Without a fallback, DEFAULT_LOCALE.
  */
-export function loadLocale(store: LocaleStore | undefined): Locale {
+export function loadLocale(store: LocaleStore | undefined, fallback: Locale = DEFAULT_LOCALE): Locale {
   try {
     const saved = store?.getItem(STORAGE_KEY);
-    return isLocale(saved) ? saved : DEFAULT_LOCALE;
+    return isLocale(saved) ? saved : fallback;
   } catch {
-    return DEFAULT_LOCALE;
+    return fallback;
+  }
+}
+
+/**
+ * S59.2: the first-run locale for the OS language. Chromium derives `navigator.languages` from the OS language
+ * (or the `--lang` switch), as main's `app.getLocale()` is; both map through shared/os-locale.
+ */
+export function osLocale(languages: readonly string[] | undefined = navigatorLanguages()): Locale {
+  return localeFromOsLanguages(languages);
+}
+
+function navigatorLanguages(): readonly string[] | undefined {
+  try {
+    return typeof navigator === 'undefined' ? undefined : navigator.languages;
+  } catch {
+    return undefined;
   }
 }
 

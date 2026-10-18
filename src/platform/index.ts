@@ -46,3 +46,14 @@ export function lockedRenameBackoffMs(platform: NodeJS.Platform = process.platfo
 export function canSyncDirectory(platform: NodeJS.Platform = process.platform): boolean {
   return platformId(platform) !== 'windows';
 }
+
+/**
+ * V8 flags appended as `--js-flags` for the Chromium child processes (S59.5, docs/perf/memory.md). Windows only:
+ * there the typical-project working-set sum was ~10 MB over the ~700 MB budget (docs/perf/targets.md), while macOS
+ * meets it with a wide margin. A 2 MB young generation (`--max-semi-space-size=2`) trimmed a renderer with a JS file
+ * open by ~25 MB on macOS at the cost of more frequent minor GCs in every renderer, including the user's page — a cost
+ * macOS does not need to pay. Empty means: append nothing.
+ */
+export function memoryJsFlags(platform: NodeJS.Platform = process.platform): readonly string[] {
+  return platformId(platform) === 'windows' ? ['--max-semi-space-size=2'] : [];
+}

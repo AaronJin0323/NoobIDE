@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium, expect, test, type Browser, type Page } from '@playwright/test';
-import { repoRoot, tempRoot } from './launch';
+import { packagedLanguageArgs, repoRoot, seedZhCnSettings, tempRoot } from './launch';
 import { packagedExecutable } from './packaged';
 import { typeAtEnd, switchLanguage, projectMenu } from './project';
 
@@ -64,7 +64,7 @@ async function stop(child: ChildProcess, graceMs = 20_000): Promise<void> {
 async function start(exe: string): Promise<Running> {
   const portFile = path.join(userData(), 'DevToolsActivePort');
   await rm(portFile, { force: true });
-  const child = spawn(exe, ['--remote-debugging-port=0'], {
+  const child = spawn(exe, ['--remote-debugging-port=0', ...packagedLanguageArgs()], {
     env: { ...process.env, CFFIXED_USER_HOME: home },
     stdio: 'ignore',
   });
@@ -194,6 +194,7 @@ test('packaged vN → vN+1 keeps settings, session, history and recent projects;
   expect(nextVersion).not.toBe(pkg.version);
 
   // --- vN: change a setting, create a project, edit and save twice (local history), quit. ---
+  seedZhCnSettings(userData()); // S59.2: vN starts in zh-CN whatever the runner's OS language
   const vN = await start(current!);
   let project: string;
   try {
