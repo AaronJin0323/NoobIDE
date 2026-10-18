@@ -13,7 +13,7 @@ Apply the S58.9 `REAL_IO` pattern to them and to every other integration file th
 
 **Done**
 
-- S58.10 (in progress → done once the hosted matrix is green): `tests/integration/real-io.ts` holds the one
+- S58.10 (done; PR #48 run 39103607377 green on 54e8209, Windows and macOS, both shards): `tests/integration/real-io.ts` holds the one
   `REAL_IO` (60 s, the S58.9 value) and `removeTempDir` / `removeTempDirSync` (`rm` with 10 retries, which covers
   ENOTEMPTY / EBUSY / EPERM). The five files that had a local `REAL_IO` copy (history-store, file-copy, history-ipc,
   history-groups, history-triggers) import it.
@@ -65,7 +65,8 @@ lag budget fails here on the untouched tree as well (budgets are enforced on the
 instead of 1 on Windows shard 2 (run 39097174400). It is a different class (event batching on a slow disk, like the
 two S58.4 watcher fixes in docs/perf/ci-runners.md §2) and needs its own look.
 
-**Next up:** close S58.10 with the hosted run of this PR as evidence; then the watcher.test.ts:86 extra event.
+**Next up:** the watcher.test.ts extra events (:86 on main, and "create, delete, create…" once under local verify
+load); the find-replace-in-files.spec.ts:150 external-change failure in Linux containers (passes on hosted runners).
 
 ## Session 52 (side session) — 2026-10-18 — CI triage: S58.8 timing-budget guard, S58.9 intermittents
 

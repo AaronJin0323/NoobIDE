@@ -5530,8 +5530,8 @@
       "depends_on": [
         "S58.9"
       ],
-      "status": "in_progress",
-      "evidence": "",
+      "status": "done",
+      "evidence": "PR #48 hosted matrix green on 54e8209 (run 39103607377: static, windows-x64 + macos-arm64, both shards incl. e2e); tests/integration/real-io.ts (+ real-io.test.ts), REAL_IO on 51 integration files; RefreshScheduler hold/release (refresh-scheduler.test.ts 6 new, preview-ipc.test.ts, preview-manager.test.ts); find-replace-in-files.spec.ts:102 reproduced (2 loads) and fixed locally with a 700 ms busy renderer; npm run verify: only the 5 Linux-root-only tests + perf (same on the untouched tree)",
       "title": "Real-I/O integration tests: functional timeouts and cleanup that survives a cut-off test",
       "description": "Owner request 2026-10-18. Starved hosted Windows runners still hit the 5 s Vitest default in integration tests that do real file-system or process I/O, on main and on PRs: ai-service.test.ts:201, checkpoint-restore.test.ts:171 and :208 (whose cleanup then failed with ENOTEMPTY because the timed-out test was still writing), checkpoint-store.test.ts:89, release-workflow.test.ts:236 (main, run 39097174400). S58.9 fixed the same class in history-store and file-copy with a local REAL_IO 60 s timeout. Owns tests/integration/real-io.ts and the timeouts and cleanup of the files it lists. Owner decision 2026-10-18: the replace-in-files preview hold found on PR #48 (two page loads on hosted Windows) is fixed in this feature as well.",
       "acceptance": [
