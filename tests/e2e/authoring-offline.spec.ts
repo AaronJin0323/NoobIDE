@@ -4,7 +4,7 @@ import { createServer } from 'node:net';
 import path from 'node:path';
 import { chromium, expect, test, type Browser, type Page } from '@playwright/test';
 import { DOC_START } from './keys';
-import { tempRoot } from './launch';
+import { packagedLanguageArgs, seedZhCnSettings, tempRoot } from './launch';
 import { packagedExecutable } from './packaged';
 import { documentText, focusEditor, openFile } from './project';
 import { projectKey } from '../../src/recovery/keys';
@@ -92,9 +92,14 @@ test.beforeAll(async () => {
     }),
   );
   const port = await freePort();
-  child = spawn(exe!, [`--user-data-dir=${userData}`, `--remote-debugging-port=${port}`, ...OFFLINE_SWITCHES], {
-    stdio: 'ignore',
-  });
+  seedZhCnSettings(userData); // S59.2: the expectations below are the zh-CN interface
+  child = spawn(
+    exe!,
+    [`--user-data-dir=${userData}`, `--remote-debugging-port=${port}`, ...OFFLINE_SWITCHES, ...packagedLanguageArgs()],
+    {
+      stdio: 'ignore',
+    },
+  );
   const endpoint = `http://127.0.0.1:${port}`;
   await expect
     .poll(

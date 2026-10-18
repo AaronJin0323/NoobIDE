@@ -33,6 +33,14 @@ export function electronArgs({ pinLanguage = true }: { pinLanguage?: boolean } =
 }
 
 /**
+ * The language pin for a packaged binary started without launchApp (it takes no app path): `--lang=zh-CN`, plus
+ * `-AppleLanguages (zh-CN)` on macOS. Pair it with seedZhCnSettings on the launch's app-data folder.
+ */
+export function packagedLanguageArgs(): string[] {
+  return [E2E_LANG_SWITCH, ...(process.platform === 'darwin' ? E2E_APPLE_LANGUAGES : [])];
+}
+
+/**
  * The saved-choice layer of the language pin: a minimal settings file (version 1, locale zh-CN; every other field
  * takes its default) written only when the app-data folder has no settings file yet, so a test's own file, and the
  * file of an earlier launch into the same folder, are never touched.
