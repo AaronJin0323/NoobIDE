@@ -45,8 +45,11 @@ on this Linux box on main too (804 ms).
 - `recovery.spec.ts:370` restored tab missing (Windows). Possibly fixed by 28a6e8f, which restores tabs once.
 - `layout-splitters.spec.ts:121` resize shot missing (macOS). The capture may finish after the drag hid the view.
 
-**Next up:** S58.9 → done once the hosted matrix of this branch's PR is green on both OSes. Then watch main's next
-runs; any new budget will now fail the static job, not main.
+**Hosted proof:** PR #47 run 39094723704 green on 69f75a1 (static, windows-x64 and macos-arm64, both shards); S58.9
+→ done.
+
+**Next up:** watch main's next runs after #47 merges (S58.4 also counts five clean runs); any new budget now fails the
+static job instead of main. The two single-occurrence e2e failures above stay open until they recur.
 
 ## Session 50 (side session) — 2026-10-18 — S58.4 Windows e2e intermittents under load; S06.6 closed
 

@@ -5491,8 +5491,8 @@
       "milestone": "M20",
       "verify": "auto",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": "",
+      "status": "done",
+      "evidence": "PR #47 hosted matrix green on 69f75a1 (run 39094723704: windows-x64 + macos-arm64, both shards, static); ported de17160/91046e5/1fdbbc1 from PR #44; ai-edit.spec Accept-focused check; REAL_IO 60 s in history-store + file-copy",
       "title": "Fix the intermittents that turned main red after S58.4",
       "description": "Owner request 2026-10-18. Failures on main and PRs from the 90 runs before 2026-10-18 03:30 UTC that no merged change had fixed: watcher mass delete on Windows (snapshot kept after a ReadDirectoryChangesW overflow), history-store and file-copy 5 s timeouts on a starved Windows runner, ai-edit IME test (Escape on the review lost: focus moved after paint), preview-isolation console flood on Windows (ported from PR #44).",
       "acceptance": [
