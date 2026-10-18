@@ -1,8 +1,9 @@
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { ProjectService } from '../../src/workspace/project-service';
 import { SnapshotStore } from '../../src/recovery/history';
 import { HistoryTriggers } from '../../src/recovery/history-triggers';
@@ -42,15 +43,15 @@ beforeEach(async () => {
   const opened = await service.open(root);
   if (!opened.ok) throw new Error(opened.message);
   projectId = opened.value.projectId;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const move = (from: string[], toFolder: string) => service.moveEntries({ projectId, from, toFolder });
 
-describe('move files and folders (S52.1)', () => {
+describe('move files and folders (S52.1)', REAL_IO, () => {
   it('moves a file into a folder and keeps its bytes', async () => {
     expect(await move(['样式 表.css'], '子 文件夹/深 一层')).toEqual({
       ok: true,
@@ -145,7 +146,7 @@ describe('move files and folders (S52.1)', () => {
   });
 });
 
-describe('a selection moves entry by entry (S52.3)', () => {
+describe('a selection moves entry by entry (S52.3)', REAL_IO, () => {
   it('moves the others when one is refused, and lists which one was not moved and why', async () => {
     await writeFile(p('图片 素材', '样式 表.css'), 'other');
     const result = await move(['index.html', '样式 表.css', '子 文件夹'], '图片 素材');
@@ -170,7 +171,7 @@ describe('a selection moves entry by entry (S52.3)', () => {
   });
 });
 
-describe('history and recovery copies follow a move (S52.1, decision 0006)', () => {
+describe('history and recovery copies follow a move (S52.1, decision 0006)', REAL_IO, () => {
   it('local-history versions of a moved folder are listed under the new paths', async () => {
     await store.snapshot(root, '子 文件夹/页面 二.html', Buffer.from('<p>旧</p>\n'), 'before-save');
     await store.snapshot(root, '子 文件夹/深 一层/脚本 三.js', Buffer.from('let a = 1;\n'), 'before-save');
@@ -241,7 +242,7 @@ describe('history and recovery copies follow a move (S52.1, decision 0006)', () 
   });
 });
 
-describe('IPC (S52.1)', () => {
+describe('IPC (S52.1)', REAL_IO, () => {
   type Handler = (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown>;
   const handlers = new Map<string, Handler>();
   const eventFrom = (url: string, isTop = true) =>

@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { RecentProjects } from '../../src/main/recent-projects';
 
 /**
@@ -23,13 +24,13 @@ beforeEach(async () => {
   await mkdir(projectA, { recursive: true });
   await mkdir(projectB, { recursive: true });
   await writeFile(path.join(projectA, 'index.html'), '<p>甲</p>');
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
-describe('recent projects (S13.3)', () => {
+describe('recent projects (S13.3)', REAL_IO, () => {
   it('lists opened projects newest first with name and full path, and persists across runs', async () => {
     const recent = new RecentProjects({ file, now });
     await recent.touch(projectA);

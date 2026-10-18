@@ -63,6 +63,8 @@ const api: NoobideApi = {
     setBounds: (bounds) => ipcRenderer.invoke(PREVIEW_CHANNELS.setBounds, bounds),
     // S14.2–S14.5, S15.4: refresh mode, typing pause, notes, entry picker, storage, toolbar
     typing: () => ipcRenderer.invoke(PREVIEW_CHANNELS.typing),
+    holdRefresh: () => ipcRenderer.invoke(PREVIEW_CHANNELS.holdRefresh), // S58.10
+    releaseRefresh: () => ipcRenderer.invoke(PREVIEW_CHANNELS.releaseRefresh),
     setRefreshMode: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.setRefreshMode, request),
     notes: () => ipcRenderer.invoke(PREVIEW_CHANNELS.notes),
     noteSeen: (request) => ipcRenderer.invoke(PREVIEW_CHANNELS.noteSeen, request),

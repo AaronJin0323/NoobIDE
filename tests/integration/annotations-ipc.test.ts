@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { AnnotationStore } from '../../src/main/annotation-store';
 import { registerAnnotationsIpcHandlers, type AnnotationPreview } from '../../src/main/annotations-ipc';
 import {
@@ -81,11 +82,11 @@ beforeEach(async () => {
     rootOf: (id) => (id === PROJECT ? root : undefined),
     newId: randomUUID,
   });
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  if (tmp) await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const call = async <T>(channel: string, event: IpcMainInvokeEvent, ...args: unknown[]) => {
   const h = handlers.get(channel);
@@ -97,7 +98,7 @@ const value = <T>(result: { ok: true; value: T } | { ok: false; code: string }):
   return result.value;
 };
 
-describe('annotations IPC (S41.4)', () => {
+describe('annotations IPC (S41.4)', REAL_IO, () => {
   it('refuses senders that are not the workbench on every channel, before touching anything', async () => {
     for (const channel of Object.values(ANNOTATION_CHANNELS)) {
       for (const event of [eventFrom('http://127.0.0.1:5000/index.html'), eventFrom(null)]) {

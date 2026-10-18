@@ -40,6 +40,8 @@ export interface PreviewIpcDeps {
     focusPage(): void;
     // S14.2 / S14.5 / S15.4 (optional so older fakes stay valid; main.ts passes the real manager)
     typing?(): void;
+    holdRefresh?(): void; // S58.10
+    releaseRefresh?(): void | Promise<void>;
     clearData?(projectId: string): Promise<Result<null, 'unknown-project'>>;
     openExternal?(): Promise<Result<null, 'not-running' | 'open-failed'>>;
     openDevTools?(): Result<null, 'not-running'>;
@@ -113,6 +115,17 @@ export function registerPreviewIpcHandlers(ipc: Pick<IpcMain, 'handle'>, deps: P
   // --- S14.2 refresh mode, typing pause and one-time notes ---
   handle(PREVIEW_CHANNELS.typing, parseNoPayload, async () => {
     deps.preview.typing?.();
+    return { ok: true, value: null };
+  });
+  // S58.10: only the window that owns the preview holds its refresh (S14.6); a hold always ends with its lease.
+  handle(PREVIEW_CHANNELS.holdRefresh, parseNoPayload, async (_payload, event) => {
+    if (!owns(event)) return NOT_OWNER;
+    deps.preview.holdRefresh?.();
+    return { ok: true, value: null };
+  });
+  handle(PREVIEW_CHANNELS.releaseRefresh, parseNoPayload, async (_payload, event) => {
+    if (!owns(event)) return NOT_OWNER;
+    await deps.preview.releaseRefresh?.();
     return { ok: true, value: null };
   });
   handle(PREVIEW_CHANNELS.setRefreshMode, parseSetRefreshMode, async ({ projectId, mode }) =>

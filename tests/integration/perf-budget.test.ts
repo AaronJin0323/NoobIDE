@@ -1,7 +1,8 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import {
   REPORT_FAIL_FACTOR,
   budgetMode,
@@ -25,13 +26,13 @@ let env: NodeJS.ProcessEnv;
 beforeEach(async () => {
   dir = await mkdtemp(path.join(os.tmpdir(), 'noobide-perf 报告-'));
   env = { NOOBIDE_PERF_REPORT_DIR: dir };
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
-});
+  await removeTempDir(dir);
+}, REAL_IO.timeout);
 
-describe('budget mode', () => {
+describe('budget mode', REAL_IO, () => {
   it('enforces on developer machines and reports on GitHub Actions; NOOBIDE_PERF_MODE overrides', () => {
     expect(budgetMode({})).toBe('enforce');
     expect(budgetMode({ GITHUB_ACTIONS: 'true' })).toBe('report');
@@ -59,7 +60,7 @@ describe('budget mode', () => {
   });
 });
 
-describe('checkBudget', () => {
+describe('checkBudget', REAL_IO, () => {
   it('throws on a miss when enforced, naming the measurement and the budget', () => {
     expect(() => checkBudget('p95 latency', 21.4, 10, { env })).toThrow(
       /perf budget "p95 latency": measured 21\.40 ms, over the 10 ms budget \(enforced on developer machines\)/,

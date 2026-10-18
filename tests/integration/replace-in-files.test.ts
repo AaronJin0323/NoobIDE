@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { toIpcResult } from '../../src/shared/ipc/contract';
 import { ProjectService } from '../../src/workspace/project-service';
 import { searchProject } from '../../src/workspace/project-search';
@@ -41,11 +42,11 @@ beforeEach(async () => {
   const opened = await service.open(root);
   if (!opened.ok) throw new Error(opened.code);
   projectId = opened.value.projectId;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const disk = (relPath: string) => readFile(path.join(root, ...relPath.split('/')), 'utf8');
 
@@ -93,7 +94,7 @@ function editorHost() {
   return { host, tabs };
 }
 
-describe('replace in files (S51.4)', () => {
+describe('replace in files (S51.4)', REAL_IO, () => {
   it('writes every changed file through its saver and the atomic write, only the kept matches', async () => {
     const results = await search();
     expect(results.totalMatches).toBe(5);

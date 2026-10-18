@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { MAX_TRUSTED, PreviewStore, loadPreviewStoreState, trustKey } from '../../src/main/preview-store';
 
 /** S14.4 trust and S14.2 one-time notes, persisted in app data (never in the project, no path text in the file). */
@@ -13,12 +14,12 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(os.tmpdir(), 'noobide-preview-store-'));
   file = path.join(dir, '应用 数据', 'preview.json');
   await mkdir(path.dirname(file));
-});
+}, REAL_IO.timeout);
 afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
-});
+  await removeTempDir(dir);
+}, REAL_IO.timeout);
 
-describe('PreviewStore (S14.4, S14.2)', () => {
+describe('PreviewStore (S14.4, S14.2)', REAL_IO, () => {
   it('a folder is untrusted until Start is pressed; trust survives a restart', async () => {
     const store = new PreviewStore({ file });
     expect(await store.isTrusted(PROJECT)).toBe(false);

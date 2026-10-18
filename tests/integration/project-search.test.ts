@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { searchProject } from '../../src/workspace/project-search';
 import type { OpenBuffer, SearchResults } from '../../src/shared/ipc/search-contract';
 import type { SearchQuery } from '../../src/shared/search';
@@ -21,11 +22,11 @@ beforeEach(async () => {
   outside = path.join(tmp, '外面');
   await mkdir(root, { recursive: true });
   await mkdir(outside, { recursive: true });
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const q = (text: string, options: Partial<SearchQuery> = {}): SearchQuery => ({
   text,
@@ -53,7 +54,7 @@ async function search(
 
 const paths = (results: SearchResults) => results.files.map((f) => f.relPath);
 
-describe('project search (S51.2)', () => {
+describe('project search (S51.2)', REAL_IO, () => {
   it('groups matches by project-relative path with line, column and a context line', async () => {
     await write('index.html', '<h1 class="card">你好</h1>\n<div class="card card-body">\n');
     await write('子 文件夹/页面 二.html', '<p>\n  <span class="card">林小雨</span>\n</p>\n');
@@ -237,29 +238,30 @@ describe('project search under a slow regular expression (S51.6)', () => {
 
   it('gives the event loop a turn after each slow file, not only between batches', async () => {
     const buffers = Array.from({ length: 64 }, (_, i) => ({ relPath: `f${i}.js`, text: 'card\n'.repeat(10) }));
-    const ticksDuring = async (yieldAfterMs: number | undefined) => {
-      let ticks = 0;
-      let running = true;
-      const loop = () => {
-        ticks += 1;
-        if (running) setImmediate(loop);
-      };
-      setImmediate(loop);
-      const result = await searchProject(
-        root,
-        8,
-        q('card'),
-        buffers,
-        yieldAfterMs === undefined ? {} : { yieldAfterMs },
-      );
-      running = false;
-      expect(result.ok).toBe(true);
-      return ticks;
+    // Counts the turns the search hands back (its setImmediate calls), not turns of a busy loop: a loop also spins
+    // while the folder listing waits on a busy disk, which once gave the "normal" run 635 more turns (S58.10).
+    const yieldsDuring = async (yieldAfterMs: number | undefined) => {
+      const spy = vi.spyOn(globalThis, 'setImmediate');
+      try {
+        const result = await searchProject(
+          root,
+          8,
+          q('card'),
+          buffers,
+          yieldAfterMs === undefined ? {} : { yieldAfterMs },
+        );
+        expect(result.ok).toBe(true);
+        return spy.mock.calls.length;
+      } finally {
+        spy.mockRestore();
+      }
     };
-    const normal = await ticksDuring(undefined);
-    // Every file counts as slow (-1 ms): one turn after each of the 64 files instead of one per batch of 16. The
-    // count also includes a few turns spent listing the folder, which vary between runs: hence the margin.
-    const slow = await ticksDuring(-1);
-    expect(slow - normal).toBeGreaterThanOrEqual(40);
+    const normal = await yieldsDuring(undefined);
+    // At least one turn per batch of 16. A file that is slow on its own (a starved runner) adds one more, so this
+    // is a lower bound and is not subtracted below (hosted Windows gave 63 = 68 - 5 that way, PR #48).
+    expect(normal).toBeGreaterThanOrEqual(4);
+    // Every file counts as slow (-1 ms): one turn after each of the 64 files on top of the 4 per batch (68 here).
+    const slow = await yieldsDuring(-1);
+    expect(slow).toBeGreaterThanOrEqual(64 + 4);
   });
 });

@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { chmod, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import {
   FileInUseError,
   isOwnTempFile,
@@ -22,11 +23,11 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(os.tmpdir(), 'noobide-atomic-'));
   target = path.join(dir, '页面 一.html');
   await writeFile(target, 'old');
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
-});
+  await removeTempDir(dir);
+}, REAL_IO.timeout);
 
 /** Records every call and lets a test replace single operations. */
 function recordingFs(overrides: Partial<AtomicFs> = {}) {
@@ -55,7 +56,7 @@ function recordingFs(overrides: Partial<AtomicFs> = {}) {
 
 const leftovers = async () => (await readdir(dir)).filter((name) => name.endsWith('.noobide-tmp'));
 
-describe('atomic write (S10.1)', () => {
+describe('atomic write (S10.1)', REAL_IO, () => {
   it('writes a temp file in the same folder, flushes it, then renames it over the target', async () => {
     const { fs, calls } = recordingFs();
     await replaceFileAtomic(target, bytes('新内容'), { fs, syncDirectory: false, renameBackoffMs: [] });

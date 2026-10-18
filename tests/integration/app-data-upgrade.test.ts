@@ -1,8 +1,9 @@
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { appDataPath, type AppDataEntry } from '../../src/main/app-data-layout';
 import { schemaVersionOf } from '../../src/main/json-file';
 import { PreviewStore } from '../../src/main/preview-store';
@@ -41,11 +42,11 @@ beforeEach(async () => {
   root = path.join(tmp, '网页 练习', '中文 路径 项目');
   await mkdir(path.dirname(root), { recursive: true });
   await cp(FIXTURE, root, { recursive: true });
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 /** The app-data stores of one app process. */
 function launch() {
@@ -137,7 +138,7 @@ async function snapshotFiles(dir: string): Promise<Map<string, string>> {
   return out;
 }
 
-describe('app data across NoobIDE versions (S28.4)', () => {
+describe('app data across NoobIDE versions (S28.4)', REAL_IO, () => {
   it('vN → vN+1: settings, recent projects, session, walkthrough, preview trust, history and recovery are kept', async () => {
     await useVersionN();
     const projectBefore = await snapshotFiles(root);

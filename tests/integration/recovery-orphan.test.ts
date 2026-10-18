@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { registerRecoveryHandlers } from '../../src/main/recovery-ipc';
 import { RecoveryJournal } from '../../src/recovery/journal';
 import { fileKey, projectKey } from '../../src/recovery/keys';
@@ -91,13 +92,13 @@ beforeEach(async () => {
     { rootPath: oldRoot, relPath: '子 文件夹/页面 二.html' },
     { bufferId: BUF_B, revision: 7, text: '<p>二 改过</p>\n', bom: false },
   );
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
-describe('copies of a project whose folder was moved (decision 0033)', () => {
+describe('copies of a project whose folder was moved (decision 0033)', REAL_IO, () => {
   it('the old channels fail; the copies are still readable, savable and discardable by key', async () => {
     await rename(oldRoot, newRoot);
     const { call } = nextRun();
@@ -257,7 +258,7 @@ describe('copies of a project whose folder was moved (decision 0033)', () => {
   });
 });
 
-describe('journal re-target (decision 0033)', () => {
+describe('journal re-target (decision 0033)', REAL_IO, () => {
   it('keeps the newer revision when the new folder already has a copy of the same buffer', async () => {
     await rename(oldRoot, newRoot);
     const journal = new RecoveryJournal({ dir: journalDir });

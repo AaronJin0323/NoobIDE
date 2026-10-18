@@ -33,6 +33,8 @@ beforeEach(() => {
       ({ windowId, projectId }: { windowId: number; projectId?: string }) => windowId === 1 && (projectId ?? ID) === ID,
     ),
     focusPage: vi.fn(),
+    holdRefresh: vi.fn(),
+    releaseRefresh: vi.fn(),
   };
   registerPreviewIpcHandlers({ handle: (channel: string, h: Handler) => void handlers.set(channel, h) } as never, {
     allowedOrigin: ORIGIN,
@@ -207,5 +209,22 @@ describe('preview payload parsers', () => {
     ]) {
       expect(parsePreviewBounds(bad)).toBeNull();
     }
+  });
+});
+
+describe('refresh hold for a batch of saves (S58.10)', () => {
+  it('hold and release reach the manager for the owner window only, take no payload, and are refused otherwise', async () => {
+    expect(await call(PREVIEW_CHANNELS.holdRefresh, otherWindow)).toMatchObject({ ok: false, code: 'not-owner' });
+    expect(await call(PREVIEW_CHANNELS.releaseRefresh, otherWindow)).toMatchObject({ ok: false, code: 'not-owner' });
+    expect(await call(PREVIEW_CHANNELS.holdRefresh, workbench)).toEqual({ ok: true, value: null });
+    expect(preview.holdRefresh).toHaveBeenCalledTimes(1);
+    expect(await call(PREVIEW_CHANNELS.releaseRefresh, workbench)).toEqual({ ok: true, value: null });
+    expect(preview.releaseRefresh).toHaveBeenCalledTimes(1);
+    for (const channel of [PREVIEW_CHANNELS.holdRefresh, PREVIEW_CHANNELS.releaseRefresh]) {
+      expect(await call(channel, workbench, { leaseMs: 1e9 })).toMatchObject({ ok: false, code: 'invalid-request' });
+      expect(await call(channel, eventFrom('http://127.0.0.1:51734/'))).toMatchObject({ code: 'forbidden-sender' });
+    }
+    expect(preview.holdRefresh).toHaveBeenCalledTimes(1);
+    expect(preview.releaseRefresh).toHaveBeenCalledTimes(1);
   });
 });

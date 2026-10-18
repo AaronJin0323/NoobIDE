@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { AppLog, LOG_FILE, safeValue } from '../../src/main/app-log';
 
 /**
@@ -14,11 +15,11 @@ let dir: string;
 beforeEach(async () => {
   tmp = await mkdtemp(path.join(os.tmpdir(), 'noobide-log-'));
   dir = path.join(tmp, '应用 数据', 'logs');
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const versions = {
   app: '0.1.0',
@@ -36,7 +37,7 @@ const lines = async (name = LOG_FILE) =>
     .split('\n')
     .map((l) => JSON.parse(l) as Record<string, unknown>);
 
-describe('local log (S13.6)', () => {
+describe('local log (S13.6)', REAL_IO, () => {
   it('starts every run with the app, Electron, Chromium, Node and OS versions', async () => {
     const log = new AppLog({ dir, now: () => new Date('2026-10-14T12:00:00.000Z') });
     log.started(versions);

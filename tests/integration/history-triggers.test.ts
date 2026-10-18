@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { SnapshotStore } from '../../src/recovery/history';
 import { HistoryTriggers, type SaveHistoryHook } from '../../src/recovery/history-triggers';
 import { HISTORY_CAPTURE_TIMEOUT_MS, ProjectService } from '../../src/workspace/project-service';
@@ -62,20 +63,18 @@ beforeEach(async () => {
   service = opened.s;
   projectId = opened.id;
   root = service.rootOf(projectId) ?? '';
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
   await triggers.whenIdle();
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const save = (relPath: string, text: string) => service.write({ projectId, relPath, text, bom: false });
 
 // S21.5: these tests do real, fsynced saves and snapshot writes. A save plus its snapshots takes ~20 ms on an idle
 // machine but 1-2 s with the CPU saturated, so a burst of 6-8 saves outlasts vitest's 5 s default. The timeout is only
 // a hang guard; every behaviour check below is independent of machine speed.
-const REAL_IO = { timeout: 60_000 };
-
 describe('snapshots around save batches (S21.2)', REAL_IO, () => {
   it('a save keeps the version before and after it; identical content is not duplicated', async () => {
     const original = await readFile(path.join(root, NESTED), 'utf8');

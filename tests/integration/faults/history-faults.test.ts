@@ -1,7 +1,8 @@
-import { mkdtemp, readdir, readFile, realpath, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, realpath, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from '../real-io';
 import { SnapshotStore } from '../../../src/recovery/history';
 import { faults, isTempFile, under } from './fault-fs';
 
@@ -59,18 +60,18 @@ beforeEach(async () => {
   root = path.join(tmp, '网页 练习', '我的 网页');
   clock = 1_000_000;
   stores = [];
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
   faults.reset();
   for (const s of stores) await s.idle().catch(() => undefined);
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const indexFile = (p: string) => under(() => path.join(dir, 'index'))(p);
 const blobFile = (p: string) => under(() => path.join(dir, 'objects'))(p);
 
-describe('S26.1 local history faults', () => {
+describe('S26.1 local history faults', REAL_IO, () => {
   it.each([
     ['disk full writing the version (ENOSPC on the blob)', blobFile, 'ENOSPC'],
     ['disk full writing the index (ENOSPC)', indexFile, 'ENOSPC'],

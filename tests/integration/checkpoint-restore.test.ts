@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { registerCheckpointsIpcHandlers } from '../../src/main/checkpoints-ipc';
 import { CheckpointStore } from '../../src/recovery/checkpoints';
 import { SnapshotStore } from '../../src/recovery/history';
@@ -141,12 +142,12 @@ beforeEach(async () => {
   };
   tabs = new Map();
   log = [];
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
   await history.idle();
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 async function saveCheckpoint(name = '能用的 版本'): Promise<string> {
   const made = await api.create({ projectId, name, kind: 'named', cause: 'manual' });
@@ -167,7 +168,9 @@ async function plan(id: string, only?: string) {
   return planRestore(compared.value, host().openTab, only);
 }
 
-describe('S56.2 restore through the atomic save path', () => {
+// Real checkpoints, atomic saves and trash moves: two tests took over 5 s on a starved hosted Windows runner
+// (2026-10-18), and the cut-off one was still writing while its cleanup ran. REAL_IO: tests/integration/real-io.ts.
+describe('S56.2 restore through the atomic save path', REAL_IO, () => {
   it('restores every file (text, binary, deleted) atomically and keeps added files without confirmation', async () => {
     const id = await saveCheckpoint();
     await breakProject();
@@ -347,7 +350,7 @@ describe('S56.2 restore through the atomic save path', () => {
   });
 });
 
-describe('S56.2 review follow-ups (2026-10-17)', () => {
+describe('S56.2 review follow-ups (2026-10-17)', REAL_IO, () => {
   it('restoring an old automatic checkpoint never prunes it on the way', async () => {
     const pruning = new CheckpointStore({
       dir: path.join(tmp, 'app data', 'checkpoints'),

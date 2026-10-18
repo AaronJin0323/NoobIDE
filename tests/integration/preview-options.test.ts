@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import {
   readPreviewOptions,
   refreshModeOf,
@@ -25,12 +26,12 @@ beforeEach(async () => {
   await mkdir(path.join(root, '页面'), { recursive: true });
   await writeFile(path.join(root, 'index.html'), '<p>i</p>');
   await writeFile(path.join(root, '页面', '关于 我们.html'), '<p>a</p>');
-});
+}, REAL_IO.timeout);
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
-describe('preview project options (S14.2, S14.3)', () => {
+describe('preview project options (S14.2, S14.3)', REAL_IO, () => {
   it('defaults: automatic refresh, index.html, nothing written', async () => {
     expect(await readPreviewOptions(root)).toEqual({
       pages: ['index.html', '页面/关于 我们.html'],
@@ -91,7 +92,7 @@ describe('preview project options (S14.2, S14.3)', () => {
   });
 });
 
-describe('a project with no page (pages saved without .html)', () => {
+describe('a project with no page (pages saved without .html)', REAL_IO, () => {
   it('lists files that start like a page, with the name a rename would give them; nothing on disk changes', async () => {
     const site = path.join(tmp, 'DESN 6006');
     await mkdir(path.join(site, 'html'), { recursive: true });

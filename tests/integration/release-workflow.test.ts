@@ -2,6 +2,7 @@
 // The repo has no YAML dependency; like ci-workflow.test.ts this reads the block-style subset line by line. The
 // workflow itself only runs on GitHub; the owner's dry run is described in docs/release/signing.md.
 import { describe, expect, it } from 'vitest';
+import { REAL_IO } from './real-io';
 import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
@@ -233,7 +234,8 @@ describe('release.yml', () => {
     expect(step('End-to-end tests (Playwright + Electron)').run).toBe('npm run test:e2e');
   });
 
-  it('the bash blocks parse (bash -n)', () => {
+  // One Git Bash process per bash step: over 5 s on a starved hosted Windows runner (main, run 39097174400).
+  it('the bash blocks parse (bash -n)', REAL_IO, () => {
     const bash = os.platform() === 'win32' ? 'C:\\Program Files\\Git\\bin\\bash.exe' : '/bin/bash';
     if (!existsSync(bash)) return;
     for (const s of steps.filter((x) => x.shell === 'bash')) {

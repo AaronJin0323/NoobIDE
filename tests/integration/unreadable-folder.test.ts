@@ -1,8 +1,9 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type * as FsPromises from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 
 /**
  * Security review of S03, finding 3: one unreadable subfolder must not make the whole project unopenable, and the
@@ -31,13 +32,13 @@ beforeEach(async () => {
   await mkdir(path.join(root, 'locked'), { recursive: true });
   await writeFile(path.join(root, 'locked', 'a.html'), '');
   await writeFile(path.join(root, 'index.html'), '');
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
-describe('unreadable subfolders', () => {
+describe('unreadable subfolders', REAL_IO, () => {
   it('the project still opens; the folder is listed and only its own listing fails', async () => {
     const service = new ProjectService();
     const opened = await service.open(root);

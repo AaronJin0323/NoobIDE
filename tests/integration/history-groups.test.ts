@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { registerHistoryHandlers } from '../../src/main/history-ipc';
 import type { HandleFn } from '../../src/main/ipc';
 import { GROUP_LIMITS, HISTORY_INDEX_VERSION, SnapshotStore } from '../../src/recovery/history';
@@ -86,18 +87,16 @@ beforeEach(async () => {
   const opened = await projects.open(root);
   if (!opened.ok) throw new Error(opened.message);
   projectId = opened.value.projectId;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
   await store.idle();
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 // Timeouts (S58.3, docs/perf/ci-runners.md): every test here is real disk work (atomic snapshot writes through the
 // save pipeline). The longest takes 0.37 s on the dev machine; a starved hosted Windows runner took over 5 s for two
 // of them (run 39018194387, the whole file 21 s). 60 s is a functional timeout for such a runner, not a speed budget.
-const REAL_IO = { timeout: 60_000 };
-
 describe('recording an agent turn (S34.2)', REAL_IO, () => {
   it('keeps the content before each change and the hash after it, and lists the turn as one group', async () => {
     const css = 'css 样式/主 样式.css';

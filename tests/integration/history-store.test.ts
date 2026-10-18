@@ -1,8 +1,9 @@
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { SnapshotStore, type HistoryOptions, type SnapshotMeta } from '../../src/recovery/history';
 import { projectKey, sha256Hex } from '../../src/recovery/keys';
 import { ProjectService } from '../../src/workspace/project-service';
@@ -84,16 +85,14 @@ beforeEach(async () => {
   historyDir = path.join(tmp, 'app data', 'NoobIDE', 'history');
   clock = 1_000_000;
   logs = [];
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 // Real snapshots on disk. A starved hosted Windows runner took over 5 s for one test (run 39084558959): functional timeouts
 // sized like history-groups (docs/perf/ci-runners.md §2, S58.8), not speed budgets.
-const REAL_IO = { timeout: 60_000 };
-
 describe('snapshot store (S21.1)', REAL_IO, () => {
   it('stores content-addressed blobs and a JSON index in app data, never in the project', async () => {
     const before = await tree(root);

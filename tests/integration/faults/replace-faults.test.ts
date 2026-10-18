@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from '../real-io';
 import { toIpcResult } from '../../../src/shared/ipc/contract';
 import { ProjectService } from '../../../src/workspace/project-service';
 import { searchProject } from '../../../src/workspace/project-search';
@@ -35,14 +36,14 @@ beforeEach(async () => {
   root = path.join(tmp, '网页 练习', '我的 第一个 网页');
   await mkdir(root, { recursive: true });
   for (const [name, text] of Object.entries(FILES)) await writeFile(path.join(root, name), text);
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
   faults.reset();
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
-describe('replace in files faults (S51.4)', () => {
+describe('replace in files faults (S51.4)', REAL_IO, () => {
   it('one file fails to save (disk full): the others apply, the failed one keeps its edit in memory', async () => {
     const service = new ProjectService({ atomic: { renameBackoffMs: [1, 1, 1], sleep: async () => undefined } });
     const opened = await service.open(root);

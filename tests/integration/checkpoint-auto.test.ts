@@ -1,8 +1,9 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { registerCheckpointsIpcHandlers } from '../../src/main/checkpoints-ipc';
 import { CheckpointStore } from '../../src/recovery/checkpoints';
 import { SnapshotStore } from '../../src/recovery/history';
@@ -56,12 +57,12 @@ beforeEach(async () => {
       (request: unknown) => handlers.get(channel)?.(event, request),
     ]),
   ) as unknown as CheckpointsApi;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
   await history.idle();
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 async function content(id: string, relPath: string): Promise<string> {
   const data = await checkpoints.readFile(root, id, relPath);
@@ -69,7 +70,7 @@ async function content(id: string, relPath: string): Promise<string> {
   return new TextDecoder().decode(data.value);
 }
 
-describe('S56.3 automatic checkpoints', () => {
+describe('S56.3 automatic checkpoints', REAL_IO, () => {
   it('are taken once right before an agent proposal is applied, labelled with the cause and the request', async () => {
     const env = fakeAgentHost({ 'style.css': { text: 'red', hash: 'h0' } });
     const order: string[] = [];

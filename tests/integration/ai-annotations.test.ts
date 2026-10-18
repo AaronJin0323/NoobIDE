@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { createProjectPorts } from '../../src/ai/agent/ports';
 import { createAgentRunner } from '../../src/ai/agent/runner';
 import { ScriptedModel, lastToolResults, type TurnScript } from '../../src/ai/agent/scripted-model';
@@ -104,10 +105,10 @@ beforeEach(async () => {
     rootOf: (id) => projects.rootOf(id),
     newId: randomUUID,
   });
-});
+}, REAL_IO.timeout);
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 async function call<T>(channel: string, payload: unknown): Promise<T> {
   const result = (await handlers.get(channel)?.(workbench, payload)) as { ok: boolean; value?: T; code?: string };
@@ -197,7 +198,7 @@ function runAgent(script: readonly TurnScript[], context: readonly AiContextItem
   return { events, model, finished: agentRun.finished };
 }
 
-describe('annotations as AI context (S41.6)', () => {
+describe('annotations as AI context (S41.6)', REAL_IO, () => {
   it('an agent that follows the annotation proposes its edit in the annotated CSS rule', async () => {
     const chip = await annotate(BUTTON, 'make this button bigger');
     expect(chip.ranges).toEqual([

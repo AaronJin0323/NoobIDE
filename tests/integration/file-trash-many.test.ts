@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { ProjectService } from '../../src/workspace/project-service';
 import { SnapshotStore } from '../../src/recovery/history';
 import { HistoryTriggers } from '../../src/recovery/history-triggers';
@@ -30,11 +31,11 @@ beforeEach(async () => {
   const opened = await service.open(root);
   if (!opened.ok) throw new Error(opened.message);
   projectId = opened.value.projectId;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 /** A stand-in for shell.trashItem that records the exact paths and moves them out of the project. */
 function fakeTrash(failFor: (full: string) => boolean = () => false) {
@@ -50,7 +51,7 @@ function fakeTrash(failFor: (full: string) => boolean = () => false) {
   return { trashItem, calls, bin };
 }
 
-describe('trash a selection (S52.3)', () => {
+describe('trash a selection (S52.3)', REAL_IO, () => {
   it('every item goes to the OS trash by its exact path; nothing is deleted permanently', async () => {
     const trash = fakeTrash();
     const result = await service.trashEntries(

@@ -1,7 +1,8 @@
-import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { ProjectService } from '../../src/workspace/project-service';
 import { createProjectPorts } from '../../src/ai/agent/ports';
 import { createAgentRunner } from '../../src/ai/agent/runner';
@@ -38,10 +39,10 @@ beforeEach(async () => {
   const opened = await service.open(root);
   if (!opened.ok) throw new Error(opened.message);
   projectId = opened.value.projectId;
-});
+}, REAL_IO.timeout);
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const records: PreviewLogEntry[] = [
   { source: 'console', level: 'info', message: 'page loaded', url: `${ORIGIN}/`, line: 1, at: 1 },
@@ -148,7 +149,7 @@ function run(
   return { events, model, finished: agentRun.finished };
 }
 
-describe('preview-aware agent (S38.2)', () => {
+describe('preview-aware agent (S38.2)', REAL_IO, () => {
   it('debugs a button that does nothing from the console error, then proposes the fix', async () => {
     const h = run(
       [

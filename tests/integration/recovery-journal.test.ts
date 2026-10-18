@@ -1,8 +1,9 @@
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, utimes, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { RecoveryJournal, type JournalTarget } from '../../src/recovery/journal';
 import { fileKey, projectKey } from '../../src/recovery/keys';
 import { ProjectService } from '../../src/workspace/project-service';
@@ -57,15 +58,15 @@ beforeEach(async () => {
   logs = [];
   journal = newJournal();
   target = { rootPath: root, relPath: '子 文件夹/页面 二.html' };
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const snapshot = (revision: number, text = SECRET, bufferId = BUF_A) => ({ bufferId, revision, text, bom: false });
 
-describe('recovery journal in app data (S12.1)', () => {
+describe('recovery journal in app data (S12.1)', REAL_IO, () => {
   it('writes a record outside the project and leaves the project folder untouched', async () => {
     const before = await tree(root);
     expect(await journal.record(target, snapshot(1))).toEqual({ ok: true, value: { written: true } });
@@ -185,7 +186,7 @@ describe('recovery journal in app data (S12.1)', () => {
   });
 });
 
-describe('bounded, corruption-tolerant journal (S12.3)', () => {
+describe('bounded, corruption-tolerant journal (S12.3)', REAL_IO, () => {
   it('refuses a record larger than the per-entry limit without touching the previous one', async () => {
     const small = newJournal({ maxEntryBytes: 2048 });
     await small.record(target, snapshot(1, 'short'));

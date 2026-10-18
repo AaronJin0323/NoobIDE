@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { REAL_IO, removeTempDir } from '../real-io';
 import { RecoveryJournal } from '../../../src/recovery/journal';
 import { ProjectService } from '../../../src/workspace/project-service';
 import { createProjectFromTemplate } from '../../../src/workspace/create-project';
@@ -53,17 +54,17 @@ beforeEach(async () => {
   const opened = await service.open(root);
   if (!opened.ok) throw new Error(opened.code);
   projectId = opened.value.projectId;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
   faults.reset();
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const BEFORE = ['index.html', '样式 表/主 样式.css'];
 const inRoot = (p: string) => under(() => root)(p);
 
-describe('S26.1 file operation faults: nothing existing changes', () => {
+describe('S26.1 file operation faults: nothing existing changes', REAL_IO, () => {
   it.each([
     ['ENOSPC', 'disk full', 'op-failed'],
     ['EACCES', 'read-only folder', 'permission-denied'],
@@ -172,7 +173,7 @@ describe('S26.1 file operation faults: nothing existing changes', () => {
   });
 });
 
-describe('S26.1 PLAN §11 project cases', () => {
+describe('S26.1 PLAN §11 project cases', REAL_IO, () => {
   it.each(['ENOSPC', 'EIO'])(
     're-creating a deleted file fails (%s) after its name was reserved: no empty placeholder is left behind',
     async (code) => {

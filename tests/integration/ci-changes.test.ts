@@ -1,10 +1,11 @@
 // S58.1 — scripts/ci-changes.mjs: the path classifier behind the `changes` job in ci.yml. Pure path lists, no git:
 // the OS build matrix is skipped only for docs-only pushes, so every doubtful case must land on `code`.
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDirSync } from './real-io';
 import { baseSha, changedFiles, classify, CODE, DOCS_ONLY, isCodePath } from '../../scripts/ci-changes.mjs';
 
 describe('isCodePath', () => {
@@ -113,7 +114,8 @@ describe('base commit selection', () => {
   });
 });
 
-describe('changedFiles with non-ASCII paths', () => {
+// Six git processes per run: a starved hosted Windows runner spawns slowly (S58.10, tests/integration/real-io.ts).
+describe('changedFiles with non-ASCII paths', REAL_IO, () => {
   it('reads paths verbatim even when git would quote them (core.quotepath, the default on CI)', () => {
     const repo = mkdtempSync(path.join(os.tmpdir(), 'noobide-ci-changes-'));
     try {
@@ -138,7 +140,7 @@ describe('changedFiles with non-ASCII paths', () => {
       expect(files).toEqual([file]);
       expect(classify(files ?? [])).toBe(CODE);
     } finally {
-      rmSync(repo, { recursive: true, force: true });
+      removeTempDirSync(repo);
     }
   });
 });

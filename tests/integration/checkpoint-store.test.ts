@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { CheckpointStore, isCheckpointPath, type CheckpointOptions } from '../../src/recovery/checkpoints';
 import { LEGACY_PIN_KEY, SnapshotStore, type HistoryOptions } from '../../src/recovery/history';
 import { projectKey, sha256Hex } from '../../src/recovery/keys';
@@ -79,13 +80,15 @@ beforeEach(async () => {
   await writeFile(path.join(root, 'node_modules', 'lib', 'index.js'), 'module.exports = 1;');
   await writeFile(path.join(root, 'Thumbs.db'), 'x');
   await writeFile(path.join(root, 'page.html.noobide-tmp'), 'temp');
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
-describe('S56.1 checkpoint store', () => {
+// Every test stores whole-project checkpoints on disk: one took over 5 s on a starved hosted Windows runner
+// (2026-10-18). REAL_IO is a functional timeout, not a speed budget (tests/integration/real-io.ts).
+describe('S56.1 checkpoint store', REAL_IO, () => {
   it('records the whole project with the ignore rules applied, in app data only', async () => {
     const before = await snapshotOfProject(root);
     const h = history();
@@ -217,7 +220,7 @@ describe('S56.1 checkpoint store', () => {
   });
 });
 
-describe('S56.1 size limits (refused with an explanation, never truncated)', () => {
+describe('S56.1 size limits (refused with an explanation, never truncated)', REAL_IO, () => {
   async function refused(limits: NonNullable<CheckpointOptions['limits']>, kind: 'named' | 'auto' = 'named') {
     const c = checkpoints(history(), { limits });
     const result = await c.create(root, { name: 'x', kind, cause: 'manual' });
@@ -287,7 +290,7 @@ describe('S56.1 size limits (refused with an explanation, never truncated)', () 
   }
 });
 
-describe('S56.1 corruption tolerance (fault tests)', () => {
+describe('S56.1 corruption tolerance (fault tests)', REAL_IO, () => {
   it('a damaged blob makes only that file of that checkpoint unavailable, and it is reported', async () => {
     const h = history();
     const c = checkpoints(h);
@@ -402,7 +405,7 @@ describe('S56.1 corruption tolerance (fault tests)', () => {
   });
 });
 
-describe('S56.1 review follow-ups (2026-10-17)', () => {
+describe('S56.1 review follow-ups (2026-10-17)', REAL_IO, () => {
   it('a refused checkpoint never costs an older automatic one', async () => {
     const c = checkpoints(history(), { limits: { maxTotalBytes: 200 } });
     const auto = await c.create(root, { name: 'auto', kind: 'auto', cause: 'before-ai' });

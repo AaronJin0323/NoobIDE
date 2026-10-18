@@ -1,9 +1,10 @@
-import { cp, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, realpath, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { NotOwnerError, ServerRegistry } from '../../src/preview/server-registry';
 import { PreviewServer, TOKEN_HEADER } from '../../src/preview/static-server';
 
@@ -48,17 +49,17 @@ beforeEach(async () => {
   await mkdir(rootB);
   await writeFile(path.join(rootB, 'only-in-b.html'), '<p>B</p>');
   registry = new ServerRegistry((root, options) => PreviewServer.start(root, options));
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
   await registry.releaseAllExcept(null);
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const A = { projectId: 'a', windowId: 1 };
 const B = { projectId: 'b', windowId: 1 };
 
-describe('server lifecycle per project (S14.6)', () => {
+describe('server lifecycle per project (S14.6)', REAL_IO, () => {
   it('one server per project: repeated starts get the same listening server', async () => {
     const first = await registry.acquire(A, rootA);
     const again = await registry.acquire(A, rootA);

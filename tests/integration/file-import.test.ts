@@ -1,8 +1,9 @@
-import { lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, readdir, realpath, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { ProjectService } from '../../src/workspace/project-service';
 import { importEntry, inspectSources } from '../../src/workspace/import-files';
 import { registerFileOpsIpcHandlers } from '../../src/main/file-ops-ipc';
@@ -41,15 +42,15 @@ beforeEach(async () => {
   const opened = await service.open(root);
   if (!opened.ok) throw new Error(opened.message);
   projectId = opened.value.projectId;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const src = (...s: string[]) => path.join(outside, ...s);
 
-describe('import into the project (S52.4)', () => {
+describe('import into the project (S52.4)', REAL_IO, () => {
   it('copies (never moves or links) a file into the chosen folder, byte for byte', async () => {
     expect(await importEntry(root, src('猫 咪.png'), '图片 素材', '猫 咪.png', 'image')).toEqual({
       ok: true,
@@ -141,7 +142,7 @@ describe('import into the project (S52.4)', () => {
   });
 });
 
-describe('folders from outside are checked inside too (S52.4 review)', () => {
+describe('folders from outside are checked inside too (S52.4 review)', REAL_IO, () => {
   it('a folder holding a program, or a file over the cap, is refused and names that file', async () => {
     await mkdir(src('工具 包', '安装'), { recursive: true });
     await writeFile(src('工具 包', '安装', 'setup.exe'), 'MZ');
@@ -173,7 +174,7 @@ describe('folders from outside are checked inside too (S52.4 review)', () => {
   });
 });
 
-describe('import IPC (S52.4)', () => {
+describe('import IPC (S52.4)', REAL_IO, () => {
   type Handler = (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown>;
   const handlers = new Map<string, Handler>();
   const win = (id: number) =>

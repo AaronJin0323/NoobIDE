@@ -3,6 +3,71 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 52b (side session) — 2026-10-18 — S58.10: real-I/O integration tests survive a starved Windows runner
+
+**Agent:** Claude (Opus 5.5), cloud session (Linux x64, root), branch `claude/practical-hamilton-6gzlzo` from main
+@ 4582901. Owner request: hosted Windows runners keep failing integration tests that do real file-system I/O at
+Vitest's 5 s default, on main too: ai-service.test.ts:201, checkpoint-restore.test.ts:171 and :208 (whose cleanup
+then failed with ENOTEMPTY), checkpoint-store.test.ts:89, release-workflow.test.ts:236 (main, run 39097174400).
+Apply the S58.9 `REAL_IO` pattern to them and to every other integration file that writes many real files.
+
+**Done**
+
+- S58.10 (done; PR #48 run 39103607377 green on 54e8209, Windows and macOS, both shards): `tests/integration/real-io.ts` holds the one
+  `REAL_IO` (60 s, the S58.9 value) and `removeTempDir` / `removeTempDirSync` (`rm` with 10 retries, which covers
+  ENOTEMPTY / EBUSY / EPERM). The five files that had a local `REAL_IO` copy (history-store, file-copy, history-ipc,
+  history-groups, history-triggers) import it.
+- `REAL_IO` on the describes, plus 60 s hook timeouts and the retrying cleanup: ai-service, checkpoint-restore,
+  checkpoint-store, and the files in the same class (real writes or process spawns in every test, local tests at
+  0.04-0.25 s, i.e. 5 s at the 20-50× a starved runner showed): recovery-journal, ai-drafts, checkpoint-auto,
+  app-data-upgrade, faults/history-faults, project-search (S51.2 block), inspect-arch, ci-changes (git block).
+- PR #48's first run (39101039521) failed Windows shard 1 on `replace-in-files.test.ts:196`, the same 5 s timeout in
+  a file this list had skipped. Picking files by local duration was too narrow, so the rule is now: every
+  `tests/integration` file that makes a temp folder and had no explicit timeout gets `REAL_IO`, 60 s hooks and the
+  retrying cleanup (35 more files; delivery.test.ts, with top-level tests only, is left as it was). Files whose
+  timeouts were already chosen on purpose keep them.
+  release-workflow's `bash -n` test (one Git Bash per step) has REAL_IO on the test only. docs/perf/ci-runners.md §2
+  lists each file.
+- `tests/integration/real-io.test.ts`: the helper removes a folder while a writer is still adding files to it. Plain
+  `rm` failed with ENOTEMPTY in 3 of 3 runs of that setup here; with the retries it took about 120 ms.
+- project-search S51.6 "gives the event loop a turn after each slow file" failed twice in this session's full runs
+  (`slow - normal = -635`): it counted turns of a setImmediate loop, and that loop also spins while the folder listing
+  waits on a busy disk. It now counts the search's own `setImmediate` calls (≥ 64 more with every file slow). With
+  the per-file yield removed from `src/workspace/project-search.ts` it fails, so it still checks what it is for.
+  First version asserted `slow - normal ≥ 64` and failed on hosted Windows with 63: one file of the normal run was
+  slow on its own and added a yield. It now asserts the slow run alone: ≥ 64 per-file + 4 per-batch turns (68
+  locally); without the per-file yield it gives 4.
+
+- Owner decision: fix in this PR the e2e failure of the second run (39101372358, Windows shard 1):
+  `find-replace-in-files.spec.ts:126` saw 2 preview loads, expected 1. Cause: replace in files "held" the refresh
+  with typing pings every 150 ms from the renderer against main's 400 ms typing pause; a busy renderer misses that
+  window and main reloads mid-batch (a real bug on slow machines, not only CI). Now `RefreshScheduler.hold(leaseMs)`
+  / `release()` (`src/preview/refresh-scheduler.ts`), exposed as `preview:hold-refresh` / `preview:release-refresh`
+  (no payload, trusted-sender checked like `typing`); the renderer holds at the start, renews every 5 s and
+  releases after the last save. A hold that is never released ends after 30 s. Proof: 6 scheduler tests with fake
+  time, an IPC test; locally the spec failed with the old code plus a 700 ms busy-wait per commit (2 loads, the CI
+  symptom) and passes with the fix and the same busy-wait. Its `:150` test (external change reaching the tab) fails
+  in this container on the untouched tree too; it passes on the hosted runners.
+- Review (subagent, CLAUDE.md: preview/IPC change) found no blocker; two follow-ups taken: (1) main notices a save
+  only after reading project.json, so the last save of a batch could reach the scheduler after the release and
+  reload again: `onSaved` now registers the notice with `PreviewManager.saveArriving()` before the save returns, and
+  `releaseRefresh()` waits for those notices (a failed read cannot keep the hold); (2) hold and release are refused
+  for a window that does not own the preview (S14.6), so another window's release cannot cut the owner's hold.
+  Not taken: a cap on renewals for a batch that hangs in a live renderer (manual Reload still works; the lease
+  covers crashed and closed windows).
+
+**Evidence:** typecheck, lint, format and harness check green. npm test: 5 failures, the same 5 as on the untouched
+tree in this container (root ignores read-only files; the junction test), 3656 passed. perf: the watcher mass-delete
+lag budget fails here on the untouched tree as well (budgets are enforced on the dev machine only). timing-budgets
+(S58.8) passes: these are Vitest timeouts, no new wall-clock assertion.
+
+**Not fixed (seen in the same main run, not a timeout):** watcher.test.ts:86 "reports a created file" got 2 events
+instead of 1 on Windows shard 2 (run 39097174400). It is a different class (event batching on a slow disk, like the
+two S58.4 watcher fixes in docs/perf/ci-runners.md §2) and needs its own look.
+
+**Next up:** the watcher.test.ts extra events (:86 on main, and "create, delete, create…" once under local verify
+load); the find-replace-in-files.spec.ts:150 external-change failure in Linux containers (passes on hosted runners).
+
 ## Session 52 (side session) — 2026-10-18 — CI triage: S58.8 timing-budget guard, S58.9 intermittents
 
 **Agent:** Claude (Opus 5.5), cloud session (Linux x64, root), branch `claude/serene-ramanujan-b9xq2e` from main

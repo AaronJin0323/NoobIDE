@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { REAL_IO, removeTempDir } from './real-io';
 import { SettingsStore } from '../../src/main/settings-store';
 import { DEFAULT_SETTINGS, SETTINGS_VERSION } from '../../src/shared/settings';
 
@@ -23,15 +24,15 @@ beforeEach(async () => {
   await mkdir(dir, { recursive: true });
   file = path.join(dir, 'settings.json');
   events.length = 0;
-});
+}, REAL_IO.timeout);
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
-});
+  await removeTempDir(tmp);
+}, REAL_IO.timeout);
 
 const onDisk = async () => JSON.parse(await readFile(file, 'utf8')) as unknown;
 
-describe('settings store (S13.1)', () => {
+describe('settings store (S13.1)', REAL_IO, () => {
   it('starts from the defaults without creating a file until something changes', async () => {
     const store = new SettingsStore({ file, log });
     expect(await store.load()).toEqual({ settings: DEFAULT_SETTINGS, notice: null, backupPath: null });
