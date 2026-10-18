@@ -3,6 +3,28 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 49c (side session) — 2026-10-18 — S15.8: the editor follows a link clicked in the preview
+
+**Agent:** Claude (Opus 5.5) in a Linux cloud container, branch `claude/modest-bohr-h8fzsn` from main @ 1f461f0.
+
+**Done**
+
+- Owner request, recorded as S15.8: when a link (or form, script) in the preview leads to another page of the
+  project, that page's file opens in the editor, or its tab comes to the front. `arrivedPage()` in
+  `preview-model.ts` decides from the toolbar's page location: the first page of a Start, a refresh, a `#hash` and
+  a 404 open nothing. `PreviewPane` reports the arrival through `onPageArrived`, and the Workbench calls `openFile` with
+  `quiet` (no error tab if the file vanished). Opening a tab does not focus the editor, so the page keeps the keyboard.
+  "Back to entry page" counts as an arrival too, so index.html comes to the front.
+
+**Evidence:** preview-model.test.ts (16, one new); not-found.spec.ts new test (link → about.html tab selected, text
+shown, focus not in the editor; link back → index.html), plus preview-manager, preview, preview-annotations,
+preview-css-swap, preview-no-page, preview-snapshot, ai-preview, runtime-problems and preview-isolation specs green
+under xvfb on Linux. typecheck/lint/format green. `npm test` in this container has 7 failures that are not caused by
+this change: the read-only / junction cases fail because the container runs as root, which ignores file
+permissions. They are unchanged by this diff; verify should be re-run on the Windows machine.
+
+**Next up:** the current session as shown by `session.mjs start`.
+
 ## Session 49b (side session) — 2026-10-18 — ai-inline e2e: a suggestion that never arrived on hosted macOS
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/ai-inline-flake` from main @ 0f94d1f.

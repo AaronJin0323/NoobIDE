@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
-import { collectConsoleErrors, openFile, openProject, typeAtEnd, switchLanguage } from './project';
+import { collectConsoleErrors, openFile, openProject, tabOf, typeAtEnd, switchLanguage } from './project';
 import { evalInPreview, waitForPreviewState } from './preview-helpers';
 
 /**
@@ -10,7 +10,9 @@ import { evalInPreview, waitForPreviewState } from './preview-helpers';
  * - a misspelled image path is explained with the similarly named file the project has (the app supplies the
  *   project's file list to the explanation rules);
  * - a link to a page that does not exist shows a localized explanation instead of a raw 404, the toolbar names the
- *   page and offers Back to entry page, and a save while the missing page shows returns to the entry page.
+ *   page and offers Back to entry page, and a save while the missing page shows returns to the entry page;
+ * - S15.8: once the page exists, following the link brings its file to the front of the editor (and the way back
+ *   brings index.html back); the missing page never opened a tab.
  */
 test.describe.configure({ mode: 'serial' });
 
@@ -161,5 +163,29 @@ test('a broken link never traps the preview: the page says so, Back to entry pag
   await expect(pagePath()).toHaveText('index.html');
   await switchLanguage(page);
   await toggle().click();
+  expect(consoleErrors).toEqual([]);
+});
+
+test('S15.8: a link to another page brings its file to the front of the editor, and the way back follows too', async () => {
+  // The broken link of the test above opened no tab: there is no file behind a 404.
+  await expect(page.locator('[data-testid="tab"][data-path="about.html"]')).toHaveCount(0);
+  await openFile(page, 'index.html');
+  await writeFile(
+    path.join(root, 'about.html'),
+    '<!doctype html>\n<html lang="zh-CN">\n  <head>\n    <meta charset="utf-8" />\n    <title>关于我</title>\n' +
+      '  </head>\n  <body>\n    <a id="home" href="index.html">首页</a>\n  </body>\n</html>\n',
+  );
+  await evalInPreview(app, `document.getElementById('about').click(); true`);
+  await expect(pagePath()).toHaveText('about.html');
+  await expect.poll(previewTitle).toBe('关于我');
+  await expect(tabOf(page, 'about.html')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.monaco-editor .view-lines')).toContainText('首页');
+  // Opening the tab does not take the keyboard away from where it was (the tree row clicked above).
+  expect(await page.evaluate(() => document.activeElement?.closest('.monaco-editor') === null)).toBe(true);
+
+  // Back through the page's own link: index.html (already open) comes to the front again.
+  await evalInPreview(app, `document.getElementById('home').click(); true`);
+  await expect(pagePath()).toHaveText('index.html');
+  await expect(tabOf(page, 'index.html')).toHaveAttribute('aria-selected', 'true');
   expect(consoleErrors).toEqual([]);
 });
