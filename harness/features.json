@@ -5569,8 +5569,8 @@
       ],
       "verify": "agent-check",
       "depends_on": [],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/release/owner-decisions.md (Answers received 2026-10-18), ADR 0003 accepted, ADR 0027 amendment 2026-10-18, AGENTS.md + PLAN.md i18n rule @ 5112797"
     },
     {
       "id": "S59.2",
@@ -5588,8 +5588,8 @@
       "depends_on": [
         "S59.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "src/shared/os-locale.ts + tests (zh* -> zh-CN, else en), settings-store defaultLocale (tests/integration/settings-store.test.ts), saved choice wins (settings/i18n tests); unit suite 3677 passed @ 2e5876c. e2e zh-CN pin (--lang, -AppleLanguages, seeded settings.json in tests/e2e/launch.ts) not run here: confirm on the CI e2e jobs (macOS especially) and verify green on the dev machine"
     },
     {
       "id": "S59.3",
@@ -5606,8 +5606,8 @@
       "depends_on": [
         "S59.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "docs/release/install.en.md + install.zh-CN.md: SmartScreen Run anyway, macOS 15+ Open Anyway, macOS 13/14 Control-click Open, SHA-256 check (certutil/Get-FileHash/shasum) @ b461a84"
     },
     {
       "id": "S59.4",
@@ -5624,8 +5624,8 @@
       "depends_on": [
         "S59.1"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "package.json/lock 0.1.0-beta.1, About + DMG name read package.json (distribution.test.ts 8/8), docs/release/notes-0.1.0-beta.1.md en+zh-CN @ b461a84. 'verify green' not provable in the Linux cloud container (5 root-uid permission tests + watcher perf budget fail there, same on main 6be5227); confirm on the Windows dev machine/CI, and check Squirrel nupkg name 0.1.0-beta1 on the first Windows make"
     },
     {
       "id": "S59.5",
@@ -5642,8 +5642,8 @@
       "depends_on": [
         "S27.3"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "needs_manual_check",
+      "evidence": "memoryJsFlags (win32 only) + ts-idle-stop.ts (10 tests) @ 9f94c29/2e5876c; Windows measurement steps in harness/MANUAL-CHECKS.md#S59.5"
     }
   ]
 }
