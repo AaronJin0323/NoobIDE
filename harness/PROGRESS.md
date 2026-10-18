@@ -18,6 +18,12 @@ from main @ 774dae9.
   a turn, not only between batches of 16. The panel shows it like an invalid regex, with a zh-CN/en hint to simplify
   the pattern (`search.regexTooSlow`).
 
+- Watcher (found by PR #44's hosted Windows CI, failed twice): when ReadDirectoryChangesW overflows, libuv reports
+  an event without a filename; the watcher emitted `rescan` but kept its snapshot, so lost deletes stayed in it for
+  good (the mass-delete test ended with 111 / 198 stale entries). `watcher.ts` now rebuilds the snapshot first
+  (serialised, overflows coalesced), then reports one rescan. New test in `tests/integration/watcher.test.ts` (fails
+  on the old code).
+
 **Evidence:** `src/workspace/time-limit.test.ts` (3), `tests/integration/project-search.test.ts` S51.6 block (4),
 `search-model.test.ts` (+1). Against the old `project-search.ts` the per-file test hangs (killed) and the budget and
 yield tests fail. `npm run verify` green on macOS arm64 (harness, typecheck, lint, format, test, perf).
