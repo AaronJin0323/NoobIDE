@@ -101,9 +101,21 @@ test.beforeAll(async () => {
   await page.locator('.monaco-editor .view-lines').waitFor();
   await openProject(app, page, root);
   await page.evaluate(async () => {
-    const ai = (window.noobide as unknown as { ai: { setKey(r: { provider: string; key: string }): Promise<unknown> } })
-      .ai;
+    type Config = { inlineCompletions: boolean };
+    const ai = (
+      window.noobide as unknown as {
+        ai: {
+          setKey(r: { provider: string; key: string }): Promise<unknown>;
+          status(r: { projectId: null }): Promise<{ ok: true; value: { config: Config } }>;
+          setConfig(r: { config: Config }): Promise<unknown>;
+        };
+      }
+    ).ai;
     await ai.setKey({ provider: 'anthropic', key: 'fake-key-for-tests' });
+    // Inline suggestions are not under test here (ai-inline.spec): their ghost text, drawn after a typed key, would
+    // be read as document text (hosted macOS, run 39095901077: the stale test read 'XThis is a **sample answer**').
+    const { config } = (await ai.status({ projectId: null })).value;
+    await ai.setConfig({ config: { ...config, inlineCompletions: false } });
     window.dispatchEvent(new Event('noobide:ai-status-changed'));
   });
 });
@@ -354,6 +366,8 @@ test('IME text stays intact and candidate keys do not send or close the inline e
   await input.dispatchEvent('compositionend', { data: '' });
   await input.press('Enter');
   await expect(zone()).toHaveAttribute('data-phase', 'review');
+  // The review takes focus as it appears (layout effect), so this Escape is the panel's.
+  await expect(zone().getByTestId('inline-edit-accept')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(zone()).toHaveCount(0);
 });
