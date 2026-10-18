@@ -189,12 +189,16 @@ export type ReferenceMatch =
   /** No file, not even with other case. `candidates`: similar names in the same folder, or the same name elsewhere. */
   | { readonly kind: 'missing'; readonly candidates: readonly string[] };
 
-export function matchReference(path: string, files: readonly string[]): ReferenceMatch {
+/**
+ * `folderLink`: the reference is a link (`<a>`/`<area>` href), where a folder written without its trailing `/`
+ * (`href="about"`, `href="."` in a subfolder) is fine: the preview server redirects it to the folder and serves its
+ * index.html, like any web server. A script, image or stylesheet pointing at a folder would get HTML back, so it stays
+ * broken there.
+ */
+export function matchReference(path: string, files: readonly string[], folderLink = false): ReferenceMatch {
   if (files.some((f) => samePath(f, path))) return { kind: 'exact' };
-  // A folder written without its trailing `/` (`href="about"`, `href="."` in a subfolder): the preview server
-  // redirects it to the folder and serves its index.html, like any web server.
   const index = `${path}/index.html`;
-  if (files.some((f) => samePath(f, index))) return { kind: 'exact' };
+  if (folderLink && files.some((f) => samePath(f, index))) return { kind: 'exact' };
   const key = portableNameKey(path);
   const actuals = files.filter((f) => portableNameKey(f) === key);
   if (actuals.length) return { kind: 'case', actuals };
@@ -408,7 +412,7 @@ export function checkBeginnerHtml(text: string, facts: BeginnerFacts = {}): Begi
       const attr = tag.attrs.find((a) => a.name === attrName);
       const target = attr ? resolveReference(facts.relPath, attr.value) : null;
       if (attr && target) {
-        const match = matchReference(target, files);
+        const match = matchReference(target, files, tag.name === 'a' || tag.name === 'area');
         const start = attr.valueStart;
         const end = start + attr.value.length;
         if (match.kind === 'case') {

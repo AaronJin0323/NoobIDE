@@ -71,6 +71,9 @@ describe('beginner checks (S55.2): references', () => {
     // A folder without index.html (the server answers 404) is still reported.
     expect(check('index.html', '<a href="blog">x</a>')).toEqual(['html-broken-ref']);
     expect(check('blog/post.html', '<a href=".">x</a>')).toEqual(['html-broken-ref']);
+    // Only links: a script or image pointing at a folder gets HTML back.
+    expect(check('index.html', '<script src="about"></script>')).toEqual(['html-broken-ref']);
+    expect(check('index.html', '<img src="about" alt="">')).toEqual(['html-broken-ref']);
   });
 
   it('writes a target relative to the referring file', () => {
