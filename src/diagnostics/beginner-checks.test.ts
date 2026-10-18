@@ -4,6 +4,7 @@ import {
   beginnerFacts,
   beginnerMessages,
   checkBeginner,
+  checkBeginnerCss,
   checkBeginnerHtml,
   checkBeginnerJs,
   maskJs,
@@ -11,6 +12,7 @@ import {
   relativeReference,
   resolveReference,
 } from './beginner-checks';
+import { imgTag } from '../shared/image-files';
 
 describe('beginner checks (S55.2): references', () => {
   it('resolves relative, ./, ../ and root-relative paths, drops ?query and #fragment, decodes %xx', () => {
@@ -46,6 +48,32 @@ describe('beginner checks (S55.2): references', () => {
     expect(matchReference('images/logoo.png', files)).toEqual({ kind: 'missing', candidates: ['images/logo.png'] });
     expect(matchReference('images/icon.png', files)).toEqual({ kind: 'missing', candidates: ['img/icon.png'] });
     expect(matchReference('images/zzz.png', files)).toEqual({ kind: 'missing', candidates: [] });
+  });
+
+  it('reads character references in a path as the browser does (NoobIDE writes &amp; for a&b.png)', () => {
+    expect(resolveReference('a.html', 'img/a&amp;b.png')).toBe('img/a&b.png');
+    expect(resolveReference('a.html', 'it&#39;s.png?x=1&amp;y=2')).toBe("it's.png");
+    expect(resolveReference('a.html', 'a&b.png')).toBe('a&b.png');
+    expect(resolveReference('a.html', 'a&unknown;.png')).toBe('a&unknown;.png');
+    const files = ['index.html', 'img/a&b.png'];
+    expect(
+      checkBeginnerHtml(imgTag('index.html', 'img/a&b.png'), { relPath: 'index.html', projectFiles: files }),
+    ).toEqual([]);
+  });
+
+  it('a folder link without its trailing slash is not broken when the folder has an index.html', () => {
+    const files = ['index.html', 'about/index.html', '关于 我/index.html', 'blog/post.html'];
+    const check = (relPath: string, html: string) =>
+      checkBeginnerHtml(html, { relPath, projectFiles: files }).map((f) => f.code);
+    expect(check('index.html', '<a href="about">x</a> <a href="about?x=1#t">y</a>')).toEqual([]);
+    expect(check('index.html', '<a href="关于%20我">x</a>')).toEqual([]);
+    expect(check('about/index.html', '<a href=".">x</a> <a href="../about">y</a>')).toEqual([]);
+    // A folder without index.html (the server answers 404) is still reported.
+    expect(check('index.html', '<a href="blog">x</a>')).toEqual(['html-broken-ref']);
+    expect(check('blog/post.html', '<a href=".">x</a>')).toEqual(['html-broken-ref']);
+    // Only links: a script or image pointing at a folder gets HTML back.
+    expect(check('index.html', '<script src="about"></script>')).toEqual(['html-broken-ref']);
+    expect(check('index.html', '<img src="about" alt="">')).toEqual(['html-broken-ref']);
   });
 
   it('writes a target relative to the referring file', () => {
@@ -86,6 +114,40 @@ describe('beginner checks: HTML structure', () => {
 
   it('skips files over the size limit', () => {
     expect(checkBeginner('html', `<img>${' '.repeat(MAX_BEGINNER_CHECK_CHARS)}`)).toEqual([]);
+  });
+
+  it('stays fast on a deep stack of open elements (omitted </p>) and many stray closing tags', () => {
+    // Valid HTML: 12 000 paragraphs without `</p>`, each with closed inline elements (≈ 400 kB). Was ≈ 1 s.
+    const paragraphs = '<p>text <b>x</b> <a href="#">y</a>\n'.repeat(12_000);
+    let start = performance.now();
+    expect(checkBeginnerHtml(paragraphs)).toEqual([]);
+    expect(performance.now() - start).toBeLessThan(700);
+    // 20 000 open <span> and 20 000 stray </b>: was quadratic (many seconds).
+    const strays = `${'<span>'.repeat(20_000)}${'</b>'.repeat(20_000)}`;
+    start = performance.now();
+    const found = checkBeginnerHtml(strays);
+    expect(performance.now() - start).toBeLessThan(1500);
+    expect(found).toHaveLength(20_000);
+    expect(found[0]?.message).toBe(beginnerMessages.mismatchedClose('b', 'span', true));
+  });
+});
+
+describe('beginner checks: CSS', () => {
+  it('reads the value without trailing whitespace, and stays fast on long whitespace runs inside a declaration', () => {
+    expect(checkBeginnerCss('a {\n  width: 10   \n}')).toEqual([
+      expect.objectContaining({
+        code: 'css-unitless-length',
+        line: 2,
+        column: 10,
+        endColumn: 12,
+        message: beginnerMessages.unitlessLength('width', '10'),
+      }),
+    ]);
+    // A missing `;` followed by a long blank stretch: the declaration's value spans it. Was quadratic (≈ 1 s per 20 000).
+    const css = `a { width: 10px${' '.repeat(100_000)}color: red }`;
+    const start = performance.now();
+    expect(checkBeginnerCss(css)).toEqual([]);
+    expect(performance.now() - start).toBeLessThan(1000);
   });
 });
 

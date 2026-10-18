@@ -20,9 +20,19 @@ export function detectEol(text: string): Eol {
   return crlf > lf ? '\r\n' : '\n';
 }
 
+/**
+ * Counts line feeds by scanning with indexOf: no match arrays are built (`text.match(/\n/g)` allocates one entry per
+ * line, which for a 5 MB file costs ~5× the time on main and grows into hundreds of ms for short lines). A lone `\r`
+ * is not a line ending here, as before.
+ */
 function countEols(text: string): { crlf: number; lf: number } {
-  const crlf = text.match(/\r\n/g)?.length ?? 0;
-  return { crlf, lf: (text.match(/\n/g)?.length ?? 0) - crlf };
+  let crlf = 0;
+  let lf = 0;
+  for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) {
+    if (i > 0 && text.charCodeAt(i - 1) === 0x0d) crlf += 1;
+    else lf += 1;
+  }
+  return { crlf, lf };
 }
 
 /** Both CRLF and LF occur. The editor holds one line ending, so saving such a file unifies them (decision 0011). */

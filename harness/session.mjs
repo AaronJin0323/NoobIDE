@@ -38,7 +38,14 @@ function save(data) {
 }
 function git(args) {
   try {
-    return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    // maxBuffer: Node's 1 MiB default would make `git show HEAD:harness/features.json` fail once the backlog grows
+    // past it, and a failed read silently skips the tamper guard below.
+    return execFileSync('git', args, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      maxBuffer: 64 * 1024 * 1024,
+    });
   } catch {
     return null;
   }

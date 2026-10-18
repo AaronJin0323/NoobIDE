@@ -59,6 +59,12 @@ export function checkHtml(text: string): HtmlFinding[] {
 
   const lower = text.toLowerCase();
   const open: { name: string; offset: number }[] = [];
+  /** Open elements per name: a stray closing tag is recognised without scanning a deep stack. */
+  const openCount = new Map<string, number>();
+  const push = (element: { name: string; offset: number }) => {
+    open.push(element);
+    openCount.set(element.name, (openCount.get(element.name) ?? 0) + 1);
+  };
   const findings: HtmlFinding[] = [];
   const report = (element: { name: string; offset: number }) => {
     if (OPTIONAL_END.has(element.name)) return;
@@ -103,9 +109,12 @@ export function checkHtml(text: string): HtmlFinding[] {
     const selfClosing = text[end - 1] === '/';
     i = end + 1;
     if (closing) {
-      const index = findLastIndex(open, (e) => e.name === name);
+      const index = openCount.get(name) ? findLastIndex(open, (e) => e.name === name) : -1;
       if (index < 0) continue; // stray closing tag
-      for (const element of open.splice(index)) if (element.name !== name) report(element);
+      for (const element of open.splice(index)) {
+        openCount.set(element.name, (openCount.get(element.name) ?? 1) - 1);
+        if (element.name !== name) report(element);
+      }
       continue;
     }
     if (VOID.has(name) || selfClosing) continue;
@@ -116,10 +125,10 @@ export function checkHtml(text: string): HtmlFinding[] {
         break;
       }
       i = close;
-      open.push({ name, offset: nameStart });
+      push({ name, offset: nameStart });
       continue;
     }
-    open.push({ name, offset: nameStart });
+    push({ name, offset: nameStart });
   }
   for (const element of open) report(element);
   return findings.sort((a, b) => a.line - b.line || a.column - b.column);

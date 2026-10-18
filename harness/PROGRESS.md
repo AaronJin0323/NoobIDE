@@ -3,6 +3,47 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 49c (side session) — 2026-10-18 — Whole-program bug audit (six parallel auditors)
+
+**Agent:** Claude (Opus 5.5) in a Linux cloud container, branch `claude/program-inspection-optimization-v2kolx` from
+main @ 1f461f0. Six subagents each audited one area in its own worktree; a separate reviewer checked the merged diff.
+
+**Done** (each fix has a regression test unless noted)
+
+- Preview: `stop()` no longer closes the server of a Start that overlapped it, nor overwrites its status (project
+  switch + auto-start race); a non-ASCII ownership token answers 403 instead of 500 (`timingSafeEqual` byte length);
+  a streamed file (> 16 MB) is closed when the client aborts (`pipeline` instead of `pipe`; on Windows the open
+  handle blocked saves/rename/trash of that file).
+- Recovery: a rename that only changes Unicode normalisation (NFD → NFC) no longer deletes the journal record.
+- Workspace (perf): `countEols` without match arrays (5 MB CRLF: 276 → 34 ms); `write()` stats and hashes the
+  on-disk bytes once. Conflict detection unchanged (reviewed).
+- AI: an aborted/timed-out stream is reported as cancelled/timed out, never as a complete answer; a Stop pressed on a
+  refused start no longer cancels that turn's Retry; agent `search_text` stops walking once the limit is reached.
+- Renderer (no DOM in vitest, so only TabBar has a test — e2e `tabs.spec`): PreviewPane drops stale options answers
+  after a project switch; FilesPanel unlocks tabs when a trash request rejects; TabBar keeps focus in the strip after
+  Delete; Workbench restores last-session tabs once per project, not on every `openFile` identity change.
+- Diagnostics: HTML/CSS checks linear on large files (stack copies, stray-close scans, a backtracking CSS regex);
+  `<a href="folder">` with `folder/index.html` is not a broken path (links only); `&amp;` etc. decoded before
+  resolving paths (our own `imgTag()` output was flagged).
+- Scripts: `ci-changes.mjs` reads `git diff -z`, so Chinese-named paths count as code; `session.mjs` git
+  `maxBuffer` 64 MiB so the backlog tamper guard keeps working past 1 MiB.
+
+**Evidence:** verify: harness, typecheck, lint, format green; test/perf red only on environment baseline (container
+runs as root, so chmod read-only does not deny: save-pipeline ×2, save-faults, protected-folder; Linux is
+case-sensitive: file-ops "finding 8"; Linux `fs.watch` recursive is O(n²) inside Node: watcher-mass-delete perf).
+The same six fail on 1f461f0 in this container.
+
+**Not fixed — candidates (from the audit)**
+
+- Project search runs the user's regex on the main thread; `(a+)+$` could hang main (needs worker or time limit).
+- `registerDropped` accepts any absolute path from the renderer (inherent to the drop design; needs a decision).
+- History blobs are never deleted while an index sits in quarantine (documented trade-off; owner decision).
+- AI `request()`: a run registered after a window reload's `cancelAllFor` can outlive the page.
+- AnnotationsStrip list replies have no sequence check (a late reply can show a deleted annotation until next list).
+- Temp-file names add ~51 chars; names > ~200 chars fail to save with ENAMETOOLONG.
+
+**Next up:** the candidates above; the main-thread search regex is the most user-visible.
+
 ## Session 49b (side session) — 2026-10-18 — ai-inline e2e: a suggestion that never arrived on hosted macOS
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/ai-inline-flake` from main @ 0f94d1f.

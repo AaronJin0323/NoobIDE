@@ -6,6 +6,15 @@ import { createProblemRecord } from '../shared/problem';
 const tags = (html: string) => checkHtml(html).map((f) => `${f.tagName}@${f.line}:${f.column}`);
 
 describe('HTML unclosed-element check (S19.2)', () => {
+  it('stays fast with many stray closing tags over a deep stack of open elements', () => {
+    // 30 000 open <div> and 30 000 stray </b> (≈ 270 kB): each stray used to scan the whole stack (seconds).
+    const html = `${'<div>'.repeat(30_000)}${'</b>'.repeat(30_000)}`;
+    const start = performance.now();
+    const found = checkHtml(html);
+    expect(performance.now() - start).toBeLessThan(1500);
+    expect(found).toHaveLength(30_000);
+  });
+
   it('reports an element that is never closed, at its tag name', () => {
     const html = '<body>\n  <div class="card">\n    <h1>Hi</h1>\n</body>\n';
     expect(checkHtml(html)).toEqual([

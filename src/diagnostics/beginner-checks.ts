@@ -147,7 +147,7 @@ export function resolveReference(fromFile: string, ref: string): string | null {
   const value = ref.trim();
   if (!value || value.startsWith('#') || value.startsWith('//') || /^[A-Za-z][\w+.-]*:/.test(value)) return null;
   if (/[{}$<>\\]/.test(value)) return null;
-  let path = value.split(/[?#]/, 1)[0] ?? '';
+  let path = decodeCharacterReferences(value).split(/[?#]/, 1)[0] ?? '';
   try {
     path = decodeURIComponent(path);
   } catch {
@@ -165,6 +165,23 @@ export function resolveReference(fromFile: string, ref: string): string | null {
   return parts.length ? parts.join('/') : null;
 }
 
+const NAMED_REFERENCES: Readonly<Record<string, string>> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+/**
+ * An attribute value as the browser reads it: `&amp;` → `&`, `&#39;` → `'` … (the common references only; an unknown
+ * one stays as written). NoobIDE writes `&amp;` itself when it inserts an `<img>` for `a&b.png` (image-files.ts).
+ */
+function decodeCharacterReferences(value: string): string {
+  return value.replace(
+    /&(?:#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6})|([a-z]+));/g,
+    (whole, dec?: string, hex?: string, name?: string) => {
+      if (name !== undefined) return NAMED_REFERENCES[name] ?? whole;
+      const code = dec !== undefined ? Number(dec) : parseInt(hex ?? '', 16);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
+    },
+  );
+}
+
 export type ReferenceMatch =
   | { readonly kind: 'exact' }
   /** Same name except for letter case: `actuals` are the files that match that way (one, normally). */
@@ -172,8 +189,16 @@ export type ReferenceMatch =
   /** No file, not even with other case. `candidates`: similar names in the same folder, or the same name elsewhere. */
   | { readonly kind: 'missing'; readonly candidates: readonly string[] };
 
-export function matchReference(path: string, files: readonly string[]): ReferenceMatch {
+/**
+ * `folderLink`: the reference is a link (`<a>`/`<area>` href), where a folder written without its trailing `/`
+ * (`href="about"`, `href="."` in a subfolder) is fine: the preview server redirects it to the folder and serves its
+ * index.html, like any web server. A script, image or stylesheet pointing at a folder would get HTML back, so it stays
+ * broken there.
+ */
+export function matchReference(path: string, files: readonly string[], folderLink = false): ReferenceMatch {
   if (files.some((f) => samePath(f, path))) return { kind: 'exact' };
+  const index = `${path}/index.html`;
+  if (folderLink && files.some((f) => samePath(f, index))) return { kind: 'exact' };
   const key = portableNameKey(path);
   const actuals = files.filter((f) => portableNameKey(f) === key);
   if (actuals.length) return { kind: 'case', actuals };
@@ -320,22 +345,36 @@ export function checkBeginnerHtml(text: string, facts: BeginnerFacts = {}): Begi
   const { tags, raw } = scanHtml(text);
   const firstId = new Map<string, number>();
   const open: { name: string; offset: number }[] = [];
+  // How many elements of each name are open: a closing tag with none open is a stray without scanning the stack.
+  // The stack can be thousands deep in valid HTML (paragraphs whose `</p>` is omitted), and this runs while typing.
+  const openCount = new Map<string, number>();
   const unclosed = new Set<number>();
   const strays: { tag: Tag; open?: { name: string; offset: number } }[] = [];
 
   for (const tag of tags) {
     if (tag.closing) {
-      const index = open.map((e) => e.name).lastIndexOf(tag.name);
+      let index = -1;
+      if (openCount.get(tag.name)) {
+        for (let k = open.length - 1; k >= 0 && index < 0; k -= 1) if (open[k]?.name === tag.name) index = k;
+      }
       if (index < 0) {
-        const expected = [...open].reverse().find((e) => !OPTIONAL_END.has(e.name));
+        let expected: { name: string; offset: number } | undefined;
+        for (let k = open.length - 1; k >= 0 && !expected; k -= 1) {
+          const e = open[k];
+          if (e && !OPTIONAL_END.has(e.name)) expected = e;
+        }
         strays.push({ tag, ...(expected ? { open: expected } : {}) });
         continue;
       }
-      for (const e of open.splice(index)) if (e.name !== tag.name) unclosed.add(e.offset);
+      for (const e of open.splice(index)) {
+        openCount.set(e.name, (openCount.get(e.name) ?? 1) - 1);
+        if (e.name !== tag.name) unclosed.add(e.offset);
+      }
       continue;
     }
     if (!VOID.has(tag.name) && text[tag.end - 2] !== '/') {
       open.push({ name: tag.name, offset: tag.nameStart });
+      openCount.set(tag.name, (openCount.get(tag.name) ?? 0) + 1);
     }
 
     // Rule 17: duplicate id.
@@ -373,7 +412,7 @@ export function checkBeginnerHtml(text: string, facts: BeginnerFacts = {}): Begi
       const attr = tag.attrs.find((a) => a.name === attrName);
       const target = attr ? resolveReference(facts.relPath, attr.value) : null;
       if (attr && target) {
-        const match = matchReference(target, files);
+        const match = matchReference(target, files, tag.name === 'a' || tag.name === 'area');
         const start = attr.valueStart;
         const end = start + attr.value.length;
         if (match.kind === 'case') {
@@ -472,7 +511,9 @@ export function checkBeginnerCss(text: string): BeginnerFinding[] {
     if (c !== '{' && c !== '}' && c !== ';' && i !== code.length) continue;
     // A segment ending in `{` is a selector or an at-rule prelude; others are declarations (inside a block).
     if (c !== '{' && depth > 0) {
-      const decl = /^(\s*)([A-Za-z-]+)(\s*:\s*)([\s\S]*?)\s*$/.exec(code.slice(segmentStart, i));
+      // The value is trimmed afterwards: a lazy value followed by `\s*$` backtracks quadratically over long runs of
+      // whitespace inside a declaration.
+      const decl = /^(\s*)([A-Za-z-]+)(\s*:\s*)([\s\S]*)$/.exec(code.slice(segmentStart, i));
       if (
         decl?.[2] &&
         decl[4] !== undefined &&
@@ -480,7 +521,7 @@ export function checkBeginnerCss(text: string): BeginnerFinding[] {
         !decl[4].includes('(')
       ) {
         const valueStart = segmentStart + (decl[1]?.length ?? 0) + decl[2].length + (decl[3]?.length ?? 0);
-        const value = decl[4];
+        const value = decl[4].trimEnd();
         const bare = /(^|\s)(-?(?:\d+\.?\d*|\.\d+))(?=\s|$|!)/.exec(value);
         if (bare?.[2] && Number(bare[2]) !== 0) {
           const start = valueStart + bare.index + (bare[1]?.length ?? 0);

@@ -1,5 +1,9 @@
 // S58.1 — scripts/ci-changes.mjs: the path classifier behind the `changes` job in ci.yml. Pure path lists, no git:
 // the OS build matrix is skipped only for docs-only pushes, so every doubtful case must land on `code`.
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { baseSha, changedFiles, classify, CODE, DOCS_ONLY, isCodePath } from '../../scripts/ci-changes.mjs';
 
@@ -106,5 +110,35 @@ describe('base commit selection', () => {
 
   it('returns null when git cannot diff against the base instead of guessing', () => {
     expect(changedFiles('f'.repeat(40), process.cwd())).toBeNull();
+  });
+});
+
+describe('changedFiles with non-ASCII paths', () => {
+  it('reads paths verbatim even when git would quote them (core.quotepath, the default on CI)', () => {
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'noobide-ci-changes-'));
+    try {
+      const run = (...args: string[]) =>
+        execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], {
+          cwd: repo,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim();
+      run('init', '-q');
+      run('config', 'core.quotepath', 'true');
+      writeFileSync(path.join(repo, 'README.md'), 'x\n');
+      run('add', '.');
+      run('commit', '-q', '-m', 'base');
+      const base = run('rev-parse', 'HEAD');
+      const file = 'tests/fixtures/中文 路径 项目/index.html';
+      mkdirSync(path.join(repo, ...path.posix.dirname(file).split('/')), { recursive: true });
+      writeFileSync(path.join(repo, ...file.split('/')), '<p>x</p>\n');
+      run('add', '.');
+      run('commit', '-q', '-m', 'fixture');
+      const files = changedFiles(base, repo);
+      expect(files).toEqual([file]);
+      expect(classify(files ?? [])).toBe(CODE);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
   });
 });

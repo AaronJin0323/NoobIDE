@@ -1644,6 +1644,10 @@ export function Workbench() {
   /** The project whose last-session tabs have been looked up (and reopened): only then are its tabs saved. State, not
    *  a ref, so a tab the user opened while the lookup was in flight is saved as soon as it finishes. */
   const [tabsRestoredFor, setTabsRestoredFor] = useState<string | null>(null);
+  // Once per project: openFile is re-created whenever the journal health changes (useJournals), and a restore run
+  // again then would reopen tabs the user closed since (the saved session lags 300 ms behind).
+  const openFileRef = useRef(openFile);
+  openFileRef.current = openFile;
   useEffect(() => {
     const api = bridge?.session;
     if (!api || !projectIdForTabs) return undefined;
@@ -1655,7 +1659,7 @@ export function Workbench() {
         for (const relPath of result.value.tabs) {
           if (cancelled) return;
           // In the background: a file the user opened meanwhile stays visible (and keeps their typing).
-          await openFile(relPath, { quiet: true, background: true });
+          await openFileRef.current(relPath, { quiet: true, background: true });
         }
         const active = result.value.active;
         if (!cancelled && active && savers.current.has(active)) dispatch({ type: 'restoreActive', relPath: active });
@@ -1666,7 +1670,7 @@ export function Workbench() {
     return () => {
       cancelled = true;
     };
-  }, [bridge, projectIdForTabs, openFile]);
+  }, [bridge, projectIdForTabs]);
 
   const tabPaths = doc.tabs.map((tab) => tab.relPath).slice(0, MAX_SESSION_TABS);
   const tabsKey = tabPaths.join('\n');
