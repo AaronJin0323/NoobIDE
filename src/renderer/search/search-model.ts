@@ -51,6 +51,7 @@ export function panelMessage(t: Translate, state: SearchState, query: SearchQuer
     if (state.code === 'invalid-regex') {
       return { kind: 'invalid-regex', text: fill(t('search.invalidRegex'), { message: state.message }) };
     }
+    if (state.code === 'regex-too-slow') return { kind: 'invalid-regex', text: t('search.regexTooSlow') };
     if (state.code === 'unknown-project') return { kind: 'no-project', text: t('search.noProject') };
     return { kind: 'failed', text: fill(t('search.failed'), { message: state.message }) };
   }

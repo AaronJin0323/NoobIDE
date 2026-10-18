@@ -23,6 +23,8 @@ export const searchZhCN = {
   'search.searching': '正在查找…',
   'search.empty': '没有找到“{query}”。检查一下拼写，或者关掉“区分大小写”“全字匹配”再试。',
   'search.invalidRegex': '这个正则表达式写得不对：{message}。如果只想查找普通文字，请关掉“使用正则表达式”。',
+  'search.regexTooSlow':
+    '这个正则表达式运行太慢，查找已停止（像 (a+)+ 这样嵌套的重复会让它反复尝试）。请把它写得简单一些，或者关掉“使用正则表达式”。',
   'search.failed': '查找没能完成（{message}）。请再试一次。',
   'search.count.matches': '{n} 个结果',
   'search.count.files': '在 {n} 个文件里',
@@ -77,6 +79,8 @@ export const searchEn: Record<keyof typeof searchZhCN, string> = {
     'No results for “{query}”. Check the spelling, or turn off “Match case” and “Match whole word” and try again.',
   'search.invalidRegex':
     'This regular expression is not valid: {message}. To search for plain text, turn off “Use regular expression”.',
+  'search.regexTooSlow':
+    'This regular expression runs too slowly, so the search was stopped (nested repeats such as (a+)+ make it try again and again). Simplify it, or turn off “Use regular expression”.',
   'search.failed': 'The search could not finish ({message}). Please try again.',
   'search.count.matches': '{n} results',
   'search.count.files': 'in {n} files',

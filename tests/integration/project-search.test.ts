@@ -194,3 +194,71 @@ describe('project search (S51.2)', () => {
     expect(common.totalMatches).toBe(2000);
   }, 60_000);
 });
+
+describe('project search under a slow regular expression (S51.6)', () => {
+  const evil = q('(a+)+$', { regex: true });
+
+  it('stops a catastrophically backtracking pattern after the per-file limit with regex-too-slow', async () => {
+    await write('index.html', `<p>card</p>\n${'a'.repeat(40)}!\n`);
+    // The event loop is blocked at most about the per-file limit, never for the pattern's full run (hours).
+    let lastTick = performance.now();
+    let maxGap = 0;
+    const timer = setInterval(() => {
+      const now = performance.now();
+      maxGap = Math.max(maxGap, now - lastTick);
+      lastTick = now;
+    }, 5);
+    const started = performance.now();
+    const result = await searchProject(root, 5, evil, [], { regexFileBudgetMs: 100 });
+    const elapsed = performance.now() - started;
+    clearInterval(timer);
+    expect(result).toMatchObject({ ok: false, code: 'regex-too-slow' });
+    expect(elapsed).toBeLessThan(2000);
+    expect(maxGap).toBeLessThan(1000);
+  });
+
+  it('applies the limit to open buffers too, and with the default limits', async () => {
+    const result = await searchProject(root, 6, evil, [{ relPath: 'a.js', text: `${'a'.repeat(40)}!` }]);
+    expect(result).toMatchObject({ ok: false, code: 'regex-too-slow' });
+  });
+
+  it('a total budget stops a pattern that is slow on every file, never reporting partial results', async () => {
+    // Long text the pattern has to scan, with one match at the end (well under the match cap).
+    const line = 'the price times the count gives the total 价格 card\n';
+    const big = `${line.repeat(Math.floor(500_000 / line.length))}total = price\n`;
+    await write('a.js', big);
+    await write('b.js', big);
+    const pattern = q('\\w+\\s*=\\s*\\w+', { regex: true });
+    expect((await search(pattern)).files.map((f) => f.relPath)).toEqual(['a.js', 'b.js']);
+    // Matching a.js takes longer than 1 ms, so the budget is spent before b.js.
+    const result = await searchProject(root, 7, pattern, [], { regexTotalBudgetMs: 1, regexFileBudgetMs: 60_000 });
+    expect(result).toMatchObject({ ok: false, code: 'regex-too-slow' });
+  });
+
+  it('gives the event loop a turn after each slow file, not only between batches', async () => {
+    const buffers = Array.from({ length: 16 }, (_, i) => ({ relPath: `f${i}.js`, text: 'card\n'.repeat(10) }));
+    const ticksDuring = async (yieldAfterMs: number | undefined) => {
+      let ticks = 0;
+      let running = true;
+      const loop = () => {
+        ticks += 1;
+        if (running) setImmediate(loop);
+      };
+      setImmediate(loop);
+      const result = await searchProject(
+        root,
+        8,
+        q('card'),
+        buffers,
+        yieldAfterMs === undefined ? {} : { yieldAfterMs },
+      );
+      running = false;
+      expect(result.ok).toBe(true);
+      return ticks;
+    };
+    const normal = await ticksDuring(undefined);
+    // Every file counts as slow (-1 ms): one turn after each of the 16 files of the single batch.
+    const slow = await ticksDuring(-1);
+    expect(slow).toBeGreaterThanOrEqual(normal + 15);
+  });
+});

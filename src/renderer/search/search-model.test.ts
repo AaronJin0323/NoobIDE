@@ -63,6 +63,16 @@ describe('find in files panel states (S51.3)', () => {
     expect(panelMessage(tr('zh-CN'), state, query, true).text).toContain('正则表达式写得不对：Unterminated group');
   });
 
+  it('explains a regular expression that ran too slowly (S51.6) in both languages', () => {
+    const state: SearchState = { kind: 'failed', code: 'regex-too-slow', message: 'regular expression too slow' };
+    const en = panelMessage(tr('en'), state, query, true);
+    expect(en.kind).toBe('invalid-regex');
+    expect(en.text).toMatch(/^This regular expression runs too slowly/);
+    expect(en.text).toContain('Use regular expression');
+    expect(en.text).not.toContain('regular expression too slow');
+    expect(panelMessage(tr('zh-CN'), state, query, true).text).toMatch(/^这个正则表达式运行太慢/);
+  });
+
   it('summarises results with counts (English singular for one) and says when they are truncated', () => {
     expect(panelMessage(tr('en'), done(results([file('a.html', 1)])), query, true).text).toBe('1 result in 1 file');
     expect(panelMessage(tr('en'), done(results([file('a.html', 2), file('b.css', 1)])), query, true).text).toBe(

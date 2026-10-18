@@ -3,6 +3,40 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 49d — 2026-10-18 — S51.6: project search survives a catastrophic regular expression
+
+**Agent:** Claude (Opus 5.5) on the owner's Apple Silicon Mac (macOS arm64), branch `claude/search-regex-time-limit`
+from main @ 774dae9.
+
+**Done**
+
+- S51.6 (new, from the 49c audit's first candidate) — project search ran the user's regex in main with no time
+  limit, so `(a+)+$` over a long line froze the whole IDE. `src/workspace/time-limit.ts` runs synchronous code under a
+  `node:vm` timeout (a V8 watchdog that also interrupts a regex inside a function of this realm; verified in Node 24
+  and in Electron's Node). `project-search.ts` matches each file under it: 200 ms per file, 10 s per search, else the
+  typed error `regex-too-slow` (never partial results). After a file whose matching took > 16 ms the event loop gets
+  a turn, not only between batches of 16. The panel shows it like an invalid regex, with a zh-CN/en hint to simplify
+  the pattern (`search.regexTooSlow`).
+
+**Evidence:** `src/workspace/time-limit.test.ts` (3), `tests/integration/project-search.test.ts` S51.6 block (4),
+`search-model.test.ts` (+1). Against the old `project-search.ts` the per-file test hangs (killed) and the budget and
+yield tests fail. `npm run verify` green on macOS arm64 (harness, typecheck, lint, format, test, perf).
+
+**Decisions:** `vm` timeout instead of a worker thread: no new bundle entry in Forge's Vite config, testable in
+vitest as-is, about 0.15 ms overhead per call. Cost: a bad pattern still blocks main for up to 200 ms once.
+
+**Problems / risks:** replace in files (renderer) still runs the regex unbounded, but only on files the search
+already matched within the limit (same text, fingerprint-checked), so it can only be as slow as that search was.
+
+**Owner action needed:** none.
+
+**Next up**
+
+1. The remaining 49c candidates: AI `request()` outliving a reloaded page; AnnotationsStrip list replies without a
+   sequence check; temp-file names making > ~200-char names fail with ENAMETOOLONG. Owner decisions:
+   `registerDropped` accepting any absolute path; history blobs kept while an index is quarantined.
+2. S06.6 needs two green hosted-matrix runs; S06.4 waits for the S06.2/S06.3 manual checks.
+
 ## Session 49c (side session) — 2026-10-18 — Whole-program bug audit (six parallel auditors)
 
 **Agent:** Claude (Opus 5.5) in a Linux cloud container, branch `claude/program-inspection-optimization-v2kolx` from

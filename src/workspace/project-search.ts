@@ -17,6 +17,7 @@ import { err, ok, type Result } from '../shared/result';
 import { isIgnoredName } from './ignore';
 import { isInside } from './paths';
 import { decodeText } from './text-codec';
+import { runWithTimeLimit } from './time-limit';
 
 /**
  * Project-wide text search (S51.2), main process only. Bounded and streaming-friendly:
@@ -29,6 +30,10 @@ import { decodeText } from './text-codec';
  * - Files are read a few at a time in path order and the results are cut deterministically at MAX_SEARCH_MATCHES.
  *   Between batches the event loop gets a turn (setImmediate), so main keeps answering while a big project is scanned.
  * - An AbortSignal stops the search between files; it then answers `cancelled`.
+ * - The user's regular expression runs under a time limit (S51.6, time-limit.ts): at most REGEX_FILE_BUDGET_MS per
+ *   file and REGEX_TOTAL_BUDGET_MS per search, else the search answers `regex-too-slow`. A backtracking pattern such
+ *   as `(a+)+$` blocks main for a fraction of a second instead of hanging the IDE. After any slow file the event loop
+ *   gets a turn as well.
  *
  * Nothing about the files' contents is logged.
  */
@@ -36,12 +41,22 @@ import { decodeText } from './text-codec';
 /** Files read at the same time. */
 const BATCH = 16;
 
+/** Longest one file's matching may take (ms): main is blocked at most this long by a bad pattern. */
+export const REGEX_FILE_BUDGET_MS = 200;
+/** Longest all matching of one search may take (ms), for a pattern that is slow on every file. */
+export const REGEX_TOTAL_BUDGET_MS = 10_000;
+/** Matching a file for longer than this (ms) gives the event loop a turn before the next file. */
+const YIELD_AFTER_MS = 16;
+
 export interface ProjectSearchOptions {
   readonly signal?: AbortSignal;
   /** Limits (tests use smaller ones). */
   readonly maxMatches?: number;
   readonly maxFiles?: number;
   readonly maxFileBytes?: number;
+  readonly regexFileBudgetMs?: number;
+  readonly regexTotalBudgetMs?: number;
+  readonly yieldAfterMs?: number;
 }
 
 interface Candidate {
@@ -50,6 +65,7 @@ interface Candidate {
 }
 
 const CANCELLED = 'search cancelled';
+const TOO_SLOW = 'regular expression too slow';
 
 export async function searchProject(
   root: string,
@@ -66,6 +82,9 @@ export async function searchProject(
   const maxFiles = options.maxFiles ?? MAX_SEARCH_FILES;
   const maxFileBytes = options.maxFileBytes ?? MAX_SEARCH_FILE_BYTES;
   const signal = options.signal;
+  const fileBudget = options.regexFileBudgetMs ?? REGEX_FILE_BUDGET_MS;
+  let totalBudget = options.regexTotalBudgetMs ?? REGEX_TOTAL_BUDGET_MS;
+  const yieldAfter = options.yieldAfterMs ?? YIELD_AFTER_MS;
   const buffers = new Map(openBuffers.map((b) => [b.relPath, b.text]));
 
   try {
@@ -99,7 +118,16 @@ export async function searchProject(
           continue;
         }
         filesSearched += 1;
-        const matches = matchesIn(loaded.text, regex, maxMatches - totalMatches);
+        if (totalBudget <= 0) return err('regex-too-slow', TOO_SLOW);
+        const matchStart = performance.now();
+        const limited = runWithTimeLimit(
+          () => matchesIn(loaded.text, regex, maxMatches - totalMatches),
+          Math.min(fileBudget, totalBudget),
+        );
+        const matchMs = performance.now() - matchStart;
+        totalBudget -= matchMs;
+        if (!limited.ok) return err('regex-too-slow', TOO_SLOW);
+        const matches = limited.value;
         if (matches.list.length > 0) {
           files.push({
             relPath: candidate.relPath,
@@ -112,6 +140,10 @@ export async function searchProject(
         if (matches.more) {
           truncated = true;
           break;
+        }
+        if (matchMs > yieldAfter) {
+          await new Promise((resolve) => setImmediate(resolve));
+          if (signal?.aborted) return err('cancelled', CANCELLED);
         }
       }
       // Give the event loop a turn between batches (IPC, window events, other timers).
