@@ -222,6 +222,30 @@ describe('streaming, stop and errors (S33.1)', () => {
     expect(t.lastTurn()?.status).toBe('cancelled');
   });
 
+  it('a Stop pressed while a refused request was starting does not stop its later Retry', async () => {
+    const api = fakeAiApi();
+    const t = setup(api);
+    const original = api.request;
+    let refuse: (() => void) | null = null;
+    api.request = (request) => {
+      api.requests.push(request);
+      return new Promise((resolve) => {
+        refuse = () => resolve({ ok: false, code: 'provider-error', message: 'fake' });
+      });
+    };
+    t.controller.setPrompt('一');
+    const sending = t.controller.send();
+    for (let i = 0; i < 20 && !refuse; i += 1) await Promise.resolve();
+    await t.controller.stop(); // no request id yet: remembered until it arrives
+    refuse!();
+    await sending;
+    expect(t.lastTurn()).toMatchObject({ status: 'error' });
+    api.request = original;
+    await t.controller.retry(t.lastTurn()!.id);
+    expect(api.cancels).toEqual([]);
+    expect(t.lastTurn()).toMatchObject({ status: 'streaming', requestId: 'r1' });
+  });
+
   it('a stream error is kept with its code; a refused request too', async () => {
     const api = fakeAiApi();
     const t = setup(api);
