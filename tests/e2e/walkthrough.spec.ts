@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
@@ -49,6 +49,31 @@ async function menu(id: string) {
   }
   await page.getByTestId(id === 'help-walkthrough' ? 'project-menu' : 'app-menu').click();
   await page.getByTestId(`menu-${id}`).click();
+}
+
+/**
+ * Quits the app as a restart step does. Under CPU load a quit once never finished (S58.4); if it takes more than
+ * 20 s, the app log's close-handshake lines (main: window-close asked / answered / gave-up) are printed so the stuck
+ * step is named in the CI log. The quit itself is still awaited.
+ */
+async function quitApp(userData: string) {
+  const slow = setTimeout(() => {
+    void (async () => {
+      const dir = path.join(userData, 'logs');
+      const files = await readdir(dir).catch(() => [] as string[]);
+      const lines: string[] = [];
+      for (const file of files) {
+        const text = await readFile(path.join(dir, file), 'utf8').catch(() => '');
+        lines.push(...text.split('\n').filter((line) => /window-close|app-quit|will-quit/.test(line)));
+      }
+      console.log(`walkthrough: quit not finished after 20 s; close log:\n${lines.slice(-12).join('\n')}`);
+    })();
+  }, 20_000);
+  try {
+    await app.close();
+  } finally {
+    clearTimeout(slow);
+  }
 }
 
 /** The stored walkthrough state, or undefined while main has not written walkthrough.json yet (the store writes
@@ -184,12 +209,15 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
   });
 
   test('progress and the compact choice survive a restart', async () => {
+    // A restart: on a loaded machine the quit itself finishes at once (the close log shows asked → answered-ok →
+    // app-quit within 3 s) but Electron's process teardown took 20–60 s under load, past the 90 s default (S58.4).
+    test.setTimeout(180_000);
     await expect(panel()).toHaveAttribute('data-step', 'heading');
     await expect(panel()).toHaveAttribute('data-compact', 'true');
     await expect.poll(async () => (await stored(userData()))?.step).toBe('heading');
     // The compact choice is saved asynchronously after the click above; wait for it before the restart.
     await expect.poll(async () => (await stored(userData()))?.compact).toBe(true);
-    await app.close();
+    await quitApp(userData());
     await start(userData());
     await expect(panel()).toHaveAttribute('data-step', 'heading');
     await expect(page.getByTestId('walkthrough-progress')).toHaveText('第 3 步，共 8 步');
@@ -213,6 +241,9 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
   });
 
   test('standard terms in a step link to the glossary, which keeps the terms as they are (S23.4)', async () => {
+    // A restart: on a loaded machine the quit itself finishes at once (the close log shows asked → answered-ok →
+    // app-quit within 3 s) but Electron's process teardown took 20–60 s under load, past the 90 s default (S58.4).
+    test.setTimeout(180_000);
     await page.getByTestId('walkthrough-back').click(); // "meet the files" links HTML, CSS, JavaScript
     // S47.6: in zh-CN a chip shows the Chinese name and the standard term; the glossary keeps the term itself.
     await expect(page.getByTestId('walkthrough-term')).toHaveText([
@@ -254,7 +285,7 @@ test.describe('walkthrough engine and glossary (S23.1, S23.4)', () => {
     await switchLanguage(page);
     await page.getByTestId('walkthrough-close').click();
     expect(consoleErrors).toEqual([]);
-    await app.close();
+    await quitApp(userData());
   });
 });
 
@@ -391,12 +422,15 @@ test.describe('the PLAN §2 journey (S23.2) and the final task (S23.3)', () => {
   });
 
   test('reopen: closing the app and opening it again restores the project and completes the journey', async () => {
+    // A restart: on a loaded machine the quit itself finishes at once (the close log shows asked → answered-ok →
+    // app-quit within 3 s) but Electron's process teardown took 20–60 s under load, past the 90 s default (S58.4).
+    test.setTimeout(180_000);
     await expect(panel()).toHaveAttribute('data-step', 'reopen');
     await expect(panel()).toHaveAttribute('data-done', 'false');
     await expect.poll(anchored).toEqual(['project-menu']); // S47.4: the path is the name's tooltip and a line of the menu
     await page.waitForTimeout(800); // tabs and layout are written 300 ms after the last change
     expect(consoleErrors).toEqual([]);
-    await app.close();
+    await quitApp(userData());
 
     await start(userData());
     await expect(page.getByTestId('project-name')).toHaveAttribute('title', projectRoot);

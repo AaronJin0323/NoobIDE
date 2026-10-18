@@ -43,6 +43,9 @@ self-test is how the shipped binary itself is checked. On Linux without a displa
   1024×768 display gives a much shorter editor than a Mac. Read editor text with `documentText()` and focus the
   editor with `focusEditor()` (tests/e2e/project.ts), not by asserting on or clicking `.view-lines`. Reproduce a
   short window locally with `NOOBIDE_E2E_WINDOW=1024x660 npm run test:e2e`.
+- Hosted runners are shared and slow. Reproduce an intermittent, and prove its fix, on a loaded machine:
+  `NOOBIDE_E2E_LOAD=1 npm run test:e2e -- <spec> --repeat-each=20` keeps every core busy (`loadCpu()` in
+  `tests/e2e/load-cpu.ts`, 1.5 busy threads per core) while the tests run (S58.4).
 - Platform-specific tests use `describe.runIf(...)` with the helpers from `src/platform`, and the reason is written
   in the test name.
 - Editor shortcuts that differ by platform come from `tests/e2e/keys.ts`: `DOC_START` / `DOC_END` for the document

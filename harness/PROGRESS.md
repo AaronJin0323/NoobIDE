@@ -3,7 +3,7 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
-## Session 49e — 2026-10-18 — S51.6: project search survives a catastrophic regular expression
+## Session 51 — 2026-10-18 — S51.6: project search survives a catastrophic regular expression
 
 **Agent:** Claude (Opus 5.5) on the owner's Apple Silicon Mac (macOS arm64), branch `claude/search-regex-time-limit`
 from main @ 774dae9.
@@ -41,7 +41,35 @@ already matched within the limit (same text, fingerprint-checked), so it can onl
 1. The remaining 49c candidates: AI `request()` outliving a reloaded page; AnnotationsStrip list replies without a
    sequence check; temp-file names making > ~200-char names fail with ENAMETOOLONG. Owner decisions:
    `registerDropped` accepting any absolute path; history blobs kept while an index is quarantined.
-2. S06.6 needs two green hosted-matrix runs; S06.4 waits for the S06.2/S06.3 manual checks.
+2. S06.4 waits for the S06.2/S06.3 manual checks.
+
+## Session 50 (side session) — 2026-10-18 — S58.4 Windows e2e intermittents under load; S06.6 closed
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/s58-4-windows-intermittents` from main.
+
+**Done**
+
+- S06.6 → done: its code merged in PR #20, and the hosted matrix passed twice on that PR (runs 39020774663 and
+  39029352498).
+- `NOOBIDE_E2E_LOAD=1` runs any e2e spec on a loaded machine: `loadCpu()` moved to `tests/e2e/load-cpu.ts` (1.5 busy
+  threads per core, from S05.8) and `launchApp` starts it once per Playwright worker. Documented in docs/testing.md.
+- preview-isolation S05.5 dialog test: every step names itself (dialogs return, confirm/prompt answers, alert in the
+  console, Refresh despite beforeunload, typing, Stop, Start-Start-Stop). The Refresh retry came with PR #38.
+- preview-snapshot busy page: under load 1 of 20 failed because the first outline after the 8 s loop hit the
+  snapshot's own time limit (correct behaviour). The outline is now polled for up to 15 s after recovery.
+- walkthrough.spec: under load 1 of 20 timed out in the reopen restart. main now logs each close-handshake step
+  (`window-close` asked / answered-ok / answered-refused / gave-up / not-guarded, content-free; unit-tested), and the
+  restarts print those lines when a quit takes over 20 s. The log showed every slow quit answered within 1 ms and
+  logged app-quit within 3 s; the rest was Electron's process teardown on the loaded machine (20–60 s). The three
+  restart tests get 180 s instead of 90 s. The stored-progress polling and the Help → Walkthrough fix were already on
+  main (S06.6).
+
+**Evidence:** Windows x64 under load, `--repeat-each=20`: S05.5 tests 40/40, busy page 20/20, walkthrough.spec 260/260
+(1024×768). Unit: close-guard 9/9. Verify green.
+
+**Next up:** S58.4 stays in_progress until the next five hosted runs after merge show no failure in walkthrough,
+preview-isolation (dialog test) and preview-snapshot (busy page); then set it done. S58.5 waits for the owner's
+decision (nightly measurement tests). S01.4 waits for H.1.
 
 ## Session 49d (side session) — 2026-10-18 — S15.8: the editor follows a link clicked in the preview
 

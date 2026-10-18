@@ -278,8 +278,18 @@ test('a busy page gives "not available" within the budget; an unresponsive one a
 
   // When the loop ends the preview answers again and snapshots work as before.
   await waitForPreviewState(page, 'running', 20_000);
-  const after = await snapshot(false);
-  expect(after.ok && after.outline?.text).toBe('h1 "一会儿就会卡住"');
+  // The page answers again, but on a loaded machine its first outline after an 8 s loop can still hit the snapshot's
+  // own time limit (reported as outlineUnavailable 'timeout', which is correct): 1 of 20 repeats under load (S58.4).
+  // So the outline is asked for until it comes, within 15 s.
+  await expect
+    .poll(
+      async () => {
+        const after = await snapshot(false);
+        return after.ok ? (after.outline?.text ?? `no outline (${after.outlineUnavailable})`) : after.code;
+      },
+      { timeout: 15_000, message: 'the outline after the page answers again' },
+    )
+    .toBe('h1 "一会儿就会卡住"');
 });
 
 test('an endless loop gives "not available" within the budget; Stop and Start recover (S38.1)', async () => {

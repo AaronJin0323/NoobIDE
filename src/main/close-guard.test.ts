@@ -51,6 +51,40 @@ function fakeTimers() {
 }
 
 describe('close guard (S10.6)', () => {
+  it('reports each step of the handshake for the app log (S58.4)', () => {
+    const steps: string[] = [];
+    const onStep = (step: string) => void steps.push(step);
+    const ok = fakeWindow();
+    const okGuard = installCloseGuard(ok, { ...fakeTimers(), onStep });
+    ok.close();
+    ok.close(); // a second click while waiting asks nothing more
+    okGuard.answer({ ok: true });
+    expect(steps).toEqual(['asked', 'answered-ok']);
+
+    steps.length = 0;
+    const refused = fakeWindow();
+    const refusedGuard = installCloseGuard(refused, { ...fakeTimers(), onStep });
+    refused.close();
+    refusedGuard.answer({ ok: false });
+    expect(steps).toEqual(['asked', 'answered-refused']);
+
+    steps.length = 0;
+    const silent = fakeWindow();
+    const timers = fakeTimers();
+    installCloseGuard(silent, { ...timers, onStep });
+    silent.close();
+    timers.fire(); // the backstop
+    expect(steps).toEqual(['asked', 'gave-up']);
+    expect(silent.closed).toBe(1);
+
+    steps.length = 0;
+    const loading = fakeWindow();
+    loading.loading = true;
+    installCloseGuard(loading, { ...fakeTimers(), onStep });
+    loading.close();
+    expect(steps).toEqual(['not-guarded']);
+  });
+
   it('holds the close, asks the workbench to save, and closes once it answers ok', () => {
     const win = fakeWindow();
     const timers = fakeTimers();
