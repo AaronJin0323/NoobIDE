@@ -350,6 +350,35 @@ describe('bounded cost and recovery (review findings 5, 7, 11)', () => {
     expect(watcher.snapshotSize).toBe(0);
   });
 
+  it('rebuilds the snapshot when the OS dropped events (no filename: a Windows buffer overflow), then reports one rescan', async () => {
+    watcher.close();
+    let raw: (filename: string | null) => void = () => undefined;
+    const watch: WatchFn = (_root, onChange) => {
+      raw = onChange;
+      return { on: () => undefined, close: () => undefined };
+    };
+    await mkdir(p('many'));
+    await Promise.all(Array.from({ length: 50 }, (_, i) => writeFile(p('many', `f${i}.txt`), '')));
+    events = [];
+    watcher = new ProjectWatcher(root, (batch) => events.push(...batch), { debounceMs: 20, watch });
+    await watcher.start();
+    const before = watcher.snapshotSize;
+    // The files are deleted, but the OS reports only part of it and then overflows (twice).
+    await rm(p('many'), { recursive: true });
+    raw(path.join('many', 'f0.txt'));
+    raw(null);
+    raw(null);
+    await watcher.idle();
+    expect(events).toEqual([{ type: 'rescan' }]);
+    expect(watcher.snapshotSize).toBe(before - 51);
+    // The snapshot matches the disk again: a re-created file is `created`, not `changed`.
+    await new Promise((r) => setTimeout(r, 40));
+    events = [];
+    await mkdir(p('many'));
+    raw('many');
+    await expect.poll(() => events).toEqual([{ type: 'created', relPath: 'many' }]);
+  });
+
   it('restarts with a growing delay after the OS watch fails or dies, and reports a rescan', async () => {
     watcher.close();
     let calls = 0;
