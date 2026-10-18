@@ -43,13 +43,16 @@ export function classify(files) {
 export function changedFiles(base, cwd) {
   if (!base || /^0+$/.test(base)) return null;
   try {
-    const out = execFileSync('git', ['diff', '--name-only', `${base}...HEAD`], {
+    // -z: paths verbatim and NUL-separated. Without it git (core.quotepath, on by default) prints a non-ASCII path
+    // such as `tests/fixtures/中文 路径 项目/index.html` C-quoted as `"tests/fixtures/\344…"`, which the classifier
+    // would not recognise as code.
+    const out = execFileSync('git', ['diff', '--name-only', '-z', `${base}...HEAD`], {
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     });
     return out
-      .split(/\r?\n/)
+      .split('\0')
       .map(normalise)
       .filter((f) => f !== '');
   } catch {
