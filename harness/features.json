@@ -5539,8 +5539,8 @@
       "depends_on": [
         "S58.9"
       ],
-      "status": "in_progress",
-      "evidence": ""
+      "status": "done",
+      "evidence": "PR #49 hosted matrix green on 34eb8cd (run 39101213321: static, windows-x64 + macos-arm64, both shards; win shard 1 needed one re-run for the unrelated find-replace preview-reload race, explained on PR #49); 6 touched integration files 76 passed locally; project-search yield test mutation-checked (0 vs 64)"
     }
   ]
 }
