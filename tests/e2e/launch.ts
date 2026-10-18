@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron, type ElectronApplication } from '@playwright/test';
+import { backgroundLoadFromEnv } from './load-cpu';
 
 export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -45,6 +46,7 @@ export async function launchApp(
   env: Record<string, string> = {},
   options: { userDataDir?: string; /** Extra Chromium/Electron switches. */ args?: string[] } = {},
 ): Promise<ElectronApplication> {
+  backgroundLoadFromEnv(); // S58.4: NOOBIDE_E2E_LOAD=1 runs the suite on a loaded machine
   let userDataDir = options.userDataDir;
   if (!userDataDir) {
     userDataDir = mkdtempSync(path.join(tempRoot(), 'noobide-e2e-userdata-'));

@@ -4453,8 +4453,8 @@
       "depends_on": [
         "S06.5"
       ],
-      "status": "in_progress",
-      "evidence": "Local: verify green (2736 passed/15 skipped); walkthrough + preview-layout + preview-snapshot e2e 27 passed; walkthrough race reproduced with a 3 s delayed load (fails at :84 without the fix, 12/12 with it). Hosted matrix: pending on the fix PR (must pass twice)"
+      "status": "done",
+      "evidence": "PR #20 merged (claude/laughing-brattain-d2dcf0): best-of-batches completion latency (docs/perf/completion-latency.md), walkthrough-before-load product fix + unit test, useModalKeys same-task Escape, busy-page snapshot starts its own loop; no threshold raised, no test skipped. Hosted matrix (both OS x both shards) green twice on the PR: runs 39020774663 @ 8caf059 and 39029352498 @ 2424815"
     },
     {
       "id": "S28.7",
@@ -5411,8 +5411,8 @@
       ],
       "verify": "auto",
       "depends_on": [],
-      "status": "todo",
-      "evidence": ""
+      "status": "in_progress",
+      "evidence": "Code on PR (claude/s58-4-windows-intermittents). Windows x64 under NOOBIDE_E2E_LOAD=1 (loadCpu, 1.5 busy threads/core), --repeat-each=20: preview-isolation S05.5 tests 40/40; preview-snapshot busy page 20/20; walkthrough.spec 260/260 at 1024x768 (each of its 13 tests 20/20). Pending: the next five hosted runs after merge with no failure in these files."
     },
     {
       "id": "S58.5",

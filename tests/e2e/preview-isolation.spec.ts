@@ -1154,11 +1154,14 @@ test('alert, confirm, prompt, print and beforeunload cannot block the IDE, refre
       return [confirmed, prompted];
     })()`,
   );
-  expect(Date.now() - started).toBeLessThan(3_000);
-  expect(answers[0]).toBe(false);
-  expect([null, 'threw']).toContain(answers[1]);
+  // S58.4: every step below names itself, so a failure on a hosted runner says which dialog or action it was.
+  expect(Date.now() - started, 'alert, confirm, prompt and print return without blocking').toBeLessThan(3_000);
+  expect(answers[0], 'confirm() answers false').toBe(false);
+  expect([null, 'threw'], 'prompt() answers null or throws').toContain(answers[1]);
   // The alert text is shown in the IDE's console instead of a modal dialog, and the IDE still takes input.
-  await expect(page.getByTestId('preview-console')).toContainText('来自页面的提示');
+  await expect(page.getByTestId('preview-console'), 'alert() text shown in the IDE console').toContainText(
+    '来自页面的提示',
+  );
 
   // A page that refuses to unload: refresh still loads a new document, and Stop still ends it.
   const arm = `window.__doc = Math.random();
@@ -1176,18 +1179,21 @@ test('alert, confirm, prompt, print and beforeunload cannot block the IDE, refre
       console.log(`S05.5 refresh attempt ${refreshClicks}: preview ${(await previewInfo(app)).status.state}`);
     await page.getByTestId('preview-reload').click();
     await expect
-      .poll(() => evalInPreview<number | null>(app, 'window.__doc ?? null'), { timeout: 10_000 })
+      .poll(() => evalInPreview<number | null>(app, 'window.__doc ?? null'), {
+        timeout: 10_000,
+        message: 'Refresh loads a new document although the page has a beforeunload handler',
+      })
       .not.toBe(before);
   }).toPass({ timeout: 35_000, intervals: [0] });
   await waitForPreviewState(page, 'running');
   await evalInPreview<number>(app, arm);
   // The IDE takes input (typing autosaves, and the save refreshes the page despite its beforeunload handler).
-  expect(await typeAndMeasure('对话框之后')).toBeLessThan(3_000);
+  expect(await typeAndMeasure('对话框之后'), 'the IDE takes typing after the dialogs').toBeLessThan(3_000);
   const projectId = (await previewInfo(app)).status.projectId;
   const stoppedAt = Date.now();
   await page.getByTestId('preview-stop').click();
   await waitForPreviewState(page, 'stopped');
-  expect(Date.now() - stoppedAt).toBeLessThan(5_000);
+  expect(Date.now() - stoppedAt, 'Stop ends a page with a beforeunload handler').toBeLessThan(5_000);
 
   // Starts are serialised (each reconfigures the project's session); Start, Start, Stop in a row must end stopped.
   await page.evaluate(async (id) => {
@@ -1200,8 +1206,8 @@ test('alert, confirm, prompt, print and beforeunload cannot block the IDE, refre
   }, projectId ?? '');
   await page.waitForTimeout(1_000);
   const after = await previewInfo(app);
-  expect(after.status.state).toBe('stopped');
-  expect(after.previewWebContentsId).toBeNull();
+  expect(after.status.state, 'Start, Start, Stop ends stopped').toBe('stopped');
+  expect(after.previewWebContentsId, 'no preview view left after Start, Start, Stop').toBeNull();
   await waitForPreviewState(page, 'stopped');
 });
 
