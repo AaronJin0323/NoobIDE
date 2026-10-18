@@ -147,7 +147,7 @@ export function resolveReference(fromFile: string, ref: string): string | null {
   const value = ref.trim();
   if (!value || value.startsWith('#') || value.startsWith('//') || /^[A-Za-z][\w+.-]*:/.test(value)) return null;
   if (/[{}$<>\\]/.test(value)) return null;
-  let path = value.split(/[?#]/, 1)[0] ?? '';
+  let path = decodeCharacterReferences(value).split(/[?#]/, 1)[0] ?? '';
   try {
     path = decodeURIComponent(path);
   } catch {
@@ -163,6 +163,23 @@ export function resolveReference(fromFile: string, ref: string): string | null {
     } else parts.push(segment);
   }
   return parts.length ? parts.join('/') : null;
+}
+
+const NAMED_REFERENCES: Readonly<Record<string, string>> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+/**
+ * An attribute value as the browser reads it: `&amp;` → `&`, `&#39;` → `'` … (the common references only; an unknown
+ * one stays as written). NoobIDE writes `&amp;` itself when it inserts an `<img>` for `a&b.png` (image-files.ts).
+ */
+function decodeCharacterReferences(value: string): string {
+  return value.replace(
+    /&(?:#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6})|([a-z]+));/g,
+    (whole, dec?: string, hex?: string, name?: string) => {
+      if (name !== undefined) return NAMED_REFERENCES[name] ?? whole;
+      const code = dec !== undefined ? Number(dec) : parseInt(hex ?? '', 16);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
+    },
+  );
 }
 
 export type ReferenceMatch =

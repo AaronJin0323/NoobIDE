@@ -12,6 +12,7 @@ import {
   relativeReference,
   resolveReference,
 } from './beginner-checks';
+import { imgTag } from '../shared/image-files';
 
 describe('beginner checks (S55.2): references', () => {
   it('resolves relative, ./, ../ and root-relative paths, drops ?query and #fragment, decodes %xx', () => {
@@ -47,6 +48,17 @@ describe('beginner checks (S55.2): references', () => {
     expect(matchReference('images/logoo.png', files)).toEqual({ kind: 'missing', candidates: ['images/logo.png'] });
     expect(matchReference('images/icon.png', files)).toEqual({ kind: 'missing', candidates: ['img/icon.png'] });
     expect(matchReference('images/zzz.png', files)).toEqual({ kind: 'missing', candidates: [] });
+  });
+
+  it('reads character references in a path as the browser does (NoobIDE writes &amp; for a&b.png)', () => {
+    expect(resolveReference('a.html', 'img/a&amp;b.png')).toBe('img/a&b.png');
+    expect(resolveReference('a.html', 'it&#39;s.png?x=1&amp;y=2')).toBe("it's.png");
+    expect(resolveReference('a.html', 'a&b.png')).toBe('a&b.png');
+    expect(resolveReference('a.html', 'a&unknown;.png')).toBe('a&unknown;.png');
+    const files = ['index.html', 'img/a&b.png'];
+    expect(
+      checkBeginnerHtml(imgTag('index.html', 'img/a&b.png'), { relPath: 'index.html', projectFiles: files }),
+    ).toEqual([]);
   });
 
   it('a folder link without its trailing slash is not broken when the folder has an index.html', () => {
