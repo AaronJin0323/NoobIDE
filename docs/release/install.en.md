@@ -8,18 +8,21 @@ Feature S28.6 (agent-check). English translation of install.zh-CN.md (the zh-CN 
 both in step). Every statement was checked against the code and tests at the commit that adds this file.
 Capabilities cite their feature ids (harness/features.json, status "done") in HTML comments. Only add a capability
 together with a done feature that proves it (AGENTS.md, PLAN §4/§9); anything that depends on S28.4
-(upgrade/uninstall), S28.2/S28.3 (signing) or H.1 (minimum OS versions) stays marked as pending until done.
+(upgrade/uninstall) or S28.2/S28.3 (signing) stays marked as pending until done. S59.3 (2026-10-18, owner decision
+H.2): the invite-only beta ships unsigned on both platforms; section 2 explains the first-launch steps and how to check
+the download. Minimum OS versions: owner decision H.1 (2026-10-18), ADR 0003.
 -->
 
 > **Current status (read this first)**
 >
-> - The installers are **not signed yet** (Apple notarisation and Windows code signing are being prepared). Your
->   system warns on first launch; see below for what to do.
+> - This is an **invite-only beta**. Its installers are **not signed** on Mac or Windows (Apple notarisation and
+>   Windows code signing come before the public beta). Your system warns on first launch. **For this beta that
+>   warning is expected**; section 2 shows step by step what to do and how to check that your download is genuine.
 > - The Windows installer and the first launch of a downloaded macOS DMG have not yet passed acceptance on a clean
 >   computer (see the [acceptance checklist](acceptance.md)).
 > - Upgrades keep your settings, recent projects and local history: tested with packaged builds on a Mac; the Windows
 >   installer upgrade and uninstall still need a check on a real Windows computer (marked "Windows: being verified").
-> - The minimum supported OS versions are not decided yet (owner task H.1).
+> - Supported systems: **macOS 13 Ventura or later** on Apple Silicon, **Windows 10 22H2 or later** (64-bit, x64).
 > - The optional AI assistant (section 10) is tested against a simulated provider; a check with real Anthropic and
 >   OpenAI keys is still pending.
 
@@ -29,12 +32,13 @@ together with a done feature that proves it (AGENTS.md, PLAN §4/§9); anything 
 | -------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Mac            | **Apple Silicon** (M1 or later), native arm64 app. Intel Macs are not supported; running under Rosetta is not supported |
 | Windows        | **Windows x64** (64-bit Intel / AMD processor). Windows on Arm is not supported yet                                     |
-| Minimum OS     | **To be decided** (owner task H.1). It will be stated in the release notes                                              |
+| Minimum OS     | **macOS 13 Ventura** or later (Apple Silicon); **Windows 10 22H2** or later, or Windows 11 (x64)                        |
 | Other software | No Node.js, Git or browser extension needed. NoobIDE brings everything it needs to run webpages                         |
 | Network        | Not needed. Core features work fully offline (section 7)                                                                |
 
 <!-- Apple Silicon arm64 only: S06.2 (needs_manual_check, arch inspection), S28.1 DMG arm64; Windows x64: S02.7
-(needs_manual_check). No Node.js needed: Electron bundles Node (ADR 0004); clean-machine proof is S29.1/S29.2. -->
+(needs_manual_check). No Node.js needed: Electron bundles Node (ADR 0004); clean-machine proof is S29.1/S29.2.
+Minimums: owner decision H.1 2026-10-18, docs/decisions/0003-platform-support.md. -->
 
 Linux, Intel Macs and Windows on Arm may be evaluated later.
 
@@ -48,17 +52,33 @@ Linux, Intel Macs and Windows on Arm may be evaluated later.
    Finder sidebar.
 4. Open NoobIDE from Launchpad or the Applications folder.
 
-**First launch (unsigned build):** macOS says it cannot verify the developer and does not open the app. This is
-because the build is not notarised by Apple yet; it does not mean the file is damaged. What to do:
+**First launch (unsigned beta build):** macOS refuses to open the app the first time and says Apple could not verify
+it. **This is expected for the beta:** the build is not signed and notarised by Apple yet. It does not mean the file is
+damaged. First [check the download](#23-checking-the-download), then:
 
-1. Click "Done" in the message (**not** "Move to Trash").
-2. Open **System Settings → Privacy & Security**, scroll down to "Security", find the note about NoobIDE and click
-   **Open Anyway**.
-3. Confirm "Open" once more; you may need to enter your login password. macOS does not ask again after that.
+_macOS 15 Sequoia and later (including the current macOS):_
 
-Only do this when the installer comes from NoobIDE's official release channel. Do not remove the system's security
-mark with Terminal commands. The exact wording differs between macOS versions. Once signed and notarised builds are
-released (S28.2), this step is normally no longer needed.
+1. Open NoobIDE once (double-click it in Applications). A message says "“NoobIDE” Not Opened". Click **Done**
+   (**not** "Move to Trash").
+2. Open **System Settings → Privacy & Security** and scroll down to the **Security** section. You will see a note that
+   "NoobIDE" was blocked. Click **Open Anyway**.
+3. A new message asks again; click **Open Anyway**, then confirm with your login password (or Touch ID).
+4. NoobIDE opens. macOS remembers this and does not ask again for this copy of the app.
+
+On macOS 15 and later, **right-click (Control-click) → Open no longer skips this check**: you must use System Settings
+as above. If you do not see **Open Anyway**, try opening NoobIDE once more, then go back to Privacy & Security; the
+button appears only for a while after a blocked attempt.
+
+_macOS 13 Ventura and macOS 14 Sonoma:_ in Finder, open the Applications folder, **Control-click** (or right-click)
+NoobIDE, choose **Open**, then click **Open** in the message. The System Settings route above works there too.
+
+Only do this when the installer comes from NoobIDE's official release page and its SHA-256 matches. Do not remove the
+system's security mark with Terminal commands. The exact wording differs slightly between macOS versions. Once signed
+and notarised builds are released (S28.2), this step is normally no longer needed.
+
+<!-- S59.3: unsigned beta (owner decision H.2, ADR 0027). The .app is ad-hoc signed as a whole after packaging
+(forge.config.ts adHocSignMac, S28.4 / G3), so Gatekeeper shows the "Not Opened" / Open Anyway path rather than a
+"damaged" message. Real first launch from a downloaded DMG: S29.2 (todo). -->
 
 ### 2.2 Windows x64
 
@@ -68,15 +88,56 @@ released (S28.2), this step is normally no longer needed.
 3. Start-menu and desktop shortcuts named **NoobIDE** are created. The program files live in `%LOCALAPPDATA%\NoobIDE`;
    this location cannot be changed.
 
-**First run (unsigned build):** Windows may show a blue "Windows protected your PC" screen (SmartScreen). What to
-do: click **More info**, check that the app is NoobIDE-Setup.exe, then click **Run anyway**. Only do this when the
-installer comes from NoobIDE's official release channel. Even signed builds may still see this screen for a while
-right after a new version is released.
+**First run (unsigned beta build):** Windows shows a blue screen "Windows protected your PC" (Microsoft Defender
+SmartScreen) and says the publisher is unknown. **This is expected for the beta:** the installer is not code-signed
+yet. It does not mean the file contains a virus. First [check the download](#23-checking-the-download), then:
+
+1. Click **More info** (the small link under the message text).
+2. Check that the app name is **NoobIDE-Setup.exe** (the publisher shows as "Unknown publisher").
+3. Click **Run anyway**. Installation starts as described above.
+
+Your browser may also warn while downloading that the file "isn't commonly downloaded". In Microsoft Edge open the
+**…** menu next to the download, choose **Keep**, then **Show more → Keep anyway**; other browsers have a similar
+"Keep" choice. Only do this when the installer comes from NoobIDE's official release page and its SHA-256 matches.
+Even signed builds may still see these warnings for a while right after a new version is released.
 
 Under Settings → Apps → Installed apps, NoobIDE may show a generic icon for now. This does not affect anything.
 
 <!-- Squirrel.Windows per-user install to %LOCALAPPDATA%\NoobIDE, shortcuts, no admin: ADR 0012 and
-src/platform/squirrel.ts; real install on Windows still pending (S02.7 / S28.1 needs_manual_check). -->
+src/platform/squirrel.ts; real install on Windows still pending (S02.7 / S28.1 needs_manual_check). S59.3:
+SmartScreen path for the unsigned beta (owner decision H.2, ADR 0027); clean-machine run: S29.1 (todo). -->
+
+### 2.3 Checking the download
+
+The release page lists a **SHA-256** value for every file: a long string of letters and numbers, like a fingerprint.
+If the value you compute for your downloaded file is the same, the file is exactly the one we published and was not
+damaged or changed on the way. Because the beta is not signed, please do this check before the first launch.
+
+- **Windows:** open the Start menu, type `cmd` and open **Command Prompt**. Type the command below (if the file is
+  elsewhere, use its folder instead of `%USERPROFILE%\Downloads`) and press Enter:
+
+  ```bat
+  certutil -hashfile "%USERPROFILE%\Downloads\NoobIDE-Setup.exe" SHA256
+  ```
+
+  Or, in **PowerShell**:
+
+  ```powershell
+  Get-FileHash "$env:USERPROFILE\Downloads\NoobIDE-Setup.exe" -Algorithm SHA256
+  ```
+
+- **Mac:** open **Terminal** (Applications → Utilities), type the command below with the exact file name you
+  downloaded, and press Return:
+
+  ```sh
+  shasum -a 256 ~/Downloads/NoobIDE-<version>-arm64.dmg
+  ```
+
+Compare the result with the value on the release page. Upper and lower case do not matter (`certutil` prints lower
+case, `Get-FileHash` upper case). If even one character differs, **do not open the file**: delete it, download it
+again from the release page, and tell us if it still differs.
+
+<!-- S59.3. The release page publishes the SHA-256 of each file (release-notes-template.md "Downloads" table). -->
 
 ## 3. First steps
 
@@ -87,10 +148,12 @@ src/platform/squirrel.ts; real install on Windows still pending (S02.7 / S28.1 n
 - To open an existing webpage folder, click **Open folder…**. For safety, scripts of a folder opened from your computer
   do not run until you click **Start preview** once; NoobIDE remembers that choice.
 - The Help menu has the **Walkthrough** (restart or skip it at any time) and the **Glossary**.
-- The interface starts in Chinese; the **中文 / English** button in the top bar switches the language.
+- The interface follows your system language the first time: Chinese when the system is set to Chinese, English
+  otherwise. You can change it any time under **Help → 中文 / English**; NoobIDE remembers your choice.
 
 <!-- S20.1 templates, S20.2 wizard + default location (src/main/create-project-ipc.ts DEFAULT_LOCATION_NAMES),
-S14.4 start-preview consent, S23.1–S23.4 walkthrough + glossary, S02.5 / S13.1 language persisted. -->
+S14.4 start-preview consent, S23.1–S23.4 walkthrough + glossary, S02.5 / S13.1 language persisted, S47.4 language
+items in the Help menu, S59.2 first-run language from the OS (owner decision H.4, 2026-10-18). -->
 
 ## 4. What NoobIDE can do
 
@@ -155,7 +218,7 @@ Only features proven by automated tests or validation scenarios are listed.
 - The Problems panel shows code-check problems, runtime errors, failed resources and console output separately,
   attributed to the right page load.
 - A problem card shows the file, line, an explanation, what to check, **Go to code** and **Show original error**.
-- 15 kinds of common problems are explained (for example a misspelled name, unbalanced brackets, an element that does
+- 25 kinds of common problems are explained (for example a misspelled name, unbalanced brackets, an element that does
   not exist, a wrong script or image path, a misspelled CSS property, failed fetch, CORS, JSON parsing). When the
   cause is uncertain, the card says "may".
 - A misspelled variable name can be fixed with one click (and undone).

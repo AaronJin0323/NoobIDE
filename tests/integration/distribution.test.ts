@@ -67,6 +67,7 @@ describe('installers (S28.1)', () => {
     expect(packager.buildVersion).toBeUndefined();
     expect(packager.appCopyright).toMatch(/^Copyright © \d{4} /);
     expect(packager.appCategoryType).toBe('public.app-category.developer-tools');
+    expect(packager.extendInfo).toEqual({ LSMinimumSystemVersion: '13.0' });
     expect(packager.win32metadata).toMatchObject({ ProductName: 'NoobIDE', CompanyName: 'NoobIDE' });
   });
 

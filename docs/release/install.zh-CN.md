@@ -6,17 +6,20 @@
 Feature S28.6 (agent-check). Every statement below was checked against the code and tests at the commit that adds
 this file. Capabilities cite their feature ids (harness/features.json, status "done") in HTML comments so a reviewer
 can check them. Rules for editing: only add a capability together with a done feature that proves it (AGENTS.md,
-PLAN §4/§9); anything that depends on S28.4 (upgrade/uninstall), S28.2/S28.3 (signing) or H.1 (minimum OS versions)
-stays marked as pending until that work is done.
+PLAN §4/§9); anything that depends on S28.4 (upgrade/uninstall) or S28.2/S28.3 (signing) stays marked as pending
+until that work is done. S59.3 (2026-10-18, owner decision H.2): the invite-only beta ships unsigned on both
+platforms; section 2 explains the first-launch steps and how to check the download. Minimum OS versions: owner
+decision H.1 (2026-10-18), ADR 0003.
 -->
 
 > **当前状态（请先读）**
 >
-> - 安装包**还没有签名**（Apple 公证和 Windows 代码签名正在准备中）。第一次打开时系统会提示风险，下面写了怎么处理。
+> - 这是**邀请制测试版（beta）**。Mac 和 Windows 的安装包都**没有签名**（Apple 公证和 Windows 代码签名会在公开测试前完成）。
+>   第一次打开时系统会提示风险，**这在测试版里是正常的**；第 2 节一步一步写了怎么处理，以及怎样确认下载的文件是真的。
 > - Windows 安装包和 macOS 下载安装的首次启动，还没有在全新的电脑上完成验收（见 [验收清单](acceptance.md)）。
 > - 升级会保留你的设置、最近的项目和本地历史：已在 Mac 上用打包好的两个版本测试过；Windows 安装包的升级和卸载还需要在真实的
 >   Windows 电脑上确认（标有“Windows：验证中”的地方）。
-> - 支持的最低系统版本还没有确定（待负责人任务 H.1）。
+> - 支持的系统：Apple Silicon 上的 **macOS 13 Ventura 或更新版本**；**Windows 10 22H2 或更新版本**（64 位，x64）。
 > - 可选的 AI 助手（见第 10 节）已经用模拟的服务商测试过；用真实的 Anthropic 和 OpenAI 密钥检查还没有完成。
 
 ## 1. 系统要求
@@ -25,12 +28,13 @@ stays marked as pending until that work is done.
 | -------- | ------------------------------------------------------------------------------------------------ |
 | Mac      | **Apple Silicon**（M1 及以后的芯片），原生 arm64 应用。不支持 Intel Mac，不支持通过 Rosetta 运行 |
 | Windows  | **Windows x64**（64 位 Intel / AMD 处理器）。暂不支持 Windows on Arm                             |
-| 最低系统 | **待定**（负责人任务 H.1）。确定后会写进发布说明                                                 |
+| 最低系统 | **macOS 13 Ventura** 或更新（Apple Silicon）；**Windows 10 22H2** 或更新，或 Windows 11（x64）   |
 | 其他软件 | 不需要安装 Node.js、Git 或浏览器插件。NoobIDE 自带运行网页所需的一切                             |
 | 网络     | 不需要。核心功能可以完全离线使用（见第 7 节）                                                    |
 
 <!-- Apple Silicon arm64 only: S06.2 (needs_manual_check, arch inspection), S28.1 DMG arm64; Windows x64: S02.7
-(needs_manual_check). No Node.js needed: Electron bundles Node (ADR 0004); clean-machine proof is S29.1/S29.2. -->
+(needs_manual_check). No Node.js needed: Electron bundles Node (ADR 0004); clean-machine proof is S29.1/S29.2.
+Minimums: owner decision H.1 2026-10-18, docs/decisions/0003-platform-support.md. -->
 
 Linux、Intel Mac 和 Windows on Arm 以后再评估。
 
@@ -43,15 +47,28 @@ Linux、Intel Mac 和 Windows on Arm 以后再评估。
 3. 把 **NoobIDE** 拖到 **Applications** 上。复制完成后，在访达侧栏里点 DMG 旁边的推出按钮。
 4. 在“启动台”或“应用程序”文件夹里打开 NoobIDE。
 
-**第一次打开时（未签名版本）：** macOS 会提示无法验证这个应用的开发者，不让它打开。这是因为安装包还没有经过 Apple
-公证，不代表文件损坏。处理方法：
+**第一次打开时（未签名的测试版）：** 第一次打开时 macOS 会拒绝打开，提示 Apple 无法验证这个应用。**这在测试版里是正常的：**
+安装包还没有经过 Apple 签名和公证，不代表文件损坏。请先[检查下载的文件](#23-检查下载的文件)，然后：
 
-1. 在提示框里点“完成”（**不要**点“移到废纸篓”）。
-2. 打开 **系统设置 → 隐私与安全性**，向下滚动，在“安全性”部分找到关于 NoobIDE 的提示，点 **仍要打开**。
-3. 再确认一次“打开”，可能需要输入电脑的登录密码。之后再打开就不会再问了。
+_macOS 15 Sequoia 及更新版本（包括当前最新的 macOS）：_
 
-只在确认安装包来自 NoobIDE 官方发布渠道时这样做。不要用终端命令去掉系统的安全标记。提示的具体文字因 macOS
-版本不同而略有差别。签名并公证的版本（S28.2）发布后，正常情况下不再需要这一步。
+1. 先打开一次 NoobIDE（在“应用程序”文件夹里双击它）。会弹出提示“未打开‘NoobIDE’”。点 **完成**（**不要**点“移到废纸篓”）。
+2. 打开 **系统设置 → 隐私与安全性**，向下滚动到 **安全性** 部分，会看到“已阻止‘NoobIDE’”之类的提示。点 **仍要打开**。
+3. 系统会再问一次：点 **仍要打开**，然后输入电脑的登录密码（或使用触控 ID）确认。
+4. NoobIDE 会打开。macOS 会记住这个选择，之后再打开这个应用就不会再问了。
+
+在 macOS 15 及更新版本上，**右键点按（按住 Control 键点按）→ 打开 已经不能跳过这个检查**，必须按上面的方法去系统设置里操作。
+如果看不到 **仍要打开**，请再打开一次 NoobIDE，然后回到“隐私与安全性”：这个按钮只在被阻止后的一段时间内显示。
+
+_macOS 13 Ventura 和 macOS 14 Sonoma：_ 在访达里打开“应用程序”文件夹，**按住 Control 键点按**（或右键点按）NoobIDE，选择
+**打开**，再在提示框里点 **打开**。上面通过系统设置的方法在这两个版本上也可以用。
+
+只在确认安装包来自 NoobIDE 官方发布页面、并且 SHA-256 一致时这样做。不要用终端命令去掉系统的安全标记。提示的具体文字因
+macOS 版本不同而略有差别。签名并公证的版本（S28.2）发布后，正常情况下不再需要这一步。
+
+<!-- S59.3: unsigned beta (owner decision H.2, ADR 0027). The .app is ad-hoc signed as a whole after packaging
+(forge.config.ts adHocSignMac, S28.4 / G3), so Gatekeeper shows the "Not Opened" / Open Anyway path rather than a
+"damaged" message. Real first launch from a downloaded DMG: S29.2 (todo). -->
 
 ### 2.2 Windows x64
 
@@ -59,14 +76,51 @@ Linux、Intel Mac 和 Windows on Arm 以后再评估。
 2. 双击运行。安装**不需要管理员权限**，只装给当前用户，没有安装向导页：短暂显示安装动画后，NoobIDE 会自动打开。
 3. 安装后，开始菜单和桌面上会有 **NoobIDE** 快捷方式。程序文件放在 `%LOCALAPPDATA%\NoobIDE`，位置不能更改。
 
-**第一次运行时（未签名版本）：** Windows 可能显示蓝色的“Windows 已保护你的电脑”（SmartScreen）。处理方法：点
-**更多信息**，确认应用名称是 NoobIDE-Setup.exe，再点 **仍要运行**。只在确认安装包来自 NoobIDE 官方发布渠道时这样做。
-即使以后有了签名，较新的版本在刚发布时也可能仍然出现这个提示。
+**第一次运行时（未签名的测试版）：** Windows 会显示蓝色的“Windows 已保护你的电脑”（Microsoft Defender SmartScreen），
+并显示发布者未知。**这在测试版里是正常的：** 安装包还没有代码签名，不代表文件有病毒。请先[检查下载的文件](#23-检查下载的文件)，然后：
+
+1. 点 **更多信息**（提示文字下面的小链接）。
+2. 确认应用名称是 **NoobIDE-Setup.exe**（发布者显示为“未知发布者”）。
+3. 点 **仍要运行**。之后按上面的说明安装。
+
+下载时浏览器也可能提示这个文件“通常不会被下载”。在 Microsoft Edge 里，点下载项旁边的 **…** 菜单，选 **保留**，再点
+**显示详细信息 → 仍然保留**；其他浏览器也有类似的“保留”选项。只在确认安装包来自 NoobIDE 官方发布页面、并且 SHA-256
+一致时这样做。即使以后有了签名，较新的版本在刚发布时也可能仍然出现这些提示。
 
 在“设置 → 应用 → 已安装的应用”里，NoobIDE 的图标暂时可能显示为通用图标，这不影响使用。
 
 <!-- Squirrel.Windows per-user install to %LOCALAPPDATA%\NoobIDE, shortcuts, no admin: ADR 0012 and
-src/platform/squirrel.ts; real install on Windows still pending (S02.7 / S28.1 needs_manual_check). -->
+src/platform/squirrel.ts; real install on Windows still pending (S02.7 / S28.1 needs_manual_check). S59.3:
+SmartScreen path for the unsigned beta (owner decision H.2, ADR 0027); clean-machine run: S29.1 (todo). -->
+
+### 2.3 检查下载的文件
+
+发布页面上会给每个文件列出一个 **SHA-256** 值：一长串字母和数字，相当于文件的“指纹”。如果你算出来的值和页面上的一样，
+说明文件和我们发布的完全相同，下载过程中没有损坏或被改动。测试版没有签名，所以请在第一次打开前做一次这个检查。
+
+- **Windows：** 打开开始菜单，输入 `cmd`，打开 **命令提示符**。输入下面的命令（如果文件不在“下载”文件夹里，把
+  `%USERPROFILE%\Downloads` 换成文件所在的文件夹），按回车：
+
+  ```bat
+  certutil -hashfile "%USERPROFILE%\Downloads\NoobIDE-Setup.exe" SHA256
+  ```
+
+  也可以在 **PowerShell** 里输入：
+
+  ```powershell
+  Get-FileHash "$env:USERPROFILE\Downloads\NoobIDE-Setup.exe" -Algorithm SHA256
+  ```
+
+- **Mac：** 打开 **终端**（应用程序 → 实用工具），输入下面的命令（换成你下载的文件的准确名字），按回车：
+
+  ```sh
+  shasum -a 256 ~/Downloads/NoobIDE-<版本号>-arm64.dmg
+  ```
+
+把结果和发布页面上的值对比。大小写不影响（`certutil` 显示小写，`Get-FileHash` 显示大写）。只要有一个字符不同，**就不要打开
+这个文件**：删掉它，从发布页面重新下载；如果还是不一样，请告诉我们。
+
+<!-- S59.3. The release page publishes the SHA-256 of each file (release-notes-template.md "Downloads" table). -->
 
 ## 3. 第一次使用
 
@@ -75,10 +129,12 @@ src/platform/squirrel.ts; real install on Windows still pending (S02.7 / S28.1 n
 - 想打开已有的网页文件夹，点 **打开文件夹…**。为了安全，从电脑上打开的文件夹不会自动运行网页脚本，需要先点一次
   **开始预览**；NoobIDE 会记住你的选择。
 - 帮助菜单里有 **入门导览**（随时可以重新开始或跳过）和 **术语表**。
-- 界面默认是中文，顶栏的 **English** 按钮可以切换到英文。
+- 第一次打开时，界面语言跟随系统：系统是中文就显示中文，否则显示英文。随时可以在 **帮助 → 中文 / English** 里切换，NoobIDE
+  会记住你的选择。
 
 <!-- S20.1 templates, S20.2 wizard + default location (src/main/create-project-ipc.ts DEFAULT_LOCATION_NAMES),
-S14.4 start-preview consent, S23.1–S23.4 walkthrough + glossary, S02.5 / S13.1 language persisted. -->
+S14.4 start-preview consent, S23.1–S23.4 walkthrough + glossary, S02.5 / S13.1 language persisted, S47.4 language
+items in the Help menu, S59.2 first-run language from the OS (owner decision H.4, 2026-10-18). -->
 
 ## 4. NoobIDE 能做什么
 
@@ -132,7 +188,7 @@ S14.4 start-preview consent, S23.1–S23.4 walkthrough + glossary, S02.5 / S13.1
 
 - “问题”面板分开显示代码检查、运行时错误、资源加载失败和 console 输出，并对应到正确的那次预览。
 - 问题卡片显示文件、行号、解释、建议检查的地方，以及“转到代码”和“显示原始错误”。
-- 覆盖 15 类常见问题（例如变量名拼错、括号不配对、找不到元素、脚本 / 图片路径错误、CSS 属性拼错、fetch 失败、
+- 覆盖 25 类常见问题（例如变量名拼错、括号不配对、找不到元素、脚本 / 图片路径错误、CSS 属性拼错、fetch 失败、
   跨域、JSON 解析）。不确定原因时会说“可能”。
 - 变量名拼错时可以一键修正（可以撤销）。
 

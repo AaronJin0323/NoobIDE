@@ -124,6 +124,8 @@ const config: ForgeConfig = {
     icon: 'resources/icons/icon',
     appCopyright: APP_COPYRIGHT,
     appCategoryType: 'public.app-category.developer-tools',
+    // S59.1 / ADR 0003: macOS 13 Ventura is the minimum (Apple Silicon only); Finder refuses older versions.
+    extendInfo: { LSMinimumSystemVersion: '13.0' },
     win32metadata: {
       CompanyName: 'NoobIDE',
       ProductName: 'NoobIDE',

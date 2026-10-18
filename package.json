@@ -1,7 +1,7 @@
 {
   "name": "noobide",
   "productName": "NoobIDE",
-  "version": "0.0.0",
+  "version": "0.1.0-beta.1",
   "private": true,
   "description": "A beginner-friendly desktop IDE for HTML / CSS / JavaScript.",
   "license": "MIT",
