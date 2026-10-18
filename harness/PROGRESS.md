@@ -24,6 +24,13 @@ from main @ 774dae9.
   (serialised, overflows coalesced), then reports one rescan. New test in `tests/integration/watcher.test.ts` (fails
   on the old code).
 
+- AI status (found by PR #44's hosted macOS CI; the same failure on 2026-10-17, run 39050007173): `useAiStatus`
+  applied whichever status reply came last, so a read sent before the key was removed could switch `/ai` back on and
+  take Enter. `latestOnly` (ai-status.ts, unit-tested) applies only the newest call's reply.
+- E2e robustness on hosted Windows (no product change): the console-flood test waits for the preview view before
+  typing, its DevTools source capture now encloses the main-side count, and `waitForPreviewState` waits 60 s by
+  default (the product allows 30 s for the first document, 45 s for the guard).
+
 **Evidence:** `src/workspace/time-limit.test.ts` (3), `tests/integration/project-search.test.ts` S51.6 block (4),
 `search-model.test.ts` (+1). Against the old `project-search.ts` the per-file test hangs (killed) and the budget and
 yield tests fail. `npm run verify` green on macOS arm64 (harness, typecheck, lint, format, test, perf).

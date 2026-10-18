@@ -50,7 +50,12 @@ export function previewInfo(app: ElectronApplication): Promise<PreviewInfo> {
   );
 }
 
-export async function waitForPreviewState(page: Page, state: string, timeout = 20_000): Promise<void> {
+/**
+ * A functional wait, not a speed budget: the product itself waits up to 30 s for a preview's first document and 45 s
+ * for its page guard (S05.8), and on a loaded hosted Windows runner a Start once stayed `starting` for over 20 s
+ * (PR #44, run 39093872611). Tests that bound start time measure it themselves.
+ */
+export async function waitForPreviewState(page: Page, state: string, timeout = 60_000): Promise<void> {
   await expect(page.getByTestId('preview-state')).toHaveAttribute('data-state', state, { timeout });
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   AiApi,
   AiErrorCode,
@@ -49,16 +49,43 @@ export function inlineAvailable(status: AiStatus | null): boolean {
   );
 }
 
+/**
+ * Wraps an asynchronous read so that only the reply of the newest call is applied: `apply` is skipped for a call that
+ * a later one superseded. Main answers status reads concurrently (key storage is read asynchronously), so an older
+ * read can answer last: a read sent before the key was removed then switched the AI surfaces back on (the macOS
+ * ai-prompt e2e saw `/ai` take Enter after the key was cleared, PR #44 run 39093872611).
+ */
+export function latestOnly<T>(read: () => Promise<T>, apply: (value: T) => void): () => Promise<void> {
+  let newest = 0;
+  return async () => {
+    newest += 1;
+    const call = newest;
+    const value = await read();
+    if (call === newest) apply(value);
+  };
+}
+
 export function useAiStatus(
   api: AiApi | undefined,
   projectId: string | null,
 ): { readonly status: AiStatus | null; readonly refresh: () => Promise<void> } {
   const [status, setStatus] = useState<AiStatus | null>(null);
+  // One sequence per api and project: a reply for the previous project is never applied either.
+  const read = useMemo(
+    () =>
+      api
+        ? latestOnly(
+            () => api.status({ projectId }),
+            (result) => {
+              if (result.ok) setStatus(result.value);
+            },
+          )
+        : null,
+    [api, projectId],
+  );
   const refresh = useCallback(async () => {
-    if (!api) return;
-    const result = await api.status({ projectId });
-    if (result.ok) setStatus(result.value);
-  }, [api, projectId]);
+    await read?.();
+  }, [read]);
   useEffect(() => {
     void refresh();
     const onChange = () => void refresh();
