@@ -64,9 +64,7 @@ describe('quick open matcher (S51.5)', () => {
     expect(pushRecent(recent, 'css/style.css')[0]).toBe('css/style.css');
   });
 
-  // The "< 50 ms per keystroke" budget is in tests/perf/quick-open.perf.test.ts (S58.8, ADR 0038): it failed hosted
-  // macOS runners twice (75.7 ms, 59.7 ms) while measuring nothing about the change under test.
-  it('filters 2 000 indexed files keystroke by keystroke', () => {
+  it('ranks over 2 000 indexed files at every keystroke (its time budget: tests/perf/quick-open.perf.test.ts)', () => {
     const files: string[] = [];
     for (let i = 0; i < 2000; i += 1) files.push(`栏目 ${i % 20}/子 目录 ${i % 7}/页面 ${i}.html`);
     files.push('css/样式 表.css');

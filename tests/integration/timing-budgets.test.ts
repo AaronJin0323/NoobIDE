@@ -16,6 +16,8 @@ const FUNCTIONAL_TIMEOUTS: Record<string, string> = {
   'src/ai/fake-provider.test.ts': 'cancelling a slow fake stream returns in < 5 s',
   'src/preview/page-snapshot.test.ts': 'a 50 ms outline timeout fires in < 1 s',
   'tests/integration/wake-recovery.test.ts': 'answers(300) gives up in < 2 s on a silent socket',
+  'src/workspace/time-limit.test.ts': 'a 50 ms regex limit stops a pattern that runs for hours in < 1 s',
+  'tests/integration/project-search.test.ts': 'a 100 ms per-file regex limit ends the search in < 2 s (gap < 1 s)',
 };
 
 interface TimingAssertion {
