@@ -236,7 +236,7 @@ describe('project search under a slow regular expression (S51.6)', () => {
   });
 
   it('gives the event loop a turn after each slow file, not only between batches', async () => {
-    const buffers = Array.from({ length: 16 }, (_, i) => ({ relPath: `f${i}.js`, text: 'card\n'.repeat(10) }));
+    const buffers = Array.from({ length: 64 }, (_, i) => ({ relPath: `f${i}.js`, text: 'card\n'.repeat(10) }));
     const ticksDuring = async (yieldAfterMs: number | undefined) => {
       let ticks = 0;
       let running = true;
@@ -257,8 +257,9 @@ describe('project search under a slow regular expression (S51.6)', () => {
       return ticks;
     };
     const normal = await ticksDuring(undefined);
-    // Every file counts as slow (-1 ms): one turn after each of the 16 files of the single batch.
+    // Every file counts as slow (-1 ms): one turn after each of the 64 files instead of one per batch of 16. The
+    // count also includes a few turns spent listing the folder, which vary between runs: hence the margin.
     const slow = await ticksDuring(-1);
-    expect(slow).toBeGreaterThanOrEqual(normal + 15);
+    expect(slow - normal).toBeGreaterThanOrEqual(40);
   });
 });
