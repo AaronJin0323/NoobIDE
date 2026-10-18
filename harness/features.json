@@ -5643,7 +5643,7 @@
         "S27.3"
       ],
       "status": "needs_manual_check",
-      "evidence": "memoryJsFlags (win32 only) + ts-idle-stop.ts (10 tests) @ 9f94c29/2e5876c; Windows measurement steps in harness/MANUAL-CHECKS.md#S59.5"
+      "evidence": "memoryJsFlags (win32 only, src/platform/index.test.ts) wired in src/main/main.ts; TS worker idle stop removed (broke Format Document's shortcut, history.spec e2e); Windows measurement steps in harness/MANUAL-CHECKS.md#S59.5"
     }
   ]
 }

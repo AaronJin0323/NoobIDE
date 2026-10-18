@@ -42,20 +42,17 @@ budget by the working-set sum). Windows meets the cold-start and save → previe
 - **S27.3 trigger (superseded by S59.5):** act if the 8 GB Windows reference machine also misses. First profile the
   Windows GPU process with `scripts/measure-memory.mjs`. Then apply the options under "Remaining gap" in
   `docs/perf/memory.md`, in order: `--js-flags=--max-semi-space-size=2`, then an idle stop for the TypeScript worker.
-- **Fix in progress (S59.5, 2026-10-18).** Both "Remaining gap" options are implemented, with unit tests:
-  1. **`--js-flags=--max-semi-space-size=2`, Windows only** (`memoryJsFlags()` in `src/platform/index.ts`, appended
-     in `src/main/main.ts` next to the other Chromium switches). Chromium passes it to every renderer (workbench and
-     preview). macOS keeps V8's default young generation: it meets the budget by ~120 MB and need not pay the extra
-     minor GCs, so the macOS numbers cannot regress from this change.
-  2. **Idle stop for the TypeScript/JavaScript worker, all platforms** (`src/renderer/editor/ts-idle-stop.ts`, wired
-     in `monaco-setup.ts`): after 5 minutes without a JavaScript language request, and only while no request awaits a
-     reply, the worker is stopped (≈ −83 MB); the next request starts a fresh one. See `memory.md` → Changes.
+- **Fix in progress (S59.5, 2026-10-18).** The first "Remaining gap" option is implemented, with a unit test:
+  **`--js-flags=--max-semi-space-size=2`, Windows only** (`memoryJsFlags()` in `src/platform/index.ts`, appended in
+  `src/main/main.ts` next to the other Chromium switches). Chromium passes it to every renderer (workbench and
+  preview). macOS keeps V8's default young generation: it meets the budget by ~120 MB and need not pay the extra minor
+  GCs, so the macOS numbers cannot regress from this change. The second option (TypeScript worker idle stop) was tried
+  and removed because it broke the Format Document shortcut (`memory.md` → Remaining gap).
 - **Not yet proven.** The new Windows numbers must come from `node scripts/measure-perf.mjs --write` on the Windows
   x64 machine (steps: `harness/MANUAL-CHECKS.md` → S59.5); this miss closes only when that run's typical median is
   ≤ 700 MB (n=3). No numbers here have been measured with the change yet (the change was made in a Linux container
-  without a display). **Caution:** the measured typical case opens `index.html` only and samples after 30 s idle, so
-  the TypeScript worker is probably not running there and its idle stop (5 min) cannot lower that number; the
-  expected gain comes from the semi-space flag (on macOS: idle unchanged, renderer with a JS file −25 MB). If the run
+  without a display). The measured typical case opens `index.html` only and samples after 30 s idle, so the expected
+  gain comes from the semi-space flag (on macOS: idle unchanged, renderer with a JS file −25 MB). If the run
   still misses, the next step is the one S27.3 named: profile the Windows GPU process (159–176 MB private) with
   `scripts/measure-memory.mjs`.
 

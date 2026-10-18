@@ -93,29 +93,6 @@ export class WorkerSupervisor {
     return [...this.watched].filter((w) => w.kind === kind && !w.dead).map((w) => w.worker);
   }
 
-  /** Whether a request to a live worker of this kind is still waiting for its reply (S59.5: never stop it then). */
-  busy(kind: WorkerKind): boolean {
-    return [...this.watched].some((w) => w.kind === kind && !w.dead && w.waitingSince !== null);
-  }
-
-  /**
-   * Stops watching the live workers of a kind and terminates them, without a restart (S59.5: the TypeScript worker's
-   * idle stop; Monaco creates a fresh one on the next request, and `watch` sees it). Returns how many there were.
-   */
-  retire(kind: WorkerKind): number {
-    const entries = [...this.watched].filter((w) => w.kind === kind && !w.dead);
-    for (const entry of entries) {
-      entry.dead = true;
-      this.watched.delete(entry);
-      try {
-        entry.worker.terminate();
-      } catch {
-        // Already gone.
-      }
-    }
-    return entries.length;
-  }
-
   /** One check (the timer calls this; tests call it directly). */
   check(): void {
     const now = this.now();

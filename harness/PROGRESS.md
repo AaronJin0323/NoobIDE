@@ -25,8 +25,11 @@ accepted; S58.5 undecided. Recorded in docs/release/owner-decisions.md. H.x stay
 - S59.4 (needs_manual_check): version 0.1.0-beta.1, `docs/release/notes-0.1.0-beta.1.md`, `LSMinimumSystemVersion`
   13.0 in forge.config.ts (distribution.test.ts).
 - S59.5 (needs_manual_check): Windows-only `--js-flags=--max-semi-space-size=2` via `memoryJsFlags` in src/platform;
-  TypeScript worker idle stop after 5 min (`ts-idle-stop.ts`, wraps Monaco's private WorkerManager, guarded by tests
-  against Monaco 0.57.0 source). Owner steps in MANUAL-CHECKS.md#S59.5.
+  owner steps in MANUAL-CHECKS.md#S59.5. A TypeScript worker idle stop was also built and then removed: its static
+  import of Monaco's private `typescript/workerManager` broke the Format Document shortcut (PR #46 CI run
+  39094652477; reproduced in the Linux container with Ctrl+Shift+I, passes with the import removed).
+- PR #46 CI follow-ups: authoring-offline and upgrade start the packaged binary themselves, so they now get the zh-CN
+  pin too (`packagedLanguageArgs()` + `seedZhCnSettings`).
 
 **Evidence:** typecheck, lint, format, harness green; unit/integration 3677 passed, 5 failed. The 5 failures
 (read-only permission ×4, junction move) fail identically on main 6be5227 in this container because it runs as uid 0;
@@ -35,8 +38,7 @@ environmental reasons only; it must be confirmed on the Windows dev machine.
 
 **Decisions / risks:** Squirrel turns 0.1.0-beta.1 into nupkg version 0.1.0-beta1 and Windows FileVersion shows
 0.1.0.1 (cosmetic) — check on the first Windows `npm run make`. `-AppleLanguages` pin unverified until the macos-14
-e2e job runs. The TS idle stop probably does not change the measured "typical" scenario (no JS model open); the
-semi-space flag must close the ~10 MB gap or the GPU process gets profiled next. ADR 0029 still mentions "zh-CN
+e2e job runs. The semi-space flag must close the ~10 MB gap or the GPU process gets profiled next. ADR 0029 still mentions "zh-CN
 default" as historical context.
 
 **Next up:** owner: tick H.1/H.4 (then S01.4 can close), run `npm run verify` + e2e on Windows, run

@@ -46,9 +46,8 @@ node harness/session.mjs set <id> done --evidence "manual: <platform, OS version
 ### S59.5 — Windows memory after the reductions
 
 The S27.3 miss (Windows typical-project working-set sum median 709 MB, max 710 MB vs the ~700 MB budget) was not
-accepted. S59.5 adds `--js-flags=--max-semi-space-size=2` on Windows only and stops the idle TypeScript worker after
-5 minutes on all platforms (`docs/perf/memory.md` → "Remaining gap", `docs/perf/targets.md` → Misses). Unit tests
-cover both; the memory effect can only be measured on real hardware. The agent session had no Windows machine.
+accepted. S59.5 adds `--js-flags=--max-semi-space-size=2` on Windows only (`docs/perf/memory.md` → "Remaining
+gap", `docs/perf/targets.md` → Misses). A unit test covers the switch; the memory effect can only be measured on real hardware. The agent session had no Windows machine.
 
 - **Platform:** Windows 11 x64 (the dev machine i9-13900KF / 32 GB as in S27.1, or the 8 GB reference machine — say
   which). Then the Apple Silicon Mac for the no-regression check.
