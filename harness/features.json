@@ -4581,6 +4581,25 @@
       "evidence": "tests/e2e/palette-quick-open.spec.ts (5: Ctrl+P files mode, recent first, ignored/dot files excluded, axe; fuzzy Chinese/space match and Enter opens a tab; '>' switches to commands; View menu + palette entry) + src/renderer/commands/quick-open-model.test.ts (ranking, Chinese paths, ignore, recent, 2001-file benchmark worst keystroke ~3 ms) + commands.test on Windows x64"
     },
     {
+      "id": "S51.6",
+      "session": "S51",
+      "milestone": "M19",
+      "title": "Project search survives a catastrophic regular expression",
+      "description": "Session 49c audit: project search ran the user's regex on the main thread, so a pattern like (a+)+$ could hang the whole IDE.",
+      "acceptance": [
+        "Matching each file runs under a time limit enforced by V8 (node:vm timeout), so a backtracking regex such as (a+)+$ over a long line stops after at most the per-file limit instead of hanging main (integration test with measured time)",
+        "A search that hits the limit answers a typed regex-too-slow error, never partial results presented as complete, and the find-in-files panel explains it in zh-CN and en with a hint to simplify the pattern (unit tests)",
+        "A total matching budget per search stops a pattern that is slow on every file, and main yields to the event loop after any slow file, so the event loop stays responsive between files (integration test)",
+        "Ordinary searches are unaffected: existing project-search integration and perf tests pass unchanged"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S51.2"
+      ],
+      "status": "done",
+      "evidence": "src/workspace/time-limit.test.ts (3: value, (a+)+$ stopped at the limit, errors pass + reuse) + tests/integration/project-search.test.ts S51.6 (4: per-file limit with event-loop gap measured, open buffers + default limits, total budget never partial, a turn after each slow file; against the old code the per-file test hangs and the other two fail) + search-model.test (zh-CN/en regex-too-slow); existing project-search integration + perf tests unchanged; verify green on macOS arm64 @ 774dae9+branch"
+    },
+    {
       "id": "S52.1",
       "session": "S52",
       "milestone": "M19",

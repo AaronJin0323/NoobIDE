@@ -3,6 +3,53 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 51 — 2026-10-18 — S51.6: project search survives a catastrophic regular expression
+
+**Agent:** Claude (Opus 5.5) on the owner's Apple Silicon Mac (macOS arm64), branch `claude/search-regex-time-limit`
+from main @ 774dae9.
+
+**Done**
+
+- S51.6 (new, from the 49c audit's first candidate) — project search ran the user's regex in main with no time
+  limit, so `(a+)+$` over a long line froze the whole IDE. `src/workspace/time-limit.ts` runs synchronous code under a
+  `node:vm` timeout (a V8 watchdog that also interrupts a regex inside a function of this realm; verified in Node 24
+  and in Electron's Node). `project-search.ts` matches each file under it: 200 ms per file, 10 s per search, else the
+  typed error `regex-too-slow` (never partial results). After a file whose matching took > 16 ms the event loop gets
+  a turn, not only between batches of 16. The panel shows it like an invalid regex, with a zh-CN/en hint to simplify
+  the pattern (`search.regexTooSlow`).
+
+- Watcher (found by PR #44's hosted Windows CI, failed twice): when ReadDirectoryChangesW overflows, libuv reports
+  an event without a filename; the watcher emitted `rescan` but kept its snapshot, so lost deletes stayed in it for
+  good (the mass-delete test ended with 111 / 198 stale entries). `watcher.ts` now rebuilds the snapshot first
+  (serialised, overflows coalesced), then reports one rescan. New test in `tests/integration/watcher.test.ts` (fails
+  on the old code).
+
+- AI status (found by PR #44's hosted macOS CI; the same failure on 2026-10-17, run 39050007173): `useAiStatus`
+  applied whichever status reply came last, so a read sent before the key was removed could switch `/ai` back on and
+  take Enter. `latestOnly` (ai-status.ts, unit-tested) applies only the newest call's reply.
+- E2e robustness on hosted Windows (no product change): the console-flood test waits for the preview view before
+  typing, its DevTools source capture now encloses the main-side count, and `waitForPreviewState` waits 60 s by
+  default (the product allows 30 s for the first document, 45 s for the guard).
+
+**Evidence:** `src/workspace/time-limit.test.ts` (3), `tests/integration/project-search.test.ts` S51.6 block (4),
+`search-model.test.ts` (+1). Against the old `project-search.ts` the per-file test hangs (killed) and the budget and
+yield tests fail. `npm run verify` green on macOS arm64 (harness, typecheck, lint, format, test, perf).
+
+**Decisions:** `vm` timeout instead of a worker thread: no new bundle entry in Forge's Vite config, testable in
+vitest as-is, about 0.15 ms overhead per call. Cost: a bad pattern still blocks main for up to 200 ms once.
+
+**Problems / risks:** replace in files (renderer) still runs the regex unbounded, but only on files the search
+already matched within the limit (same text, fingerprint-checked), so it can only be as slow as that search was.
+
+**Owner action needed:** none.
+
+**Next up**
+
+1. The remaining 49c candidates: AI `request()` outliving a reloaded page; AnnotationsStrip list replies without a
+   sequence check; temp-file names making > ~200-char names fail with ENAMETOOLONG. Owner decisions:
+   `registerDropped` accepting any absolute path; history blobs kept while an index is quarantined.
+2. S06.4 waits for the S06.2/S06.3 manual checks.
+
 ## Session 50 (side session) — 2026-10-18 — S58.4 Windows e2e intermittents under load; S06.6 closed
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/s58-4-windows-intermittents` from main.

@@ -203,6 +203,10 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
       }, 10);
     });
     await page.getByTestId('preview-start').click();
+    // The keystrokes below must land while the page floods, so they wait for its view. On the hosted Windows runner
+    // the preview was still starting 4 s after Start once (PR #44, run 39092618284): the keystrokes all landed before
+    // the flood and the first read of the page found no preview.
+    await expect.poll(async () => (await previewInfo(app)).previewWebContentsId, { timeout: 30_000 }).not.toBeNull();
     const sent = await app.evaluate(async ({ BrowserWindow }, at) => {
       const wc = BrowserWindow.getAllWindows()[0]?.webContents;
       if (!wc) return { sends: [] as number[], mainLag: 0 };
@@ -804,16 +808,29 @@ async function measureMainStall(
       const sourceTimes: number[] = [];
       const sessions = new Set<string>();
       const enabling: Promise<unknown>[] = [];
-      if (ratePerSecond > 0) await wc.debugger.sendCommand('Runtime.enable');
+      // The source capture must enclose the main-side count: a message at the window's edge reaches main through two
+      // channels (console-message and the DevTools event) at slightly different times, and hosted Windows once
+      // counted it on one side only (401 received, 400 captured). So the DevTools listener starts before
+      // Runtime.enable and stops well after console-message (teardown below). Runtime.enable replays messages the
+      // page logged earlier; only those from the last second before this window are kept (CDP timestamps are ms
+      // since the epoch), which may add a stray message or two to the source side, never take one away.
+      const since = Date.now() - 1_000;
       const onProtocol = (_event: unknown, method: string, params: { timestamp?: number; sessionId?: string }) => {
         if (method === 'Target.attachedToTarget' && params.sessionId) {
           sessions.add(params.sessionId);
           enabling.push(wc.debugger.sendCommand('Runtime.enable', {}, params.sessionId).catch(() => undefined));
-        } else if (method === 'Runtime.consoleAPICalled' && typeof params.timestamp === 'number') {
+        } else if (
+          method === 'Runtime.consoleAPICalled' &&
+          typeof params.timestamp === 'number' &&
+          params.timestamp >= since
+        ) {
           sourceTimes.push(params.timestamp);
         }
       };
-      if (ratePerSecond > 0) wc.debugger.on('message', onProtocol);
+      if (ratePerSecond > 0) {
+        wc.debugger.on('message', onProtocol);
+        await wc.debugger.sendCommand('Runtime.enable');
+      }
       let messages = 0;
       let sinceTick = 0;
       let batch = 0;
@@ -882,6 +899,8 @@ async function measureMainStall(
       await new Promise((r) => setTimeout(r, 1_000)); // whatever main still had queued
       clearInterval(timer);
       wc.off('console-message', onMessage);
+      // DevTools events of the last messages main counted may still be on their way.
+      if (ratePerSecond > 0) await new Promise((r) => setTimeout(r, 250));
       wc.debugger.off('message', onProtocol);
       await Promise.all(enabling);
       if (ratePerSecond > 0) {

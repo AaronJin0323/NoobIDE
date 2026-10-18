@@ -76,6 +76,8 @@ export type SearchError =
   | 'unknown-project'
   /** The regular expression does not compile; `message` is the engine's explanation. */
   | 'invalid-regex'
+  /** The regular expression took too long to run (S51.6: it backtracks too much); nothing partial is reported. */
+  | 'regex-too-slow'
   /** A newer search (or a cancel) replaced this one. */
   | 'cancelled'
   | 'search-failed';
