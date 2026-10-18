@@ -360,5 +360,8 @@ export const NOT_FOUND_CSP = "default-src 'none'; style-src 'unsafe-inline'; bas
 
 function tokenMatches(header: string | string[] | undefined, token: string): boolean {
   if (typeof header !== 'string' || header.length !== token.length) return false;
-  return timingSafeEqual(Buffer.from(header), Buffer.from(token));
+  // Compare byte lengths too: a non-ASCII header of the same character length would make timingSafeEqual throw.
+  const given = Buffer.from(header);
+  const expected = Buffer.from(token);
+  return given.length === expected.length && timingSafeEqual(given, expected);
 }

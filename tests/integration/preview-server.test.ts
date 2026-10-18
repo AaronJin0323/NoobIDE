@@ -143,6 +143,10 @@ describe('binding and ownership (S04.1)', () => {
     expect((await raw('/index.html', { token: null })).status).toBe(403);
     expect((await raw('/index.html', { token: 'x'.repeat(64) })).status).toBe(403);
     expect((await raw('/index.html', { token: 'short' })).status).toBe(403);
+    // Same length in characters but not in bytes (header values are latin1): still a plain refusal, not a 500.
+    expect((await raw('/index.html', { token: '\u00e9'.repeat(64) })).status).toBe(403);
+    const cookie = { Cookie: `noobide-preview-${server.port}=${'\u00e9'.repeat(64)}` };
+    expect((await raw('/index.html', { token: null, headers: cookie })).status).toBe(403);
   });
 
   it.each(['localhost', `localhost:0`, 'evil.example', '127.0.0.1', '127.0.0.1:1', '[::1]'])(
