@@ -1419,12 +1419,16 @@ export function Workbench() {
         return { ok: false, code: failure.code };
       },
       holdPreview: () => {
-        const pause = () => void bridge.preview.typing?.();
-        pause();
-        const timer = setInterval(pause, 150);
+        // S58.10: an explicit hold in main. Typing pings every 150 ms against main's 400 ms pause were not enough: a
+        // busy renderer (hosted Windows, PR #48) missed the window and the page reloaded in the middle of the batch.
+        // Renewed well inside main's 30 s lease, which ends the hold if this window dies mid-batch.
+        const hold = () => void bridge.preview.holdRefresh?.();
+        hold();
+        const timer = setInterval(hold, 5_000);
         return () => {
           clearInterval(timer);
-          pause(); // the one refresh follows the typing pause after the last save
+          void bridge.preview.typing?.(); // the one refresh follows the typing pause after the last save
+          void bridge.preview.releaseRefresh?.();
         };
       },
     };

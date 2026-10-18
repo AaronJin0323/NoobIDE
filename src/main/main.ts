@@ -455,8 +455,11 @@ function start(): void {
       const root = savedIn.rootOf(file.projectId);
       if (root === undefined) return;
       // S14.2: automatic mode refreshes after the typing pause; manual mode marks the page as outdated.
-      void effectiveProjectConfig(root).then((config) =>
-        preview.fileSaved(file.projectId, refreshModeOf(config), file.relPath),
+      // S58.10: registered before the save returns to the renderer, so a refresh hold's release waits for it.
+      preview.saveArriving(
+        effectiveProjectConfig(root).then((config) =>
+          preview.fileSaved(file.projectId, refreshModeOf(config), file.relPath),
+        ),
       );
     });
     registerPreviewIpcHandlers(ipcMain, {

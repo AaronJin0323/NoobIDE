@@ -247,6 +247,8 @@ export class PreviewManager {
 
   /** S14.2: automatic refresh after a confirmed save and a typing pause. */
   private readonly refresher: RefreshScheduler;
+  /** S58.10: notices of confirmed saves not yet passed to fileSaved (see saveArriving). */
+  private readonly savesArriving = new Set<Promise<unknown>>();
   /** S25.4: one console notice per denied permission kind and page load. */
   private readonly permissionNotices = new PermissionNotices();
   /** S54: project paths saved since the last automatic update (consumed when the refresh fires). */
@@ -695,6 +697,26 @@ export class PreviewManager {
   /** S14.2: a key was typed in the code editor; a pending automatic refresh waits for the pause. */
   typing(): void {
     this.refresher.typing();
+  }
+
+  /** S58.10: a batch of saves (replace in files) is starting; the automatic refresh waits for its release. */
+  holdRefresh(): void {
+    this.refresher.hold();
+  }
+
+  /**
+   * S58.10: the batch is done; the one refresh for it follows the typing pause. A save of the batch whose notice is
+   * still on its way (savesArriving) is waited for first, or it would arrive after the release and reload again.
+   */
+  async releaseRefresh(): Promise<void> {
+    await Promise.allSettled([...this.savesArriving]);
+    this.refresher.release();
+  }
+
+  /** S58.10: a confirmed save whose fileSaved call is still on its way (main reads the refresh mode first). */
+  saveArriving(arrival: Promise<unknown>): void {
+    this.savesArriving.add(arrival);
+    void arrival.finally(() => this.savesArriving.delete(arrival)).catch(() => undefined);
   }
 
   // --- S14.5 / S15.4: toolbar actions (owner checks are done by the IPC layer) ---

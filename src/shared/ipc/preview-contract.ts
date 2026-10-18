@@ -13,6 +13,9 @@ export const PREVIEW_CHANNELS = {
   setBounds: 'preview:set-bounds',
   // S14.2 refresh mode, typing pause, one-time notes
   typing: 'preview:typing',
+  /** S58.10: hold the automatic refresh for a batch of saves, and release it. */
+  holdRefresh: 'preview:hold-refresh',
+  releaseRefresh: 'preview:release-refresh',
   setRefreshMode: 'preview:set-refresh-mode',
   notes: 'preview:notes',
   noteSeen: 'preview:note-seen',
@@ -220,6 +223,12 @@ export interface PreviewApi {
   // --- S14.2 ---
   /** A key was typed in the code editor (throttled by the workbench): delays an automatic refresh. */
   typing?(): Promise<IpcResult<null, never>>;
+  /**
+   * S58.10 (owner window only, S14.6): no automatic refresh until releaseRefresh, so a batch of saves (replace in files) reloads the page once.
+   * Main ends a hold that is not renewed within 30 s by itself; call it again to renew.
+   */
+  holdRefresh?(): Promise<IpcResult<null, 'not-owner'>>;
+  releaseRefresh?(): Promise<IpcResult<null, 'not-owner'>>;
   /** Writes the refresh mode into `.noobide/project.json`. */
   setRefreshMode?(request: SetRefreshModeRequest): Promise<IpcResult<RefreshMode, SetRefreshModeError>>;
   /** Which one-time notes were already shown (app data). */

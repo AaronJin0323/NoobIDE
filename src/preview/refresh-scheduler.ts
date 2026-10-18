@@ -4,6 +4,10 @@
  * (autosave, or ⌘S mid-sentence) waits until no key was pressed in the editor for `quietMs`, so the page does not
  * reload under the user's fingers on every autosave. A save after a pause refreshes at once.
  *
+ * A hold (S58.10) keeps a pending refresh waiting for a whole batch of saves, such as replace in files, without
+ * relying on typing pings arriving within `quietMs` from a busy renderer. A hold always ends: on release, or when its
+ * lease runs out, so a renderer that crashed or hung mid-batch never stops the preview from refreshing.
+ *
  * Pure apart from the injected clock and timer, so the rules are unit-tested with fake time.
  */
 export interface RefreshSchedulerOptions {
@@ -16,10 +20,13 @@ export interface RefreshSchedulerOptions {
 }
 
 export const DEFAULT_TYPING_PAUSE_MS = 400;
+/** S58.10: longest a hold lasts without being renewed. */
+export const DEFAULT_HOLD_LEASE_MS = 30_000;
 
 export class RefreshScheduler {
   private pending = false;
   private lastTyping = Number.NEGATIVE_INFINITY;
+  private heldUntil = Number.NEGATIVE_INFINITY;
   private timer: unknown = null;
   private readonly now: () => number;
   private readonly setTimer: (fn: () => void, ms: number) => unknown;
@@ -48,6 +55,18 @@ export class RefreshScheduler {
     if (this.pending) this.arm();
   }
 
+  /** S58.10: no refresh runs until release() or until `leaseMs` from now; holding again renews the lease. */
+  hold(leaseMs = DEFAULT_HOLD_LEASE_MS): void {
+    this.heldUntil = this.now() + leaseMs;
+    if (this.pending) this.arm();
+  }
+
+  /** Ends the hold: a refresh that waited for it runs now, or after the typing pause. */
+  release(): void {
+    this.heldUntil = Number.NEGATIVE_INFINITY;
+    if (this.pending) this.arm();
+  }
+
   /** The preview stopped or switched: nothing pending any more. */
   cancel(): void {
     this.pending = false;
@@ -56,7 +75,7 @@ export class RefreshScheduler {
 
   private arm(): void {
     this.disarm();
-    const wait = this.lastTyping + this.options.quietMs - this.now();
+    const wait = Math.max(this.lastTyping + this.options.quietMs, this.heldUntil) - this.now();
     if (wait <= 0) {
       this.fire();
       return;

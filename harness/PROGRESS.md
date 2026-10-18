@@ -36,6 +36,24 @@ Apply the S58.9 `REAL_IO` pattern to them and to every other integration file th
   the per-file yield removed from `src/workspace/project-search.ts` it fails (0 ≥ 64), so it still checks what it is
   for.
 
+- Owner decision: fix in this PR the e2e failure of the second run (39101372358, Windows shard 1):
+  `find-replace-in-files.spec.ts:126` saw 2 preview loads, expected 1. Cause: replace in files "held" the refresh
+  with typing pings every 150 ms from the renderer against main's 400 ms typing pause; a busy renderer misses that
+  window and main reloads mid-batch (a real bug on slow machines, not only CI). Now `RefreshScheduler.hold(leaseMs)`
+  / `release()` (`src/preview/refresh-scheduler.ts`), exposed as `preview:hold-refresh` / `preview:release-refresh`
+  (no payload, trusted-sender checked like `typing`); the renderer holds at the start, renews every 5 s and
+  releases after the last save. A hold that is never released ends after 30 s. Proof: 6 scheduler tests with fake
+  time, an IPC test; locally the spec failed with the old code plus a 700 ms busy-wait per commit (2 loads, the CI
+  symptom) and passes with the fix and the same busy-wait. Its `:150` test (external change reaching the tab) fails
+  in this container on the untouched tree too; it passes on the hosted runners.
+- Review (subagent, CLAUDE.md: preview/IPC change) found no blocker; two follow-ups taken: (1) main notices a save
+  only after reading project.json, so the last save of a batch could reach the scheduler after the release and
+  reload again: `onSaved` now registers the notice with `PreviewManager.saveArriving()` before the save returns, and
+  `releaseRefresh()` waits for those notices (a failed read cannot keep the hold); (2) hold and release are refused
+  for a window that does not own the preview (S14.6), so another window's release cannot cut the owner's hold.
+  Not taken: a cap on renewals for a batch that hangs in a live renderer (manual Reload still works; the lease
+  covers crashed and closed windows).
+
 **Evidence:** typecheck, lint, format and harness check green. npm test: 5 failures, the same 5 as on the untouched
 tree in this container (root ignores read-only files; the junction test), 3656 passed. perf: the watcher mass-delete
 lag budget fails here on the untouched tree as well (budgets are enforced on the dev machine only). timing-budgets

@@ -112,3 +112,28 @@ describe('PreviewManager.stop races', () => {
     expect(statuses(sent).at(-1)).toBe('stopped');
   });
 });
+
+describe('PreviewManager refresh hold (S58.10)', () => {
+  it('a release waits for save notices still on their way, so the batch reloads the page once', async () => {
+    const manager = new PreviewManager({ rootOf: () => root });
+    const calls: string[] = [];
+    (manager as unknown as { refresher: unknown }).refresher = {
+      hold: () => calls.push('hold'),
+      release: () => calls.push('release'),
+    };
+    manager.holdRefresh();
+    let arrive: () => void = () => undefined;
+    manager.saveArriving(new Promise<void>((resolve) => (arrive = resolve)).then(() => void calls.push('saved')));
+    // A notice that fails (the refresh-mode read threw) must not keep the hold forever.
+    manager.saveArriving(Promise.reject(new Error('config read failed')));
+    const released = manager.releaseRefresh();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(calls).toEqual(['hold']);
+    arrive();
+    await released;
+    expect(calls).toEqual(['hold', 'saved', 'release']);
+    // Nothing is left waiting: the next release is immediate.
+    await manager.releaseRefresh();
+    expect(calls).toEqual(['hold', 'saved', 'release', 'release']);
+  });
+});

@@ -5533,7 +5533,7 @@
       "status": "in_progress",
       "evidence": "",
       "title": "Real-I/O integration tests: functional timeouts and cleanup that survives a cut-off test",
-      "description": "Owner request 2026-10-18. Starved hosted Windows runners still hit the 5 s Vitest default in integration tests that do real file-system or process I/O, on main and on PRs: ai-service.test.ts:201, checkpoint-restore.test.ts:171 and :208 (whose cleanup then failed with ENOTEMPTY because the timed-out test was still writing), checkpoint-store.test.ts:89, release-workflow.test.ts:236 (main, run 39097174400). S58.9 fixed the same class in history-store and file-copy with a local REAL_IO 60 s timeout. Owns tests/integration/real-io.ts and the timeouts and cleanup of the files it lists.",
+      "description": "Owner request 2026-10-18. Starved hosted Windows runners still hit the 5 s Vitest default in integration tests that do real file-system or process I/O, on main and on PRs: ai-service.test.ts:201, checkpoint-restore.test.ts:171 and :208 (whose cleanup then failed with ENOTEMPTY because the timed-out test was still writing), checkpoint-store.test.ts:89, release-workflow.test.ts:236 (main, run 39097174400). S58.9 fixed the same class in history-store and file-copy with a local REAL_IO 60 s timeout. Owns tests/integration/real-io.ts and the timeouts and cleanup of the files it lists. Owner decision 2026-10-18: the replace-in-files preview hold found on PR #48 (two page loads on hosted Windows) is fixed in this feature as well.",
       "acceptance": [
         "tests/integration/real-io.ts exports REAL_IO (60 s functional timeout, the S58.9 value) and a temp-folder removal that retries ENOTEMPTY/EBUSY/EPERM, so a test cut off mid-write does not also fail its cleanup; history-store, file-copy, history-ipc, history-groups and history-triggers use the shared REAL_IO instead of local copies",
         "ai-service, checkpoint-restore, checkpoint-store and the release-workflow bash -n test run under REAL_IO, with hook timeouts for their setup and cleanup",
@@ -5541,6 +5541,7 @@
         "A unit test proves the removal helper removes a folder that is still being written to while it runs",
         "The S51.6 per-file yield test in project-search counts the search's own setImmediate yields, not busy-loop turns that also accrue while the folder listing waits on a busy disk (it failed in this session with slow - normal = -635); without the per-file yield it still fails",
         "tests/integration/timing-budgets.test.ts (S58.8) still passes: no new wall-clock assertion, these are Vitest timeouts, not budgets",
+        "Replace in files holds the automatic preview refresh in main (RefreshScheduler.hold/release over typed, sender-checked preview IPC) instead of 150 ms typing pings against the 400 ms pause; a hold ends on release or after a 30 s lease, so a dead renderer never blocks refreshes; unit tests with fake time and IPC tests prove it, and find-replace-in-files.spec.ts:102 passes with a renderer busy 700 ms per file, where the old code reloaded twice",
         "npm run verify gates that can run in the session are green; the hosted Windows and macOS matrix of the PR is green"
       ]
     }
