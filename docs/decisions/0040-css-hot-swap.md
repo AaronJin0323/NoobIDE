@@ -10,7 +10,7 @@
 Every successful save reloads the preview (S10.5, S14.2). For a beginner tuning colours and spacing that throws away
 what they typed into the page's form, the scroll position and any state the page's script built, so they have to
 scroll back and re-type after every save. VS Code's Live Preview and IntelliJ's built-in preview update CSS in place;
-the gap review (docs/reviews/mainstream-ide-gap-2026-10-17.md §4, item S54) asks for the same.
+the gap review (docs/reviews/mainstream-ide-gap-2026-10-17.md, retired: docs/history.md §4, item S54) asks for the same.
 
 Constraints (AGENTS.md "Preview isolation", decisions 0009 / 0030): the page is untrusted code in a sandboxed
 `WebContentsView` with **no preload**, no Node, context isolation, a per-project partition and **no IDE IPC**. The

@@ -5,7 +5,7 @@ import { useSheetLayer } from './sheet-stack';
 
 /**
  * S49.1 — the one shell every modal dialog uses (assessment 2026-10-16, P1 item 6 and P2 item 12; the Sheet part of
- * the archived S44 anatomy, docs/archive/s44-s45-hig). What every sheet gets, by construction:
+ * the archived S44 anatomy, commit a110002; docs/history.md). What every sheet gets, by construction:
  *
  *   - a title (an h2 that names the dialog, optionally with a small icon) and a Close control top-right, whose
  *     accessible name is the caller's own word for leaving (Close, Cancel, Decide later);

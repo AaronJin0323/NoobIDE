@@ -3,6 +3,38 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 53b (cloud) — 2026-10-18 — S59.6: pre-beta repository cleanup
+
+**Agent:** Claude in a Linux cloud container, branch `claude/sleepy-keller-thu7nw` restarted from main 674a1d4.
+Owner asked for a project-wide cleanup of work files and useless files before the public beta, with all critical
+information kept in one file.
+
+**Done**
+
+- Audit (read-only subagent): no tracked logs, temp files or stray screenshots; every script and every test fixture
+  is referenced; only five docs are read by tests (capabilities, product/checkpoints, release/signing,
+  perf/ci-runners, perf/<platform>), and all of them stay.
+- Removed `docs/archive/s44-s45-hig/` (44 files; S45.9 superseded by S50.1) and five finished one-off documents:
+  reviews/interface-assessment-2026-10-14, product/liquid-glass-study, product/ui-ux-improvement-plan,
+  reviews/ui-ux-assessment-2026-10-16, reviews/mainstream-ide-gap-2026-10-17. Also the session's
+  reviews/beta-readiness-session-2026-10-18 and six redundant `.gitkeep` files (docs/research keeps its own).
+- New `docs/history.md`: the standing design rules and term table, non-goals, proposal tones, the motion
+  "not copied" list, open owner questions and ideas, the M19 "not recommended" list, what became of the archive, the
+  beta-readiness root causes, Linux-container test notes and the backlog rebase recipe. Full texts:
+  `git show 674a1d4:<path>`.
+- References repointed: Notice.tsx, Sheet.tsx, proposal-tone.ts, motion.css, terms.test.ts, ADRs 0029/0039/0040/0041,
+  ROADMAP.md, product/checkpoints.md, product/explanation-rules-16-25.md, MANUAL-CHECKS S40.8. AGENTS.md lists
+  docs/history.md; docs/testing.md links its container notes. Paths in done features' acceptance text stay as
+  history (the tamper guard forbids editing them).
+- Kept on purpose: ADRs, gate reviews, release docs, docs/perf, docs/ci (S58.4/S58.5 open), the calm design spec,
+  wireframes and task script (H.3/H.6/H.7 open), every MANUAL-CHECKS section (owner confirmations still owed),
+  PROGRESS.md (the protocol depends on it).
+
+**Evidence:** typecheck, lint, format and the harness check pass; `npm test` 3691 passed, 5 failed (the known
+Linux-root-only permission/junction tests, same on main).
+
+**Next up:** owner runs from Session 53 (acceptance, S59.5 memory, S36.1 live AI); delete the merged remote branches.
+
 ## Session 53 (cloud) — 2026-10-18 — S59: invite-only beta readiness from the owner's answers
 
 **Agent:** Claude in a Linux cloud container (no display, runs as root), branch `claude/sleepy-keller-thu7nw` from

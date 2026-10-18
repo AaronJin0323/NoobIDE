@@ -125,6 +125,7 @@ docs/
   ROADMAP.md            milestones → sessions, dependency graph, change rules
   decisions/            architecture decision records
   testing.md            test strategy and conventions
+  history.md            retired plans/studies digest, standing design rules, cloud-container test notes
   product/ wireframes/ research/ reviews/ perf/ release/
 src/  main platform preload renderer workspace preview diagnostics recovery shared   (see each README.md)
 resources/  templates lessons

@@ -163,7 +163,7 @@ Owner-led: H.7 beta with 8–12 new beginners, H.8 public-beta go/no-go. Agent s
 
 ### M19 — Everyday editing parity (PLAN §12 v0.2, owner request 2026-10-17)
 
-From [docs/reviews/mainstream-ide-gap-2026-10-17.md](reviews/mainstream-ide-gap-2026-10-17.md) §4. Suggested order
+From the M19 gap review §4 (retired; [docs/history.md](history.md)). Suggested order
 S51 → S52 → S53 → S55 → S54 → S56 → S57; the sessions are independent of each other and can run in parallel lanes.
 PLAN's v0.2 entry criterion ("static-webpage MVP is stable") is an owner call (review §6), not a session dependency.
 

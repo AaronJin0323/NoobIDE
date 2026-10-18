@@ -8,8 +8,8 @@
 
 On 2026-10-15 the owner asked for the interface to follow Apple's Liquid Glass design language. The S30 visual
 foundation (semantic tokens, synchronised Monaco theme, light and dark) fixed hierarchy and credibility issues from the
-[interface assessment](../reviews/interface-assessment-2026-10-14.md), but the chrome still looks flat and boxed. The
-study [docs/product/liquid-glass-study.md](../product/liquid-glass-study.md) reads Apple's guidance area by area.
+interface assessment (retired; [history](../history.md)), but the chrome still looks flat and boxed. The
+study docs/product/liquid-glass-study.md (retired; [history](../history.md)) reads Apple's guidance area by area.
 
 Constraints that any direction must respect:
 

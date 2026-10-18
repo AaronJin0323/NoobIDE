@@ -1,5 +1,5 @@
 /**
- * S48.8: one tone per proposal state (docs/product/ui-ux-improvement-plan.md B8). A pending change is the only one
+ * S48.8: one tone per proposal state (docs/history.md, "AI proposal tones"). A pending change is the only one
  * that asks for attention (the prominent border and the single primary action); applying is neutral with a status
  * dot; applied, failed and rejected use the ok / danger / muted soft fills; expired stays quiet. Every tone comes with
  * its own icon shape and a word, so the state never depends on colour (AGENTS.md accessibility). Pure TypeScript.

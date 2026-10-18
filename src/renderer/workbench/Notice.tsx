@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { DangerCircleIcon, InfoCircleIcon, SuccessCircleIcon, WarningIcon } from './icons';
 
 /**
- * S50.2 — the one notice anatomy (rebuilt from the archived S45.2 Notice, docs/archive/s44-s45-hig): a tone icon, a
+ * S50.2 — the one notice anatomy (rebuilt from the archived S45.2 Notice, commit a110002; docs/history.md): a tone icon, a
  * one-line title, at most one sentence, the details behind a disclosure, then the trailing actions with at most one
  * primary (last). The tone is carried by the icon's shape, the words and `data-tone`, never by colour alone; only a
  * `danger` notice (something failed) has the danger fill — a report or a confirmation never does.
