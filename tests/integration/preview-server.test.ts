@@ -114,6 +114,49 @@ describe('binding and ownership (S04.1)', () => {
     await replacing;
   });
 
+  it('closes a streamed file when the client goes away mid-download', async (ctx) => {
+    // Open handles are listed by /proc on Linux only; the leak matters most on Windows (an open file cannot be
+    // renamed over or deleted), where the same code path runs.
+    if (process.platform !== 'linux') ctx.skip();
+    const { readdir, readlink } = await import('node:fs/promises');
+    const file = path.join(root, '大 视频.bin');
+    await writeFile(file, Buffer.alloc(40 * 1024 * 1024, 1)); // above the in-memory limit: streamed
+    const openHandles = async () => {
+      let count = 0;
+      for (const fd of await readdir('/proc/self/fd')) {
+        try {
+          if ((await readlink(`/proc/self/fd/${fd}`)) === file) count += 1;
+        } catch {
+          // fd closed meanwhile
+        }
+      }
+      return count;
+    };
+    await new Promise<void>((resolve, reject) => {
+      const req = request(
+        {
+          host: '127.0.0.1',
+          port: server.port,
+          path: `/${encodeURIComponent('大 视频.bin')}`,
+          headers: { Host: `127.0.0.1:${server.port}`, [TOKEN_HEADER]: server.token },
+        },
+        (res) => {
+          res.once('data', () => {
+            req.destroy(); // the page navigated away, or the user pressed refresh
+            resolve();
+          });
+        },
+      );
+      req.on('error', () => undefined);
+      req.on('close', () => resolve());
+      req.end();
+      setTimeout(() => reject(new Error('no response')), 5_000);
+    });
+    const deadline = Date.now() + 3_000;
+    while ((await openHandles()) > 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 20));
+    expect(await openHandles()).toBe(0);
+  });
+
   it('is not reachable on another local interface address', async () => {
     const other = Object.values(os.networkInterfaces())
       .flat()
@@ -143,6 +186,10 @@ describe('binding and ownership (S04.1)', () => {
     expect((await raw('/index.html', { token: null })).status).toBe(403);
     expect((await raw('/index.html', { token: 'x'.repeat(64) })).status).toBe(403);
     expect((await raw('/index.html', { token: 'short' })).status).toBe(403);
+    // Same length in characters but not in bytes (header values are latin1): still a plain refusal, not a 500.
+    expect((await raw('/index.html', { token: '\u00e9'.repeat(64) })).status).toBe(403);
+    const cookie = { Cookie: `noobide-preview-${server.port}=${'\u00e9'.repeat(64)}` };
+    expect((await raw('/index.html', { token: null, headers: cookie })).status).toBe(403);
   });
 
   it.each(['localhost', `localhost:0`, 'evil.example', '127.0.0.1', '127.0.0.1:1', '[::1]'])(
