@@ -33,8 +33,10 @@ Apply the S58.9 `REAL_IO` pattern to them and to every other integration file th
 - project-search S51.6 "gives the event loop a turn after each slow file" failed twice in this session's full runs
   (`slow - normal = -635`): it counted turns of a setImmediate loop, and that loop also spins while the folder listing
   waits on a busy disk. It now counts the search's own `setImmediate` calls (≥ 64 more with every file slow). With
-  the per-file yield removed from `src/workspace/project-search.ts` it fails (0 ≥ 64), so it still checks what it is
-  for.
+  the per-file yield removed from `src/workspace/project-search.ts` it fails, so it still checks what it is for.
+  First version asserted `slow - normal ≥ 64` and failed on hosted Windows with 63: one file of the normal run was
+  slow on its own and added a yield. It now asserts the slow run alone: ≥ 64 per-file + 4 per-batch turns (68
+  locally); without the per-file yield it gives 4.
 
 - Owner decision: fix in this PR the e2e failure of the second run (39101372358, Windows shard 1):
   `find-replace-in-files.spec.ts:126` saw 2 preview loads, expected 1. Cause: replace in files "held" the refresh

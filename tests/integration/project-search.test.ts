@@ -257,9 +257,11 @@ describe('project search under a slow regular expression (S51.6)', () => {
       }
     };
     const normal = await yieldsDuring(undefined);
-    // Every file counts as slow (-1 ms): one turn after each of the 64 files on top of the one per batch of 16.
-    const slow = await yieldsDuring(-1);
+    // At least one turn per batch of 16. A file that is slow on its own (a starved runner) adds one more, so this
+    // is a lower bound and is not subtracted below (hosted Windows gave 63 = 68 - 5 that way, PR #48).
     expect(normal).toBeGreaterThanOrEqual(4);
-    expect(slow - normal).toBeGreaterThanOrEqual(64);
+    // Every file counts as slow (-1 ms): one turn after each of the 64 files on top of the 4 per batch (68 here).
+    const slow = await yieldsDuring(-1);
+    expect(slow).toBeGreaterThanOrEqual(64 + 4);
   });
 });
