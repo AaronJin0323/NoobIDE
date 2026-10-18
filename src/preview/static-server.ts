@@ -8,6 +8,7 @@ import {
   type ServerResponse,
 } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { pipeline } from 'node:stream';
 import { mimeTypeFor } from './mime';
 import { parseRequestTarget, resolveInRoot } from './request-path';
 import { notFoundPageHtml, shownRequestPath } from './not-found-page';
@@ -292,8 +293,9 @@ async function handle(req: IncomingMessage, res: ServerResponse, ctx: HandleCont
     }
     const stream = handle.createReadStream({ start: 0, end: info.size - 1, autoClose: true });
     streaming = true;
-    stream.on('error', () => res.destroy());
-    stream.pipe(res);
+    // pipeline, not pipe: when the client goes away (navigation, refresh, a media element seeking) pipe would only
+    // unpipe and leave the file open for good; pipeline destroys the stream, which closes the handle.
+    pipeline(stream, res, () => undefined);
   } finally {
     if (!streaming) await handle.close().catch(() => undefined);
   }
