@@ -804,16 +804,29 @@ async function measureMainStall(
       const sourceTimes: number[] = [];
       const sessions = new Set<string>();
       const enabling: Promise<unknown>[] = [];
-      if (ratePerSecond > 0) await wc.debugger.sendCommand('Runtime.enable');
+      // The source capture must enclose the main-side count: a message at the window's edge reaches main through two
+      // channels (console-message and the DevTools event) at slightly different times, and hosted Windows once
+      // counted it on one side only (401 received, 400 captured). So the DevTools listener starts before
+      // Runtime.enable and stops well after console-message (teardown below). Runtime.enable replays messages the
+      // page logged earlier; only those from the last second before this window are kept (CDP timestamps are ms
+      // since the epoch), which may add a stray message or two to the source side, never take one away.
+      const since = Date.now() - 1_000;
       const onProtocol = (_event: unknown, method: string, params: { timestamp?: number; sessionId?: string }) => {
         if (method === 'Target.attachedToTarget' && params.sessionId) {
           sessions.add(params.sessionId);
           enabling.push(wc.debugger.sendCommand('Runtime.enable', {}, params.sessionId).catch(() => undefined));
-        } else if (method === 'Runtime.consoleAPICalled' && typeof params.timestamp === 'number') {
+        } else if (
+          method === 'Runtime.consoleAPICalled' &&
+          typeof params.timestamp === 'number' &&
+          params.timestamp >= since
+        ) {
           sourceTimes.push(params.timestamp);
         }
       };
-      if (ratePerSecond > 0) wc.debugger.on('message', onProtocol);
+      if (ratePerSecond > 0) {
+        wc.debugger.on('message', onProtocol);
+        await wc.debugger.sendCommand('Runtime.enable');
+      }
       let messages = 0;
       let sinceTick = 0;
       let batch = 0;
@@ -882,6 +895,8 @@ async function measureMainStall(
       await new Promise((r) => setTimeout(r, 1_000)); // whatever main still had queued
       clearInterval(timer);
       wc.off('console-message', onMessage);
+      // DevTools events of the last messages main counted may still be on their way.
+      if (ratePerSecond > 0) await new Promise((r) => setTimeout(r, 250));
       wc.debugger.off('message', onProtocol);
       await Promise.all(enabling);
       if (ratePerSecond > 0) {
