@@ -354,6 +354,8 @@ test('IME text stays intact and candidate keys do not send or close the inline e
   await input.dispatchEvent('compositionend', { data: '' });
   await input.press('Enter');
   await expect(zone()).toHaveAttribute('data-phase', 'review');
+  // The review takes focus as it appears (layout effect), so this Escape is the panel's.
+  await expect(zone().getByTestId('inline-edit-accept')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(zone()).toHaveCount(0);
 });

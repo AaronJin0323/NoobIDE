@@ -43,7 +43,11 @@ afterEach(async () => {
 const paste = (from: string[], toFolder: string) => service.copyEntries({ projectId, from, toFolder, mode: 'paste' });
 const duplicate = (from: string[]) => service.copyEntries({ projectId, from, toFolder: '', mode: 'duplicate' });
 
-describe('duplicate (S52.2)', () => {
+// Real copies on disk. A starved hosted Windows runner took over 5 s for one test (run 39061118593): functional timeouts
+// sized like history-groups (docs/perf/ci-runners.md §2, S58.8), not speed budgets.
+const REAL_IO = { timeout: 60_000 };
+
+describe('duplicate (S52.2)', REAL_IO, () => {
   it('duplicates a file next to itself as "name copy.ext", then "name copy 2.ext"', async () => {
     expect(await duplicate(['页面 二.html'])).toEqual({
       ok: true,
@@ -68,7 +72,7 @@ describe('duplicate (S52.2)', () => {
   });
 });
 
-describe('copy and paste (S52.2)', () => {
+describe('copy and paste (S52.2)', REAL_IO, () => {
   it('pastes into another folder under the same name', async () => {
     expect(await paste(['页面 二.html', '图片 素材'], '目标 文件夹')).toMatchObject({
       ok: true,
@@ -137,7 +141,7 @@ describe('copy and paste (S52.2)', () => {
   });
 });
 
-describe('a copy that fails half-way (S52.2 fault tests)', () => {
+describe('a copy that fails half-way (S52.2 fault tests)', REAL_IO, () => {
   /** The real file system, failing the copy of the n-th file. */
   const failingAt = (n: number, code: string, partial = false): CopyFs => {
     let files = 0;

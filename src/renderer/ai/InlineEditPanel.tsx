@@ -1,5 +1,5 @@
 import { isImeKey } from '../workbench/ime';
-import { useEffect, useId, useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { shortcutLabel, type PlatformId } from '../../platform/labels';
 import { useI18n } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/index';
@@ -104,8 +104,10 @@ export function InlineEditPanel({
   const setFocus = (node: HTMLElement | null) => {
     focusRef.current = node;
   };
-  // Each phase puts keyboard focus on its main control (input, Stop, Accept, Close…).
-  useEffect(() => {
+  // Each phase puts keyboard focus on its main control (input, Stop, Accept, Close…), in a layout effect: before the
+  // phase is painted, so a key pressed the moment it shows (Esc on the review) reaches the panel, not the body that
+  // the removed control left focused (ai-edit.spec failed this way on hosted Windows, run 39061118593).
+  useLayoutEffect(() => {
     focusRef.current?.focus();
   }, [state.phase]);
 

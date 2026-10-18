@@ -90,7 +90,11 @@ afterEach(async () => {
   await rm(tmp, { recursive: true, force: true });
 });
 
-describe('snapshot store (S21.1)', () => {
+// Real snapshots on disk. A starved hosted Windows runner took over 5 s for one test (run 39084558959): functional timeouts
+// sized like history-groups (docs/perf/ci-runners.md §2, S58.8), not speed budgets.
+const REAL_IO = { timeout: 60_000 };
+
+describe('snapshot store (S21.1)', REAL_IO, () => {
   it('stores content-addressed blobs and a JSON index in app data, never in the project', async () => {
     const before = await tree(root);
     const s = store();
@@ -240,7 +244,7 @@ describe('snapshot store (S21.1)', () => {
   });
 });
 
-describe('history is never lost to read errors or damage (S21.1 review)', () => {
+describe('history is never lost to read errors or damage (S21.1 review)', REAL_IO, () => {
   async function fiveVersions(s: SnapshotStore) {
     for (let i = 1; i <= 5; i += 1) {
       clock += 120_000;
