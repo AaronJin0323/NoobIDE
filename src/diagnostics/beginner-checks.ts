@@ -324,22 +324,36 @@ export function checkBeginnerHtml(text: string, facts: BeginnerFacts = {}): Begi
   const { tags, raw } = scanHtml(text);
   const firstId = new Map<string, number>();
   const open: { name: string; offset: number }[] = [];
+  // How many elements of each name are open: a closing tag with none open is a stray without scanning the stack.
+  // The stack can be thousands deep in valid HTML (paragraphs whose `</p>` is omitted), and this runs while typing.
+  const openCount = new Map<string, number>();
   const unclosed = new Set<number>();
   const strays: { tag: Tag; open?: { name: string; offset: number } }[] = [];
 
   for (const tag of tags) {
     if (tag.closing) {
-      const index = open.map((e) => e.name).lastIndexOf(tag.name);
+      let index = -1;
+      if (openCount.get(tag.name)) {
+        for (let k = open.length - 1; k >= 0 && index < 0; k -= 1) if (open[k]?.name === tag.name) index = k;
+      }
       if (index < 0) {
-        const expected = [...open].reverse().find((e) => !OPTIONAL_END.has(e.name));
+        let expected: { name: string; offset: number } | undefined;
+        for (let k = open.length - 1; k >= 0 && !expected; k -= 1) {
+          const e = open[k];
+          if (e && !OPTIONAL_END.has(e.name)) expected = e;
+        }
         strays.push({ tag, ...(expected ? { open: expected } : {}) });
         continue;
       }
-      for (const e of open.splice(index)) if (e.name !== tag.name) unclosed.add(e.offset);
+      for (const e of open.splice(index)) {
+        openCount.set(e.name, (openCount.get(e.name) ?? 1) - 1);
+        if (e.name !== tag.name) unclosed.add(e.offset);
+      }
       continue;
     }
     if (!VOID.has(tag.name) && text[tag.end - 2] !== '/') {
       open.push({ name: tag.name, offset: tag.nameStart });
+      openCount.set(tag.name, (openCount.get(tag.name) ?? 0) + 1);
     }
 
     // Rule 17: duplicate id.
@@ -476,7 +490,9 @@ export function checkBeginnerCss(text: string): BeginnerFinding[] {
     if (c !== '{' && c !== '}' && c !== ';' && i !== code.length) continue;
     // A segment ending in `{` is a selector or an at-rule prelude; others are declarations (inside a block).
     if (c !== '{' && depth > 0) {
-      const decl = /^(\s*)([A-Za-z-]+)(\s*:\s*)([\s\S]*?)\s*$/.exec(code.slice(segmentStart, i));
+      // The value is trimmed afterwards: a lazy value followed by `\s*$` backtracks quadratically over long runs of
+      // whitespace inside a declaration.
+      const decl = /^(\s*)([A-Za-z-]+)(\s*:\s*)([\s\S]*)$/.exec(code.slice(segmentStart, i));
       if (
         decl?.[2] &&
         decl[4] !== undefined &&
@@ -484,7 +500,7 @@ export function checkBeginnerCss(text: string): BeginnerFinding[] {
         !decl[4].includes('(')
       ) {
         const valueStart = segmentStart + (decl[1]?.length ?? 0) + decl[2].length + (decl[3]?.length ?? 0);
-        const value = decl[4];
+        const value = decl[4].trimEnd();
         const bare = /(^|\s)(-?(?:\d+\.?\d*|\.\d+))(?=\s|$|!)/.exec(value);
         if (bare?.[2] && Number(bare[2]) !== 0) {
           const start = valueStart + bare.index + (bare[1]?.length ?? 0);
