@@ -3,6 +3,27 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 52b (cloud side session) — 2026-10-18 — S58.10: Windows CI timing flakes in integration tests
+
+**Agent:** Claude in a Linux cloud container, branch `claude/windows-ci-flakes` from main 4582901. Owner asked to fix
+the flakes that blocked PR #46 in a separate PR first.
+
+**Done**
+
+- `ai-service`, `checkpoint-restore` and `checkpoint-store` integration tests get the S58.9 `REAL_IO` 60 s functional
+  timeout; their `afterEach` cleanup retries `rm` (maxRetries 5), so a test cut off mid-write cannot fail the next
+  with ENOTEMPTY (seen on Windows, PR #46 run 39099449151).
+- `release-workflow` "the bash blocks parse" gets 60 s (one Git Bash per step; > 5 s on main run 39097174400).
+- `project-search` "gives the event loop a turn after each slow file": counts the search's own `setImmediate` calls
+  (exactly 64 more with every file slow) instead of racing a free-running tick loop (hosted Windows measured −87 vs
+  ≥ 40). Mutation check: replacing the per-file yield with `await Promise.resolve()` makes it fail (0 vs 64).
+- `docs/perf/ci-runners.md` lists the new timeouts.
+
+**Evidence:** the six touched files 76 passed / 2 skipped locally; timing-budgets guard passes; typecheck, lint,
+format green; `npm test` 3654 passed, 5 failed (the known Linux-root-only permission/junction tests, same on main).
+
+**Next up:** hosted matrix on the PR closes S58.10; then PR #46 (S59) is rebased onto it.
+
 ## Session 52 (side session) — 2026-10-18 — CI triage: S58.8 timing-budget guard, S58.9 intermittents
 
 **Agent:** Claude (Opus 5.5), cloud session (Linux x64, root), branch `claude/serene-ramanujan-b9xq2e` from main

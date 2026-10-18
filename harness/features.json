@@ -5521,6 +5521,26 @@
         "The preview-isolation console-flood fixes of PR #44 (91046e5, 1fdbbc1) are on this branch unchanged",
         "npm run verify gates that can run in the session are green; the e2e changes are proven by the hosted matrix of the PR"
       ]
+    },
+    {
+      "id": "S58.10",
+      "session": "S58",
+      "milestone": "M20",
+      "title": "Windows CI timing flakes in integration tests (real-I/O timeouts, deterministic search yield test)",
+      "description": "Owner request 2026-10-18 (PR #46 runs 39099449151 + re-run, main run 39097174400). On a starved hosted Windows runner real-I/O tests in ai-service, checkpoint-restore, checkpoint-store and the release-workflow bash parse hit the 5 s default, and the S51.6 project-search yield test raced a free-running tick loop (measured slow − normal = −87).",
+      "acceptance": [
+        "ai-service, checkpoint-restore, checkpoint-store use the S58.9 REAL_IO 60 s functional timeout; their cleanup retries rm (maxRetries) so a cut-off test cannot fail the next one with ENOTEMPTY",
+        "release-workflow \"the bash blocks parse\" gets a 60 s functional timeout",
+        "project-search \"gives the event loop a turn after each slow file\" counts the search's own setImmediate calls (exactly 64 more with every file slow) and fails when the per-file yield is removed",
+        "timing-budgets.test.ts (S58.8) still passes; docs/perf/ci-runners.md lists the new timeouts",
+        "Hosted Windows and macOS matrix green on the PR"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S58.9"
+      ],
+      "status": "in_progress",
+      "evidence": ""
     }
   ]
 }

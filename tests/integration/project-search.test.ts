@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { searchProject } from '../../src/workspace/project-search';
 import type { OpenBuffer, SearchResults } from '../../src/shared/ipc/search-contract';
 import type { SearchQuery } from '../../src/shared/search';
@@ -237,29 +237,27 @@ describe('project search under a slow regular expression (S51.6)', () => {
 
   it('gives the event loop a turn after each slow file, not only between batches', async () => {
     const buffers = Array.from({ length: 64 }, (_, i) => ({ relPath: `f${i}.js`, text: 'card\n'.repeat(10) }));
-    const ticksDuring = async (yieldAfterMs: number | undefined) => {
-      let ticks = 0;
-      let running = true;
-      const loop = () => {
-        ticks += 1;
-        if (running) setImmediate(loop);
-      };
-      setImmediate(loop);
-      const result = await searchProject(
-        root,
-        8,
-        q('card'),
-        buffers,
-        yieldAfterMs === undefined ? {} : { yieldAfterMs },
-      );
-      running = false;
-      expect(result.ok).toBe(true);
-      return ticks;
+    // S58.10: counts the turns the search itself gives (its setImmediate calls) instead of racing a free-running
+    // tick loop, whose count depended on how busy the machine was (hosted Windows measured slow − normal = −87).
+    const yieldsDuring = async (yieldAfterMs: number | undefined) => {
+      const spy = vi.spyOn(globalThis, 'setImmediate');
+      try {
+        const result = await searchProject(
+          root,
+          8,
+          q('card'),
+          buffers,
+          yieldAfterMs === undefined ? {} : { yieldAfterMs },
+        );
+        expect(result.ok).toBe(true);
+        return spy.mock.calls.length;
+      } finally {
+        spy.mockRestore();
+      }
     };
-    const normal = await ticksDuring(undefined);
-    // Every file counts as slow (-1 ms): one turn after each of the 64 files instead of one per batch of 16. The
-    // count also includes a few turns spent listing the folder, which vary between runs: hence the margin.
-    const slow = await ticksDuring(-1);
-    expect(slow - normal).toBeGreaterThanOrEqual(40);
+    const normal = await yieldsDuring(undefined);
+    // Every file counts as slow (-1 ms): one more turn after each of the 64 files, on top of one per batch.
+    const slow = await yieldsDuring(-1);
+    expect(slow - normal).toBe(64);
   });
 });

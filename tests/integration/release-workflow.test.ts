@@ -241,7 +241,7 @@ describe('release.yml', () => {
       const r = spawnSync(bash, ['-n'], { input: s.run, encoding: 'utf8' });
       expect(r.status, `${s.name}: ${r.stderr}`).toBe(0);
     }
-  });
+  }, 60_000); // S58.10: one bash process per step; Git Bash starts slowly on a starved hosted Windows runner
 });
 
 // Real signtool on a Windows machine with the SDK (the dev machine; CI runners have it too): a Microsoft-signed

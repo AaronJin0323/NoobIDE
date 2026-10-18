@@ -150,10 +150,13 @@ beforeEach(async () => {
   win2 = makeSender(2);
 });
 afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
+  await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 });
 
-describe('AI IPC and service (S31.3)', () => {
+// Real file-system I/O: a starved hosted Windows runner can take well over Vitest's 5 s default (S58.10, as S58.9).
+const REAL_IO = { timeout: 60_000 };
+
+describe('AI IPC and service (S31.3)', REAL_IO, () => {
   it('refuses senders that are not the workbench and malformed payloads on every channel', async () => {
     await setup({});
     for (const channel of Object.values(AI_CHANNELS)) {

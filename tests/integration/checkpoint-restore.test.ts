@@ -145,7 +145,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await history.idle();
-  await rm(tmp, { recursive: true, force: true });
+  await rm(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 });
 
 async function saveCheckpoint(name = '能用的 版本'): Promise<string> {
@@ -167,7 +167,10 @@ async function plan(id: string, only?: string) {
   return planRestore(compared.value, host().openTab, only);
 }
 
-describe('S56.2 restore through the atomic save path', () => {
+// Real file-system I/O: a starved hosted Windows runner can take well over Vitest's 5 s default (S58.10, as S58.9).
+const REAL_IO = { timeout: 60_000 };
+
+describe('S56.2 restore through the atomic save path', REAL_IO, () => {
   it('restores every file (text, binary, deleted) atomically and keeps added files without confirmation', async () => {
     const id = await saveCheckpoint();
     await breakProject();
@@ -347,7 +350,7 @@ describe('S56.2 restore through the atomic save path', () => {
   });
 });
 
-describe('S56.2 review follow-ups (2026-10-17)', () => {
+describe('S56.2 review follow-ups (2026-10-17)', REAL_IO, () => {
   it('restoring an old automatic checkpoint never prunes it on the way', async () => {
     const pruning = new CheckpointStore({
       dir: path.join(tmp, 'app data', 'checkpoints'),

@@ -82,10 +82,13 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true });
+  await rm(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 });
 
-describe('S56.1 checkpoint store', () => {
+// Real file-system I/O: a starved hosted Windows runner can take well over Vitest's 5 s default (S58.10, as S58.9).
+const REAL_IO = { timeout: 60_000 };
+
+describe('S56.1 checkpoint store', REAL_IO, () => {
   it('records the whole project with the ignore rules applied, in app data only', async () => {
     const before = await snapshotOfProject(root);
     const h = history();
@@ -217,7 +220,7 @@ describe('S56.1 checkpoint store', () => {
   });
 });
 
-describe('S56.1 size limits (refused with an explanation, never truncated)', () => {
+describe('S56.1 size limits (refused with an explanation, never truncated)', REAL_IO, () => {
   async function refused(limits: NonNullable<CheckpointOptions['limits']>, kind: 'named' | 'auto' = 'named') {
     const c = checkpoints(history(), { limits });
     const result = await c.create(root, { name: 'x', kind, cause: 'manual' });
@@ -287,7 +290,7 @@ describe('S56.1 size limits (refused with an explanation, never truncated)', () 
   }
 });
 
-describe('S56.1 corruption tolerance (fault tests)', () => {
+describe('S56.1 corruption tolerance (fault tests)', REAL_IO, () => {
   it('a damaged blob makes only that file of that checkpoint unavailable, and it is reported', async () => {
     const h = history();
     const c = checkpoints(h);
@@ -402,7 +405,7 @@ describe('S56.1 corruption tolerance (fault tests)', () => {
   });
 });
 
-describe('S56.1 review follow-ups (2026-10-17)', () => {
+describe('S56.1 review follow-ups (2026-10-17)', REAL_IO, () => {
   it('a refused checkpoint never costs an older automatic one', async () => {
     const c = checkpoints(history(), { limits: { maxTotalBytes: 200 } });
     const auto = await c.create(root, { name: 'auto', kind: 'auto', cause: 'before-ai' });
