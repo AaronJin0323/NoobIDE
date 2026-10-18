@@ -203,6 +203,10 @@ test('a console flood keeps the log bounded, every keystroke lands and main neve
       }, 10);
     });
     await page.getByTestId('preview-start').click();
+    // The keystrokes below must land while the page floods, so they wait for its view. On the hosted Windows runner
+    // the preview was still starting 4 s after Start once (PR #44, run 39092618284): the keystrokes all landed before
+    // the flood and the first read of the page found no preview.
+    await expect.poll(async () => (await previewInfo(app)).previewWebContentsId, { timeout: 30_000 }).not.toBeNull();
     const sent = await app.evaluate(async ({ BrowserWindow }, at) => {
       const wc = BrowserWindow.getAllWindows()[0]?.webContents;
       if (!wc) return { sends: [] as number[], mainLag: 0 };
