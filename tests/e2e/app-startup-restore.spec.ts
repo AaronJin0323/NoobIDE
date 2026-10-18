@@ -1,9 +1,8 @@
 import { mkdtemp, rm } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
-import { Worker } from 'node:worker_threads';
 import { expect, test } from '@playwright/test';
 import { launchApp, tempRoot } from './launch';
+import { loadCpu } from './load-cpu';
 import { launchInspected } from './inspector-launch';
 import { copyFixture, openProject, waitForPreviewState } from './preview-helpers';
 
@@ -16,18 +15,6 @@ import { copyFixture, openProject, waitForPreviewState } from './preview-helpers
  * guard (measured on Windows x64), which the pageGuarded check below catches.
  */
 const RESTARTS = 5;
-
-/** 1.5 busy threads per core (one per core was not enough to stall the first document) until the returned call. */
-function loadCpu(): () => Promise<void> {
-  const workers = Array.from(
-    { length: Math.ceil(os.availableParallelism() * 1.5) },
-    () =>
-      new Worker('const end = Date.now() + 600000; while (Date.now() < end) Math.sqrt(Math.random());', { eval: true }),
-  );
-  return async () => {
-    await Promise.all(workers.map((w) => w.terminate()));
-  };
-}
 
 let fixture: { tmp: string; root: string };
 let userData: string;

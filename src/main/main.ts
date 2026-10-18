@@ -34,7 +34,7 @@ import {
 } from './harden';
 import { registerIpcHandlers } from './ipc';
 import { registerPreviewIpcHandlers } from './preview-ipc';
-import { installCloseGuard, type CloseGuard } from './close-guard';
+import { installCloseGuard, type CloseGuard, type CloseStep } from './close-guard';
 import { ProjectWatchHub } from './project-watch';
 import { ProjectService } from '../workspace/project-service';
 import { PreviewManager } from '../preview/preview-manager';
@@ -189,6 +189,8 @@ function start(): void {
   // S10.6: every workbench window saves before it closes; an interrupted quit resumes once all windows agreed.
   const closeGuards = new Map<number, CloseGuard>();
   let quitting = false;
+  // The close handshake's steps go to the app log once it exists (it is created when the app is ready).
+  let logCloseStep: (step: CloseStep) => void = () => undefined;
   app.on('before-quit', () => {
     quitting = true;
   });
@@ -248,6 +250,7 @@ function start(): void {
         onRefused: () => {
           quitting = false;
         },
+        onStep: (step) => logCloseStep(step),
       }),
     );
     win.on('closed', () => closeGuards.delete(contentsId));
@@ -293,6 +296,7 @@ function start(): void {
     const appData = app.getPath('userData');
     // --- S13.6: rotating, content-free log in app data; recovery and history events go there too ---
     const appLog = new AppLog({ dir: appDataPath(appData, 'logs') });
+    logCloseStep = (step) => appLog.write('info', 'window-close', { step, quitting });
     appLog.started({
       app: app.getVersion(),
       electron: process.versions.electron ?? '',

@@ -37,7 +37,11 @@ export interface CloseGuardOptions {
   readonly onAllowed?: () => void;
   /** Called when the workbench refused (a save failed), e.g. to cancel a pending quit. */
   readonly onRefused?: () => void;
+  /** Each step of the handshake, for the content-free app log (a close that seems to hang can be traced). */
+  readonly onStep?: (step: CloseStep) => void;
 }
+
+export type CloseStep = 'asked' | 'answered-ok' | 'answered-refused' | 'gave-up' | 'not-guarded';
 
 export interface CloseGuard {
   answer(answer: CloseAnswer): void;
@@ -67,6 +71,7 @@ export function installCloseGuard(win: GuardedWindow, options: CloseGuardOptions
 
   const settle = (ok: boolean) => {
     if (timer === null) return;
+    options.onStep?.(ok ? 'answered-ok' : 'answered-refused');
     if (ok) {
       allow();
       return;
@@ -79,15 +84,22 @@ export function installCloseGuard(win: GuardedWindow, options: CloseGuardOptions
 
   // A renderer that hangs or dies while we wait can no longer save; do not keep the window hostage.
   const giveUp = () => {
-    if (timer !== null) allow();
+    if (timer === null) return;
+    options.onStep?.('gave-up');
+    allow();
   };
   win.webContents.on('unresponsive', giveUp);
   win.webContents.on('render-process-gone', giveUp);
 
   win.on('close', (event) => {
-    if (allowed || win.webContents.isCrashed() || win.webContents.isLoading()) return;
+    if (allowed) return;
+    if (win.webContents.isCrashed() || win.webContents.isLoading()) {
+      options.onStep?.('not-guarded');
+      return;
+    }
     event.preventDefault();
     if (timer !== null) return; // Already asked; a second click waits for the same answer.
+    options.onStep?.('asked');
     timer = setTimer(giveUp, options.timeoutMs ?? CLOSE_ANSWER_TIMEOUT_MS);
     win.webContents.send(EVENTS.closeRequested);
   });
