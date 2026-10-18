@@ -802,6 +802,10 @@ export function Workbench() {
     };
   }, []);
 
+  // S15.8: a link in the preview led to another page: its file comes to the front (opened when needed, quietly: a
+  // page the server answered for is a file of the project, but it may have gone since).
+  const openPreviewPage = useCallback((relPath: string) => void openFile(relPath, { quiet: true }), [openFile]);
+
   // The preview's "rename to … .html" for a page saved without its ending: same path as a rename in the Files panel
   // (unsaved edits saved first, open tabs follow, an existing name is never replaced).
   const renamePage = useCallback(
@@ -1857,6 +1861,7 @@ export function Workbench() {
           onAskAi={ai.shown ? (annotations) => void ai.askAboutAnnotations(annotations) : undefined} // S41.6
           autoStartProjectId={autoPreview}
           onRenamePage={renamePage}
+          onPageArrived={openPreviewPage}
         />
         {ai.panel /* S33.1 AI chat region */}
       </div>

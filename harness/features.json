@@ -2160,6 +2160,25 @@
       "evidence": "tests/e2e/preview-layout.spec.ts 8/8 green on Windows x64 (2560x1440 @150%), 3 runs; scale factor 2 previously timed out at innerWidth 1281; exact divider-size checks unchanged"
     },
     {
+      "id": "S15.8",
+      "session": "S15",
+      "milestone": "M3",
+      "title": "The editor follows a link clicked in the preview to the file of the page it opened",
+      "description": "Owner request 2026-10-18: when a link (or form, script) in the preview leads to another page of the project, the editor shows that page's file. Pure rule arrivedPage() in src/renderer/workbench/preview-model.ts; PreviewPane reports the arrival, the Workbench opens the file quietly.",
+      "acceptance": [
+        "A navigation inside the preview to another existing page of the project opens its file in the editor (or brings its open tab to the front), paths with Chinese characters and spaces included",
+        "The first page of a Start, a refresh, a same-page #hash change and a missing (404) page open nothing",
+        "The keyboard focus stays where it was (opening the tab does not focus the editor) and no unsaved edit is touched",
+        "Unit tests for the rule and an Electron e2e: clicking a link in the preview selects the target file's tab, and the way back selects index.html again"
+      ],
+      "verify": "auto",
+      "depends_on": [
+        "S15.4"
+      ],
+      "status": "done",
+      "evidence": "src/renderer/workbench/preview-model.test.ts (arrivedPage case); tests/e2e/not-found.spec.ts S15.8 test (link → about.html tab selected, focus not in the editor; link back → index.html) + preview-manager/preview*/ai-preview/runtime-problems specs green under xvfb on Linux; typecheck/lint/format green"
+    },
+    {
       "id": "S16.1",
       "session": "S16",
       "milestone": "M3",
