@@ -508,7 +508,8 @@ async function searchText(ctx: ToolContext, query: string, path: string, caseSen
   let files = 0;
   let truncated = false;
   const queue = [checked.relPath];
-  while (queue.length > 0 && !ctx.signal.aborted) {
+  // Once a limit is reached nothing more is read, so the rest of the project is not listed either.
+  while (queue.length > 0 && !truncated && !ctx.signal.aborted) {
     const dir = queue.shift() as string;
     const listing = await ctx.ports.listDir(dir);
     if (!listing.ok) {
