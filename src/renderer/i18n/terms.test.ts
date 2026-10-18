@@ -3,7 +3,7 @@ import { en } from './en';
 import { zhCN, type MessageKey } from './zh-CN';
 
 /**
- * S47.4 — one name per feature (docs/reviews/ui-ux-assessment-2026-10-16.md, "Design direction", rule 3). The term
+ * S47.4 — one name per feature (docs/history.md, "Standing design rules", rule 3). The term
  * table of the assessment is the source for zh-CN and en: every place a feature is named — rail, menus, palette
  * (the command labels), tooltips, banners and the lessons' hints — uses the one term, and the retired names cannot
  * come back. The catalogues are the only place UI text lives (hardcoded-ui-strings.test.ts), so a test over them

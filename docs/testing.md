@@ -118,3 +118,9 @@ number in docs/perf. Why: decision 0038.
 Chinese characters and spaces in paths · external file changes · read-only directories · failed saves · JavaScript
 infinite loops in preview · heavy console output · resource 404s · page network failures · recovery after forced
 termination · recovery after deletion · reopening after renaming · preview attempts to read files outside the project.
+
+## Running the suite in a Linux cloud container
+
+Agent sessions without a Windows or Mac run as root in Linux: five permission/junction tests always fail there, e2e
+runs under `xvfb-run`, and some shortcuts differ (Format Document is Ctrl+Shift+I). Details and the known root causes
+are in [history.md](history.md) → "Working in the Linux cloud container".

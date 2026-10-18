@@ -844,7 +844,7 @@ cost: a few cents per provider.
   2. Settings → Personalisation → Colours → **Transparency effects: Off**, restart NoobIDE. Expected: rail, groups,
      menus, palette and sheets are solid (no blur); in DevTools (development build) `matchMedia('(prefers-reduced-transparency: reduce)').matches`
      is `true`. Record whether it is — if not, the follow-up "bridge nativeTheme.prefersReducedTransparency" in
-     docs/product/liquid-glass-study.md is needed. Turn the setting back on.
+     docs/history.md ("Ideas noted, not planned") is needed. Turn the setting back on.
   3. Settings → Accessibility → **Contrast themes: Night sky** (or any). Expected: every control has a visible system
      border, nothing is translucent, focus rings are visible. Turn it off.
   4. Type fast in a long file with the preview running; open and close the palette repeatedly. Expected: no visible

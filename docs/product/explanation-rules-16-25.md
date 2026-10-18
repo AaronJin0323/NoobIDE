@@ -10,7 +10,7 @@ S55.1 criterion, unchanged. No rule here cites H.6 findings. When H.6 reports, a
 hesitations with this list. If a rule should be replaced, that session adds a new feature and supersedes this one
 (AGENTS.md backlog rules). Rules are not edited silently.
 
-Inputs used instead of study data: the M19 gap review (`docs/reviews/mainstream-ide-gap-2026-10-17.md` §4, which
+Inputs used instead of study data: the M19 gap review (`docs/reviews/mainstream-ide-gap-2026-10-17.md, retired: docs/history.md` §4, which
 proposed the default set), PLAN §9 (honest explanations, original evidence kept, guided checks where analysis cannot
 prove a cause) and §13 ("limit rules to defined conditions").
 

@@ -1,5 +1,5 @@
 /*
- * S47 motion and detail layer (M18 Track A, docs/product/ui-ux-improvement-plan.md §5). Compositor-only motion
+ * S47 motion and detail layer (M18 Track A, docs/history.md, "Motion"). Compositor-only motion
  * (opacity, translate) timed by the --dur-* / --ease-* tokens of styles.css :root, so the one reduced-motion gate in
  * glass.css makes all of it static. Nothing here changes a size the layout budget depends on (top bar 52, strip 32,
  * gap 8); an entering panel is already in its final box and only its picture moves.

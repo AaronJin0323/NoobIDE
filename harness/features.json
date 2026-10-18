@@ -5644,6 +5644,23 @@
       ],
       "status": "needs_manual_check",
       "evidence": "memoryJsFlags (win32 only, src/platform/index.test.ts) wired in src/main/main.ts; TS worker idle stop removed (broke Format Document's shortcut, history.spec e2e); Windows measurement steps in harness/MANUAL-CHECKS.md#S59.5"
+    },
+    {
+      "id": "S59.6",
+      "session": "S59",
+      "milestone": "M7",
+      "title": "Pre-beta repository cleanup: retired docs digested into docs/history.md",
+      "description": "Owner request 2026-10-18: clean up work files and useless files across the project before the public beta, keeping all critical information in one file. Audit: every script and fixture is used; no test reads the retired docs.",
+      "acceptance": [
+        "docs/archive/s44-s45-hig and the finished studies/assessments/plans (interface-assessment-2026-10-14, liquid-glass-study, ui-ux-improvement-plan, ui-ux-assessment-2026-10-16, mainstream-ide-gap-2026-10-17) and redundant .gitkeep files are removed",
+        "docs/history.md keeps every still-binding rule, non-goal, open owner question and idea from them, the beta-readiness session notes, and how to recover each full text from git",
+        "Every reference outside PROGRESS.md and features.json points at docs/history.md; AGENTS.md lists it",
+        "Typecheck, lint, format and the harness check pass; unit and integration tests show no new failures"
+      ],
+      "verify": "agent-check",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "docs/history.md; 64 files removed (archive + 5 retired docs + session notes + 6 .gitkeep), references repointed; typecheck, lint, format, harness green, npm test no new failures (5 Linux-root-only)"
     }
   ]
 }

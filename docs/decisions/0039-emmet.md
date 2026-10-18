@@ -2,7 +2,7 @@
 
 - **Status:** accepted
 - **Date:** 2026-10-17
-- **Feature:** S53.1 (owner decision 3 of docs/reviews/mainstream-ide-gap-2026-10-17.md §6: even a pure-JS package
+- **Feature:** S53.1 (owner decision 3 of docs/reviews/mainstream-ide-gap-2026-10-17.md, retired: docs/history.md §6: even a pure-JS package
   needs a decision record)
 
 ## Context

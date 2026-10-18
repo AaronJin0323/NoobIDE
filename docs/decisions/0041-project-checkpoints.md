@@ -6,7 +6,7 @@
 
 ## Context
 
-S56 adds named whole-project checkpoints (PLAN §12 v0.2, review `docs/reviews/mainstream-ide-gap-2026-10-17.md`
+S56 adds named whole-project checkpoints (PLAN §12 v0.2, review `docs/reviews/mainstream-ide-gap-2026-10-17.md, retired: docs/history.md`
 §4). The criteria ask that they reuse the content-addressed S21 store, so a file unchanged since the last checkpoint,
 or already kept by local history, is stored once. Local history deletes blobs it no longer references (limits,
 cleanup, "clear all history"). A blob that a checkpoint uses must never go with them, and checkpoints must stay apart
