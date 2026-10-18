@@ -110,6 +110,9 @@ export function PreviewPane({
   /** Result of a "rename to … .html" offered by the no-page state, as text (announced politely). */
   const [renameNote, setRenameNote] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  /** The project shown now, for answers that arrive after a switch (a render's `projectId` never changes). */
+  const projectIdRef = useRef(projectId);
+  projectIdRef.current = projectId;
   /** S41.5: the Annotate entry is drawn in the header row (a portal target), never in a scrolling area. */
   const [entrySlot, setEntrySlot] = useState<HTMLElement | null>(null);
   const advancedId = useId();
@@ -208,14 +211,17 @@ export function PreviewPane({
   const [viewport, setViewport] = useState<ViewportWidth>('desktop');
 
   // --- S14.3 entry page and S14.2 refresh mode, read from .noobide/project.json through main ---
+  // Only the newest request may set the options: an answer for the previous project (or an older read of this one)
+  // can arrive after a newer one and would show another project's pages and entry page.
+  const optionsRequest = useRef(0);
   const loadOptions = useCallback(() => {
+    const request = ++optionsRequest.current;
     if (!bridge?.options || !projectId) {
       setOptions(null);
       return;
     }
-    const asked = projectId;
-    void bridge.options({ projectId: asked }).then((result) => {
-      if (result.ok && asked === projectId) setOptions(result.value);
+    void bridge.options({ projectId }).then((result) => {
+      if (result.ok && request === optionsRequest.current) setOptions(result.value);
     });
   }, [bridge, projectId]);
   useEffect(() => {
@@ -358,7 +364,7 @@ export function PreviewPane({
     const asked = projectId;
     setRenameNote(null);
     void onRenamePage(from, to).then((result) => {
-      if (asked !== projectId) return;
+      if (asked !== projectIdRef.current) return; // another project is open now
       if (!result.ok) {
         setRenameNote(t('preview.noPage.renameFailed').replace('{reason}', result.reason));
         return;
