@@ -3,6 +3,51 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 50b (side session) — 2026-10-18 — CI triage: S58.8 timing-budget guard, S58.9 intermittents
+
+**Agent:** Claude (Opus 5.5), cloud session (Linux x64, root), branch `claude/serene-ramanujan-b9xq2e` from main
+@ 6be5227. Owner request: CI keeps failing in PRs on code they did not change; fix CI first, then the code.
+
+**Triage** (the last 90 ci.yml runs, 15 failures: 7 on main, 8 on PRs). The workflow itself was sound. The static
+job, install, packaging and installers never failed, and the gate logic was right. Every red run was a test:
+
+- Fixed by merged PRs before this session, with no failure since: file-multi-select menu focus (#39), file-drop
+  dialog focus and upgrade CDP attach (#40), ai-inline ghost text (#41), reduced-motion `glass-pop` (bf81e41).
+- Still open, fixed here:
+  - wall-clock budgets back in `npm test`: quick open < 50 ms failed hosted macOS twice; PR #42 added three more;
+  - watcher mass delete on Windows (snapshot 109 / 166 left);
+  - history-store and file-copy 5 s timeouts on a starved Windows runner;
+  - the ai-edit IME test (Escape on the review lost);
+  - the preview-isolation console flood (6 failures, mostly Windows shard 2).
+- CI noise: a failing unit step made "Upload E2E timing report" add a second `No files were found` error.
+
+**Done**
+
+- S58.8 (done): `tests/integration/timing-budgets.test.ts` fails on any `toBeLessThan` in a test that reads
+  `performance.now()`, and on `expect(Date.now() …).toBeLessThan` outside three documented functional timeouts. It
+  runs in the `static` job. The quick-open, beginner-checks and html-check budgets moved to `tests/perf` through
+  `checkBudget()`. The unit tests keep every result check on the same inputs. The E2E report uploads on
+  `always() && steps.e2e.outcome != 'skipped'`.
+- S58.9 (in_progress):
+  - Ported PR #44's watcher overflow rebuild (de17160) and its two preview-isolation flood fixes (91046e5,
+    1fdbbc1) unchanged; they merge cleanly with #44.
+  - InlineEditPanel focuses each phase in a layout effect, like the dialogs in #40. ai-edit.spec checks Accept is
+    focused before Escape.
+  - 60 s `REAL_IO` timeouts in history-store and file-copy.
+
+**Evidence:** typecheck, lint, format and harness check are green. npm test shows 6 failures, all also on untouched
+main in this container: Linux root ignores read-only files, plus one Linux inotify watcher case. Neither Linux nor
+root is a target. Perf project: the 4 new budget tests pass (quick open 3.3 / 50 ms). The watcher perf budget fails
+on this Linux box on main too (804 ms).
+
+**Not fixed (seen once, cause unclear):**
+
+- `recovery.spec.ts:370` restored tab missing (Windows). Possibly fixed by 28a6e8f, which restores tabs once.
+- `layout-splitters.spec.ts:121` resize shot missing (macOS). The capture may finish after the drag hid the view.
+
+**Next up:** S58.9 → done once the hosted matrix of this branch's PR is green on both OSes. Then watch main's next
+runs; any new budget will now fail the static job, not main.
+
 ## Session 50 (side session) — 2026-10-18 — S58.4 Windows e2e intermittents under load; S06.6 closed
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/s58-4-windows-intermittents` from main.
