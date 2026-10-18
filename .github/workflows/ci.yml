@@ -90,7 +90,7 @@ jobs:
         run: npm run format:check
 
       - name: Workflow and classifier tests
-        run: npx vitest run tests/integration/ci-workflow.test.ts tests/integration/ci-changes.test.ts tests/integration/release-workflow.test.ts
+        run: npx vitest run tests/integration/ci-workflow.test.ts tests/integration/ci-changes.test.ts tests/integration/release-workflow.test.ts tests/integration/timing-budgets.test.ts
 
   build:
     name: ${{ matrix.target }} (shard ${{ matrix.shard }}/2)
@@ -159,10 +159,13 @@ jobs:
       # No xvfb: Windows and macOS runners have a desktop session, and Playwright drives the Electron binary from
       # node_modules, so no browser download is needed (scripts/e2e.mjs).
       - name: End-to-end tests (Playwright + Electron)
+        id: e2e
         run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
 
+      # Kept on a failing E2E run, but not when an earlier step failed and E2E never ran: then there is no report and
+      # a second "No files were found" error would bury the real cause in the run's annotations.
       - name: Upload E2E timing report
-        if: always()
+        if: always() && steps.e2e.outcome != 'skipped'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-report-${{ matrix.target }}-${{ matrix.shard }}

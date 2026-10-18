@@ -5466,6 +5466,42 @@
       "depends_on": [],
       "status": "done",
       "evidence": "tests/integration/e2e-keys.test.ts (3 tests: detector sample, keys.ts shape, 70 files under tests/e2e scanned, 0 hits); npm run verify green; npm run test:e2e on the 14 swept specs (ai-inline … tabs) on Windows: 123 passed / 0 failed, 4.5 min"
+    },
+    {
+      "id": "S58.8",
+      "session": "S58",
+      "milestone": "M20",
+      "verify": "auto",
+      "depends_on": [],
+      "status": "done",
+      "evidence": "tests/integration/timing-budgets.test.ts (3 tests: detector samples; 0 offenders over src + tests/integration; allow-list documented) in the static job; tests/perf/quick-open.perf.test.ts + diagnostics-linear.perf.test.ts (4 tests, via checkBudget); ci-workflow.test.ts checks the upload condition and static step list; npm test: no new failures (6 pre-existing Linux-root-only)",
+      "title": "Guard: no wall-clock budget in npm test; no misleading E2E report error",
+      "description": "Owner request 2026-10-18 (CI keeps failing on code the PRs did not change). The S58.3 rule \"no performance budget in the required matrix\" was a review grep only; S51.5 (quick open < 50 ms, red twice on hosted macOS) and PR #42 (HTML/CSS check budgets) put budgets back into npm test. Also, when the unit tests fail the E2E report upload adds a second \"No files were found\" error. Owns tests/integration/timing-budgets.test.ts, the moved budget files and the E2E upload condition in ci.yml.",
+      "acceptance": [
+        "tests/integration/timing-budgets.test.ts fails, naming file and line, on a toBeLessThan(OrEqual) in a test file under src or tests/integration that reads performance.now(), or on an expect(Date.now() ...).toBeLessThan outside an allow-list of documented functional timeouts; a detector case proves it on samples",
+        "The static CI job runs it; ci-workflow.test.ts checks the static step list",
+        "The quick-open, beginner-checks and html-check budgets move to tests/perf through checkBudget(); the unit tests keep every result assertion on the same inputs",
+        "The E2E timing report upload runs on always() unless the E2E step was skipped, and ci-workflow.test.ts checks the condition",
+        "docs/perf/ci-runners.md lists the moved budgets and the guard"
+      ]
+    },
+    {
+      "id": "S58.9",
+      "session": "S58",
+      "milestone": "M20",
+      "verify": "auto",
+      "depends_on": [],
+      "status": "in_progress",
+      "evidence": "",
+      "title": "Fix the intermittents that turned main red after S58.4",
+      "description": "Owner request 2026-10-18. Failures on main and PRs from the 90 runs before 2026-10-18 03:30 UTC that no merged change had fixed: watcher mass delete on Windows (snapshot kept after a ReadDirectoryChangesW overflow), history-store and file-copy 5 s timeouts on a starved Windows runner, ai-edit IME test (Escape on the review lost: focus moved after paint), preview-isolation console flood on Windows (ported from PR #44).",
+      "acceptance": [
+        "The watcher rebuilds its snapshot before reporting rescan when the OS dropped events (ported from PR #44 commit de17160), with its integration test",
+        "history-store and file-copy real-I/O tests use 60 s functional timeouts sized like history-groups",
+        "InlineEditPanel moves focus to each phase's main control in a layout effect; ai-edit.spec checks Accept is focused before the Escape",
+        "The preview-isolation console-flood fixes of PR #44 (91046e5, 1fdbbc1) are on this branch unchanged",
+        "npm run verify gates that can run in the session are green; the e2e changes are proven by the hosted matrix of the PR"
+      ]
     }
   ]
 }

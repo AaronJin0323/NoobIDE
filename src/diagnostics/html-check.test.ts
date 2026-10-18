@@ -6,12 +6,11 @@ import { createProblemRecord } from '../shared/problem';
 const tags = (html: string) => checkHtml(html).map((f) => `${f.tagName}@${f.line}:${f.column}`);
 
 describe('HTML unclosed-element check (S19.2)', () => {
-  it('stays fast with many stray closing tags over a deep stack of open elements', () => {
-    // 30 000 open <div> and 30 000 stray </b> (≈ 270 kB): each stray used to scan the whole stack (seconds).
+  it('reports every stray closing tag over a deep stack of open elements', () => {
+    // 30 000 open <div> and 30 000 stray </b> (≈ 270 kB): each stray used to scan the whole stack (seconds). The time
+    // budget is in tests/perf/diagnostics-linear.perf.test.ts (S58.8, ADR 0038).
     const html = `${'<div>'.repeat(30_000)}${'</b>'.repeat(30_000)}`;
-    const start = performance.now();
     const found = checkHtml(html);
-    expect(performance.now() - start).toBeLessThan(1500);
     expect(found).toHaveLength(30_000);
   });
 

@@ -116,24 +116,21 @@ describe('beginner checks: HTML structure', () => {
     expect(checkBeginner('html', `<img>${' '.repeat(MAX_BEGINNER_CHECK_CHARS)}`)).toEqual([]);
   });
 
-  it('stays fast on a deep stack of open elements (omitted </p>) and many stray closing tags', () => {
-    // Valid HTML: 12 000 paragraphs without `</p>`, each with closed inline elements (≈ 400 kB). Was ≈ 1 s.
+  // The time budgets of these large inputs are in tests/perf/diagnostics-linear.perf.test.ts (S58.8, ADR 0038).
+  it('handles a deep stack of open elements (omitted </p>) and many stray closing tags', () => {
+    // Valid HTML: 12 000 paragraphs without `</p>`, each with closed inline elements (≈ 400 kB).
     const paragraphs = '<p>text <b>x</b> <a href="#">y</a>\n'.repeat(12_000);
-    let start = performance.now();
     expect(checkBeginnerHtml(paragraphs)).toEqual([]);
-    expect(performance.now() - start).toBeLessThan(700);
     // 20 000 open <span> and 20 000 stray </b>: was quadratic (many seconds).
     const strays = `${'<span>'.repeat(20_000)}${'</b>'.repeat(20_000)}`;
-    start = performance.now();
     const found = checkBeginnerHtml(strays);
-    expect(performance.now() - start).toBeLessThan(1500);
     expect(found).toHaveLength(20_000);
     expect(found[0]?.message).toBe(beginnerMessages.mismatchedClose('b', 'span', true));
   });
 });
 
 describe('beginner checks: CSS', () => {
-  it('reads the value without trailing whitespace, and stays fast on long whitespace runs inside a declaration', () => {
+  it('reads the value without trailing whitespace, also across long whitespace runs inside a declaration', () => {
     expect(checkBeginnerCss('a {\n  width: 10   \n}')).toEqual([
       expect.objectContaining({
         code: 'css-unitless-length',
@@ -143,11 +140,10 @@ describe('beginner checks: CSS', () => {
         message: beginnerMessages.unitlessLength('width', '10'),
       }),
     ]);
-    // A missing `;` followed by a long blank stretch: the declaration's value spans it. Was quadratic (≈ 1 s per 20 000).
+    // A missing `;` followed by a long blank stretch: the declaration's value spans it. Was quadratic (≈ 1 s per 20 000;
+    // budget in tests/perf/diagnostics-linear.perf.test.ts).
     const css = `a { width: 10px${' '.repeat(100_000)}color: red }`;
-    const start = performance.now();
     expect(checkBeginnerCss(css)).toEqual([]);
-    expect(performance.now() - start).toBeLessThan(1000);
   });
 });
 

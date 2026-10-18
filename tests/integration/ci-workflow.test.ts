@@ -176,7 +176,7 @@ describe('ci.yml', () => {
         'npm run typecheck',
         'npm run lint',
         'npm run format:check',
-        'npx vitest run tests/integration/ci-workflow.test.ts tests/integration/ci-changes.test.ts tests/integration/release-workflow.test.ts',
+        'npx vitest run tests/integration/ci-workflow.test.ts tests/integration/ci-changes.test.ts tests/integration/release-workflow.test.ts tests/integration/timing-budgets.test.ts',
       ]);
     });
 
@@ -367,7 +367,10 @@ describe('ci.yml', () => {
 
   it('retains per-shard reports even on failure without artifact name collisions', () => {
     const report = steps.find((s) => s.name === 'Upload E2E timing report');
-    expect(report?.if).toBe('always()');
+    // Also after a failing E2E step, but not when an earlier failure skipped it (no report: a second, misleading error).
+    const e2e = steps.find((s) => s.run?.startsWith('npm run test:e2e'));
+    expect(e2e?.id).toBe('e2e');
+    expect(report?.if).toBe("always() && steps.e2e.outcome != 'skipped'");
     expect(report?.with.path).toBe('reports/e2e/');
     expect(report?.with['if-no-files-found']).toBe('error');
     for (const s of steps.filter((s) => s.uses?.startsWith('actions/upload-artifact@'))) {

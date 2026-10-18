@@ -64,24 +64,17 @@ describe('quick open matcher (S51.5)', () => {
     expect(pushRecent(recent, 'css/style.css')[0]).toBe('css/style.css');
   });
 
-  it('filters 2 000 indexed files in under 50 ms per keystroke', () => {
+  // The "< 50 ms per keystroke" budget is in tests/perf/quick-open.perf.test.ts (S58.8, ADR 0038): it failed hosted
+  // macOS runners twice (75.7 ms, 59.7 ms) while measuring nothing about the change under test.
+  it('filters 2 000 indexed files keystroke by keystroke', () => {
     const files: string[] = [];
     for (let i = 0; i < 2000; i += 1) files.push(`栏目 ${i % 20}/子 目录 ${i % 7}/页面 ${i}.html`);
     files.push('css/样式 表.css');
     const typed = '子 目录 3/页面 19';
-    let worst = 0;
     for (let n = 1; n <= typed.length; n += 1) {
-      const started = performance.now();
-      const result = rankFiles(files, typed.slice(0, n), ['css/样式 表.css']);
-      worst = Math.max(worst, performance.now() - started);
-      expect(result.length).toBeGreaterThan(0);
+      expect(rankFiles(files, typed.slice(0, n), ['css/样式 表.css']).length).toBeGreaterThan(0);
     }
-    // A miss scans everything (the slowest case).
-    const started = performance.now();
     expect(rankFiles(files, 'zzzz不存在')).toEqual([]);
-    worst = Math.max(worst, performance.now() - started);
-    console.info(`S51.5 quick open: worst keystroke ${worst.toFixed(2)} ms over ${files.length} files`);
-    expect(worst).toBeLessThan(50);
     expect(rankFiles(files, '页面 1999.html')[0]?.relPath).toBe('栏目 19/子 目录 4/页面 1999.html');
   });
 });
