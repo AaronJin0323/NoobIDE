@@ -3,6 +3,26 @@
 Newest entry first. Every session appends one entry using the template at the bottom. `session.mjs start` shows
 the latest entry to the next session, so write it for a reader with zero context.
 
+## Session 49b (side session) — 2026-10-18 — ai-inline e2e: a suggestion that never arrived on hosted macOS
+
+**Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/ai-inline-flake` from main @ 0f94d1f.
+
+**Done**
+
+- `ai-inline.spec.ts` "a suggestion appears; Tab inserts exactly it" failed on hosted macOS on PR #33 and on main
+  after #40: no ghost text 20 s after typing, with inline AI on, no suggest widget, nothing in the way (screenshot).
+  The cause is not known: the test did not record why. A new `expectSuggestion()` waits 10 s, then logs the inline
+  counters (requests, cancels, completed, shown, blocked reasons) and nudges as a typist would (a space typed and
+  removed, which asks again at the same spot). A suggestion still has to appear with the same text, AI label, Tab
+  and single-undo behaviour. Used by the three tests that start a suggestion; the partial-accept follow-up is
+  unchanged.
+- The macOS upgrade test (`upgrade.spec`) passed on main after #40 (32 s), with the CDP attach retry in place.
+
+**Evidence:** ai-inline.spec 12/12 (3 repeats) locally, fallback not needed; verify green.
+
+**Next up:** if a hosted run logs "ai-inline: no suggestion 10 s after typing", read the counters: `blocked` or
+`requests` unchanged points at the provider guard, `completed` without `shown` at the stale-key check.
+
 ## Session 48 (side session) — 2026-10-18 — Focus races on main: context menu, dialogs, CDP attach
 
 **Agent:** Claude (Opus 5.5) on the Windows x64 dev machine, branch `claude/tree-menu-focus` from main @ 3637774.
