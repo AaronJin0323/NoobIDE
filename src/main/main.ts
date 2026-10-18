@@ -17,7 +17,7 @@ import {
   session,
   shell,
 } from 'electron';
-import { platformId } from '../platform/index';
+import { memoryJsFlags, platformId } from '../platform/index';
 import { isMac, isWindows } from '../platform/labels';
 import { currentSquirrelAction, runSquirrelAction } from '../platform/squirrel';
 import { APP_ENTRY_URL, APP_ORIGIN, APP_SCHEME } from './app-asset';
@@ -54,6 +54,7 @@ import { selfTestOffline, selfTestRequested, selfTestUserDataDir, watchSelfTest,
 // S13 app data: settings, recent projects, session, logs
 import { registerAppDataIpcHandlers, resolveThirdPartyNotices } from './app-data-ipc';
 import { SettingsStore } from './settings-store';
+import { localeFromOsLanguages } from '../shared/os-locale'; // S59.2
 import { AppLog } from './app-log';
 import { osInfo } from '../platform/os-info';
 import { configureProtectedFolders } from '../platform/protected-folders';
@@ -109,6 +110,10 @@ function start(): void {
   app.commandLine.appendSwitch('disable-features', DISABLED_CHROMIUM_FEATURES);
   // S05.8: a preview's renderer keeps its priority while its page guard is installed (preview-options.ts).
   for (const name of CHROMIUM_SWITCHES) app.commandLine.appendSwitch(name);
+  // S59.5: Windows only — a smaller V8 young generation in every renderer keeps the typical project under the
+  // ~700 MB memory budget (docs/perf/memory.md). Chromium hands --js-flags to each child process it starts.
+  const jsFlags = memoryJsFlags();
+  if (jsFlags.length > 0) app.commandLine.appendSwitch('js-flags', jsFlags.join(' '));
 
   const devServerUrl =
     typeof MAIN_WINDOW_VITE_DEV_SERVER_URL === 'string' ? MAIN_WINDOW_VITE_DEV_SERVER_URL : undefined;
@@ -531,7 +536,15 @@ function start(): void {
       newId: randomUUID,
     });
     // --- S13 app data (all in app.getPath('userData'), never inside a project) ---
-    const settings = new SettingsStore({ file: appDataPath(appData, 'settings'), log: logger });
+    // S59.2: with no saved choice the interface starts in the OS language (zh* → zh-CN, else en). app.getLocale()
+    // follows the OS language and the --lang switch, as the renderer's navigator.languages does.
+    const firstRunLocale = localeFromOsLanguages([app.getLocale()]);
+    uiLocale = firstRunLocale;
+    const settings = new SettingsStore({
+      file: appDataPath(appData, 'settings'),
+      log: logger,
+      defaultLocale: firstRunLocale,
+    });
     savedTheme = () => settings.current.settings.theme;
     // --- S24.2: native menus, translated with the interface language and enabled from the command context ---
     const appMenu = new AppMenuController({
@@ -554,7 +567,7 @@ function start(): void {
       createWindow: () => void createWorkbenchWindow(),
     });
     menu = appMenu;
-    appMenu.rebuild();
+    appMenu.setLocale(firstRunLocale); // builds the menu; the saved language replaces it once settings load
     // The first window waits for the settings (one small file): its native background follows the saved theme.
     const settingsLoaded = settings.load().then(
       (loaded) => {

@@ -11,6 +11,8 @@ export default defineConfig({
     // Bound contention so filesystem latency checks are not starved by unrelated test workers.
     maxWorkers: 4,
     environment: 'node',
+    // S59.2: the OS language the tests see is zh-CN on every machine (tests/setup/os-language.ts).
+    setupFiles: ['tests/setup/os-language.ts'],
     passWithNoTests: false,
   },
 });

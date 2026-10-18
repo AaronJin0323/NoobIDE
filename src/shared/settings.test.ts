@@ -7,6 +7,8 @@ import {
   PALETTE_RECENTS_MAX,
   isPaletteRecents,
   parseSettingsPatch,
+  readNewerSettings,
+  settingsDefaults,
   upgradeSettings,
   type SettingsMigration,
 } from './settings';
@@ -154,5 +156,28 @@ describe('settings schema (S13.1)', () => {
     ]) {
       expect(parseSettingsPatch(bad)).toBeNull();
     }
+  });
+});
+
+describe('first-run locale defaults (S59.2)', () => {
+  it('settingsDefaults swaps only the locale', () => {
+    expect(settingsDefaults()).toBe(DEFAULT_SETTINGS);
+    expect(settingsDefaults('zh-CN')).toBe(DEFAULT_SETTINGS);
+    expect(settingsDefaults('en')).toEqual({ ...DEFAULT_SETTINGS, locale: 'en' });
+  });
+
+  it('a saved valid locale wins over the OS-derived default; a missing or invalid one takes it', () => {
+    const en = settingsDefaults('en');
+    expect(upgradeSettings({ version: 1, locale: 'zh-CN' }, undefined, undefined, en)).toMatchObject({
+      ok: true,
+      settings: { locale: 'zh-CN' },
+    });
+    expect(upgradeSettings({ version: 1 }, undefined, undefined, en)).toMatchObject({ settings: { locale: 'en' } });
+    expect(upgradeSettings({ version: 1, locale: 'fr' }, undefined, undefined, en)).toMatchObject({
+      settings: { locale: 'en' },
+      resetFields: ['locale'],
+    });
+    expect(readNewerSettings({ version: 99 }, en).locale).toBe('en');
+    expect(readNewerSettings({ version: 99, locale: 'zh-CN' }, en).locale).toBe('zh-CN');
   });
 });
