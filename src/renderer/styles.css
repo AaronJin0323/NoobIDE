@@ -2076,6 +2076,17 @@ select.text-field {
   height: 32px;
   padding: 0 10px;
 }
+/* Every enabled action in the preview header and toolbar has a resting fill (the "Annotate page" fill), so it reads
+   as a button without hovering. Disabled keeps the transparent fill and the line ring; pressed/open keep --hover. */
+.preview-header :is(.quiet-button, .icon-button):not(:disabled, [aria-pressed='true'], [aria-expanded='true']),
+.preview-toolbar .quiet-button:not(:disabled, [aria-pressed='true'], [aria-expanded='true']) {
+  background: var(--raised);
+  color: var(--text);
+}
+.preview-header :is(.quiet-button, .icon-button):hover:not(:disabled, [aria-pressed='true'], [aria-expanded='true']),
+.preview-toolbar .quiet-button:hover:not(:disabled, [aria-pressed='true'], [aria-expanded='true']) {
+  background: color-mix(in srgb, var(--hover) 55%, var(--raised));
+}
 .preview-console {
   /* At least its heading and two lines (one line while the console is empty); grows to 140 px only when the pane
      has room for that next to the stage. */
