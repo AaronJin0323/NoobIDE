@@ -4,6 +4,10 @@ The pipeline is ready (ADR [0027](../decisions/0027-code-signing.md)). Only the 
 lists exactly what to create, where to store it, and how to prove that it works. Until you finish it, every build
 stays unsigned and nothing fails.
 
+**Owner decision 2026-10-18 (H.2):** the invite-only beta ships unsigned on both platforms. Nothing on this page is
+needed for the beta. Come back to it before the public beta (H.8). See the amendment in ADR 0027 and
+[owner-decisions.md](owner-decisions.md).
+
 **Ground rules**
 
 - Secrets go only into the GitHub environment `release`. Never put them in the repository, an issue, a chat, or a

@@ -193,7 +193,8 @@ Windows x64 · Explorer/Finder drop recorded as manual checks.
 
 ## Assumptions carried from PLAN (owner to confirm — H.4)
 
-- Chinese-first UI with English available; ~30 productive hours/week; prior React/TypeScript experience.
+- UI language follows the OS language (zh\* → zh-CN, otherwise en; a saved choice wins), both complete (owner
+  decision 2026-10-18, replaced Chinese-first); ~30 productive hours/week; prior React/TypeScript experience.
 - macOS arm64 + Windows x64 at launch; Windows arm64, Intel Mac and Linux later.
 - The development machine is Windows; a physical Apple Silicon Mac is needed for `manual-mac` features and gates.
 - Toolchain versions pinned in session 0 (TypeScript 6.0, Vitest 5, ESLint 10). Electron, Forge, React and Monaco
