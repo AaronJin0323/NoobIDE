@@ -26,7 +26,10 @@ import { isIgnoredName, isIgnoredRelPath } from './ignore';
  *
  * Cost stays bounded: snapshot updates touch only the affected folder subtree, and a batch with more than
  * `maxBatch` paths (a mass delete, an unzip) becomes one `rescan` instead of per-path work. If the OS watch fails
- * or stops (`error`), the watcher reports `rescan` and restarts itself with a growing delay.
+ * or stops (`error`), the watcher reports `rescan` and restarts itself with a growing delay. When the OS dropped
+ * events (an event without a filename: libuv's report of a ReadDirectoryChangesW buffer overflow on Windows), the
+ * snapshot no longer matches the disk, so it is rebuilt before `rescan` is reported; otherwise every change that was
+ * lost stays wrong in it for good (a deleted file kept as known, so its re-creation reads as `changed`).
  *
  * FSEvents (macOS) replays changes made shortly *before* the stream was created: right after attaching, every file
  * written in the last moments (e.g. a project just created from a template) arrives as a raw event, which would be
@@ -79,6 +82,8 @@ export class ProjectWatcher {
   private firstPendingAt = 0;
   private flushing: Promise<void> = Promise.resolve();
   private closed = false;
+  /** An overflow rebuild is queued and has not started yet (several overflows in a row need one). */
+  private overflowQueued = false;
   /** When the current snapshot was started (ms since epoch) and when the OS watch was last attached. */
   private snapshotStartedAt = 0;
   private attachedAt = 0;
@@ -222,7 +227,7 @@ export class ProjectWatcher {
   private onRaw(filename: string | null): void {
     if (this.closed) return;
     if (filename === null) {
-      this.emit([{ type: 'rescan' }]);
+      this.overflowed();
       return;
     }
     const relPath = filename.split(path.sep).join('/');
@@ -234,6 +239,31 @@ export class ProjectWatcher {
     else clearTimeout(this.timer);
     const wait = Math.max(0, Math.min(this.debounceMs, this.firstPendingAt + this.maxWaitMs - now));
     this.timer = setTimeout(this.fire, wait);
+  }
+
+  /**
+   * The OS dropped events: whatever is pending or held is incomplete, so it is replaced by a fresh snapshot (after
+   * the batches already in flight), then `rescan` is reported. Raw events arriving meanwhile are classified after it.
+   */
+  private overflowed(): void {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.pending.clear();
+    this.early.clear();
+    this.held.clear();
+    if (this.overflowQueued) return;
+    this.overflowQueued = true;
+    this.flushing = this.flushing
+      .then(async () => {
+        this.overflowQueued = false;
+        if (this.closed) return;
+        await this.rebuildSnapshot();
+        if (!this.closed) this.emit([{ type: 'rescan' }]);
+      })
+      .catch(() => {
+        this.overflowQueued = false;
+        if (!this.closed) this.emit([{ type: 'rescan' }]);
+      });
   }
 
   /** Classifies everything pending as one batch (after the batches before it). */
