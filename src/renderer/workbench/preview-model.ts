@@ -234,6 +234,16 @@ export function pageLocation(status: PreviewStatus, entryPage: string): PageLoca
 }
 
 /**
+ * S15.8: the page a navigation inside the preview arrived at (a link, a form, a script), so the editor can open the
+ * file behind it; null when there is nothing to open. The first page of a start is not an arrival (the editor keeps
+ * what the user had open), nor is a missing page (no file behind it) or the same page again (a refresh, a #hash).
+ */
+export function arrivedPage(previous: PageLocation | null, next: PageLocation | null): string | null {
+  if (previous === null || next === null || next.missing || next.path === previous.path) return null;
+  return next.path;
+}
+
+/**
  * S54 (docs/decisions/0040): what the last automatic update after a save did, in words — the styles were swapped in
  * place, or the page was reloaded and why. Null when the page is not showing one (a start, navigation or manual
  * refresh came after it).
